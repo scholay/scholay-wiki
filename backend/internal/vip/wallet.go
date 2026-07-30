@@ -13,6 +13,7 @@ package vip
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 
 	"gorm.io/gorm"
@@ -92,8 +93,8 @@ func (w *WalletService) SetCreditAutopay(userID uint, on bool) error {
 //   - 入参单位不同(微元真实成本 vs 整经费),经 cfg.MicroCreditForCost 换算;
 //   - **不做余额校验、允许扣成负数**。这是有意的:本函数由 llmusage 的异步 observer 调用,
 //     那里拒绝也阻止不了已经发生的调用;硬拦只会让余额停在正数、成本却已实际支出。
-//     真正的闸门在 CheckDailyQuota(开新轮前要求余额 > 0),所以透支上界 ≈ 一轮的成本 ——
-//     与窗口额度的「有界透支带」同一个形状,同一个理由(保证 agent 单轮优雅收尾)。
+//     真正的闸门在 CheckDailyQuota(开新轮前要求余额 > 0),所以欠出的上界 ≈ 一轮的成本
+//     (闸门只在 user_message 起点执法、单轮内不打断,保证 agent 单轮优雅收尾)。
 //   - **不写 credit_transactions**:那张表 amount/perm_after 是整经费列,小数消耗会被抹成 0;
 //     且每次 LLM 调用一行会让它与 llm_token_usage 等体量膨胀。消耗明细看算力用量口径。
 func (w *WalletService) ConsumeForQuota(userID uint, costMicroYuan int64, cfg *BillingConfig) error {
@@ -101,13 +102,42 @@ func (w *WalletService) ConsumeForQuota(userID uint, costMicroYuan int64, cfg *B
 	if delta <= 0 {
 		return nil
 	}
-	return w.db.Transaction(func(tx *gorm.DB) error {
+	if err := w.db.Transaction(func(tx *gorm.DB) error {
 		if err := ensureWallet(tx, userID); err != nil {
 			return err
 		}
 		return tx.Model(&UserWallet{}).Where("user_id = ?", userID).
 			UpdateColumn("perm_balance_micro", gorm.Expr("perm_balance_micro - ?", delta)).Error
-	})
+	}); err != nil {
+		return err
+	}
+	// 流水在扣减事务**之外** best-effort:流水挂了不能拦住已发生成本的扣减(余额真源在 user_wallets)。
+	w.recordPaygDaily(userID, delta)
+	return nil
+}
+
+// recordPaygDaily 把一次 payg 扣减并入「当天那一行」流水(0098,owner 拍板:payg 可对账,每日一行)。
+// 幂等/并发键 = 唯一索引 uk_credit_tx_daily(user_id, type, day_bucket):INSERT ... ON DUPLICATE
+// KEY UPDATE 当天累加,并发扣减不会裂成多行。金额用 SQL 侧 DECIMAL 精确算(?/1000000.0),
+// 不经 float64 累加,避免长期漂移;perm_after 是展示性快照(取 upsert 时点的余额)。
+func (w *WalletService) recordPaygDaily(userID uint, deltaMicro int64) {
+	var micro int64
+	if err := w.db.Model(&UserWallet{}).Where("user_id = ?", userID).
+		Select("perm_balance_micro").Scan(&micro).Error; err != nil {
+		slog.Warn("billing: payg 日聚合流水读余额失败(快照写 0)", "user_id", userID, "err", err)
+	}
+	now := time.Now()
+	if err := w.db.Exec(`INSERT INTO credit_transactions
+		  (user_id, type, amount, temp_after, perm_after, ref_type, ref_id, note, day_bucket, created_at)
+		VALUES (?, ?, -(? / 1000000.0), 0, ? / 1000000.0, 'quota', '', ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+		  amount = amount - (? / 1000000.0),
+		  perm_after = ? / 1000000.0`,
+		userID, TxPaygDaily, deltaMicro, micro,
+		"按量付费(用经费继续)当日累计", now.Format("2006-01-02"), now,
+		deltaMicro, micro).Error; err != nil {
+		slog.Warn("billing: payg 日聚合流水写入失败(扣减不受影响)", "user_id", userID, "err", err)
+	}
 }
 
 // (AutoResetEnabled / SetAutoReset 已下线 —— 自动消耗经费重置功能移除,只保留手动重置。
@@ -144,18 +174,26 @@ func (w *WalletService) ListRefillPending() ([]uint, error) {
 
 // (GrantTemp 已删除 —— 0090 起没有任何路径再发放临时经费。)
 
-// GrantPerm 发放永久经费(充值/礼品永久)。永久余额 += amount + 写流水。
-func (w *WalletService) GrantPerm(userID uint, amount int, source, ref string, txType string) error {
+// GrantPerm 发放永久经费(充值/礼品永久/admin 调账)。永久余额 += amount + 写流水;
+// note 透传到 credit_transactions.note(admin 调账留痕:没有备注的加款流水在对账时无从归因)。
+func (w *WalletService) GrantPerm(userID uint, amount int, source, ref, txType, note string) error {
 	if amount <= 0 {
 		return nil
 	}
 	return w.db.Transaction(func(tx *gorm.DB) error {
-		return grantPermInTx(tx, userID, amount, source, ref, txType)
+		return grantPermNoteInTx(tx, userID, amount, source, ref, txType, note)
 	})
 }
 
-// grantPermInTx —— 事务内发放永久经费(供 GrantPerm + 兑换码原子兑换 + 充值履约复用)。
+// grantPermInTx —— 事务内发放永久经费(供兑换码原子兑换 + 充值履约复用)。
+// 签名保持不带 note:两个调用点(order.go 充值履约 / repository.go 兑换码)自身无备注语境,
+// 流水靠 ref_type/ref_id 归因即可。
 func grantPermInTx(tx *gorm.DB, userID uint, amount int, source, ref string, txType string) error {
+	return grantPermNoteInTx(tx, userID, amount, source, ref, txType, "")
+}
+
+// grantPermNoteInTx —— 事务内发放永久经费(带流水备注;所有永久入账的唯一落点)。
+func grantPermNoteInTx(tx *gorm.DB, userID uint, amount int, source, ref, txType, note string) error {
 	if amount <= 0 {
 		return nil
 	}
@@ -171,8 +209,8 @@ func grantPermInTx(tx *gorm.DB, userID uint, amount int, source, ref string, txT
 		return err
 	}
 	return tx.Create(&CreditTransaction{
-		UserID: userID, Type: txType, Amount: amount,
-		TempAfter: temp, PermAfter: perm, RefType: refTypeOf(source), RefID: ref,
+		UserID: userID, Type: txType, Amount: float64(amount),
+		TempAfter: temp, PermAfter: perm, RefType: refTypeOf(source), RefID: ref, Note: note,
 	}).Error
 }
 
@@ -211,7 +249,7 @@ func (w *WalletService) ConsumePerm(userID uint, amount int, txType, refType, re
 			return err
 		}
 		return tx.Create(&CreditTransaction{
-			UserID: userID, Type: txType, Amount: -amount,
+			UserID: userID, Type: txType, Amount: -float64(amount),
 			TempAfter: temp, PermAfter: perm, RefType: refType, RefID: refID, Note: note,
 		}).Error
 	})
@@ -255,7 +293,8 @@ func (w *WalletService) ListTransactions(userID uint, txType string, limit, offs
 // balancesInTx 在事务内重算余额快照,用于写流水。
 // 0090 起只剩永久;第一个返回值(temp)恒 0 —— credit_transactions.temp_after 列非破坏保留,
 // 历史行的值仍有审计意义,新行一律写 0。签名保留双返回值以免改动所有调用点。
-func balancesInTx(tx *gorm.DB, userID uint) (temp int, perm int, err error) {
+// 0098 起流水列是 DECIMAL(18,6),快照带小数(= micro/1e6),不再截断成整经费。
+func balancesInTx(tx *gorm.DB, userID uint) (temp float64, perm float64, err error) {
 	var wallet UserWallet
 	if err = tx.Where("user_id = ?", userID).First(&wallet).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -263,8 +302,7 @@ func balancesInTx(tx *gorm.DB, userID uint) (temp int, perm int, err error) {
 		}
 		return 0, 0, err
 	}
-	// 流水快照仍是**整经费**(入账口径;小数部分不进 credit_transactions,见 ConsumeForQuota 注释)。
-	return 0, int(wallet.PermBalanceMicro / MicroCreditPerCredit), nil
+	return 0, float64(wallet.PermBalanceMicro) / float64(MicroCreditPerCredit), nil
 }
 
 // refTypeOf 把经费来源映射成流水的 ref_type。
@@ -328,6 +366,24 @@ func (w *WalletService) ResetPasses(userID uint) (*ResetPassView, error) {
 		view.Lots = append(view.Lots, ResetPassLotView{Count: p.CountRemaining, ExpiresAt: p.ExpiresAt, Source: p.Source})
 	}
 	return view, nil
+}
+
+// GrantResetPasses 发放一批重置次数(admin 补偿/运营发放)。
+// 一批一行,共享 expiresAt;note 落 ref 列(varchar(64),按 rune 截断防切碎中文)。
+// 不写 credit_transactions:次数与经费单位不同,混入流水会让账本混单位(与消耗侧同一取舍)。
+func (w *WalletService) GrantResetPasses(userID uint, count int, expiresAt time.Time, note string) error {
+	if count <= 0 || !expiresAt.After(time.Now()) {
+		return ErrInvalidOrder
+	}
+	ref := []rune(note)
+	if len(ref) > 64 {
+		ref = ref[:64]
+	}
+	return w.db.Create(&CreditResetPass{
+		UserID: userID, CountInitial: count, CountRemaining: count,
+		Source: "admin", Ref: string(ref),
+		StartsAt: time.Now(), ExpiresAt: expiresAt,
+	}).Error
 }
 
 // ConsumeResetPass 扣 1 次重置次数(最近到期的那批)。无可用次数返回 ErrNoResetPass,不扣分文。

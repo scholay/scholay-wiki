@@ -20,6 +20,7 @@ import {
   type AdminUser,
   type UserVipStatus,
 } from '../api/users';
+import { MICRO_YUAN_PER_POINT } from '../api/token-usage';
 import { useHasPermission, PERM, roleLabel, roleBadgeVariant } from '../permissions';
 
 // 会员等级展示名全站统一:Free / Pro / Max(不用「专业版 / 旗舰版」)。
@@ -209,6 +210,23 @@ export function UserDetailDrawer({
                         {vip.data.credit.total.toFixed(2)}(≈{vip.data.credit.points.toLocaleString()} 算力点)
                       </span>
                     </div>
+                    {/* 计费干预可见性(纯展示):重置次数(0090 重置改扣次数)+ 用经费继续(payg 兜底,须用户自己开)。 */}
+                    <div className="flex items-center justify-between text-12">
+                      <span className="text-faint">重置次数</span>
+                      <span className="tabular-nums text-subtle">
+                        {vip.data.reset_pass_next_expiry
+                          ? `${vip.data.reset_passes} 次将于 ${vip.data.reset_pass_next_expiry.slice(0, 10)} 前有效`
+                          : `${vip.data.reset_passes} 次`}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-12">
+                      <span className="text-faint">用经费继续(按量付费)</span>
+                      {vip.data.credit.credit_autopay ? (
+                        <Badge variant="outline" className="border-brand-green text-brand-green">已开启</Badge>
+                      ) : (
+                        <Badge variant="muted">未开启</Badge>
+                      )}
+                    </div>
                   </div>
                 )}
               </>
@@ -271,8 +289,10 @@ function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
       <div className="flex items-center justify-between text-12">
         <span className="text-subtle">本周期 AI 额度(算力点)</span>
         <span className={cn('tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
-          {/* P5 成本制:used/ceiling 单位=微元真实成本,÷1000 = 算力点(1 点 = ¥0.001 成本)。 */}
-          {t.unlimited ? '不限' : `${Math.round(t.used / 1000).toLocaleString()} / ${Math.round(t.ceiling / 1000).toLocaleString()}`}
+          {/* P5 成本制:used/ceiling 单位=微元真实成本,÷ MICRO_YUAN_PER_POINT = 算力点(1 点 = ¥0.001 成本)。 */}
+          {t.unlimited
+            ? '不限'
+            : `${Math.round(t.used / MICRO_YUAN_PER_POINT).toLocaleString()} / ${Math.round(t.ceiling / MICRO_YUAN_PER_POINT).toLocaleString()}`}
         </span>
       </div>
       {!t.unlimited && (
@@ -286,7 +306,7 @@ function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
       {!t.unlimited && (
         <div className="flex items-center justify-between text-12 text-faint" title={ri.hint}>
           <span>{ri.notStarted ? '满额 · 用后计时' : ri.rel}</span>
-          <span className="tabular-nums">当日消耗 {Math.round(t.consumed_today / 1000).toLocaleString()} 算力点</span>
+          <span className="tabular-nums">当日消耗 {Math.round(t.consumed_today / MICRO_YUAN_PER_POINT).toLocaleString()} 算力点</span>
         </div>
       )}
     </div>

@@ -37,7 +37,7 @@ export interface UserListParams {
   q?: string;
   role?: string;
   status?: number;
-  tier?: string; // ''|'free'|'pro'
+  tier?: string; // ''|'free'|'pro'|'max'
   email_verified?: '0' | '1';
   created_from?: string; // YYYY-MM-DD
   created_to?: string;
@@ -232,6 +232,20 @@ export function useAdjustWallet() {
   });
 }
 
+// 发放重置次数(补偿/运营)。days 缺省后端按 365 天有效期。
+export function useGrantResetPasses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: number; count: number; days?: number; note?: string }) =>
+      http.post(`/admin/users/${vars.id}/reset-passes`, {
+        count: vars.count,
+        days: vars.days ?? 0,
+        note: vars.note ?? '',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  });
+}
+
 // ─── 用户财务下钻(订单 / 交易流水 / 兑换记录;与用户设置页对齐)──────────────────────
 // 全部懒加载(抽屉打开才取),信封 {data:{items,total}},queryKey 三段式 ['admin','user',id,resource]。
 
@@ -261,13 +275,14 @@ export interface AdminOrder {
 /** 对齐 backend vip.CreditTransaction(credit_transactions 表)。ref_type=code 的 ref_id 后端已打码。 */
 export interface AdminCreditTransaction {
   id: number;
-  type: string; // recharge | grant_subscription | gift | reset_consume | expire | refund | admin_adjust …
-  amount: number; // 正=入账 负=消耗
+  type: string; // recharge | grant_subscription | gift | reset_consume | expire | refund | admin_adjust | payg_daily …
+  amount: number; // 正=入账 负=消耗;0098 起可带小数(payg 日聚合行,DECIMAL(18,6))
   temp_after: number;
   perm_after: number;
   ref_type: string;
   ref_id: string;
   note: string;
+  day_bucket?: string | null; // 仅 type=payg_daily 有值(日聚合桶,0098)
   created_at: string;
 }
 

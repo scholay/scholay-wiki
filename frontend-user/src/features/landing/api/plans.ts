@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
+import { notifyBillingChanged } from '@/shared/lib/quota-events';
 import { type SubQuote, type BillingCycle } from '@/shared/components';
 
 /** 订阅/续期/升级报价(不建单)。模块级函数=稳定引用,供购买弹窗。 */
@@ -83,6 +84,7 @@ export function useLandingSubscribe() {
       if (method === 'test') {
         await testPay.mutateAsync(order.order_no);
         toast.success(`测试支付成功!${cycleLabel}已开通`);
+        notifyBillingChanged(); // 广播刷新额度/经费(账户资产卡 + 全局通知器,同 settings 侧 useSubscribeFlow)
         navigate('/settings/membership');
         return true;
       }

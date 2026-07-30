@@ -28,6 +28,7 @@ import (
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/hotcontent"
+	"scholar-backend/internal/invite"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/library"
 	"scholar-backend/internal/message"
@@ -104,6 +105,7 @@ type allHandlers struct {
 	news            *news.Handler          // 情报 (学术新闻): webhook 接收/落库 + 公开读 + admin 配置
 	memory          *usermemory.Handler  // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
 	openAccess      *openaccess.Handler  // 合法 OA 全文查找 (DOI → Unpaywall 免费链接; 论文详情页兜底)
+	invite          *invite.Handler      // 邀请注册 (一人一码 + 落地页打开计数 + 新用户归因)
 }
 
 // registerRoutes 注册所有 API 路由
@@ -121,6 +123,10 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	api := router.Group("/api/v1")
 	// 维护模式拦截 — 启用后普通用户走 503,管理员/白名单正常通过
 	api.Use(middleware.MaintenanceModeMiddleware())
+	// 邀请码透传 — 把 X-Invite-Code 请求头写进 request ctx(只透传不校验,一次 header 读取,
+	// 开销可忽略)。挂整组是因为消费点分散在 email/phone/各 OAuth 共 9 条注册成功路径,
+	// 仅在「新用户创建成功(事务提交后)」被 internal/invite 归因钩子消费。
+	api.Use(middleware.InviteCodeMiddleware())
 	{
 		// WebSocket 端点（认证通过 URL 参数）
 		api.GET("/ws", h.ws.HandleWebSocket)

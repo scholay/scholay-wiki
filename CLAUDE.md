@@ -570,7 +570,7 @@ The platform integrates with multiple payment providers for the Chinese market:
 - **WeChat Pay Integration**: Native WeChat payment support (JSAPI, APP, Native, H5)
 - **Order Management**: Links orders with subscription purchases
 - **Payment Verification**: Validates payment callbacks and signatures
-- **Refund Support**: Admin can process refunds through the system
+- **Refund**: ⚠️ **系统内退款链路不存在**(`payment/provider.go` 的 Refund 接口零实现零路由)。真实退款只能去网关后台手工操作,且系统内订单仍是 paid、会员/经费不会自动回收 —— 需要人工同步(admin 撤销会员 / 调账扣经费)。历史文档曾写 "Admin can process refunds through the system",不属实
 - **Unified Interface**: Common payment interface for both providers
 
 **Implementation**:

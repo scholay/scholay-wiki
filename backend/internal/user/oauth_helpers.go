@@ -270,5 +270,9 @@ func (h *Handler) findOrCreateOAuthUser(ctx context.Context, identity oauthIdent
 		return oauthOutcome{}, err
 	}
 
+	// 邀请归因(best-effort):仅走到「新建 user」分支才归因,已绑定登录 / merge 分支都不算。
+	// method 直接用 provider 名(github/google/apple/microsoft/discourse)。
+	notifyInviteRegistered(ctx, user.ID, identity.Provider)
+
 	return oauthOutcome{User: user, IsNewUser: true}, nil
 }

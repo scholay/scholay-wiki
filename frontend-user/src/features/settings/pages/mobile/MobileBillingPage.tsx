@@ -4,6 +4,10 @@ import { cn } from '@/shared/lib/utils';
 import { useOrders, useTransactions } from '../../api/membership';
 import { MeSubpageShell } from '../../components/mobile/MeSubpageShell';
 
+// 0098 起流水金额可带小数(payg 日聚合行)。整数原样;小数最多 4 位去尾零
+// (toLocaleString 默认最多 3 位小数且四舍五入,会把微量扣减抹成 0)。
+const fmtCredit = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : String(parseFloat(v.toFixed(4))));
+
 /**
  * 移动端资产明细 —— 经费流水 + 订单记录两个 tab(数据复用 membership hooks 只读展示)。
  */
@@ -75,7 +79,7 @@ function TxnList() {
             )}
           >
             {t.amount >= 0 ? '+' : ''}
-            {t.amount.toLocaleString('en-US')}
+            {fmtCredit(t.amount)}
           </span>
         </li>
       ))}
@@ -101,7 +105,8 @@ function OrderList() {
               {o.plan_name || (o.order_type === 'recharge' ? '经费充值' : '会员订阅')}
             </span>
             <span className="text-14 font-medium text-foreground">
-              ¥{(o.final_amount / 100).toFixed(2)}
+              {/* final_amount 单位是**元**(与 PC billing-panels OrderRow 同口径),不要再 /100 */}
+              ¥{o.final_amount.toFixed(2)}
             </span>
           </div>
           <div className="flex items-center justify-between text-12 text-faint">

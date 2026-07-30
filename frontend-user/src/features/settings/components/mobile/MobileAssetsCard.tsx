@@ -11,7 +11,7 @@ import {
   useResetQuota,
   type Tier,
 } from '../../api/membership';
-import { resetInfo } from '../../lib/quota-display';
+import { monthDay, resetInfo } from '../../lib/quota-display';
 
 const TIER_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 const TIER_BADGE_CLS: Record<Tier, string> = {
@@ -136,12 +136,22 @@ export function MobileAssetsCard() {
 
       {/* 经费 */}
       <div className="flex items-center gap-2 border-t border-border-soft px-4 py-3">
-        <Wallet className="size-4 text-brand-amber" />
-        <span className="text-14 text-foreground">
-          经费 <span className="font-medium">{credit.total.toLocaleString('en-US')}</span>
-        </span>
+        <Wallet className="size-4 shrink-0 text-brand-amber" />
+        <div className="flex min-w-0 flex-col">
+          <span className="text-14 text-foreground">
+            经费 <span className="font-medium">{credit.total.toLocaleString('en-US')}</span>
+          </span>
+          {/* 🔴 兑换率可调,余额必须与「值多少算力点」同屏(同 PC AccountAssetsCard 口径)。 */}
+          <span className="text-12 text-faint">≈{credit.points.toLocaleString()} 算力点</span>
+        </div>
         {/* 0090:经费不再分临时/永久,只有一种 —— 拆分行删掉。 */}
-        <span className="ml-auto text-12 text-faint">剩余重置次数 {data.reset_passes}</span>
+        <div className="ml-auto flex shrink-0 flex-col items-end text-12 text-faint">
+          <span>剩余重置次数 {data.reset_passes}</span>
+          {/* 最近一批重置次数的到期时刻(null = 无可用次数);批内计数后端不下发,N 用总次数。 */}
+          {data.reset_passes > 0 && data.reset_pass_next_expiry && (
+            <span>{data.reset_passes} 次将于 {monthDay(data.reset_pass_next_expiry)} 前有效</span>
+          )}
+        </div>
       </div>
 
       {/* 兑换码 */}

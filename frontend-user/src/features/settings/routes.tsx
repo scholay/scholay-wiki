@@ -40,6 +40,11 @@ export const settingsRoutes: RouteObject[] = [
           import('./pages/MembershipPage').then((m) => ({ Component: m.MembershipPage })),
       },
       {
+        path: 'invite',
+        lazy: () =>
+          import('./pages/InvitePage').then((m) => ({ Component: m.InvitePage })),
+      },
+      {
         path: 'security',
         lazy: () =>
           import('./pages/SecurityPage').then((m) => ({ Component: m.SecurityPage })),
@@ -96,6 +101,13 @@ export const settingsMobileRoutes: RouteObject[] = [
     lazy: () =>
       import('./pages/mobile/MobileBillingPage').then((m) => ({
         Component: m.MobileBillingPage,
+      })),
+  },
+  {
+    path: 'me/invite',
+    lazy: () =>
+      import('./pages/mobile/MobileInvitePage').then((m) => ({
+        Component: m.MobileInvitePage,
       })),
   },
 ];

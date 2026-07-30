@@ -19,6 +19,7 @@ import {
   BillingCycleToggle,
   maxYearlySavingsPct,
   planYearlyEnabled,
+  yuanText,
   type MembershipPlanData,
   type BillingCycle,
 } from './membership-plan-card';
@@ -36,7 +37,6 @@ export interface SubQuote {
   /** 实际计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(后端锁定)。 */
   cycle: BillingCycle;
   amount_cents: number;
-  credits: number;
   deferred: boolean; // 续期=true:本单权益从当前到期日起算(0090 起与经费无关)
   current_tier: string;
   current_cycle?: BillingCycle; // 用户当前订阅周期(付费在期时)
@@ -183,7 +183,7 @@ export function SubscribeDialog({
   const payCycle: BillingCycle = quoteData?.cycle ?? effCycle;
   const newExpires = quoteData?.new_expires_at ? quoteData.new_expires_at.slice(0, 10) : '';
   // 金额展示:非整元(升级按天折算的差价必带分位)显示两位小数,与实扣 order.final_amount 一致。
-  const yuanText = (cents: number) => (cents % 100 === 0 ? String(Math.round(cents / 100)) : (cents / 100).toFixed(2));
+  // yuanText 已提升到 membership-plan-card(价格卡三处同口径),这里直接复用。
 
   const onConfirm = async () => {
     if (!sel || !selected) return;

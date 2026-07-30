@@ -59,6 +59,8 @@ func (r *Repository) UpdateBillingConfig(c *BillingConfig) error {
 		"recharge_rate":            c.RechargeRate,
 		"credit_to_points":         c.CreditToPoints, // 0094 按量付费兑换率
 		"min_recharge_cents":       c.MinRechargeCents,
+		"invite_reward_credits":    c.InviteRewardCredits,  // 0100 邀请奖励(0=关闭)
+		"invite_reward_daily_cap":  c.InviteRewardDailyCap, // 0100 每日上限(0=不限)
 		"reset_cost_credits":       c.ResetCostCredits, // 运行时不读,但 0092 换算要用,必须继续写回
 		"popular_plan":             c.PopularPlan,
 		"enabled":                  c.Enabled,

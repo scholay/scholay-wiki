@@ -110,7 +110,9 @@ func cycleLabelZh(cycle string) string {
 	return "月付"
 }
 
-// DefaultBillingConfig 与迁移 0015 的列默认值一致, 作为 DB 读不到时的兜底。
+// DefaultBillingConfig DB 读不到时的兜底默认值。出厂种子以迁移 0097 的重锚为准
+// (0095 口径:recharge_rate=100 / credit_to_points=3),这里与其对齐;
+// 历史上「与迁移 0015 列默认值一致」的说法已过时(0015 后多轮迁移改过种子)。
 func DefaultBillingConfig() *BillingConfig {
 	return &BillingConfig{
 		ID:                     1,
@@ -138,6 +140,9 @@ func DefaultBillingConfig() *BillingConfig {
 		RechargeRate:     100,
 		CreditToPoints:   3,
 		MinRechargeCents: 1000,
+		// 邀请奖励(0100)默认关闭:发钱的活动必须由 admin 显式开启,兜底配置绝不能自带发钱。
+		InviteRewardCredits:  0,
+		InviteRewardDailyCap: 0,
 		// ResetCostCredits 运行时已不读(重置改扣次数),但**必须保留取值**:
 		// 迁移 0092 拿它当「N 经费 = 1 次」的换算除数,每次容器启动都重放。被写成 0 会让
 		// GREATEST(0,1)=1 → 未换算批次按 1:1 换,相对拍板值 120 超发 120 倍。
@@ -198,6 +203,9 @@ func (s *ConfigService) Update(in *BillingConfig) error {
 	clampNeg(&in.ProYearOriginalCents)
 	clampNeg(&in.MaxYearPriceCents)
 	clampNeg(&in.MaxYearOriginalCents)
+	// 邀请奖励(0100)两旋钮:负数无意义,一律归 0(0=关闭/不限)。
+	clampNeg(&in.InviteRewardCredits)
+	clampNeg(&in.InviteRewardDailyCap)
 	// (两个 year_grant_credits 的 clamp 已删 —— 字段本身退休。
 	//  上面四个年度**价格**的 clamp 一行都不能删:0079 的 -1 哨兵回填每次启动都重放,
 	//  价格被存成负数后会被静默复活成「月价×10」,直接改掉用户被收的价。)

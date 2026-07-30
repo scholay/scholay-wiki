@@ -6,6 +6,7 @@ package vip
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"scholar-backend/internal/common/utils"
@@ -176,6 +177,10 @@ func (h *Handler) AdminGrantVIP(c *gin.Context) {
 		utils.InternalError(c, 500, "授予会员失败", err)
 		return
 	}
+	// 审计留痕:直授会员绕过支付,谁给谁发了什么必须可追溯。
+	adminID, _ := utils.GetUserID(c)
+	slog.Info("audit: admin 授予会员", "admin_id", adminID, "target_user_id", id,
+		"tier", req.Tier, "days", req.Days, "cycle", req.Cycle, "expires_at", exp)
 	utils.SuccessWithMessage(c, "已授予会员", gin.H{"expires_at": exp})
 }
 
@@ -194,6 +199,9 @@ func (h *Handler) AdminRevokeVIP(c *gin.Context) {
 		utils.InternalError(c, 500, "取消会员失败", err)
 		return
 	}
+	// 审计留痕:取消会员是剥夺已付费权益的操作,操作人必须可追溯。
+	adminID, _ := utils.GetUserID(c)
+	slog.Info("audit: admin 取消会员", "admin_id", adminID, "target_user_id", id)
 	utils.SuccessWithMessage(c, "已取消会员", nil)
 }
 

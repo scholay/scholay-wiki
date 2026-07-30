@@ -5,11 +5,12 @@ import { cn } from '@/shared/lib/utils';
 
 type Kind = 'half' | 'almost' | 'reset' | 'recharge';
 
+// 0090 口径:重置只扣「重置次数」、经费买不到重置;经费的用途是「用经费继续」按量付费(须在账户资产开启)。
 const PRESETS: Record<Kind, { color: keyof typeof COLOR; title: string; body: string }> = {
-  half: { color: 'amber', title: '本周期额度已消耗过半', body: '建议优先处理关键科研任务,必要时准备经费重置。' },
-  almost: { color: 'red', title: '本周期额度即将耗尽', body: '剩余额度较少,额度耗尽后可消耗经费立即重置。' },
+  half: { color: 'amber', title: '本周期额度已消耗过半', body: '建议优先处理关键科研任务;额度按 7 天周期到期自动恢复满额。' },
+  almost: { color: 'red', title: '本周期额度即将耗尽', body: '剩余额度较少。耗尽后可使用重置次数立即重置,或等待周期到期自动恢复。' },
   reset: { color: 'green', title: '额度已重置', body: '本周期科研额度已重置为 100%,可继续使用。' },
-  recharge: { color: 'blue', title: '经费购入成功', body: '经费已到账,可用于立即重置额度或自动重置。' },
+  recharge: { color: 'blue', title: '经费购入成功', body: '经费已到账。在账户资产开启「用经费继续」,额度耗尽后可按量续用不中断。' },
 };
 
 const COLOR = {

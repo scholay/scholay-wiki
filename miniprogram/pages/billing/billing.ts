@@ -25,11 +25,16 @@ const STATUS_LABEL: Record<string, string> = {
   failed: '失败',
 }
 
+// 0098 起流水金额可带小数(payg 日聚合行)。整数原样;小数最多 4 位去尾零。
+function fmtCredit(v: number): string {
+  return Number.isInteger(v) ? String(v) : String(parseFloat(v.toFixed(4)))
+}
+
 function txnVM(t: CreditTxn): TxnVM {
   return {
     id: t.id,
     label: t.note || t.type || '经费变动',
-    amount: (t.amount >= 0 ? '+' : '') + t.amount,
+    amount: (t.amount >= 0 ? '+' : '') + fmtCredit(t.amount),
     positive: t.amount >= 0,
     time: relativeTime(t.created_at),
   }
@@ -38,7 +43,7 @@ function orderVM(o: Order): OrderVM {
   return {
     orderNo: o.order_no,
     name: o.plan_name || (o.order_type === 'recharge' ? '经费充值' : '会员订阅'),
-    amount: '¥' + ((o.final_amount || o.amount || 0) / 100).toFixed(2),
+    amount: '¥' + (o.final_amount || o.amount || 0).toFixed(2), // 后端金额单位是元(不是分),不除 100
     status: STATUS_LABEL[o.status] || o.status,
     time: relativeTime(o.created_at),
   }

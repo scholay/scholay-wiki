@@ -472,8 +472,9 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 // FK ON DELETE CASCADE 只会带走:user_auth_providers、orders→payment_transactions、
 // user_coupons、user_messages、user_invitations、usage_logs 等(见 0001_baseline FK)。
 // 以下均**没有 FK**,必须在同一事务里显式清:
-//   - 0015 计费表(user_wallets / credit_temp_lots / credit_transactions / vip_code_redemptions)
-//     不清则订单审计轨迹被级联删除、但同一笔钱的钱包/账本/兑换流水滞留,两套资金记录互相矛盾;
+//   - 计费表(user_wallets / credit_temp_lots / credit_transactions / vip_code_redemptions,
+//     以及 0090 的 credit_reset_passes)不清则订单审计轨迹被级联删除、但同一笔钱的
+//     钱包/账本/兑换流水滞留,两套资金记录互相矛盾;
 //   - 文献集(user_library_papers / user_library_folders)与分享三表(library_shares /
 //     library_share_papers / library_share_access)—— 不清则「死人分享」永续公开可访问且
 //     无人可撤销(owner 已无 RevokeShare 通道),快照表还存着论文全量元数据,属隐私/合规缺口
@@ -491,6 +492,7 @@ func (r *Repository) DeleteUser(userID uint) error {
 		for _, table := range []string{
 			"credit_transactions",
 			"credit_temp_lots",
+			"credit_reset_passes", // 0090 建表后曾漏加:重置次数批次同样无 FK,不清则删号后滞留
 			"user_wallets",
 			"vip_code_redemptions",
 		} {

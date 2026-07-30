@@ -39,6 +39,7 @@ import (
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
+	"scholar-backend/internal/invite"
 	"scholar-backend/internal/library"
 	"scholar-backend/internal/modelcatalog"
 	"scholar-backend/internal/news"
@@ -514,6 +515,22 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// ---- 限时领取会员推广(开关 / 微信客服二维码 / 文案)----
 	promoHandler := promo.NewHandler(promo.NewService(promo.NewRepository(db)))
 
+	// ---- 邀请注册(一人一码 + 落地页打开计数 + 新用户归因)----
+	// 归因接线(方案 A,ctx 贯穿):routes.go 的 InviteCodeMiddleware 把 X-Invite-Code
+	// 写进请求 ctx;user 各注册成功路径(事务提交后)经包级钩子回调到 invite.Service
+	// 取码落归因。nil 安全 + best-effort:归因失败只 slog,绝不影响注册返回。
+	inviteService := invite.NewService(invite.NewRepository(db))
+	user.SetInviteAttributor(inviteService.AttributeFromContext)
+	// 邀请奖励(0100)两个 seam:配置实时读 billing_config 两旋钮(经 ConfigService 带缓存,
+	// admin 改完 ≤30s 生效);发放走 vip 入账唯一落点 GrantInviteReward(GrantPerm + 站内信)。
+	// invite 包不 import vip,依赖方向由 bootstrap 单向组装;不接线 = 奖励整体关闭(nil 安全)。
+	inviteService.SetRewardConfigProvider(func() (int, int) {
+		c := plat.vipService.Config().Get()
+		return c.InviteRewardCredits, c.InviteRewardDailyCap
+	})
+	inviteService.SetRewardGranter(plat.vipService.GrantInviteReward)
+	inviteHandler := invite.NewHandler(inviteService)
+
 	// ---- 情报(学术新闻):上游 webhook 接收/落库 + 公开读 + admin 配置 ----
 	newsService := news.NewService(news.NewRepository(db))
 	newsHandler := news.NewHandler(newsService)
@@ -670,6 +687,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			supportCenter: supportCenterHandler,
 			promo:         promoHandler,
 			news:          newsHandler,
+			invite:        inviteHandler,
 		},
 		userService:          core.userService,
 		cleanupService:       cleanupService,

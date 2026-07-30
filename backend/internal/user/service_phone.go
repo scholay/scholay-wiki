@@ -175,6 +175,9 @@ func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, 
 		return nil, "", err
 	}
 
+	// 邀请归因(best-effort):事务已提交、新用户已存在;失败只记日志,绝不影响注册返回。
+	notifyInviteRegistered(ctx, user.ID, "phone")
+
 	// Generate JWT token
 	tokenUsername := phone
 	if user.Username != nil {
@@ -359,6 +362,8 @@ func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*Use
 	}
 	if created {
 		s.SendWelcomeMessage(user.ID)
+		// 邀请归因(best-effort):仅本次真的新建号才归因;并发复用既有账号(created=false)不算。
+		notifyInviteRegistered(ctx, user.ID, "phone")
 	}
 	return user, token, nil
 }

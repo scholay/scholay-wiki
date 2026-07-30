@@ -1,5 +1,6 @@
 // 全局额度通知器(挂在 providers)——
-//  · 任一协议拿到 6010/quota_exceeded → 弹「额度已耗尽」重置弹窗(经费够:消耗经费重置 + 自动重置开关;不够:升级/充值)
+//  · 任一协议拿到 6010/quota_exceeded → 弹「额度已耗尽」弹窗(后端 message 作首行;有重置次数:一键重置;
+//    另给 兑换码就地开通 / 升级会员 两条路。0090:重置扣次数不扣经费,经费的出路是「用经费继续」)
 //  · 每次 AI 用量结束(billing-changed)→ 刷新额度,过半/将尽时弹 toastr(每级每天一次)
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -55,6 +56,9 @@ export function QuotaNotifier() {
   const closeReset = useQuotaStore((s) => s.closeReset);
 
   const [code, setCode] = useState('');
+  // 后端随 6010/quota_exceeded 下发的说明(如「有经费未开 autopay → 可在账户资产开启用经费继续」),
+  // 作为弹窗首行展示;不下发时为空,只显示通用三条路。新事件覆盖旧 message。
+  const [exceededMsg, setExceededMsg] = useState('');
 
   const { data } = useQuery({
     queryKey: KEY,
@@ -68,7 +72,9 @@ export function QuotaNotifier() {
 
   // 6010 / quota_exceeded → 弹重置弹窗 + 刷新额度;billing-changed → 刷新额度(触发阈值 toastr)
   useEffect(() => {
-    const onExceeded = () => {
+    const onExceeded = (e: Event) => {
+      // 载荷形状见 shared/lib/quota-events.ts notifyQuotaExceeded:detail = { message?: string }
+      setExceededMsg((e as CustomEvent<{ message?: string } | undefined>).detail?.message ?? '');
       openReset();
       qc.invalidateQueries({ queryKey: KEY });
     };
@@ -135,6 +141,8 @@ export function QuotaNotifier() {
         <DialogHeader>
           <DialogTitle>本周期 AI 额度已用完</DialogTitle>
           <DialogDescription>
+            {/* 后端引导文案作首行(DialogDescription 是 <p>,内层只能用 block span 不能用 div)。 */}
+            {exceededMsg && <span className="mb-1 block font-medium text-foreground">{exceededMsg}</span>}
             {enough ? (
               <>
                 额度按 {data.token.window_days || 7} 天周期计算

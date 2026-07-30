@@ -54,9 +54,11 @@ type AgentUsage struct {
 // content 是 user_message.content 的原始字符串 (注入 prefix 之前); userID 已经过 JWT 校验。
 type PreUserMessageFn func(ctx context.Context, userID uint, content string) error
 
-// BudgetProviderFn(SS#2)返回该用户此刻的有界透支预算(raw token 口径):
-// soft = 到日上限还剩,hard = 到「上限+透支带」还剩(均可为负)。unlimited=true(不限额/收费关)
-// 时 hub 不盖章 → 执行器无预算 → 行为不变。只读、不预扣;计费仍走后置 AddUsage 精确累加。
+// BudgetProviderFn(SS#2)返回该用户此刻的单轮预算(**微元真实成本口径**,P5 成本制;
+// hub 盖章前会经 catalog.CostPerToken(微元/token)换算成执行器可比的 token 预算再下发):
+// soft = hard = 到窗口上限还剩(可为负;透支带已于 2026-07-30 取消,两个值保留是帧契约形状不动;
+// payg 用户会叠加钱包容量)。unlimited=true(不限额/收费关)时 hub 不盖章 → 执行器无预算 →
+// 行为不变。只读、不预扣;计费仍走后置 AddUsage 精确累加。
 type BudgetProviderFn func(ctx context.Context, userID uint) (soft, hard int64, unlimited bool)
 
 // SessionProfileFn(Phase 2, prism)返回该**会话**的项目级 in-band 注入块(如 prism 的写作画像)。
@@ -179,7 +181,7 @@ type FeatureSpec struct {
 	// nil → 不做检查直接放行。详见 PreUserMessageFn 定义。
 	PreUserMessage PreUserMessageFn
 
-	// BudgetProvider(SS#2)非 nil 时,hub 每条 user_message 现算「有界透支预算」并盖到帧上,
+	// BudgetProvider(SS#2)非 nil 时,hub 每条 user_message 现算「单轮预算」并盖到帧上,
 	// 执行器据此让 agent 自我配速 + 到界优雅收尾。nil = 不盖(peerreview 任务型,必须跑完)。
 	BudgetProvider BudgetProviderFn
 

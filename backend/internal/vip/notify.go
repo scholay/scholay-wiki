@@ -153,22 +153,36 @@ func (s *Service) notifyOrderFulfilled(ord *Order) {
 	}
 }
 
+// notifyInviteReward 邀请奖励入账后通知邀请人(0100)。**整体异步**(safego):
+// 调用链挂在注册主流程的旁路上(归因 → 发放 → 通知),查邮箱/SMTP 都不该拖注册;
+// 失败只 slog(notify 内部已兜),不影响已完成的发放。
+func (s *Service) notifyInviteReward(userID uint, credits int) {
+	safego.Go("vip-invite-reward-notify", func() {
+		title := "邀请奖励到账"
+		inApp := fmt.Sprintf("好友已成功注册,%d 经费邀请奖励已到账。", credits)
+		s.notify(userID, title, inApp, utils.EmailContent{
+			Title: title,
+			Intro: "您邀请的好友已成功注册,邀请奖励已发放到您的账户。",
+			Rows:  [][2]string{{"到账经费", fmt.Sprintf("%d 经费", credits)}},
+			CTAText: "查看账户资产", CTAURL: membershipURL(),
+		})
+	})
+}
+
 // notifyRedeem 兑换码激活成功(会员 / 经费)后通知。
 func (s *Service) notifyRedeem(userID uint, r *RedeemResult) {
 	if r == nil {
 		return
 	}
 	if r.Kind == GrantKindCredit {
-		kindCN := "临时"
-		if r.CreditKind == CreditKindPerm {
-			kindCN = "永久"
-		}
+		// 0090:经费只有一种,恒按「科研经费」措辞 —— 旧「临时/永久」前缀分支是死代码
+		// (兑换发放读到存量 temp 也一律按 perm 入账,见 repository.go),留着只会误导文案口径。
 		title := "经费兑换成功"
-		inApp := fmt.Sprintf("兑换成功!%d %s科研经费已到账。", r.Credits, kindCN)
+		inApp := fmt.Sprintf("兑换成功!%d 科研经费已到账。", r.Credits)
 		s.notify(userID, title, inApp, utils.EmailContent{
 			Title:   title,
 			Intro:   "您的兑换码已成功激活,科研经费已到账。",
-			Rows:    [][2]string{{"到账经费", fmt.Sprintf("%d %s经费", r.Credits, kindCN)}},
+			Rows:    [][2]string{{"到账经费", fmt.Sprintf("%d 经费", r.Credits)}},
 			CTAText: "查看账户资产", CTAURL: membershipURL(),
 		})
 		return

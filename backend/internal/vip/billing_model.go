@@ -11,6 +11,7 @@
 package vip
 
 import (
+	"math"
 	"time"
 
 	"github.com/dromara/carbon/v2"
@@ -23,6 +24,7 @@ const (
 	SourceGift         = "gift"         // 礼品码
 	SourceTask         = "task"         // 任务中心(P5)
 	SourceAdmin        = "admin"        // 管理员手动调账
+	SourceInvite       = "invite"       // 邀请注册奖励(0100)
 )
 
 // 经费种类。0090 起临时经费退休,只剩一种(对外就叫「经费」)。
@@ -42,6 +44,8 @@ const (
 	TxExpire            = "expire"              // [DEPRECATED 0090] 临时经费到期;仅存量流水
 	TxRefund            = "refund"             // 退款
 	TxAdminAdjust       = "admin_adjust"        // 管理员调账
+	TxPaygDaily         = "payg_daily"          // 按量付费当日累计(0098:每用户每天一行,upsert 累加)
+	TxInviteReward      = "invite_reward"       // 邀请好友注册奖励入账(0100;ref_id=被邀者 user_id)
 )
 
 // 兑换码授予类型。
@@ -96,10 +100,15 @@ type BillingConfig struct {
 	RechargeRate           float64   `gorm:"column:recharge_rate" json:"recharge_rate"`
 	// CreditToPoints 1 经费可兑换的算力点数(0094,按量付费)。与 RechargeRate 共同决定按量单价:
 	// ¥1 = RechargeRate 经费 = RechargeRate × CreditToPoints 算力点。
-	// 现网 60 × 5 = ¥1 买 300 点,而最贵的套餐档(Pro 月付)是 ¥1 买 442 点 ——
+	// 现网 100 × 3 = ¥1 买 300 点(0095 重锚:经费=分),而最贵的套餐档(Pro 月付)是 ¥1 买 442 点 ——
 	// **这个差价就是「买套餐比直充便宜」的全部来源**,调它等于调整两条产品线的相对定价。
 	CreditToPoints int `gorm:"column:credit_to_points" json:"credit_to_points"`
 	MinRechargeCents       int       `gorm:"column:min_recharge_cents" json:"min_recharge_cents"`
+	// InviteRewardCredits 每成功邀请 1 人赠给邀请人的经费(0100;经费=分)。0=邀请奖励活动关闭。
+	InviteRewardCredits int `gorm:"column:invite_reward_credits" json:"invite_reward_credits"`
+	// InviteRewardDailyCap 每邀请人每日最多计奖励的邀请数(0100)。0=不限;
+	// 超出上限的邀请照常归因,只是当天不再发奖励(按「今天 rewarded_credits>0 的行数」算)。
+	InviteRewardDailyCap int `gorm:"column:invite_reward_daily_cap" json:"invite_reward_daily_cap"`
 	// ResetCostCredits 运行时**已不读**(0090:重置改扣「重置次数」),但字段与列必须保留:
 	// 迁移 0092 拿它当「N 经费 = 1 次」的换算除数,且 admin PUT 是全列覆盖 —— 删字段会让它被写成 0。
 	ResetCostCredits int `gorm:"column:reset_cost_credits" json:"reset_cost_credits"`
@@ -146,30 +155,12 @@ func (c *BillingConfig) WindowDuration() time.Duration {
 	return time.Duration(days) * 24 * time.Hour
 }
 
-// 有界透支带(SS#2):允许窗口消耗越过 WindowCeiling 一个有界的量,越过后下一轮起点才硬拦。
-// 原意是「保证 agent 单轮能优雅收尾」→ 量级保持**单轮**而非整窗:按日均(ceiling/窗口天数)的 15% 计,
-// 地板 = ¥0.5(微元)保证连 Free 也够收尾一轮(单轮成本 prism≈¥0.26)。窗口到期满血时透支自然归零。
-// P5 成本制:单位=微元(与 WindowCeiling 同)。
-const (
-	overdraftPct        = 0.15
-	overdraftFloorMicro = 500_000 // ¥0.5,覆盖单轮优雅收尾
-)
-
-// OverdraftTokens 返回某等级的透支带大小(微元;P5 成本制)。上限不限额 → 0。
-func (c *BillingConfig) OverdraftTokens(tier string) int64 {
-	ceiling := c.WindowCeiling(tier)
-	if ceiling <= 0 {
-		return 0
-	}
-	days := c.WindowDays
-	if days <= 0 {
-		days = 7
-	}
-	if pct := int64(float64(ceiling) * overdraftPct / float64(days)); pct > overdraftFloorMicro {
-		return pct
-	}
-	return overdraftFloorMicro
-}
+// (OverdraftTokens / 透支带已删除 —— 2026-07-30 owner 拍板「各套餐的透支都取消,没有透支这个说法」。
+//  原 SS#2 设计:起点闸放宽到 ceiling + max(日均×15%, ¥0.5),让跨线那一轮还能起跑;对 Free 档
+//  地板(¥0.5)甚至大于默认整窗(¥0.3),透支放大 267%。取消后:窗口一到上限,下一条消息即被拦
+//  (或经 payAsYouGoOrQuotaError 走按量付费);**在跑的那一轮仍会自然跑完** —— 闸门只在
+//  user_message 起点执法,单轮内不打断,预算盖章的 wind-down 机制继续兜优雅收尾(hard=soft)。
+//  别加回:透支带内的消耗对没开 autopay 的用户是免费敞口,按注册量线性放大平台成本。)
 
 // (GrantCreditsFor 已删除 —— 0090 起订阅不再赠送经费。四个 grant 列在 DB 里保留作历史/回滚,
 //  但没有任何代码读它们;admin 表单与用户端套餐介绍的「赠送 N 经费」也一并移除。)
@@ -275,12 +266,18 @@ func (c *BillingConfig) PointsForMicroCredit(microCredit int64) int64 {
 	return microCredit / MicroCreditPerCredit * int64(c.creditToPoints())
 }
 
-// RechargeCreditsFor 把支付金额(分)按汇率换算成到账经费(向下取整)。
+// RechargeCreditsFor 把支付金额(分)按汇率换算成到账经费(整数定点,round-half-up)。
+//
+// 旧实现 int(float64(cents)/100.0*rate) 是浮点截断:cents/100 在二进制下多数不可精确表示,
+// rate=100(0095 现网)时约 6.6% 的金额会因 1002.999... 这类尾差**少到账 1 分经费**
+// (如 1003 分 × 100 → 1002)。改整数定点:rate 放大 1e4 取整(保留 4 位小数精度),
+// cents × rateMicro = 经费 × 1e6,+500000 后整除 = 四舍五入,全程无浮点截断。
 func (c *BillingConfig) RechargeCreditsFor(cents int) int {
 	if cents <= 0 || c.RechargeRate <= 0 {
 		return 0
 	}
-	return int(float64(cents) / 100.0 * c.RechargeRate)
+	rateMicro := int64(math.Round(c.RechargeRate * 10000))
+	return int((int64(cents)*rateMicro + 500000) / 1000000)
 }
 
 // UserWallet 每用户钱包(表 user_wallets)。0090 起临时经费退休,只剩一种经费。
@@ -344,17 +341,20 @@ type CreditResetPass struct {
 func (CreditResetPass) TableName() string { return "credit_reset_passes" }
 
 // CreditTransaction 经费流水(表 credit_transactions)。供「明细查看」。
+// 0098 起金额三列是 DECIMAL(18,6)(经费,6 位小数 = micro-credit 精度)—— payg 日聚合行
+// 会出现小数;历史整数行语义不变。DayBucket 仅 type=payg_daily 的行有值(一天一行的幂等键)。
 type CreditTransaction struct {
-	ID        uint64    `gorm:"primaryKey" json:"id"`
-	UserID    uint      `gorm:"column:user_id" json:"user_id"`
-	Type      string    `gorm:"column:type" json:"type"`
-	Amount    int       `gorm:"column:amount" json:"amount"`
-	TempAfter int       `gorm:"column:temp_after" json:"temp_after"`
-	PermAfter int       `gorm:"column:perm_after" json:"perm_after"`
-	RefType   string    `gorm:"column:ref_type" json:"ref_type"`
-	RefID     string    `gorm:"column:ref_id" json:"ref_id"`
-	Note      string    `gorm:"column:note" json:"note"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	ID        uint64     `gorm:"primaryKey" json:"id"`
+	UserID    uint       `gorm:"column:user_id" json:"user_id"`
+	Type      string     `gorm:"column:type" json:"type"`
+	Amount    float64    `gorm:"column:amount" json:"amount"`
+	TempAfter float64    `gorm:"column:temp_after" json:"temp_after"`
+	PermAfter float64    `gorm:"column:perm_after" json:"perm_after"`
+	RefType   string     `gorm:"column:ref_type" json:"ref_type"`
+	RefID     string     `gorm:"column:ref_id" json:"ref_id"`
+	Note      string     `gorm:"column:note" json:"note"`
+	DayBucket *time.Time `gorm:"column:day_bucket" json:"day_bucket,omitempty"`
+	CreatedAt time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
 
 func (CreditTransaction) TableName() string { return "credit_transactions" }

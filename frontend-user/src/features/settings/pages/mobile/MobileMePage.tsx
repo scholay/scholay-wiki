@@ -9,6 +9,7 @@ import {
   ReceiptText,
   ShieldCheck,
   UserPen,
+  UserPlus,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar';
 import { Button } from '@/shared/ui/button';
@@ -145,6 +146,11 @@ function LoggedInView() {
           to="/m/me/billing"
           icon={<ReceiptText className="size-4.5" />}
           label="资产明细"
+        />
+        <MenuRow
+          to="/m/me/invite"
+          icon={<UserPlus className="size-4.5" />}
+          label="邀请好友"
           last
         />
       </nav>

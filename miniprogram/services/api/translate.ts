@@ -121,7 +121,7 @@ export function translatePaper(body: TranslateBody, onProgress: (preview: string
       success: (res) => {
         // 非 SSE 错误(401 未登录 / 429 额度)走普通 JSON,不进 onChunkReceived。
         handleAuthFailure(res.statusCode) // 401 时和 JSON 请求一样清 token
-        if (res.statusCode === 429) return fail(new ApiError(6010, '今日额度已用完', 429))
+        if (res.statusCode === 429) return fail(new ApiError(6010, '本周期额度已用完', 429))
         if (res.statusCode === 401) return fail(new ApiError(401, '登录已失效,请重新登录', 401))
         if (res.statusCode >= 400) return fail(new ApiError(res.statusCode, '翻译失败', res.statusCode))
         finish() // 流正常结束(即便没显式 [DONE])

@@ -7,7 +7,9 @@ package vip
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
+	"time"
 
 	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/utils"
@@ -16,8 +18,15 @@ import (
 )
 
 // testPaymentEnabled 读全局配置:是否开启"测试支付"(PAYMENT_TEST_ENABLED)。
+//
+// 🔴 生产硬闸:GIN_MODE=release 时**无视开关一律关闭**。测试支付 = 任何登录用户可对
+// 自建 pending 单(含 Max 年付)免费履约,生产误开就是资损洞;而 .env 是会被整份拷贝的
+// (本机就是 true),单靠「生产务必 false」的注释拦不住。要在本地用测试支付,
+// 在 .env 显式设 GIN_MODE=debug(docker-compose 默认 release)。
 func testPaymentEnabled() bool {
-	return config.AppConfig != nil && config.AppConfig.App.TestPaymentEnabled
+	return config.AppConfig != nil &&
+		config.AppConfig.App.TestPaymentEnabled &&
+		!config.AppConfig.App.IsRelease
 }
 
 // ─── 用户端 ──────────────────────────────────────────────────────────────
@@ -53,7 +62,7 @@ func (h *Handler) ResetQuota(c *gin.Context) {
 		utils.InternalError(c, 500, "重置额度失败,请稍后重试", err)
 		return
 	}
-	utils.SuccessWithMessage(c, "已重置今日额度", res.StripAmounts()) // 用户端只看百分比,不下发额度绝对值
+	utils.SuccessWithMessage(c, "已重置本周期额度", res.StripAmounts()) // 用户端只看百分比,不下发额度绝对值
 }
 
 // SetCreditAutopay PUT /user/billing/autopay {enabled} —— 开/关「周期额度用完后自动用经费续」。
@@ -314,7 +323,7 @@ func (h *Handler) PublicPlans(c *gin.Context) {
 		// (DB 列与 admin 配置仍保留 —— 迁移 0092 拿它当换算率。)
 		"recharge_rate":          cfg.RechargeRate,
 		// 0094 按量付费:¥1 = recharge_rate × credit_to_points 算力点。两个数都要下发 ——
-		// 只给「1 元 = 60 经费」用户无从知道经费值多少算力(经费对用户是抽象单位)。
+		// 只给「1 元 = 100 经费」用户无从知道经费值多少算力(经费对用户是抽象单位)。
 		"credit_to_points":       cfg.CreditToPoints,
 		"min_recharge_cents":     cfg.MinRechargeCents,
 		"popular_plan":           cfg.PopularPlan,
@@ -343,6 +352,7 @@ func (h *Handler) AdminGetBillingConfig(c *gin.Context) {
 
 // AdminUpdateBillingConfig PUT /admin/billing/config —— 保存计费配置(所有旋钮)。
 func (h *Handler) AdminUpdateBillingConfig(c *gin.Context) {
+	adminID, _ := utils.GetUserID(c)
 	var req BillingConfig
 	if !utils.BindJSON(c, &req) {
 		return
@@ -355,6 +365,13 @@ func (h *Handler) AdminUpdateBillingConfig(c *gin.Context) {
 		utils.InternalError(c, 500, "保存配置失败", err)
 		return
 	}
+	// 审计留痕:计费配置改动直接改全站定价/额度,谁改的 + 承重旋钮改成了什么必须可追溯。
+	slog.Info("audit: admin 更新计费配置", "admin_id", adminID,
+		"enabled", req.Enabled, "free_window_tokens", req.FreeWindowTokens, "window_days", req.WindowDays,
+		"pro_multiplier", req.ProMultiplier, "max_multiplier", req.MaxMultiplier,
+		"recharge_rate", req.RechargeRate, "credit_to_points", req.CreditToPoints,
+		"pro_price_cents", req.ProPriceCents, "max_price_cents", req.MaxPriceCents,
+		"pro_year_price_cents", req.ProYearPriceCents, "max_year_price_cents", req.MaxYearPriceCents)
 	utils.SuccessWithMessage(c, "已保存", h.svc.Config().Get())
 }
 
@@ -377,12 +394,14 @@ func (h *Handler) AdminAdjustWallet(c *gin.Context) {
 	if !utils.BindJSON(c, &req) {
 		return
 	}
+	adminID, _ := utils.GetUserID(c)
 	uid := uint(id)
 	w := h.svc.Wallet()
 	_ = req.Kind // 0090:临时经费退休,kind/days 不再分叉
 	switch {
 	case req.Amount > 0:
-		err = w.GrantPerm(uid, req.Amount, SourceAdmin, "admin", TxAdminAdjust)
+		// note 随加款透传到流水(扣款分支的 ConsumePerm 一直就带;加款漏了 = 对账时无从归因)。
+		err = w.GrantPerm(uid, req.Amount, SourceAdmin, "admin", TxAdminAdjust, req.Note)
 	case req.Amount < 0:
 		err = w.ConsumePerm(uid, -req.Amount, TxAdminAdjust, "admin", "admin", req.Note)
 	default:
@@ -397,6 +416,47 @@ func (h *Handler) AdminAdjustWallet(c *gin.Context) {
 		utils.InternalError(c, 500, "调账失败", err)
 		return
 	}
+	// 审计留痕:动用户的钱包必须能追溯到操作人与金额。
+	slog.Info("audit: admin 钱包调账", "admin_id", adminID, "target_user_id", uid,
+		"amount", req.Amount, "note", req.Note)
 	bal, _ := w.Balance(uid, h.svc.Config().Get())
 	utils.SuccessWithMessage(c, "已调账", bal)
+}
+
+// AdminGrantResetPasses POST /admin/users/:id/reset-passes {count, days, note}
+// —— 给用户发放一批重置次数(补偿/运营)。0090 起次数是重置额度的唯一凭证,
+// 此前唯一来源是 0092 历史换算,用户次数用尽后运营只能发经费绕行(而经费买不到重置)——
+// 这里补上干预链的缺口。days = 有效期天数(缺省 365)。
+func (h *Handler) AdminGrantResetPasses(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "无效的用户 id")
+		return
+	}
+	var req struct {
+		Count int    `json:"count"`
+		Days  int    `json:"days"`
+		Note  string `json:"note"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	if req.Count <= 0 || req.Count > 1000 {
+		utils.BadRequest(c, "发放次数须在 1~1000 之间")
+		return
+	}
+	if req.Days <= 0 {
+		req.Days = 365
+	}
+	adminID, _ := utils.GetUserID(c)
+	uid := uint(id)
+	expires := time.Now().AddDate(0, 0, req.Days)
+	if err := h.svc.Wallet().GrantResetPasses(uid, req.Count, expires, req.Note); err != nil {
+		utils.InternalError(c, 500, "发放重置次数失败", err)
+		return
+	}
+	slog.Info("audit: admin 发放重置次数", "admin_id", adminID, "target_user_id", uid,
+		"count", req.Count, "days", req.Days, "note", req.Note)
+	view, _ := h.svc.Wallet().ResetPasses(uid)
+	utils.SuccessWithMessage(c, "已发放重置次数", view)
 }

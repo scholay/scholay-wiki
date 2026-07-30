@@ -37,11 +37,11 @@ import {
  * ModelCatalogPage — 上游端点与模型的**分组视图**(运营视角单一入口)。
  * 结构反映真实数据关系:模型隶属于端点(agent_models.provider_id),每个端点区块列自己的
  * 模型、从区块内添加模型(自动归属);默认端点(agent_config)恒为第一个区块,不可删。
- * 页尾:能力绑定(11 个固定能力 → 目录模型,跨端点选择)。
+ * 页尾:能力绑定(10 个固定能力 → 目录模型,跨端点选择)。
  */
 /**
  * 模型目录面板 —— 作为「模型与账号」页(AiUpstreamPage)的一个 tab 渲染。
- * 端点(Provider)+ 模型目录 + 11 个能力绑定,改动自动推送 agent。
+ * 端点(Provider)+ 模型目录 + 10 个能力绑定,改动自动推送 agent。
  * 不含 AdminPageLayout 外壳(由父页统一提供),actions 内联成顶部工具条。
  */
 export function ModelCatalogPanel() {
@@ -294,7 +294,7 @@ export function ModelCatalogPanel() {
   );
 }
 
-/** BindingsCard — 11 个固定能力各绑一个目录模型;回退态(绑定缺失/失效)标红。 */
+/** BindingsCard — 10 个固定能力(PURPOSE_LABELS:2 系统槽 + 8 功能槽)各绑一个目录模型;回退态(绑定缺失/失效)标红。 */
 function BindingsCard({ models }: { models: AgentModel[] }) {
   const { data: bindings, isLoading } = useModelBindings();
   const setBinding = useSetModelBinding();

@@ -28,6 +28,10 @@ const cacheTTL = 30 * time.Second
 type snapshot struct {
 	models    []AgentModel
 	byModel   map[string]*AgentModel // model_id → 行(含停用行:计价/解析必须查得到,enabled 只约束选择器)
+	// byModelFold 二级索引:strings.ToLower(model_id) → 行。DB 唯一键 collation 大小写不敏感,
+	// 但 byModel 是精确匹配 —— 上游回报的 model code 大小写漂移时精确 miss、占位登记又被
+	// DoNothing 吞(唯一键撞已有行)→ 变体永久 cost=0。Get() 精确 miss 后按此折叠回退。
+	byModelFold map[string]*AgentModel
 	bindings  map[string]string      // purpose → model_id
 	providers map[uint64]*AgentProvider // 额外 provider(F0;0=默认不在此)
 }
@@ -88,7 +92,7 @@ func (s *Service) load() *snapshot {
 		if stale != nil {
 			return stale
 		}
-		return &snapshot{byModel: map[string]*AgentModel{}, bindings: map[string]string{}, providers: map[uint64]*AgentProvider{}}
+		return &snapshot{byModel: map[string]*AgentModel{}, byModelFold: map[string]*AgentModel{}, bindings: map[string]string{}, providers: map[uint64]*AgentProvider{}}
 	}
 	bindings, err := s.repo.ListBindings()
 	if err != nil {
@@ -96,7 +100,7 @@ func (s *Service) load() *snapshot {
 		if stale != nil {
 			return stale
 		}
-		return &snapshot{byModel: map[string]*AgentModel{}, bindings: map[string]string{}, providers: map[uint64]*AgentProvider{}}
+		return &snapshot{byModel: map[string]*AgentModel{}, byModelFold: map[string]*AgentModel{}, bindings: map[string]string{}, providers: map[uint64]*AgentProvider{}}
 	}
 	provs, err := s.repo.ListProviders()
 	if err != nil {
@@ -105,13 +109,15 @@ func (s *Service) load() *snapshot {
 	}
 
 	snap := &snapshot{
-		models:    models,
-		byModel:   make(map[string]*AgentModel, len(models)),
-		bindings:  make(map[string]string, len(bindings)),
-		providers: make(map[uint64]*AgentProvider, len(provs)),
+		models:      models,
+		byModel:     make(map[string]*AgentModel, len(models)),
+		byModelFold: make(map[string]*AgentModel, len(models)),
+		bindings:    make(map[string]string, len(bindings)),
+		providers:   make(map[uint64]*AgentProvider, len(provs)),
 	}
 	for i := range models {
 		snap.byModel[models[i].ModelID] = &models[i]
+		snap.byModelFold[strings.ToLower(models[i].ModelID)] = &models[i]
 	}
 	for _, b := range bindings {
 		if b.ModelID != "" {
@@ -204,10 +210,25 @@ func (s *Service) slotSafe(purpose string) string {
 	return id
 }
 
+// foldHitWarned 已告警过的大小写漂移变体(进程级,每个变体只 WARN 一次,防计价热路径刷屏)。
+var foldHitWarned sync.Map
+
 // Get 按 model_id 查目录行,**含停用行**——计价(P3)与展示映射必须查得到已下架模型,
 // enabled 只约束用户选择器与 P2 的 hub 闸。查不到返回 nil。
+// 匹配顺序:先精确,精确 miss 再按小写折叠回退(DB 唯一键 collation 大小写不敏感,上游回报的
+// model code 与目录行大小写漂移时,不折叠会永久 cost=0 且占位登记被 DoNothing 吞)。
+// 折叠只用于查找;display/推送等消费的都是返回目录行里的原值,不受查询串大小写影响。
 func (s *Service) Get(modelID string) *AgentModel {
-	if m, ok := s.load().byModel[modelID]; ok {
+	snap := s.load()
+	if m, ok := snap.byModel[modelID]; ok {
+		clone := *m
+		return &clone
+	}
+	if m, ok := snap.byModelFold[strings.ToLower(modelID)]; ok {
+		if _, seen := foldHitWarned.LoadOrStore(modelID, struct{}{}); !seen {
+			slog.Warn("modelcatalog: model_id 大小写漂移,已按折叠匹配命中目录行(建议对齐目录 code 与上游回报值)",
+				"queried", modelID, "catalog", m.ModelID)
+		}
 		clone := *m
 		return &clone
 	}
@@ -261,6 +282,8 @@ func (s *Service) ProviderKey(modelID string) string {
 // CostPerToken 该模型的**混合估算成本**(微元/token),用于把「微元额度余量」换算成执行器可比的 token 预算
 // (SS#2 自配速)。P5 成本制取代旧 BillingWeight:混合口径 = 80% 命中缓存 + 15% 未命中输入 + 5% 输出
 // (与成本制配额同源假设)。目录 miss / 全 0 → 回落一个保守正值(≈flash 混合)。含停用行(照常计价)。
+// ⚠️ 这是**估算口径**:不含输入分档高价(hi/hi2)与 cache_w 单价,仅用于预算换算(hub 盖章前把
+// 微元余量换成 token 预算);真实扣费一律走 PriceUsage(四类单价 × 实际 token,含分档)。
 func (s *Service) CostPerToken(modelID string) float64 {
 	const fallback = 0.3 // 微元/token,≈flash 混合成本
 	m := s.Get(modelID)
@@ -274,17 +297,28 @@ func (s *Service) CostPerToken(modelID string) float64 {
 	return cpt
 }
 
-// pricerMissWarn 目录 miss 告警限流(每分钟一条;上游改名/(reconciled) 哨兵会走到这)。
+// reconciledSentinel bridge 补差行(accrueTurnUsage 丢帧残差)落账时的 model 哨兵值。
+// 不是真实上游 model code,目录永远 miss —— PriceUsage 对它单独走「基准价」路径。
+const reconciledSentinel = "(reconciled)"
+
+// pricerMissWarn 目录 miss 告警限流(每分钟一条;上游改名会走到这)。
 var (
 	pricerMissMu sync.Mutex
 	pricerMissAt time.Time
+)
+
+// reconciledMissWarn "(reconciled)" 基准价解析失败告警限流(每分钟一条;与目录 miss 分开计,
+// 互不遮蔽 —— 这条意味着 system.main 全链无值,fresh install 未配置之外都值得看)。
+var (
+	reconciledMissMu sync.Mutex
+	reconciledMissAt time.Time
 )
 
 // pricingMissSeen 已自动登记过的未命中 model(防重复 upsert 打 DB;进程级,重启后重登一次幂等无害)。
 var pricingMissSeen sync.Map
 
 // notePricingMiss 首见某未计价上游 model 时,异步登记一条停用占位目录行(见 repo.UpsertPlaceholderModel),
-// 使项目侧 AI 未纳入目录的上游模型在 admin 可见、可补单价+倍率。同步开销仅一次 map LoadOrStore。
+// 使项目侧 AI 未纳入目录的上游模型在 admin 可见、可补四类单价。同步开销仅一次 map LoadOrStore。
 func (s *Service) notePricingMiss(model string) {
 	if _, loaded := pricingMissSeen.LoadOrStore(model, struct{}{}); loaded {
 		return
@@ -304,19 +338,40 @@ func (s *Service) notePricingMiss(model string) {
 //   - cost  = Σ(各类 tokens × 对应单价) —— 单价是 元/1M token,tokens × 单价恰好就是**微元**;
 //             cost 才是驱动配额扣减的真源(成本制)。
 // 只走内存缓存(Record 在同步请求路径上,绝不回源 DB)。目录 miss → cost=0 + 限流 WARN。
+// "(reconciled)" 补差哨兵按**基准价**(system.main 生效模型单价)计价 —— 落账 model 字段仍是
+// 哨兵原值(账本可辨识补差行),只有计价换用基准模型;解析不到基准模型才退 cost=0 + 限流 WARN。
+// 否则「贵模型出答案期间断线丢 message_complete → 残差落 (reconciled) 按 0 计」成为漏扣通道。
 func (s *Service) PriceUsage(model string, input, output, cacheRead, cacheWrite int) (int64, int64) {
 	total := int64(input) + int64(output) + int64(cacheRead) + int64(cacheWrite)
 	m := s.Get(model)
+	if m == nil && model == reconciledSentinel {
+		// 基准价 = Resolve(system.main) 的生效模型(含完整回退链);终极回退可能给出不在目录的
+		// 冻结列值 → Get 仍 nil → 走下面的 cost=0 兜底。
+		if base := s.Resolve(PurposeSystemMain); base != "" {
+			m = s.Get(base)
+		}
+		if m == nil {
+			reconciledMissMu.Lock()
+			if time.Since(reconciledMissAt) >= time.Minute {
+				reconciledMissAt = time.Now()
+				slog.Warn("modelcatalog: (reconciled) 补差行解析不到基准模型(system.main 全链无值),按 cost=0 兜底")
+			}
+			reconciledMissMu.Unlock()
+			return total, 0
+		}
+	}
 	if m == nil {
-		if model != "" && model != "(reconciled)" {
+		// 注:"(reconciled)" 在上面已单独收口,不会走到这里的占位登记(哨兵不是真实 model code,
+		// 登记会造出垃圾目录行);此处 guard 保留作防御。
+		if model != "" && model != reconciledSentinel {
 			pricerMissMu.Lock()
 			if time.Since(pricerMissAt) >= time.Minute {
 				pricerMissAt = time.Now()
-				slog.Warn("modelcatalog: 计价目录 miss,按 weight=1 兜底", "model", model)
+				slog.Warn("modelcatalog: 计价目录 miss,按 cost=0 兜底", "model", model)
 			}
 			pricerMissMu.Unlock()
 			// 首见即异步登记一条停用占位目录行(项目侧翻译/矩阵/公众号等未纳入目录的上游模型),
-			// 使其在 admin 目录可见、可补单价+倍率 → 从「cost 恒 0、看板失明」变为可治理(R2)。
+			// 使其在 admin 目录可见、可补单价 → 从「cost 恒 0、看板失明」变为可治理(R2)。
 			s.notePricingMiss(model)
 		}
 		return total, 0
@@ -479,6 +534,10 @@ func validateModel(m *AgentModel) error {
 		return errors.New("对外展示名必填(与上游模型 code 分开,给用户看的人话名)")
 	}
 	// P5 成本制:billing_weight / billing_weight_hi 已作废,不再校验(前端也不再下发,列保留仅作历史)。
+	// 四类基础单价不为负(负单价会把 PriceUsage 的 cost 算成负数 → 配额倒扣)。
+	if m.PriceIn < 0 || m.PriceOut < 0 || m.PriceCacheR < 0 || m.PriceCacheW < 0 {
+		return errors.New("基础价格不能为负(0 = 免费/未计价)")
+	}
 	// 分档字段(0084 两档 + 0087 三档):阈值/高档价不为负(高档价 = 长输入切档的真实单价,仍参与成本)。
 	if m.InputTierThreshold < 0 || m.InputTierThreshold2 < 0 {
 		return errors.New("输入分档阈值不能为负(0 = 不分档)")
@@ -510,6 +569,10 @@ func validateModel(m *AgentModel) error {
 	// 最大输入(0088):不为负;配了就不能超过上下文(输入是上下文的一部分,超了必溢出)。
 	if m.MaxInput < 0 {
 		return errors.New("最大输入不能为负(0 = 未配,由 agent 自动算)")
+	}
+	// 最大完成 token 不为负(负值会让 executor 的 min(全局上限, maxOutput) 钳出非法 max_tokens)。
+	if m.MaxOutput < 0 {
+		return errors.New("最大完成不能为负(0 = 未知,回落全局上限)")
 	}
 	if m.MaxInput > 0 && m.MaxInput > m.ContextWindow {
 		return errors.New("最大输入不能大于上下文(上下文 = 输入 + 输出 的共享预算)")
@@ -603,12 +666,16 @@ func (s *Service) DeleteModel(id uint64) error {
 			return fmt.Errorf("模型仍被能力绑定「%s」引用,请先改绑其他模型", v.Purpose)
 		}
 	}
-	// 评审 R2-info:删掉仍被会话 pin 的模型后,其在跑轮次的用量会 Pricer miss → weight=1 少扣
-	// (停用行仍在目录保权重,删除行丢权重)。拒删被 pin 的模型;运营应「停用(disable)」而非删除来淘汰。
-	if n, err := s.repo.CountPinnedSessions(existing.ModelID); err != nil {
-		slog.Warn("modelcatalog: count pinned sessions failed (allowing delete)", "model_id", existing.ModelID, "err", err)
-	} else if n > 0 {
-		return fmt.Errorf("模型仍被 %d 个会话锁定选用,请改为「停用」以保留其计价倍率(删除会使在跑会话按 1× 少扣)", n)
+	// 评审 R2-info:删掉仍被会话 pin 的模型后,其在跑轮次的用量会 Pricer miss → cost=0 漏扣
+	// (停用行仍在目录保单价,删除行丢单价)。拒删被 pin 的模型;运营应「停用(disable)」而非删除来淘汰。
+	// 查询失败即拒删(fail-closed,与上面绑定引用检查的失败语义对齐 —— 数错宁可不删,防漏扣)。
+	n, err := s.repo.CountPinnedSessions(existing.ModelID)
+	if err != nil {
+		slog.Warn("modelcatalog: count pinned sessions failed (delete rejected)", "model_id", existing.ModelID, "err", err)
+		return errors.New("无法确认该模型是否仍被会话锁定选用,已取消删除,请稍后重试")
+	}
+	if n > 0 {
+		return fmt.Errorf("模型仍被 %d 个会话锁定选用,请改为「停用」以保留其单价(删除会使在跑会话按 0 计价漏扣)", n)
 	}
 	if err := s.repo.DeleteModel(id); err != nil {
 		return err

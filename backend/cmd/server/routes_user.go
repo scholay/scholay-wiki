@@ -8,6 +8,8 @@
 package main
 
 import (
+	"time"
+
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/peerreview"
@@ -81,6 +83,14 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 	// 计费套餐(公开):价格/倍率/赠送/起充等非敏感配置, 给落地价格页 + 套餐卡用。
 	api.GET("/billing/plans", h.vip.PublicPlans)
 
+	// 邀请落地页打开计数(公开,免登录):前端 /i/:code 落地页加载时上报一次。
+	// 码不存在也回 200 {valid:false}(契约:不报 4xx,防探测噪音);限流给较严的
+	// per-IP 档 —— 落地页一次访问只上报一次,20 次/分钟对真人富余,对刷计数够狠。
+	api.POST("/invite/open",
+		middleware.RateLimitMiddleware(20, time.Minute),
+		h.invite.RecordOpen,
+	)
+
 	// ── Skills 市场公开端点(免登录;只服务 public+approved+active)——
 	// 跨 agent 分发:install.md 安装说明 / marketplace.json 目录 / :slug/download tar.gz /
 	// :slug 匿名详情(分享落地页)/ :slug/SKILL.md 原始文本。静态段(install.md/marketplace.json)
@@ -118,6 +128,11 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.GET("/models", h.modelCatalog.ListUserModels)
 		userProtected.POST("/redeem-code/preview", h.vip.PreviewCode) // 兑换前预览(确认弹窗)
 		userProtected.POST("/redeem-code", h.vip.RedeemCode)
+
+		// 我的邀请(get-or-create):首次调用即生成该用户唯一邀请码,返回码/落地 URL/统计。
+		userProtected.GET("/invite", h.invite.GetMyInvite)
+		// 我邀请的用户列表(name 已在服务层脱敏,原始邮箱/用户名/ID 不下发)
+		userProtected.GET("/invite/registrations", h.invite.GetMyRegistrations)
 
 		// 期刊投稿资源下载(投稿须知 .md / LaTeX 模板 .zip)—— Max 会员专享。
 		// 后端校验 tier=max + 代理拉取(上游 key 与真实下载地址都不暴露给前端)。

@@ -32,6 +32,12 @@ export const PLAN_META: Record<'free' | 'pro' | 'max', { name: string; sub: stri
   max: { name: 'Max', sub: '高频科研的主力之选' },
 };
 
+/** 金额展示(分 → 元):整元显示整数(¥59),非整元保留两位小数(¥19.90)。
+ *  价格卡与订阅弹窗共用,保证两处口径一致(弹窗差价必带分位,取整会虚报)。 */
+export function yuanText(cents: number): string {
+  return cents % 100 === 0 ? String(Math.round(cents / 100)) : (cents / 100).toFixed(2);
+}
+
 /** 该档年付是否可购(后端年价 <=0 = admin 未开放)。 */
 export function planYearlyEnabled(plan: Pick<MembershipPlanData, 'year_price_cents'>): boolean {
   return (plan.year_price_cents ?? 0) > 0;
@@ -133,10 +139,10 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-end gap-2">
           <span className="font-display text-28 font-bold leading-none text-foreground">
-            {isFree ? '免费' : `¥${Math.round(priceCents / 100)}`}
+            {isFree ? '免费' : `¥${yuanText(priceCents)}`}
           </span>
           {!isFree && originalCents > priceCents && (
-            <span className="text-12 text-faint line-through">¥{Math.round(originalCents / 100)}</span>
+            <span className="text-12 text-faint line-through">¥{yuanText(originalCents)}</span>
           )}
           {!isFree && <span className="text-12 text-faint">{yearly ? '/ 年' : '/ 月'}</span>}
           {!isFree && !yearly && originalCents > priceCents && (
@@ -144,7 +150,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
           )}
           {!isFree && yearly && savings > 0 && (
             <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-12 font-medium text-on-brand">
-              比月付省 ¥{Math.round(savings / 100)}
+              比月付省 ¥{yuanText(savings)}
             </span>
           )}
         </div>

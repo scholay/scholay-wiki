@@ -140,7 +140,9 @@ func tokenUsedKey(userID uint, anchor int64) string {
 	return fmt.Sprintf("quota:tokens:%d:%d", userID, anchor)
 }
 
-// tokenBaseKey —— 窗口内额度基线(重置/升级时抬到当时 used)。
+// tokenBaseKey —— 窗口内额度基线。**base 已退役,只读不写**:三条满血路径均改「换锚」
+// (见文件头注释),新 key 下 base 天然缺失=0;loadWindow 仍读它仅为兼容发版前用旧逻辑
+// 抬过 base 的存量在飞窗口,老 key 随 TTL 自然沉降。
 func tokenBaseKey(userID uint, anchor int64) string {
 	return fmt.Sprintf("quota:base:%d:%d", userID, anchor)
 }
@@ -297,9 +299,16 @@ func (s *Service) CheckDailyQuota(ctx context.Context, userID uint) error {
 	return s.payAsYouGoOrQuotaError(userID, tier, cfg, w)
 }
 
-// RemainingBudget —— 有界透支预算(SS#2),给 agentbridge 每条 user_message 盖章用。
-// soft = 到窗口上限还剩;hard = 到「上限 + 透支带」还剩(均可为负 = 已在透支带内)。
-// unlimited=true(收费关 / 上限<0 / 未登录)时无预算概念。只读不预扣。
+// RemainingBudget —— 单轮预算(SS#2),给 agentbridge 每条 user_message 盖章用。
+// soft = hard = 到窗口上限还剩(可为负 = 在跑那轮已越线)。透支带已于 2026-07-30 取消
+// (owner 拍板「没有透支这个说法」),两个返回值保留是帧契约(softRemaining/hardRemaining)
+// 与执行器 wind-down 机制的形状不动。unlimited=true(收费关 / 上限<0 / 未登录)时无预算概念。只读不预扣。
+//
+// payg 感知(0094/0095):开了「经费自动付费」且余额为正的用户,越过 ceiling 后的消耗走
+// 按量付费从经费**实扣**(payAsYouGoOverflow → chargePayAsYouGo),闸门也放行 —— 此时
+// 预算 = 「还能花多少」 = 窗口余量(截零)+ 钱包容量(经费可兑换的微元),而不是裸的窗口
+// 余量:否则 autopay 用户一越过上限 hard 即为负,agent 每轮 round-0 就 wind-down,
+// 付了钱却只拿到降级回答。钱包读失败安全降级为不加(预算宁紧勿松,slog.Warn 可见化)。
 func (s *Service) RemainingBudget(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
 	if userID == 0 {
 		return 0, 0, true
@@ -314,38 +323,45 @@ func (s *Service) RemainingBudget(ctx context.Context, userID uint) (soft, hard 
 		return 0, 0, true
 	}
 	used := s.loadWindow(ctx, userID).windowUsed()
-	return ceiling - used, ceiling + cfg.OverdraftTokens(tier) - used, false
+	soft, hard = ceiling-used, ceiling-used // 透支带已取消:hard 与 soft 同值
+	bal, err := s.wallet.Balance(userID, cfg)
+	if err != nil {
+		slog.Warn("billing: budget wallet read failed, skip payg capacity", "user_id", userID, "err", err)
+		return soft, hard, false
+	}
+	soft, hard = paygAdjustedBudget(soft, hard, bal.PermMicro, bal.CreditAutopay, int64(cfg.creditToPoints()))
+	return soft, hard, false
 }
 
-// CheckDailyQuotaOverdraft —— 有界透支版起点闸(SS#2,smart_search/claw/prism 用)。
-// 与 CheckDailyQuota 唯一区别:上限放宽到 ceiling + 透支带 —— 跨线那一轮总能起跑。
-// peerreview(任务型)保持用严格版。
+// paygAdjustedBudget 把钱包容量并入窗口预算(纯函数,便于单测)。
+// autopay 关 / 余额非正 → 原样返回(闸门也不会放行,预算就是窗口口径);
+// 否则 soft/hard 各 = max(原值, 0) + 钱包容量。容量 = permMicro × points / 1000
+// —— MicroCreditForCost 的逆运算(micro-credit → 微元真实成本;1 经费 = points × 1000 微元
+// = 1e6 micro-credit)。窗口余量先截零:在跑轮越线欠出的负值是「窗口欠账」,那部分消耗
+// 已经发生、不会再从经费里补扣,叠进容量会双重放大预算。
+func paygAdjustedBudget(soft, hard, permMicro int64, autopay bool, creditToPoints int64) (int64, int64) {
+	if !autopay || permMicro <= 0 {
+		return soft, hard
+	}
+	capacityMicro := permMicro * creditToPoints / 1000
+	return max64(soft, 0) + capacityMicro, max64(hard, 0) + capacityMicro
+}
+
+// CheckDailyQuotaOverdraft —— 历史名(原 SS#2 有界透支版起点闸)。
+// 🔴 透支带已于 2026-07-30 取消(owner 拍板「各套餐的透支都取消,没有透支这个说法」),
+// 本函数与严格版完全等价,直接委托 CheckDailyQuota。保留方法名只为 5 个 WS feature spec
+// (smart_search/claw/prism/boltslides/sci_draw)与 agentbridge 的 VIPChecker 接口调用点
+// 不必联动;新代码请直接用 CheckDailyQuota。
 func (s *Service) CheckDailyQuotaOverdraft(ctx context.Context, userID uint) error {
-	if userID == 0 {
-		return nil
-	}
-	cfg := s.cfg.Get()
-	if !cfg.Enabled {
-		return nil
-	}
-	tier := s.EffectiveTier(userID)
-	ceiling := cfg.WindowCeiling(tier)
-	if ceiling < 0 {
-		return nil
-	}
-	w := s.loadWindow(ctx, userID)
-	if w.windowUsed() < ceiling+cfg.OverdraftTokens(tier) {
-		return nil
-	}
-	return s.payAsYouGoOrQuotaError(userID, tier, cfg, w)
+	return s.CheckDailyQuota(ctx, userID)
 }
 
-// payAsYouGoOrQuotaError —— 窗口(含透支带)已耗尽时的最后一道判定:
+// payAsYouGoOrQuotaError —— 窗口额度已耗尽时的最后一道判定:
 // 开了「经费自动付费」且**余额为正**就放行(本轮成本由 AddUsage 从经费扣),否则回额度错误。
 //
 // 为什么只要求「余额为正」而不是「余额够本轮」:本轮成本在开跑前不可知(取决于模型吐多少 token)。
-// 与窗口额度的有界透支带同一套取舍 —— 起跑闸把关,单轮内允许小幅透支,保证 agent 能优雅收尾;
-// 透支上界 ≈ 一轮的成本,下一轮起跑时余额已 <=0 就拦住了。
+// 起跑闸把关、单轮内不打断(闸门只在 user_message 起点执法),agent 靠预算章优雅收尾;
+// 单轮内欠出的部分 ≈ 一轮的成本,下一轮起跑时余额已 <=0 就拦住了。
 func (s *Service) payAsYouGoOrQuotaError(userID uint, tier string, cfg *BillingConfig, w quotaWindow) error {
 	bal, err := s.wallet.Balance(userID, cfg)
 	if err == nil && bal.CreditAutopay && bal.PermMicro > 0 {
@@ -525,7 +541,12 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	resetNotNeeded := func() (quotaWindow, bool) {
 		w := s.loadWindow(ctx, userID)
 		ceiling := cfg.WindowCeiling(s.EffectiveTier(userID))
-		return w, ceiling >= 0 && w.windowUsed() < ceiling
+		// 不限额档(ceiling<0)重置零收益:窗口对它没有任何约束,换锚不改变任何行为,
+		// 却要扣 1 次不可再生的重置次数 —— 直接按「无需重置」成功返回,不扣次数。
+		if ceiling < 0 {
+			return w, true
+		}
+		return w, w.windowUsed() < ceiling
 	}
 
 	// 1) 锁内首判:不需要就直接成功,绝不扣费。
@@ -598,7 +619,8 @@ func payAsYouGoOverflow(prevWin, curWin, ceiling int64) int64 {
 //
 // 只在用户**显式开启** credit_autopay 时扣 —— 不知情扣费正是 auto_reset 被整个下线的原因。
 // 没开开关的用户,超出部分不扣经费:他们本来就被闸门拦在门外了,能跑到这里的只有
-// 「透支带内的那一轮」,平台吃下这点透支,好过在用户没同意的情况下动他的钱包。
+// 「起跑时还在限内、单轮内越线」的那一轮(闸门只在 user_message 起点执法,单轮不打断),
+// 平台吃下这一轮的越线量,好过在用户没同意的情况下动他的钱包。
 //
 // best-effort:本函数在 llmusage 的异步 observer 链上,失败只告警不重试 ——
 // 重试会有重复扣费风险,而单次漏扣的金额上界是一轮的成本。

@@ -86,6 +86,15 @@ func main() {
 	// gin 全局模式跟随 GIN_MODE —— 不设的话 gin 默认 debug, 既打印调试噪声也让一些
 	// "release 才生效"的安全分支(默认密钥 fail-fast / 支付金额校验 / JSON 日志)失活。
 	gin.SetMode(cfg.App.GinMode)
+	// 测试支付开关的生效状态在启动时打一条,让「开关开着但被 release 硬闸压掉」可见:
+	// vip.testPaymentEnabled 在 release 模式下无视 PAYMENT_TEST_ENABLED(生产资损硬闸)。
+	if cfg.App.TestPaymentEnabled {
+		if cfg.App.IsRelease {
+			slog.Warn("PAYMENT_TEST_ENABLED=true 但 GIN_MODE=release,测试支付已被生产硬闸关闭;本地要用请设 GIN_MODE=debug")
+		} else {
+			slog.Warn("测试支付已开启(PAYMENT_TEST_ENABLED=true, GIN_MODE=debug)——任何登录用户可免网关履约订单,勿用于生产")
+		}
+	}
 	// 用 gin.New() 替代 gin.Default()：自定义 Recovery 增加 trace_id/结构化日志，
 	// 同时保留 gin.Logger() 行为。
 	router := gin.New()

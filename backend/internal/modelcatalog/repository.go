@@ -86,8 +86,8 @@ func (r *Repository) DeleteModel(id uint64) error {
 }
 
 // UpsertPlaceholderModel 首见某未计价上游 model code(项目侧翻译/矩阵/公众号等不在目录的模型)时,
-// 插入一条**停用占位行**(enabled/user_selectable=false、weight=1、单价 0),让它出现在 admin 目录里
-// 可被补上下文窗口/四类单价/计费倍率后启用统计。已存在则完全不动(DoNothing),绝不覆盖 admin 已填值。
+// 插入一条**停用占位行**(enabled/user_selectable=false、单价 0),让它出现在 admin 目录里
+// 可被补上下文窗口/四类单价后启用统计。已存在则完全不动(DoNothing),绝不覆盖 admin 已填值。
 func (r *Repository) UpsertPlaceholderModel(modelID, channel string) error {
 	return r.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "model_id"}},
@@ -96,10 +96,10 @@ func (r *Repository) UpsertPlaceholderModel(modelID, channel string) error {
 		ModelID:        modelID,
 		DisplayName:    modelID,
 		Channel:        channel,
-		BillingWeight:  1,
+		BillingWeight:  1, // billing_weight 列已退休(P5 成本制),仅填列默认值作兼容,不参与任何计算
 		Enabled:        false,
 		UserSelectable: false,
-		Notes:          "自动登记:计价目录未命中的上游模型。补上下文窗口/四类单价/计费倍率后即纳入成本看板与加权。",
+		Notes:          "自动登记:计价目录未命中的上游模型。补上下文窗口/四类单价后即纳入成本看板。",
 	}).Error
 }
 
@@ -119,7 +119,7 @@ func (r *Repository) ListBindings() ([]ModelBinding, error) {
 }
 
 // UpsertBinding 写入/覆盖某 purpose 的绑定(绑定行不可删,只可改指向 —— INSERT IGNORE 种子
-// 会在重启重放时复活被删行,禁删比加墓碑简单且 11 个 purpose 是闭集)。
+// 会在重启重放时复活被删行,禁删比加墓碑简单且 10 个 purpose 是闭集)。
 func (r *Repository) UpsertBinding(purpose, modelID string) error {
 	return r.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "purpose"}},

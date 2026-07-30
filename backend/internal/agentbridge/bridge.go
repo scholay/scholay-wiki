@@ -268,7 +268,9 @@ func (b *Bridge) accrueTurnUsage(sessionID, sessionModel string, turnUsage Agent
 	}
 	rd := [4]int64{nonNegInt64(delta[0] - sum[0]), nonNegInt64(delta[1] - sum[1]), nonNegInt64(delta[2] - sum[2]), nonNegInt64(delta[3] - sum[3])}
 	if rd[0] > 0 || rd[1] > 0 || rd[2] > 0 || rd[3] > 0 {
-		// P3 计价优先级:无明细时的本轮模型(最准)> 会话当前模型 > "(reconciled)" 哨兵(按基准价)。
+		// P3 计价优先级:无明细时的本轮模型(最准)> 会话当前模型 > "(reconciled)" 哨兵。
+		// 哨兵行由 modelcatalog.PriceUsage 按基准价(system.main 生效模型单价)计价,解析不到
+		// 基准模型才退 cost=0 —— 不再是「目录 miss 一律 0 计价」的漏扣通道;落账 model 字段保留哨兵原值。
 		model := "(reconciled)"
 		if len(rows) == 0 && turnUsage.Model != "" {
 			model = turnUsage.Model // 无 per-call 明细(老 agent / 空 calls)→ 用本轮模型标注差额行

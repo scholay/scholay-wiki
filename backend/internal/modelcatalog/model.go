@@ -109,10 +109,10 @@ type AgentModel struct {
 	PriceCacheR    float64   `json:"price_cache_r" gorm:"column:price_cache_r;type:decimal(12,4);not null;default:0"`
 	PriceCacheW    float64   `json:"price_cache_w" gorm:"column:price_cache_w;type:decimal(12,4);not null;default:0"`
 	BillingWeight  float64   `json:"billing_weight" gorm:"column:billing_weight;type:decimal(8,4);not null;default:1"`
-	// 输入长度分档计价(migration 0084):prompt(input+cacheRead)超过 InputTierThreshold 时切高档
-	// 价格 + 高档倍率(千问 qwen3.7-plus 等 >256k 约 3×)。分档同时作用价格(成本看板)与倍率(用户配额),
+	// 输入长度分档计价(migration 0084):prompt(input+cacheRead+cacheWrite,与 PriceUsage 实现
+	// 一致)超过 InputTierThreshold 时切高档价格(千问 qwen3.7-plus 等 >256k 约 3×),
 	// 否则长上下文请求平台白吃差价。InputTierThreshold=0 → 不分档(DeepSeek / max / flash 等扁平模型)。
-	// price_*_hi / BillingWeightHi 为 0 时 PriceUsage 回落基础值(防误配把价/倍率清零)。
+	// price_*_hi 为 0 时 PriceUsage 回落基础值(防误配把价清零);BillingWeightHi 已随倍率制退休。
 	InputTierThreshold int     `json:"input_tier_threshold" gorm:"column:input_tier_threshold;not null;default:0"`
 	PriceInHi          float64 `json:"price_in_hi" gorm:"column:price_in_hi;type:decimal(12,4);not null;default:0"`
 	PriceOutHi         float64 `json:"price_out_hi" gorm:"column:price_out_hi;type:decimal(12,4);not null;default:0"`

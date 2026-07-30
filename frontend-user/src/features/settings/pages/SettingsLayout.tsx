@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { User, Shield, Link2, Crown } from 'lucide-react';
+import { User, Shield, Link2, Crown, UserPlus } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -9,6 +9,7 @@ import { cn } from '@/shared/lib/utils';
 const TABS = [
   { to: '/settings/profile', label: '个人资料', icon: User },
   { to: '/settings/membership', label: '账户资产', icon: Crown },
+  { to: '/settings/invite', label: '邀请好友', icon: UserPlus },
   { to: '/settings/security', label: '安全设置', icon: Shield },
   { to: '/settings/connections', label: '已连接账号', icon: Link2 },
 ];

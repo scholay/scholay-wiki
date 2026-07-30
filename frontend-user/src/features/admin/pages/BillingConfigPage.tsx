@@ -10,7 +10,8 @@ import { useApiToast } from '../hooks/useApiToast';
 import { useBillingConfig, useUpdateBillingConfig, type BillingConfig } from '../api/billing-config';
 
 // scale:DB 值与展示值的换算。free_window_tokens 库里存微元真实成本,展示/编辑按算力点(1 点 = 1000 微元 = ¥0.001)。
-type NumField = { key: keyof BillingConfig; label: string; hint?: string; step?: number; scale?: number };
+// readOnly:仅展示不可编辑(disabled 置灰)。值仍留在 form 里随保存整体提交 —— 后台 PUT 是全列覆盖,不提交会被写 0。
+type NumField = { key: keyof BillingConfig; label: string; hint?: string; step?: number; scale?: number; readOnly?: boolean };
 type Group = { title: string; fields: NumField[] };
 
 const GROUPS: Group[] = [
@@ -59,7 +60,9 @@ const GROUPS: Group[] = [
       // reset_cost_credits 已不参与运行时(重置改扣「重置次数」),但**不能从表单删** ——
       // 后台 PUT 是全列覆盖,表单不提交它会被写成 0,而迁移 0092 拿它当换算除数、每次启动重放,
       // 被写成 0 会让未换算批次按 1:1 换 = 超发 120 倍。保留只读展示,禁止编辑。
-      { key: 'reset_cost_credits', label: '经费→重置次数换算率(历史迁移用)', hint: '已不参与运行时判定;仅迁移 0092 用作换算除数。**请勿改动**' },
+      { key: 'reset_cost_credits', label: '经费→重置次数换算率(历史迁移用)', hint: '已不参与运行时判定;仅迁移 0092 用作换算除数。**请勿改动**', readOnly: true },
+      { key: 'invite_reward_credits', label: '邀请奖励(经费/人)', hint: '每成功邀请 1 人赠送邀请人的经费;经费=分,100=¥1;0=关闭活动' },
+      { key: 'invite_reward_daily_cap', label: '邀请奖励每日上限(人)', hint: '每邀请人每天最多计奖励的邀请数;0=不限。防小号批量注册刷奖励' },
     ],
   },
 ];
@@ -136,9 +139,14 @@ export function BillingConfigPage() {
                       type="number"
                       step={f.step ?? 1}
                       value={String(f.scale ? Math.round((Number(form[f.key] ?? 0)) / f.scale) : (form[f.key] ?? 0))}
-                      onChange={(e) =>
-                        setNum(f.key, f.scale ? String(Number(e.target.value) * f.scale) : e.target.value)
-                      }
+                      onChange={(e) => {
+                        if (f.readOnly) return; // 只读字段(如 reset_cost_credits)不接受编辑
+                        setNum(f.key, f.scale ? String(Number(e.target.value) * f.scale) : e.target.value);
+                      }}
+                      // 只读字段 disabled 置灰(Input 自带 disabled:opacity-50)。onSave 提交的是 form
+                      // state 而非原生表单序列化,disabled 不影响该字段随保存整体提交。
+                      disabled={f.readOnly}
+                      readOnly={f.readOnly}
                       className="h-9"
                     />
                     {f.hint && <span className="text-12 text-faint">{f.hint}</span>}

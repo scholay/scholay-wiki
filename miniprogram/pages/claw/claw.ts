@@ -844,7 +844,7 @@ Page({
   onQuota(msg: string) {
     S.pendingTurns.pop()
     this.rebuild()
-    wx.showModal({ title: '今日额度已用完', content: msg, showCancel: false })
+    wx.showModal({ title: '本周期额度已用完', content: msg, showCancel: false })
   },
 
   onResyncUser(text: string) {

@@ -103,14 +103,37 @@ func TestWindowCeiling(t *testing.T) {
 	if cz.WindowCeiling(TierFree) != -1 {
 		t.Errorf("zero base should be unlimited")
 	}
-	// 透支带(P5 成本制,单位微元):按日均(ceiling/窗口天数)的 15%,地板 ¥0.5(500000 微元)。
-	co := &BillingConfig{FreeWindowTokens: 70_000_000, WindowDays: 7} // 日均 1000 万 → 15% = 150 万 > 地板
-	if co.OverdraftTokens(TierFree) != 1_500_000 {
-		t.Errorf("overdraft=%d want 1500000", co.OverdraftTokens(TierFree))
+	// (透支带断言已删 —— 2026-07-30 拍板取消各套餐透支,OverdraftTokens 整个移除,
+	//  起点闸一到 WindowCeiling 即拦(或走 payg)。)
+}
+
+// TestRechargeCreditsForFixedPoint 守住充值换算的整数定点口径:
+// 旧实现 int(float64(cents)/100.0*rate) 是浮点截断,rate=100(0095 现网)时约 6.6% 的
+// 金额会因二进制尾差少到账 1 分经费(如 1003 分 → 1002)。定点后 round-half-up,无截断。
+func TestRechargeCreditsForFixedPoint(t *testing.T) {
+	cases := []struct {
+		name  string
+		cents int
+		rate  float64
+		want  int
+	}{
+		{"0095 现网:1003 分 × 100 = 1003(浮点截断会得 1002)", 1003, 100, 1003},
+		{"旧口径回归:1000 分 × 60 = 600", 1000, 60, 600},
+		{"起充额:1000 分 × 100 = 1000", 1000, 100, 1000},
+		{"整倍数:2000 分 × 100 = 2000", 2000, 100, 2000},
+		{"非整率向下:99 分 × 0.5 = 0.495 → 0(half-up 不到半)", 99, 0.5, 0},
+		{"非整率向上:101 分 × 0.5 = 0.505 → 1", 101, 0.5, 1},
+		{"恰好半:1 分 × 50 = 0.5 → 1(round-half-up)", 1, 50, 1},
+		{"rate<=0 → 0", 1000, 0, 0},
+		{"rate 负数 → 0", 1000, -1, 0},
+		{"cents<=0 → 0", 0, 100, 0},
+		{"负金额 → 0", -100, 100, 0},
 	}
-	cf := &BillingConfig{FreeWindowTokens: 1_400_000, WindowDays: 7} // 日均 20 万 → 15%=3 万 < 地板 50 万
-	if cf.OverdraftTokens(TierFree) != 500_000 {
-		t.Errorf("overdraft floor=%d want 500000", cf.OverdraftTokens(TierFree))
+	for _, tc := range cases {
+		c := &BillingConfig{RechargeRate: tc.rate}
+		if got := c.RechargeCreditsFor(tc.cents); got != tc.want {
+			t.Errorf("%s: RechargeCreditsFor(%d)@rate=%v = %d want %d", tc.name, tc.cents, tc.rate, got, tc.want)
+		}
 	}
 }
 
@@ -435,6 +458,32 @@ func TestActivePassSQLShape(t *testing.T) {
 	}
 }
 
+// ─── 邀请注册奖励(0100)────────────────────────────────────────────────────
+
+// TestInviteRewardRefType 钉住邀请奖励流水的契约:type="invite_reward"、ref_type="invite"。
+// ⚠️ refTypeOf(SourceInvite) 目前靠 **default 分支**(原样透传 source)成立 ——
+// wallet.go 属禁改文件,没有为 invite 加显式 case;谁改了 default 的透传语义,这条立刻红。
+func TestInviteRewardRefType(t *testing.T) {
+	if got := refTypeOf(SourceInvite); got != "invite" {
+		t.Fatalf(`refTypeOf(SourceInvite)=%q want "invite"(流水 ref_type 契约,0100)`, got)
+	}
+	if TxInviteReward != "invite_reward" {
+		t.Fatalf(`TxInviteReward=%q want "invite_reward"(流水 type 契约,0100)`, TxInviteReward)
+	}
+	if SourceInvite != "invite" {
+		t.Fatalf(`SourceInvite=%q want "invite"`, SourceInvite)
+	}
+}
+
+// TestInviteRewardDefaultOff 兜底配置绝不能自带发钱:DB 读不到时回退的 DefaultBillingConfig
+// 必须把邀请奖励关死(credits=0)且不设上限旋钮 —— 「发钱的活动必须由 admin 显式开启」。
+func TestInviteRewardDefaultOff(t *testing.T) {
+	c := DefaultBillingConfig()
+	if c.InviteRewardCredits != 0 || c.InviteRewardDailyCap != 0 {
+		t.Fatalf("邀请奖励默认必须关闭: credits=%d cap=%d", c.InviteRewardCredits, c.InviteRewardDailyCap)
+	}
+}
+
 // ─── 按量付费(0094)────────────────────────────────────────────────────────
 
 func TestMicroCreditConversion(t *testing.T) {
@@ -529,6 +578,38 @@ func TestPaygMustBePricierThanPlans(t *testing.T) {
 	noRecharge.CreditToPoints = 999
 	if err := validateBillingConfig(noRecharge); err != nil {
 		t.Fatalf("充值关闭时不应比较按量单价: %v", err)
+	}
+}
+
+// TestPaygAdjustedBudget —— P1「payg 预算感知钱包」:autopay 用户越过透支带后,预算必须
+// 计入钱包容量,否则 hard 为负 → agent 每轮 round-0 即 wind-down,付费却拿降级回答。
+// 语义:预算 = 「还能花多少」 = 窗口余量(截零)+ 钱包容量(经费可兑换的微元)。
+func TestPaygAdjustedBudget(t *testing.T) {
+	const points = 3 // 0095 现网兑换率:1 经费 = 3 算力点 = 3000 微元
+	cases := []struct {
+		name               string
+		soft, hard         int64
+		permMicro          int64
+		autopay            bool
+		wantSoft, wantHard int64
+	}{
+		{"未开 autopay:原样返回(含负值)", -500, -100, 10 * MicroCreditPerCredit, false, -500, -100},
+		{"开了但余额为 0:原样返回", -500, -100, 0, true, -500, -100},
+		{"开了但余额为负(已扣成负):原样返回", -500, -100, -1, true, -500, -100},
+		{"窗口未用尽:余量 + 钱包容量(1 经费=3000 微元)", 1000, 2000, MicroCreditPerCredit, true, 4000, 5000},
+		{"窗口已越线(负余量):截零,预算=纯钱包容量", -500, -100, MicroCreditPerCredit, true, 3000, 3000},
+		{"soft 负 hard 正:各自截零后再加容量", -500, 200, 2 * MicroCreditPerCredit, true, 6000, 6200},
+		{"余额为 0 时不截零:窗口口径的负值原样保留", -1, -1, 0, true, -1, -1},
+	}
+	for _, c := range cases {
+		gotSoft, gotHard := paygAdjustedBudget(c.soft, c.hard, c.permMicro, c.autopay, points)
+		if gotSoft != c.wantSoft || gotHard != c.wantHard {
+			t.Errorf("%s: got (soft=%d, hard=%d) want (%d, %d)", c.name, gotSoft, gotHard, c.wantSoft, c.wantHard)
+		}
+	}
+	// 容量换算是 MicroCreditForCost 的逆运算:1 经费(1e6 micro-credit)@points=3 → 3000 微元。
+	if s, h := paygAdjustedBudget(0, 0, MicroCreditPerCredit, true, points); s != 3000 || h != 3000 {
+		t.Fatalf("容量换算错误: soft=%d hard=%d want 3000/3000", s, h)
 	}
 }
 

@@ -99,7 +99,7 @@ Page({
       this.setData({ translating: false })
       const err = e as { code?: number; message?: string }
       if (err.code === 6010) {
-        wx.showModal({ title: '额度已用完', content: '今日 AI 额度已用完,请明日再来或提升会员', showCancel: false })
+        wx.showModal({ title: '额度已用完', content: '本周期 AI 额度已用完,可在「我的」页重置额度或提升会员', showCancel: false })
       } else {
         wx.showToast({ title: err.message || '翻译失败', icon: 'none' })
       }

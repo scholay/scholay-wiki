@@ -11,7 +11,8 @@
 --   ② user_wallets.credit_autopay_enabled —— 额度耗尽后是否自动用经费续,**默认关**。
 --   ③ user_wallets.perm_balance_micro —— 经费余额升格成 micro-credit(经费 × 1e6)。
 --
--- 幂等:add_column_if_not_exists + -1 哨兵回填(与 0079 年度字段同款)+ MODIFY 重放同态。
+-- 幂等:add_column_if_not_exists + -1 哨兵回填(mark 一次性门控,非 0079 同款 ——
+--   payg 允许负余额,-1 在合法值域内,无 mark 会在重放时复活恰为 -1 的用户余额)+ MODIFY 重放同态。
 -- 铁律:never DROP;旧 perm_balance 列冻结保留作审计/回滚。
 -- ============================================================================
 
@@ -38,13 +39,26 @@ ALTER TABLE `user_wallets`
 -- 为什么存 micro-credit 而不是直接存微元:经费是**储值(钱)**,余额不能随汇率浮动。
 -- 存微元的话,admin 改 credit_to_points 会连带改变用户余额本身的显示数字(600 → 750)。
 --
--- 幂等:建列初值 -1 = 未回填哨兵;回填只匹配 -1;回填后把 DEFAULT 改成 0。
--- 重放时列已存在(DEFAULT 已是 0)→ add 无操作,UPDATE 匹配 0 行,MODIFY 同态。
+-- 幂等:建列初值 -1 = 未回填哨兵;回填只匹配 -1 且仅**首次执行**(mark 门控,0021 范式)。
+-- 🔴 为什么 -1 哨兵必须配 mark:ConsumeForQuota(payg)刻意允许把余额扣成负数,
+--    -1 micro 落在**合法值域内** —— 若每次重放都跑 WHERE=-1 的回填,恰好欠 1 micro 的
+--    用户会在每次重启被复活成 perm_balance×1e6(迁移前的全部经费)。mark 让回填只发生
+--    一次,此后 -1 就是真实余额,永不再碰。
+CREATE TABLE IF NOT EXISTS `_schema_migration_marks` (
+  `mark` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `applied_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CALL add_column_if_not_exists('user_wallets', 'perm_balance_micro', 'BIGINT NOT NULL DEFAULT -1');
+
+INSERT IGNORE INTO `_schema_migration_marks` (`mark`)
+VALUES ('0094_perm_micro_backfill');
+
+SET @first_run := ROW_COUNT();
 
 UPDATE `user_wallets`
 SET `perm_balance_micro` = `perm_balance` * 1000000
-WHERE `perm_balance_micro` = -1;
+WHERE @first_run = 1 AND `perm_balance_micro` = -1;
 
 ALTER TABLE `user_wallets`
   MODIFY COLUMN `perm_balance_micro` bigint NOT NULL DEFAULT '0'

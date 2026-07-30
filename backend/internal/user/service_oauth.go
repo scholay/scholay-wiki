@@ -259,6 +259,8 @@ func (s *Service) CancelPendingMergeAndCreateUser(ctx context.Context, token, ip
 	_ = cache.DeleteOAuthMerge(ctx, token)
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 	s.SendWelcomeMessage(user.ID)
+	// 邀请归因(best-effort):「新建独立账号」也是新用户;创建非事务,Create 已落库即可归因。
+	notifyInviteRegistered(ctx, user.ID, "oauth_merge")
 
 	jwtToken, err := s.generateTokenForUser(user, "")
 	if err != nil {

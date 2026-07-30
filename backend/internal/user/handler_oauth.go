@@ -78,6 +78,12 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		return
 	}
 
+	// 邀请归因(best-effort):LoginOrRegisterWithWeChat 不带 ctx,故在 handler 层按
+	// isNewUser 归因;老用户扫码登录绝不归因。
+	if isNewUser {
+		notifyInviteRegistered(c.Request.Context(), user.ID, "wechat")
+	}
+
 	utils.Success(c, gin.H{
 		"token":       token,
 		"user":        user,
@@ -127,6 +133,11 @@ func (h *Handler) MiniProgramLogin(c *gin.Context) {
 	if err != nil {
 		utils.InternalError(c, 5003, "微信登录失败", err)
 		return
+	}
+
+	// 邀请归因(best-effort):method 统一记 "wechat"(契约枚举);渠道差异看 users.register_source。
+	if isNewUser {
+		notifyInviteRegistered(c.Request.Context(), user.ID, "wechat")
 	}
 
 	utils.Success(c, gin.H{

@@ -29,6 +29,10 @@ export interface BillingConfig {
    *  后端硬校验:按量单价必须严格高于所有套餐档,否则拒绝保存。 */
   credit_to_points: number;
   reset_cost_credits: number;
+  /** 每成功邀请 1 人赠邀请人的经费(经费=分);0=关闭活动。 */
+  invite_reward_credits: number;
+  /** 每邀请人每日最多计奖励的邀请数;0=不限(防小号批量注册刷奖励)。 */
+  invite_reward_daily_cap: number;
   // 0090 退休:subscription_period_days(月度改「+1 个自然月」)。
   popular_plan: string;
   enabled: boolean;

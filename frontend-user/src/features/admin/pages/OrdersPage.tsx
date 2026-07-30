@@ -104,7 +104,12 @@ export function OrdersPage() {
       cell: (r) => <span className="tabular-nums text-12 font-medium text-foreground">{yuan(r.final_amount)}</span>,
     },
     {
-      header: '经费',
+      // 与用户抽屉「经费流水」区块同款口径提示(0095 汇率重锚前后金额刻度不同)。
+      header: (
+        <span title="按量付费消耗不逐笔入流水;2026-07-29 汇率重锚(60→100 经费/¥)前的历史行是旧刻度">
+          经费
+        </span>
+      ),
       width: 80,
       align: 'right',
       cell: (r) => <span className="tabular-nums text-12 text-subtle">{r.credits_granted.toLocaleString()}</span>,

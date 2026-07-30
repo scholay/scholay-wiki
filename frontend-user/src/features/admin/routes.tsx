@@ -133,6 +133,11 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/TokenUsageStatsPage'))('TokenUsageStatsPage'),
       },
       {
+        path: 'invites',
+        handle: { title: '邀请监控' },
+        lazy: lazyPage(() => import('./pages/InvitesPage'))('InvitesPage'),
+      },
+      {
         path: 'orders',
         handle: { title: '订单与营收' },
         lazy: lazyPage(() => import('./pages/OrdersPage'))('OrdersPage'),

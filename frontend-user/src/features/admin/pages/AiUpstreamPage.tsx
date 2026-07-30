@@ -5,7 +5,7 @@ import { ThirdPartyPanel } from './ThirdPartyPage';
 
 /**
  * 模型与账号 —— AI 上游接入合并页(模型目录 + 三方账号 同属一个领域,tab 切换)。
- *   · 模型目录:端点(Provider)/ 模型 / 11 个能力绑定,改动自动推送 agent
+ *   · 模型目录:端点(Provider)/ 模型 / 10 个能力绑定,改动自动推送 agent
  *   · 三方账号:上游 AI / MiniCod 的 API key 池
  * 一个 AdminPageLayout 统一外壳,tab 栏放在 header 固定槽(tabs prop),内容各自滚动。
  * 两个 tab 内容分别是 ModelCatalogPanel / ThirdPartyPanel(已去掉各自的 AdminPageLayout 外壳)。

@@ -79,12 +79,13 @@ export interface ResetResult {
 export interface CreditTxn {
   id: number;
   type: string;
-  amount: number;
+  amount: number; // 0098 起可带小数(payg 日聚合行;DECIMAL(18,6))
   temp_after: number;
   perm_after: number;
   ref_type: string;
   ref_id: string;
   note: string;
+  day_bucket?: string | null; // 仅 type=payg_daily 有值(日聚合桶,0098)
   created_at: string;
 }
 
@@ -221,7 +222,7 @@ export function useRedeemCode() {
   });
 }
 
-/** 消耗经费立即重置今日额度。 */
+/** 使用 1 次重置次数立即重置本周期额度(0090:扣次数不扣经费)。 */
 export function useResetQuota() {
   const invalidate = useInvalidate();
   return useMutation({

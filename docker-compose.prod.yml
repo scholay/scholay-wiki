@@ -233,6 +233,9 @@ services:
       FRONTEND_USER_URL: http://frontend-user:80
       # 站点 / 第三方服务地址(单一来源 .env 的 SITE_URL/SITE_NAME/..., fan-out 给 backend)
       SEO_BASE_URL: ${SITE_URL:?SITE_URL is required in prod}
+      # 公网 origin 原值也直接透传(邀请分享链接等要拼用户可达的公网 URL;
+      # FRONTEND_USER_URL 是容器内网地址,不能给用户)—— 与 dev compose 同步
+      SITE_URL: ${SITE_URL:?SITE_URL is required in prod}
       SITE_NAME: ${SITE_NAME:-Scholay}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
       # 主动 SEO 提交 (详见 .env 注释段)

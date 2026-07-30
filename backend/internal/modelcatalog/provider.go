@@ -102,15 +102,24 @@ func (r *Repository) CountModelsOfProvider(id uint64) int64 {
 	return n
 }
 
+// truncateRunes 按 rune 截断到最多 n 个字符(push_error 是 varchar(1024) 字符上限;
+// reason 常含中文,按字节切会切碎 UTF-8 → 落库乱码/被 MySQL 拒)。
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n])
+}
+
 func (r *Repository) MarkProviderPush(id uint64, ok bool, reason string) {
-	upd := map[string]any{"push_status": "failed", "push_error": reason}
+	upd := map[string]any{"push_status": "failed", "push_error": truncateRunes(reason, 1024)}
 	if ok {
 		upd = map[string]any{"push_status": "success", "push_error": "", "last_pushed_at": time.Now()}
 	}
-	if len(reason) > 1024 {
-		upd["push_error"] = reason[:1024]
+	if err := r.db.Model(&AgentProvider{}).Where("id = ?", id).Updates(upd).Error; err != nil {
+		slog.Warn("modelcatalog: mark provider push failed", "provider_id", id, "ok", ok, "err", err)
 	}
-	_ = r.db.Model(&AgentProvider{}).Where("id = ?", id).Updates(upd).Error
 }
 
 // ── 服务层 ──────────────────────────────────────────────────────────────────

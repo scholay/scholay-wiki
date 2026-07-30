@@ -1619,15 +1619,16 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 		}
 	}
 
-	// SS#2:给 3 个 chat feature 的 user_message 盖上有界透支预算(执行器据此让 agent 自我配速 + 到界优雅
-	// 收尾)。每轮现算(read-only,不预扣)→ 在途一轮至多超支一轮。unlimited(不限额/收费关)不盖 →
-	// 执行器无预算。peerreview BudgetProvider=nil → 不盖 → 任务型不受影响。
+	// SS#2:给 5 个 chat feature(smart_search/claw/prism/boltslides/sci_draw)的 user_message 盖上
+	// 单轮预算(执行器据此让 agent 自我配速 + 到界优雅收尾;透支带已取消,hard=soft)。每轮现算(read-only,不预扣)→
+	// 在途一轮至多超支一轮。unlimited(不限额/收费关)不盖 → 执行器无预算。
+	// peerreview BudgetProvider=nil → 不盖 → 任务型不受影响。
 	if f.spec.BudgetProvider != nil {
 		if soft, hard, unlimited := f.spec.BudgetProvider(h.hookCtx, h.userID); !unlimited {
 			// P5 成本制换算:额度余量 soft/hard 是**微元真实成本**,执行器按 raw token 4 类合计自配速 ——
 			// 除以会话模型的「成本/token」(CostPerToken,微元/token)换算成 token 预算,两侧才闭合。
 			// (旧 P3 是 ÷billing_weight;成本制下预算已是微元、不再有加权倍率,÷weight 会把预算错缩 weight 倍。)
-			// 每条消息现读 hub 内存态(随 set_runtime_config 同步更新),多端并发换模型至多错一轮,透支带兜底。
+			// 每条消息现读 hub 内存态(随 set_runtime_config 同步更新),多端并发换模型至多错一轮,量级=一轮的换算误差,可接受。
 			if cat := f.bridge.catalog; cat != nil {
 				cur, _ := h.currentModelSnapshot()
 				if cur == "" {

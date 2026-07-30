@@ -189,6 +189,14 @@ export const llmUsageOverviewSchema = z
     by_feature: z.array(
       z.object({ key: z.string(), label: z.string(), ...tokenFieldsSchema, ...costFieldsSchema, unpriced_calls: z.number() }).passthrough(),
     ),
+    // by_source(项目/Agent)与 by_provider:形状同 by_model/by_feature(BreakdownItem)。
+    // fixture 里有实录数据 —— 此前只是漏钉,不是后端没下发。
+    by_source: z.array(
+      z.object({ key: z.string(), label: z.string(), ...tokenFieldsSchema, ...costFieldsSchema, unpriced_calls: z.number() }).passthrough(),
+    ),
+    by_provider: z.array(
+      z.object({ key: z.string(), label: z.string(), ...tokenFieldsSchema, ...costFieldsSchema, unpriced_calls: z.number() }).passthrough(),
+    ),
     top_users: z.array(
       z
         .object({
@@ -201,6 +209,11 @@ export const llmUsageOverviewSchema = z
     ),
     daily_by_model: z.array(
       z.object({ date: z.string(), key: z.string(), ...tokenFieldsSchema, ...costFieldsSchema }).passthrough(),
+    ),
+    // 主图「按功能」分段堆叠柱的数据源(TokenDayDimPoint)。label 是图例中文名
+    // (后端 FeatureLabel),interface 与 fixture 均有 —— 一并钉住。
+    daily_by_feature: z.array(
+      z.object({ date: z.string(), key: z.string(), label: z.string(), ...tokenFieldsSchema, ...costFieldsSchema }).passthrough(),
     ),
   })
   .passthrough();

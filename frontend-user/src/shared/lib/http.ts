@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
 import { getAnonId } from '@/shared/lib/anon-id';
+import { readInviteCode } from '@/shared/lib/invite-code';
 import { notifyQuotaExceeded, isQuotaSignal, AGENT_QUOTA_HTTP_CODE } from '@/shared/lib/quota-events';
 
 /**
@@ -20,6 +21,10 @@ http.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // 匿名访客标识 —— 让后端"使用统计"对未登录用户也能按 anon_id 去重计人。
   config.headers['X-Anon-Id'] = getAnonId();
+  // 邀请归因 —— 落地页 /i/:code 存下的邀请码(30 天内有效,readInviteCode 过期自清)。
+  // 后端仅在「新用户创建成功」时消费此头(backend/internal/invite),平时携带无副作用。
+  const inviteCode = readInviteCode();
+  if (inviteCode) config.headers['X-Invite-Code'] = inviteCode;
   // 文件下载(blob/arraybuffer)豁免 30s API 超时(性能审计):30s 是「API 语义超时」,套到大文件/慢网下载
   // (zip/docx/pdf/导出)会把传输中途掐成坏文件。这里一处收口,覆盖全部现存+未来下载站点(此前需每站点手补)。
   // timeout=0=不限时,传输预算由后端 object-serve(APITimeoutMiddleware 10min)+ nginx 长流 location 兜底;

@@ -10,6 +10,7 @@ package vip
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -47,6 +48,21 @@ func NewService(repo *Repository) *Service {
 func (s *Service) Config() *ConfigService { return s.cfg }
 func (s *Service) Wallet() *WalletService { return s.wallet }
 func (s *Service) Order() *OrderService   { return s.order }
+
+// GrantInviteReward 发放「邀请好友注册奖励」给邀请人(0100;invite 模块经 bootstrap seam 调用)。
+// 入账走 GrantPerm 唯一落点(写 credit_transactions:type=invite_reward / ref_type=invite /
+// ref_id=被邀者 user_id)。成功后 best-effort 站内信(异步),通知失败不影响发放结果。
+// 防双发不在这里:invite 侧以 rewarded_credits=0 条件更新抢标记后才会调进来。
+func (s *Service) GrantInviteReward(inviterID uint, amount int, invitedUserID uint) error {
+	if amount <= 0 {
+		return nil // 活动未开/误配,不入账也不发通知
+	}
+	if err := s.wallet.GrantPerm(inviterID, amount, SourceInvite, fmt.Sprint(invitedUserID), TxInviteReward, "邀请好友注册奖励"); err != nil {
+		return err
+	}
+	s.notifyInviteReward(inviterID, amount)
+	return nil
+}
 
 // ListUserRedemptions 透传 repo:列某用户兑换记录(admin 用户详情用)。
 func (s *Service) ListUserRedemptions(userID uint, limit, offset int) ([]UserRedemptionView, int64, error) {

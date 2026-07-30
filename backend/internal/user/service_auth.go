@@ -135,6 +135,9 @@ func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, pas
 		return nil, "", err
 	}
 
+	// 邀请归因(best-effort):事务已提交、新用户已存在;失败只记日志,绝不影响注册返回。
+	notifyInviteRegistered(ctx, user.ID, "email")
+
 	// Generate JWT token
 	tokenUsername := email
 	if user.Username != nil {
@@ -327,6 +330,8 @@ func (s *Service) autoRegisterEmail(ctx context.Context, email, ip string) (*Use
 	}
 	if created {
 		s.SendWelcomeMessage(user.ID)
+		// 邀请归因(best-effort):仅本次真的新建号才归因;并发复用既有账号(created=false)不算。
+		notifyInviteRegistered(ctx, user.ID, "email")
 	}
 	return user, token, nil
 }

@@ -67,7 +67,7 @@ func checkQuota(ctx context.Context, userID uint) error {
 	if vipChecker == nil {
 		return nil
 	}
-	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
 			return agentbridge.NewQuotaError(err.Error())

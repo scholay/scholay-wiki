@@ -31,8 +31,8 @@ const (
 	FeatureBoltSlides = "boltslides"
 	FeatureSciDraw    = "sci_draw"
 	// FeatureMemory —— per-user 长期记忆的后台抽取(每轮对话后用便宜模型从对话里提画像)。
-	// 它是系统开销而非用户主动发起的生成,记账本(成本可见、按用户归属)但**不扣用户每日额度**
-	// (见 Usage.SkipQuota);否则活跃用户的额度会被这笔每 90s 的后台开销悄悄吃掉。
+	// 2026-07-30 owner 拍板「凡消耗 token 一律扣用户额度」:此前的 SkipQuota 豁免已取消,
+	// 记忆抽取与上下文压缩同标题生成一样正常计费(抽取有 90s 冷却,量级为便宜模型的小调用)。
 	FeatureMemory = "memory"
 )
 

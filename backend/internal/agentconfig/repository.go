@@ -73,9 +73,10 @@ func (r *Repository) MarkPushSuccess(now time.Time) error {
 
 // MarkPushFailed push 失败后调用: 把 push_status 置 failed, 记录错误简介 (≤1024 字)。
 // last_pushed_at 不动 — 它表达的是 "最近一次成功" 的时间, 是诊断 "多久没成功推过" 的关键字段。
+// 截断按 rune 而非字节(push_error 是 varchar(1024) 字符上限;错误文案含中文,字节切会切碎 UTF-8)。
 func (r *Repository) MarkPushFailed(reason string) error {
-	if len(reason) > 1024 {
-		reason = reason[:1024]
+	if runes := []rune(reason); len(runes) > 1024 {
+		reason = string(runes[:1024])
 	}
 	return r.db.Model(&AgentConfig{}).Where("1=1").Updates(map[string]any{
 		"push_status": PushStatusFailed,

@@ -9,6 +9,7 @@
 package vip
 
 import (
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -137,27 +138,36 @@ func (o *OrderService) AdminStats(days int) (*AdminOrderStatsResult, error) {
 		"COALESCE(SUM(CASE WHEN order_type='subscription' THEN final_amount END),0) AS subscription, " +
 		"COUNT(*) AS paid"
 	// since=nil → 全部(不限支付时间;paid 订单 payment_time 恒有值,全部口径取所有已支付)。
-	queryRev := func(since *time.Time) revRow {
+	// 查询失败不再静默:该口径按 0 返回但必须 Warn 留痕,否则营收看板「掉 0」与「真没收入」不可分辨。
+	queryRev := func(scope string, since *time.Time) revRow {
 		var rv revRow
 		q := o.db.Table("orders").Select(revSelect).Where("status = 'paid'")
 		if since != nil {
 			q = q.Where("payment_time >= ?", *since)
 		}
-		q.Scan(&rv)
+		if err := q.Scan(&rv).Error; err != nil {
+			slog.Warn("billing: admin 营收统计查询失败(该口径按 0 展示)", "scope", scope, "err", err)
+		}
 		return rv
 	}
-	win, td, all := queryRev(&cutoff), queryRev(&todayStart), queryRev(nil)
+	win, td, all := queryRev("窗口", &cutoff), queryRev("今日", &todayStart), queryRev("全部", nil)
 	t.Revenue, t.RechargeRevenue, t.SubscriptionRevenue, t.PaidCount = win.Revenue, win.Recharge, win.Subscription, win.Paid
 	t.RevenueToday, t.RechargeToday, t.SubscriptionToday, t.PaidToday = td.Revenue, td.Recharge, td.Subscription, td.Paid
 	t.RevenueAll, t.RechargeAll, t.SubscriptionAll, t.PaidAll = all.Revenue, all.Recharge, all.Subscription, all.Paid
 
+	// 计数失败不再静默(理由同 queryRev:掉 0 必须可归因)。
+	warnCount := func(scope string, err error) {
+		if err != nil {
+			slog.Warn("billing: admin 订单统计计数失败(该口径按 0 展示)", "scope", scope, "err", err)
+		}
+	}
 	// 订单状态(窗口内,次要)
-	o.db.Table("orders").Where("status = 'pending' AND created_at >= ?", cutoff).Count(&t.PendingCount)
-	o.db.Table("orders").Where("status = 'expired' AND created_at >= ?", cutoff).Count(&t.ExpiredCount)
+	warnCount("pending 订单", o.db.Table("orders").Where("status = 'pending' AND created_at >= ?", cutoff).Count(&t.PendingCount).Error)
+	warnCount("expired 订单", o.db.Table("orders").Where("status = 'expired' AND created_at >= ?", cutoff).Count(&t.ExpiredCount).Error)
 	// 兑换码核销:今日 / 窗口 / 全部
-	o.db.Table("vip_code_redemptions").Where("created_at >= ?", todayStart).Count(&t.RedeemedToday)
-	o.db.Table("vip_code_redemptions").Where("created_at >= ?", cutoff).Count(&t.RedeemedCodes)
-	o.db.Table("vip_code_redemptions").Count(&t.RedeemedAll)
+	warnCount("兑换码核销·今日", o.db.Table("vip_code_redemptions").Where("created_at >= ?", todayStart).Count(&t.RedeemedToday).Error)
+	warnCount("兑换码核销·窗口", o.db.Table("vip_code_redemptions").Where("created_at >= ?", cutoff).Count(&t.RedeemedCodes).Error)
+	warnCount("兑换码核销·全部", o.db.Table("vip_code_redemptions").Count(&t.RedeemedAll).Error)
 
 	// 每日营收(充值/订阅 拆段)。DATE_FORMAT 而非 DATE():DSN parseTime 坑(同 llmusage)。
 	var sparse []AdminRevenueDay

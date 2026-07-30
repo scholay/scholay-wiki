@@ -703,8 +703,8 @@ func extractErrorUsage(raw []byte) (usage AgentUsage, calls []AgentUsage, sessio
 // extractTokenUsageFrame 浅 parse 一帧 token_usage(带外模型调用,如会话标题生成):
 // 不进会话累计水位,按「附加」记一行。返回 (usage, true) 仅当本帧确为 token_usage。
 // extractTokenUsageFrame 解 agent→backend 的 token_usage 帧, 返回 (用量, kind, ok)。
-// kind 标识这次带外调用的种类(title_gen / memory_extract / ...), 决定记账归到哪个 feature
-// 及是否计入用户日额度(memory_extract → Feature=memory + SkipQuota,不扣用户额度)。
+// kind 标识这次带外调用的种类(title_gen / memory_extract / ...), 决定记账归到哪个 feature。
+// 三类带外全部正常计费(2026-07-30 拍板:凡消耗 token 一律扣额度)。
 func extractTokenUsageFrame(raw []byte) (AgentUsage, string, bool) {
 	if len(raw) == 0 || raw[0] != '{' {
 		return AgentUsage{}, "", false
@@ -721,34 +721,22 @@ func extractTokenUsageFrame(raw []byte) (AgentUsage, string, bool) {
 }
 
 // recordOutOfBandTokens 记一行「带外」token 用量(标题/记忆抽取等不产生 message_complete 的调用)。
-// kind=="memory_extract" → 归 Feature=memory 且 SkipQuota=true(系统后台开销, 不扣用户日额度);
-// 其它(title_gen 等)→ 归本 feature, 正常计费。requestID 传 agent sessionID。
+// kind=="memory_extract" → 归 Feature=memory;其它(title_gen / context_compact 等)→ 归本 feature。
+// 全部正常计费。requestID 传 agent sessionID。
 func recordOutOfBandTokens(rec llmusage.Recorder, userID *uint, feature, kind, sessionID string, u AgentUsage) {
 	if rec == nil {
 		return
 	}
-	if kind == "memory_extract" || kind == "context_compact" {
-		// 系统内部开销(记忆抽取 / 上下文压缩摘要):记账但不扣用户日额度(SkipQuota)。
-		feat := llmusage.FeatureMemory
-		if kind == "context_compact" && feature != "" {
-			feat = feature // 归属原 feature 便于对账,但仍 SkipQuota
-		}
-		rec.Record(llmusage.Usage{
-			UserID:              userID,
-			Feature:             feat,
-			Source:              llmusage.SourceAgent,
-			Provider:            "scholay-managed",
-			Model:               u.Model,
-			InputTokens:         u.InputTokens,
-			OutputTokens:        u.OutputTokens,
-			CacheReadTokens:     u.CacheReadTokens,
-			CacheCreationTokens: u.CacheCreationTokens,
-			RequestID:           sessionID,
-			SkipQuota:           true,
-		})
-		return
+	// 归因:记忆抽取归 memory feature(跨 feature 共享的后台动作);压缩/标题归原 feature。
+	// 🔴 2026-07-30 owner 拍板「凡消耗 token 一律扣用户额度」—— 原先 memory_extract /
+	// context_compact 的 SkipQuota 豁免(记账不扣额)已取消,带外三类(标题/记忆/压缩)
+	// 全部正常计费。不会双计:agent 侧刻意不把带外调用并入 session_total(turnLoop),
+	// 这里的计费与轮内水位差额无交集。
+	feat := feature
+	if kind == "memory_extract" || feat == "" {
+		feat = llmusage.FeatureMemory
 	}
-	recordAgentTokens(rec, nil, userID, feature, sessionID, u) // 带外(标题/记忆)恒走默认 provider
+	recordAgentTokens(rec, nil, userID, feat, sessionID, u) // 带外恒走默认 provider
 }
 
 // extractMemoryUpdateFrame 解 agent→backend 的 memory_update 帧, 取出 agent 跑完抽取的原始模型输出。
@@ -824,7 +812,8 @@ func preUserMessageUserText(err error) string {
 
 // stampBudget —— SS#2:把 {"budget":{"softRemaining":..,"hardRemaining":..}} 合并进 user_message 帧,
 // 执行器据此让 agent 自我配速 + 到界优雅收尾。解析失败 → 原样返回(执行器收不到 budget = 走无预算路径,
-// 安全降级)。仅 3 个 chat feature 调用;peerreview BudgetProvider=nil,永不到这里。
+// 安全降级)。仅 5 个 chat feature(smart_search/claw/prism/boltslides/sci_draw)调用;
+// peerreview BudgetProvider=nil,永不到这里。
 func stampBudget(raw []byte, soft, hard int64) []byte {
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {

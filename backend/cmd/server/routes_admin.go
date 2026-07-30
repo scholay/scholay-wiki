@@ -172,6 +172,12 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		opsUsersRead.GET("/users", h.user.GetUserList)
 		// 用户详情抽屉:登录方式 + 该用户会员状态/今日额度(不含财务下钻,后者在 userWrites 组)
 		opsUsersRead.GET("/users/:id/detail", h.user.GetUserDetail)
+
+		// 邀请注册看板(只读):汇总四数 + 邀请人列表 + 某邀请人(:id=user_id)带来的注册明细。
+		// 静态段 summary 与 :id param 同层共存(gin 1.9 静态优先,同 /skills 口径)。
+		opsUsersRead.GET("/invites/summary", h.invite.AdminSummary)
+		opsUsersRead.GET("/invites", h.invite.AdminList)
+		opsUsersRead.GET("/invites/:id/registrations", h.invite.AdminRegistrations)
 	}
 
 	// ────────────────────────────────────────────────────────────────────
@@ -191,6 +197,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userWrites.DELETE("/users/:id/vip", h.vip.AdminRevokeVIP)
 		// 管理员给用户加/扣经费
 		userWrites.POST("/users/:id/wallet/adjust", h.vip.AdminAdjustWallet)
+		// 管理员发放重置次数(0090 起次数是重置额度唯一凭证,此前只有 0092 历史换算一个来源)
+		userWrites.POST("/users/:id/reset-passes", h.vip.AdminGrantResetPasses)
 		// 用户详情财务下钻:订单 / 交易流水(充值·消费) / 兑换记录
 		userWrites.GET("/users/:id/orders", h.vip.AdminListUserOrders)
 		userWrites.GET("/users/:id/transactions", h.vip.AdminListUserTransactions)

@@ -19,7 +19,7 @@ import { SubscribeDialog, subscribePayMethods } from '@/shared/components';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { useResetQuota, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
-import { resetInfo } from '../lib/quota-display';
+import { monthDay, resetInfo } from '../lib/quota-display';
 import { useSubscribeFlow } from './billing-panels';
 
 const PLAN_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
@@ -38,13 +38,14 @@ const NAMEPLATE: Record<Tier, string> = {
 };
 const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 
-// 倍率口径:Pro 相对 Free,Max 相对 Pro。倍率从后端 plans 取(动态),兜底 5/5。
-function buildSlides(proMult: number, maxMult: number) {
+// 倍率口径:Pro 相对 Free,Max 相对 Pro。倍率与充值汇率都从后端 plans 取(动态),兜底 5/5/100。
+// 0090:重置只扣重置次数、经费买不到重置、无临时经费 —— 轮播文案与此口径对齐,别把旧话术加回来。
+function buildSlides(proMult: number, maxMult: number, rate: number) {
   return [
     { title: '额度区别', body: `Free 为基础周期额度(7 天),Pro 是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。额度越高,可连续使用越多。` },
     { title: '会员特权', body: 'Pro / Max 优先使用更强 AI 模型、新功能优先体验;Max 享顶级优先级与最强模型。' },
-    { title: '额度重置机制', body: '额度按 7 天周期计算:首次使用开始计时,周期到期自动恢复 100%。耗尽后也可消耗经费立即重置。' },
-    { title: '经费说明', body: '临时经费有失效日期(订阅赠送、整月有效),永久经费长期有效(充值)。' },
+    { title: '额度重置机制', body: '额度按 7 天周期计算:首次使用开始计时,周期到期自动恢复 100%;耗尽后可使用重置次数立即重置。' },
+    { title: '经费说明', body: `充值按 ¥1 = ${rate} 经费到账,经费不过期;开启「用经费继续」后,额度耗尽可无缝按量续用。` },
   ];
 }
 
@@ -59,6 +60,7 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
   const methods = subscribePayMethods(plans?.payment_methods, plans?.test_payment ?? false);
   const proMult = plans?.plans?.find((p) => p.tier === 'pro')?.multiplier ?? 5;
   const maxMult = plans?.plans?.find((p) => p.tier === 'max')?.multiplier ?? 5;
+  const rate = plans?.recharge_rate ?? 100; // 0095:经费=分,¥1 = 100 经费(汇率可调,以后端为准)
   const openUpgrade = (tier?: 'pro' | 'max') => setUpgrade({ open: true, tier });
 
   return (
@@ -98,7 +100,7 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
         </>
       )}
 
-      <ExplainerCarousel proMult={proMult} maxMult={maxMult} />
+      <ExplainerCarousel proMult={proMult} maxMult={maxMult} rate={rate} />
 
       <SubscribeDialog
         open={upgrade.open}
@@ -127,7 +129,7 @@ function ActiveRow({ data }: { data: Overview }) {
         <span className={cn('inline-flex h-6 shrink-0 items-center rounded-4 px-2 text-12 font-medium', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
-        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-12 text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽也可消耗经费立即重置`}>?</span>
+        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-12 text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽后可使用重置次数立即重置`}>?</span>
         <span className="shrink-0 text-12 font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
         <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
           {!t.unlimited && (
@@ -169,6 +171,12 @@ function ActiveRow({ data }: { data: Overview }) {
           ≈{data.credit.points.toLocaleString()} 算力点
           {data.reset_passes > 0 && ` · 可重置 ${data.reset_passes} 次`}
         </span>
+        {/* 最近一批重置次数的到期时刻(null = 无可用次数);批内计数后端不下发,N 用总次数。 */}
+        {data.reset_passes > 0 && data.reset_pass_next_expiry && (
+          <span className="text-12 text-faint">
+            {data.reset_passes} 次将于 {monthDay(data.reset_pass_next_expiry)} 前有效
+          </span>
+        )}
       </div>
     </div>
   );
@@ -194,9 +202,9 @@ function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
   );
 }
 
-function ExplainerCarousel({ proMult, maxMult }: { proMult: number; maxMult: number }) {
+function ExplainerCarousel({ proMult, maxMult, rate }: { proMult: number; maxMult: number; rate: number }) {
   const [i, setI] = useState(0);
-  const slides = buildSlides(proMult, maxMult);
+  const slides = buildSlides(proMult, maxMult, rate);
   const s = slides[i % slides.length];
   return (
     <div className="mt-4 flex items-center gap-3 rounded-12 border border-border-soft bg-surface-1 p-3">

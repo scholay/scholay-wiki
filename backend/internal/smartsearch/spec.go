@@ -76,7 +76,7 @@ func checkQuota(ctx context.Context, userID uint) error {
 	}
 	// tier-aware 会员限额。vip.ErrQuotaExceeded → 转成 agentbridge 的 quota_exceeded(干净文案),
 	// 让 WS pipe 回前端 code=quota_exceeded + retryable=false。
-	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
 			return agentbridge.NewQuotaError(err.Error())
@@ -86,7 +86,7 @@ func checkQuota(ctx context.Context, userID uint) error {
 	return nil
 }
 
-// budgetProvider(SS#2)给 hub 每轮盖「有界透支预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
+// budgetProvider(SS#2)给 hub 每轮盖「单轮预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
 func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
 	if vipChecker == nil {
 		return 0, 0, true
@@ -185,7 +185,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 		// 配额检查 + 提问统计 + slog 用量 收口到 agentbridge.StandardHooks(三 feature 共用)。
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,
-		// SS#2:有界透支预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
+		// SS#2:单轮预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
 		BudgetProvider: budgetProvider,
 	}
 }

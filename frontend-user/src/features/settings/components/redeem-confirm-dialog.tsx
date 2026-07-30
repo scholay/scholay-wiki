@@ -19,7 +19,8 @@ function grantContent(pv: CodePreview): string {
   if (pv.grant_kind === 'tier') {
     return `Scholay ${TIER_NAME[pv.grant_tier ?? 'pro']} · ${pv.grant_days ?? 30} 天`;
   }
-  return `${pv.grant_credits ?? 0} ${pv.credit_kind === 'perm' ? '永久' : '临时'}科研经费`;
+  // 0090:经费不再分临时/永久,对外统一叫「科研经费」(credit_kind 仅协议兼容保留,不渲染)。
+  return `${pv.grant_credits ?? 0} 科研经费`;
 }
 
 export interface RedeemConfirmDialogProps {
@@ -54,7 +55,7 @@ export function RedeemConfirmDialog({ code, open, onOpenChange, onRedeemed }: Re
       if (res.kind === 'tier') {
         toast.success(`兑换成功!${TIER_NAME[res.tier ?? 'pro']}有效期至 ${res.expires_at?.slice(0, 10)}`);
       } else {
-        toast.success(`兑换成功!到账 ${res.credits} ${res.credit_kind === 'perm' ? '永久' : '临时'}经费`);
+        toast.success(`兑换成功!到账 ${res.credits} 经费`);
       }
       onRedeemed?.();
       onOpenChange(false);

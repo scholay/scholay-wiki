@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"testing"
 	"time"
@@ -104,7 +105,7 @@ func TestIntegrationBilling(t *testing.T) {
 			t.Fatalf("初始应 free: tier=%s ceil=%d", ov.Tier, ov.Token.Ceiling)
 		}
 
-		// 订阅 pro → 支付回调履约:会员生效 + 赠临时经费
+		// 订阅 pro → 支付回调履约:会员生效(0090:订阅不再赠送任何经费)
 		ord, err := svc.Order().CreateSubscription(id, TierPro, CycleMonthly)
 		if err != nil {
 			t.Fatal(err)
@@ -129,7 +130,7 @@ func TestIntegrationBilling(t *testing.T) {
 			t.Fatalf("幂等失败:重复回调后经费=%v want 0", ov.Credit.Total)
 		}
 
-		// 续费:再订阅 pro → 到期顺延 + 再赠一笔经费
+		// 续费:再订阅 pro → 到期顺延(同样不赠经费)
 		ord2, _ := svc.Order().CreateSubscription(id, TierPro, CycleMonthly)
 		if err := svc.Order().ProcessAlipayCallback(ord2.OrderNo, "txn-2", ord2.FinalAmount, nil); err != nil {
 			t.Fatal(err)
@@ -237,7 +238,7 @@ func TestIntegrationBilling(t *testing.T) {
 		defer cleanup(db, id)
 		w := svc.Wallet()
 
-		if err := w.GrantPerm(id, 100, SourceRecharge, "t", TxRecharge); err != nil {
+		if err := w.GrantPerm(id, 100, SourceRecharge, "t", TxRecharge, ""); err != nil {
 			t.Fatal(err)
 		}
 		bal, _ := w.Balance(id, cfg)
@@ -253,12 +254,16 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 
 		// 0094:按量扣减必须能扣**小数**经费 —— 整数余额装不下单次调用的量级,这是整个改造的起点。
-		// 500 微元 = 0.5 算力点 = 0.1 经费(兑换率 5)。
+		// 0095 起 credit_to_points=3:500 微元 → ceil(500×1000/3) = 166667 micro-credit
+		// ≈ 0.1667 经费,余 ≈ 39.8333(旧断言按兑换率 5 硬编码 39.9,已过时)。
+		// 期望值按**当前配置**经 MicroCreditForCost 换算(与被测路径同一换算函数;
+		// 不整除的兑换率会产生无限小数,浮点比较必须留容差)。
 		if err := w.ConsumeForQuota(id, 500, cfg); err != nil {
 			t.Fatalf("按量扣减失败: %v", err)
 		}
-		if bal, _ = w.Balance(id, cfg); bal.Perm != 39.9 {
-			t.Fatalf("500 微元应扣 0.1 经费, 余 %v want 39.9", bal.Perm)
+		wantPerm := 40 - float64(cfg.MicroCreditForCost(500))/float64(MicroCreditPerCredit)
+		if bal, _ = w.Balance(id, cfg); math.Abs(bal.Perm-wantPerm) > 1e-9 {
+			t.Fatalf("500 微元按量扣减后余 %v want %v(credit_to_points=%d)", bal.Perm, wantPerm, cfg.CreditToPoints)
 		}
 		if err := w.Consume(id, 999, TxAdminAdjust, "admin", "x", ""); err == nil {
 			t.Fatalf("超额消耗应失败")
@@ -307,7 +312,7 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 
 		// 扣光可用的 3 次后必须报 ErrNoResetPass —— 绝不能回落去扣经费。
-		if err := w.GrantPerm(id, 10000, SourceRecharge, "t", TxRecharge); err != nil {
+		if err := w.GrantPerm(id, 10000, SourceRecharge, "t", TxRecharge, ""); err != nil {
 			t.Fatal(err)
 		}
 		for i := 0; i < 2; i++ {
@@ -357,7 +362,7 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 
 		// 0090:给的是**重置次数**不是经费 —— 顺带守住「经费买不到重置」。
-		if err := svc.Wallet().GrantPerm(id, 100000, SourceRecharge, "t", TxRecharge); err != nil {
+		if err := svc.Wallet().GrantPerm(id, 100000, SourceRecharge, "t", TxRecharge, ""); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := svc.ResetQuota(ctx, id); !errors.Is(err, ErrNoResetPass) {

@@ -25,7 +25,12 @@ const TX_LABEL: Record<string, string> = {
   refund: '退款',
   admin_adjust: '管理员调整',
   task: '任务奖励',
+  payg_daily: '按量付费(日累计)', // 0098:每用户每天一行,upsert 累加
+  invite_reward: '邀请奖励', // 邀请好友注册奖励(ref_id=被邀者 user_id)
 };
+
+// 0098 起金额可带小数(payg 日聚合行)。整数原样;小数最多 4 位去尾零。
+const fmtCredit = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : String(parseFloat(v.toFixed(4))));
 
 const ORDER_TYPE_LABEL: Record<string, string> = { recharge: '充值', subscription: '订阅' };
 const ORDER_STATUS: Record<string, { label: string; variant: 'default' | 'muted' | 'destructive' | 'outline' }> = {
@@ -115,6 +120,10 @@ function TransactionsSection({ userId, open }: { userId: number; open: boolean }
   const rows = q.data?.items ?? [];
   return (
     <SectionShell title="经费流水(充值 / 消费)" icon={<ArrowLeftRight className="size-3.5" />} count={q.data?.total}>
+      {/* 口径提示:payg 扣的是钱包余额但不逐笔写 credit_transactions;且 0095 汇率重锚前后金额刻度不同。 */}
+      <p className="mb-2 text-12 text-faint">
+        按量付费消耗按天汇总为一条「按量付费(日累计)」(0098);2026-07-29 汇率重锚(60→100 经费/¥)前的历史行是旧刻度
+      </p>
       {q.isLoading ? (
         <Loading />
       ) : rows.length === 0 ? (
@@ -130,9 +139,9 @@ function TransactionsSection({ userId, open }: { userId: number; open: boolean }
               <div className="flex shrink-0 flex-col items-end gap-0.5">
                 <span className={cn('tabular-nums font-medium', t.amount >= 0 ? 'text-brand-green' : 'text-brand-red')}>
                   {t.amount >= 0 ? '+' : ''}
-                  {t.amount}
+                  {fmtCredit(t.amount)}
                 </span>
-                <span className="text-12 text-faint">余 {t.perm_after + t.temp_after} · {fmtTime(t.created_at)}</span>
+                <span className="text-12 text-faint">余 {fmtCredit(t.perm_after + t.temp_after)} · {fmtTime(t.created_at)}</span>
               </div>
             </li>
           ))}

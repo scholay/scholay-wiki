@@ -237,6 +237,9 @@ services:
       PAYMENT_TEST_ENABLED: ${PAYMENT_TEST_ENABLED:-false}
       # 站点 / 第三方服务地址 —— 来源是 .env 的 SITE_URL 等单一变量,这里 fan-out 给 backend
       SEO_BASE_URL: ${SITE_URL:-https://www.scholay.com}
+      # 公网 origin 原值也直接透传(邀请分享链接等要拼用户可达的公网 URL;
+      # FRONTEND_USER_URL 是容器内网地址,不能给用户)
+      SITE_URL: ${SITE_URL:-https://www.scholay.com}
       SITE_NAME: ${SITE_NAME:-Scholay}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
       # 主动 SEO 提交(详见 .env 注释段)

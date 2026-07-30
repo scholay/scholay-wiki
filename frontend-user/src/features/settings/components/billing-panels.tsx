@@ -36,7 +36,13 @@ const TXN_LABEL: Record<string, string> = {
   expire: '到期清零',
   refund: '退款',
   admin_adjust: '管理员调账',
+  payg_daily: '按量付费(当日累计)', // 0098:每天一行,当天内随消耗累加
+  invite_reward: '邀请奖励', // 邀请好友注册奖励(ref_id=被邀者 user_id)
 };
+
+// 0098 起流水金额可带小数(payg 日聚合行;经费=分,一天可能只有零点几经费)。
+// 整数原样;小数最多保留 4 位并去尾零(0.0053 这类微量也要可见,不能四舍五入成 0.00)。
+const fmtCredit = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : String(parseFloat(v.toFixed(4))));
 
 const METHOD_ICONS: Record<string, LucideIcon> = { wechat: QrCode, alipay: CreditCard, test: Zap };
 
@@ -221,7 +227,7 @@ export function RechargePanel() {
           {busy && <Loader2 className="size-3.5 animate-spin"/>}
           立即充值
         </Button>
-        <p className="mt-3 text-12 leading-paragraph text-faint">按 {rate} 经费 / 元到账,经费用于重置额度,永久经费不过期。</p>
+        <p className="mt-3 text-12 leading-paragraph text-faint">按 {rate} 经费 / 元到账,经费不过期,可开启「用经费继续」在额度耗尽后按量续用。</p>
       </aside>
     </div>
   );
@@ -438,6 +444,10 @@ export function OrdersTable() {
           </tbody>
         </table>
       )}
+      {/* 0094 按量付费的扣减是微额高频,逐笔入流水会把明细刷成噪音 —— 后端刻意不逐笔落流水。 */}
+      <p className="mt-3 text-12 leading-paragraph text-faint">
+        按量付费(用经费继续)按天汇总为一条「按量付费(当日累计)」流水,当天内随消耗累加。
+      </p>
     </section>
   );
 }
@@ -569,7 +579,7 @@ function TxnRow({ t }: { t: CreditTxn }) {
       </div>
       <span className={cn('text-14 font-medium tabular-nums', positive ? 'text-brand-green' : 'text-brand-red')}>
         {positive ? '+' : ''}
-        {t.amount} 经费
+        {fmtCredit(t.amount)} 经费
       </span>
     </div>
   );

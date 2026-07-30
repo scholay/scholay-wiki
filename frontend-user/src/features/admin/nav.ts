@@ -23,6 +23,7 @@ import {
   Headset,
   Sparkles,
   Newspaper,
+  UserPlus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PERM, type Permission } from './permissions';
@@ -109,6 +110,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { id: 'usage-stats', label: '使用统计', icon: BarChart2, href: '/admin/usage-stats', requires: PERM.analyticsView },
       // href / id 保持 token-usage:URL 是外部可书签的,改名只改文案不改路径。
       { id: 'token-usage', label: '算力用量', icon: Coins, href: '/admin/token-usage', requires: PERM.analyticsView },
+      { id: 'invites', label: '邀请监控', icon: UserPlus, href: '/admin/invites', requires: PERM.analyticsView },
     ],
   },
   {

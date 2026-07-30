@@ -79,4 +79,13 @@ export const landingRoutes: RouteObject[] = [
         Component: m.PricingPage,
       })),
   },
+  // 邀请落地页 /i/:code —— 无 UI 中转(存码 + open 计数 + 立即回首页),
+  // 不需要 LandingLayout;挂在 landing 是因为它同样「公开、不进 AppShell」。
+  {
+    path: 'i/:code',
+    lazy: () =>
+      import('./pages/InviteLandingPage').then((m) => ({
+        Component: m.InviteLandingPage,
+      })),
+  },
 ];

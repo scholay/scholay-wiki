@@ -8,6 +8,24 @@ import { ICONS } from '../../lib/icons'
 
 const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' }
 
+// 后端 RFC3339 串(本地时区)→ YYYY-MM-DD:优先直接截日期位,避免 Date 解析
+// 在 iOS JSCore 上的兼容/时区偏移坑;非标准串再退回 Date 解析,仍失败则原样显示。
+function fmtDate(iso?: string | null): string {
+  if (!iso) return ''
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(iso)
+  if (m) return m[1]
+  const t = new Date(iso)
+  if (!isFinite(t.getTime())) return iso
+  const p = (n: number) => (n < 10 ? '0' + n : '' + n)
+  return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate())
+}
+
+// 经费余额展示:整数直显,小数保留 2 位(0094 起经费是小数,直出会带全精度尾巴)。
+function fmtCredit(n?: number): string {
+  if (typeof n !== 'number' || !isFinite(n)) return '0'
+  return Number.isInteger(n) ? String(n) : n.toFixed(2)
+}
+
 Page({
   data: {
     ic: ICONS,
@@ -18,6 +36,8 @@ Page({
     overview: null as BillingOverview | null,
     tierLabel: '',
     remaining: 0,
+    expiresAt: '', // YYYY-MM-DD(由 overview.expires_at 格式化,别在 wxml 直出 RFC3339)
+    creditTotal: '', // 经费余额展示串(整数直显 / 小数保留 2 位)
   },
 
   onShow() {
@@ -53,6 +73,8 @@ Page({
       patch.overview = o
       patch.tierLabel = TIER_LABEL[o.tier] || o.tier
       patch.remaining = o.token.unlimited ? 100 : Math.max(0, 100 - (o.token.percent || 0))
+      patch.expiresAt = fmtDate(o.expires_at)
+      patch.creditTotal = fmtCredit(o.credit && o.credit.total)
     }
     this.setData(patch)
   },
