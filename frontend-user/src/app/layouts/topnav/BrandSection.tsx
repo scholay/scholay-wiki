@@ -34,7 +34,7 @@ export function BrandSection() {
             'inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
             canBack
-              ? 'text-subtle hover:bg-background hover:text-foreground'
+              ? 'cursor-pointer text-subtle hover:bg-background hover:text-foreground'
               : 'cursor-not-allowed text-faint opacity-40',
           )}
         >
@@ -52,7 +52,7 @@ export function BrandSection() {
             'inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
             canForward
-              ? 'text-subtle hover:bg-background hover:text-foreground'
+              ? 'cursor-pointer text-subtle hover:bg-background hover:text-foreground'
               : 'cursor-not-allowed text-faint opacity-40',
           )}
         >

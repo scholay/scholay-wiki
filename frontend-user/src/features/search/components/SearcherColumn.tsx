@@ -403,11 +403,13 @@ export function SearcherColumn({
               )}
 
               {query && !showLoading && papers.length === 0 && (
-                <EmptyState
-                  icon={Search}
-                  title="没找到相关论文"
-                  description={`没有匹配 "${query}" 的内容,换个关键词或者切换数据源再试试`}
-                />
+                <div className={resultsColClass}>
+                  <EmptyState
+                    icon={Search}
+                    title="没找到相关论文"
+                    description={`没有匹配 "${query}" 的内容,换个关键词或者切换数据源再试试`}
+                  />
+                </div>
               )}
               {papers.length > 0 && (
                 // 结果卡限宽 + 左侧留缝、左对齐(不随主列拉满横向贯穿)。

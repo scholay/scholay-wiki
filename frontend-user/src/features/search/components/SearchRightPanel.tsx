@@ -3,6 +3,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -19,11 +20,13 @@ import {
   X,
 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { PdfViewer, type PdfSource } from '@/shared/components/PdfViewer';
 import { useFetchPaperDetail } from '@/shared/api/paper-detail';
 import { useLibraryPaperByUpstream } from '@/shared/api/user-library-papers';
 import { useJournalDetail } from '@/shared/api/journals';
 import type { Author, Journal, Paper, UpstreamSource } from '@/shared/api/types';
 import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
+import { useAuthStore } from '@/stores/auth.store';
 import { QuickOpenPaperDialog } from '@/features/browser/components/QuickOpenPaperDialog';
 import { PaperDetailContent } from '@/features/browser/components/paper-detail/PaperDetailContent';
 import { JournalDetailContent } from '@/features/browser/components/journal-detail/JournalDetailContent';
@@ -39,6 +42,8 @@ import {
   type ActivePanel,
   type ArtifactTabPayload,
   type InfoTab,
+  type PdfTabPayload,
+  type RightPanelVariant,
   type WorkspaceFunctionKind,
 } from '@/stores/search-right-panel.store';
 import { useArtifactExportBridge } from '@/stores/artifact-export-bridge.store';
@@ -51,34 +56,43 @@ const ClawArtifactPreview = lazy(() =>
 );
 
 interface SearchRightPanelProps {
-  /** @deprecated 论文列表改由 useWorkspacePapers 提供,保留空 props 兼容 lazy import */
+  /**
+   * search = 检索工作区全功能 tab;
+   * assistant = 智能助手:隐藏 PDF Chat / 图谱 / 矩阵,只留详情/产物壳。
+   */
+  variant?: RightPanelVariant;
 }
 
-export function SearchRightPanel(_props: SearchRightPanelProps = {}) {
+export function SearchRightPanel({
+  variant = 'search',
+}: SearchRightPanelProps = {}) {
   const activePanel = useSearchRightPanelStore((s) => s.activePanel);
   const infoTabs = useSearchRightPanelStore((s) => s.infoTabs);
   const workspace = useWorkspacePapers();
+  const assistant = variant === 'assistant';
 
   const activeInfoTab =
     activePanel?.group === 'info'
       ? infoTabs.find((t) => t.id === activePanel.tabId)
       : undefined;
 
-  // 产物预览自带内部滚动(flex h-full);其它详情页走外层 overflow-auto。
+  // 产物 / PDF 自带内部滚动(flex h-full);其它详情页走外层 overflow-auto。
   // FeatureHub 空态由页面级边缘吸附名片承载,本组件只在有 activePanel 时挂载。
-  const artifactActive =
-    activePanel?.group === 'info' && activeInfoTab?.kind === 'artifact';
+  const fillHeightActive =
+    activePanel?.group === 'info' &&
+    (activeInfoTab?.kind === 'artifact' || activeInfoTab?.kind === 'pdf');
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <TabStrip activePanel={activePanel} />
+      <TabStrip activePanel={activePanel} variant={variant} />
       <div
         className={cn(
           'min-h-0 flex-1 min-w-0',
-          artifactActive ? 'overflow-hidden' : 'overflow-auto',
+          fillHeightActive ? 'overflow-hidden' : 'overflow-auto',
         )}
       >
-        {activePanel?.group === 'function' && (
+        {activePanel?.group === 'shell' && <AssistantShellEmpty />}
+        {!assistant && activePanel?.group === 'function' && (
           <WorkspaceFunctionView
             kind={activePanel.kind}
             staged={workspace.papers}
@@ -92,17 +106,48 @@ export function SearchRightPanel(_props: SearchRightPanelProps = {}) {
   );
 }
 
-function TabStrip({ activePanel }: { activePanel: ActivePanel | null }) {
+function AssistantShellEmpty() {
+  return (
+    <div className="flex h-full min-h-0 items-center justify-center p-6">
+      <EmptyState
+        title="拓展区"
+        description="打开的论文详情、作者、期刊、PDF 会出现在这里"
+      />
+    </div>
+  );
+}
+
+function TabStrip({
+  activePanel,
+  variant = 'search',
+}: {
+  activePanel: ActivePanel | null;
+  variant?: RightPanelVariant;
+}) {
   const infoTabs = useSearchRightPanelStore((s) => s.infoTabs);
   const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
   const setActiveInfoTab = useSearchRightPanelStore((s) => s.setActiveInfoTab);
   const closeInfoTab = useSearchRightPanelStore((s) => s.closeInfoTab);
   const dismissToHub = useSearchRightPanelStore((s) => s.dismissToHub);
   const openPaper = useOpenPaperDetail();
+  const assistant = variant === 'assistant';
 
   const showPageGroup = infoTabs.length > 0;
 
-  const functionGroup = (
+  const functionGroup = assistant ? (
+    <div className="flex min-w-0 shrink items-center gap-1">
+      <QuickOpenPaperDialog align="start" onPickPaper={openPaper}>
+        <button
+          type="button"
+          className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          title="打开论文详情"
+          aria-label="打开论文详情"
+        >
+          <Plus className="size-3.5" strokeWidth={2.25} />
+        </button>
+      </QuickOpenPaperDialog>
+    </div>
+  ) : (
     <div className="flex min-w-0 shrink items-center gap-1">
       {WORKSPACE_FUNCTION_ORDER.map((kind) => (
         <FunctionTabButton
@@ -117,7 +162,7 @@ function TabStrip({ activePanel }: { activePanel: ActivePanel | null }) {
       <QuickOpenPaperDialog align="start" onPickPaper={openPaper}>
         <button
           type="button"
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
           title="新建详情页签"
           aria-label="新建详情页签"
         >
@@ -150,7 +195,7 @@ function TabStrip({ activePanel }: { activePanel: ActivePanel | null }) {
       <button
         type="button"
         onClick={dismissToHub}
-        className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
         title="回到拓展入口"
         aria-label="回到拓展入口"
       >
@@ -217,6 +262,8 @@ function infoIcon(tab: InfoTab) {
     case 'author':
       return User;
     case 'artifact':
+      return FileText;
+    case 'pdf':
       return FileText;
   }
 }
@@ -427,7 +474,56 @@ function InfoTabView({ tab }: { tab: InfoTab }) {
       return <SearchAuthorDetailView seedAuthor={tab.author} />;
     case 'artifact':
       return <SearchArtifactDetailView tabId={tab.id} artifact={tab.artifact} />;
+    case 'pdf':
+      return <SearchPdfDetailView pdf={tab.pdf} />;
   }
+}
+
+function SearchPdfDetailView({ pdf }: { pdf: PdfTabPayload }) {
+  const token = useAuthStore((s) => s.token);
+  const pdfSource = useMemo<PdfSource | null>(() => {
+    if (!pdf.libPaperId) return null;
+    return {
+      url: `/api/v1/user/library/papers/${pdf.libPaperId}/pdf`,
+      httpHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
+      withCredentials: false,
+    };
+  }, [pdf.libPaperId, token]);
+
+  if (!token) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <EmptyState
+          icon={AlertCircle}
+          title="需要登录才能查看 PDF"
+          description="文献集中的 PDF 仅本人可见。"
+        />
+      </div>
+    );
+  }
+  if (!pdfSource) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <EmptyState icon={AlertCircle} title="无效的 PDF" />
+      </div>
+    );
+  }
+
+  return (
+    <article className="flex h-full min-h-0 flex-col bg-background">
+      {pdf.title && (
+        <header className="shrink-0 border-b border-border-soft px-4 py-2">
+          <h1
+            className="line-clamp-1 text-sm font-semibold text-foreground"
+            title={pdf.title}
+          >
+            {pdf.title}
+          </h1>
+        </header>
+      )}
+      <PdfViewer file={pdfSource} className="min-h-0 flex-1" />
+    </article>
+  );
 }
 
 function SearchArtifactDetailView({

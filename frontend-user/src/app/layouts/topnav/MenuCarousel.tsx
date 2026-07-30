@@ -138,8 +138,8 @@ export function MenuCarousel() {
               className={cn(
                 'h-full bg-transparent text-sm text-foreground outline-none placeholder:text-faint',
                 idle
-                  ? 'w-[9.5em] shrink-0 text-center caret-transparent'
-                  : 'min-w-0 flex-1',
+                  ? 'w-[9.5em] shrink-0 cursor-pointer text-center caret-transparent'
+                  : 'min-w-0 flex-1 cursor-text',
               )}
             />
           </label>

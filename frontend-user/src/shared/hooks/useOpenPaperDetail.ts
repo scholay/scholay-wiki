@@ -1,3 +1,13 @@
-import { useOpenPaperDetail, useOpenJournalDetail, useOpenAuthorDetail } from '@/shared/hooks/useOpenInSearchPanel';
+import {
+  useOpenPaperDetail,
+  useOpenJournalDetail,
+  useOpenAuthorDetail,
+  useOpenPdfDetail,
+} from '@/shared/hooks/useOpenInSearchPanel';
 
-export { useOpenPaperDetail, useOpenJournalDetail, useOpenAuthorDetail };
+export {
+  useOpenPaperDetail,
+  useOpenJournalDetail,
+  useOpenAuthorDetail,
+  useOpenPdfDetail,
+};

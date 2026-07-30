@@ -1,11 +1,11 @@
-import { useOpenAuthorInBrowser } from '@/shared/hooks';
+import { useOpenAuthorDetail } from '@/shared/hooks';
 import type { PaperAuthor, PaperSource } from '@/shared/api/types';
 
 /**
  * 作者行 —— 前 5 个名字可点跳学者详情(对齐搜索结果卡 MetaLine 的交互),
  * 超出 5 个折叠成 "等 N 人"。
  *
- * 跳转走 `useOpenAuthorInBrowser`(与 venue/title 一样在浏览器内开 tab,不换路由 shell)。
+ * 走 `useOpenAuthorDetail`:文献集/检索 embed 时进右栏,否则全页浏览器 tab。
  * 作者无 authorId(后端 enrich 不到时)→ 渲染纯文本不可点,避免给出无效链接。
  * 作者同源 = 论文源 —— minicod 三源数据隔离,跨源 authorId 不通。
  */
@@ -18,7 +18,7 @@ export function AuthorsRow({
       跳转分支不会走到,所以 source='local' 不会引发实际跨源问题 */
   paperSource: PaperSource;
 }) {
-  const openAuthor = useOpenAuthorInBrowser();
+  const openAuthor = useOpenAuthorDetail();
   if (!authors || authors.length === 0) return null;
   const cleaned = authors
     .map((a) => ({ ...a, name: a?.name?.trim() }))

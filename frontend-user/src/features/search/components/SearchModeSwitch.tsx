@@ -97,7 +97,7 @@ export function SearchModeSwitch({
                 aria-pressed={active}
                 onClick={() => onModeChange(item.mode)}
                 className={cn(
-                  'flex h-7 w-full items-center justify-center gap-1 rounded-sm px-1.5',
+                  'flex h-7 w-full cursor-pointer items-center justify-center gap-1 rounded-sm px-1.5',
                   'text-2xs font-semibold outline-none transition-colors',
                   'focus-visible:ring-2 focus-visible:ring-ring/30',
                   active

@@ -25,6 +25,13 @@ const routes = [
   ["后台", "/admin"],
 ] as const;
 
+/** 开发板专用样式 —— 刻意不用产品 token,避免和站内控件长得一样。 */
+const shell =
+  "font-mono text-[11px] leading-snug text-lime-200/95 shadow-[0_10px_40px_rgba(0,0,0,0.55)]";
+const field =
+  "h-8 w-full cursor-pointer rounded-sm border border-lime-500/25 bg-black/50 px-2 text-[11px] text-lime-100 outline-none focus:border-lime-400/60";
+const label = "mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-lime-500/70";
+
 export function MockControlPanel() {
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -89,48 +96,51 @@ export function MockControlPanel() {
         type="button"
         aria-label="展开 Mock 控制台"
         onClick={() => setPanelCollapsed(false)}
-        className="fixed bottom-4 right-4 z-50 inline-flex h-9 items-center gap-2 rounded-pill border border-border-button bg-background px-3 text-sm font-medium text-foreground"
+        className={`${shell} fixed bottom-3 right-3 z-[100] inline-flex h-8 cursor-pointer items-center gap-2 rounded-sm border border-dashed border-lime-400/50 bg-zinc-950 px-2.5 uppercase tracking-[0.12em] hover:border-lime-300 hover:bg-zinc-900`}
       >
-        <FlaskConical className="size-4 text-brand-green" />
-        Mock · {MOCK_PERSONAS[persona].label}
+        <span className="inline-flex size-1.5 animate-pulse rounded-full bg-lime-400" />
+        <FlaskConical className="size-3.5 text-lime-400" strokeWidth={2} />
+        <span className="text-lime-400">DEV</span>
+        <span className="text-lime-200/40">|</span>
+        <span>MOCK · {MOCK_PERSONAS[persona].label}</span>
       </button>
     );
   }
 
   return (
-    <aside className="fixed bottom-4 right-4 z-50 w-72 rounded-lg border border-border-button bg-background p-3 text-base text-foreground">
-      <div className="flex items-start justify-between gap-3">
+    <aside
+      className={`${shell} fixed bottom-3 right-3 z-[100] w-80 rounded-sm border border-dashed border-lime-400/45 bg-zinc-950/95 p-3 backdrop-blur-sm`}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-lime-500/20 pb-2">
         <div>
-          <div className="flex items-center gap-2 font-semibold">
-            <FlaskConical className="size-4 text-brand-green" />
-            产品设计 Mock
+          <div className="flex items-center gap-2 font-semibold uppercase tracking-[0.16em] text-lime-300">
+            <span className="inline-flex size-1.5 animate-pulse rounded-full bg-lime-400" />
+            <FlaskConical className="size-3.5 text-lime-400" strokeWidth={2} />
+            DEV · MOCK BOARD
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            全部数据在浏览器内运行，不访问真实后端
+          <p className="mt-1.5 text-[10px] normal-case tracking-normal text-lime-200/45">
+            browser-only · no real backend · design branch
           </p>
         </div>
         <button
           type="button"
           aria-label="收起 Mock 控制台"
           onClick={() => setPanelCollapsed(true)}
-          className="rounded-sm p-1 text-faint hover:bg-surface-2 hover:text-foreground"
+          className="cursor-pointer rounded-sm p-1 text-lime-500/70 hover:bg-lime-400/10 hover:text-lime-200"
         >
-          <X className="size-4" />
+          <X className="size-3.5" />
         </button>
       </div>
 
       <div className="mt-3">
-        <label
-          htmlFor="mock-persona"
-          className="mb-1 block text-xs font-medium text-subtle"
-        >
-          身份场景
+        <label htmlFor="mock-persona" className={label}>
+          Persona
         </label>
         <select
           id="mock-persona"
           value={persona}
           onChange={(event) => switchPersona(event.target.value as MockPersona)}
-          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className={field}
         >
           {Object.values(MOCK_PERSONAS).map((definition) => (
             <option key={definition.id} value={definition.id}>
@@ -140,12 +150,9 @@ export function MockControlPanel() {
         </select>
       </div>
 
-      <div className="mt-3">
-        <label
-          htmlFor="mock-scenario"
-          className="mb-1 block text-xs font-medium text-subtle"
-        >
-          请求场景
+      <div className="mt-2.5">
+        <label htmlFor="mock-scenario" className={label}>
+          Scenario
         </label>
         <select
           id="mock-scenario"
@@ -153,43 +160,40 @@ export function MockControlPanel() {
           onChange={(event) =>
             changeScenario(event.target.value as MockScenario)
           }
-          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className={field}
         >
-          <option value="happy">正常数据</option>
-          <option value="server-error">服务异常</option>
-          <option value="auth-expired">登录过期</option>
-          <option value="quota">AI 额度耗尽</option>
+          <option value="happy">happy · 正常数据</option>
+          <option value="server-error">server-error · 服务异常</option>
+          <option value="auth-expired">auth-expired · 登录过期</option>
+          <option value="quota">quota · AI 额度耗尽</option>
         </select>
       </div>
 
-      <div className="mt-3">
-        <label
-          htmlFor="mock-latency"
-          className="mb-1 block text-xs font-medium text-subtle"
-        >
-          接口延迟
+      <div className="mt-2.5">
+        <label htmlFor="mock-latency" className={label}>
+          Latency
         </label>
         <select
           id="mock-latency"
           value={String(latency)}
           onChange={(event) => changeLatency(event.target.value)}
-          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className={field}
         >
-          <option value="0">即时</option>
-          <option value="180">常规 · 180ms</option>
-          <option value="800">慢网 · 800ms</option>
-          <option value="1800">极慢 · 1.8s</option>
+          <option value="0">0ms · instant</option>
+          <option value="180">180ms · normal</option>
+          <option value="800">800ms · slow</option>
+          <option value="1800">1800ms · crawl</option>
         </select>
       </div>
 
-      <nav aria-label="Mock 快速跳转" className="mt-3 flex flex-wrap gap-1.5">
-        {routes.map(([label, href]) => (
+      <nav aria-label="Mock 快速跳转" className="mt-3 flex flex-wrap gap-1">
+        {routes.map(([labelText, href]) => (
           <a
             key={href}
             href={href}
-            className="rounded-pill border border-border px-2.5 py-1 text-xs text-subtle hover:border-border-button hover:bg-surface-1 hover:text-foreground"
+            className="cursor-pointer rounded-sm border border-lime-500/20 bg-black/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-lime-200/70 hover:border-lime-400/50 hover:bg-lime-400/10 hover:text-lime-100"
           >
-            {label}
+            {labelText}
           </a>
         ))}
       </nav>
@@ -197,10 +201,10 @@ export function MockControlPanel() {
       <button
         type="button"
         onClick={reset}
-        className="mt-3 inline-flex h-8 w-full items-center justify-center gap-2 rounded-md border border-border-button text-xs font-medium text-subtle hover:bg-surface-2 hover:text-foreground"
+        className="mt-3 inline-flex h-8 w-full cursor-pointer items-center justify-center gap-2 rounded-sm border border-amber-400/40 bg-amber-400/10 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200 hover:bg-amber-400/20"
       >
-        <RotateCcw className="size-3.5" />
-        复位演示数据
+        <RotateCcw className="size-3" />
+        Reset demo data
       </button>
     </aside>
   );

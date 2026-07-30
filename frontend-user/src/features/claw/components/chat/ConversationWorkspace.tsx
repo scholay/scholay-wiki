@@ -30,15 +30,6 @@ import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { QuestionPrompt, StallNotice, findPendingQuestionBlock } from '@/shared/components/chat';
 import { useUserSkillsByGuide } from '@/shared/api/skills';
 import { cn } from '@/shared/lib/utils';
-import { BrandLogo } from '@/shared/components/BrandLogo';
-import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
-import {
-  useOpenAuthorInBrowser,
-  useOpenJournalInBrowser,
-  useOpenPaperInBrowser,
-} from '@/shared/hooks';
-import { SearchModeSwitch } from '@/features/search/components/SearchModeSwitch';
-import type { SearchMode } from '@/features/search/search-mode';
 import { RightPanelFeatureHub } from '@/features/search/components/workspace/RightPanelFeatureHub';
 import { ChatComposer, type ChatComposerHandle } from './ChatComposer';
 import { MessageTurn } from './MessageTurn';
@@ -63,7 +54,7 @@ export type ConversationApi = ReturnType<typeof useClawConversation>;
 
 /** 一个模式(对话 / 制作PPT)的展示装配。feature-specific 的都收在这里。 */
 export interface WorkspaceConfig {
-  /** header 标题 + 图标(侧栏 / SEO 语义;主区顶栏已改为模式切换)。 */
+  /** header 标题 + 图标(侧栏 / SEO 语义)。 */
   title: string;
   titleIcon: ComponentType<{ className?: string }>;
   /** 模型能力绑定 key(useUserModels)+「新对话默认模型」偏好(各 feature 独立)。 */
@@ -90,8 +81,8 @@ export interface WorkspaceConfig {
 }
 
 /**
- * 会话工作区(桌面)—— 与文献检索 SearcherColumn + SearchRightPanel 同构:
- * 模式切换 + 会话条 + px 锁定对话列 + 右侧工作区 FeatureHub。
+ * 会话工作区(桌面)—— 会话条 + px 锁定对话列 + 右侧工作区 FeatureHub。
+ * 不挂检索模式切换:智能助手是独立入口,去文献检索走菜单 / 其它引导。
  * 会话状态机(conv)由外层按模式各自的 hook 提供并注入。
  */
 export function ConversationWorkspace({
@@ -177,6 +168,11 @@ export function ConversationWorkspace({
 
   useEffect(() => {
     setEmbedMode(true);
+    // 勿把检索页留下的 PDF Chat / 矩阵等功能态带进助手
+    const ap = useSearchRightPanelStore.getState().activePanel;
+    if (ap?.group === 'function') {
+      useSearchRightPanelStore.getState().dismissToHub();
+    }
     return () => {
       setEmbedMode(false);
       resetPanel();
@@ -264,25 +260,6 @@ export function ConversationWorkspace({
   const reduce = useReducedMotion();
 
   const navigate = useNavigate();
-  const openPaper = useOpenPaperInBrowser();
-  const openJournal = useOpenJournalInBrowser();
-  const openAuthor = useOpenAuthorInBrowser();
-  // 与 /search 一致:模式切换只改本地态,不整页 navigate 走掉。
-  // 文献检索提交关键词后再进入 /search 结果页。
-  const [mode, setMode] = useState<SearchMode>('smart');
-  const [classicDraft, setClassicDraft] = useState('');
-
-  const handleClassicSearch = useCallback(
-    (query: string) => {
-      const trimmed = query.trim();
-      if (!trimmed) {
-        navigate('/search');
-        return;
-      }
-      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
-    },
-    [navigate],
-  );
 
   const [chatWidth, setChatWidth] = useLocalStorage<number>(
     'search.searcher-width',
@@ -388,76 +365,6 @@ export function ConversationWorkspace({
           )}
         >
           <div className="relative flex h-full min-h-0 flex-col bg-background">
-            <AnimatePresence mode="wait" initial={false}>
-            {mode === 'classic' ? (
-              <motion.div
-                key="classic-mode"
-                className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-6"
-                initial={reduce ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduce ? undefined : { opacity: 0, y: -10 }}
-                transition={{ duration: reduce ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-2.5">
-                  <h2 className="m-0">
-                    <BrandLogo size="xl" />
-                  </h2>
-                  <div className="mt-6 w-full">
-                    <SearchAutocomplete
-                      value={classicDraft}
-                      onChange={setClassicDraft}
-                      onSubmit={handleClassicSearch}
-                      onSearchJournals={(q) => {
-                        const trimmed = q.trim();
-                        navigate(
-                          trimmed
-                            ? `/journals/search?q=${encodeURIComponent(trimmed)}`
-                            : '/journals/search',
-                        );
-                      }}
-                      onPickJournal={(j) =>
-                        openJournal({
-                          id: j.id,
-                          canonical_name: j.canonical_name,
-                        })
-                      }
-                      onPickPaper={(p) =>
-                        openPaper({
-                          paperId: p.id,
-                          title: p.title,
-                          source: p.source,
-                        })
-                      }
-                      onPickAuthor={(a) => {
-                        if (!a.authorId) return;
-                        openAuthor({
-                          authorId: a.authorId,
-                          name: a.name ?? '',
-                          affiliations: a.affiliations,
-                          paperCount: a.paperCount,
-                          hIndex: a.hIndex,
-                          source: a.source,
-                        });
-                      }}
-                      autoFocus
-                    />
-                    <SearchModeSwitch
-                      mode={mode}
-                      onModeChange={setMode}
-                      className="mt-3"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="smart-mode"
-                className="flex min-h-0 flex-1 flex-col"
-                initial={reduce ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduce ? undefined : { opacity: 0, y: -10 }}
-                transition={{ duration: reduce ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
-              >
             <AgentSessionStrip
               placement="bar"
               api={sessionApi}
@@ -502,7 +409,7 @@ export function ConversationWorkspace({
               {turns.length > 0 && (
                 <div ref={chatAreaRef} className="absolute inset-0">
                   <StickToBottom
-                    className="relative h-full bg-surface-1 px-4 py-4"
+                    className="relative h-full bg-background px-4 py-4"
                     resize="smooth"
                     initial="smooth"
                   >
@@ -539,7 +446,7 @@ export function ConversationWorkspace({
                     <ScrollController scrollRef={scrollToBottomRef} />
                   </StickToBottom>
 
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
 
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4">
                     <div className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col gap-2.5">
@@ -551,7 +458,6 @@ export function ConversationWorkspace({
                         />
                       )}
                       {renderComposer()}
-                      <SearchModeSwitch mode={mode} onModeChange={setMode} />
                     </div>
                   </div>
                 </div>
@@ -585,12 +491,7 @@ export function ConversationWorkspace({
                     transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
                   >
                     <ClawHero
-                      composer={
-                        <div className="mx-auto flex w-full max-w-2xl flex-col gap-2.5">
-                          {renderComposer(composerRef)}
-                          <SearchModeSwitch mode={mode} onModeChange={setMode} />
-                        </div>
-                      }
+                      composer={renderComposer(composerRef)}
                       onPickSuggestion={(t) => composerRef.current?.prefill(t)}
                       title={cfg.hero.title}
                       subtitle={cfg.hero.subtitle}
@@ -601,13 +502,10 @@ export function ConversationWorkspace({
                 )}
               </AnimatePresence>
             </div>
-              </motion.div>
-            )}
-            </AnimatePresence>
           </div>
         </div>
 
-        {showFeatureHubDock && <RightPanelFeatureHub />}
+        {showFeatureHubDock && <RightPanelFeatureHub variant="assistant" />}
 
         {showExpandedRight && (
           <>
@@ -632,7 +530,7 @@ export function ConversationWorkspace({
                     </div>
                   }
                 >
-                  <SearchRightPanel />
+                  <SearchRightPanel variant="assistant" />
                 </Suspense>
               </div>
             </div>

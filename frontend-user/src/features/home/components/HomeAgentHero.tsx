@@ -40,13 +40,13 @@ export function HomeAgentHero() {
   const openJournal = useOpenJournalInBrowser();
   const openAuthor = useOpenAuthorInBrowser();
 
-  /** 进智能助手(/claw);可选预填首条。 */
-  const goClaw = (opts?: { message?: string }) => {
+  /** 进文献搜索 · 智能搜索模式;带 q 时 SmartSearchPanel 自动发首条。 */
+  const goSmartSearch = (opts?: { message?: string }) => {
     const params = new URLSearchParams();
+    params.set('mode', 'smart');
     const trimmed = opts?.message?.trim() ?? '';
     if (trimmed) params.set('q', trimmed);
-    const qs = params.toString();
-    const target = qs ? `/claw?${qs}` : '/claw';
+    const target = `/search?${params.toString()}`;
     if (!authenticated) {
       usePendingAction.getState().set({ type: 'navigate', to: target });
       openDialog('login');
@@ -57,7 +57,7 @@ export function HomeAgentHero() {
 
   const handleAgentSubmit = () => {
     if (!agentDraft.trim()) return;
-    goClaw({ message: agentDraft });
+    goSmartSearch({ message: agentDraft });
   };
 
   const handleClassicSearch = (query: string) => {

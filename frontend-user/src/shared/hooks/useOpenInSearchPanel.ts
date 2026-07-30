@@ -4,6 +4,7 @@ import {
   useOpenAuthorInBrowser,
   useOpenJournalInBrowser,
   useOpenPaperInBrowser,
+  useOpenPdfInBrowser,
 } from './useOpenInBrowser';
 
 function useEmbedOpen<T>(
@@ -38,6 +39,14 @@ export function useOpenAuthorDetail() {
   const embedMode = useSearchRightPanelStore((s) => s.embedMode);
   const openPanel = useSearchRightPanelStore((s) => s.openAuthor);
   const openBrowser = useOpenAuthorInBrowser();
+  return useEmbedOpen(embedMode, openPanel, openBrowser);
+}
+
+/** 文献集 PDF —— embed 时进右栏预览,否则走全页 /pdf/:id。 */
+export function useOpenPdfDetail() {
+  const embedMode = useSearchRightPanelStore((s) => s.embedMode);
+  const openPanel = useSearchRightPanelStore((s) => s.openPdf);
+  const openBrowser = useOpenPdfInBrowser();
   return useEmbedOpen(embedMode, openPanel, openBrowser);
 }
 

@@ -15,6 +15,7 @@ export {
   useOpenPaperDetail,
   useOpenJournalDetail,
   useOpenAuthorDetail,
+  useOpenPdfDetail,
   useOpenPdfChat,
   useIsPdfChatActive,
 } from './useOpenInSearchPanel';

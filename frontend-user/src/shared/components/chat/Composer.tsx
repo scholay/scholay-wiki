@@ -266,8 +266,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             title={requireAuth ? '登录后开始' : '发送 (Enter)'}
             className={cn(
               'inline-flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors',
-              canSend ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-surface-2 text-faint',
-              !canSend && 'cursor-not-allowed',
+              canSend
+                ? 'cursor-pointer bg-foreground text-background hover:bg-foreground/90'
+                : 'cursor-not-allowed bg-surface-2 text-faint',
             )}
           >
             {requireAuth ? <LogIn className="size-4" strokeWidth={2.2} /> : <ArrowUp className="size-4" strokeWidth={2.5} />}

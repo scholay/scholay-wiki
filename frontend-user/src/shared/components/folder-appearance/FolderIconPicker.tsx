@@ -16,6 +16,7 @@ interface FolderIconPickerProps {
 
 /**
  * 文件夹自定义图标 + 背景色 —— 点图标弹出候选矩阵。
+ * 检索工作区与文献集侧栏共用;样式存 `scholay.workspace-folder-ui`。
  */
 export function FolderIconPicker({
   value,
@@ -56,7 +57,7 @@ export function FolderIconPicker({
                 title={label}
                 onClick={() => onColorChange(id)}
                 className={cn(
-                  'inline-flex size-6 items-center justify-center rounded-pill transition-shadow',
+                  'inline-flex size-6 cursor-pointer items-center justify-center rounded-pill transition-shadow',
                   selected && 'ring-2 ring-foreground ring-offset-1 ring-offset-background',
                 )}
               >
@@ -88,7 +89,7 @@ export function FolderIconPicker({
                 title={label}
                 onClick={() => onChange(id)}
                 className={cn(
-                  'inline-flex size-9 items-center justify-center rounded-md transition-colors',
+                  'inline-flex size-9 cursor-pointer items-center justify-center rounded-md transition-colors',
                   selected
                     ? 'bg-foreground text-background'
                     : 'text-subtle hover:bg-surface-1 hover:text-foreground',

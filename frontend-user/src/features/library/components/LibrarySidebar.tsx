@@ -7,7 +7,6 @@ import {
   Check,
   FilePenLine,
   Folder,
-  Inbox,
   Loader2,
   LogIn,
   Pencil,
@@ -23,6 +22,11 @@ import {
   SidebarSection,
   SidebarRailItem,
 } from '@/shared/components/sidebar';
+import { formatRailCount } from '@/shared/components/sidebar/format-rail-count';
+import {
+  FolderIconPicker,
+  useFolderAppearance,
+} from '@/shared/components/folder-appearance';
 import { Button } from '@/shared/ui/button';
 import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
 import { useSidebar } from '@/stores/sidebar.store';
@@ -285,36 +289,89 @@ function StagingFolderRow({
   onActivate: () => void;
   rail: boolean;
 }) {
+  const { Icon, hasColor, iconShellClass, pickerProps } = useFolderAppearance(
+    'staging',
+    'staging',
+  );
+  const iconShellActiveClass = cn(
+    iconShellClass,
+    !hasColor && active && 'text-brand-red',
+  );
+
+  const iconPicker = (
+    <FolderIconPicker {...pickerProps}>
+      <button
+        type="button"
+        title="更换图标与背景色"
+        aria-label={`${STAGING_FOLDER_LABEL} · 更换图标与背景色`}
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          rail
+            ? cn(
+                'inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm [&_svg]:size-3.5',
+                hasColor
+                  ? iconShellClass
+                  : active
+                    ? 'text-brand-red'
+                    : 'text-muted-foreground',
+              )
+            : cn(
+                iconShellActiveClass,
+                'cursor-pointer transition-colors',
+                !hasColor && 'hover:bg-surface-2 hover:text-foreground',
+              ),
+        )}
+      >
+        <Icon strokeWidth={2} className={rail ? undefined : 'size-3.5'} />
+      </button>
+    </FolderIconPicker>
+  );
+
   if (rail) {
     return (
-      <SidebarRailItem
-        icon={<Inbox strokeWidth={2} />}
-        count={count}
-        label={STAGING_FOLDER_LABEL}
-        active={active}
-        tone={active ? 'danger' : 'default'}
-        onClick={onActivate}
-      />
+      <div
+        className={cn(
+          'group flex h-8 w-full items-center justify-center gap-1 rounded-sm px-1 transition-colors',
+          active ? 'bg-danger-soft' : 'hover:bg-surface-1',
+        )}
+      >
+        {iconPicker}
+        <button
+          type="button"
+          onClick={onActivate}
+          title={`${STAGING_FOLDER_LABEL} · ${count}`}
+          aria-label={`${STAGING_FOLDER_LABEL}, ${count}`}
+          className={cn(
+            'inline-flex w-[2ch] shrink-0 cursor-pointer items-center justify-center text-2xs font-semibold tabular-nums leading-none',
+            active
+              ? 'text-brand-red'
+              : 'text-faint group-hover:text-muted-foreground',
+          )}
+        >
+          {formatRailCount(count)}
+        </button>
+      </div>
     );
   }
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onActivate}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
       className={cn(
-        'group relative flex h-8 w-full items-center gap-2.5 px-4 text-left transition-colors',
+        'group relative flex h-8 w-full cursor-pointer items-center gap-2.5 px-4 text-left transition-colors',
         active ? 'bg-danger-soft' : 'hover:bg-surface-1',
       )}
       title="检索工作区的临时文献篮"
     >
-      <Inbox
-        className={cn(
-          'size-3.5 shrink-0',
-          active ? 'text-brand-red' : 'text-muted-foreground',
-        )}
-        strokeWidth={2}
-      />
+      {iconPicker}
       <span
         className={cn(
           'min-w-0 flex-1 truncate text-base',
@@ -331,7 +388,7 @@ function StagingFolderRow({
       >
         {count.toLocaleString()}
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -419,6 +476,43 @@ function PaperFolderRow({
   const renameMut = useRenameFolder();
   const deleteMut = useDeleteFolder();
   const apiToast = useApiToast();
+  const { Icon, hasColor, iconShellClass, pickerProps } = useFolderAppearance(
+    folder.id,
+    'folder',
+  );
+  const iconShellActiveClass = cn(
+    iconShellClass,
+    !hasColor && active && 'text-foreground',
+  );
+
+  const iconPicker = (
+    <FolderIconPicker {...pickerProps}>
+      <button
+        type="button"
+        title="更换图标与背景色"
+        aria-label={`${folder.name} · 更换图标与背景色`}
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          rail
+            ? cn(
+                'inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm [&_svg]:size-3.5',
+                hasColor
+                  ? iconShellClass
+                  : active
+                    ? 'text-foreground'
+                    : 'text-muted-foreground',
+              )
+            : cn(
+                iconShellActiveClass,
+                'cursor-pointer transition-colors',
+                !hasColor && 'hover:bg-surface-2 hover:text-foreground',
+              ),
+        )}
+      >
+        <Icon strokeWidth={2} className={rail ? undefined : 'size-3.5'} />
+      </button>
+    </FolderIconPicker>
+  );
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -458,21 +552,37 @@ function PaperFolderRow({
 
   if (rail) {
     return (
-      <SidebarRailItem
-        icon={<Folder strokeWidth={2} />}
-        count={folder.paper_count}
-        label={folder.name}
-        active={active}
-        tone={active ? 'danger' : 'default'}
-        onClick={onActivate}
-      />
+      <div
+        className={cn(
+          'group flex h-8 w-full items-center justify-center gap-1 rounded-sm px-1 transition-colors',
+          active ? 'bg-danger-soft' : 'hover:bg-surface-1',
+        )}
+      >
+        {iconPicker}
+        <button
+          type="button"
+          onClick={onActivate}
+          title={`${folder.name} · ${folder.paper_count}`}
+          aria-label={`${folder.name}, ${folder.paper_count}`}
+          className={cn(
+            'inline-flex w-[2ch] shrink-0 cursor-pointer items-center justify-center text-2xs font-semibold tabular-nums leading-none',
+            active
+              ? 'text-brand-red'
+              : 'text-faint group-hover:text-muted-foreground',
+          )}
+        >
+          {formatRailCount(folder.paper_count)}
+        </button>
+      </div>
     );
   }
 
   if (editing) {
     return (
       <div className="flex h-8 items-center gap-1.5 px-4">
-        <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className={iconShellClass} aria-hidden>
+          <Icon className="size-3.5" strokeWidth={2} />
+        </span>
         <input
           ref={inputRef}
           value={draft}
@@ -506,7 +616,7 @@ function PaperFolderRow({
           type="button"
           onClick={confirmDelete}
           disabled={deleteMut.isPending}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-brand-red text-white hover:bg-brand-red/90"
+          className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm bg-brand-red text-white hover:bg-brand-red/90"
           title="确认(内含论文回默认文件夹)"
         >
           {deleteMut.isPending ? (
@@ -518,7 +628,7 @@ function PaperFolderRow({
         <button
           type="button"
           onClick={() => setConfirmingDelete(false)}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-2"
+          className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-2"
           title="取消"
         >
           <X className="size-3" />
@@ -545,12 +655,7 @@ function PaperFolderRow({
         active ? 'bg-danger-soft' : 'hover:bg-surface-1',
       )}
     >
-      <Folder
-        className={cn(
-          'size-3.5 shrink-0',
-          active ? 'text-foreground' : 'text-muted-foreground',
-        )}
-      />
+      {iconPicker}
       <span
         className={cn(
           'min-w-0 flex-1 truncate text-base',
@@ -579,7 +684,7 @@ function PaperFolderRow({
               e.stopPropagation();
               setEditing(true);
             }}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+            className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-2 hover:text-foreground"
             title="重命名"
           >
             <Pencil className="size-3" />
@@ -590,7 +695,7 @@ function PaperFolderRow({
               e.stopPropagation();
               setConfirmingDelete(true);
             }}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-danger-soft hover:text-brand-red"
+            className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-danger-soft hover:text-brand-red"
             title="删除"
           >
             <Trash2 className="size-3" />

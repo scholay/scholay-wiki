@@ -220,7 +220,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
                 onChange('');
                 rootRef.current?.querySelector('input')?.focus();
               }}
-              className="inline-flex size-7 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
+              className="inline-flex size-7 cursor-pointer items-center justify-center rounded-sm text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
             >
               <X className="size-3.5" strokeWidth={2.5} />
             </button>
@@ -230,7 +230,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             aria-label="搜索"
             onMouseEnter={openPickerNow}
             onMouseLeave={schedulePickerClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+            className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-sm bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
           >
             <Search className="size-4" strokeWidth={2.5} />
           </button>

@@ -8,9 +8,9 @@ import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
 import { TruncatedText } from '@/shared/components/TruncatedText';
 import {
   useApiToast,
-  useOpenJournalInBrowser,
-  useOpenPaperInBrowser,
-  useOpenPdfInBrowser,
+  useOpenJournalDetail,
+  useOpenPaperDetail,
+  useOpenPdfDetail,
 } from '@/shared/hooks';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 import {
@@ -78,9 +78,9 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
   selected,
   onToggle,
 }: RowProps) {
-  const openPaper = useOpenPaperInBrowser();
-  const openJournal = useOpenJournalInBrowser();
-  const openPdf = useOpenPdfInBrowser();
+  const openPaper = useOpenPaperDetail();
+  const openJournal = useOpenJournalDetail();
+  const openPdf = useOpenPdfDetail();
 
   // AI 翻译:与搜索页 DefaultCard 同款
   const [zh, setZh] = useState<TranslatePaperResult | null>(null);

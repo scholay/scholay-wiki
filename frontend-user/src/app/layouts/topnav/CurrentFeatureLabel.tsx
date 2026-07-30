@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { resolveFeatureChip, type Menu } from '@/app/menus';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -14,12 +15,13 @@ const CHIP_WIDTH = 'w-32';
 
 /**
  * 顶栏后退 / 前进中间的当前功能名 —— 悬停展开全站功能菜单。
+ * 左侧统一用右向箭头表示「当前位置」,不用各功能自己的图标。
  */
 export function CurrentFeatureLabel() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const { label, icon: Icon } = resolveFeatureChip(pathname);
+  const { label } = resolveFeatureChip(pathname);
 
   const handleSelect = (menu: Menu) => {
     navigateToMenu(navigate, menu);
@@ -46,14 +48,14 @@ export function CurrentFeatureLabel() {
           aria-haspopup="dialog"
           aria-controls="topnav-site-menu"
           className={cn(
-            'inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md px-1.5',
+            'inline-flex h-7 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-md px-1.5',
             CHIP_WIDTH,
             'text-xs font-medium text-foreground transition-colors',
             'hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
             open && 'bg-background shadow-sm',
           )}
         >
-          <Icon
+          <ChevronRight
             className="size-3.5 shrink-0 text-subtle"
             strokeWidth={2}
             aria-hidden

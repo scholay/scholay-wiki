@@ -127,7 +127,7 @@ function ViewModeSwitch({
         aria-pressed={value === 'list'}
         onClick={() => onChange('list')}
         className={cn(
-          'inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs transition-colors',
+          'inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors',
           value === 'list'
             ? 'bg-background text-foreground shadow-sm'
             : 'text-faint hover:text-foreground',
@@ -142,7 +142,7 @@ function ViewModeSwitch({
         aria-pressed={value === 'grid'}
         onClick={() => onChange('grid')}
         className={cn(
-          'inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs transition-colors',
+          'inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors',
           value === 'grid'
             ? 'bg-background text-foreground shadow-sm'
             : 'text-faint hover:text-foreground',
@@ -232,7 +232,7 @@ function ListItem({
       type="button"
       onClick={onSelect}
       className={cn(
-        'group flex w-full items-center gap-3 px-4 text-left transition-colors',
+        'group flex w-full cursor-pointer items-center gap-3 px-4 text-left transition-colors',
         compact ? 'h-10' : 'h-14',
         isActive ? 'bg-surface-1' : 'hover:bg-surface-1',
       )}
@@ -298,7 +298,7 @@ function GridView({
                   type="button"
                   onClick={() => onSelect(m)}
                   className={cn(
-                    'relative flex flex-col items-center gap-2 rounded-md px-2 py-3 text-center transition-colors',
+                    'relative flex cursor-pointer flex-col items-center gap-2 rounded-md px-2 py-3 text-center transition-colors',
                     isActive ? 'bg-surface-1' : 'hover:bg-surface-1',
                   )}
                 >

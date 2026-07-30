@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import {
   ChevronDown,
   Inbox,
+  Loader2,
   LogIn,
   Lock,
   Search,
@@ -32,7 +33,13 @@ import {
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { useDebounce, useScrollRestoration, useUrlState } from '@/shared/hooks';
+import {
+  useDebounce,
+  useLocalStorage,
+  useMediaQuery,
+  useScrollRestoration,
+  useUrlState,
+} from '@/shared/hooks';
 import {
   LIBRARY_STAGING_FOLDER_PARAM,
   LibrarySidebar,
@@ -60,8 +67,21 @@ import { useStagingActions } from '@/features/search/hooks/useStagingActions';
 import { useStagingView } from '@/features/search/hooks/useStagingView';
 import { STAGING_FOLDER_LABEL } from '@/stores/workspace-folder.store';
 import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
+import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
+import { RightPanelFeatureHub } from '@/features/search/components/workspace/RightPanelFeatureHub';
 import { cn } from '@/shared/lib/utils';
 import type { Paper } from '@/shared/api/types';
+
+const SearchRightPanel = lazy(() =>
+  import('@/features/search/components/SearchRightPanel').then((m) => ({
+    default: m.SearchRightPanel,
+  })),
+);
+
+const RIGHT_MIN_PX = 480;
+const LIST_MIN_PX = 360;
+const LIST_MAX_PX = 900;
+const LIST_DEFAULT_PX = 520;
 
 // 统一工作台弹窗 —— 与 LibraryPaperRow 同款 lazy + 条件 mount:静态 import 会把
 // 这个大弹窗打进页面主 chunk,击穿行级入口的 lazy 拆分;type import 不影响 chunk。
@@ -75,12 +95,19 @@ const PaperWorkbenchDialog = lazy(() =>
  * 我的资源 —— 四分：文献集 / 期刊集 / 稿件集 / 文件夹。
  *
  *   左:LibrarySidebar
- *   右:按 ?section= 切换主区（文献集仍走论文列表；其余为 mock 集合视图）
+ *   中:列表主区
+ *   右:assistant 拓展区(论文/作者/期刊/PDF 详情;无矩阵/图谱)
  */
 export function LibraryPage() {
   const token = useAuthStore((s) => s.token);
   const [params] = useSearchParams();
   const section = parseResourceSection(params.get('section'));
+  const isNarrow = useMediaQuery('(max-width: 1024px)');
+
+  const activePanel = useSearchRightPanelStore((s) => s.activePanel);
+  const openPanel = useSearchRightPanelStore((s) => s.openPanel);
+  const setEmbedMode = useSearchRightPanelStore((s) => s.setEmbedMode);
+  const resetPanel = useSearchRightPanelStore((s) => s.reset);
 
   useRegisterSidebarRail([
     {
@@ -91,18 +118,110 @@ export function LibraryPage() {
     },
   ]);
 
+  useEffect(() => {
+    setEmbedMode(true);
+    const ap = useSearchRightPanelStore.getState().activePanel;
+    if (ap?.group === 'function') {
+      useSearchRightPanelStore.getState().dismissToHub();
+    }
+    return () => {
+      setEmbedMode(false);
+      resetPanel();
+    };
+  }, [setEmbedMode, resetPanel]);
+
+  useEffect(() => {
+    openPanel();
+  }, [openPanel]);
+
+  const showRightPanel = !!token && !isNarrow;
+  const showFeatureHubDock = showRightPanel && !activePanel;
+  const showExpandedRight = showRightPanel && !!activePanel;
+
+  // 列表列宽可拖:展开拓展区时中线分配比例,记忆到 localStorage
+  const [listWidth, setListWidth] = useLocalStorage<number>(
+    'library.list-width',
+    LIST_DEFAULT_PX,
+  );
+  const draggingRef = useRef(false);
+  const startDrag = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      const startX = e.clientX;
+      const startList = listWidth;
+      const onMove = (ev: PointerEvent) => {
+        if (!draggingRef.current) return;
+        const dx = ev.clientX - startX;
+        const next = Math.max(
+          LIST_MIN_PX,
+          Math.min(LIST_MAX_PX, startList + dx),
+        );
+        setListWidth(next);
+      };
+      const onUp = () => {
+        draggingRef.current = false;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.body.style.cursor = '';
+      };
+      document.body.style.cursor = 'col-resize';
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    },
+    [listWidth, setListWidth],
+  );
+
   return (
     <SidebarLayout sidebar={<LibrarySidebar />}>
-      <div className="flex h-full min-h-0 flex-col bg-background">
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-          {!token ? (
-            <LibraryLoginPrompt />
-          ) : section === 'papers' ? (
-            <LibraryFolderView />
-          ) : (
-            <LibraryMockSectionView section={section} />
+      <div className="relative flex h-full min-h-0 bg-background">
+        <div
+          style={showExpandedRight ? { width: listWidth } : undefined}
+          className={cn(
+            'flex h-full min-h-0 flex-col bg-background',
+            showExpandedRight ? 'shrink-0' : 'min-w-0 flex-1',
           )}
+        >
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+            {!token ? (
+              <LibraryLoginPrompt />
+            ) : section === 'papers' ? (
+              <LibraryFolderView />
+            ) : (
+              <LibraryMockSectionView section={section} />
+            )}
+          </div>
         </div>
+
+        {showFeatureHubDock && <RightPanelFeatureHub variant="assistant" />}
+
+        {showExpandedRight && (
+          <>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="拖动调整列表与拓展区宽度"
+              onPointerDown={startDrag}
+              className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
+            >
+              <span className="absolute inset-y-0 -left-1 -right-1" />
+            </div>
+
+            <div className="h-full min-h-0 min-w-0 flex-1 overflow-x-auto">
+              <div style={{ minWidth: RIGHT_MIN_PX }} className="h-full">
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center text-faint">
+                      <Loader2 className="size-5 animate-spin" />
+                    </div>
+                  }
+                >
+                  <SearchRightPanel variant="assistant" />
+                </Suspense>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </SidebarLayout>
   );

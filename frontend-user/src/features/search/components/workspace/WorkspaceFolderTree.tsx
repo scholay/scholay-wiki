@@ -19,12 +19,10 @@ import { useLibraryPapers } from '@/features/library/api/papers';
 import { useLibraryFoldersSummary } from '../../api/library';
 import { useStagingActions } from '../../hooks/useStagingActions';
 import { useStagingView } from '../../hooks/useStagingView';
-import { FolderIconPicker } from './FolderIconPicker';
 import {
-  folderIconStorageKey,
-  resolveFolderColor,
-  resolveFolderIcon,
-} from './folder-icons';
+  FolderIconPicker,
+  useFolderAppearance,
+} from '@/shared/components/folder-appearance';
 import { WorkspacePaperUnit } from './WorkspacePaperUnit';
 import type { Paper } from '@/shared/api/types';
 
@@ -190,30 +188,12 @@ function FolderAccordion({
   onSelectPaper: (id: string | null) => void;
   onRemovePaper?: (paperId: string) => void;
 }) {
-  const storageKey = folderIconStorageKey(folderKey);
-  const iconId = useWorkspaceFolderUi((s) => s.folderIcons[storageKey]);
-  const setFolderIcon = useWorkspaceFolderUi((s) => s.setFolderIcon);
-  const colorId = useWorkspaceFolderUi((s) => s.folderColors[storageKey]);
-  const setFolderColor = useWorkspaceFolderUi((s) => s.setFolderColor);
-  const defaultIconId = icon === 'staging' ? 'inbox' : 'folder';
-  const Icon = resolveFolderIcon(iconId ?? defaultIconId, icon);
-  const color = resolveFolderColor(colorId);
-  const hasColor = Boolean(color.bgClass);
-
-  const iconShellClass = cn(
-    'inline-flex size-6 shrink-0 items-center justify-center rounded-sm',
-    hasColor
-      ? cn(color.bgClass, color.fgClass)
-      : cn('text-muted-foreground', active && 'text-foreground'),
+  const { Icon, color, hasColor, iconShellClass, pickerProps } =
+    useFolderAppearance(folderKey, icon);
+  const iconShellActiveClass = cn(
+    iconShellClass,
+    !hasColor && active && 'text-foreground',
   );
-
-  const pickerProps = {
-    value: iconId ?? defaultIconId,
-    onChange: (id: string) => setFolderIcon(storageKey, id),
-    colorValue: colorId ?? 'none',
-    onColorChange: (id: string) => setFolderColor(storageKey, id),
-    side: 'right' as const,
-  };
 
   // 仅展开时可改图标/背景色；收起时仍展示已选样式
   const iconButton = open ? (
@@ -224,7 +204,7 @@ function FolderAccordion({
         aria-label={`${label} · 更换图标与背景色`}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          iconShellClass,
+          iconShellActiveClass,
           'cursor-pointer transition-colors',
           !hasColor && 'hover:bg-surface-2 hover:text-foreground',
         )}
@@ -233,7 +213,7 @@ function FolderAccordion({
       </button>
     </FolderIconPicker>
   ) : (
-    <span className={iconShellClass} aria-hidden>
+    <span className={iconShellActiveClass} aria-hidden>
       <Icon className="size-3.5" strokeWidth={2} />
     </span>
   );

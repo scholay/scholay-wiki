@@ -11,7 +11,7 @@ import {
   needsTranslation,
   type TranslatePaperResult,
 } from '@/shared/api/translate';
-import { useOpenPdfInBrowser } from '@/shared/hooks';
+import { useOpenPdfDetail } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import type { Paper, UserLibraryPaper } from '@/shared/api/types';
 
@@ -46,7 +46,7 @@ export function PaperActionRow({
   const canTranslate =
     needsTranslation(paper.title) || needsTranslation(paper.abstract);
 
-  const openPdf = useOpenPdfInBrowser();
+  const openPdf = useOpenPdfDetail();
   const handleViewPdf = () => {
     if (!libRow) return;
     openPdf({ libPaperId: libRow.id, title: paper.title || '无标题' });

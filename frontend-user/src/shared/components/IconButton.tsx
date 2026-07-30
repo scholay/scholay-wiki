@@ -20,7 +20,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         type="button"
         className={cn(
-          'inline-flex items-center justify-center rounded-md text-subtle transition-colors',
+          'inline-flex cursor-pointer items-center justify-center rounded-md text-subtle transition-colors',
           'hover:bg-surface-2 hover:text-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
           'disabled:pointer-events-none disabled:opacity-50',

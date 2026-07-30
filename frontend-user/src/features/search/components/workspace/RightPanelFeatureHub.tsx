@@ -18,6 +18,7 @@ import {
   useSearchRightPanelStore,
   WORKSPACE_FUNCTION_LABEL,
   WORKSPACE_FUNCTION_ORDER,
+  type RightPanelVariant,
 } from '@/stores/search-right-panel.store';
 import { cn } from '@/shared/lib/utils';
 
@@ -50,22 +51,40 @@ type HubCard = {
 /**
  * 右侧拓展入口 —— 贴右缘滑出;窄顶栏标题与封面融为一体,无图标/描述;
  * 收起态多露一截,悬停 spring 整卡滑出聚焦。
+ *
+ * `variant="assistant"`:智能助手只留「扩展区」(详情/产物壳),隐藏检索工作区工具卡。
  */
-export function RightPanelFeatureHub() {
+export function RightPanelFeatureHub({
+  variant = 'search',
+}: {
+  variant?: RightPanelVariant;
+}) {
   const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
   const functionTabs = useSearchRightPanelStore((s) => s.functionTabs);
+  const infoTabs = useSearchRightPanelStore((s) => s.infoTabs);
+  const setActiveInfoTab = useSearchRightPanelStore((s) => s.setActiveInfoTab);
+  const openShell = useSearchRightPanelStore((s) => s.openShell);
   const openPaper = useOpenPaperDetail();
   const reduce = !!useReducedMotion();
   const [hovered, setHovered] = useState<string | null>(null);
+  const assistant = variant === 'assistant';
 
   const openExpansionArea = () => {
+    if (assistant) {
+      const lastInfo = infoTabs.at(-1);
+      if (lastInfo) setActiveInfoTab(lastInfo.id);
+      else openShell();
+      return;
+    }
     setActiveFunction(functionTabs.at(-1) ?? WORKSPACE_FUNCTION_ORDER[0]);
   };
 
   const hubCard: HubCard = {
     key: 'hub',
     title: '扩展区',
-    description: '打开右侧拓展工作区',
+    description: assistant
+      ? '打开右侧拓展区(论文详情 / 生成产物)'
+      : '打开右侧拓展工作区',
     icon: Plus,
     accent: {
       chip: 'bg-foreground/10 text-foreground',
@@ -142,26 +161,28 @@ export function RightPanelFeatureHub() {
           onHover={() => setHovered(hubCard.key)}
         />
 
-        <div className="mt-4 flex flex-col gap-2">
-          {functionCards.map((card) => (
-            <EdgeTemplateCard
-              key={card.key}
-              card={card}
-              reduce={reduce}
-              focused={hovered === card.key}
-              onHover={() => setHovered(card.key)}
-            />
-          ))}
+        {!assistant && (
+          <div className="mt-4 flex flex-col gap-2">
+            {functionCards.map((card) => (
+              <EdgeTemplateCard
+                key={card.key}
+                card={card}
+                reduce={reduce}
+                focused={hovered === card.key}
+                onHover={() => setHovered(card.key)}
+              />
+            ))}
 
-          <QuickOpenPaperDialog align="end" onPickPaper={openPaper}>
-            <EdgeTemplateCard
-              card={browserCard}
-              reduce={reduce}
-              focused={hovered === browserCard.key}
-              onHover={() => setHovered(browserCard.key)}
-            />
-          </QuickOpenPaperDialog>
-        </div>
+            <QuickOpenPaperDialog align="end" onPickPaper={openPaper}>
+              <EdgeTemplateCard
+                card={browserCard}
+                reduce={reduce}
+                focused={hovered === browserCard.key}
+                onHover={() => setHovered(browserCard.key)}
+              />
+            </QuickOpenPaperDialog>
+          </div>
+        )}
       </div>
     </aside>
   );

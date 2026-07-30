@@ -1067,7 +1067,7 @@ export function SmartSearchPanel({
               // markdown 表格 overflow-x-auto, 工具 chip max-w-full。外层不需要也不能管 overflow。
               //
               // padding / background / relative 可以放心保留 (不影响 overflow 计算)。
-              className="h-full bg-surface-1 px-4 py-4 relative"
+              className="relative h-full bg-background px-4 py-4"
               resize="smooth"
               initial="smooth"
             >
@@ -1132,7 +1132,7 @@ export function SmartSearchPanel({
             </StickToBottom>
 
             {/* 底部渐隐:内容贴近底部时淡入 surface-1,让悬浮对话框"浮"在对话之上(不被文字顶到边)。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
           </div>
         )}
 

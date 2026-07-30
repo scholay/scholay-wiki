@@ -101,16 +101,22 @@ export function AgentSessionStrip({
         className={cn(
           dock
             ? 'flex h-9 w-full items-center gap-2'
-            : 'sticky top-0 z-20 w-full shrink-0 border-b border-border bg-background px-4',
+            : // 外层透明吸顶:背景/描边只落在内层内容宽上,不贯穿整列
+              'sticky top-0 z-20 w-full shrink-0 px-4 pt-2.5 pb-1.5',
           className,
         )}
       >
         <div
           className={cn(
             'relative flex items-center',
-            // 与底栏 Composer 同宽同居中(max-w-2xl)
-            !dock && 'mx-auto h-10 w-full max-w-2xl',
             dock && 'h-9 w-full',
+            // 与底栏 Composer 同宽同居中;浮层条避免通栏分割线发空
+            !dock &&
+              cn(
+                'mx-auto h-10 w-full max-w-2xl gap-1 rounded-xl px-2',
+                // 与对话区同底色,只用描边/阴影做层次,避免灰白两截
+                'border border-border bg-background shadow-sm',
+              ),
           )}
         >
           {/* 左:历史入口 + 更新时间 */}
@@ -123,10 +129,12 @@ export function AgentSessionStrip({
                   title={`会话历史（${historyCount}）`}
                   disabled={!token}
                   className={cn(
-                    'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-sm border border-border px-2 text-subtle transition-colors',
-                    'hover:bg-surface-1 hover:text-foreground',
+                    'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-subtle transition-colors',
+                    'hover:bg-surface-2 hover:text-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-40',
-                    historyOpen && 'border-foreground/20 bg-surface-1 text-foreground',
+                    historyOpen
+                      ? 'bg-surface-2 text-foreground'
+                      : 'bg-surface-1/80',
                   )}
                 >
                   <History className="size-3.5 shrink-0" strokeWidth={2} />
@@ -226,7 +234,7 @@ export function AgentSessionStrip({
           </div>
 
           {/* 右:重命名 / 删除 / 新对话 */}
-          <div className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
+          <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5">
             {activeSession && (
               <>
                 <button
@@ -234,7 +242,7 @@ export function AgentSessionStrip({
                   onClick={() => setRenameTarget(activeSession)}
                   title="重命名"
                   aria-label="重命名会话"
-                  className="inline-flex size-7 items-center justify-center rounded-sm border border-border text-subtle transition-colors hover:bg-surface-1 hover:text-foreground"
+                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-lg text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
                 >
                   <Pencil className="size-3.5" strokeWidth={2} />
                 </button>
@@ -243,7 +251,7 @@ export function AgentSessionStrip({
                   onClick={() => setDeleteTarget(activeSession)}
                   title="删除"
                   aria-label="删除会话"
-                  className="inline-flex size-7 items-center justify-center rounded-sm border border-border text-subtle transition-colors hover:bg-surface-1 hover:text-brand-red"
+                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-lg text-subtle transition-colors hover:bg-surface-2 hover:text-brand-red"
                 >
                   <Trash2 className="size-3.5" strokeWidth={2} />
                 </button>
@@ -254,7 +262,7 @@ export function AgentSessionStrip({
               onClick={onNewConversation}
               disabled={newConversationDisabled}
               title={newConversationTitle}
-              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-8 border border-border-button px-2.5 text-xs font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-foreground px-2.5 text-xs font-medium text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <SquarePen className="size-3.5" strokeWidth={2} />
               新对话
