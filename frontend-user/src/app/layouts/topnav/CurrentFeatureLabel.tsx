@@ -14,7 +14,7 @@ import { AllMenusPanel, navigateToMenu } from './AllMenusOverlay';
 const CHIP_WIDTH = 'w-32';
 
 /**
- * 顶栏后退 / 前进中间的当前功能名 —— 悬停展开全站功能菜单。
+ * 顶栏当前功能名 —— 悬停展开全站功能菜单。
  * 左侧统一用右向箭头表示「当前位置」,不用各功能自己的图标。
  */
 export function CurrentFeatureLabel() {

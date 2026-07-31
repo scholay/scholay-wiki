@@ -34,6 +34,8 @@ export function ModelSelector({
   onUpgrade,
   disabled,
   currentTokens = 0,
+  /** 仅图标(搜索器单行栏等窄位);模型名放 title。 */
+  iconOnly = false,
 }: {
   models: UserModel[];
   /** 会话当前生效模型(null = 未知/跟随默认,显示默认项)。 */
@@ -46,6 +48,7 @@ export function ModelSelector({
   disabled?: boolean;
   /** 当前会话上下文占用(token,来自水位)。切到「占用已超新模型窗口 75%」的小窗模型时二次确认。0 = 不判。 */
   currentTokens?: number;
+  iconOnly?: boolean;
 }) {
   const confirm = useConfirm();
   if (models.length === 0) return null;
@@ -81,13 +84,25 @@ export function ModelSelector({
           variant="ghost"
           size="sm"
           disabled={disabled}
-          className="h-8 gap-1 px-2 text-xs text-muted-foreground"
-          title="选择模型"
+          className={cn(
+            'text-muted-foreground',
+            iconOnly
+              ? 'size-7 shrink-0 gap-0 p-0'
+              : 'h-8 gap-1 px-2 text-xs',
+          )}
+          title={`选择模型 · ${triggerLabel}`}
+          aria-label={`选择模型,当前 ${triggerLabel}`}
         >
           <Sparkles className="size-3.5 shrink-0 text-brand-green" />
-          {/* 模型名完整展示、不缩略(宽度随内容,不再限 max-w-36 + truncate);移动端仍仅图标(hidden sm:inline)。 */}
-          <span className="whitespace-nowrap hidden sm:inline">{triggerLabel}</span>
-          <ChevronDown className="size-3 shrink-0 opacity-60" />
+          {!iconOnly && (
+            <>
+              {/* 模型名完整展示;窄屏可再藏字(sm+)。 */}
+              <span className="hidden whitespace-nowrap sm:inline">
+                {triggerLabel}
+              </span>
+              <ChevronDown className="size-3 shrink-0 opacity-60" />
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-y-auto">

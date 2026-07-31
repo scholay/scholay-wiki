@@ -1,166 +1,215 @@
-import { useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type TransitionEvent,
+} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Globe, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home } from 'lucide-react';
+import { MENUS, findActiveMenuIndex, type Menu } from '@/app/menus';
 import { IconButton } from '@/shared/components/IconButton';
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from '@/shared/ui/popover';
 import { cn } from '@/shared/lib/utils';
-import {
-  browserTabUrl,
-  useBrowserTabs,
-} from '@/stores/browser-tabs.store';
-import {
-  AllMenusPanel,
-  navigateToMenu,
-} from './AllMenusOverlay';
-import type { Menu } from '@/app/menus';
 
 /**
- * 顶栏中段 —— 浏览器入口 + 全站功能搜索框。
- * 搜索框聚焦按名称过滤；完整分类目录改由左侧「当前功能名」展开。
+ * 顶栏中段菜单 carousel —— 左右箭头步进 + active 居中:
+ *
+ *   [Home] | ← [viewport: active 居中,左右邻近 menu] →
+ *
+ * URL 是唯一真理:click → navigate → pathname → activeIndex → 滑动同步。
+ * 3 拷贝无缝循环,wrap 后 silent snap 回 main 段。
  */
 export function MenuCarousel() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const anchorRef = useRef<HTMLLabelElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const N = MENUS.length;
 
-  const isInDetailPane = /^\/(paper|author|journal|pdf)\//.test(
-    location.pathname,
+  const activeIndex = useMemo(
+    () => findActiveMenuIndex(location.pathname),
+    [location.pathname],
   );
-  const onBrowser = isInDetailPane;
 
-  const browserTabs = useBrowserTabs((s) => s.tabs);
-  const browserActiveId = useBrowserTabs((s) => s.activeTabId);
-  const refreshReturnTo = useBrowserTabs((s) => s.refreshReturnTo);
-  const hasBrowserTabs = browserTabs.length > 0;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
-  const closeSearch = () => {
-    setSearchOpen(false);
-    setQuery('');
+  const [trackIndex, setTrackIndex] = useState(N + activeIndex);
+  const [trackX, setTrackX] = useState(0);
+  const [animating, setAnimating] = useState(true);
+
+  useEffect(() => {
+    setTrackIndex((curr) => {
+      const currMenuIdx = ((curr % N) + N) % N;
+      if (currMenuIdx === activeIndex) return curr;
+      const forward = (activeIndex - currMenuIdx + N) % N;
+      const backward = (currMenuIdx - activeIndex + N) % N;
+      const signedDelta = forward <= backward ? forward : -backward;
+      setAnimating(true);
+      return curr + signedDelta;
+    });
+  }, [activeIndex, N]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const item = itemRefs.current[trackIndex];
+    if (!viewport || !item) return;
+    const vr = viewport.getBoundingClientRect();
+    const ir = item.getBoundingClientRect();
+    const delta = vr.left + vr.width / 2 - (ir.left + ir.width / 2);
+    setTrackX((prev) => prev + delta);
+  }, [trackIndex]);
+
+  useEffect(() => {
+    const onResize = () => {
+      const viewport = viewportRef.current;
+      const item = itemRefs.current[trackIndex];
+      if (!viewport || !item) return;
+      const vr = viewport.getBoundingClientRect();
+      const ir = item.getBoundingClientRect();
+      const delta = vr.left + vr.width / 2 - (ir.left + ir.width / 2);
+      setTrackX((prev) => prev + delta);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [trackIndex]);
+
+  const handleTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
+    if (e.propertyName !== 'transform') return;
+    if (trackIndex >= N && trackIndex < 2 * N) return;
+    const inMain = N + (((trackIndex % N) + N) % N);
+    if (inMain === trackIndex) return;
+    setAnimating(false);
+    setTrackIndex(inMain);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setAnimating(true));
+    });
   };
 
-  const openSearch = () => {
-    setSearchOpen(true);
+  const goPrev = () => {
+    const next = (activeIndex - 1 + N) % N;
+    navigate(MENUS[next].href);
+  };
+  const goNext = () => {
+    const next = (activeIndex + 1) % N;
+    navigate(MENUS[next].href);
   };
 
-  const goBrowser = () => {
-    const target =
-      browserTabs.find((t) => t.id === browserActiveId) ?? browserTabs[0];
-    if (!target) return;
-    if (!isInDetailPane) {
-      refreshReturnTo(target.id, `${location.pathname}${location.search}`);
-    }
-    navigate(browserTabUrl(target));
-  };
-
-  const handleSelect = (menu: Menu) => {
-    navigateToMenu(navigate, menu);
-    closeSearch();
-    inputRef.current?.blur();
-  };
-
-  const isInsideAnchor = (node: EventTarget | null) => {
-    if (!(node instanceof Node)) return false;
-    return Boolean(anchorRef.current?.contains(node));
-  };
-
-  /** 空闲：图标 + hint 居中，看上去像按钮；聚焦/有字后左对齐成搜索框 */
-  const idle = !searchOpen && !query;
+  const tripled = useMemo(() => [...MENUS, ...MENUS, ...MENUS], []);
+  const onHome = location.pathname === '/';
 
   return (
     <div className="flex w-full items-center justify-center gap-1.5">
-      {hasBrowserTabs && (
-        <>
-          <IconButton
-            tooltip="浏览器"
-            aria-label="浏览器"
-            className={cn(
-              'rounded-lg',
-              onBrowser
-                ? 'cursor-default bg-foreground text-background hover:bg-foreground hover:text-background'
-                : 'bg-surface-2',
-            )}
-            onClick={goBrowser}
-          >
-            <Globe strokeWidth={2} />
-          </IconButton>
-          <span aria-hidden className="h-5 w-px shrink-0 bg-border-separator" />
-        </>
-      )}
-
-      <Popover
-        open={searchOpen}
-        onOpenChange={(next) => {
-          // 关闭由 blur / 点外 / 选中驱动;打开只认输入框 focus,避免与
-          // 「焦点留在锚点输入框」打架被立刻关掉。
-          if (!next) closeSearch();
-        }}
+      <IconButton
+        tooltip="首页"
+        aria-label="首页"
+        className={cn(
+          'rounded-lg',
+          onHome
+            ? 'cursor-default bg-foreground text-background hover:bg-foreground hover:text-background'
+            : 'bg-surface-2',
+        )}
+        onClick={() => navigate('/')}
       >
-        <PopoverAnchor asChild>
-          <label
-            ref={anchorRef}
-            className={cn(
-              'relative flex h-9 w-[260px] items-center gap-2 rounded-lg border bg-surface-1 px-2.5 lg:w-[420px]',
-              'transition-colors',
-              idle && 'cursor-pointer justify-center',
-              searchOpen
-                ? 'border-foreground/25 bg-background ring-2 ring-foreground/5'
-                : 'border-border hover:border-border-strong hover:bg-surface-2',
-            )}
-          >
-            <Search
-              className="size-3.5 shrink-0 text-faint"
-              strokeWidth={2}
-              aria-hidden
-            />
-            <input
-              ref={inputRef}
-              type="search"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                openSearch();
-              }}
-              onFocus={openSearch}
-              onClick={openSearch}
-              placeholder="搜索全站功能…"
-              aria-label="搜索全站功能"
-              aria-expanded={searchOpen}
-              aria-controls="topnav-all-menus"
-              aria-haspopup="listbox"
-              autoComplete="off"
-              className={cn(
-                'h-full bg-transparent text-sm text-foreground outline-none placeholder:text-faint',
-                idle
-                  ? 'w-[9.5em] shrink-0 cursor-pointer text-center caret-transparent'
-                  : 'min-w-0 flex-1 cursor-text',
-              )}
-            />
-          </label>
-        </PopoverAnchor>
-        <PopoverContent
-          id="topnav-all-menus"
-          align="center"
-          sideOffset={8}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onCloseAutoFocus={(e) => e.preventDefault()}
-          onFocusOutside={(e) => {
-            if (isInsideAnchor(e.target)) e.preventDefault();
-          }}
-          onInteractOutside={(e) => {
-            if (isInsideAnchor(e.target)) e.preventDefault();
-          }}
-          className="w-[min(420px,calc(100vw-48px))] overflow-hidden border border-border p-0 shadow-lg"
+        <Home strokeWidth={2} />
+      </IconButton>
+
+      <Separator />
+
+      <button
+        type="button"
+        aria-label="上一个菜单"
+        onClick={goPrev}
+        className="inline-flex size-5 shrink-0 cursor-pointer items-center justify-center text-faint transition-colors hover:text-foreground"
+      >
+        <ChevronLeft className="size-4" />
+      </button>
+
+      <div
+        ref={viewportRef}
+        className="w-[260px] overflow-hidden lg:w-[420px]"
+        aria-roledescription="carousel"
+      >
+        <div
+          className={cn(
+            'flex h-9 items-center gap-1 will-change-transform',
+            animating && 'transition-transform duration-300 ease-out',
+          )}
+          style={{ transform: `translate3d(${trackX}px, 0, 0)` }}
+          onTransitionEnd={handleTransitionEnd}
         >
-          <AllMenusPanel query={query} onSelect={handleSelect} />
-        </PopoverContent>
-      </Popover>
+          {tripled.map((menu, i) => {
+            const isCentered = i === trackIndex;
+            const isActive = isCentered && menu.match(location.pathname);
+            return (
+              <div
+                key={`${menu.id}-${i}`}
+                ref={(el) => {
+                  itemRefs.current[i] = el;
+                }}
+                className="shrink-0 px-1"
+              >
+                <MenuChip
+                  menu={menu}
+                  active={isActive}
+                  onClick={() => {
+                    if (!menu.match(location.pathname)) navigate(menu.href);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-label="下一个菜单"
+        onClick={goNext}
+        className="inline-flex size-5 shrink-0 cursor-pointer items-center justify-center text-faint transition-colors hover:text-foreground"
+      >
+        <ChevronRight className="size-4" />
+      </button>
     </div>
   );
+}
+
+function MenuChip({
+  menu,
+  active,
+  onClick,
+}: {
+  menu: Menu;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap transition-all duration-300 ease-out',
+        active
+          ? 'h-9 rounded-lg bg-foreground px-4 text-sm font-medium text-background'
+          : 'h-7 rounded-lg px-2.5 text-xs text-faint hover:bg-surface-1 hover:text-foreground',
+      )}
+    >
+      <menu.icon className="size-3.5" />
+      <span>{menu.label}</span>
+      {menu.comingSoon && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'inline-flex shrink-0 items-center rounded-pill bg-brand-amber px-1 text-[9px] font-medium leading-none whitespace-nowrap text-background',
+            active ? 'h-4' : 'h-3.5',
+          )}
+        >
+          即将推出
+        </span>
+      )}
+    </button>
+  );
+}
+
+function Separator() {
+  return <span aria-hidden className="h-5 w-px shrink-0 bg-border-separator" />;
 }

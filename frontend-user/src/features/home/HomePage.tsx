@@ -8,7 +8,7 @@ import { HomeAgentHero } from './components/HomeAgentHero';
 
 /**
  * 首页 — 全宽无侧栏:主区顶部大卡片功能导航 + Codex 风格智能体入口。
- * TopNav 中段功能搜索与其它页一致展示。
+ * TopNav：中段菜单 carousel + 右侧功能搜索，与其它页一致。
  */
 export function HomePage() {
   const openDialog = useAuthDialog((s) => s.openDialog);

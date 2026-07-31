@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   History,
   Loader2,
@@ -28,10 +28,18 @@ export interface AgentSessionStripProps {
   emptyHint?: string;
   loggedOutHint?: string;
   /**
-   * bar  = 主区顶部吸顶整行(默认)
-   * dock = 旧:贴 Composer 上方;保留兼容,新布局请用 bar
+   * bar   = 主区顶部吸顶整行(默认,对话进行中)
+   * stack = 与输入框同宽贴上方(空态 hero 成组居中)
+   * dock  = 旧兼容
    */
-  placement?: 'bar' | 'dock';
+  placement?: 'bar' | 'stack' | 'dock';
+  /**
+   * true(默认)=完整会话管理:历史入口、时间、重命名/删除(智能助手)。
+   * false=精简条:仅标题 + trailingSlot + 新对话(智能搜索;记录与助手不互通)。
+   */
+  sessionControls?: boolean;
+  /** 右侧操作前额外插槽(如智能搜索:模型选择 + 上下文水位 + 跳转助手)。 */
+  trailingSlot?: ReactNode;
   className?: string;
 }
 
@@ -46,6 +54,8 @@ export function AgentSessionStrip({
   emptyHint = '还没有会话, 发送第一句话即可开始',
   loggedOutHint = '登录后可见历史会话',
   placement = 'bar',
+  sessionControls = true,
+  trailingSlot,
   className,
 }: AgentSessionStripProps) {
   const token = useAuthStore((s) => s.token);
@@ -93,6 +103,7 @@ export function AgentSessionStrip({
   };
 
   const dock = placement === 'dock';
+  const stack = placement === 'stack';
   const historyCount = sessions?.length ?? 0;
 
   return (
@@ -101,8 +112,11 @@ export function AgentSessionStrip({
         className={cn(
           dock
             ? 'flex h-9 w-full items-center gap-2'
-            : // 外层透明吸顶:背景/描边只落在内层内容宽上,不贯穿整列
-              'sticky top-0 z-20 w-full shrink-0 px-4 pt-2.5 pb-1.5',
+            : stack
+              ? // 空态:不吸顶,宽度跟父级(与输入框同宽)
+                'w-full shrink-0'
+              : // 对话中:外层透明吸顶,描边落在内层内容宽上
+                'sticky top-0 z-20 w-full shrink-0 px-4 pt-2.5 pb-1.5',
           className,
         )}
       >
@@ -110,110 +124,118 @@ export function AgentSessionStrip({
           className={cn(
             'relative flex items-center',
             dock && 'h-9 w-full',
-            // 与底栏 Composer 同宽同居中;浮层条避免通栏分割线发空
-            !dock &&
+            (stack || !dock) &&
               cn(
-                'mx-auto h-10 w-full max-w-2xl gap-1 rounded-xl px-2',
-                // 与对话区同底色,只用描边/阴影做层次,避免灰白两截
+                'h-10 w-full gap-1 rounded-xl px-2',
                 'border border-border bg-background shadow-sm',
+                !stack && 'mx-auto max-w-2xl',
               ),
           )}
         >
-          {/* 左:历史入口 + 更新时间 */}
-          <div className="relative z-10 flex shrink-0 items-center gap-2">
-            <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={`会话历史，共 ${historyCount} 条`}
-                  title={`会话历史（${historyCount}）`}
-                  disabled={!token}
-                  className={cn(
-                    'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-subtle transition-colors',
-                    'hover:bg-surface-2 hover:text-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-40',
-                    historyOpen
-                      ? 'bg-surface-2 text-foreground'
-                      : 'bg-surface-1/80',
-                  )}
+          {/* 左:历史入口 + 更新时间(智能搜索精简条不展示,记录与助手不互通) */}
+          {sessionControls ? (
+            <div className="relative z-10 flex shrink-0 items-center gap-2">
+              <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`会话历史，共 ${historyCount} 条`}
+                    title={`会话历史（${historyCount}）`}
+                    disabled={!token}
+                    className={cn(
+                      'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-subtle transition-colors',
+                      'hover:bg-surface-2 hover:text-foreground',
+                      'disabled:cursor-not-allowed disabled:opacity-40',
+                      historyOpen
+                        ? 'bg-surface-2 text-foreground'
+                        : 'bg-surface-1/80',
+                    )}
+                  >
+                    <History className="size-3.5 shrink-0" strokeWidth={2} />
+                    <span className="min-w-[1ch] text-xs font-semibold tabular-nums text-foreground">
+                      {isLoading ? '…' : historyCount}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  sideOffset={6}
+                  className="w-[min(360px,calc(100vw-32px))] overflow-hidden border border-border p-0 shadow-lg"
                 >
-                  <History className="size-3.5 shrink-0" strokeWidth={2} />
-                  <span className="min-w-[1ch] text-xs font-semibold tabular-nums text-foreground">
-                    {isLoading ? '…' : historyCount}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                sideOffset={6}
-                className="w-[min(360px,calc(100vw-32px))] overflow-hidden border border-border p-0 shadow-lg"
-              >
-                <header className="flex h-10 items-center border-b border-border-soft px-3">
-                  <span className="text-xs font-bold text-foreground">会话历史</span>
-                </header>
-                {!token ? (
-                  <div className="px-3 py-6 text-center text-xs text-faint">
-                    {loggedOutHint}
-                  </div>
-                ) : isLoading ? (
-                  <div className="flex items-center justify-center gap-1.5 px-3 py-6 text-xs text-faint">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    加载会话…
-                  </div>
-                ) : !sessions || sessions.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-xs text-faint">
-                    {emptyHint}
-                  </div>
-                ) : (
-                  <ul className="max-h-[min(50vh,320px)] overflow-y-auto py-1">
-                    {sessions.map((session) => {
-                      const active = session.sessionId === activeSessionId;
-                      const { displayTitle, loading } = computeSessionTitle(
-                        session.title,
-                        session.createdAt,
-                        session.messageCount,
-                        active,
-                      );
-                      const stamp =
-                        session.agentModifiedAt ||
-                        session.lastAccessedAt ||
-                        session.createdAt;
-                      return (
-                        <li key={session.sessionId}>
-                          <button
-                            type="button"
-                            onClick={() => handleActivate(session.sessionId)}
-                            className={cn(
-                              'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
-                              active ? 'bg-surface-1' : 'hover:bg-surface-1',
-                            )}
-                          >
-                            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
-                              {loading ? `${displayTitle}…` : displayTitle}
-                            </span>
-                            <span className="shrink-0 text-2xs text-faint">
-                              {formatSessionTime(stamp)}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </PopoverContent>
-            </Popover>
-            {token && !isLoading && currentLabel.time && (
-              <span className="shrink-0 text-xs tabular-nums text-faint">
-                {currentLabel.time}
-              </span>
-            )}
-          </div>
+                  <header className="flex h-10 items-center border-b border-border-soft px-3">
+                    <span className="text-xs font-bold text-foreground">会话历史</span>
+                  </header>
+                  {!token ? (
+                    <div className="px-3 py-6 text-center text-xs text-faint">
+                      {loggedOutHint}
+                    </div>
+                  ) : isLoading ? (
+                    <div className="flex items-center justify-center gap-1.5 px-3 py-6 text-xs text-faint">
+                      <Loader2 className="size-3.5 animate-spin" />
+                      加载会话…
+                    </div>
+                  ) : !sessions || sessions.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-xs text-faint">
+                      {emptyHint}
+                    </div>
+                  ) : (
+                    <ul className="max-h-[min(50vh,320px)] overflow-y-auto py-1">
+                      {sessions.map((session) => {
+                        const active = session.sessionId === activeSessionId;
+                        const { displayTitle, loading } = computeSessionTitle(
+                          session.title,
+                          session.createdAt,
+                          session.messageCount,
+                          active,
+                        );
+                        const stamp =
+                          session.agentModifiedAt ||
+                          session.lastAccessedAt ||
+                          session.createdAt;
+                        return (
+                          <li key={session.sessionId}>
+                            <button
+                              type="button"
+                              onClick={() => handleActivate(session.sessionId)}
+                              className={cn(
+                                'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
+                                active ? 'bg-surface-1' : 'hover:bg-surface-1',
+                              )}
+                            >
+                              <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                                {loading ? `${displayTitle}…` : displayTitle}
+                              </span>
+                              <span className="shrink-0 text-2xs text-faint">
+                                {formatSessionTime(stamp)}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </PopoverContent>
+              </Popover>
+              {token && !isLoading && currentLabel.time && (
+                <span className="shrink-0 text-xs tabular-nums text-faint">
+                  {currentLabel.time}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="relative z-10 w-1 shrink-0" aria-hidden />
+          )}
 
           {/* 中:标题绝对居中 */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-28">
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-0 flex items-center justify-center',
+              trailingSlot || !sessionControls ? 'px-40' : 'px-28',
+            )}
+          >
             {!token ? (
               <span className="text-2xs text-faint">{loggedOutHint}</span>
-            ) : isLoading ? (
+            ) : sessionControls && isLoading ? (
               <span className="inline-flex items-center gap-1.5 text-2xs text-faint">
                 <Loader2 className="size-3 animate-spin" />
                 加载会话…
@@ -233,9 +255,12 @@ export function AgentSessionStrip({
             )}
           </div>
 
-          {/* 右:重命名 / 删除 / 新对话 */}
+          {/* 右:trailingSlot → (可选)重命名/删除 → 新对话 */}
           <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5">
-            {activeSession && (
+            {trailingSlot ? (
+              <div className="mr-0.5 flex shrink-0 items-center gap-1.5">{trailingSlot}</div>
+            ) : null}
+            {sessionControls && activeSession ? (
               <>
                 <button
                   type="button"
@@ -256,7 +281,7 @@ export function AgentSessionStrip({
                   <Trash2 className="size-3.5" strokeWidth={2} />
                 </button>
               </>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={onNewConversation}
@@ -271,18 +296,22 @@ export function AgentSessionStrip({
         </div>
       </div>
 
-      <AgentRenameDialog api={api} target={renameTarget} onClose={() => setRenameTarget(null)} />
-      <AgentDeleteDialog
-        api={api}
-        target={deleteTarget}
-        activeSessionId={activeSessionId}
-        onClose={() => setDeleteTarget(null)}
-        onActiveDeleted={() => {
-          const next = sessions?.find((x) => x.sessionId !== deleteTarget?.sessionId);
-          if (next) onActivate(next.sessionId);
-          else onNewConversation();
-        }}
-      />
+      {sessionControls ? (
+        <>
+          <AgentRenameDialog api={api} target={renameTarget} onClose={() => setRenameTarget(null)} />
+          <AgentDeleteDialog
+            api={api}
+            target={deleteTarget}
+            activeSessionId={activeSessionId}
+            onClose={() => setDeleteTarget(null)}
+            onActiveDeleted={() => {
+              const next = sessions?.find((x) => x.sessionId !== deleteTarget?.sessionId);
+              if (next) onActivate(next.sessionId);
+              else onNewConversation();
+            }}
+          />
+        </>
+      ) : null}
     </>
   );
 }

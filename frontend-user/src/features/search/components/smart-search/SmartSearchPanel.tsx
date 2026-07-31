@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowDown, BookOpen, FileText, Loader2, Newspaper, Upload } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowRight,
+  BookOpen,
+  FileText,
+  Loader2,
+  Newspaper,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,8 +28,8 @@ import {
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import { trackEvent } from '@/shared/lib/track';
 import { cn } from '@/shared/lib/utils';
-import { useHeightVar } from '@/shared/hooks';
 import { modelSupportsVision, useUserModels } from '@/shared/api/models';
+import { ContextMeter } from '@/shared/components/chat/ContextMeter';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import {
   AttachmentChipList,
@@ -52,7 +61,6 @@ import {
 import { AssistantTurn } from './AssistantTurn';
 import { SmartComposer } from './SmartComposer';
 import { ClawHero, type HeroSuggestion } from '@/features/claw/components/chat/ClawHero';
-import { SearchModeSwitch } from '../SearchModeSwitch';
 import type { SearchMode } from '../../search-mode';
 import {
   foldMessagesIntoTurns,
@@ -141,31 +149,19 @@ export function SmartSearchPanel({
     setActiveSessionId(null);
   }, [storeBusy, queryClient, setActiveSessionId]);
 
-  const sessionStrip = (
-    <AgentSessionStrip
-      placement="bar"
-      api={smartSearchSessions}
-      activeSessionId={activeSessionId}
-      onActivate={setActiveSessionId}
-      onNewConversation={handleNewConversation}
-      newConversationDisabled={storeBusy || activeSessionId === null}
-      newConversationTitle={
-        storeBusy
-          ? '回答中,请稍候'
-          : activeSessionId === null
-            ? '已是新对话'
-            : '开始新对话'
-      }
-      emptyHint="还没有会话, 在下方输入第一句话即可开始"
-    />
-  );
-
-  const heroComposer = (composer: ReactNode) => (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-2.5">
-      {composer}
-      <SearchModeSwitch mode={mode} onModeChange={onModeChange} />
-    </div>
-  );
+  const sessionStripProps = {
+    api: smartSearchSessions,
+    activeSessionId,
+    onActivate: setActiveSessionId,
+    onNewConversation: handleNewConversation,
+    newConversationDisabled: storeBusy || activeSessionId === null,
+    newConversationTitle: storeBusy
+      ? '回答中,请稍候'
+      : activeSessionId === null
+        ? '已是新对话'
+        : '开始新对话',
+    emptyHint: '还没有会话, 发送第一句话即可开始',
+  } as const;
 
   // 跨 tab 同步: 另一个 tab 新建/切换会话会通过 BroadcastChannel 推一帧, 本 tab 收到
   // 后 invalidate ['smart-search'] 全部 query。
@@ -200,11 +196,8 @@ export function SmartSearchPanel({
   const historyDataMatches = historyQuery.data?.sessionId === sessionId;
   const historyHasMore = (historyDataMatches && historyQuery.data?.hasMore) ?? false;
 
-  // 上下文水位: panel 底部 chip 用; 每轮结束 invalidate 强制刷。
+  // 上下文水位: 顶栏 composer chip 用; 每轮结束 invalidate 强制刷。
   const contextQuery = useSmartSearchContext(sessionId);
-
-  // 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供底部留白按比例计算 (见 StickToBottom.Content)。
-  const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
 
   // 发送新一轮后立刻滚到底: scrollToBottom 由 StickToBottom 内的 <ScrollController> 注入到这个 ref。
   const scrollToBottomRef = useRef<(() => void) | null>(null);
@@ -388,12 +381,13 @@ export function SmartSearchPanel({
     [referenceMutation, sessionId, adoptSession],
   );
 
-  // P2 模型目录:composer 左下角选择器(服务端权威;hub 校验落 pinned_model 后广播回显)。
+  // P2 模型目录:挂在会话条右侧(服务端权威;hub 校验落 pinned_model 后广播回显)。
   // **新对话(无 sessionId)也展示** —— 选择记为「新对话默认模型」偏好,首条消息建会话后经 socket
   // onOpen 一次性下发(markSmartSearchPendingModel);不再要求先有会话才出按钮。
   const modelSlot =
     userModels && userModels.length > 0 ? (
       <ModelSelector
+        iconOnly
         models={userModels}
         current={selectorCurrent}
         currentTokens={contextQuery.data?.totalTokens ?? 0}
@@ -411,9 +405,44 @@ export function SmartSearchPanel({
       />
     ) : null;
 
-  // ── 附件/引用装配插槽(hero 与底栏两个 SmartComposer 共用同一份)────────────────
+  const contextMeter =
+    contextQuery.data?.sessionId === sessionId &&
+    contextQuery.data.totalTokens > 0 ? (
+      <ContextMeter
+        totalTokens={contextQuery.data.totalTokens}
+        maxTokens={contextQuery.data.maxTokens}
+        percentage={contextQuery.data.percentage}
+        model={contextQuery.data.model ?? ''}
+      />
+    ) : null;
+
+  /** 与输入框同宽叠放;精简会话条(无历史/改名/删除)——智能搜索与助手记录不互通。 */
+  const sessionStripStack = (
+    <AgentSessionStrip
+      placement="stack"
+      {...sessionStripProps}
+      sessionControls={false}
+      trailingSlot={
+        <>
+          {modelSlot}
+          {contextMeter}
+          <Link
+            to="/claw"
+            title="打开智能助手(独立会话,与智能搜索记录不互通)"
+            className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:border-border-strong hover:bg-surface-1"
+          >
+            转到智能助手
+            <ArrowRight className="size-3.5 shrink-0" strokeWidth={2.2} />
+          </Link>
+        </>
+      }
+    />
+  );
+
+  // ── 附件/引用装配插槽(hero / 顶栏 SmartComposer 共用)────────────────
+  const hasComposerTopExtras =
+    att.items.length > 0 || references.length > 0 || referenceMutation.isPending;
   const composerExtras = {
-    modelSlot,
     plusSlot: (
       <ComposerPlusMenu
         disabled={att.uploading}
@@ -422,7 +451,7 @@ export function SmartSearchPanel({
         onPickLibrary={() => setPickerOpen(true)}
       />
     ),
-    topExtras: (
+    topExtras: hasComposerTopExtras ? (
       <>
         <ComposerAttachmentRow
           items={att.items}
@@ -450,7 +479,7 @@ export function SmartSearchPanel({
           </div>
         )}
       </>
-    ),
+    ) : undefined,
     canSendEmpty: att.attachments.length > 0 || references.length > 0,
     onPaste: att.handlePaste,
     containerProps: att.dragHandlers,
@@ -1000,24 +1029,24 @@ export function SmartSearchPanel({
   if (!token) {
     return (
       <div className="flex h-full min-h-0 flex-col bg-background">
-        {sessionStrip}
         <div className="relative min-h-0 flex-1">
           <ClawHero
             suggestions={SMART_HERO_SUGGESTIONS}
-            contentClassName="max-w-3xl"
-            composer={heroComposer(
+            contentClassName="max-w-[640px]"
+            aboveComposer={sessionStripStack}
+            composer={
               <SmartComposer
-                prominent
                 autoFocus
-                className="shadow-md"
                 rotatingPlaceholders={SMART_ROTATING_PROMPTS}
                 value={input}
                 onChange={setInput}
                 onSubmit={handleLoggedOutSubmit}
                 loggedOut
+                mode={mode}
+                onModeChange={onModeChange}
                 {...composerExtras}
-              />,
-            )}
+              />
+            }
             onPickSuggestion={setInput}
           />
         </div>
@@ -1034,9 +1063,6 @@ export function SmartSearchPanel({
         mode === 'smart' ? 'bg-background' : 'bg-transparent',
       )}
     >
-      {/* 会话条吸顶独占一行(与底栏 Composer / 模式切换分离)。 */}
-      {mode === 'smart' && sessionStrip}
-
       {/* 多窗口接管 banner: 后端 displacement 路径下发 {type:displaced} 后,
           这个 banner 占顶部一行, 用户点 "切回这里" 调 takeOver() 抢回活跃权。
           banner 只在 state='displaced' 时出现; takeOver 后 state 变 connecting → open 自动消失。 */}
@@ -1045,13 +1071,12 @@ export function SmartSearchPanel({
       )}
 
       {/* 内容区:hero(空态)与对话视图是两层 absolute 叠层,互不挤压布局。
-          - 对话视图常驻底层;悬浮对话框 + 底部渐隐都在这层。
-          - hero 在最上层,发送首条消息后整体淡出(大标题 + 流动背景渐隐),底栏 composer 同时就位。 */}
+          - 对话视图常驻底层;会话条+输入叠在底部悬浮。
+          - hero 在最上层,发送首条消息后整体淡出,底栏成组就位。 */}
       <div className="relative flex-1 min-h-0">
-        {/* 对话视图 —— 仅 smart 激活时铺开;切走时立刻让出画面,composer 单独播向上退场。 */}
+        {/* 对话视图 —— 仅 smart 激活时铺开;切走时立刻让出画面。 */}
         {mode === 'smart' && turns.length > 0 && (
-          // 外层量高 div: useHeightVar 把"对话框可视区"像素高写进 --chat-area-h,供留白按比例算。
-          <div ref={chatAreaRef} className="absolute inset-0">
+          <div className="absolute inset-0">
             <StickToBottom
               // ⚠️ 这个 wrapper 绝对不能加任何 overflow-* 工具类。
               //
@@ -1071,14 +1096,12 @@ export function SmartSearchPanel({
               resize="smooth"
               initial="smooth"
             >
-              {/* 底部留白 = 滚动内容的 padding-bottom(算进 scrollHeight,贴底时稳定露在视口底)。
-                  现在对话框是"悬浮"在底部,所以留白要 ≥ 悬浮框高度,内容才不会被它盖住 —— 用
-                  max(三成框高, 132px) 兜底:高屏保留三成呼吸感,矮屏也至少留出悬浮框的高度。 */}
+              {/* 底部留白 ≥ 悬浮会话条+输入高度,避免末条被挡住。 */}
               <StickToBottom.Content
                 // scrollClassName 落在库真正的 scroll 元素上(overflow:auto 那层),
                 // 给它挂「仅手动滚动时浮现」的滚动条样式;className 落在内容层。
                 scrollClassName="chat-scrollbar-autohide"
-                className="mx-auto w-full max-w-3xl space-y-3.5 min-w-0 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),200px)]"
+                className="mx-auto w-full max-w-3xl space-y-3.5 min-w-0 pb-[max(calc(var(--chat-area-h,100dvh)*0.28),180px)]"
               >
                 {(hiddenCount > 0 || historyHasMore) && (
                   <div className="flex justify-center pb-1">
@@ -1131,23 +1154,23 @@ export function SmartSearchPanel({
               <ScrollToBottomFab />
             </StickToBottom>
 
-            {/* 底部渐隐:内容贴近底部时淡入 surface-1,让悬浮对话框"浮"在对话之上(不被文字顶到边)。 */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
           </div>
         )}
 
-        {/* 有消息:底栏输入。无消息:不走底栏,统一回 ClawHero 居中(「新对话」还原中心)。 */}
+        {/* 有消息:会话条 + 输入叠在底部。无消息:回 ClawHero 居中。 */}
         <AnimatePresence initial={false}>
           {mode === 'smart' && turns.length > 0 && (
             <motion.div
-              key="smart-composer-dock"
+              key="smart-composer-bottom-dock"
               className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4"
-              initial={reduce ? false : { opacity: 0, y: -56 }}
+              initial={reduce ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? undefined : { opacity: 0, y: -56 }}
-              transition={{ duration: reduce ? 0 : 0.32, ease: [0.22, 1, 0.36, 1] }}
+              exit={reduce ? undefined : { opacity: 0, y: 16 }}
+              transition={{ duration: reduce ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col gap-2.5">
+              <div className="pointer-events-auto mx-auto flex w-full max-w-[640px] flex-col gap-1.5">
+                {sessionStripStack}
                 {pendingQuestionBlock && (
                   <QuestionPrompt
                     key={pendingQuestionBlock.toolUseId}
@@ -1156,7 +1179,6 @@ export function SmartSearchPanel({
                   />
                 )}
                 <SmartComposer
-                  prominent
                   value={input}
                   onChange={setInput}
                   onSubmit={handleSubmit}
@@ -1165,12 +1187,10 @@ export function SmartSearchPanel({
                   busy={busy}
                   onStop={handleStop}
                   stopping={stopping}
-                  contextSnapshot={
-                    contextQuery.data?.sessionId === sessionId ? contextQuery.data : undefined
-                  }
+                  mode={mode}
+                  onModeChange={onModeChange}
                   {...composerExtras}
                 />
-                <SearchModeSwitch mode={mode} onModeChange={onModeChange} />
               </div>
             </motion.div>
           )}
@@ -1195,20 +1215,21 @@ export function SmartSearchPanel({
             >
               <ClawHero
                 suggestions={SMART_HERO_SUGGESTIONS}
-                contentClassName="max-w-3xl"
-                composer={heroComposer(
+                contentClassName="max-w-[640px]"
+                aboveComposer={sessionStripStack}
+                composer={
                   <SmartComposer
-                    prominent
                     autoFocus
-                    className="shadow-md"
                     rotatingPlaceholders={SMART_ROTATING_PROMPTS}
                     value={input}
                     onChange={setInput}
                     onSubmit={handleSubmit}
                     ready={ready}
+                    mode={mode}
+                    onModeChange={onModeChange}
                     {...composerExtras}
-                  />,
-                )}
+                  />
+                }
                 onPickSuggestion={setInput}
               />
             </motion.div>

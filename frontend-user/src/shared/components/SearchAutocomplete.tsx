@@ -1,5 +1,15 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
+import { ArrowUp, LogIn, Search, X } from 'lucide-react';
+import { SmartSearchToggle } from '@/shared/components/SmartSearchToggle';
 import { cn } from '@/shared/lib/utils';
 import {
   type JournalSuggestion,
@@ -41,6 +51,8 @@ import { useArrivalOrdered } from './search-autocomplete/useArrivalOrdered';
  */
 const PICKER_CLOSE_DELAY_MS = 120;
 
+export type SearchAutocompleteAppearance = 'literature' | 'smart';
+
 interface SearchAutocompleteProps {
   value: string;
   onChange: (v: string) => void;
@@ -56,6 +68,25 @@ interface SearchAutocompleteProps {
   onPickAuthor?: (a: AuthorSuggestion) => void;
   autoFocus?: boolean;
   placeholder?: string;
+  /**
+   * 外观:literature = 小圆角 + 红色搜索键 + 联想;
+   * smart = 大圆角 + 发送键(首页智能搜索)。同一壳原地过渡圆角/按钮,勿整块换组件。
+   */
+  appearance?: SearchAutocompleteAppearance;
+  /** smart 空输入时的自定义 placeholder 层(如轮播示例)。 */
+  placeholderOverlay?: ReactNode;
+  /** smart:未登录时发送键显示登录图标(仍走 onSubmit,由父级开登录)。 */
+  requireAuth?: boolean;
+  /**
+   * 输入框内靠右的「智能搜索」开关(首页);smart / literature 两种外观都显示。
+   * 不传则不渲染(文献落地页等)。
+   */
+  smartToggle?: {
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+  };
+  /** 发送/搜索键左侧额外操作(如检索页「筛选」)。 */
+  trailingActions?: ReactNode;
   className?: string;
 }
 
@@ -76,10 +107,16 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
       onPickAuthor,
       autoFocus,
       placeholder = '搜索学术论文、期刊、作者…',
+      appearance = 'literature',
+      placeholderOverlay,
+      requireAuth = false,
+      smartToggle,
+      trailingActions,
       className,
     },
     ref
   ) => {
+  const smart = appearance === 'smart';
   const [focused, setFocused] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -88,12 +125,14 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
   // dropdown 高度上限 —— 实测主框距视窗底距离,扣 24px 安全边距,防止滚动条贴到屏幕底缘
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState<string>('70vh');
 
+  // smart 不拉联想(省请求);切回 literature 再启用。
+  const suggestQuery = smart ? '' : value;
   // 真并行:3 个源(stc/olx/pmd)各自独立 useQuery,先到先铺,后到的静默追加在尾部
-  const sourceResults = useMultiSourceSearchSuggestions(value, {
+  const sourceResults = useMultiSourceSearchSuggestions(suggestQuery, {
     paperLimit: 4,
     authorLimit: 3,
   });
-  const journalsQ = useJournalSuggestions(value, { limit: 3 });
+  const journalsQ = useJournalSuggestions(suggestQuery, { limit: 3 });
 
   const trimmed = value.trim();
   const { papers, authors } = useArrivalOrdered(sourceResults, trimmed);
@@ -101,13 +140,23 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
 
   const hasResults =
     papers.length > 0 || authors.length > 0 || journals.length > 0;
-  // Picker(hover 切换器):空输入态下不出现(无内容可搜索)
-  const showPicker = pickerOpen && trimmed.length > 0;
-  // 联想 dropdown:与 picker 互斥
-  const showSuggestions = focused && trimmed.length >= 1 && hasResults && !showPicker;
+  // Picker(hover 切换器):空输入态下不出现(无内容可搜索);smart 无 picker
+  const showPicker = !smart && pickerOpen && trimmed.length > 0;
+  // 联想 dropdown:与 picker 互斥;smart 关闭
+  const showSuggestions =
+    !smart && focused && trimmed.length >= 1 && hasResults && !showPicker;
   // 只有 suggestions 与主框"无缝拼接"(共用同一色边框);
   // picker 是独立悬浮(蓝边 + 8px 间距),不影响主框边框状态
   const mergeBorders = showSuggestions;
+
+  // 切到 smart 时收起文献态浮层,避免圆角过渡时 dropdown 还挂着。
+  useEffect(() => {
+    if (!smart) return;
+    setPickerOpen(false);
+    setFocused(false);
+  }, [smart]);
+
+  const smartCanSend = !!trimmed;
 
   // 点击外部关闭
   useEffect(() => {
@@ -181,37 +230,49 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
     (onSearchJournals ?? onSubmit)(q);
   };
 
+  const handleFormSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (smart && !smartCanSend) return;
+    submitPapers(trimmed);
+  };
+
   return (
     <div ref={rootRef} className={cn('relative mx-auto w-full max-w-[640px]', className)}>
-      <form onSubmit={(e) => { e.preventDefault(); submitPapers(trimmed); }}>
+      <form onSubmit={handleFormSubmit}>
         <div
           className={cn(
-            // .pen `Z0RbcB`:48h,与联想 dropdown 拼接时下边变直
-            'flex h-12 items-center gap-3 pl-5 pr-2 bg-background border transition-colors',
+            // .pen `Z0RbcB`:48h;圆角/阴影原地过渡(首页 smart↔literature 切模式)
+            'flex h-12 items-center gap-3 border bg-background pl-5 pr-2',
+            'transition-[border-radius,box-shadow,border-color,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
             mergeBorders
-              ? 'border-destructive rounded-t-sm border-b-0'
-              : focused
-                ? 'border-foreground rounded-sm'
-                : 'border-border-strong rounded-sm focus-within:border-foreground'
+              ? 'rounded-t-sm border-destructive border-b-0'
+              : smart
+                ? 'rounded-2xl border-border-strong shadow-sm focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5'
+                : focused
+                  ? 'rounded-sm border-foreground'
+                  : 'rounded-sm border-border-strong focus-within:border-foreground',
           )}
         >
-          <input
-            // type="text" 不是 "search" —— 后者会渲染浏览器原生清空 ×,各浏览器样式不一
-            type="text"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setFocused(false);
-                setPickerOpen(false);
-              }
-            }}
-            autoFocus={autoFocus}
-            placeholder={placeholder}
-            className="flex-1 h-auto bg-transparent text-base outline-none placeholder:text-faint"
-          />
-          {value && (
+          <div className="relative min-w-0 flex-1">
+            {placeholderOverlay && trimmed.length === 0 && placeholderOverlay}
+            <input
+              // type="text" 不是 "search" —— 后者会渲染浏览器原生清空 ×,各浏览器样式不一
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setFocused(false);
+                  setPickerOpen(false);
+                }
+              }}
+              autoFocus={autoFocus}
+              placeholder={placeholderOverlay ? '' : placeholder}
+              className="h-auto w-full bg-transparent text-base outline-none placeholder:text-faint"
+            />
+          </div>
+          {value && !smart && (
             <button
               type="button"
               aria-label="清空"
@@ -225,14 +286,65 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
               <X className="size-3.5" strokeWidth={2.5} />
             </button>
           )}
+          {smartToggle && (
+            <SmartSearchToggle
+              checked={smartToggle.checked}
+              onCheckedChange={smartToggle.onCheckedChange}
+            />
+          )}
+          {trailingActions}
           <button
             type="submit"
-            aria-label="搜索"
-            onMouseEnter={openPickerNow}
-            onMouseLeave={schedulePickerClose}
-            className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-sm bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
+            aria-label={
+              smart
+                ? requireAuth
+                  ? '登录后开始'
+                  : '发送'
+                : '搜索'
+            }
+            disabled={smart && !smartCanSend}
+            onMouseEnter={smart ? undefined : openPickerNow}
+            onMouseLeave={smart ? undefined : schedulePickerClose}
+            className={cn(
+              'relative inline-flex size-9 shrink-0 items-center justify-center transition-[background-color,border-radius,color,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+              smart
+                ? cn(
+                    'rounded-lg',
+                    smartCanSend
+                      ? 'cursor-pointer bg-foreground text-background hover:bg-foreground/90'
+                      : 'cursor-not-allowed bg-surface-2 text-faint',
+                  )
+                : 'cursor-pointer rounded-sm bg-destructive text-destructive-foreground hover:bg-destructive/90',
+            )}
           >
-            <Search className="size-4" strokeWidth={2.5} />
+            {/* 图标交叉淡入淡出,按钮壳不换节点 */}
+            <Search
+              className={cn(
+                'absolute size-4 transition-opacity duration-300',
+                smart ? 'opacity-0' : 'opacity-100',
+              )}
+              strokeWidth={2.5}
+              aria-hidden
+            />
+            {requireAuth ? (
+              <LogIn
+                className={cn(
+                  'absolute size-4 transition-opacity duration-300',
+                  smart ? 'opacity-100' : 'opacity-0',
+                )}
+                strokeWidth={2.2}
+                aria-hidden
+              />
+            ) : (
+              <ArrowUp
+                className={cn(
+                  'absolute size-4 transition-opacity duration-300',
+                  smart ? 'opacity-100' : 'opacity-0',
+                )}
+                strokeWidth={2.5}
+                aria-hidden
+              />
+            )}
           </button>
         </div>
       </form>

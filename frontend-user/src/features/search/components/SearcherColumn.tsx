@@ -12,6 +12,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Loader2, Search } from 'lucide-react';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
 import { cn } from '@/shared/lib/utils';
 import { extractPapers, useSearchPapers, type Paper, type UpstreamSource } from '../api/papers';
 import { useFavoriteCheck } from '../api/library';
@@ -31,9 +32,8 @@ const SmartSearchPanel = lazy(() =>
   import('./smart-search/SmartSearchPanel').then((m) => ({ default: m.SmartSearchPanel })),
 );
 import { SearchClassicLanding } from './SearchClassicLanding';
-import { SearchModeSwitch } from './SearchModeSwitch';
 import { SearcherPagination } from './SearcherPagination';
-import { SearchFiltersFloating } from './SearchFiltersFloating';
+import { SearchFiltersButton } from './SearchFiltersFloating';
 import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
 import type { SearchMode } from '../search-mode';
 
@@ -57,7 +57,7 @@ export type { SearchMode } from '../search-mode';
  */
 
 /** 底栏浮层预留高度,避免最后几张结果被挡住。 */
-const DOCK_OVERLAY_SPACER_PX = 128;
+const DOCK_OVERLAY_SPACER_PX = 80;
 
 interface SearcherColumnProps {
   filters: SearchFilters;
@@ -209,20 +209,6 @@ export function SearcherColumn({
   );
   const journalEnrichments = useJournalEnrichments(pageVenues);
 
-  const submit = useCallback(
-    (e?: React.FormEvent) => {
-      e?.preventDefault();
-      const q = input.trim();
-      const next = new URLSearchParams(params);
-      if (q) next.set('q', q);
-      else next.delete('q');
-      // 提交新关键词 → 强制回第 1 页(避免新词 + 旧 offset 翻到空页)
-      next.delete('p');
-      setParams(next, { replace: true });
-    },
-    [input, params, setParams]
-  );
-
   const submitQuery = useCallback(
     (q: string) => {
       const trimmed = q.trim();
@@ -310,34 +296,42 @@ export function SearcherColumn({
     };
   }, [showClassicQueryDock, papers.length]);
 
+  // 与首页 SearchAutocomplete 同壳:h-12 + 内嵌智能搜索开关。
   const classicInputDock = (
-    <div className="flex w-full flex-col gap-2.5">
-      <form onSubmit={submit} className="flex items-center gap-2">
-        <div className="flex h-9 flex-1 items-center gap-2 rounded-sm border border-border-strong bg-background px-3 transition-colors focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring/20">
-          <Search className="size-3.5 text-faint" />
-          <input
-            type="search"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="输入关键词,如 机器学习可解释性"
-            className="h-full flex-1 bg-transparent text-base outline-none placeholder:text-faint"
+    <SearchAutocomplete
+      className="max-w-none"
+      appearance="literature"
+      value={input}
+      onChange={setInput}
+      onSubmit={(q) => {
+        const trimmed = q.trim();
+        setInput(trimmed);
+        const next = new URLSearchParams(params);
+        if (trimmed) next.set('q', trimmed);
+        else next.delete('q');
+        next.delete('p');
+        setParams(next, { replace: true });
+      }}
+      placeholder="输入关键词,如 机器学习可解释性"
+      smartToggle={{
+        checked: mode === 'smart',
+        onCheckedChange: (on) => onModeChange(on ? 'smart' : 'classic'),
+      }}
+      trailingActions={
+        query ? (
+          <SearchFiltersButton
+            filters={filters}
+            onFiltersChange={onFiltersChange}
           />
-        </div>
-        <button
-          type="submit"
-          className="inline-flex h-9 w-[72px] items-center justify-center rounded-sm bg-destructive text-base font-bold text-destructive-foreground transition-colors hover:bg-destructive/90"
-        >
-          搜索
-        </button>
-      </form>
-      <SearchModeSwitch mode={mode} onModeChange={onModeChange} />
-    </div>
+        ) : null
+      }
+    />
   );
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
       {/* 智能模式 —— 保持 mount 以免掐 WS。切走时用 absolute 叠层多留 swapMs 播 composer 向上退场。
-          会话条 AgentSessionStrip 挂在 SmartSearchPanel 顶部吸顶独占一行。 */}
+          有对话时会话条与 Composer 叠在 SmartSearchPanel 底部。 */}
       {smartPanelOpened && (
         <div
           className={cn(
@@ -357,12 +351,15 @@ export function SearcherColumn({
         </div>
       )}
       {mode === 'classic' && showClassicLanding && (
-        <SearchClassicLanding onSearch={submitQuery} />
+        <SearchClassicLanding
+          onSearch={submitQuery}
+          mode={mode}
+          onModeChange={onModeChange}
+        />
       )}
 
       {mode === 'classic' && !showClassicLanding && (
         <>
-          {/* 滚动层与悬浮筛选分离:FAB 叠在 viewport 上常显,不随列表滚走、不挡点击穿透。 */}
           <div className="relative min-h-0 flex-1">
             <div
               ref={resultsScrollRef}
@@ -480,12 +477,6 @@ export function SearcherColumn({
               )}
             </AnimatePresence>
 
-            {query ? (
-              <SearchFiltersFloating
-                filters={filters}
-                onFiltersChange={onFiltersChange}
-              />
-            ) : null}
           </div>
 
           {query && total > 0 && (

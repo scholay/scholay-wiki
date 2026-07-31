@@ -5,20 +5,18 @@ import { UserSection } from './topnav/UserSection';
 import { useSidebar } from '@/stores/sidebar.store';
 
 /**
- * 顶部导航 — 三段式,中段功能搜索几何居中(含首页)。
+ * 顶部导航 — 三段式,中段菜单 carousel 几何居中:
  *
- *   [Logo ←] │ [当前功能 | 🔍 搜索全站功能…] [Home] │ [Bell User]
- *
- * 侧栏开合由侧栏腰部按钮负责,顶栏不再挂 ☰。
+ *   [Logo ← Rail] │ [Home | ← chips →] │ [Bell User]
  */
 export function TopNav() {
   const { rail, expanded } = useSidebar();
   const showRail = !expanded && rail.length > 0;
 
   return (
-    <header className="h-16 grid items-center gap-3 px-6 border-b border-border bg-background sticky top-0 z-30 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-      {/* Left col —— Brand + Rail */}
-      <div className="min-w-0 flex items-center gap-2 justify-self-start overflow-hidden">
+    <header className="sticky top-0 z-30 grid h-16 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-border bg-background px-6">
+      {/* Left —— Brand + Rail */}
+      <div className="flex min-w-0 items-center justify-self-start gap-2 overflow-hidden">
         <BrandSection />
         {showRail && (
           <>
@@ -28,13 +26,13 @@ export function TopNav() {
         )}
       </div>
 
-      {/* Center col —— 功能搜索(首页与其它页一致) */}
+      {/* Center —— 左右步进横向菜单 */}
       <div className="flex items-center justify-self-center">
         <MenuCarousel />
       </div>
 
-      {/* Right col —— User actions */}
-      <div className="min-w-0 flex items-center justify-self-end overflow-hidden">
+      {/* Right —— 用户区 */}
+      <div className="flex min-w-0 items-center justify-self-end gap-3 overflow-hidden">
         <UserSection />
       </div>
     </header>

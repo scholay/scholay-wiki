@@ -1,11 +1,6 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronRight, LayoutGrid, List } from 'lucide-react';
-import {
-  HoverCard,
-  HoverCardTrigger,
-  HoverCardContent,
-} from '@/shared/ui/hover-card';
 import { useLocalStorage } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -44,9 +39,9 @@ export function navigateToMenu(
 }
 
 /**
- * 全站功能面板本体 —— 可被顶栏搜索框 / HoverCard 复用。
+ * 全站功能面板本体 —— 功能名悬停菜单等复用。
  * `query` 非空时按名称/英文/描述过滤。
- * `compact`：仅列表、单行一级标题（功能名悬停菜单用）。
+ * `compact`：仅列表、单行一级标题。
  */
 export function AllMenusPanel({
   query = '',
@@ -152,24 +147,6 @@ function ViewModeSwitch({
         网格
       </button>
     </div>
-  );
-}
-
-/**
- * @deprecated 顶栏已改为搜索输入框驱动面板;保留 HoverCard 封装供其它入口复用。
- */
-export function AllMenusOverlay({ trigger }: { trigger: ReactNode }) {
-  return (
-    <HoverCard openDelay={120} closeDelay={180}>
-      <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
-      <HoverCardContent
-        align="end"
-        sideOffset={8}
-        className="w-[420px] overflow-hidden border border-border p-0 shadow-lg"
-      >
-        <AllMenusPanel />
-      </HoverCardContent>
-    </HoverCard>
   );
 }
 

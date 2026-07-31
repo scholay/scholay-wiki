@@ -43,6 +43,7 @@ export function ClawHero({
   subtitle,
   suggestions = SUGGESTIONS,
   extra,
+  aboveComposer,
   contentClassName = 'max-w-2xl',
 }: {
   composer: ReactNode;
@@ -54,6 +55,8 @@ export function ClawHero({
   suggestions?: HeroSuggestion[];
   /** 输入框**下方**的附加内容(模板卡扑克牌扇 / 换回对话模式条)。 */
   extra?: ReactNode;
+  /** 紧贴输入框上方(如会话条),与 composer 同宽成组居中。 */
+  aboveComposer?: ReactNode;
   /** 内容区最大宽度(默认 max-w-2xl;首页/搜索 hero 可传 max-w-3xl)。 */
   contentClassName?: string;
 }) {
@@ -75,8 +78,11 @@ export function ClawHero({
             <p className="mt-1.5 text-center text-sm text-muted-foreground">{subtitle}</p>
           ) : null}
 
-          {/* 居中对话框 */}
-          <div className="mt-6 w-full">{composer}</div>
+          {/* 会话条 + 输入框贴着成组 */}
+          <div className="mt-6 flex w-full flex-col gap-1.5">
+            {aboveComposer}
+            {composer}
+          </div>
 
           {/* 模板卡 —— 移到输入框**下方**,带封面动画诠释功能(制作PPT / 科研绘图);见 TemplateCards。 */}
           {extra && <div className="mt-5 w-full">{extra}</div>}

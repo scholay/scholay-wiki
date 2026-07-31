@@ -8,6 +8,7 @@ import {
   Globe,
   Grid3x3,
   MessageSquare,
+  PanelRightOpen,
   Plus,
   Share2,
 } from 'lucide-react';
@@ -17,7 +18,6 @@ import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
 import {
   useSearchRightPanelStore,
   WORKSPACE_FUNCTION_LABEL,
-  WORKSPACE_FUNCTION_ORDER,
   type RightPanelVariant,
 } from '@/stores/search-right-panel.store';
 import { cn } from '@/shared/lib/utils';
@@ -49,10 +49,10 @@ type HubCard = {
 };
 
 /**
- * 右侧拓展入口 —— 贴右缘滑出;窄顶栏标题与封面融为一体,无图标/描述;
- * 收起态多露一截,悬停 spring 整卡滑出聚焦。
+ * 右侧拓展入口。
  *
- * `variant="assistant"`:智能助手只留「扩展区」(详情/产物壳),隐藏检索工作区工具卡。
+ * - `search`:贴右缘滑出的功能名片(扩展区 / PDF Chat / 图谱 / 矩阵 / 浏览器)
+ * - `assistant`:智能助手 / 文献集 —— 右上角小图标打开详情/产物扩展区(无边缘大卡)
  */
 export function RightPanelFeatureHub({
   variant = 'search',
@@ -60,7 +60,6 @@ export function RightPanelFeatureHub({
   variant?: RightPanelVariant;
 }) {
   const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
-  const functionTabs = useSearchRightPanelStore((s) => s.functionTabs);
   const infoTabs = useSearchRightPanelStore((s) => s.infoTabs);
   const setActiveInfoTab = useSearchRightPanelStore((s) => s.setActiveInfoTab);
   const openShell = useSearchRightPanelStore((s) => s.openShell);
@@ -69,22 +68,41 @@ export function RightPanelFeatureHub({
   const [hovered, setHovered] = useState<string | null>(null);
   const assistant = variant === 'assistant';
 
+  // 「扩展区」= 详情/产物壳;PDF Chat / 图谱 / 矩阵各自有独立名片,不要误开成 pdf-chat。
   const openExpansionArea = () => {
-    if (assistant) {
-      const lastInfo = infoTabs.at(-1);
-      if (lastInfo) setActiveInfoTab(lastInfo.id);
-      else openShell();
-      return;
-    }
-    setActiveFunction(functionTabs.at(-1) ?? WORKSPACE_FUNCTION_ORDER[0]);
+    const lastInfo = infoTabs.at(-1);
+    if (lastInfo) setActiveInfoTab(lastInfo.id);
+    else openShell();
   };
+
+  if (assistant) {
+    return (
+      <aside
+        aria-label="扩展区入口"
+        className="pointer-events-none absolute inset-0 z-40"
+      >
+        <button
+          type="button"
+          onClick={openExpansionArea}
+          title="打开右侧扩展区"
+          aria-label="打开右侧扩展区"
+          className={cn(
+            'pointer-events-auto absolute right-3 top-3 inline-flex size-9 cursor-pointer items-center justify-center',
+            'rounded-lg border border-border bg-background text-muted-foreground shadow-sm',
+            'transition-colors hover:border-border-strong hover:bg-surface-1 hover:text-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
+          )}
+        >
+          <PanelRightOpen className="size-4" strokeWidth={2} />
+        </button>
+      </aside>
+    );
+  }
 
   const hubCard: HubCard = {
     key: 'hub',
     title: '扩展区',
-    description: assistant
-      ? '打开右侧拓展区(论文详情 / 生成产物)'
-      : '打开右侧拓展工作区',
+    description: '打开右侧拓展区(论文详情 / 生成产物)',
     icon: Plus,
     accent: {
       chip: 'bg-foreground/10 text-foreground',
@@ -161,28 +179,26 @@ export function RightPanelFeatureHub({
           onHover={() => setHovered(hubCard.key)}
         />
 
-        {!assistant && (
-          <div className="mt-4 flex flex-col gap-2">
-            {functionCards.map((card) => (
-              <EdgeTemplateCard
-                key={card.key}
-                card={card}
-                reduce={reduce}
-                focused={hovered === card.key}
-                onHover={() => setHovered(card.key)}
-              />
-            ))}
+        <div className="mt-4 flex flex-col gap-2">
+          {functionCards.map((card) => (
+            <EdgeTemplateCard
+              key={card.key}
+              card={card}
+              reduce={reduce}
+              focused={hovered === card.key}
+              onHover={() => setHovered(card.key)}
+            />
+          ))}
 
-            <QuickOpenPaperDialog align="end" onPickPaper={openPaper}>
-              <EdgeTemplateCard
-                card={browserCard}
-                reduce={reduce}
-                focused={hovered === browserCard.key}
-                onHover={() => setHovered(browserCard.key)}
-              />
-            </QuickOpenPaperDialog>
-          </div>
-        )}
+          <QuickOpenPaperDialog align="end" onPickPaper={openPaper}>
+            <EdgeTemplateCard
+              card={browserCard}
+              reduce={reduce}
+              focused={hovered === browserCard.key}
+              onHover={() => setHovered(browserCard.key)}
+            />
+          </QuickOpenPaperDialog>
+        </div>
       </div>
     </aside>
   );

@@ -3,17 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
 import { NewsSection } from '@/features/home/components/NewsSection';
+import type { SearchMode } from '../search-mode';
 
 interface SearchClassicLandingProps {
   onSearch: (query: string) => void;
+  mode: SearchMode;
+  onModeChange: (mode: SearchMode) => void;
 }
 
 /**
- * 文献检索初始态 —— 居中 Logo + 搜索框 + 学术情报。
- * 用户提交关键词后 SearcherColumn 切到结果列表布局。
- * 模式切换只出现在非首页工作区,不出现在此落地页。
+ * 文献检索初始态 —— 居中 Logo + 与首页同壳的搜索框(含智能搜索开关)。
  */
-export function SearchClassicLanding({ onSearch }: SearchClassicLandingProps) {
+export function SearchClassicLanding({
+  onSearch,
+  mode,
+  onModeChange,
+}: SearchClassicLandingProps) {
   const [draft, setDraft] = useState('');
   const navigate = useNavigate();
 
@@ -33,9 +38,14 @@ export function SearchClassicLanding({ onSearch }: SearchClassicLandingProps) {
 
         <div className="mx-auto mt-8 w-full max-w-[640px]">
           <SearchAutocomplete
+            appearance="literature"
             value={draft}
             onChange={setDraft}
             onSubmit={handleSubmit}
+            smartToggle={{
+              checked: mode === 'smart',
+              onCheckedChange: (on) => onModeChange(on ? 'smart' : 'classic'),
+            }}
             onSearchJournals={(q) => {
               const trimmed = q.trim();
               navigate(

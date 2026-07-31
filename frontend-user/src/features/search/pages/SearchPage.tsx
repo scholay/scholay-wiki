@@ -173,13 +173,24 @@ export function SearchPage() {
   const expandMainColumn =
     showClassicLanding || showSmartHeroLayout || !showExpandedRight;
 
-  // 对话/检索可承载右栏时保持展开(智能模式不再 closePanel 留白)。
+  // 可承载右栏时保持 panelOpen。智能搜索开关只切检索模式,不联动扩展区开/关。
   useEffect(() => {
     if (showRightPanel) openPanel();
   }, [showRightPanel, openPanel]);
 
+  // 进入 /search(含从首页跳入)默认打开拓展壳;仅挂载一次。
+  // 用户 dismiss 或模式开关不会反复强开;离开页面 reset。
   useEffect(() => {
     setEmbedMode(true);
+    const { activePanel: ap, infoTabs } = useSearchRightPanelStore.getState();
+    if (ap?.group !== 'info' && ap?.group !== 'shell') {
+      if (infoTabs.length) {
+        useSearchRightPanelStore.getState().setActiveInfoTab(infoTabs.at(-1)!.id);
+      } else {
+        useSearchRightPanelStore.getState().openShell();
+      }
+    }
+    useSearchRightPanelStore.getState().openPanel();
     return () => {
       setEmbedMode(false);
       resetPanel();

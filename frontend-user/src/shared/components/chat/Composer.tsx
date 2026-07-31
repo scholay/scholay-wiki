@@ -73,6 +73,13 @@ export interface ComposerProps {
   /** 空态初始行数(hero=3);内容超出后自动增高到 maxHeightPx。 */
   minRows?: number;
   maxHeightPx?: number;
+  /**
+   * 单行栏高度(与首页 SearchAutocomplete `h-12` 对齐)。
+   * 输入与发送键同一行;可嵌智能搜索开关等。
+   */
+  compact?: boolean;
+  /** compact 时插在发送键左侧(如智能搜索 Switch)。 */
+  trailingBeforeSend?: ReactNode;
   autoFocus?: boolean;
   className?: string;
 }
@@ -101,6 +108,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     onPaste,
     minRows = 1,
     maxHeightPx = 160,
+    compact = false,
+    trailingBeforeSend,
     autoFocus = false,
     className,
   },
@@ -116,12 +125,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 自增高:单行起、随内容到上限。先归零再按 scrollHeight 收放(打字/prefill/清空都正确)。
+  // compact 单行栏固定 h-12,不随内容撑高外壳。
   const resize = useCallback(() => {
     const el = textareaRef.current;
-    if (!el) return;
+    if (!el || compact) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, maxHeightPx)}px`;
-  }, [maxHeightPx]);
+  }, [maxHeightPx, compact]);
 
   // 文本变化 → paint 前定高(useLayoutEffect 避免先高一帧再收的闪动)。
   useLayoutEffect(() => {
@@ -195,6 +205,92 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   const canSend = requireAuth ? !!text.trim() || canSendEmpty : !disabled && sendReady && (!!text.trim() || canSendEmpty);
 
+  const sendButton = busy && !requireAuth ? (
+    <button
+      type="button"
+      onClick={onStop}
+      disabled={stopping || !onStop}
+      aria-label={stopping ? '正在停止' : '停止生成'}
+      title={stopping ? '正在停止…' : '停止当前回答'}
+      className={cn(
+        'inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background transition-colors',
+        stopping ? 'cursor-wait bg-foreground/60' : 'bg-foreground hover:bg-foreground/85',
+      )}
+    >
+      {stopping ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <Square className="size-3 fill-current" strokeWidth={0} aria-hidden="true" />
+      )}
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={submit}
+      disabled={!canSend}
+      aria-label={requireAuth ? '登录后开始' : '发送 (Enter)'}
+      title={requireAuth ? '登录后开始' : '发送 (Enter)'}
+      className={cn(
+        'inline-flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+        canSend
+          ? 'cursor-pointer bg-foreground text-background hover:bg-foreground/90'
+          : 'cursor-not-allowed bg-surface-2 text-faint',
+      )}
+    >
+      {requireAuth ? <LogIn className="size-4" strokeWidth={2.2} /> : <ArrowUp className="size-4" strokeWidth={2.5} />}
+    </button>
+  );
+
+  // 与首页 SearchAutocomplete smart 态同壳:h-12 / rounded-2xl / 发送键同行。
+  if (compact) {
+    return (
+      <div
+        {...containerProps}
+        className={cn(
+          'relative flex flex-col overflow-hidden rounded-2xl border border-border-strong bg-background shadow-sm',
+          'transition-[border-radius,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
+          disabled && 'opacity-70',
+          className,
+          containerProps?.className,
+        )}
+      >
+        {overlay}
+        {/* empty:hidden:附件/引用槽常挂着但内容为空时不占 pt-2 高度 */}
+        {topSlot ? <div className="px-2 pt-2 empty:hidden">{topSlot}</div> : null}
+        <div className="flex h-12 items-center gap-3 pl-5 pr-2">
+          {leftActions}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            {placeholderOverlay && text.length === 0 && placeholderOverlay}
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKey}
+              onPaste={onPaste}
+              placeholder={placeholderOverlay ? '' : placeholder}
+              rows={1}
+              disabled={disabled}
+              autoFocus={autoFocus}
+              className="block h-9 w-full resize-none overflow-y-auto border-0 bg-transparent py-1.5 text-base leading-normal text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </div>
+          {trailingBeforeSend}
+          {rightActions}
+          {context && context.totalTokens > 0 && (
+            <ContextMeter
+              totalTokens={context.totalTokens}
+              maxTokens={context.maxTokens}
+              percentage={context.percentage}
+              model={context.model}
+            />
+          )}
+          {sendButton}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       {...containerProps}
@@ -239,41 +335,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             className="mr-1"
           />
         )}
-        {busy && !requireAuth ? (
-          <button
-            type="button"
-            onClick={onStop}
-            disabled={stopping || !onStop}
-            aria-label={stopping ? '正在停止' : '停止生成'}
-            title={stopping ? '正在停止…' : '停止当前回答'}
-            className={cn(
-              'inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background transition-colors',
-              stopping ? 'cursor-wait bg-foreground/60' : 'bg-foreground hover:bg-foreground/85',
-            )}
-          >
-            {stopping ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Square className="size-3 fill-current" strokeWidth={0} aria-hidden="true" />
-            )}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!canSend}
-            aria-label={requireAuth ? '登录后开始' : '发送 (Enter)'}
-            title={requireAuth ? '登录后开始' : '发送 (Enter)'}
-            className={cn(
-              'inline-flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors',
-              canSend
-                ? 'cursor-pointer bg-foreground text-background hover:bg-foreground/90'
-                : 'cursor-not-allowed bg-surface-2 text-faint',
-            )}
-          >
-            {requireAuth ? <LogIn className="size-4" strokeWidth={2.2} /> : <ArrowUp className="size-4" strokeWidth={2.5} />}
-          </button>
-        )}
+        {sendButton}
       </div>
     </div>
   );

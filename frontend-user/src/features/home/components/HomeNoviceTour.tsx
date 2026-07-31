@@ -42,9 +42,9 @@ export function HomeNoviceTour() {
         popover: {
           title: '切换检索方式',
           description:
-            '点「智能搜索」或「文献搜索」切换输入方式；联网搜索与内部搜索即将推出。',
+            '打开「智能搜索」用对话式检索；关闭则回到文献关键词搜索。',
           side: 'bottom' as const,
-          align: 'center' as const,
+          align: 'start' as const,
         },
       },
       {

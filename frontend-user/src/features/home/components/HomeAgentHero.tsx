@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
-import { Composer, type ComposerHandle } from '@/shared/components/chat';
 import {
   useOpenAuthorInBrowser,
   useOpenJournalInBrowser,
@@ -15,10 +14,7 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useIsAuthenticated } from '@/stores/auth.store';
 import { usePendingAction } from '@/stores/pending-action.store';
 import type { SearchMode } from '@/features/search/search-mode';
-import {
-  HomeFeatureEntrances,
-  HomeSearchModeRow,
-} from './HomeFeatureEntrances';
+import { HomeFeatureEntrances } from './HomeFeatureEntrances';
 import { HomeFeatureZones } from './HomeFeatureZones';
 
 const ROTATING_PROMPTS = [
@@ -32,13 +28,16 @@ export function HomeAgentHero() {
   const [mode, setMode] = useState<SearchMode>('smart');
   const [agentDraft, setAgentDraft] = useState('');
   const [classicDraft, setClassicDraft] = useState('');
-  const composerRef = useRef<ComposerHandle>(null);
   const navigate = useNavigate();
   const authenticated = useIsAuthenticated();
   const openDialog = useAuthDialog((s) => s.openDialog);
   const openPaper = useOpenPaperInBrowser();
   const openJournal = useOpenJournalInBrowser();
   const openAuthor = useOpenAuthorInBrowser();
+
+  const smart = mode === 'smart';
+  const draft = smart ? agentDraft : classicDraft;
+  const setDraft = smart ? setAgentDraft : setClassicDraft;
 
   /** 进文献搜索 · 智能搜索模式;带 q 时 SmartSearchPanel 自动发首条。 */
   const goSmartSearch = (opts?: { message?: string }) => {
@@ -55,12 +54,12 @@ export function HomeAgentHero() {
     navigate(target);
   };
 
-  const handleAgentSubmit = () => {
-    if (!agentDraft.trim()) return;
-    goSmartSearch({ message: agentDraft });
-  };
-
-  const handleClassicSearch = (query: string) => {
+  const handleSubmit = (query: string) => {
+    if (smart) {
+      if (!query.trim()) return;
+      goSmartSearch({ message: query });
+      return;
+    }
     const trimmed = query.trim();
     if (!trimmed) {
       navigate('/search', { state: { fresh: true } });
@@ -80,82 +79,55 @@ export function HomeAgentHero() {
             <BrandLogo size="xl" />
           </h2>
 
-          {/* 智能搜索 = Composer;文献搜索 = SearchAutocomplete。模式由输入框下那一行切换。 */}
-          <div className="mx-auto mt-8 w-full max-w-[640px]">
-            <AnimatePresence mode="wait" initial={false}>
-              {mode === 'smart' ? (
-                <motion.div
-                  key="smart-input"
-                  data-tour="home-composer"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Composer
-                    ref={composerRef}
-                    value={agentDraft}
-                    onChange={setAgentDraft}
-                    onSend={handleAgentSubmit}
-                    placeholderOverlay={<RotatingPlaceholder items={ROTATING_PROMPTS} />}
-                    requireAuth={!authenticated}
-                    onRequireAuth={handleAgentSubmit}
-                    autoFocus
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="classic-input"
-                  data-tour="home-composer"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <SearchAutocomplete
-                    value={classicDraft}
-                    onChange={setClassicDraft}
-                    onSubmit={handleClassicSearch}
-                    onSearchJournals={(q) => {
-                      const trimmed = q.trim();
-                      navigate(
-                        trimmed
-                          ? `/journals/search?q=${encodeURIComponent(trimmed)}`
-                          : '/journals/search',
-                      );
-                    }}
-                    onPickJournal={(j) =>
-                      openJournal({
-                        id: j.id,
-                        canonical_name: j.canonical_name,
-                      })
-                    }
-                    onPickPaper={(p) =>
-                      openPaper({
-                        paperId: p.id,
-                        title: p.title,
-                        source: p.source,
-                      })
-                    }
-                    onPickAuthor={(a) => {
-                      if (!a.authorId) return;
-                      openAuthor({
-                        authorId: a.authorId,
-                        name: a.name ?? '',
-                        affiliations: a.affiliations,
-                        paperCount: a.paperCount,
-                        hIndex: a.hIndex,
-                        source: a.source,
-                      });
-                    }}
-                    autoFocus
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <div className="mt-3">
-              <HomeSearchModeRow mode={mode} onModeChange={setMode} />
-            </div>
+          {/* 同一输入壳:切模式只过渡圆角 + 右侧按钮,不整块消失/出现。 */}
+          <div className="mx-auto mt-8 w-full max-w-[640px]" data-tour="home-composer">
+            <SearchAutocomplete
+              appearance={smart ? 'smart' : 'literature'}
+              value={draft}
+              onChange={setDraft}
+              onSubmit={handleSubmit}
+              placeholderOverlay={
+                smart ? <RotatingPlaceholder items={ROTATING_PROMPTS} /> : undefined
+              }
+              requireAuth={smart && !authenticated}
+              smartToggle={{
+                checked: smart,
+                onCheckedChange: (on) => setMode(on ? 'smart' : 'classic'),
+              }}
+              onSearchJournals={(q) => {
+                const trimmed = q.trim();
+                navigate(
+                  trimmed
+                    ? `/journals/search?q=${encodeURIComponent(trimmed)}`
+                    : '/journals/search',
+                );
+              }}
+              onPickJournal={(j) =>
+                openJournal({
+                  id: j.id,
+                  canonical_name: j.canonical_name,
+                })
+              }
+              onPickPaper={(p) =>
+                openPaper({
+                  paperId: p.id,
+                  title: p.title,
+                  source: p.source,
+                })
+              }
+              onPickAuthor={(a) => {
+                if (!a.authorId) return;
+                openAuthor({
+                  authorId: a.authorId,
+                  name: a.name ?? '',
+                  affiliations: a.affiliations,
+                  paperCount: a.paperCount,
+                  hIndex: a.hIndex,
+                  source: a.source,
+                });
+              }}
+              autoFocus
+            />
           </div>
 
           <div className="mx-auto mt-6 w-full max-w-3xl">
@@ -232,7 +204,7 @@ function RotatingPlaceholder({ items }: { items: readonly string[] }) {
   }, [reduce, items.length]);
 
   return (
-    <div className="pointer-events-none absolute left-1 right-1 top-1 overflow-hidden text-base leading-relaxed text-faint">
+    <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center overflow-hidden text-base leading-normal text-faint">
       <AnimatePresence mode="wait">
         <motion.div
           key={index}
