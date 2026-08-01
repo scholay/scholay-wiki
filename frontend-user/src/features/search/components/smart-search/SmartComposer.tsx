@@ -35,7 +35,7 @@ export interface SmartComposerProps {
   /** 会话模型选择器插槽(P2 模型目录化,页面组装 shared ModelSelector 注入)。 */
   modelSlot?: ReactNode;
   // ── 附件/引用装配插槽(2026-07 输入框统一;页面组装 shared 件注入,本组件不感知业务)──
-  /** 「+」号菜单(leftActions 最左,Cursor/GPT 同位)。 */
+  /** 「+」号菜单(输入框右侧,发送键左侧)。 */
   plusSlot?: ReactNode;
   /** chips 区(附件预览行 + 引用文献行),渲染在 textarea 上方。 */
   topExtras?: ReactNode;
@@ -112,15 +112,19 @@ export function SmartComposer({
       containerProps={containerProps}
       overlay={overlay}
       topSlot={topExtras}
-      leftActions={plusSlot}
-      rightActions={modelSlot}
-      trailingBeforeSend={
+      leftActions={
         mode != null && onModeChange ? (
           <SmartSearchToggle
             checked={mode === 'smart'}
             onCheckedChange={(on) => onModeChange(on ? 'smart' : 'classic')}
           />
-        ) : undefined
+        ) : null
+      }
+      rightActions={
+        <>
+          {plusSlot}
+          {modelSlot}
+        </>
       }
       className={className}
     />

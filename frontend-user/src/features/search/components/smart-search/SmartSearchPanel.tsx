@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowDown,
-  ArrowRight,
   BookOpen,
   FileText,
   Loader2,
@@ -413,27 +412,19 @@ export function SmartSearchPanel({
         maxTokens={contextQuery.data.maxTokens}
         percentage={contextQuery.data.percentage}
         model={contextQuery.data.model ?? ''}
+        iconOnly
       />
     ) : null;
 
-  /** 与输入框同宽叠放;精简会话条(无历史/改名/删除)——智能搜索与助手记录不互通。 */
+  /** 与输入框同宽叠放;完整会话管理(历史/时间/标题/改名/删除),记录独立于智能助手。 */
   const sessionStripStack = (
     <AgentSessionStrip
       placement="stack"
       {...sessionStripProps}
-      sessionControls={false}
       trailingSlot={
         <>
           {modelSlot}
           {contextMeter}
-          <Link
-            to="/claw"
-            title="打开智能助手(独立会话,与智能搜索记录不互通)"
-            className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:border-border-strong hover:bg-surface-1"
-          >
-            转到智能助手
-            <ArrowRight className="size-3.5 shrink-0" strokeWidth={2.2} />
-          </Link>
         </>
       }
     />

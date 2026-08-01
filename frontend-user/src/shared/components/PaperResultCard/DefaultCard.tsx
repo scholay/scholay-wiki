@@ -18,6 +18,7 @@ import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 import { type TranslatePaperResult } from '@/shared/api/translate';
 import { MetaLine } from './MetaLine';
 import { needsTranslation, pickTags, renderHighlight } from './tags';
+import { paperHasOaPdf } from '@/shared/lib/paper-pdf';
 
 /**
  * 标准卡 — 左侧复选框只控制暂存;折叠由 action 行「折叠」按钮单独控制。
@@ -64,6 +65,7 @@ export function DefaultCard({
     showZh && zh?.abstract_zh ? zh.abstract_zh : (paper.abstract ?? '');
 
   const oaPdfUrl = paper.openAccessPdf?.url?.trim();
+  const lacksOaPdf = !paperHasOaPdf(paper);
   const journalTagKeys = new Set(['jcr', 'if', 'cas', 'xr', 'ccf', 'warn']);
 
   const openJournalFromEnrichment = () => {
@@ -209,8 +211,10 @@ export function DefaultCard({
           {embedMode && !hideStage && (
             <PdfChatPaperButton
               active={isPdfChatActive}
+              needsUpload={lacksOaPdf}
               onClick={() =>
                 openPdfChat({
+                  paperId: paper.paperId,
                   ensureStaged: () => {
                     if (!isStaged) onToggleStage();
                   },

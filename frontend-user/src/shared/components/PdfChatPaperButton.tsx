@@ -8,6 +8,8 @@ export interface PdfChatPaperButtonProps {
   onClick: () => void;
   /** 右栏 PDF Chat 功能 tab 是否激活 */
   active?: boolean;
+  /** 无 OA PDF 时提示需上传 */
+  needsUpload?: boolean;
   size?: PdfChatButtonSize;
   collapseLabel?: boolean;
   className?: string;
@@ -33,6 +35,7 @@ export const PdfChatPaperButton = forwardRef<
     {
       onClick,
       active = false,
+      needsUpload = false,
       size = 'md',
       collapseLabel = false,
       className,
@@ -47,14 +50,22 @@ export const PdfChatPaperButton = forwardRef<
         onClick={onClick}
         disabled={disabled}
         aria-pressed={active}
-        title="在右栏打开 PDF Chat"
+        title={
+          needsUpload
+            ? '暂无 PDF,在右栏上传后可对话'
+            : '在右栏打开 PDF Chat'
+        }
         className={cn(
           'inline-flex items-center justify-center rounded-sm border shrink-0 whitespace-nowrap font-semibold transition-colors',
           CHIP_CLS[size],
           collapseLabel && '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
           active
-            ? 'border-brand-red/30 bg-brand-red/10 text-brand-red hover:bg-brand-red/15'
-            : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
+            ? needsUpload
+              ? 'border-brand-amber/40 bg-brand-amber/10 text-brand-amber hover:bg-brand-amber/15'
+              : 'border-brand-red/30 bg-brand-red/10 text-brand-red hover:bg-brand-red/15'
+            : needsUpload
+              ? 'border-brand-amber/30 text-brand-amber hover:bg-brand-amber/10'
+              : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
           disabled && 'cursor-not-allowed opacity-50',
           className,
         )}

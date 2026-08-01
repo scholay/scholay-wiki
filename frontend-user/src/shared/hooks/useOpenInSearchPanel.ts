@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
+import { useWorkspaceFolderUi } from '@/stores/workspace-folder.store';
 import {
   useOpenAuthorInBrowser,
   useOpenJournalInBrowser,
@@ -55,9 +56,12 @@ export function useOpenPdfChat() {
   const embedMode = useSearchRightPanelStore((s) => s.embedMode);
   const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
   return useCallback(
-    (opts?: { ensureStaged?: () => void }) => {
+    (opts?: { ensureStaged?: () => void; paperId?: string }) => {
       if (!embedMode) return;
       opts?.ensureStaged?.();
+      if (opts?.paperId) {
+        useWorkspaceFolderUi.getState().setSelectedPaperId(opts.paperId);
+      }
       setActiveFunction('pdf-chat');
     },
     [embedMode, setActiveFunction],

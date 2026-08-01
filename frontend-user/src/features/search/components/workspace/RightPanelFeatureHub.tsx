@@ -8,8 +8,6 @@ import {
   Globe,
   Grid3x3,
   MessageSquare,
-  PanelRightOpen,
-  Plus,
   Share2,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -21,6 +19,7 @@ import {
   type RightPanelVariant,
 } from '@/stores/search-right-panel.store';
 import { cn } from '@/shared/lib/utils';
+import { ExpansionAreaOpenDock } from './ExpansionAreaOpenDock';
 
 /** @deprecated 边缘吸附后不再预留右轨宽度;保留导出以免外部引用断裂。 */
 export const FEATURE_HUB_RAIL_PX = 268;
@@ -51,8 +50,8 @@ type HubCard = {
 /**
  * 右侧拓展入口。
  *
- * - `search`:贴右缘滑出的功能名片(扩展区 / PDF Chat / 图谱 / 矩阵 / 浏览器)
- * - `assistant`:智能助手 / 文献集 —— 右上角小图标打开详情/产物扩展区(无边缘大卡)
+ * - `search`:右上角按钮打开扩展区 + 右缘功能名片(PDF Chat / 图谱 / 矩阵 / 浏览器)
+ * - `assistant`:智能助手 / 文献集 —— 仅右上角小图标(无边缘大卡)
  */
 export function RightPanelFeatureHub({
   variant = 'search',
@@ -60,57 +59,14 @@ export function RightPanelFeatureHub({
   variant?: RightPanelVariant;
 }) {
   const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
-  const infoTabs = useSearchRightPanelStore((s) => s.infoTabs);
-  const setActiveInfoTab = useSearchRightPanelStore((s) => s.setActiveInfoTab);
-  const openShell = useSearchRightPanelStore((s) => s.openShell);
   const openPaper = useOpenPaperDetail();
   const reduce = !!useReducedMotion();
   const [hovered, setHovered] = useState<string | null>(null);
   const assistant = variant === 'assistant';
 
-  // 「扩展区」= 详情/产物壳;PDF Chat / 图谱 / 矩阵各自有独立名片,不要误开成 pdf-chat。
-  const openExpansionArea = () => {
-    const lastInfo = infoTabs.at(-1);
-    if (lastInfo) setActiveInfoTab(lastInfo.id);
-    else openShell();
-  };
-
   if (assistant) {
-    return (
-      <aside
-        aria-label="扩展区入口"
-        className="pointer-events-none absolute inset-0 z-40"
-      >
-        <button
-          type="button"
-          onClick={openExpansionArea}
-          title="打开右侧扩展区"
-          aria-label="打开右侧扩展区"
-          className={cn(
-            'pointer-events-auto absolute right-3 top-3 inline-flex size-9 cursor-pointer items-center justify-center',
-            'rounded-lg border border-border bg-background text-muted-foreground shadow-sm',
-            'transition-colors hover:border-border-strong hover:bg-surface-1 hover:text-foreground',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
-          )}
-        >
-          <PanelRightOpen className="size-4" strokeWidth={2} />
-        </button>
-      </aside>
-    );
+    return <ExpansionAreaOpenDock />;
   }
-
-  const hubCard: HubCard = {
-    key: 'hub',
-    title: '扩展区',
-    description: '打开右侧拓展区(论文详情 / 生成产物)',
-    icon: Plus,
-    accent: {
-      chip: 'bg-foreground/10 text-foreground',
-      focusRing: 'ring-foreground/25 border-foreground/40',
-    },
-    Illustration: HubIllustration,
-    onClick: openExpansionArea,
-  };
 
   const functionCards: HubCard[] = [
     {
@@ -164,22 +120,16 @@ export function RightPanelFeatureHub({
   };
 
   return (
-    <aside
-      aria-label="工作区拓展入口"
-      className="pointer-events-none absolute inset-y-0 right-0 z-30 flex items-center"
-    >
-      <div
-        className="flex flex-col py-5"
-        onMouseLeave={() => setHovered(null)}
+    <>
+      <ExpansionAreaOpenDock />
+      <aside
+        aria-label="工作区拓展入口"
+        className="pointer-events-none absolute inset-y-0 right-0 z-30 flex items-center"
       >
-        <EdgeTemplateCard
-          card={hubCard}
-          reduce={reduce}
-          focused={hovered === hubCard.key}
-          onHover={() => setHovered(hubCard.key)}
-        />
-
-        <div className="mt-4 flex flex-col gap-2">
+        <div
+          className="flex flex-col gap-2 py-5"
+          onMouseLeave={() => setHovered(null)}
+        >
           {functionCards.map((card) => (
             <EdgeTemplateCard
               key={card.key}
@@ -199,8 +149,8 @@ export function RightPanelFeatureHub({
             />
           </QuickOpenPaperDialog>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -260,46 +210,6 @@ const EdgeTemplateCard = forwardRef<
 });
 
 /* ── 封面插画(风格对齐 TemplateCards) ─────────────────────────────── */
-
-/** 扩展区 —— 深色舞台上叠层面板滑出(呼应 DeckIllustration)。 */
-function HubIllustration({ reduce }: { reduce: boolean }) {
-  return (
-    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-[#111c30] via-[#0a1019] to-[#05070a]">
-      <div className="pointer-events-none absolute -right-4 -top-6 size-20 rounded-full bg-brand-amber/15 blur-2xl" />
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-md bg-white/10 ring-1 ring-white/15"
-          style={{
-            width: `${58 - i * 6}%`,
-            height: `${52 - i * 4}%`,
-            left: `${18 + i * 8}%`,
-            top: `${22 + i * 6}%`,
-          }}
-          initial={reduce ? false : { x: 24, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 - i * 0.15 }}
-          transition={
-            reduce
-              ? { duration: 0 }
-              : { duration: 0.45, delay: 0.1 + i * 0.1, ease: 'easeOut' }
-          }
-        />
-      ))}
-      <motion.div
-        className="absolute bottom-2.5 right-3 flex size-5 items-center justify-center rounded-md bg-white/15 text-white ring-1 ring-white/25"
-        initial={reduce ? false : { scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={
-          reduce
-            ? { duration: 0 }
-            : { type: 'spring', stiffness: 320, damping: 18, delay: 0.4 }
-        }
-      >
-        <Plus className="size-3" strokeWidth={2.5} />
-      </motion.div>
-    </div>
-  );
-}
 
 function PdfChatIllustration({ reduce }: { reduce: boolean }) {
   return (

@@ -57,6 +57,7 @@ import {
 import { RhinoChatBody } from './RhinoChatBody';
 import { RhinoHelpBody } from './RhinoHelpBody';
 import { RhinoPanelStage } from './RhinoPanelStage';
+import { RhinoSplitPane } from './RhinoSplitPane';
 
 const POS_KEY = 'scholay.rhino-assistant.pos';
 const DIR_KEY = 'scholay.rhino-assistant.dir';
@@ -893,102 +894,81 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
               </header>
 
               <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={panel}
-                    role="tabpanel"
-                    aria-label={panelMeta.title}
-                    initial={
-                      reduce
-                        ? { opacity: 0 }
-                        : { opacity: 0, y: 8 }
-                    }
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={
-                      reduce
-                        ? { opacity: 0 }
-                        : { opacity: 0, y: -6 }
-                    }
-                    transition={{
-                      duration: reduce ? 0.1 : 0.18,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                    className="absolute inset-0 flex h-full min-h-0 flex-col overflow-hidden"
-                  >
-                    {panel === 'chat' && <RhinoChatBody />}
-                    {panel === 'features' && (
-                      <RhinoPanelStage className="h-full">
-                        {featuresSlot ?? (
-                          <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                            暂无功能入口
-                          </p>
+                <RhinoSplitPane
+                  className="h-full min-h-0"
+                  menu={panelTabs.map((tab) => ({
+                    id: tab.id,
+                    label: tab.label,
+                    icon: tab.icon,
+                    badge:
+                      tab.id === 'notifications' && unread > 0 ? (
+                        <span
+                          aria-hidden
+                          className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-bold tabular-nums text-background"
+                        >
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      ) : undefined,
+                  }))}
+                  activeId={panel}
+                  onSelect={(id) => {
+                    if (id !== panel) expandTo(id as RhinoPanelMode);
+                  }}
+                >
+                  <div className="relative h-full min-h-0">
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={panel}
+                        role="tabpanel"
+                        aria-label={panelMeta.title}
+                        initial={
+                          reduce
+                            ? { opacity: 0 }
+                            : { opacity: 0, y: 8 }
+                        }
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={
+                          reduce
+                            ? { opacity: 0 }
+                            : { opacity: 0, y: -6 }
+                        }
+                        transition={{
+                          duration: reduce ? 0.1 : 0.18,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className="absolute inset-0 flex h-full min-h-0 flex-col overflow-hidden"
+                      >
+                        {panel === 'chat' && <RhinoChatBody />}
+                        {panel === 'features' && (
+                          <RhinoPanelStage className="h-full">
+                            {featuresSlot ?? (
+                              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                                暂无功能入口
+                              </p>
+                            )}
+                          </RhinoPanelStage>
                         )}
-                      </RhinoPanelStage>
-                    )}
-                    {panel === 'help' && (
-                      <RhinoPanelStage className="h-full">
-                        <RhinoHelpBody />
-                      </RhinoPanelStage>
-                    )}
-                    {panel === 'feedback' && (
-                      <RhinoPanelStage className="h-full">
-                        <RhinoFeedbackBody />
-                      </RhinoPanelStage>
-                    )}
-                    {panel === 'notifications' && (
-                      <RhinoPanelStage className="h-full">
-                        <RhinoNotificationsBody />
-                      </RhinoPanelStage>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                        {panel === 'help' && (
+                          <RhinoPanelStage className="h-full">
+                            <RhinoHelpBody />
+                          </RhinoPanelStage>
+                        )}
+                        {panel === 'feedback' && (
+                          <RhinoPanelStage className="h-full">
+                            <RhinoFeedbackBody />
+                          </RhinoPanelStage>
+                        )}
+                        {panel === 'notifications' && (
+                          <RhinoPanelStage className="h-full">
+                            <RhinoNotificationsBody />
+                          </RhinoPanelStage>
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </RhinoSplitPane>
               </div>
             </motion.div>
-
-            {/* 模式切换：对话框左侧外侧竖向卡片 */}
-            <nav
-              aria-label={`${RHINO_NAME}面板切换`}
-              className="pointer-events-auto absolute z-20 flex w-[76px] flex-col gap-1"
-              style={{
-                left: Math.max(4, pos.x - 84),
-                top: pos.y,
-              }}
-            >
-              {panelTabs.map((tab) => {
-                const Icon = tab.icon;
-                const active = panel === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    aria-label={tab.label}
-                    aria-pressed={active}
-                    onClick={() => {
-                      if (tab.id !== panel) expandTo(tab.id);
-                    }}
-                    className={cn(
-                      'relative flex items-center gap-1 rounded-md border px-2 py-1.5',
-                      'shadow-sm backdrop-blur-sm transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
-                      active
-                        ? 'border-brand-red/35 bg-background text-brand-red'
-                        : 'border-border/80 bg-background/95 text-muted-foreground hover:border-border hover:bg-background hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="size-3.5 shrink-0" strokeWidth={2} />
-                    <span className="truncate text-[10px] font-semibold leading-none">
-                      {tab.label}
-                    </span>
-                    {tab.id === 'notifications' && unread > 0 && (
-                      <span
-                        aria-hidden
-                        className="absolute right-1 top-1 size-1.5 rounded-pill bg-brand-red"
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
 
             {/* 小犀牛停在对话框外侧：左下角旁 */}
             <div

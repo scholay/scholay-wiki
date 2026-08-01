@@ -78,8 +78,6 @@ export interface ComposerProps {
    * 输入与发送键同一行;可嵌智能搜索开关等。
    */
   compact?: boolean;
-  /** compact 时插在发送键左侧(如智能搜索 Switch)。 */
-  trailingBeforeSend?: ReactNode;
   autoFocus?: boolean;
   className?: string;
 }
@@ -109,7 +107,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     minRows = 1,
     maxHeightPx = 160,
     compact = false,
-    trailingBeforeSend,
     autoFocus = false,
     className,
   },
@@ -275,7 +272,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               className="block h-9 w-full resize-none overflow-y-auto border-0 bg-transparent py-1.5 text-base leading-normal text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
-          {trailingBeforeSend}
           {rightActions}
           {context && context.totalTokens > 0 && (
             <ContextMeter

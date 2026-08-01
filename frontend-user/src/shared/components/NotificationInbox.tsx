@@ -10,18 +10,17 @@ import {
   useUnreadCount,
   type UserMessage,
 } from '@/shared/api/notifications';
-import { RhinoSplitPane } from '@/shared/components/RhinoSplitPane';
 import { isValidAppPath } from '@/shared/lib/route-validation';
 import { cn } from '@/shared/lib/utils';
 
 /**
  * 通知列表本体 —— 顶栏 Popover 与小犀牛对话框共用。
- * embedded：牛犀犀分栏（左全部/未读，右列表）。
+ * embedded：嵌在牛犀犀右侧内容区（左侧已被模式切换占用），全部/未读走顶栏。
  */
 export function NotificationInbox({
   onItemNavigate,
   className,
-  /** 嵌在小犀牛对话框时用左右分栏，并隐藏重复标题 */
+  /** 嵌在小犀牛对话框时隐藏重复标题 */
   embedded,
 }: {
   onItemNavigate?: () => void;
@@ -32,69 +31,18 @@ export function NotificationInbox({
   const unreadQ = useUnreadCount();
   const unread = unreadQ.data ?? 0;
 
-  if (embedded) {
-    return (
-      <RhinoSplitPane
-        className={className}
-        menu={[
-          { id: 'all', label: '全部' },
-          {
-            id: 'unread',
-            label: '未读',
-            badge:
-              unread > 0 ? (
-                <span className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-bold tabular-nums text-background">
-                  {unread > 99 ? '99+' : unread}
-                </span>
-              ) : undefined,
-          },
-        ]}
-        activeId={tab}
-        onSelect={(id) => setTab(id as 'all' | 'unread')}
-      >
-        <div className="flex h-full min-h-0 flex-col">
-          <NotificationMarkAllBar unread={unread} />
-          <NotificationList
-            tab={tab}
-            onItemNavigate={() => onItemNavigate?.()}
-          />
-        </div>
-      </RhinoSplitPane>
-    );
-  }
-
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
-      <header className="flex h-9 shrink-0 items-center border-b border-border-soft px-3">
-        <span className="text-sm font-bold text-foreground">通知</span>
-      </header>
+    <div className={cn('flex h-full min-h-0 flex-1 flex-col', className)}>
+      {!embedded && (
+        <header className="flex h-9 shrink-0 items-center border-b border-border-soft px-3">
+          <span className="text-sm font-bold text-foreground">通知</span>
+        </header>
+      )}
       <NotificationTabs tab={tab} onChange={setTab} unread={unread} />
       <NotificationList
         tab={tab}
         onItemNavigate={() => onItemNavigate?.()}
       />
-    </div>
-  );
-}
-
-function NotificationMarkAllBar({ unread }: { unread: number }) {
-  const markAll = useMarkAllRead();
-  return (
-    <div className="flex shrink-0 items-center justify-end border-b border-border-soft px-2.5 py-1.5">
-      <button
-        type="button"
-        onClick={() => markAll.mutate()}
-        disabled={unread === 0 || markAll.isPending}
-        className={cn(
-          'inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs transition-colors',
-          unread === 0 || markAll.isPending
-            ? 'cursor-not-allowed text-faint'
-            : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground',
-        )}
-      >
-        <CheckCheck className="size-3" strokeWidth={2.5} />
-        全部已读
-      </button>
     </div>
   );
 }

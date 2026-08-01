@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { RHINO_NAME } from '@/shared/mascot/rhino-name';
 
 export type RhinoPanelMode =
   | 'chat'
@@ -81,7 +82,7 @@ export const RHINO_PANEL_SIZE: Record<
   RhinoPanelMode,
   { w: number; h: number; title: string }
 > = {
-  chat: { w: PANEL_W, h: PANEL_H, title: '对话' },
+  chat: { w: PANEL_W, h: PANEL_H, title: RHINO_NAME },
   features: { w: PANEL_W, h: PANEL_H, title: '功能' },
   help: { w: PANEL_W, h: PANEL_H, title: '帮助' },
   feedback: { w: PANEL_W, h: PANEL_H, title: '反馈' },

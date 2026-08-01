@@ -1,16 +1,11 @@
 import { useState } from 'react';
 import {
-  Bug,
   CheckCircle2,
-  Lightbulb,
   Loader2,
   Mail,
-  MessageCircle,
   Send,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { RhinoSplitPane } from '@/shared/components/RhinoSplitPane';
 import { http, toApiError } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
 import { cn } from '@/shared/lib/utils';
@@ -25,11 +20,10 @@ const MAX_CONTENT = 2000;
 const CATEGORIES: Array<{
   value: FeedbackCategory;
   label: string;
-  icon: LucideIcon;
 }> = [
-  { value: 'feature', label: '建议', icon: Lightbulb },
-  { value: 'bug', label: 'Bug', icon: Bug },
-  { value: 'other', label: '其他', icon: MessageCircle },
+  { value: 'feature', label: '建议' },
+  { value: 'bug', label: 'Bug' },
+  { value: 'other', label: '其他' },
 ];
 
 /** 小犀牛对话框内的精简反馈表单（完整页仍在 /feedback） */
@@ -106,100 +100,120 @@ export function RhinoFeedbackBody() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="h-full min-h-0">
-      <RhinoSplitPane
-        menu={CATEGORIES.map((c) => ({
-          id: c.value,
-          label: c.label,
-          icon: c.icon,
-        }))}
-        activeId={category}
-        onSelect={(id) => setCategory(id as FeedbackCategory)}
-        footer={
-          <div className="border-t border-border/70 p-2.5">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={submitting}
-              className="w-full gap-1.5"
-            >
-              {submitting ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Send className="size-3.5" strokeWidth={2} />
-              )}
-              提交反馈
-            </Button>
-          </div>
-        }
-      >
-        <div className="h-full min-h-0 space-y-3 overflow-y-auto px-3 py-3 [scrollbar-width:thin]">
-          <p className="text-2xs leading-relaxed text-muted-foreground">
-            说说想法或问题，我们会认真看每一条。
-          </p>
-
-          <label className="block space-y-1.5">
-            <span className="text-2xs font-semibold text-foreground">内容</span>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value.slice(0, MAX_CONTENT))}
-              placeholder="遇到的问题、改进想法，写清楚一点更好…"
-              rows={5}
+    <form
+      onSubmit={handleSubmit}
+      className="flex h-full min-h-0 flex-col overflow-hidden"
+    >
+      <div className="flex shrink-0 flex-wrap gap-1 border-b border-border/60 px-2.5">
+        {CATEGORIES.map((c) => {
+          const active = category === c.value;
+          return (
+            <button
+              key={c.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setCategory(c.value)}
               className={cn(
-                'min-h-28 w-full resize-none rounded-lg border border-border/80 bg-muted/30 px-2.5 py-2',
-                'text-xs leading-relaxed text-foreground outline-none transition-colors',
+                'relative inline-flex h-8 items-center px-2.5 text-2xs font-bold transition-colors',
+                active
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {c.label}
+              {active && (
+                <span
+                  aria-hidden
+                  className="absolute bottom-px left-2 right-2 h-0.5 rounded-pill bg-brand-red"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 [scrollbar-width:thin]">
+        <p className="text-2xs leading-relaxed text-muted-foreground">
+          说说想法或问题，我们会认真看每一条。
+        </p>
+
+        <label className="block space-y-1.5">
+          <span className="text-2xs font-semibold text-foreground">内容</span>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value.slice(0, MAX_CONTENT))}
+            placeholder="遇到的问题、改进想法，写清楚一点更好…"
+            rows={5}
+            className={cn(
+              'min-h-28 w-full resize-none rounded-lg border border-border/80 bg-muted/30 px-2.5 py-2',
+              'text-xs leading-relaxed text-foreground outline-none transition-colors',
+              'placeholder:text-faint',
+              'focus-visible:border-border focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/30',
+            )}
+          />
+          <span className="flex items-center justify-between text-2xs">
+            <span
+              className={cn(
+                contentLen === 0
+                  ? 'text-muted-foreground'
+                  : contentReady
+                    ? 'text-brand-green'
+                    : 'text-brand-amber',
+              )}
+            >
+              {contentLen === 0
+                ? `至少 ${MIN_CONTENT} 字`
+                : contentReady
+                  ? '可以提交'
+                  : `还差 ${MIN_CONTENT - contentLen} 字`}
+            </span>
+            <span className="tabular-nums text-muted-foreground">
+              {contentLen}/{MAX_CONTENT}
+            </span>
+          </span>
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="text-2xs font-semibold text-foreground">
+            回复邮箱
+          </span>
+          <span className="relative block">
+            <Mail
+              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-subtle"
+              strokeWidth={2}
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              required
+              className={cn(
+                'h-9 w-full rounded-lg border border-border/80 bg-muted/30 py-0 pl-8 pr-2.5',
+                'text-xs text-foreground outline-none transition-colors',
                 'placeholder:text-faint',
                 'focus-visible:border-border focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/30',
               )}
             />
-            <span className="flex items-center justify-between text-2xs">
-              <span
-                className={cn(
-                  contentLen === 0
-                    ? 'text-muted-foreground'
-                    : contentReady
-                      ? 'text-brand-green'
-                      : 'text-brand-amber',
-                )}
-              >
-                {contentLen === 0
-                  ? `至少 ${MIN_CONTENT} 字`
-                  : contentReady
-                    ? '可以提交'
-                    : `还差 ${MIN_CONTENT - contentLen} 字`}
-              </span>
-              <span className="tabular-nums text-muted-foreground">
-                {contentLen}/{MAX_CONTENT}
-              </span>
-            </span>
-          </label>
+          </span>
+        </label>
+      </div>
 
-          <label className="block space-y-1.5">
-            <span className="text-2xs font-semibold text-foreground">
-              回复邮箱
-            </span>
-            <span className="relative block">
-              <Mail
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-subtle"
-                strokeWidth={2}
-              />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                required
-                className={cn(
-                  'h-9 w-full rounded-lg border border-border/80 bg-muted/30 py-0 pl-8 pr-2.5',
-                  'text-xs text-foreground outline-none transition-colors',
-                  'placeholder:text-faint',
-                  'focus-visible:border-border focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/30',
-                )}
-              />
-            </span>
-          </label>
-        </div>
-      </RhinoSplitPane>
+      <div className="shrink-0 border-t border-border/70 p-2.5">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={submitting}
+          className="w-full gap-1.5"
+        >
+          {submitting ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Send className="size-3.5" strokeWidth={2} />
+          )}
+          提交反馈
+        </Button>
+      </div>
     </form>
   );
 }

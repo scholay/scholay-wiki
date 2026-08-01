@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import {
   AlertCircle,
@@ -134,18 +135,22 @@ function TabStrip({
 
   const showPageGroup = infoTabs.length > 0;
 
+  const newInfoTabButton = (
+    <QuickOpenPaperDialog align="start" onPickPaper={openPaper}>
+      <button
+        type="button"
+        className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        title={assistant ? '打开论文详情' : '新建详情页签'}
+        aria-label={assistant ? '打开论文详情' : '新建详情页签'}
+      >
+        <Plus className="size-3.5" strokeWidth={2.25} />
+      </button>
+    </QuickOpenPaperDialog>
+  );
+
   const functionGroup = assistant ? (
     <div className="flex min-w-0 shrink items-center gap-1">
-      <QuickOpenPaperDialog align="start" onPickPaper={openPaper}>
-        <button
-          type="button"
-          className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-          title="打开论文详情"
-          aria-label="打开论文详情"
-        >
-          <Plus className="size-3.5" strokeWidth={2.25} />
-        </button>
-      </QuickOpenPaperDialog>
+      {newInfoTabButton}
     </div>
   ) : (
     <div className="flex min-w-0 shrink items-center gap-1">
@@ -159,22 +164,14 @@ function TabStrip({
           onSelect={() => setActiveFunction(kind)}
         />
       ))}
-      <QuickOpenPaperDialog align="start" onPickPaper={openPaper}>
-        <button
-          type="button"
-          className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-          title="新建详情页签"
-          aria-label="新建详情页签"
-        >
-          <Plus className="size-3.5" strokeWidth={2.25} />
-        </button>
-      </QuickOpenPaperDialog>
     </div>
   );
 
-  const pageGroup = showPageGroup ? (
+  const pageGroup = assistant ? (
+    <div className="min-w-0 flex-1" />
+  ) : (
     <>
-      <TabStripDivider />
+      {showPageGroup && <TabStripDivider />}
       <InfoTabRail
         tabs={infoTabs}
         activeTabId={
@@ -182,10 +179,9 @@ function TabStrip({
         }
         onSelect={setActiveInfoTab}
         onClose={closeInfoTab}
+        trailingAction={newInfoTabButton}
       />
     </>
-  ) : (
-    <div className="min-w-0 flex-1" />
   );
 
   return (
@@ -280,11 +276,13 @@ function InfoTabRail({
   activeTabId,
   onSelect,
   onClose,
+  trailingAction,
 }: {
   tabs: InfoTab[];
   activeTabId: string | null;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
+  trailingAction?: ReactNode;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dirRef = useRef<-1 | 0 | 1>(0);
@@ -364,6 +362,9 @@ function InfoTabRail({
             onClose={() => onClose(tab.id)}
           />
         ))}
+        {trailingAction ? (
+          <div className="shrink-0">{trailingAction}</div>
+        ) : null}
       </div>
 
       {/* 左边缘 hover → 向左滚 */}

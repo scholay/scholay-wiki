@@ -1,5 +1,6 @@
-import { FileText, Trash2 } from 'lucide-react';
+import { FileText, Loader2, Trash2 } from 'lucide-react';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
+import { Checkbox } from '@/shared/ui/checkbox';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -31,6 +32,13 @@ interface Props {
   onPageSizeChange: (size: PageSize) => void;
   /** 清除检索(二次确认后) */
   onClear: () => void;
+  /** 本页全选复选框(暂存/取消暂存当前页结果) */
+  selectAll?: {
+    checked: boolean;
+    indeterminate?: boolean;
+    busy?: boolean;
+    onCheckedChange: (checked: boolean) => void;
+  };
 }
 
 export function SearcherPagination({
@@ -41,6 +49,7 @@ export function SearcherPagination({
   onChange,
   onPageSizeChange,
   onClear,
+  selectAll,
 }: Props) {
   const pages = computePages(page, totalPages);
   const resultsLabel = `找到 ${totalResults.toLocaleString()} 篇相关文献`;
@@ -52,9 +61,41 @@ export function SearcherPagination({
       // @container 供右侧结果数在列宽不足时收成图标+数值。
       className="@container grid h-10 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-border"
     >
-      {/* 左:pageSize 切换 —— 仅 20 / 50 两档,shrink-0 防被 grid 压扁
-          justify-self-start 让 pill 列贴左,不被 1fr 列拉伸 */}
-      <div className="justify-self-start inline-flex shrink-0 items-center gap-0.5 rounded-pill bg-background border border-border p-0.5">
+      {/* 左:全选 + pageSize 切换 */}
+      <div className="justify-self-start flex shrink-0 items-center gap-2">
+        {selectAll ? (
+          <label
+            className={cn(
+              'inline-flex shrink-0 cursor-pointer items-center gap-1.5 select-none',
+              selectAll.busy && 'cursor-wait opacity-70',
+            )}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            {selectAll.busy ? (
+              <Loader2 className="size-4 shrink-0 animate-spin text-faint" strokeWidth={2.25} />
+            ) : (
+              <Checkbox
+                checked={
+                  selectAll.indeterminate
+                    ? 'indeterminate'
+                    : selectAll.checked
+                }
+                onCheckedChange={(value) =>
+                  selectAll.onCheckedChange(value === true)
+                }
+                disabled={selectAll.busy}
+                aria-label="全选本页"
+                title={
+                  selectAll.checked
+                    ? '取消勾选以移出本页暂存'
+                    : '勾选以暂存本页全部结果'
+                }
+              />
+            )}
+            <span className="text-xs font-medium text-muted-foreground">全选</span>
+          </label>
+        ) : null}
+        <div className="inline-flex shrink-0 items-center gap-0.5 rounded-pill bg-background border border-border p-0.5">
         {PAGE_SIZE_OPTIONS.map((sz) => (
           <button
             key={sz}
@@ -71,6 +112,7 @@ export function SearcherPagination({
             {sz}/页
           </button>
         ))}
+        </div>
       </div>
 
       {/* 中:页码 —— shrink-0 + justify-self-center,优先级最高,不被压缩 */}

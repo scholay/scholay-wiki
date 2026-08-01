@@ -8,7 +8,6 @@ import {
   MousePointerClick,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { RhinoSplitPane } from '@/shared/components/RhinoSplitPane';
 import { RHINO_NAME } from '@/shared/mascot/rhino-name';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
@@ -59,20 +58,45 @@ export function RhinoHelpBody() {
   const activeTip = TIPS.find((t) => t.id === section);
   const TipIcon = activeTip?.icon;
 
+  const sections: Array<{ id: HelpSection; label: string }> = [
+    ...TIPS.map((t) => ({
+      id: t.id as HelpSection,
+      label: t.menuLabel,
+    })),
+    { id: 'tour', label: '导览' },
+  ];
+
   return (
-    <RhinoSplitPane
-      menu={[
-        ...TIPS.map((t) => ({
-          id: t.id,
-          label: t.menuLabel,
-          icon: t.icon,
-        })),
-        { id: 'tour', label: '导览', icon: Compass },
-      ]}
-      activeId={section}
-      onSelect={(id) => setSection(id as HelpSection)}
-    >
-      <div className="flex h-full min-h-0 flex-col overflow-y-auto px-3 py-3 [scrollbar-width:thin]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 flex-wrap gap-1 border-b border-border/60 px-2.5">
+        {sections.map((s) => {
+          const active = section === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setSection(s.id)}
+              className={cn(
+                'relative inline-flex h-8 items-center px-2.5 text-2xs font-bold transition-colors',
+                active
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {s.label}
+              {active && (
+                <span
+                  aria-hidden
+                  className="absolute bottom-px left-2 right-2 h-0.5 rounded-pill bg-brand-red"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin]">
         {section === 'tour' ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex gap-2.5 rounded-lg border border-border/70 bg-muted/40 px-2.5 py-2">
@@ -90,7 +114,7 @@ export function RhinoHelpBody() {
               type="button"
               variant="outline"
               size="sm"
-              className={cn('mt-auto w-full gap-1.5')}
+              className="w-full gap-1.5"
               onClick={startTour}
             >
               <Compass className="size-3.5" strokeWidth={2} />
@@ -121,12 +145,12 @@ export function RhinoHelpBody() {
                 strokeWidth={2}
               />
               <p className="text-2xs leading-relaxed text-muted-foreground">
-                左侧还能切换其它玩法说明，或开始「首页导览」。
+                上方可切换其它玩法说明，或开始「首页导览」。
               </p>
             </div>
           </div>
         ) : null}
       </div>
-    </RhinoSplitPane>
+    </div>
   );
 }

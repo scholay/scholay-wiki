@@ -10,6 +10,7 @@ import {
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Loader2, Search } from 'lucide-react';
+import { toast } from 'sonner';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
@@ -34,6 +35,7 @@ const SmartSearchPanel = lazy(() =>
 import { SearchClassicLanding } from './SearchClassicLanding';
 import { SearcherPagination } from './SearcherPagination';
 import { SearchFiltersButton } from './SearchFiltersFloating';
+import { useStagingActions } from '../hooks/useStagingActions';
 import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
 import type { SearchMode } from '../search-mode';
 
@@ -46,7 +48,7 @@ export type { SearchMode } from '../search-mode';
 /**
  * 搜索器列(col1):
  *   resultsList + pagination + 模式切换/搜索框
- *   有检索结果时:滚动贴顶 → 输入区在顶部;滚离顶部 → 输入区落到结果列下方。
+ *   有检索结果时:分页在上、输入区固定在最底部。
  *
  * filters 由父 SearchPage 持有(单一来源),变更 → 自动触发 useSearchPapers 重查。
  * stagedIds / collapsedIds 来自父 (workspace state),决定每张卡的视觉变体。
@@ -55,9 +57,6 @@ export type { SearchMode } from '../search-mode';
  * URL 状态(page/pageSize)+ filter-change reset 抽到 useSearcherUrlState;
  * 分页器 UI 抽到 SearcherPagination,本组件作 orchestrator + 主结构。
  */
-
-/** 底栏浮层预留高度,避免最后几张结果被挡住。 */
-const DOCK_OVERLAY_SPACER_PX = 80;
 
 interface SearcherColumnProps {
   filters: SearchFilters;
@@ -209,6 +208,58 @@ export function SearcherColumn({
   );
   const journalEnrichments = useJournalEnrichments(pageVenues);
 
+  const { bulkStagePapers } = useStagingActions();
+  const unstagedOnPage = useMemo(
+    () => papers.filter((p) => !stagedIds.has(p.paperId)).length,
+    [papers, stagedIds],
+  );
+  const allStagedOnPage = papers.length > 0 && unstagedOnPage === 0;
+  const someStagedOnPage = papers.some((p) => stagedIds.has(p.paperId));
+  const selectAllIndeterminate = someStagedOnPage && !allStagedOnPage;
+  const [selectAllBusy, setSelectAllBusy] = useState(false);
+  const handleSelectAllChange = useCallback(
+    async (checked: boolean) => {
+      if (selectAllBusy || papers.length === 0) return;
+      setSelectAllBusy(true);
+      try {
+        if (checked) {
+          if (unstagedOnPage === 0) return;
+          const source = mode === 'smart' ? 'smart' : 'traditional';
+          const { added, skipped, capped } = await bulkStagePapers(papers, source);
+          const parts: string[] = [];
+          if (added > 0) parts.push(`已暂存 ${added} 篇`);
+          if (skipped > 0) parts.push(`${skipped} 篇已在暂存区`);
+          if (capped > 0) parts.push(`${capped} 篇因暂存区已满未加入`);
+          if (parts.length === 0) {
+            toast.info('本页结果已全部在暂存区');
+          } else {
+            const total = added + skipped + capped;
+            const isWarn = added === 0 && total > 0;
+            if (isWarn) toast.info(parts.join(', '));
+            else toast.success(parts.join(', '));
+          }
+        } else {
+          for (const p of papers) {
+            if (stagedIds.has(p.paperId)) onUnstage(p.paperId);
+          }
+        }
+      } catch (err) {
+        toast.error(`批量暂存失败:${(err as Error).message}`);
+      } finally {
+        setSelectAllBusy(false);
+      }
+    },
+    [
+      selectAllBusy,
+      papers,
+      unstagedOnPage,
+      bulkStagePapers,
+      mode,
+      stagedIds,
+      onUnstage,
+    ],
+  );
+
   const submitQuery = useCallback(
     (q: string) => {
       const trimmed = q.trim();
@@ -263,44 +314,14 @@ export function SearcherColumn({
   const showClassicQueryDock =
     mode === 'classic' && !showClassicLanding && Boolean(query);
 
-  // 输入区在结果滚动流顶部;滚出视口后底部浮层接住(IntersectionObserver)。
   const resultsScrollRef = useRef<HTMLDivElement>(null);
-  const topDockRef = useRef<HTMLDivElement>(null);
-  const [dockAtTop, setDockAtTop] = useState(true);
-  useEffect(() => {
-    setDockAtTop(true);
-  }, [query, page]);
-  useEffect(() => {
-    if (!showClassicQueryDock) return;
-    const root = resultsScrollRef.current;
-    const target = topDockRef.current;
-    if (!root || !target) return;
-
-    const syncDockPlacement = () => {
-      const rootRect = root.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      // 顶部输入区底边仍在滚动视口上沿之下 → 还在顶部;完全滚出上沿 → 沉底。
-      setDockAtTop(targetRect.bottom > rootRect.top + 8);
-    };
-
-    const io = new IntersectionObserver(syncDockPlacement, {
-      root,
-      threshold: [0, 0.01, 0.25, 1],
-    });
-    io.observe(target);
-    root.addEventListener('scroll', syncDockPlacement, { passive: true });
-    syncDockPlacement();
-    return () => {
-      io.disconnect();
-      root.removeEventListener('scroll', syncDockPlacement);
-    };
-  }, [showClassicQueryDock, papers.length]);
 
   // 与首页 SearchAutocomplete 同壳:h-12 + 内嵌智能搜索开关。
-  const classicInputDock = (
+  const renderClassicInputDock = (suggestionsPlacement: 'below' | 'above' = 'below') => (
     <SearchAutocomplete
       className="max-w-none"
       appearance="literature"
+      suggestionsPlacement={suggestionsPlacement}
       value={input}
       onChange={setInput}
       onSubmit={(q) => {
@@ -360,127 +381,79 @@ export function SearcherColumn({
 
       {mode === 'classic' && !showClassicLanding && (
         <>
-          <div className="relative min-h-0 flex-1">
-            <div
-              ref={resultsScrollRef}
-              className="relative h-full min-h-0 overflow-auto"
-            >
-              {/* 无内容:Logo + 模式切换 + 搜索框居中(对齐首页 / 智能助手空态)。 */}
-              {!query && (
-                <div className="flex min-h-full items-center justify-center py-10">
-                  <AnimatePresence initial={false}>
-                    <motion.div
-                      key="classic-input-dock-center"
-                      initial={reduceMotion ? false : { opacity: 0, y: 24 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={reduceMotion ? undefined : { opacity: 0, y: 24 }}
-                      transition={{ duration: swapMs / 1000, ease: INPUT_SWAP_EASE }}
-                      className={cn(resultsColClass, 'flex flex-col items-center')}
-                    >
-                      <h2 className="m-0">
-                        <BrandLogo size="xl" />
-                      </h2>
-                      <div className="mt-6 w-full">{classicInputDock}</div>
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-              )}
-
-              {/* 有检索时:输入区在滚动流顶部,随列表滚走;滚出后再沉底浮层接住。 */}
-              {showClassicQueryDock && (
-                <div
-                  ref={topDockRef}
-                  className={cn(
-                    resultsColClass,
-                    'border-b border-border pb-3 pt-2.5',
-                  )}
-                >
-                  {classicInputDock}
-                </div>
-              )}
-
-              {query && !showLoading && papers.length === 0 && (
-                <div className={resultsColClass}>
-                  <EmptyState
-                    icon={Search}
-                    title="没找到相关论文"
-                    description={`没有匹配 "${query}" 的内容,换个关键词或者切换数据源再试试`}
-                  />
-                </div>
-              )}
-              {papers.length > 0 && (
-                // 结果卡限宽 + 左侧留缝、左对齐(不随主列拉满横向贯穿)。
-                <div ref={listRef} className={resultsColClass}>
-                  {papers.map((p) => (
-                    <PaperResultCard
-                      key={p.paperId}
-                      paper={p}
-                      isStaged={stagedIds.has(p.paperId)}
-                      isFolded={collapsedIds.has(p.paperId)}
-                      isFavorited={favoritedIds.has(p.paperId)}
-                      journalEnrichment={
-                        p.venue ? journalEnrichments[p.venue.trim()] : null
-                      }
-                      onStage={onStage}
-                      onUnstage={onUnstage}
-                      onCollapse={onCollapse}
-                      onRestore={onRestore}
-                      highlightQuery={query}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* 沉底浮层时垫高,最后几张卡不被挡住。 */}
-              {showClassicQueryDock && !dockAtTop && (
-                <div
-                  aria-hidden
-                  style={{ height: DOCK_OVERLAY_SPACER_PX }}
-                  className="shrink-0"
-                />
-              )}
-
-              {showLoading && (
-                <div
-                  className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
-                  aria-live="polite"
-                  aria-busy="true"
-                >
-                  <div className="flex flex-col items-center gap-3 text-faint">
-                    <Loader2 className="size-6 animate-spin text-brand-red" strokeWidth={2.2} />
-                    <span className="text-sm">检索中…</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 顶部输入区滚出视口后,沉到滚动区底部(不挤占分页)。 */}
-            <AnimatePresence initial={false}>
-              {showClassicQueryDock && !dockAtTop && (
-                <motion.div
-                  key="classic-input-dock-bottom"
-                  initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, y: 16 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
-                  className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-background via-background/95 to-transparent pt-6"
-                >
-                  <div
-                    className={cn(
-                      resultsColClass,
-                      'pointer-events-auto border-t border-border bg-background pb-3 pt-2.5',
-                    )}
+          <div
+            ref={resultsScrollRef}
+            className="relative min-h-0 flex-1 overflow-auto"
+          >
+            {/* 无内容:Logo + 模式切换 + 搜索框居中(对齐首页 / 智能助手空态)。 */}
+            {!query && (
+              <div className="flex min-h-full items-center justify-center py-10">
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    key="classic-input-dock-center"
+                    initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduceMotion ? undefined : { opacity: 0, y: 24 }}
+                    transition={{ duration: swapMs / 1000, ease: INPUT_SWAP_EASE }}
+                    className={cn(resultsColClass, 'flex flex-col items-center')}
                   >
-                    {classicInputDock}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    <h2 className="m-0">
+                      <BrandLogo size="xl" />
+                    </h2>
+                    <div className="mt-6 w-full">{renderClassicInputDock()}</div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            )}
 
+            {query && !showLoading && papers.length === 0 && (
+              <div className={resultsColClass}>
+                <EmptyState
+                  icon={Search}
+                  title="没找到相关论文"
+                  description={`没有匹配 "${query}" 的内容,换个关键词或者切换数据源再试试`}
+                />
+              </div>
+            )}
+            {papers.length > 0 && (
+              // 结果卡限宽 + 左侧留缝、左对齐(不随主列拉满横向贯穿)。
+              <div ref={listRef} className={cn(resultsColClass, 'pb-3')}>
+                {papers.map((p) => (
+                  <PaperResultCard
+                    key={p.paperId}
+                    paper={p}
+                    isStaged={stagedIds.has(p.paperId)}
+                    isFolded={collapsedIds.has(p.paperId)}
+                    isFavorited={favoritedIds.has(p.paperId)}
+                    journalEnrichment={
+                      p.venue ? journalEnrichments[p.venue.trim()] : null
+                    }
+                    onStage={onStage}
+                    onUnstage={onUnstage}
+                    onCollapse={onCollapse}
+                    onRestore={onRestore}
+                    highlightQuery={query}
+                  />
+                ))}
+              </div>
+            )}
+
+            {showLoading && (
+              <div
+                className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <div className="flex flex-col items-center gap-3 text-faint">
+                  <Loader2 className="size-6 animate-spin text-brand-red" strokeWidth={2.2} />
+                  <span className="text-sm">检索中…</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {query && total > 0 && (
-            <div className={cn(resultsColClass, 'shrink-0')}>
+            <div className={cn(resultsColClass, 'shrink-0 border-t border-border')}>
               <SearcherPagination
                 page={page}
                 totalPages={totalPages}
@@ -489,7 +462,24 @@ export function SearcherColumn({
                 onChange={setPage}
                 onPageSizeChange={setPageSize}
                 onClear={clearContent}
+                selectAll={{
+                  checked: allStagedOnPage,
+                  indeterminate: selectAllIndeterminate,
+                  busy: selectAllBusy,
+                  onCheckedChange: handleSelectAllChange,
+                }}
               />
+            </div>
+          )}
+
+          {showClassicQueryDock && (
+            <div
+              className={cn(
+                resultsColClass,
+                'shrink-0 border-t border-border bg-background pb-3 pt-2.5',
+              )}
+            >
+              {renderClassicInputDock('above')}
             </div>
           )}
         </>

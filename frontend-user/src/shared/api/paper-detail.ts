@@ -43,6 +43,8 @@ export function useFetchPaperDetail({
           citationCount: raw.citationCount as number | undefined,
           referenceCount: raw.referenceCount as number | undefined,
           isOpenAccess: raw.isOpenAccess as boolean | undefined,
+          openAccessPdf: raw.openAccessPdf as Paper['openAccessPdf'],
+          externalIds: raw.externalIds as Paper['externalIds'],
           authors: raw.authors as Paper['authors'],
           fieldsOfStudy: raw.fieldsOfStudy as string[] | undefined,
           source,

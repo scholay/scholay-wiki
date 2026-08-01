@@ -13,10 +13,19 @@ export interface ContextMeterProps {
   maxTokens: number;
   percentage: number;
   model?: string;
+  /** 仅显示环图标;明细走 title / aria-label。 */
+  iconOnly?: boolean;
   className?: string;
 }
 
-export function ContextMeter({ totalTokens, maxTokens, percentage, model, className }: ContextMeterProps) {
+export function ContextMeter({
+  totalTokens,
+  maxTokens,
+  percentage,
+  model,
+  iconOnly = false,
+  className,
+}: ContextMeterProps) {
   // 展示名映射:上游 model code → 目录展示名(查不到回落 code)。目录 feature 参数只影响
   // is_default 标注,任一 feature 的可选集都含全部模型,固定用 claw(与选择器共享缓存,零额外请求)。
   const { data: catalogModels } = useUserModels('claw');
@@ -25,20 +34,23 @@ export function ContextMeter({ totalTokens, maxTokens, percentage, model, classN
   const danger = pct >= 80;
   // conic-gradient 是动态角度,属于「动态计算的尺寸」,允许内联 style(globals 约定例外项)。
   const ringStyle = { background: `conic-gradient(currentColor ${pct * 3.6}deg, var(--color-border) 0deg)` };
+  const tooltip = `上下文 ${totalTokens.toLocaleString()} / ${maxTokens.toLocaleString()} tokens (${displayModel || '未知模型'}) · ${pct}%`;
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 text-2xs tabular-nums',
+        'inline-flex shrink-0 items-center',
+        !iconOnly && 'gap-1.5 text-2xs tabular-nums',
         danger ? 'text-brand-red' : 'text-faint',
         className,
       )}
-      title={`上下文 ${totalTokens.toLocaleString()} / ${maxTokens.toLocaleString()} tokens (${displayModel || '未知模型'})`}
+      title={tooltip}
+      aria-label={iconOnly ? tooltip : undefined}
     >
       <span className="inline-block size-3 shrink-0 rounded-full" style={ringStyle} aria-hidden="true">
         {/* 中心挖空成环:内层小圆用背景色盖住,留 ~2px 环宽 */}
         <span className="block size-3 scale-[0.55] rounded-full bg-background" />
       </span>
-      上下文 {pct}%
+      {!iconOnly ? <>上下文 {pct}%</> : null}
     </span>
   );
 }

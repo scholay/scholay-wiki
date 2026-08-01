@@ -7,7 +7,14 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { useFavoritePaper } from '@/shared/api/user-library-mutations';
+import {
+  UPLOAD_CANCELLED,
+  useUploadPaperPdf,
+} from '@/shared/api/paper-pdf-upload';
+import { usePaperReadablePdf } from '@/shared/hooks/usePaperReadablePdf';
 import type { Paper } from '../../api/papers';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
@@ -15,8 +22,9 @@ import { usePdfChatBridge } from '@/stores/pdf-chat-bridge.store';
 import { useWorkspaceFolderUi } from '@/stores/workspace-folder.store';
 import { useIsPdfChatActive } from '@/shared/hooks/useOpenInSearchPanel';
 import { PdfChatMockPage } from './PdfChatMockPage';
+import { PdfMissingOverlay } from './PdfMissingOverlay';
 
-/** 工作区 · PDF Chat —— 仅 PDF 预览;文献列表由左侧工作区承担,对话由智能助手承担 */
+/** 工作区 · PDF Chat —— PDF 预览 + 缺 PDF 时多渠道重试/上传 */
 export function PdfChatPanel({ staged }: { staged: Paper[] }) {
   const selectedPaperId = useWorkspaceFolderUi((s) => s.selectedPaperId);
   const setSelectedPaperId = useWorkspaceFolderUi((s) => s.setSelectedPaperId);
@@ -27,6 +35,12 @@ export function PdfChatPanel({ staged }: { staged: Paper[] }) {
   const token = useAuthStore((s) => s.token);
   const openDialog = useAuthDialog((s) => s.openDialog);
   const [zoom, setZoom] = useState(100);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [pdfPatches, setPdfPatches] = useState<Record<string, Paper>>({});
+
+  const favoriteMut = useFavoritePaper();
+  const uploadMut = useUploadPaperPdf();
+  const isUploading = favoriteMut.isPending || uploadMut.isPending;
 
   useEffect(() => {
     if (!isPdfChatActive) clearEngagement();
@@ -51,21 +65,74 @@ export function PdfChatPanel({ staged }: { staged: Paper[] }) {
     [staged, selectedPaperId],
   );
 
+  const effectivePaper = useMemo(() => {
+    if (!selectedPaper) return null;
+    const patch = pdfPatches[selectedPaper.paperId];
+    return patch ? { ...selectedPaper, ...patch } : selectedPaper;
+  }, [selectedPaper, pdfPatches]);
+
+  const { hasPdf, isLoading: pdfStatusLoading } =
+    usePaperReadablePdf(effectivePaper);
+
   const bumpZoom = useCallback((delta: number) => {
     setZoom((z) => Math.max(72, Math.min(140, z + delta)));
   }, []);
 
+  const showMissingOverlay =
+    !!effectivePaper && !pdfStatusLoading && !hasPdf;
   const showChatOverlay =
-    !!selectedPaper && engagedPaperId !== selectedPaper.paperId;
+    !!effectivePaper &&
+    hasPdf &&
+    !pdfStatusLoading &&
+    engagedPaperId !== effectivePaper.paperId;
+
+  const handlePdfResolved = useCallback((patch: Paper) => {
+    if (!patch.paperId) return;
+    setPdfPatches((prev) => ({
+      ...prev,
+      [patch.paperId]: { ...prev[patch.paperId], ...patch },
+    }));
+  }, []);
 
   const handleBeginChat = useCallback(() => {
-    if (!selectedPaper) return;
+    if (!effectivePaper || !hasPdf) return;
     if (!token) {
       openDialog('login');
       return;
     }
-    beginPdfChat(selectedPaper);
-  }, [selectedPaper, token, openDialog, beginPdfChat]);
+    beginPdfChat(effectivePaper);
+  }, [effectivePaper, hasPdf, token, openDialog, beginPdfChat]);
+
+  const handleUploadPdf = useCallback(
+    async (file: File) => {
+      if (!effectivePaper) return;
+      if (!token) {
+        openDialog('login');
+        return;
+      }
+
+      setUploadProgress(0);
+      try {
+        const favoriteResult = await favoriteMut.mutateAsync({
+          paper: effectivePaper,
+          silentSuccess: true,
+        });
+        await uploadMut.mutateAsync({
+          paperId: favoriteResult.id,
+          file,
+          onProgress: setUploadProgress,
+        });
+        toast.success('PDF 已上传,可以开始对话');
+        setUploadProgress(0);
+      } catch (err) {
+        setUploadProgress(0);
+        const msg = err instanceof Error ? err.message : '上传失败';
+        if (msg === UPLOAD_CANCELLED) return;
+        toast.error(msg);
+      }
+    },
+    [effectivePaper, token, openDialog, favoriteMut, uploadMut],
+  );
 
   if (staged.length === 0) {
     return (
@@ -90,37 +157,57 @@ export function PdfChatPanel({ staged }: { staged: Paper[] }) {
             strokeWidth={2.5}
           />
           <span className="truncate text-xs font-semibold text-foreground">
-            {selectedPaper?.title || 'PDF 预览'}
+            {effectivePaper?.title || 'PDF 预览'}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <ToolbarIconButton label="缩小" onClick={() => bumpZoom(-8)}>
-            <ZoomOut className="size-3.5" />
-          </ToolbarIconButton>
-          <span className="w-10 text-center text-2xs tabular-nums text-subtle">
-            {zoom}%
-          </span>
-          <ToolbarIconButton label="放大" onClick={() => bumpZoom(8)}>
-            <ZoomIn className="size-3.5" />
-          </ToolbarIconButton>
-          <span className="mx-1 h-4 w-px bg-border" />
-          <ToolbarIconButton label="上一页">
-            <ChevronLeft className="size-3.5" />
-          </ToolbarIconButton>
-          <span className="text-2xs tabular-nums text-subtle">1 / 12</span>
-          <ToolbarIconButton label="下一页">
-            <ChevronRight className="size-3.5" />
-          </ToolbarIconButton>
-        </div>
+        {hasPdf && (
+          <div className="flex shrink-0 items-center gap-1">
+            <ToolbarIconButton label="缩小" onClick={() => bumpZoom(-8)}>
+              <ZoomOut className="size-3.5" />
+            </ToolbarIconButton>
+            <span className="w-10 text-center text-2xs tabular-nums text-subtle">
+              {zoom}%
+            </span>
+            <ToolbarIconButton label="放大" onClick={() => bumpZoom(8)}>
+              <ZoomIn className="size-3.5" />
+            </ToolbarIconButton>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <ToolbarIconButton label="上一页">
+              <ChevronLeft className="size-3.5" />
+            </ToolbarIconButton>
+            <span className="text-2xs tabular-nums text-subtle">1 / 12</span>
+            <ToolbarIconButton label="下一页">
+              <ChevronRight className="size-3.5" />
+            </ToolbarIconButton>
+          </div>
+        )}
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-auto bg-surface-2 p-6">
         <div
-          className="origin-top transition-transform duration-200"
-          style={{ transform: `scale(${zoom / 100})` }}
+          className={
+            hasPdf
+              ? 'origin-top transition-transform duration-200'
+              : 'origin-top opacity-90'
+          }
+          style={
+            hasPdf
+              ? { transform: `scale(${zoom / 100})` }
+              : undefined
+          }
         >
-          <PdfChatMockPage paper={selectedPaper} />
+          <PdfChatMockPage paper={effectivePaper} />
         </div>
+
+        {showMissingOverlay && effectivePaper && (
+          <PdfMissingOverlay
+            paper={effectivePaper}
+            onUpload={(file) => void handleUploadPdf(file)}
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            onPdfResolved={handlePdfResolved}
+          />
+        )}
 
         {showChatOverlay && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/65 backdrop-blur-[2px]">

@@ -166,7 +166,7 @@ export function SearchPage() {
   const showSmartHeroLayout = mode === 'smart' && !conversationActive;
   // 文献落地页不挂右栏;其余(含智能 hero / 钉住工作区 / 经典结果)都挂入口。
   const showRightPanel = !showClassicLanding;
-  // 空态:右缘吸附名片(不占列宽);打开功能/详情后展开完整拓展区。
+  // 拓展区收起时显示右上角唤起按钮;展开后由 SearcherColumn 内按钮隐藏。
   const showFeatureHubDock = showRightPanel && !activePanel;
   const showExpandedRight = showRightPanel && !!activePanel;
   const showResizeHandle = showExpandedRight;

@@ -1,16 +1,13 @@
 import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutGrid,
   Pencil,
   Plus,
   RotateCcw,
   Settings2,
-  Sparkles,
   X,
 } from 'lucide-react';
 import { MENUS, type Menu, type MenuCategory } from '@/app/menus';
-import { RhinoSplitPane } from '@/shared/components/RhinoSplitPane';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -37,7 +34,8 @@ type FeatureSection = 'frequent' | 'all';
 
 /**
  * 犀牛「功能」面板 —— App 图标墙：
- * 左：常用 / 全部；右：对应图标区（全部可编辑）
+ * embedded：顶栏横向「常用 / 全部」+ 图标区（全部可编辑）
+ * 非 embedded：上下两段同时展示
  */
 export function FeatureRailPanel({ embedded }: { embedded?: boolean } = {}) {
   const [section, setSection] = useState<FeatureSection>('frequent');
@@ -106,9 +104,7 @@ export function FeatureRailPanel({ embedded }: { embedded?: boolean } = {}) {
             全部
           </h3>
         ) : (
-          <span className="text-2xs font-semibold text-muted-foreground">
-            全部入口
-          </span>
+          <span className="text-2xs text-muted-foreground">整理入口</span>
         )}
         <button
           type="button"
@@ -125,6 +121,7 @@ export function FeatureRailPanel({ embedded }: { embedded?: boolean } = {}) {
             managing
               ? 'bg-brand-green/15 text-brand-green'
               : 'text-subtle hover:bg-muted hover:text-foreground',
+            embedded && 'ml-auto',
           )}
         >
           <Settings2 className="size-3" strokeWidth={2} />
@@ -253,25 +250,51 @@ export function FeatureRailPanel({ embedded }: { embedded?: boolean } = {}) {
 
   if (embedded) {
     return (
-      <nav aria-label="功能入口" className="h-full min-h-0">
-        <RhinoSplitPane
-          menu={[
-            { id: 'frequent', label: '常用', icon: Sparkles },
-            { id: 'all', label: '全部', icon: LayoutGrid },
-          ]}
-          activeId={section}
-          onSelect={(id) => {
-            setSection(id as FeatureSection);
-            if (id !== 'all') {
-              setManaging(false);
-              setRenamingId(null);
-            }
-          }}
-        >
-          <div className="h-full min-h-0 overflow-y-auto [scrollbar-width:thin]">
-            {section === 'frequent' ? frequentBody : allBody}
-          </div>
-        </RhinoSplitPane>
+      <nav
+        aria-label="功能入口"
+        className="flex h-full min-h-0 flex-col overflow-hidden"
+      >
+        <div className="flex shrink-0 items-center gap-1 border-b border-border/60 px-2.5">
+          {(
+            [
+              { id: 'frequent', label: '常用' },
+              { id: 'all', label: '全部' },
+            ] as const
+          ).map((tab) => {
+            const active = section === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setSection(tab.id);
+                  if (tab.id !== 'all') {
+                    setManaging(false);
+                    setRenamingId(null);
+                  }
+                }}
+                className={cn(
+                  'relative inline-flex h-8 items-center px-2.5 text-2xs font-bold transition-colors',
+                  active
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tab.label}
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute bottom-px left-2 right-2 h-0.5 rounded-pill bg-brand-red"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+          {section === 'frequent' ? frequentBody : allBody}
+        </div>
       </nav>
     );
   }

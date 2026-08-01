@@ -35,7 +35,7 @@ export interface AgentSessionStripProps {
   placement?: 'bar' | 'stack' | 'dock';
   /**
    * true(默认)=完整会话管理:历史入口、时间、重命名/删除(智能助手)。
-   * false=精简条:仅标题 + trailingSlot + 新对话(智能搜索;记录与助手不互通)。
+   * false=精简条:仅标题 + trailingSlot + 新对话(极少用;默认开完整控件)。
    */
   sessionControls?: boolean;
   /** 右侧操作前额外插槽(如智能搜索:模型选择 + 上下文水位 + 跳转助手)。 */
@@ -69,7 +69,7 @@ export function AgentSessionStrip({
 
   const currentLabel = useMemo(() => {
     if (!activeSession) {
-      return { time: '', title: '新对话', loading: false };
+      return { title: '新对话', loading: false };
     }
     const { displayTitle, loading } = computeSessionTitle(
       activeSession.title,
@@ -77,12 +77,7 @@ export function AgentSessionStrip({
       activeSession.messageCount,
       true,
     );
-    const stamp =
-      activeSession.agentModifiedAt ||
-      activeSession.lastAccessedAt ||
-      activeSession.createdAt;
     return {
-      time: formatSessionTime(stamp),
       title: loading ? `${displayTitle}…` : displayTitle,
       loading,
     };
@@ -132,7 +127,7 @@ export function AgentSessionStrip({
               ),
           )}
         >
-          {/* 左:历史入口 + 更新时间(智能搜索精简条不展示,记录与助手不互通) */}
+          {/* 左:历史入口 + 更新时间 */}
           {sessionControls ? (
             <div className="relative z-10 flex shrink-0 items-center gap-2">
               <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -216,11 +211,6 @@ export function AgentSessionStrip({
                   )}
                 </PopoverContent>
               </Popover>
-              {token && !isLoading && currentLabel.time && (
-                <span className="shrink-0 text-xs tabular-nums text-faint">
-                  {currentLabel.time}
-                </span>
-              )}
             </div>
           ) : (
             <div className="relative z-10 w-1 shrink-0" aria-hidden />
