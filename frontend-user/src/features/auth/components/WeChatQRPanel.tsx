@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import { consumeInvitationCode, peekInvitationCode } from '@/shared/lib/auth-invitation';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { handleAuthSuccess } from '../api/auth';
 import type { AuthResponse } from '../types';
 
@@ -99,6 +101,12 @@ interface WeChatQRPanelProps {
   onSuccess?: () => void;
 }
 
+function resolveInvitationCode(): string | undefined {
+  const fromStore = useAuthDialog.getState().invitationCode.trim();
+  if (fromStore) return fromStore;
+  return peekInvitationCode();
+}
+
 export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
@@ -120,11 +128,15 @@ export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps)
           qc.invalidateQueries({ queryKey: ['auth', 'profile'] });
           toast.success('微信已成功绑定');
         } else {
+          const invitation_code = resolveInvitationCode();
           const { data: resp } = await http.post<{ data: AuthResponse }>(
             '/user/wechat/callback',
-            { code: data.code, state: data.state }
+            { code: data.code, state: data.state, invitation_code }
           );
-          handleAuthSuccess(qc, resp.data);
+          consumeInvitationCode();
+          handleAuthSuccess(qc, resp.data, {
+            usedInvitationCode: !!invitation_code,
+          });
           toast.success('登录成功');
         }
         onSuccess?.();
@@ -190,11 +202,19 @@ export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps)
         qc.invalidateQueries({ queryKey: ['auth', 'profile'] });
         toast.success('微信已成功绑定');
       } else {
+        const invitation_code = resolveInvitationCode();
         const { data } = await http.post<{ data: AuthResponse }>(
           '/user/wechat/callback',
-          { code: 'mock-wechat-code', state: 'mock-wechat-state' }
+          {
+            code: 'mock-wechat-code',
+            state: 'mock-wechat-state',
+            invitation_code,
+          }
         );
-        handleAuthSuccess(qc, data.data);
+        consumeInvitationCode();
+        handleAuthSuccess(qc, data.data, {
+          usedInvitationCode: !!invitation_code,
+        });
         toast.success('登录成功');
       }
       onSuccess?.();

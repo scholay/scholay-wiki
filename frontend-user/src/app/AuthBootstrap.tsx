@@ -2,6 +2,10 @@ import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useProfile } from '@/features/auth/api/profile';
 import { BizCode } from '@/shared/lib/http';
+import {
+  readInvitationCodeFromUrl,
+  stripInvitationParamsFromUrl,
+} from '@/shared/lib/auth-invitation';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 
@@ -9,6 +13,7 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
  * App 启动时:
  *   - 若 localStorage 有 token,自动拉一次 /user/profile 用最新字段刷新 auth.store.user
  *   - 401/403 已在 useProfile 内部清掉会话(避免脏 token 残留)
+ *   - 若 URL 带 ?invite= / ?invitation_code=,校验后锁定邀请码并打开注册弹窗
  *
  * 还监听全局 `auth-evicted` 事件 (shared/lib/http.ts 的 response interceptor 在
  * TokenRevoked / TokenExpired 时派发) — 拿到事件就清 store + 跳登录页 / 弹 banner。
@@ -19,6 +24,24 @@ export function AuthBootstrap() {
   const { data } = useProfile();
   const setUser = useAuthStore((s) => s.setUser);
   const clear = useAuthStore((s) => s.clear);
+
+  // 邀请链接落地:?invite=CODE 或 ?invitation_code=CODE
+  useEffect(() => {
+    const code = readInvitationCodeFromUrl();
+    if (!code) return;
+    stripInvitationParamsFromUrl();
+    const result = useAuthDialog.getState().applyInvitationFromLink(code);
+    if (!result.ok) {
+      toast.error(result.message || '邀请码无效或已失效');
+      return;
+    }
+    // 已登录用户不必弹注册;未登录则直接进入注册(锁定态邀请码已就绪)
+    if (!useAuthStore.getState().token) {
+      useAuthDialog.getState().openDialog('register');
+    } else {
+      toast.success('邀请码已就绪');
+    }
+  }, []);
 
   // useProfile 拉到档案后,**整体写入** user(setUser,不是 patchUser)。
   // 关键:token 有效但 user 为 null 的「幽灵未登录」场景(跨 tab 登录只同步了 token、

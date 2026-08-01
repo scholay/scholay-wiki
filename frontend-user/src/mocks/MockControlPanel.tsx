@@ -13,6 +13,7 @@ import {
   setMockPersona,
   type MockPersona,
 } from "./personas";
+import { useInvitePromptStore } from "@/stores/invite-prompt.store";
 
 const routes = [
   ["首页", "/"],
@@ -196,6 +197,35 @@ export function MockControlPanel() {
             {labelText}
           </a>
         ))}
+        <button
+          type="button"
+          onClick={() => {
+            // 先切访客再带 invite 刷新,否则默认研究者已登录不会弹注册窗
+            setMockPersona("visitor");
+            window.location.assign("/?invite=SCHOLAY2026");
+          }}
+          className="cursor-pointer rounded-sm border border-lime-500/20 bg-black/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-lime-200/70 hover:border-lime-400/50 hover:bg-lime-400/10 hover:text-lime-100"
+          title="打开带邀请码的注册弹窗（锁定已填写态）"
+        >
+          邀请注册
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            // 清「已提醒」标记后以研究者身份弹新用户补填窗
+            try {
+              localStorage.removeItem("scholay.auth.invite_prompt_done");
+            } catch {
+              // ignore
+            }
+            setMockPersona("researcher");
+            useInvitePromptStore.getState().openForNewUser(1001);
+          }}
+          className="cursor-pointer rounded-sm border border-lime-500/20 bg-black/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-lime-200/70 hover:border-lime-400/50 hover:bg-lime-400/10 hover:text-lime-100"
+          title="模拟新用户首次登录补填邀请码弹窗"
+        >
+          新用户邀请
+        </button>
       </nav>
 
       <button

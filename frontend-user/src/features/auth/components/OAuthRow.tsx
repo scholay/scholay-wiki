@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { ProviderLogo } from '@/shared/components/ProviderLogo';
 import { http, toApiError } from '@/shared/lib/http';
+import { persistInvitationCode } from '@/shared/lib/auth-invitation';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import {
   useEnabledProviders,
@@ -54,6 +55,12 @@ export function OAuthRow({
     ? allProviders.filter((p) => !exclude.includes(p))
     : allProviders;
   const setMode = useAuthDialog((s) => s.setMode);
+  const invitationCode = useAuthDialog((s) => s.invitationCode);
+
+  const persistInviteBeforeOAuth = () => {
+    // 整页跳转前把当前邀请码落到 sessionStorage,callback 页再 consume 附给后端。
+    persistInvitationCode(invitationCode);
+  };
 
   const handleRedirect = async (provider: EnabledProvider) => {
     const meta = PROVIDER_META[provider];
@@ -65,6 +72,7 @@ export function OAuthRow({
         toast.error(`${meta.label} 登录暂未开通,请稍后再试或选择其他登录方式`);
         return;
       }
+      persistInviteBeforeOAuth();
       window.location.href = url;
     } catch (err) {
       toast.error(toApiError(err).message || `${meta.label} 登录暂未开通,请稍后再试或选择其他登录方式`);
@@ -82,7 +90,12 @@ export function OAuthRow({
         }
         const meta = PROVIDER_META[p];
         const onClick =
-          p === 'wechat' ? () => setMode('wechat-qr') : () => handleRedirect(p);
+          p === 'wechat'
+            ? () => {
+                persistInviteBeforeOAuth();
+                setMode('wechat-qr');
+              }
+            : () => handleRedirect(p);
         return (
           <button
             key={p}

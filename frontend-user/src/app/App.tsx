@@ -5,6 +5,7 @@ import { router } from './router';
 import { AuthBootstrap } from './AuthBootstrap';
 import { useApplyTheme } from '@/stores/theme.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useInvitePromptStore } from '@/stores/invite-prompt.store';
 import { usePromoStore } from '@/stores/promo.store';
 import { useQuotaStore } from '@/stores/quota.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
@@ -42,6 +43,9 @@ function useCloseGlobalModalsOnNavigate() {
       queueMicrotask(() => {
         const ad = useAuthDialog.getState();
         if (ad.open) ad.close();
+        const ip = useInvitePromptStore.getState();
+        // 仅关窗不 mark done —— 用户若被导航打断,下次登录仍可提醒
+        if (ip.open) ip.close();
         const pm = usePromoStore.getState();
         if (pm.open) pm.closePromo();
         const qn = useQuotaStore.getState();
@@ -77,11 +81,17 @@ function ShellRoot() {
           (zod+react-hook-form+turnstile+微信扫码 ~105KB)此前 eager 常驻入口 chunk。改成首次打开才拉,
           之后保持挂载(内部本靠 store.open 控制 Radix Dialog 开合,常驻无副作用)。 */}
       <AuthDialogGate />
+      <InvitePromptGate />
     </>
   );
 }
 
 const AuthDialog = lazy(() => import('@/features/auth').then((m) => ({ default: m.AuthDialog })));
+const InviteCodePromptDialog = lazy(() =>
+  import('@/features/auth/components/InviteCodePromptDialog').then((m) => ({
+    default: m.InviteCodePromptDialog,
+  })),
+);
 
 function AuthDialogGate() {
   const open = useAuthDialog((s) => s.open);
@@ -91,6 +101,16 @@ function AuthDialogGate() {
   return (
     <Suspense fallback={null}>
       <AuthDialog />
+    </Suspense>
+  );
+}
+
+function InvitePromptGate() {
+  const open = useInvitePromptStore((s) => s.open);
+  if (!open) return null;
+  return (
+    <Suspense fallback={null}>
+      <InviteCodePromptDialog />
     </Suspense>
   );
 }

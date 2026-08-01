@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
+import { useInvitePromptStore } from '@/stores/invite-prompt.store';
 import type { AuthResponse, CodePurpose, User } from '../types';
 
 /**
@@ -14,11 +15,25 @@ import type { AuthResponse, CodePurpose, User } from '../types';
  * 文献集、订阅、配额、连接列表、UI 上一切受登录态影响的服务端数据都会重 fetch。
  */
 
-export function handleAuthSuccess(qc: QueryClient, data: AuthResponse) {
+export type AuthSuccessOptions = {
+  /** 本次注册/登录请求是否已携带邀请码（有则不再弹补填提醒） */
+  usedInvitationCode?: boolean;
+};
+
+export function handleAuthSuccess(
+  qc: QueryClient,
+  data: AuthResponse,
+  opts?: AuthSuccessOptions,
+) {
   useAuthStore.getState().setSession(data.token, normalizeUser(data.user));
   // 全量失效 —— 比逐个枚举 queryKey 简单且不漏。代价是触发一次 refetch 风暴,
   // 但登录是低频事件,可以接受。
   qc.invalidateQueries();
+
+  // 新用户 + 注册时未填邀请码 → 首次登录弹一次补填提醒
+  if (data.is_new_user && !opts?.usedInvitationCode && data.user?.id) {
+    useInvitePromptStore.getState().openForNewUser(data.user.id);
+  }
 }
 
 function normalizeUser(raw: User): import('@/stores/auth.store').StoredUser {
@@ -151,6 +166,7 @@ export function useRegisterEmail() {
       password: string;
       code: string;
       turnstile_token?: string;
+      invitation_code?: string;
     }) => {
       try {
         const { data } = await http.post<{ data: AuthResponse }>(
@@ -162,7 +178,10 @@ export function useRegisterEmail() {
         throw toApiError(err);
       }
     },
-    onSuccess: (data) => handleAuthSuccess(qc, data),
+    onSuccess: (data, variables) =>
+      handleAuthSuccess(qc, data, {
+        usedInvitationCode: !!variables.invitation_code?.trim(),
+      }),
   });
 }
 
@@ -174,6 +193,7 @@ export function useRegisterPhone() {
       password: string;
       code: string;
       turnstile_token?: string;
+      invitation_code?: string;
     }) => {
       try {
         const { data } = await http.post<{ data: AuthResponse }>(
@@ -185,7 +205,10 @@ export function useRegisterPhone() {
         throw toApiError(err);
       }
     },
-    onSuccess: (data) => handleAuthSuccess(qc, data),
+    onSuccess: (data, variables) =>
+      handleAuthSuccess(qc, data, {
+        usedInvitationCode: !!variables.invitation_code?.trim(),
+      }),
   });
 }
 

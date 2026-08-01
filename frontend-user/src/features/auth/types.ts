@@ -6,6 +6,8 @@ export type { User };
 export interface AuthResponse {
   token: string;
   user: User;
+  /** 本次鉴权是否新建了账号（扫码/第三方注册、邮箱手机注册） */
+  is_new_user?: boolean;
 }
 
 /** 后端发码 purpose 枚举,对照 handler_auth.go SendCodeRequest.binding */

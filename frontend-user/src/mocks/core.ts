@@ -311,7 +311,68 @@ export async function handleCoreMock(
       ? "admin"
       : "researcher";
     const definition = applyMockPersona(persona);
-    return ok({ token: definition.token, user: profileForPersona(persona) });
+    // 注册 / 扫码·Google 一键 → 视为新用户;纯密码/验证码登录 → 老用户
+    const isNewUser =
+      /\/(?:register|register-phone|google\/id-token-login|wechat\/callback)$/.test(
+        path,
+      );
+    return ok({
+      token: definition.token,
+      user: profileForPersona(persona),
+      is_new_user: isNewUser,
+    });
+  }
+  if (method === "GET" && path === "/user/invitation/overview") {
+    if (!hasMockSession()) return unauthorized();
+    const persona = getMockPersona();
+    const profile = profileForPersona(persona);
+    const promoCode =
+      persona === "admin"
+        ? "ADM0001"
+        : persona === "operations"
+          ? "OPS1002"
+          : "LYU1001";
+    let bound: string | null = null;
+    try {
+      bound = sessionStorage.getItem("scholay.mock.invite_bound");
+    } catch {
+      bound = null;
+    }
+    return ok({
+      promo_code: promoCode,
+      promo_link: `/?invite=${promoCode}`,
+      registered_count: persona === "researcher" ? 12 : 3,
+      verified_count: persona === "researcher" ? 5 : 1,
+      reward_total: persona === "researcher" ? 480 : 60,
+      bound_upline_code: bound,
+      // 顺带回一点档案方便调试
+      user_id: profile?.id ?? 0,
+    });
+  }
+  if (method === "POST" && path === "/user/invitation/bind") {
+    if (!hasMockSession()) return unauthorized();
+    const body = await bodyAsRecord(request);
+    const code = String(body.invitation_code ?? "").trim().toUpperCase();
+    const allowed = ["SCHOLAY2026", "WELCOME", "INVITE-DEMO"];
+    if (!allowed.includes(code)) {
+      return HttpResponse.json(
+        { code: 400, message: "邀请码无效或已失效", data: null },
+        { status: 400 },
+      );
+    }
+    try {
+      const existing = sessionStorage.getItem("scholay.mock.invite_bound");
+      if (existing) {
+        return HttpResponse.json(
+          { code: 400, message: "已绑定过上级邀请码，不可重复绑定", data: null },
+          { status: 400 },
+        );
+      }
+      sessionStorage.setItem("scholay.mock.invite_bound", code);
+    } catch {
+      // 隐私模式仍允许本次成功响应
+    }
+    return emptyOk();
   }
   if (
     method === "POST" &&
@@ -372,6 +433,8 @@ export async function handleCoreMock(
     return ok({
       token: definition.token,
       user: profileForPersona("researcher"),
+      // Mock:第三方 callback 一律按新用户,方便演示首次邀请码提醒
+      is_new_user: true,
     });
   }
   if (method === "GET" && path === "/user/apple/bind-url") {
@@ -400,6 +463,8 @@ export async function handleCoreMock(
     return ok({
       token: definition.token,
       user: profileForPersona("researcher"),
+      // cancel-merge = 新建独立账号 → 新用户;confirm-merge = 绑到已有号
+      is_new_user: path.endsWith("cancel-merge"),
     });
   }
 

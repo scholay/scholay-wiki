@@ -271,3 +271,38 @@ export function useStartAlipay() {
       ).data.data,
   });
 }
+
+/** 推广/邀请总览：自己的推广码/链接 + 下级统计 + 是否已绑上级。 */
+export interface InvitationOverview {
+  promo_code: string;
+  /** 可相对路径(如 /?invite=XXX),前端拼 origin */
+  promo_link: string;
+  registered_count: number;
+  verified_count: number;
+  /** 通过推广获得的经费奖励总额 */
+  reward_total: number;
+  /** 已绑定的上级邀请码;null=尚未绑定 */
+  bound_upline_code: string | null;
+}
+
+export function useInvitationOverview() {
+  return useQuery({
+    queryKey: ['settings', 'invitation', 'overview'],
+    queryFn: async () =>
+      (await http.get<{ data: InvitationOverview }>('/user/invitation/overview'))
+        .data.data,
+  });
+}
+
+/** 登录后补绑邀请码（新用户首次提醒跳转到账户资产「推广/邀请」tab）。 */
+export function useBindInvitationCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (invitation_code: string) => {
+      await http.post('/user/invitation/bind', { invitation_code });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['settings', 'invitation'] });
+    },
+  });
+}

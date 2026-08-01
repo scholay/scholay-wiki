@@ -85,6 +85,7 @@ export function AuthDialog() {
         {isWeChatQR ? (
           // 扫码模式 —— 不渲染表单/OAuthRow,只放 QR 面板
           // 扫码成功 onSuccess → 关掉整个 AuthDialog(handleAuthSuccess 已写 session)
+          // 邀请码只在注册表单填写;若用户从注册页点微信,store/sessionStorage 里已有码会随 callback 带上。
           <div className="px-6 py-5">
             <WeChatQRPanel mode="login" onSuccess={close} />
           </div>

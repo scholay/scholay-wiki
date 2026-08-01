@@ -1,6 +1,16 @@
 // 账户资产子面板:经费充值 / 兑换码激活 / 明细查看。被 MembershipPage(账户资产)的 tab 调用。
+// 推广/邀请面板见 InvitePromoPanel.tsx。
 import { Fragment, useRef, useState } from 'react';
-import { Loader2, Ticket, QrCode, CreditCard, Zap, Coins, Download, type LucideIcon } from 'lucide-react';
+import {
+  Loader2,
+  Ticket,
+  QrCode,
+  CreditCard,
+  Zap,
+  Coins,
+  Download,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';

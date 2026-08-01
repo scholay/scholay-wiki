@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import { consumeInvitationCode } from '@/shared/lib/auth-invitation';
 import { useAuthStore } from '@/stores/auth.store';
 import type { AuthResponse } from '../types';
 import { OAuthMergeConfirmDialog } from '../components/OAuthMergeConfirmDialog';
@@ -91,7 +92,15 @@ export function OAuthCallbackPage() {
         const user = userJson
           ? JSON.parse(userJson)
           : { id: 0, email: '', role: 'user' };
-        handleAuthSuccess(qc, { token: directToken, user } as AuthResponse);
+        const invite = consumeInvitationCode();
+        const isNew =
+          params.get('is_new_user') === 'true' ||
+          params.get('is_new_user') === '1';
+        handleAuthSuccess(
+          qc,
+          { token: directToken, user, is_new_user: isNew } as AuthResponse,
+          { usedInvitationCode: !!invite },
+        );
         setPhase('success');
         toast.success('登录成功');
         setTimeout(() => navigate('/', { replace: true }), 400);
@@ -139,7 +148,9 @@ export function OAuthCallbackPage() {
             }
             return;
           }
-          const qs = new URLSearchParams({ sso, sig }).toString();
+          const qs = new URLSearchParams({ sso, sig });
+          const invite = consumeInvitationCode();
+          if (invite) qs.set('invitation_code', invite);
           const { data } = await http.get<{
             code: number;
             message: string;
@@ -149,14 +160,16 @@ export function OAuthCallbackPage() {
               provider: string;
               target_email: string;
             };
-          }>(`/user/discourse/callback?${qs}`);
+          }>(`/user/discourse/callback?${qs.toString()}`);
           const payload = data.data;
           if ('requires_merge' in payload && payload.requires_merge) {
             setMergeToken(payload.merge_token);
             setPhase('merge_required');
             return;
           }
-          handleAuthSuccess(qc, payload as AuthResponse);
+          handleAuthSuccess(qc, payload as AuthResponse, {
+            usedInvitationCode: !!invite,
+          });
           setPhase('success');
           toast.success('登录成功');
           setTimeout(() => navigate('/', { replace: true }), 400);
@@ -207,7 +220,9 @@ export function OAuthCallbackPage() {
         }
 
         // 默认分支:登录 / 注册 / 合并确认
-        const qs = new URLSearchParams({ code, state }).toString();
+        const qs = new URLSearchParams({ code, state });
+        const invite = consumeInvitationCode();
+        if (invite) qs.set('invitation_code', invite);
         type MergeRequired = {
           requires_merge: true;
           merge_token: string;
@@ -218,7 +233,7 @@ export function OAuthCallbackPage() {
           code: number;
           message: string;
           data: AuthResponse | MergeRequired;
-        }>(`/user/${provider}/callback?${qs}`);
+        }>(`/user/${provider}/callback?${qs.toString()}`);
         const payload = data.data;
         // discriminated union 守门:有 requires_merge 走合并分支,否则走登录
         if ('requires_merge' in payload && payload.requires_merge) {
@@ -227,7 +242,9 @@ export function OAuthCallbackPage() {
           return;
         }
         // 正常登录
-        handleAuthSuccess(qc, payload as AuthResponse);
+        handleAuthSuccess(qc, payload as AuthResponse, {
+          usedInvitationCode: !!invite,
+        });
         setPhase('success');
         toast.success('登录成功');
         setTimeout(() => navigate('/', { replace: true }), 400);

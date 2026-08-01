@@ -2,6 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import {
+  consumeInvitationCode,
+  peekInvitationCode,
+} from '@/shared/lib/auth-invitation';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import type { AuthResponse } from '../types';
 import { usePublicConfig } from '../api/public-config';
 import { handleAuthSuccess } from '../api/auth';
@@ -86,11 +91,16 @@ export function GoogleSignInButton() {
           client_id: clientId,
           callback: async (resp) => {
             try {
+              const fromStore = useAuthDialog.getState().invitationCode.trim();
+              const invitation_code = fromStore || peekInvitationCode();
               const { data } = await http.post<{ data: AuthResponse }>(
                 '/user/google/id-token-login',
-                { id_token: resp.credential }
+                { id_token: resp.credential, invitation_code }
               );
-              handleAuthSuccess(qc, data.data);
+              consumeInvitationCode();
+              handleAuthSuccess(qc, data.data, {
+                usedInvitationCode: !!invitation_code,
+              });
               toast.success('登录成功');
             } catch (err) {
               toast.error(toApiError(err).message || 'Google 登录失败,请稍后重试');

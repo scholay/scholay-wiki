@@ -4,6 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import {
+  consumeInvitationCode,
+  peekInvitationCode,
+} from '@/shared/lib/auth-invitation';
 import { handleAuthSuccess } from '../api/auth';
 import type { AuthResponse } from '../types';
 
@@ -53,11 +57,15 @@ export function WeChatCallbackPage() {
     // 场景 2:独立打开本页(冷启动 / 复制链接)—— 按登录处理
     (async () => {
       try {
+        const invitation_code = peekInvitationCode();
         const { data } = await http.post<{ data: AuthResponse }>(
           '/user/wechat/callback',
-          { code, state }
+          { code, state, invitation_code }
         );
-        handleAuthSuccess(qc, data.data);
+        consumeInvitationCode();
+        handleAuthSuccess(qc, data.data, {
+          usedInvitationCode: !!invitation_code,
+        });
         setPhase('success');
         toast.success('登录成功');
         setTimeout(() => navigate('/', { replace: true }), 400);

@@ -1,26 +1,65 @@
-import { useState } from 'react';
-import { LayoutGrid, Coins, Ticket, FileText, Gift, type LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  LayoutGrid,
+  Coins,
+  Ticket,
+  FileText,
+  Gift,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useBillingOverview } from '../api/membership';
 import { AccountAssetsCard } from '../components/account-assets-card';
-import { RechargePanel, RedeemPanel, OrdersTable, OverviewContent } from '../components/billing-panels';
+import {
+  RechargePanel,
+  RedeemPanel,
+  OrdersTable,
+  OverviewContent,
+} from '../components/billing-panels';
+import { InvitePromoPanel } from '../components/InvitePromoPanel';
 
-type TabId = 'overview' | 'recharge' | 'redeem' | 'txns' | 'earn';
+type TabId = 'overview' | 'recharge' | 'redeem' | 'invite' | 'txns' | 'earn';
+
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: '总览', icon: LayoutGrid },
   { id: 'recharge', label: '经费充值', icon: Coins },
   { id: 'redeem', label: '兑换码激活', icon: Ticket },
+  { id: 'invite', label: '推广/邀请', icon: Users },
   { id: 'txns', label: '明细查看', icon: FileText },
   { id: 'earn', label: '经费领取', icon: Gift },
 ];
 
+function isTabId(v: string | null): v is TabId {
+  return !!v && TABS.some((t) => t.id === v);
+}
+
 /**
  * 账户资产(合并原「我的会员」)—— 对齐设计稿 scholay-money.pen:
  * 顶部常驻汇总卡 + 分段式 tab(白底胶囊 active)。总览=近期流水+即将接入计费项。
+ * 支持 ?tab=invite 深链(新用户首次提醒跳转「推广/邀请」补填上级码)。
  */
 export function MembershipPage() {
   const { data, isLoading } = useBillingOverview();
-  const [tab, setTab] = useState<TabId>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<TabId>(() => {
+    const fromUrl = searchParams.get('tab');
+    return isTabId(fromUrl) ? fromUrl : 'overview';
+  });
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('tab');
+    if (isTabId(fromUrl) && fromUrl !== tab) setTab(fromUrl);
+  }, [searchParams, tab]);
+
+  const selectTab = (next: TabId) => {
+    setTab(next);
+    const nextParams = new URLSearchParams(searchParams);
+    if (next === 'overview') nextParams.delete('tab');
+    else nextParams.set('tab', next);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -29,7 +68,7 @@ export function MembershipPage() {
           <p className="text-xs text-faint">加载中…</p>
         </section>
       ) : (
-        <AccountAssetsCard data={data} onGoRecharge={() => setTab('recharge')} />
+        <AccountAssetsCard data={data} onGoRecharge={() => selectTab('recharge')} />
       )}
 
       {/* 分段式 tab —— 灰底 bar + 白底胶囊(红 icon/文字)active */}
@@ -37,12 +76,13 @@ export function MembershipPage() {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            type="button"
+            onClick={() => selectTab(t.id)}
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 h-9 rounded-sm text-sm font-medium transition-colors',
               tab === t.id
                 ? 'bg-background text-brand-red shadow-sm'
-                : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+                : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
             )}
           >
             <t.icon className="size-3.5" />
@@ -52,15 +92,18 @@ export function MembershipPage() {
       </div>
 
       <div className="mt-1">
-        {tab === 'overview' && <OverviewContent onViewAll={() => setTab('txns')} />}
+        {tab === 'overview' && <OverviewContent onViewAll={() => selectTab('txns')} />}
         {tab === 'recharge' && <RechargePanel />}
         {tab === 'redeem' && <RedeemPanel />}
+        {tab === 'invite' && <InvitePromoPanel />}
         {tab === 'txns' && <OrdersTable />}
         {tab === 'earn' && (
           <section className="flex flex-col items-center gap-2 rounded-md border border-border bg-background p-10 text-center">
             <Gift className="size-7 text-faint" />
             <p className="text-sm font-bold text-foreground">任务中心即将上线</p>
-            <p className="text-xs text-muted-foreground">完成签到与任务即可领取科研经费,敬请期待。</p>
+            <p className="text-xs text-muted-foreground">
+              完成签到与任务即可领取科研经费,敬请期待。
+            </p>
           </section>
         )}
       </div>
