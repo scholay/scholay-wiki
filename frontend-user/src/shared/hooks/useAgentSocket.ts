@@ -23,7 +23,12 @@ import {
   asAgentUserEchoFrame,
   type AgentStreamMessage,
 } from '@/shared/lib/agent-stream';
-import { notifyQuotaExceeded, notifyBillingChanged, isQuotaSignal } from '@/shared/lib/quota-events';
+import {
+  notifyQuotaExceeded,
+  notifyBillingChanged,
+  isQuotaSignal,
+  type QuotaPayload,
+} from '@/shared/lib/quota-events';
 
 /** 后端 ws-ticket 端点响应:sessionId 一并返回方便兜底,wsToken 是 30s 一次性 ticket。 */
 export interface AgentWSTicket {
@@ -390,7 +395,12 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
         // 带类型读 error 帧(asAgentErrorFrame),额度判定走统一谓词 isQuotaSignal(与 http/SSE 同一处)。
         const errFrame = asAgentErrorFrame(evt);
         if (errFrame && isQuotaSignal(errFrame)) {
-          notifyQuotaExceeded({ message: errFrame.message });
+          // 结构化载荷(冻结契约):WS 错误帧把 quota 对象平铺在帧上({type:'error',
+          // code:'quota_exceeded', message, quota:{...}})。旧后端无 quota 字段时为 undefined。
+          notifyQuotaExceeded({
+            message: errFrame.message,
+            quota: (evt as unknown as { quota?: QuotaPayload }).quota,
+          });
           // 信号上抛:本轮被 backend 在转发前拒绝, 不会有 message_complete 收尾 →
           // 消费方据此回滚卡住的本轮, 否则 busy 永久 disable composer。
           setQuotaExceeded((n) => n + 1);

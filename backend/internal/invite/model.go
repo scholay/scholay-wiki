@@ -80,14 +80,19 @@ type AdminRegistrationRow struct {
 	Email         string    `gorm:"column:email" json:"email"`
 	Name          string    `gorm:"column:name" json:"name"`
 	Method        string    `gorm:"column:method" json:"method"`
-	CreatedAt     time.Time `gorm:"column:created_at" json:"created_at"`
+	// RewardedCredits 该次邀请已发放给邀请人的奖励经费(0100;0=未发放——活动关闭期/达当日上限)。
+	RewardedCredits int       `gorm:"column:rewarded_credits" json:"rewarded_credits"`
+	CreatedAt       time.Time `gorm:"column:created_at" json:"created_at"`
 }
 
 // UserRegistrationRow GET /user/invite/registrations 明细一行(邀请人视角)。
 // 🔴 脱敏在**后端**完成:name 是打码后的展示名,原始邮箱/用户名/用户 ID 一概不下发 ——
 // 被邀请人的身份对邀请人是他人隐私,前端拿到明文再打码等于没打。
 type UserRegistrationRow struct {
-	Name      string    `json:"name"` // 已脱敏:al***@gmail.com / 张** / 用户***
-	Method    string    `json:"method"`
-	CreatedAt time.Time `json:"created_at"`
+	Name   string `json:"name"` // 已脱敏:al***@gmail.com / 张** / 用户***
+	Method string `json:"method"`
+	// RewardedCredits 该次邀请给邀请人发放的奖励经费(是发给查看者本人的钱,非他人隐私,可下发)。
+	// 0=未计奖励(活动关闭期注册/达当日上限);前端只对 >0 渲染「+N 经费」,0 不渲染负面态。
+	RewardedCredits int       `json:"rewarded_credits"`
+	CreatedAt       time.Time `json:"created_at"`
 }

@@ -92,16 +92,34 @@ export const vipOverviewSchema = z
   })
   .passthrough();
 
+// ── 结构化 6010 载荷(冻结契约,2026-07)────────────────────────────────────
+// source: backend payAsYouGoOrQuotaError 顺手带出(零额外查询)。三条通道同一形状:
+//   HTTP 6010 信封 data.quota / WS error 帧顶层 quota。
+// FE 侧全可选(quota-events.QuotaPayload)—— 旧后端不下发时弹窗回落 /user/billing/overview。
+// reset_at 为 RFC3339,**无窗口时是空串**(不是缺字段);reset_passes 刻意不进载荷
+// (热路径不查 DB 的既有拍板),弹窗仍从 overview 拿。
+export const quotaPayloadSchema = z
+  .object({
+    reset_at: z.string().optional(),
+    window_days: z.number().optional(),
+    credit_balance_positive: z.boolean().optional(),
+    credit_autopay: z.boolean().optional(),
+  })
+  .passthrough();
+
 // ── agent WS error 帧(额度信号的 WS 形态)──────────────────────────────────
-// source: agent/src/server/ws/events.ts (error 帧 = {message, code, retryable})
+// source: agent/src/turn/turnLoop.ts 的 sink.frame({type:"error",...}) (error 帧 = {message, code, retryable})
+//       ⚠️ 原写 agent/src/server/ws/events.ts —— 该文件已在 a30add8d2 删除,别去找
 //       + backend/internal/agentbridge/ws.go (code='quota_exceeded' 等)
-// 行为关键:FE useAgentSocket 据 code==='quota_exceeded' 弹额度重置弹窗。
+// 行为关键:FE useAgentSocket 据 code==='quota_exceeded' 弹额度重置弹窗,并把 quota 对象
+// 透传进 notifyQuotaExceeded(弹窗要素行/payg 分支的数据源)。
 export const agentErrorFrameSchema = z
   .object({
     type: z.literal('error'),
     message: z.string().optional(),
     code: z.string().optional(),
     retryable: z.boolean().optional(),
+    quota: quotaPayloadSchema.optional(),
   })
   .passthrough();
 
@@ -124,6 +142,9 @@ export const publicPlansNoAbsoluteQuotaSchema = z
     // 这两个是**相对价格**(不泄漏绝对额度基数),可以下发;缺了定价页那块会整个隐藏。
     recharge_rate: z.number(),
     credit_to_points: z.number(),
+    // 0100:邀请奖励活动信号(>0=开启,点亮「邀请有奖」入口;0=关闭全隐藏)+ 日上限(规则行措辞用)。
+    invite_reward_credits: z.number(),
+    invite_reward_daily_cap: z.number(),
   })
   .passthrough();
 

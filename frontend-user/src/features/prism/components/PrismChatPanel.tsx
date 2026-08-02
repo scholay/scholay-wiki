@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Check, FileText, Quote, X, WifiOff, ListChecks } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
@@ -100,6 +100,33 @@ export function PrismChatPanel({
 
   const hasThread = chat.turns.length > 0;
 
+  // 命中额度「未发送」轮的一键重发:取回持久化 payload(顺带清卡片/localStorage)→ 走**现有发送
+  // 路径**(onSend → workspace sendChat → chat.send,编辑器 flush / prepareRound 铺源都不缺)。
+  // ref-latest 包装:onSend / chat 每渲染换引用,直接进 useCallback 依赖会让回调不稳、击穿全部
+  // PrismMessageTurn 的 memo(长会话每键重渲染,智能页 CPU 风暴同款教训)。
+  const onSendRef = useRef(onSend);
+  onSendRef.current = onSend;
+  const takeBlockedRef = useRef(chat.takeBlockedMessage);
+  takeBlockedRef.current = chat.takeBlockedMessage;
+  const roundStateRef = useRef(chat.roundState);
+  roundStateRef.current = chat.roundState;
+  const handleResendBlocked = useCallback(() => {
+    // 非 idle(别端在途轮 / 待应用门)时不取 payload —— sendChat 会静默拒发,先取会把消息丢掉。
+    if (roundStateRef.current !== 'idle') {
+      toast.info('AI 回答结束后再重发');
+      return;
+    }
+    const payload = takeBlockedRef.current();
+    if (!payload) return;
+    onSendRef.current(payload.text, {
+      attachments: payload.attachments,
+      references: payload.references ?? [],
+    });
+  }, []);
+  const dismissBlockedRef = useRef(chat.dismissBlocked);
+  dismissBlockedRef.current = chat.dismissBlocked;
+  const handleDismissBlocked = useCallback(() => dismissBlockedRef.current(), []);
+
   const onThreadScroll = () => {
     const el = threadRef.current;
     if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
@@ -173,7 +200,12 @@ export function PrismChatPanel({
             </div>
           )}
           {chat.turns.map((t) => (
-            <PrismMessageTurn key={t.id} turn={t} />
+            <PrismMessageTurn
+              key={t.id}
+              turn={t}
+              onResendBlocked={handleResendBlocked}
+              onDismissBlocked={handleDismissBlocked}
+            />
           ))}
           {chat.changeset && (
             <ChangesetCard cs={chat.changeset} onApply={chat.apply} onReject={chat.reject} />

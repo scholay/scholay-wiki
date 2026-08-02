@@ -422,6 +422,32 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 	})
 
+	// ── 平台责任失败轮:记成本、不扣额度(2026-07-31 线上审计)──────────────────
+	t.Run("FailedTurnCostOnly", func(t *testing.T) {
+		id := mkUser(t, db)
+		defer cleanup(db, id)
+		_ = cache.GetRedisPersist().Del(ctx, anchorKey(id)).Err()
+
+		// ② 额度不被平台故障吃掉:窗口一步不动,且**不开窗**(不给用户起 7 天时钟)。
+		svc.AddUsageCostOnly(ctx, id, 50_000)
+		if w := svc.loadWindow(ctx, id); w.anchor != 0 || w.used != 0 {
+			t.Fatalf("失败轮不得开窗/不得计入额度: anchor=%d used=%d", w.anchor, w.used)
+		}
+		// ① 成本观测不丢:当日消耗统计照常累加(与账本 llm_token_usage 同口径)。
+		if got := svc.consumedToday(ctx, id); got != 50_000 {
+			t.Fatalf("失败轮成本必须留在观测里: consumed_today=%d want 50000", got)
+		}
+		// ③ 与 AddUsage 不冲突:正常轮照常开窗累加,窗口口径只含正常轮。
+		svc.AddUsage(ctx, id, 1_000)
+		w := svc.loadWindow(ctx, id)
+		if w.anchor == 0 || w.used != 1_000 {
+			t.Fatalf("正常轮应开窗且只累加自己: anchor=%d used=%d want used=1000", w.anchor, w.used)
+		}
+		if got := svc.consumedToday(ctx, id); got != 51_000 {
+			t.Fatalf("当日观测应含两笔: consumed_today=%d want 51000", got)
+		}
+	})
+
 	// ── 充值入账(永久)+ 幂等 ─────────────────────────────────────────────────
 	t.Run("Recharge", func(t *testing.T) {
 		id := mkUser(t, db)

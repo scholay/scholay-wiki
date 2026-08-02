@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LayoutGrid, Coins, Ticket, FileText, Gift, type LucideIcon } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useBillingOverview } from '../api/membership';
@@ -20,7 +21,25 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
  */
 export function MembershipPage() {
   const { data, isLoading } = useBillingOverview();
-  const [tab, setTab] = useState<TabId>('overview');
+  // tab 由 URL ?tab= 驱动(?tab=recharge 深链直达充值 —— 支付回程/额度弹窗引导都要能带参进来)。
+  // 无参/非法值 = overview;切 tab 用 replace 同步 URL(不堆浏览历史),其余 query 参数原样保留。
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const tab: TabId = TABS.some((t) => t.id === rawTab) ? (rawTab as TabId) : 'overview';
+  const setTab = useCallback(
+    (next: TabId) => {
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          if (next === 'overview') p.delete('tab');
+          else p.set('tab', next);
+          return p;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   return (
     <div className="flex flex-col gap-5">

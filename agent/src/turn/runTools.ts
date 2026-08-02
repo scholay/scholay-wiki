@@ -13,6 +13,8 @@ import { isMcpTool, callMcpTool } from "../mcp/mcpTools.ts";
 import { builtinRegistry } from "../tools/registry.ts";
 import { toolPermitted } from "../policy/featurePolicy.ts";
 import { capToolResult } from "./resultCap.ts";
+import { ingest as ingestEvidence, annotate as annotateEvidence } from "../evidence/ledger.ts";
+import { log } from "../obs/log.ts";
 import type { EventSink, TurnInput } from "./types.ts";
 
 interface ToolUse {
@@ -55,13 +57,25 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
   }
   // 权限裁决(控制面权威):发 permission_request,阻塞等 permission_response
   const requestId = crypto.randomUUID();
-  const allowed = await sink.requestPermission({
+  const decision = await sink.requestPermission({
     requestId,
     toolName: tu.name,
     toolUseId: tu.id,
     input: tu.input,
   });
-  if (!allowed) return errResult(tu.id, "permission denied: " + tu.name, sink, "该操作未获授权,已跳过。");
+  // 2026-07 审查([16]/[21]):控制面可随回执给一句可自愈的说明(如「不存在名为 X 的工具」),
+  // 拒绝时优先用它 —— 既回喂模型(替掉与真越权同文的 permission denied)也作用户侧摘要;
+  // 控制面没给则保持原文案。
+  const allowed = typeof decision === "boolean" ? decision : decision.allowed;
+  const denyMsg = typeof decision === "boolean" ? "" : (decision.userMessage ?? "").trim();
+  if (!allowed) {
+    return errResult(
+      tu.id,
+      denyMsg || "permission denied: " + tu.name,
+      sink,
+      denyMsg || "该操作未获授权,已跳过。",
+    );
+  }
 
   try {
     let content: unknown;
@@ -81,10 +95,30 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
         allowBash: input.allowBash,
         net: input.net,
         addDirs: input.addDirs ?? [], // Skill 工具据此定位 guides/<name>/SKILL.md
+        turn: turnOf(input), // read_mark 用;与 ledger.ingest 同源,避免两处各算一份而对不上
       });
       content = r.content;
       isError = r.isError;
       userMessage = (r as { userMessage?: string }).userMessage;
+    }
+    // ── 证据账本咽喉点(2026-08 证据账本 P0 / 终稿 §五 P0-b)────────────────────
+    // 🔴 位置就是这里,**capToolResult 之前**:sanitizeMinicod 已把 20 条砍到 16,cap 还会再砍一刀。
+    //    账本必须比上下文富 —— 那正是它存在的意义(上下文会被裁、会被驱逐、重灌时被整段丢弃;
+    //    账本落会话 cwd,TTL 30 天,扛驱逐与容器重启)。
+    // 只对检索类 MCP 工具生效(ingest 内部再判一次前缀);Read/Bash 的结果不是题录,不乱抽。
+    // 并发:runTools:37 是 Promise.all 并行批 —— id 分配与 INDEX 覆盖写由 ledger 的单会话锁串行化。
+    // fail-soft:账本失败只 warn,绝不影响这条 tool_result(账本是增益,不是新的失败面)。
+    if (isMcpTool(tu.name) && !isError) {
+      try {
+        const q = await ingestEvidence(input.workDir, turnOf(input), tu.name, tu.input ?? {}, content);
+        if (q.new_ids.length > 0 || q.dup_ids.length > 0) {
+          // 逐条回写 evidence_id + 根上 _evidence 汇总:模型**读到结果的那一刻**就看见 id,
+          // 不必等下一轮 digest —— 这是把「引真的」做便宜的第一步。
+          content = await annotateEvidence(input.workDir, content, q);
+        }
+      } catch (e) {
+        log.warn("evidence ingest failed", { tool: tu.name, err: String((e as Error)?.message ?? e) });
+      }
     }
     content = capToolResult(content, tu.name); // 体积上限:回喂/帧/journal 三下游统一瘦身(工具感知:Read/ReadDocument 走自身高上限)
     if (isError && !userMessage) userMessage = genericToolUserMessage(tu.name);
@@ -101,6 +135,15 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
     const msg = String((e as Error)?.message ?? e).slice(0, 2000);
     return errResult(tu.id, msg, sink, genericToolUserMessage(tu.name));
   }
+}
+
+// turnOf:本轮在会话里的序号 —— 执行器无状态,只能从后端喂来的 messages 里数 user 条数。
+// ⚠️ window/compact 会裁历史 → 这个值可能回退,故账本侧再做一次单调化(ledger.ingest),
+//    且账本的**顺序真源是 id 的追加序**,turn 只作展示。别把它当主键用。
+function turnOf(input: TurnInput): number {
+  let n = 0;
+  for (const m of input.messages ?? []) if (m.role === "user") n++;
+  return n;
 }
 
 // 按工具名的用户侧兜底摘要(userMessage 缺省时):中文、脱敏、不含内部报错原文。

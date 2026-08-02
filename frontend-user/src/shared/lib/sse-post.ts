@@ -20,7 +20,7 @@
  */
 
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
-import { notifyQuotaExceeded, isQuotaSignal } from '@/shared/lib/quota-events';
+import { notifyQuotaExceeded, isQuotaSignal, type QuotaPayload } from '@/shared/lib/quota-events';
 
 export interface ParsedSseEvent {
   /** SSE `event:` 行的值;无 `event:` 行时为空串(标准 SSE 行为) */
@@ -84,8 +84,10 @@ export async function streamSsePost({
         msg = String(j.message);
       }
       // 额度耗尽 → 统一谓词(与 http/WS 同一判断,不再硬编码 6010,Theme 2)。
+      // 结构化载荷(冻结契约):信封 data.quota 透传给全局通知器;旧后端缺 quota 时为 undefined。
       if (j && typeof j === 'object' && isQuotaSignal(j as { code?: number | string })) {
-        notifyQuotaExceeded({ message: msg });
+        const quota = (j as { data?: { quota?: QuotaPayload } }).data?.quota;
+        notifyQuotaExceeded({ message: msg, quota });
       }
     } catch {
       /* ignore parse failure */

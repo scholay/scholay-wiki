@@ -10,6 +10,7 @@
 //   · 年付未开放的档(year_price_cents<=0)在年付模式下自动回落月度口径
 //   实际应付金额按 quote(tier, cycle) 报价显示;测试支付当作一种支付方式平等对待。
 import { useEffect, useState } from 'react';
+import { quotaNavigate } from '@/shared/lib/quota-events';
 import { Loader2, Check, QrCode, CreditCard, Zap, type LucideIcon } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/ui/dialog';
@@ -205,6 +206,21 @@ export function SubscribeDialog({
           <DialogDescription>
             更高 AI 额度,按 7 天周期自动恢复满额。年付一次到位更划算。不支持降级。
           </DialogDescription>
+          {/* 弹窗只做转化(卡片走 compact);完整权益对比 / 干活预期 / FAQ 都在 /pricing。
+              已在 /pricing 时只收起弹窗,不重复导航。 */}
+          <button
+            type="button"
+            onClick={() => {
+              onOpenChange(false);
+              // 🔴 不能用 useNavigate:本弹窗被 QuotaNotifier(挂在 providers,Router 之外)内嵌,
+              // Router 上下文外调用 hook 会让整站白屏崩溃(2026-07-31 线上报错)。
+              // quotaNavigate 经 window.__appRouter 桥做 SPA 导航,桥不在时兜底整页跳转。
+              if (window.location.pathname !== '/pricing') quotaNavigate('/pricing');
+            }}
+            className="self-start text-12 text-brand-red transition-colors hover:underline"
+          >
+            查看完整权益对比与常见问题 →
+          </button>
         </DialogHeader>
 
         {/* 月付 / 年付 切换(有任一档开放年付才显示;升级动作锁定后端选定的基准周期) */}
@@ -231,6 +247,7 @@ export function SubscribeDialog({
                 key={p.tier}
                 plan={p}
                 cycle={orderCycle}
+                compact
                 popularBadge={popularTier === p.tier}
                 highlighted={isSelected}
                 onSelect={selectable ? () => setTier(p.tier as 'pro' | 'max') : undefined}

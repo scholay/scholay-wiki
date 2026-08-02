@@ -135,7 +135,7 @@ func bindReferenceRequest(c *gin.Context) (*ReferenceRequest, error) {
 func (rf *Referencer) materializeAll(parent context.Context, userID uint, sessionID string, req *ReferenceRequest) (*ReferenceResultDTO, error) {
 	uid := uint64(userID)
 	items := make([]ReferenceItemDTO, 0, len(req.PaperIDs)+len(req.FolderIDs))
-	materialized := map[uint64]bool{} // 跨单篇/文件夹去重物化
+	materialized := map[uint64]bool{} // 跨单篇/文件夹去重物化;value=PDF 全文实际落盘与否(INDEX 标注真源)
 	budget := maxTotalRefPapers
 
 	ctx, cancel := context.WithTimeout(parent, referenceTimeout)
@@ -209,7 +209,7 @@ func (rf *Referencer) materializeAll(parent context.Context, userID uint, sessio
 	// ── 写 INDEX.md(单篇 + 文件夹分组)─────────────────────────
 	// 单篇只列物化循环里实际处理过的行(而非重查完整 req.PaperIDs):超预算被
 	// 截断的篇目没有对应 paper-<id>.md,列进清单会让 agent 按清单 Read 扑空。
-	index := renderIndex(singles, idxFolders)
+	index := renderIndex(singles, idxFolders, materialized)
 	if werr := rf.feature.AgentClient().PutWorkspaceFile(ctx, sessionID, "references/INDEX.md", []byte(index)); werr != nil {
 		return nil, fmt.Errorf("写引用清单失败: %w", werr)
 	}
@@ -222,14 +222,14 @@ func (rf *Referencer) materializeAll(parent context.Context, userID uint, sessio
 }
 
 // materializePaper 物化一篇:写 references/paper-<id>.md;有用户 PDF 则 push 进 cwd 并在 meta 里记路径。
-// 去重(同一篇被单篇 + 文件夹同时引用时只写一次)。返回 (是否带用户 PDF, 是否本次新物化);
+// 去重(同一篇被单篇 + 文件夹同时引用时只写一次)。返回 (PDF 全文是否**实际落盘**, 是否本次新物化);
 // fresh=false 表示此前已物化过,调用方不应重复扣预算 / 重复列清单。
+// 2026-07 线上审计 #4:hasPDF 从「DB 字段宣称」改为「实际推送结果」—— 超限/推送失败仅 Warn 时,
+// done 记录真实结果,INDEX/chip 不再谎报有全文(agent 按清单 Read ref-N.pdf 会 ENOENT)。
 func (rf *Referencer) materializePaper(ctx context.Context, sessionID string, p library.UserLibraryPaper, done map[uint64]bool) (hasPDF bool, fresh bool) {
-	hasPDF = p.PdfObjectKey != "" && p.PdfUploadedAt != nil
-	if done[p.ID] {
-		return hasPDF, false
+	if pushed, seen := done[p.ID]; seen {
+		return pushed, false
 	}
-	done[p.ID] = true
 
 	pdfPath := ""
 	if p.PdfSize > maxRefPDFBytes {
@@ -246,6 +246,8 @@ func (rf *Referencer) materializePaper(ctx context.Context, sessionID string, p 
 				"feature", rf.feature.Spec().Key, "session_id", sessionID, "paper_id", p.ID, "error", perr)
 		}
 	}
+	hasPDF = pdfPath != "" // 实际落盘结果(非 DB 宣称)
+	done[p.ID] = hasPDF
 
 	meta := renderPaperMeta(p, pdfPath)
 	rel := fmt.Sprintf("references/paper-%d.md", p.ID)
@@ -352,7 +354,7 @@ type indexFolder struct {
 	total  int64
 }
 
-func renderIndex(singles []library.UserLibraryPaper, folders []indexFolder) string {
+func renderIndex(singles []library.UserLibraryPaper, folders []indexFolder, pdfPushed map[uint64]bool) string {
 	var b strings.Builder
 	b.WriteString("# 已引用文献清单\n\n")
 	b.WriteString("> 用户从其文献集引用了以下文献。每篇的 metadata 在本目录下 `paper-<id>.md`;\n")
@@ -360,7 +362,7 @@ func renderIndex(singles []library.UserLibraryPaper, folders []indexFolder) stri
 	if len(singles) > 0 {
 		b.WriteString("## 单篇引用\n")
 		for _, p := range singles {
-			writeIndexLine(&b, p)
+			writeIndexLine(&b, p, pdfPushed)
 		}
 		b.WriteString("\n")
 	}
@@ -373,14 +375,17 @@ func renderIndex(singles []library.UserLibraryPaper, folders []indexFolder) stri
 		}
 		fmt.Fprintf(&b, "## 文件夹「%s」%s\n", f.name, cap)
 		for _, p := range f.papers {
-			writeIndexLine(&b, p)
+			writeIndexLine(&b, p, pdfPushed)
 		}
 		b.WriteString("\n")
 	}
 	return b.String()
 }
 
-func writeIndexLine(b *strings.Builder, p library.UserLibraryPaper) {
+// writeIndexLine — 2026-07 线上审计 #4:「[含PDF全文]」按 materializePaper 的**实际落盘结果**
+// (pdfPushed)标注,不再按 DB 字段宣称;DB 有 PDF 但推送失败/超限时如实标「仅元数据,无全文」,
+// 否则 agent 按 INDEX 去 Read ref-N.pdf 会 ENOENT。
+func writeIndexLine(b *strings.Builder, p library.UserLibraryPaper, pdfPushed map[uint64]bool) {
 	meta := fmt.Sprintf("paper-%d.md", p.ID)
 	authors := ""
 	if a := effectiveAuthors(p); len(a) > 0 {
@@ -390,8 +395,10 @@ func writeIndexLine(b *strings.Builder, p library.UserLibraryPaper) {
 		}
 	}
 	pdf := ""
-	if p.PdfObjectKey != "" && p.PdfUploadedAt != nil {
+	if pdfPushed[p.ID] {
 		pdf = " [含PDF全文]"
+	} else if p.PdfObjectKey != "" && p.PdfUploadedAt != nil {
+		pdf = " (仅元数据,无全文)"
 	}
 	fmt.Fprintf(b, "- [%s](%s) — %s %s%s\n", effectiveTitle(p), meta, authors, effectiveYear(p), pdf)
 }

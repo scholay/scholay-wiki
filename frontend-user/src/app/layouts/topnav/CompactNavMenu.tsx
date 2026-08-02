@@ -1,6 +1,6 @@
 import { Fragment, type ComponentType } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Gift, Globe, Headphones, Home, Menu as MenuIcon } from 'lucide-react';
+import { Gift, Globe, Headphones, Home, Menu as MenuIcon, UserPlus } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton';
 import {
   DropdownMenu,
@@ -10,6 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
+import { useQuery } from '@tanstack/react-query';
+import { http } from '@/shared/lib/http';
+import { getAuthToken } from '@/shared/lib/auth-token';
 import { usePromoEligible } from '@/shared/api/promo';
 import { usePromoStore } from '@/stores/promo.store';
 import { browserTabUrl, useBrowserTabs } from '@/stores/browser-tabs.store';
@@ -54,6 +57,15 @@ export function CompactNavMenu() {
 
   const { visible: promoVisible } = usePromoEligible();
   const openPromo = usePromoStore((s) => s.openPromo);
+  // 邀请有奖活动信号(0100;与 usePlans 同 queryKey 共享缓存)—— 与 ActivityNavMenu 同条件
+  const { data: plansLite } = useQuery({
+    queryKey: ['billing', 'plans'],
+    queryFn: async () =>
+      (await http.get<{ data: { invite_reward_credits: number } }>('/billing/plans')).data.data,
+    staleTime: 60_000,
+  });
+  const inviteReward = plansLite?.invite_reward_credits ?? 0;
+  const inviteVisible = inviteReward > 0 && !!getAuthToken();
 
   const browserTabs = useBrowserTabs((s) => s.tabs);
   const browserActiveId = useBrowserTabs((s) => s.activeTabId);
@@ -106,12 +118,21 @@ export function CompactNavMenu() {
         ))}
 
         <DropdownMenuSeparator />
+        {/* 限时活动组(与 ≥1200px 的 ActivityNavMenu 同一收纳逻辑,窄屏平铺成行) */}
         {promoVisible && (
           <Row
             icon={Gift}
             label="限时领取会员"
             tone="brand"
             onSelect={() => openPromo('manual')}
+          />
+        )}
+        {inviteVisible && (
+          <Row
+            icon={UserPlus}
+            label={`邀请有奖 · +${inviteReward} 经费/人`}
+            tone="brand"
+            onSelect={() => navigate('/settings/invite')}
           />
         )}
         <Row icon={Headphones} label="反馈与建议" onSelect={() => navigate('/feedback')} />

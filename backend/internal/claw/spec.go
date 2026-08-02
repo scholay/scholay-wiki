@@ -112,7 +112,7 @@ func checkQuota(ctx context.Context, userID uint) error {
 	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			return agentbridge.NewQuotaError(err.Error())
+			return agentbridge.NewQuotaErrorFrom(err) // 保链:error 帧带结构化 quota 字段
 		}
 		return err
 	}
@@ -146,6 +146,7 @@ func recordQuestion(uid *uint) {
 //     Scholay 平台、不知道有 Minicod MCP 可用。
 //   - AutoApprovePermission=true: Minicod MCP 全是只读检索, 自动批准让用户体验
 //     流畅; 后续如果允许 agent 写代码 / 改文件再调整。
+//
 // clawAllowedMcpTools —— claw(智能助手)对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
 // claw 是全能助手,除论文检索外还做「期刊推荐 / 投稿建议」,故比 smart_search 多放期刊一套(搜索/补全/
 // 对比/真实投稿评价/投稿须知)。仍收敛掉 28 个 OpenAlex 实体、高校库、bulk/export/group 等重/冷工具,
@@ -180,6 +181,49 @@ func BuildSpec() agentbridge.FeatureSpec {
 		// 默认模型走 chat_default.claw 能力绑定(admin 模型目录页可改;迁移初值=主档)。
 		// C14: 审批轴。默认 auto;CLAW_PERMISSION_PASSTHROUGH=1 时 passthrough(测试/HITL 验证)。
 		PermissionMode: clawPermissionMode(),
+		// ── 深度研究 Run 模板(2026-08 科研内核)────────────────────────────────
+		// 🔴 声明模板**不改变任何现有行为**:它只表示「这个剖面上 Run 是可能的」。
+		//    Run 只在用户显式创建时才存在(POST /claw/runs),不创建就永远不跑 ——
+		//    这就是 Phase 1 零回归的形式。
+		//
+		// 分五步而不是一大步,理由是**轮尽即分页**:每步 7 轮逼它频繁落产物、频繁交接,
+		// 崩溃/重启只丢一小段。给一步 24 轮等于退回今天的单体行为,那样 Run 就白做了。
+		//
+		// 步的切分对着真实科研流程,不是拍脑袋:检索 → 筛选 → 提取 → 分析 → 成文。
+		// 2026-08-02 的实测暴露过一个具体病灶:模型在"证据强度评级"环节
+		// 用标题+期刊+年份做推断却没像证据表那样标注不确定性 —— 把筛选与提取拆成独立步,
+		// 就是为了让"哪些能用、哪些数据缺失"变成一个必须交付的产物,而不是顺带一提。
+		RunTemplates: []agentbridge.RunTemplateJSON{{
+			Key:   "deep_research",
+			Title: "深度研究",
+			Steps: []agentbridge.RunStepJSON{
+				{
+					Key:       "scope",
+					Brief:     "澄清研究问题并制定检索策略:写出 PICO/研究问题、纳入与排除标准、每个数据源的检索式(可复现)、以及本次覆盖范围的边界。**这一步不下结论**。",
+					MaxRounds: 6,
+				},
+				{
+					Key:       "search",
+					Brief:     "按上一步的检索式实际检索,把命中的文献入账。要求:多组检索式覆盖不同表述;记录每次检索的命中总数与送达数;明确说明哪些方向命中稀少。",
+					MaxRounds: 8,
+				},
+				{
+					Key:       "screen",
+					Brief:     "按纳排标准逐条筛选账本里的文献,产出纳入表与排除表。**排除必须写原因**。逐条标注该条目的信息深度(题录级/摘要级/有原文段落)——信息不足的不要凭标题推断结论方向。",
+					MaxRounds: 8,
+				},
+				{
+					Key:       "extract",
+					Brief:     "对纳入的文献逐条提取数据(设计/人群/样本量/干预/对照/结局/效应量及其不确定度)。**取不到就写「未获取」**,绝不用领域印象填空;要写具体数值前先取原文段落再引。",
+					MaxRounds: 8,
+				},
+				{
+					Key:       "synthesize",
+					Brief:     "综合成文:证据强度分级、异质性与偏倚讨论、结论与局限。每条结论挂账本编号;凡是基于信息不足条目的判断,必须与提取表同等醒目地标注不确定性。",
+					MaxRounds: 8,
+				},
+			},
+		}},
 		// C1 (2026-06): claw 是唯一允许 Bash 的 feature —— 要跑 pdftotext/python 把 PDF / docx/xlsx
 		// 等任意格式转成可读文本(能力交给 agent 自己控 tool 调用,不在 backend 预处理)。AllowBash=true
 		// 让 backend 权限门放行 Bash;agent 端全局 denylist 本就不含 Bash, claw 又不追加禁用, 故 agent

@@ -39,6 +39,30 @@ const (
 	EvError             EvType = "error"
 	EvArtifact          EvType = "artifact" // 产物带外声明(执行器 diff ./out/ 后发);fold 产 turn.artifacts,replay 随轮重建
 	EvRoundDiscarded    EvType = "round_discarded" // DSML 作废重打:回放时丢弃本轮在途累积的残缺前缀(审计 [10])
+	// EvQuotaBlocked:配额/门禁在**转发给 agent 之前**拦下的一次尝试(2026-07-31 线上审计 §五)。
+	// 刻意**不在 FoldToMessages 里设 case** —— 它不是对话内容,永远不产 message、不进前端回放;
+	// 前端的 blocked 轮语义仍完全由实时 error 帧驱动(shared/types/chat.ts 的 Turn.blocked)。
+	// 它只服务 SQL 复盘:agent_turns(status=blocked, kind=quota) + 本事件的结构化 quota payload。
+	EvQuotaBlocked EvType = "quota_blocked"
+	// EvEvidence:证据账本的**引擎口径**过程状态(2026-08 证据账本 P0-c,终稿 §五 P0-b/P0-c)。
+	// 承接执行器发的 research_state 帧(payload 即原帧)。
+	//
+	// ⚠️ classifyJournalEv 同时收 `evidence_appended`,但**执行器目前一帧都不发**
+	// (2026-08-01 实测 agent/src 零命中);它是 P1 增量通道的预留位,三侧(本文件的读侧、
+	// 前端 fold、hub 的入账白名单)都已按「收到即忽略」写好了显式 no-op。
+	// 别把这行读成「有两种帧在流」—— 今天流里只有 research_state 一种。
+	//
+	// 它记录的是「引擎数出来的检索次数 / 账本条数 / 来源构成」,与模型在正文里**自称**做了什么
+	// 相互独立 —— 生产判别力集中在这一维:本纪元内有过工具调用的轮 DOI 接地率 98%,
+	// 失忆纪元(零工具)43%。今天这个差值对用户和 SQL 都不可见,本事件让它可见。
+	//
+	// 两个读侧出口(都只认 research_state **全量快照**,evidence_appended 一律跳过 ——
+	// 拼装增量 = 第二套证据口径,终稿否决清单 #2):
+	//   ① latestResearchState → seed_history 的 research 字段(账本文件丢失后的重建入口);
+	//   ② FoldToMessages → 每轮一条 Type=="research_state" 合成 entry,让历史回放还原过程 chip
+	//      (范式同 EvArtifact)。它**不是对话内容**:executor 的 convertFlatToAnthropic 只留
+	//      text/tool_use 块,这条 entry 在 seed_history 里被整条丢弃,绝不回喂模型上下文。
+	EvEvidence EvType = "evidence"
 )
 
 // Event 是读路径返回的一个事件(对应 TurnEventRow 的轻量读侧视图)。
@@ -78,9 +102,23 @@ type EventLog interface {
 	// FlushTurn 强制把该 turn 缓冲的合并 delta 立即落库(turn 终结符时调,使终态不滞留批窗)。
 	FlushTurn(ctx context.Context, turnID uint64) error
 
+	// BumpAttempt 把某 turn 的 attempt 记到 n(2026-07-31 线上审计 §五:轮级 provider 故障转移)。
+	// 该列此前恒 0(设计上标 "P3+ INERT"),现在正式启用:attempt>0 = 这一轮换过 provider 重投过几次。
+	// 幂等按「取大」语义(重复/乱序调用不会把计数改小)。turnID==0 → no-op。
+	BumpAttempt(ctx context.Context, turnID uint64, n int) error
+
 	// CompleteTurn 翻终态(complete/failed/aborted)+ completed_at + model_main;
 	// ledger != nil 时 INSERT...ON DUPLICATE KEY 幂等写 shadow agent_billing_ledger。内部先 FlushTurn。
 	CompleteTurn(ctx context.Context, turnID uint64, status string, modelMain string, ledger *BillingLedgerRow) error
+
+	// RecordBlockedTurn 落一条「被门禁(配额)在转发给 agent 之前拦下、从未执行」的轮:
+	// agent_turns(status=blocked, kind=quota, completed_at=now) + 一条 EvQuotaBlocked 事件
+	// (payload = 已发给用户的 error 帧,含冻结契约的结构化 quota 对象)。
+	// 2026-07-31 线上审计 §五:配额墙是最强付费触发器(9 个被拦用户 5 人付费、贡献 97% 订单额),
+	// 而拦截此前只有一条 INFO 日志 —— docker json-file 轮转即失,转化漏斗无法复盘。
+	// 幂等键用 "blocked:"+clientTurnID(**绝不**与真实轮的 (sid, client_turn_id) 撞:撞了会让用户
+	// 充值后原样重发被 BeginTurn 判成「已送达」直接丢帧)。
+	RecordBlockedTurn(ctx context.Context, in TurnInput, payload []byte) error
 
 	// ── 读侧(P1)──
 	// ReadInFlightEvents 返回某 session 当前 running turn 的事件(ORDER BY ev_seq)+ 该 turn。

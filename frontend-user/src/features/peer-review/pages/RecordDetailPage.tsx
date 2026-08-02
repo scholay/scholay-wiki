@@ -7,7 +7,7 @@ import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { ResourceError } from '@/shared/components';
 import { LoadingState } from '@/shared/components/LoadingState';
-import { useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
+import { isQuotaHandled, useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
 import { useSubmissionReports } from '../api/reports';
 import {
   recBadgeClasses,
@@ -412,7 +412,11 @@ function FailedBanner({ id, reason }: { id: number; reason?: string }) {
           onClick={() =>
             retry.mutate(undefined, {
               onSuccess: () => toast.success('已重新开始审稿'),
-              onError: (e) => toast.error((e as Error)?.message || '重试失败,请稍后再试'),
+              // 6010 已由全局 QuotaNotifier 弹「额度耗尽」弹窗 —— 跳过本地 toast,避免双通知。
+              onError: (e) => {
+                if (isQuotaHandled(e)) return;
+                toast.error((e as Error)?.message || '重试失败,请稍后再试');
+              },
             })
           }
         >

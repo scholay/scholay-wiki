@@ -2,7 +2,12 @@ import axios, { AxiosError, type AxiosInstance } from 'axios';
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
 import { getAnonId } from '@/shared/lib/anon-id';
 import { readInviteCode } from '@/shared/lib/invite-code';
-import { notifyQuotaExceeded, isQuotaSignal, AGENT_QUOTA_HTTP_CODE } from '@/shared/lib/quota-events';
+import {
+  notifyQuotaExceeded,
+  isQuotaSignal,
+  AGENT_QUOTA_HTTP_CODE,
+  type QuotaPayload,
+} from '@/shared/lib/quota-events';
 
 /**
  * HTTP 客户端 — 走 nginx 反代,生产同源相对路径,开发走 vite proxy。
@@ -48,8 +53,13 @@ http.interceptors.response.use(
       notifyAuthLost({ code: apiErr.code, message: apiErr.message });
     }
     // AI 额度耗尽 → 汇入全局额度通知器(弹重置弹窗)。统一谓词,与 SSE/WS 同一判断(Theme 2)。
+    // 结构化载荷(冻结契约):6010 信封 data.quota = {reset_at, window_days,
+    // credit_balance_positive, credit_autopay};旧后端不带 quota 时传 undefined,弹窗走 overview 兜底。
     if (isQuotaSignal(apiErr)) {
-      notifyQuotaExceeded({ message: apiErr.message });
+      const quota = (err instanceof AxiosError
+        ? (err.response?.data as { data?: { quota?: QuotaPayload } } | undefined)?.data?.quota
+        : undefined);
+      notifyQuotaExceeded({ message: apiErr.message, quota });
     }
     return Promise.reject(err);
   },
@@ -114,6 +124,12 @@ export interface ApiError {
   message: string;
   /** 是否网络错 (axios 自身错 / 离线 / DNS 失败), 跟"后端返了 5xx" 区分开。 */
   isNetworkError: boolean;
+  /**
+   * 双通知治理约定:true = 这个错是「额度耗尽(6010/quota_exceeded)」,响应拦截器已经
+   * notifyQuotaExceeded 汇入全局 QuotaNotifier(弹窗/冷却 toast 都由它单点决定)。
+   * **调用方 onError 见此标记应跳过自身 toast** —— 否则同一次点击「额度弹窗 + 业务 toast」双响。
+   */
+  quotaHandled?: boolean;
 }
 
 /** 判定一个值是否已经是 ApiError(避免二次转换丢失 message)。 */
@@ -159,6 +175,9 @@ export function toApiError(err: unknown): ApiError {
     const rawCode = err.response?.data?.code;
     const code = typeof rawCode === 'number' ? rawCode : Number(rawCode) || undefined;
 
+    // 额度耗尽在响应拦截器已全局弹窗 —— 打标让调用方 onError 跳过自身 toast(见 ApiError.quotaHandled)。
+    // 在转换处统一派生(而非拦截器挂 flag):所有 toApiError 的调用路径都能拿到,且幂等分支天然保留。
+    if (isQuotaSignal({ code })) return { status, code, message, isNetworkError, quotaHandled: true };
     return { status, code, message, isNetworkError };
   }
   // 非 axios 错 (业务层 throw, 校验失败等)

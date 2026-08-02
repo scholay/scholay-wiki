@@ -45,7 +45,7 @@ function buildSlides(proMult: number, maxMult: number, rate: number) {
     { title: '额度区别', body: `Free 为基础周期额度(7 天),Pro 是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。额度越高,可连续使用越多。` },
     { title: '会员特权', body: 'Pro / Max 优先使用更强 AI 模型、新功能优先体验;Max 享顶级优先级与最强模型。' },
     { title: '额度重置机制', body: '额度按 7 天周期计算:首次使用开始计时,周期到期自动恢复 100%;耗尽后可使用重置次数立即重置。' },
-    { title: '经费说明', body: `充值按 ¥1 = ${rate} 经费到账,经费不过期;开启「用经费继续」后,额度耗尽可无缝按量续用。` },
+    { title: '经费说明', body: `充值按 ¥1 = ${rate} 经费到账,经费不过期;开启「用经费继续」后,额度耗尽可无缝按量续用,详见定价页。` },
   ];
 }
 
@@ -118,6 +118,8 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
 }
 
 function ActiveRow({ data }: { data: Overview }) {
+  // 邀请奖励活动信号(与卡顶 usePlans 同 queryKey,命中缓存零额外请求)
+  const { data: plans } = usePlans();
   const t = data.token;
   const remaining = t.unlimited || !t.window_started_at ? 100 : Math.max(0, 100 - t.percent); // 剩余百分比(未开窗=满额)
   const exhausted = !t.unlimited && remaining <= 0;
@@ -166,16 +168,22 @@ function ActiveRow({ data }: { data: Overview }) {
           </span>
           <span className="text-12 text-faint">经费</span>
         </div>
-        {/* 🔴 兑换率是可调的,余额必须与「值多少算力点」同屏 —— 只给「600 经费」用户无从判断它的价值。 */}
-        <span className="text-12 text-faint">
-          ≈{data.credit.points.toLocaleString()} 算力点
-          {data.reset_passes > 0 && ` · 可重置 ${data.reset_passes} 次`}
-        </span>
+        {/* 🔴 2026-07-31 拍板:「算力点」是内部计量单位,用户端一律不展示(推翻旧「必须同屏」口径)。
+            经费=分(0095 起 ¥1=100 经费),数字本身即可读出价值,无需换算展示。 */}
+        {data.reset_passes > 0 && (
+          <span className="text-12 text-faint">可重置 {data.reset_passes} 次</span>
+        )}
         {/* 最近一批重置次数的到期时刻(null = 无可用次数);批内计数后端不下发,N 用总次数。 */}
         {data.reset_passes > 0 && data.reset_pass_next_expiry && (
           <span className="text-12 text-faint">
             {data.reset_passes} 次将于 {monthDay(data.reset_pass_next_expiry)} 前有效
           </span>
+        )}
+        {/* 邀请奖励活动(0100):余额位内嵌入口 —— Gamma「点余额见邀请」范式,活动开启才显示。 */}
+        {(plans?.invite_reward_credits ?? 0) > 0 && (
+          <Link to="/settings/invite" className="text-12 text-brand-red hover:underline">
+            邀请有奖 · 每邀 1 人 +{plans?.invite_reward_credits} 经费 →
+          </Link>
         )}
       </div>
     </div>

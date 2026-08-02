@@ -32,8 +32,9 @@ type BalanceView struct {
 	Total float64 `json:"total"`
 	// PermMicro 余额真值(micro-credit = 经费 × 1e6)。所有精确运算以它为准。
 	PermMicro int64 `json:"perm_micro"`
-	// Points 余额当前可兑换的算力点。**必须与余额同屏展示** —— 兑换率是可调的,
-	// 只给「600 经费」用户无从知道它值多少算力(方案 §5:经费是储值,汇率不锁定)。
+	// Points 余额当前可兑换的算力点。🔴 2026-07-31 拍板:「算力点」是内部计量单位,
+	// **用户端一律不展示**(推翻旧「必须同屏」口径 —— 0095 起经费=分,数字本身即可读出价值)。
+	// 字段保留下发供后台/兼容,前端 UI 不得渲染。
 	Points int64 `json:"points"`
 	// CreditAutopay 周期额度用完后自动用经费续(0094)。默认关。
 	CreditAutopay bool `json:"credit_autopay"`

@@ -177,7 +177,7 @@ Page({
     if (!ov.reset_passes || ov.reset_passes <= 0) {
       wx.showModal({
         title: '重置次数已用完',
-        content: '你已没有可用的重置次数。可等待本周期额度自动重置,或升级会员获得更高额度。',
+        content: '你已没有可用的重置次数。可等本周期结束后额度自动恢复,或升级会员获得更高额度。',
         showCancel: false,
       })
       return

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"time"
 
-	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/vip"
 
@@ -93,7 +92,7 @@ func (h *Handler) PlanWritingProfile(c *gin.Context) {
 		// 线上审计:48h 内本端点 11 次 5xx,大头就是额度用尽被误报成 500 +「识别失败请手动选择」,
 		// 用户既看不到升级引导、还以为服务坏了。与 peerreview handler 同款映射。
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+			vip.RespondQuotaExceeded(c, err) // 6010/429 + 结构化 quota 载荷(冻结契约)
 			return
 		}
 		utils.InternalError(c, 500, "自动识别文体/学科失败,请手动选择", err)

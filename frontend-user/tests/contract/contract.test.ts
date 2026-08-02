@@ -19,6 +19,7 @@ import {
   publicPlansNoAbsoluteQuotaSchema,
   usageCalendarNoAbsoluteQuotaSchema,
   agentErrorFrameSchema,
+  quotaPayloadSchema,
   CANONICAL_BIZ_CODES,
   AGENT_QUOTA_WS_CODE,
 } from './schemas';
@@ -95,12 +96,19 @@ describe('response shapes: 录制的后端 fixture 满足 FE 依赖的契约', (
     usageCalendarNoAbsoluteQuotaSchema.parse(body.data);
   });
 
-  it('agent WS error/quota 帧 —— 额度信号契约', () => {
+  it('agent WS error/quota 帧 —— 额度信号契约(含结构化 quota 载荷)', () => {
+    // ⚠️ fixture 是**手工维护**的合法样本(WS 帧无法用 record.mjs HTTP 录制,见 record.mjs 头注)。
+    // 后端改 quota 载荷形状时:触发一次真实额度耗尽、从 WS 抓帧更新此文件 + schemas.quotaPayloadSchema。
     const frame = fixture('ws-error-quota.json');
     agentErrorFrameSchema.parse(frame);
     expect(frame.code, 'WS 额度帧的 code 必须是 quota_exceeded(改它要同步 useAgentSocket)').toBe(
       AGENT_QUOTA_WS_CODE,
     );
     expect(isQuotaSignal(frame)).toBe(true);
+    // 冻结契约的四要素齐备(样本层面钉住;FE 类型层面它们是可选的,兼容旧后端)。
+    quotaPayloadSchema.parse(frame.quota);
+    for (const k of ['reset_at', 'window_days', 'credit_balance_positive', 'credit_autopay']) {
+      expect(frame.quota, `结构化 6010 载荷缺 ${k} —— 与冻结契约不符`).toHaveProperty(k);
+    }
   });
 });

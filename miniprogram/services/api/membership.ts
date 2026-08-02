@@ -10,7 +10,7 @@ export interface Balance {
   total: number // 展示用小数经费(= perm_micro / 1e6)
   perm: number
   perm_micro: number // 真值,micro-credit = 经费 × 1e6
-  points: number // 当前兑换率下折合的算力点(必须与余额同屏显示)
+  points: number // 折合算力点(2026-07-31 拍板:用户端不展示,字段保留兼容)
   credit_autopay: boolean // 额度用完是否自动用经费续(默认关)
 }
 export interface BillingOverview {

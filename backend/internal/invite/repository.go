@@ -220,7 +220,7 @@ func (r *Repository) RegistrationsOf(inviterUserID uint, limit, offset int) ([]A
 		Select(`ir.invited_user_id,
 			COALESCE(u.email, '')    AS email,
 			COALESCE(u.username, '') AS name,
-			ir.method, ir.created_at`).
+			ir.method, ir.rewarded_credits, ir.created_at`).
 		Where("ir.inviter_user_id = ?", inviterUserID).
 		Order("ir.created_at DESC").
 		Limit(limit).Offset(offset).

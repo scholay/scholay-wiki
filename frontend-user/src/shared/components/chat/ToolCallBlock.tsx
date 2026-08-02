@@ -5,22 +5,21 @@ import {
   ChevronRight,
   CircleSlash,
   Loader2,
-  Puzzle,
-  Search,
-  Terminal,
   TriangleAlert,
-  Wrench,
 } from 'lucide-react';
 import type { ToolBlock } from '@/shared/types/chat';
 import { maskToolSource } from '@/shared/lib/mask-tool-source';
+import { stripContainerPaths } from '@/shared/lib/strip-container-paths';
 import { cn } from '@/shared/lib/utils';
 import { friendlyToolError, sanitizeOpsText } from '@/shared/lib/friendly-tool-error';
+import { toolIconFor, toolLabel, toolParamSummary } from './tool-semantics';
 
 /**
  * 通用"AI 工具调用块"渲染器 —— 四态卡片设计 (构建中 / 执行中 / 成功 / 失败)。
  *
  * 四态:
- *   - **构建中** (无 input 还在 content_delta toolInput): chip 单行 + spinner
+ *   - **构建中** (无 input 还在 content_delta toolInput): chip 单行 + spinner;流式明文已到达时
+ *     (Write 类,fold 挂 streamingInput)追加「已写入 N 字」+ chip 下方尾部预览窗口
  *   - **执行中** (有 input, 无 result): chip 单行 + spinner
  *   - **成功** (有 input + result + !isError): chip 单行 + ✓; 可展开 input/result
  *   - **失败** (有 input + result + isError): chip 单行 + ✗ (红); 可展开看错误内容
@@ -64,25 +63,8 @@ export interface ToolCallBlockProps {
   defaultExpanded?: boolean;
 }
 
-/** 默认工具图标映射. 不在表里的工具用通用 Wrench. */
-function toolIcon(name: string) {
-  if (name === 'Skill') return Puzzle; // 技能加载(用户市场 skill / 系统 guide)—— 拼图=可插拔能力
-  if (name.startsWith('mcp__minicod__') || name.toLowerCase().includes('search')) {
-    return Search;
-  }
-  if (name === 'Bash' || name === 'Terminal') return Terminal;
-  return Wrench;
-}
-
-/** 把 mcp__minicod__search_papers → "search papers" 这种内部约定外化. */
-function prettyToolName(name: string): string {
-  if (!name) return '工具调用';
-  if (name === 'Skill') return '技能'; // 具体是哪个技能由调用方经 renderHeaderExtras 打徽标(SkillHeaderBadge)
-  if (name.startsWith('mcp__minicod__')) {
-    return name.slice('mcp__minicod__'.length).replace(/_/g, ' ');
-  }
-  return name;
-}
+// 图标 / 中文名 / 入参摘要三张映射已收口到 ./tool-semantics(与 StreamingIndicator 的
+// 等待动词同源,同一工具在 chip 标题与等待胶囊不再是两个语言层级)。
 
 export function ToolCallBlock({
   tool,
@@ -103,6 +85,9 @@ export function ToolCallBlock({
   const failed = hasResult && !!tool.isError && !aborted;
   const succeeded = hasResult && !tool.isError;
   const pending = !hasResult && !aborted;
+  // 构建中且入参流式明文已开始到达(仅 Write 类工具、仅实时流)—— 状态尾标从「已运行 Xs」
+  // 切「已写入 N 字」,chip 下方出尾部预览,取代纯 spinner 干等。
+  const writing = pending && tool.input === undefined && (tool.streamingChars ?? 0) > 0;
 
   // 失败的工具也默认收起(只保留红色 ✗ chip 提示);否则重新进入对话时每个报错工具都自动展开,
   // 又长又吵(如 Read 超 token 限制的大段错误)。要看详情点开即可;defaultExpanded 仍可显式覆盖。
@@ -127,9 +112,11 @@ export function ToolCallBlock({
     return () => window.clearInterval(t);
   }, [pending]);
 
-  const Icon = toolIcon(tool.toolName);
+  const Icon = toolIconFor(tool.toolName);
+  // 关键入参摘要(命令 / 文件名 /「query」…):完整 input 优先;构建期用流式 toolPath 先亮文件名。
+  const paramSummary = toolParamSummary(tool.toolName, tool.input, tool.streamingPath);
 
-  // 颜色变体: 失败红, 成功 brand-green, 中止/等待 中性灰
+  // 颜色变体: 失败 amber, 成功 brand-green, 中止/等待 中性灰
   const iconCls = failed
     ? 'text-brand-amber'
     : succeeded
@@ -146,7 +133,7 @@ export function ToolCallBlock({
         onClick={() => expandable && setExpanded((v) => !v)}
         disabled={!expandable}
         className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-12 text-muted-foreground hover:bg-surface-2/60 disabled:cursor-default disabled:hover:bg-transparent transition-colors min-w-0"
-        title={prettyToolName(tool.toolName)}
+        title={toolLabel(tool.toolName)}
         aria-expanded={expandable ? expanded : undefined}
       >
         {expandable && (
@@ -160,15 +147,24 @@ export function ToolCallBlock({
         )}
         <Icon className={'size-3 shrink-0 ' + iconCls} strokeWidth={2.2} />
         <span className="font-medium text-foreground shrink-0 truncate max-w-[40%]">
-          {prettyToolName(tool.toolName)}
+          {toolLabel(tool.toolName)}
         </span>
+        {paramSummary && (
+          <span className="truncate min-w-0 text-12 text-muted-foreground">{paramSummary}</span>
+        )}
         {renderHeaderExtras?.()}
         {/* 状态尾标 — 紧贴右侧, 不被中间内容挤掉 */}
         <span className="ml-auto shrink-0 inline-flex items-center gap-1">
           {pending && (
             <>
-              {pendingSec >= 8 && (
-                <span className="text-12 text-faint">已运行 {pendingSec}s</span>
+              {writing ? (
+                <span className="text-12 text-faint tabular-nums">
+                  已写入 {formatCharCount(tool.streamingChars ?? 0)} 字
+                </span>
+              ) : (
+                pendingSec >= 8 && (
+                  <span className="text-12 text-faint">已运行 {pendingSec}s</span>
+                )
               )}
               <Loader2 className="size-3 animate-spin" />
             </>
@@ -190,6 +186,18 @@ export function ToolCallBlock({
           )}
         </span>
       </button>
+
+      {/* 构建期流式预览 — 模型逐 token 生成文档时的尾部滚动窗口(仅实时流;
+          tool_use_complete 后 fold 清掉流式态,本区自然消失,不需要额外收尾逻辑)。
+          底部锚定(justify-end + 顶部裁剪):长行折行超出 max-h 时最新内容永远可见,
+          新文本把旧文本稳定上推,不会「最新的被裁在视口外」(对抗审查 finding #5)。 */}
+      {writing && tool.streamingInput && (
+        <div className="border-t border-border-soft px-2.5 py-1 max-h-24 overflow-hidden flex flex-col justify-end">
+          <pre className="text-12 font-mono leading-paragraph whitespace-pre-wrap break-words text-faint">
+            {streamingTail(tool.streamingInput)}
+          </pre>
+        </div>
+      )}
 
       {/* 展开区 — input + result 两段折叠展示 */}
       {expandable && expanded && (
@@ -213,6 +221,18 @@ export function ToolCallBlock({
       )}
     </div>
   );
+}
+
+/** 构建期预览:取流式窗口的最后几行,过品牌遮蔽 + 容器路径清洗(展示层硬约束)。 */
+function streamingTail(s: string): string {
+  const tail = s.split('\n').slice(-4).join('\n');
+  const masked = maskToolSource(tail);
+  return stripContainerPaths(typeof masked === 'string' ? masked : tail);
+}
+
+/** 字数展示:千位分隔(「已写入 1,234 字」)。 */
+function formatCharCount(n: number): string {
+  return n.toLocaleString('en-US');
 }
 
 // ─── 失败结果双轨展示(摘要默认 + 脱敏技术详情折叠)─────────────────────

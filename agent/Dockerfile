@@ -46,6 +46,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libblas3 liblapack3 \
     && rm -rf /var/lib/apt/lists/*
 
+# 统计建模运行时(2026-08 证据账本 P0-a「运行时诚实化」)。
+# 事故背景:agent-skills/claw-add/guides 的 methods-stats/SKILL.md 与 data-figures/SKILL.md 向模型
+#   声明「claw 能用 python(statsmodels)真算」「scipy / statsmodels 做检验与建模」,而镜像里
+#   statsmodels / sklearn / lifelines **根本没装**(2026-08-01 容器实测)。用户要混合效应模型 /
+#   Cox 回归时,模型只剩「撞 ImportError」或「把数字编出来」两条路 —— 后者正是审计中效应量凭空
+#   出现的机械成因。声明必须与镜像一致:要么装上,要么把话收回去(本层选前者,SKILL.md 同步改口径)。
+# ⚠️ python3-scipy 在此**显式声明**。它此前只是 python3-pandas / python3-matplotlib 的传递依赖
+#   (apt-cache rdepends --installed 实测),即「为画图装的包顺带带进来的」——上面那层哪天调整,
+#   scipy 就会静默消失,而 SKILL.md 还在承诺它。显式列出 = apt 标记 manually-installed,不随上游漂移。
+#   刻意放本层而不是回改上面那层:回改会让那个 ~300MB 的 apt 层缓存失效并整层重装(Docker Desktop
+#   内存紧张时 OOM Killed,见上方注释);而 scipy 已在镜像里,在本层声明是零增量的。
+# ⚠️ lifelines 必须走 pip,**不能写进 apt 列表**:Debian 里叫 `lifelines` 的包是同名的**家谱软件**
+#   (text-based genealogy,apt-cache search 实测),装了会得到完全无关的东西 —— 那恰恰是本次要根除的
+#   「声明与现实不符」的加深版。生存分析(KM / log-rank / Cox)的 python 库只在 PyPI 上。
+#   用阿里云 PyPI 镜像(与 apt 阿里云镜像 / npmmirror 同理,规避生产 clash fake-ip 拉包超时);
+#   钉死版本保证可复现(与下方 pandoc 3.10.1 vendor 同策略)。装完即 purge pip —— 运行期 jail 里
+#   /usr 是只读 bind,本就装不了包,留着只是徒增面。
+#   注:lifelines 的依赖(autograd / formulaic 等)均为纯 python;numpy/scipy/pandas/matplotlib 由
+#   Debian 提供且版本已满足,pip 不会重装它们 —— 这一点由下方构建期断言机械保证,不靠人肉相信。
+# 单独一层(实测 +130MB),别合进上面的大层(整层重装 Docker Desktop 易 OOM,同 sci_draw 层的理由)。
+# 运行期是断网 bwrap 沙箱 + /usr 只读,pip/apt 都不可用 → 依赖必须构建期就位。
+# pip 装到 /usr/local/lib/python3.*/dist-packages,已在 bwrap 的 `--ro-bind /usr /usr` 覆盖内(已实测)。
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-scipy python3-statsmodels python3-sklearn python3-pip \
+    && pip3 install --break-system-packages --no-cache-dir --root-user-action=ignore \
+        -i https://mirrors.aliyun.com/pypi/simple/ lifelines==0.30.3 \
+    && apt-get purge -y python3-pip && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -c "import numpy,scipy,pandas,matplotlib,statsmodels,sklearn,lifelines; assert numpy.__file__.startswith('/usr/lib/python3/dist-packages'), 'pip clobbered Debian numpy: '+numpy.__file__; print('stats engines OK', statsmodels.__version__, sklearn.__version__, lifelines.__version__)"
+
 # 科研绘图(sci_draw)分子结构图运行时:RDKit。SMILES → 确定性 2D 结构图(MolDraw2DSVG,零幻觉),
 # 药物/化学分子结构走它、不交给模型手画。单独一层(rdkit 较大);apt 走上面已设阿里云镜像;运行期断网可用。
 RUN apt-get update && apt-get install -y --no-install-recommends \

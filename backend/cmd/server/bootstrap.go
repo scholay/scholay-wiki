@@ -25,11 +25,10 @@ import (
 	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
+	"scholar-backend/internal/agentrun"
 	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/boltslides"
 	"scholar-backend/internal/claw"
-	"scholar-backend/internal/scidraw"
-	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
@@ -46,11 +45,13 @@ import (
 	"scholar-backend/internal/openaccess"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/prism"
+	"scholar-backend/internal/promo"
 	"scholar-backend/internal/promptregistry"
+	"scholar-backend/internal/scidraw"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seoenrich"
 	"scholar-backend/internal/seosubmit"
-	"scholar-backend/internal/promo"
+	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/storage"
@@ -263,6 +264,49 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	sciDrawFeature := agentBridge.For(sciDrawSpec)
 	// 智能写作 (Prism): AI 定点编辑走 ServerSideChatStreaming;会话禁写盘工具(见 prism.BuildSpec)。
 	prismFeature := agentBridge.For(prism.BuildSpec())
+
+	// 跨会话附件物化(2026-07-31 线上审计 §五):用户在 A 对话上传、切到 B 对话再发送时,
+	// 附件路径仍指向 A 的会话 cwd,而权限层只认本会话 cwd 前缀 → Read/ReadDocument 全被拒,
+	// 模型只能对用户说「我打不开你的文件」而该轮仍 complete。这里让附件在转发前物化进当前
+	// 会话,使路径永远同源 —— 权限边界一点没放宽。prism 是主场景(一项目多对话),claw 家族
+	// 同样支持附件。必须在 For() 之后注入(实现方需要 *FeatureBridge,见 SetAttachmentRelocator)。
+	for _, af := range []*agentbridge.FeatureBridge{
+		prismFeature, clawFeature, smartSearchFeature, boltSlidesFeature, sciDrawFeature,
+	} {
+		af.SetAttachmentRelocator(agentattach.NewRelocator(af))
+	}
+
+	// ── Run 引擎(2026-08 科研内核 Phase 1)────────────────────────────────────
+	// 一条科研请求 = 一个持久 Run;Run = 一串 Step,每步走既有的 ServerSideChatStreaming
+	// (**不新建执行路径**)。交接靠 MySQL + workDir 产物,不靠内存 messages。
+	//
+	// 🔴 装配即接线:本仓库「引擎造好没接线」已经吃过七次(artifact 契约 / Relocator /
+	//    research_state 帧 / SubmitAnswer 放行 / prefetch 字段 / markRead / EvidenceGet 权限)。
+	//    模板零值时引擎对该剖面完全不动,所以这里可以无条件装配 —— 装了但没模板 = 行为零变化,
+	//    而**不装**则是"代码在仓库里、生产上不存在",正是那七次的形状。
+	runTemplates := agentrun.NewSpecTemplateSource()
+	runEngine := agentrun.NewEngine(
+		agentrun.NewRepo(db), runTemplates,
+		&agentrun.HTTPSlotProbe{
+			BaseURL: os.Getenv("AGENT_EXECUTOR_BASE_URL"),
+			Token:   os.Getenv("AGENT_AUTH_TOKEN"),
+		},
+		os.Getenv("HOSTNAME"),
+	)
+	for _, rf := range []*agentbridge.FeatureBridge{
+		clawFeature, prismFeature, smartSearchFeature, peerReviewFeature, boltSlidesFeature, sciDrawFeature,
+	} {
+		spec := rf.Spec()
+		tpls := agentrun.FromSpecTemplates(spec.RunTemplates)
+		if err := runTemplates.Add(spec.Key, tpls); err != nil {
+			// 起服断言:非法模板(如 step_key 重复)会在 uk_saga_step 上撞唯一键,
+			// 那时错误发生在用户的一次真实请求里、表现成「Run 卡住」而不是「模板写错了」。宁可起不来。
+			slog.Error("FATAL agentrun: 非法 RunTemplate,拒绝启动", "feature", spec.Key, "err", err)
+			os.Exit(1)
+		}
+		runEngine.Register(agentrun.NewBridgeExecutor(rf))
+	}
+	runEngine.Start(context.Background())
 
 	// Skills 市场:用户上传/分享 skill + claw 动态加载(tier-1 纯指令,内联物化到 executor guides 层)。
 	// 持有上限的会员档解析器(需 plat.vipService)在下方 SetVIPChecker 附近注入(那时 plat 已就绪)。
@@ -621,10 +665,10 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		// 否则 prism 切到 executor 后,会话创建/稿件物化/回读走 fork、聊天走 executor → 文件系统脑裂、零改动落库。
 		prismFeature.AgentClient(),
 	)
-	prism.SetTitleSink(prismService) // agent 回传标题落库的反查入口(见 handleAgentTitle)
-	prism.SetProfileSink(prismService) // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
+	prism.SetTitleSink(prismService)            // agent 回传标题落库的反查入口(见 handleAgentTitle)
+	prism.SetProfileSink(prismService)          // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
 	prism.SetModelResolver(modelCatalogService) // planner 选择轮按 prism.planner 绑定取便宜模型(P1)
-	prismService.StartBackgroundGC()  // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
+	prismService.StartBackgroundGC()            // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
 	// 输入框附件(上传 / 引用文献)—— prism 会话 per-project, handler 自己解析会话后走
@@ -668,11 +712,14 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			memory:         usermemory.NewHandler(userMemoryService),
 			openAccess:     openaccess.NewHandler(),
 			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), libReader),
-			boltSlides:     boltslides.NewHandler(boltSlidesFeature, agentartifact.NewRepository(db)),
-			sciDraw:        scidraw.NewHandler(sciDrawFeature, agentartifact.NewRepository(db)),
-			skillMarket:    skillMarketHandler,
-			featureTool:    featureToolHandler,
-			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
+			// 🔴 构造即接线:上面 routes_user.go 的 Run 路由有 `if h.agentRun != nil` 守卫,
+			//    这里不填就是"路由代码在仓库里、生产上不存在" —— 本仓库咬过七次的形状。
+			agentRun:    agentrun.NewHandler(runEngine, agentrun.NewRepo(db), clawFeature),
+			boltSlides:  boltslides.NewHandler(boltSlidesFeature, agentartifact.NewRepository(db)),
+			sciDraw:     scidraw.NewHandler(sciDrawFeature, agentartifact.NewRepository(db)),
+			skillMarket: skillMarketHandler,
+			featureTool: featureToolHandler,
+			agentBridge: agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
 			// 智能写作 (Prism): DB 真源 + 编译沙箱(共享卷 watcher)+ AI 定点编辑(prismFeature/agent)。
 			prism: prismHandler,
 			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap

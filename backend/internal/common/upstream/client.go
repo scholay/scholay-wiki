@@ -48,6 +48,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -203,7 +204,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	fullURL, err := c.buildURL(req.Path, req.Query)
 	if err != nil {
 		return nil, &Error{
-			Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: err,
+			Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: err,
 		}
 	}
 	req.url = fullURL
@@ -213,7 +214,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	// before hook — 可以拒绝放行 (配额 / dry-run)
 	if c.before != nil {
 		if hookErr := c.before(ctx, &req); hookErr != nil {
-			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: hookErr}
+			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: hookErr}
 			c.notifyAfter(ctx, &req, nil, ue, time.Since(startedAt))
 			return nil, ue
 		}
@@ -225,7 +226,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	if req.BodyJSON != nil {
 		b, jerr := json.Marshal(req.BodyJSON)
 		if jerr != nil {
-			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: fmt.Errorf("marshal body: %w", jerr)}
+			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: fmt.Errorf("marshal body: %w", jerr)}
 			c.notifyAfter(ctx, &req, nil, ue, time.Since(startedAt))
 			return nil, ue
 		}
@@ -234,7 +235,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	} else if req.Body != nil {
 		b, rerr := io.ReadAll(req.Body)
 		if rerr != nil {
-			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: rerr}
+			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: rerr}
 			c.notifyAfter(ctx, &req, nil, ue, time.Since(startedAt))
 			return nil, ue
 		}
@@ -257,7 +258,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		backoff := c.retry.nextBackoff(attempt)
 		if err := sleepOrCancel(ctx, backoff); err != nil {
 			// ctx 在退避期间被 cancel — 直接出, 用 ctx.Err()
-			lastErr = &Error{Kind: ErrTimeout, Upstream: c.name, Endpoint: req.Path, inner: err}
+			lastErr = &Error{Kind: ErrTimeout, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: err}
 			break
 		}
 	}
@@ -278,7 +279,7 @@ func (c *Client) attempt(ctx context.Context, req *Request, rawBody []byte, cont
 		}
 		httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.url, bodyReader)
 		if err != nil {
-			return nil, &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: err}
+			return nil, &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: err}
 		}
 		// 合并 headers: 调用方传入的优先, 我们只填没设的
 		for k, vs := range req.Headers {
@@ -300,15 +301,15 @@ func (c *Client) attempt(ctx context.Context, req *Request, rawBody []byte, cont
 
 		httpResp, err := c.httpClient.Do(httpReq)
 		if err != nil {
-			return nil, FromNetworkError(c.name, req.Path, err)
+			return nil, FromNetworkError(c.name, req.safeEndpoint(), err)
 		}
 		defer httpResp.Body.Close()
 
 		body, readErr := io.ReadAll(httpResp.Body)
 		if readErr != nil {
-			return nil, &Error{Kind: ErrNetwork, Status: httpResp.StatusCode, Upstream: c.name, Endpoint: req.Path, inner: readErr}
+			return nil, &Error{Kind: ErrNetwork, Status: httpResp.StatusCode, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: readErr}
 		}
-		if ue := FromHTTPStatus(c.name, req.Path, httpResp.StatusCode, string(body)); ue != nil {
+		if ue := FromHTTPStatus(c.name, req.safeEndpoint(), httpResp.StatusCode, string(body)); ue != nil {
 			return nil, ue
 		}
 		return &Response{
@@ -318,7 +319,7 @@ func (c *Client) attempt(ctx context.Context, req *Request, rawBody []byte, cont
 		}, nil
 	}
 
-	result, err := executeWithBreaker(ctx, c.breaker, c.name, req.Path, exec)
+	result, err := executeWithBreaker(ctx, c.breaker, c.name, req.safeEndpoint(), exec)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +357,7 @@ func (c *Client) DoStream(ctx context.Context, req Request, consume func(*Stream
 	}
 	fullURL, err := c.buildURL(req.Path, req.Query)
 	if err != nil {
-		return &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: err}
+		return &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: err}
 	}
 	req.url = fullURL
 
@@ -364,7 +365,7 @@ func (c *Client) DoStream(ctx context.Context, req Request, consume func(*Stream
 
 	if c.before != nil {
 		if hookErr := c.before(ctx, &req); hookErr != nil {
-			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: hookErr}
+			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: hookErr}
 			c.notifyAfter(ctx, &req, nil, ue, time.Since(startedAt))
 			return ue
 		}
@@ -375,7 +376,7 @@ func (c *Client) DoStream(ctx context.Context, req Request, consume func(*Stream
 	if req.BodyJSON != nil {
 		b, jerr := json.Marshal(req.BodyJSON)
 		if jerr != nil {
-			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: fmt.Errorf("marshal body: %w", jerr)}
+			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: fmt.Errorf("marshal body: %w", jerr)}
 			c.notifyAfter(ctx, &req, nil, ue, time.Since(startedAt))
 			return ue
 		}
@@ -384,7 +385,7 @@ func (c *Client) DoStream(ctx context.Context, req Request, consume func(*Stream
 	} else if req.Body != nil {
 		b, rerr := io.ReadAll(req.Body)
 		if rerr != nil {
-			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: rerr}
+			ue := &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: rerr}
 			c.notifyAfter(ctx, &req, nil, ue, time.Since(startedAt))
 			return ue
 		}
@@ -398,7 +399,7 @@ func (c *Client) DoStream(ctx context.Context, req Request, consume func(*Stream
 		}
 		httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.url, bodyReader)
 		if err != nil {
-			return nil, &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.Path, inner: err}
+			return nil, &Error{Kind: ErrBadRequest, Upstream: c.name, Endpoint: req.safeEndpoint(), inner: err}
 		}
 		for k, vs := range req.Headers {
 			for _, v := range vs {
@@ -412,13 +413,13 @@ func (c *Client) DoStream(ctx context.Context, req Request, consume func(*Stream
 
 		httpResp, err := c.httpClient.Do(httpReq)
 		if err != nil {
-			return nil, FromNetworkError(c.name, req.Path, err)
+			return nil, FromNetworkError(c.name, req.safeEndpoint(), err)
 		}
 		// 非 2xx: 读 8KB 错误 body 分类, 然后关流
 		if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 			b, _ := io.ReadAll(io.LimitReader(httpResp.Body, 8192))
 			httpResp.Body.Close()
-			return nil, FromHTTPStatus(c.name, req.Path, httpResp.StatusCode, string(b))
+			return nil, FromHTTPStatus(c.name, req.safeEndpoint(), httpResp.StatusCode, string(b))
 		}
 		defer httpResp.Body.Close()
 		// 2xx: 交给 consume 流式处理; consume 的 error 原样上抛 (计 breaker failure, 但不分类成可重试)
@@ -432,12 +433,44 @@ func (c *Client) DoStream(ctx context.Context, req Request, consume func(*Stream
 		return nil, nil
 	}
 
-	_, execErr := executeWithBreaker(ctx, c.breaker, c.name, req.Path, exec)
+	_, execErr := executeWithBreaker(ctx, c.breaker, c.name, req.safeEndpoint(), exec)
 	dur := time.Since(startedAt)
 	c.logAttempt(ctx, &req, nil, execErr, 0, dur)
 	c.notifyAfter(ctx, &req, nil, execErr, dur)
 	return execErr
 }
+
+// sensitiveQueryRe — query 串里的敏感参数,只抹参数值、保留参数名。
+// 2026-07 审查:名单补 code / js_code / ticket / passwd / session_key;同时把过宽的
+// "名字含 key" 收紧成「整名 key / 分隔符+key / apikey 类」,避免吞掉 keyword、sortKey
+// 这些排障时必须看得见的普通检索参数。
+var sensitiveQueryRe = regexp.MustCompile(
+	`(?i)(` +
+		// ① 名字里含这些子串一律当凭证:access_token / app_secret / signature / jsapi_ticket / password …
+		`[?&][a-z0-9_.-]*(?:token|secret|password|passwd|sign|ticket)[a-z0-9_.-]*=` +
+		// ② 整名或「分隔符 + 词」结尾:key / pwd / code / js_code / api_key / session_key
+		//    刻意**不**匹配 keyword / sortKey(没有分隔符,不是凭证)
+		`|[?&](?:[a-z0-9_.-]*[_.-])?(?:key|pwd|code)=` +
+		// ③ 无分隔符的常见凭证名:apikey / accesskey / appkey / aeskey / sessionkey
+		`|[?&][a-z0-9_.-]*(?:api|access|app|aes|session)key[a-z0-9_.-]*=` +
+		`)[^&\s"']*`)
+
+// maskSensitiveQuery 抹掉字符串中内嵌 query 的敏感参数值(替换为 ***)。
+// 2026-07 线上审计:wechat 等调用方把 access_token 直接拼在 Request.Path 里,
+// endpoint 字段原样进 docker logs(留存 5 天+)—— 完整凭证泄漏,必须打码。
+func maskSensitiveQuery(s string) string {
+	if s == "" || !strings.ContainsAny(s, "?&") {
+		return s
+	}
+	return sensitiveQueryRe.ReplaceAllString(s, "$1***")
+}
+
+// safeEndpoint 返回可安全落进 *Error.Endpoint 的路径。
+// 2026-07 审查:此前只有 logAttempt 打码,而 typed *Error 存的是**原始** Request.Path,
+// Error() 又逐字打印它 —— 调用方一句 slog.Warn("err", err) 就把完整 access_token
+// 写进 docker logs(与修复前等价)。故改在**构造处**打码,顺带让实现对齐 Error.Endpoint
+// 「不含 query」的文档约定。
+func (r *Request) safeEndpoint() string { return maskSensitiveQuery(r.Path) }
 
 // logAttempt — 统一观测的 slog 五元组 (上面文档 §2 提到的)。
 //   level=INFO 成功; WARN 失败 (即便是会被重试的); ERROR 不留路径 (留给调用方).
@@ -452,7 +485,8 @@ func (c *Client) logAttempt(ctx context.Context, req *Request, resp *Response, e
 	args := []any{
 		"upstream", c.name,
 		"method", req.Method,
-		"endpoint", req.Path,
+		// 2026-07 线上审计:endpoint 可能内嵌 access_token 等 query,打码后再落日志。
+		"endpoint", req.safeEndpoint(),
 		"latency_ms", dur.Milliseconds(),
 		"attempt", attempt,
 	}
@@ -479,7 +513,8 @@ func (c *Client) logAttempt(ctx context.Context, req *Request, resp *Response, e
 			args = append(args, "body_excerpt", truncate(ue.Body, 300))
 		}
 	} else {
-		args = append(args, "err", err.Error())
+		// 网络类错误(url.Error)会把完整 URL(含内嵌 query)带进 Error() 串,同样打码。
+		args = append(args, "err", maskSensitiveQuery(err.Error()))
 	}
 	slog.LogAttrs(ctx, slog.LevelWarn, "upstream call failed", toAttrs(args)...)
 }

@@ -34,6 +34,8 @@ export interface WizardLayoutProps {
   onCancel?: () => void;
   /** 取消按钮 loading (调 delete mutation 时禁掉) */
   cancelLoading?: boolean;
+  /** CTA 按钮下方的小字提示(如提交步的额度预告)。不传 = 布局与原先完全一致。 */
+  ctaHint?: ReactNode;
 
   children: ReactNode;
   rightPane?: ReactNode;
@@ -50,6 +52,7 @@ export function WizardLayout({
   onJump,
   onCancel,
   cancelLoading,
+  ctaHint,
   children,
   rightPane,
 }: WizardLayoutProps) {
@@ -87,29 +90,34 @@ export function WizardLayout({
           </div>
         </div>
 
-        <div className="flex w-72 shrink-0 items-center justify-end gap-2">
-          {onCancel && (
-            <button
+        {/* ctaHint(提交步的额度预告)挂在 CTA 正下方 —— 外层改竖排,按钮行本身布局不变;
+            没有 hint 时渲染结果与原先一字不差(justify-center 在单行时无感)。 */}
+        <div className="flex w-72 shrink-0 flex-col items-end justify-center gap-1">
+          <div className="flex items-center gap-2">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={cancelLoading}
+                className="inline-flex h-9 items-center rounded-8 border border-border bg-surface-card px-3 text-12 text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-40"
+                title="取消并删除当前草稿,上传的文件、AI 已识别的内容都会清空"
+              >
+                {cancelLoading ? '正在取消…' : '取消草稿'}
+              </button>
+            )}
+            <Button
               type="button"
-              onClick={onCancel}
-              disabled={cancelLoading}
-              className="inline-flex h-9 items-center rounded-8 border border-border bg-surface-card px-3 text-12 text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-40"
-              title="取消并删除当前草稿,上传的文件、AI 已识别的内容都会清空"
+              variant="destructive"
+              size="lg"
+              onClick={onNext}
+              disabled={nextDisabled || nextLoading}
+              className="h-9 gap-1.5"
             >
-              {cancelLoading ? '正在取消…' : '取消草稿'}
-            </button>
-          )}
-          <Button
-            type="button"
-            variant="destructive"
-            size="lg"
-            onClick={onNext}
-            disabled={nextDisabled || nextLoading}
-            className="h-9 gap-1.5"
-          >
-            {nextLoading ? 'AI 处理中…' : nextLabel}
-            <ChevronRight className="size-3.5" />
-          </Button>
+              {nextLoading ? 'AI 处理中…' : nextLabel}
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
+          {ctaHint}
         </div>
       </header>
 

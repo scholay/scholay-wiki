@@ -459,3 +459,67 @@ func TestClient_Headers_AreSent(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// ─── 凭证打码 ───────────────────────────────────────────────────────────
+//
+// 2026-07 审查:*Error.Endpoint 此前存的是原始 Path,调用方 slog("err", err)
+// 就把 access_token 写进 docker logs。下面两个用例锁住「凭证抹掉 / 检索词保留」。
+
+func TestMaskSensitiveQuery_Table(t *testing.T) {
+	cases := []struct{ in, want string }{
+		// 凭证 —— 必须抹
+		{"/wxa/msg_sec_check?access_token=SUPERSECRET", "/wxa/msg_sec_check?access_token=***"},
+		{"/x?token=abc&b=2", "/x?token=***&b=2"},
+		{"/x?api_key=abc", "/x?api_key=***"},
+		{"/x?apikey=abc", "/x?apikey=***"},
+		{"/x?key=abc", "/x?key=***"},
+		{"/x?js_code=abc", "/x?js_code=***"},
+		{"/x?code=abc", "/x?code=***"},
+		{"/x?ticket=abc", "/x?ticket=***"},
+		{"/x?session_key=abc", "/x?session_key=***"},
+		{"/x?passwd=abc&password=d", "/x?passwd=***&password=***"},
+		{"/x?app_secret=abc", "/x?app_secret=***"},
+		{"/x?sign=abc", "/x?sign=***"},
+		// 普通检索/排序参数 —— 必须保留(排障要看得见)
+		{"/search?keyword=transformer", "/search?keyword=transformer"},
+		{"/search?sortKey=year&q=x", "/search?sortKey=year&q=x"},
+		{"/papers/search", "/papers/search"},
+	}
+	for _, c := range cases {
+		if got := maskSensitiveQuery(c.in); got != c.want {
+			t.Errorf("maskSensitiveQuery(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestClient_ErrorString_MasksCredentialInPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"errcode":40001}`)
+	}))
+	defer srv.Close()
+
+	cli := newClient(t, srv.URL, RetryConfig{}, false)
+	_, err := cli.Do(context.Background(), Request{
+		Method: http.MethodPost,
+		Path:   "/wxa/msg_sec_check?access_token=SUPERSECRETTOKEN123&keyword=abc",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	// 调用方最常见的用法就是直接把 err 打进日志 —— Error() 不能带出凭证
+	msg := err.Error()
+	if strings.Contains(msg, "SUPERSECRETTOKEN123") {
+		t.Fatalf("credential leaked into Error(): %s", msg)
+	}
+	if !strings.Contains(msg, "access_token=***") {
+		t.Fatalf("expected masked access_token, got: %s", msg)
+	}
+	if !strings.Contains(msg, "keyword=abc") {
+		t.Fatalf("keyword should stay readable for triage, got: %s", msg)
+	}
+	var ue *Error
+	if errors.As(err, &ue) && strings.Contains(ue.Endpoint, "SUPERSECRETTOKEN123") {
+		t.Fatalf("credential leaked into Error.Endpoint: %s", ue.Endpoint)
+	}
+}

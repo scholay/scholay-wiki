@@ -47,7 +47,10 @@ type deltaAccum struct {
 	bytes     int
 	thinkBuf  strings.Builder // thinking 合并文本(独立 buffer)
 	thinkByte int
-	nextSeq   uint        // 下一个 ev_seq(delta / thinking / 非 delta 共用)
+	toolBuf   strings.Builder // content_delta.toolInput 合并(工具入参流,2026-07:供 in-flight replay 还原流式写文件预览)
+	toolByte  int
+	toolPath  string // 当前 toolInput 段的目标文件(agent 每帧可带;段内取最后非空,flush 时随行落库)
+	nextSeq   uint        // 下一个 ev_seq(delta / thinking / toolInput / 非 delta 共用)
 	timer     *time.Timer // 200ms flush(armed 时非 nil)
 }
 
@@ -198,6 +201,25 @@ func (b *deltaBatcher) buildThinkRowLocked(a *deltaAccum) *TurnEventRow {
 	return row
 }
 
+// buildToolRowLocked 同上,toolInput buffer(帧形态与 agent 原帧同构:content_delta{toolInput,toolPath},
+// in-flight replay 原样重发即可被前端 fold 消费;历史 fold 对该形态有守卫不产 message)。caller 持 b.mu。
+func (b *deltaBatcher) buildToolRowLocked(a *deltaAccum) *TurnEventRow {
+	if a.toolByte == 0 {
+		return nil
+	}
+	m := map[string]string{"type": string(EvContentDelta), "toolInput": a.toolBuf.String()}
+	if a.toolPath != "" {
+		m["toolPath"] = a.toolPath
+	}
+	payload, _ := json.Marshal(m)
+	row := &TurnEventRow{TurnID: a.turnID, AgentSessionID: a.sid, EvSeq: a.nextSeq, EvType: string(EvContentDelta), Payload: payload}
+	a.nextSeq++
+	a.toolBuf.Reset()
+	a.toolByte = 0
+	a.toolPath = ""
+	return row
+}
+
 func (b *deltaBatcher) flushDeltaLocked(a *deltaAccum) {
 	if row := b.buildDeltaRowLocked(a); row != nil {
 		b.enqueue(row)
@@ -206,6 +228,12 @@ func (b *deltaBatcher) flushDeltaLocked(a *deltaAccum) {
 
 func (b *deltaBatcher) flushThinkLocked(a *deltaAccum) {
 	if row := b.buildThinkRowLocked(a); row != nil {
+		b.enqueue(row)
+	}
+}
+
+func (b *deltaBatcher) flushToolLocked(a *deltaAccum) {
+	if row := b.buildToolRowLocked(a); row != nil {
 		b.enqueue(row)
 	}
 }
@@ -244,10 +272,11 @@ func (b *deltaBatcher) flushTurnSync(turnID uint64) error {
 	b.stopTimerLocked(a)
 	dRow := b.buildDeltaRowLocked(a)
 	tRow := b.buildThinkRowLocked(a)
+	tlRow := b.buildToolRowLocked(a)
 	b.mu.Unlock()
 
 	var firstErr error
-	for _, r := range []*TurnEventRow{dRow, tRow} {
+	for _, r := range []*TurnEventRow{dRow, tRow, tlRow} {
 		if r == nil {
 			continue
 		}
@@ -268,12 +297,45 @@ func (b *deltaBatcher) append(turnID uint64, sid string, evType EvType, frame []
 	if evType == EvContentDelta {
 		text := extractDeltaText(frame)
 		if text == "" {
-			// toolInput 流式分片等无 text 的 delta:最终 tool_use 帧已含完整 input,跳过免写放大。
+			// toolInput 变体(工具入参流,2026-07 起入 journal):独立 buffer 合并成 O(4KB) 行。
+			// 价值:in-flight replay 走 journal(addSubscriber useJournal 路径),此前该信号不落库
+			// → 重连/刷新时进行中的流式写文件预览「消失到 tool_use_complete 才恢复」。写放大有界:
+			// agent 侧 MAX_STREAM_JSON=512KB 截流;历史 fold(FoldToMessages)对 toolInput 行已有
+			// 守卫不产 message。真空帧(无 text 无 toolInput)仍旧跳过。
+			ti, tp := extractDeltaToolInput(frame)
+			if ti == "" {
+				b.mu.Unlock()
+				return
+			}
+			if a.bytes > 0 {
+				b.flushDeltaLocked(a) // 切块保序:文本 → 工具入参
+			}
+			if a.thinkByte > 0 {
+				b.flushThinkLocked(a)
+			}
+			a.toolBuf.WriteString(ti)
+			a.toolByte += len(ti)
+			if tp != "" {
+				a.toolPath = tp
+			}
+			if a.toolByte >= batchFlushBytes {
+				b.stopTimerLocked(a)
+				b.flushToolLocked(a)
+				b.mu.Unlock()
+				return
+			}
+			if a.timer == nil {
+				tid := turnID
+				a.timer = time.AfterFunc(batchFlushInterval, func() { b.timedFlush(tid) })
+			}
 			b.mu.Unlock()
 			return
 		}
 		if a.thinkByte > 0 {
 			b.flushThinkLocked(a) // 切块:先落 thinking 再开始攒文本,保交错顺序
+		}
+		if a.toolByte > 0 {
+			b.flushToolLocked(a) // 切块:工具入参流 → 文本
 		}
 		a.buf.WriteString(text)
 		a.bytes += len(text)
@@ -300,6 +362,9 @@ func (b *deltaBatcher) append(turnID uint64, sid string, evType EvType, frame []
 		if a.bytes > 0 {
 			b.flushDeltaLocked(a) // 切块:先落文本再开始攒 thinking
 		}
+		if a.toolByte > 0 {
+			b.flushToolLocked(a) // 切块:工具入参流 → thinking
+		}
 		a.thinkBuf.WriteString(text)
 		a.thinkByte += len(text)
 		if a.thinkByte >= batchFlushBytes {
@@ -316,17 +381,19 @@ func (b *deltaBatcher) append(turnID uint64, sid string, evType EvType, frame []
 		return
 	}
 
-	// 非流式事件:先 flush 当前 delta + thinking(各占 nextSeq、保序),再给本事件取号。
+	// 非流式事件:先 flush 当前 delta + thinking + toolInput(各占 nextSeq、保序),再给本事件取号。
+	// (toolInput 段的下一个非流式事件通常就是它的 tool_use_complete —— 流式行落在完整 input 行之前,保序。)
 	b.stopTimerLocked(a)
 	dRow := b.buildDeltaRowLocked(a)
 	tRow := b.buildThinkRowLocked(a)
+	tlRow := b.buildToolRowLocked(a)
 	evRow := &TurnEventRow{TurnID: turnID, AgentSessionID: sid, EvSeq: a.nextSeq, EvType: string(evType), Payload: append(json.RawMessage(nil), frame...)}
 	a.nextSeq++
 
 	if evType == EvMessageComplete || evType == EvError {
 		// 终态:锁外同步落库(不阻塞其它 turn 的 append),保证答案+终态先于 status=complete 持久(M5)。
 		b.mu.Unlock()
-		for _, r := range []*TurnEventRow{dRow, tRow, evRow} {
+		for _, r := range []*TurnEventRow{dRow, tRow, tlRow, evRow} {
 			if r != nil {
 				_ = b.createWithRetry(r)
 			}
@@ -335,7 +402,7 @@ func (b *deltaBatcher) append(turnID uint64, sid string, evType EvType, frame []
 	}
 
 	// 普通非流式(tool_use / tool_result / permission / content_start):异步入队。
-	for _, r := range []*TurnEventRow{dRow, tRow, evRow} {
+	for _, r := range []*TurnEventRow{dRow, tRow, tlRow, evRow} {
 		if r != nil {
 			b.enqueue(r)
 		}
@@ -360,9 +427,10 @@ func (b *deltaBatcher) timedFlush(turnID uint64) {
 	a.timer = nil
 	b.flushDeltaLocked(a)
 	b.flushThinkLocked(a)
+	b.flushToolLocked(a)
 }
 
-// flushTurn 强制 flush 某 turn 的待写 delta + thinking(turn 终结符时调)。
+// flushTurn 强制 flush 某 turn 的待写 delta + thinking + toolInput(turn 终结符时调)。
 func (b *deltaBatcher) flushTurn(turnID uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -373,6 +441,7 @@ func (b *deltaBatcher) flushTurn(turnID uint64) {
 	b.stopTimerLocked(a)
 	b.flushDeltaLocked(a)
 	b.flushThinkLocked(a)
+	b.flushToolLocked(a)
 }
 
 // dropTurn 清理某 turn 的 accum(turn 终态后,防 map 无界增长)。
@@ -392,4 +461,14 @@ func extractDeltaText(frame []byte) string {
 	}
 	_ = json.Unmarshal(frame, &f)
 	return f.Text
+}
+
+// extractDeltaToolInput 从 content_delta 帧取 toolInput/toolPath(非 toolInput 变体返回 "")。
+func extractDeltaToolInput(frame []byte) (string, string) {
+	var f struct {
+		ToolInput string `json:"toolInput"`
+		ToolPath  string `json:"toolPath"`
+	}
+	_ = json.Unmarshal(frame, &f)
+	return f.ToolInput, f.ToolPath
 }

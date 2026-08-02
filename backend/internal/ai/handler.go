@@ -12,7 +12,6 @@ import (
 	"log/slog"
 
 	"scholar-backend/internal/common/aierr"
-	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/llmusage"
@@ -105,7 +104,7 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 	if h.vip != nil {
 		if err := h.vip.CheckDailyQuota(c.Request.Context(), uid); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
-				utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+				vip.RespondQuotaExceeded(c, err) // 6010/429 + 结构化 quota 载荷(冻结契约)
 				return
 			}
 		}
@@ -518,7 +517,7 @@ func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 	if h.vip != nil {
 		if err := h.vip.CheckDailyQuota(c.Request.Context(), uid); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
-				utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+				vip.RespondQuotaExceeded(c, err) // 6010/429 + 结构化 quota 载荷(冻结契约)
 				return
 			}
 		}

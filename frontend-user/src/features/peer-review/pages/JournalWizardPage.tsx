@@ -13,10 +13,12 @@ import { FinalReviewStep } from '../components/wizard/FinalReviewStep';
 import { ManuscriptMetaForm, type ManuscriptMeta } from '../components/wizard/ManuscriptMetaForm';
 import { RightRailPanel } from '../components/wizard/RightRailPanel';
 import { Step4Rail } from '../components/wizard/Step4Rail';
+import { SubmitQuotaHint } from '../components/wizard/SubmitQuotaHint';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
 import { http } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
 import {
+  isQuotaHandled,
   useAdvanceStep,
   useCreateSubmission,
   useDeleteAsset,
@@ -343,7 +345,11 @@ export function JournalWizardPage() {
           trackEvent('review_submit', { kind: 'journal' });
           navigate(`/peer-review/submitted/${s.id}`);
         },
-        onError: (e) => toast.error(`投递失败:${(e as Error).message}`),
+        // 6010 已由全局 QuotaNotifier 弹「额度耗尽」弹窗 —— 跳过本地 toast,避免双通知。
+        onError: (e) => {
+          if (isQuotaHandled(e)) return;
+          toast.error(`投递失败:${(e as Error).message}`);
+        },
       });
       return;
     }
@@ -353,7 +359,11 @@ export function JournalWizardPage() {
       onSuccess: (s) => {
         setParams({ id: String(id), step: String(s.step) }, { replace: true });
       },
-      onError: (e) => toast.error((e as Error).message || '前进失败,请稍后重试'),
+      // 同上:额度类失败弹窗已接管,不再叠 toast。
+      onError: (e) => {
+        if (isQuotaHandled(e)) return;
+        toast.error((e as Error).message || '前进失败,请稍后重试');
+      },
     });
   }
 
@@ -419,6 +429,7 @@ export function JournalWizardPage() {
       onJump={jumpTo}
       onCancel={submission.status === 'draft' ? cancelDraft : undefined}
       cancelLoading={deleteMut.isPending}
+      ctaHint={step === 4 ? <SubmitQuotaHint /> : undefined}
       rightPane={
         step === 4 ? (
           <Step4Rail

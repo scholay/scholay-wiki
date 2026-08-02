@@ -5,7 +5,6 @@ import { router } from './router';
 import { AuthBootstrap } from './AuthBootstrap';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePromoStore } from '@/stores/promo.store';
-import { useQuotaStore } from '@/stores/quota.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import { useShareSheet } from '@/stores/share.store';
 
@@ -27,6 +26,9 @@ if (typeof window !== 'undefined') {
  *   - 只比较 pathname(忽略 search / hash):保留 library 工作台 `?manage=` 这类**同页深链**不被误关;
  *   - **刻意排除 mobile-search 浮层** —— 它 `suspendForDetail` 进详情要保 open、回 feed 再复原,
  *     是有意的跨路由保留,不能在这里清。
+ *   - **刻意排除额度重置弹窗(useQuotaStore.resetOpen)** —— 它挂在 Providers 层、永不随路由卸载
+ *     (无 Radix 锁泄漏风险),且 6010 常在流式/后台请求里迟到:导航瞬间弹出的额度弹窗被这里
+ *     秒关 = 用户根本没看见就没了。弹窗内自己的跳转(充值/升级)会先显式 closeReset 再 navigate。
  */
 function useCloseGlobalModalsOnNavigate() {
   useEffect(() => {
@@ -43,8 +45,7 @@ function useCloseGlobalModalsOnNavigate() {
         if (ad.open) ad.close();
         const pm = usePromoStore.getState();
         if (pm.open) pm.closePromo();
-        const qn = useQuotaStore.getState();
-        if (qn.resetOpen) qn.closeReset();
+        // 额度重置弹窗豁免(见上方 docstring)—— 这里刻意不 closeReset。
         const cp = useCollectPicker.getState();
         if (cp.request) cp.closeCollect();
         const ss = useShareSheet.getState();
@@ -54,12 +55,35 @@ function useCloseGlobalModalsOnNavigate() {
   }, []);
 }
 
+/**
+ * 支付收银台回程:跳支付宝前(QuotaNotifier 等)把当前 location.pathname+search 写进
+ * localStorage 'scholay:pay-return-path';支付宝回跳落回站点任意页后,这里启动时读到
+ * 就 navigate 回去并**立即清除**(一次性锚点,防止陈旧值在下次访问把用户传送走)。
+ * 只接受站内相对路径(拒绝 `//host` 协议相对形态,防开放跳转)。
+ */
+const PAY_RETURN_KEY = 'scholay:pay-return-path';
+function usePayReturnPath() {
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(PAY_RETURN_KEY);
+      if (saved !== null) localStorage.removeItem(PAY_RETURN_KEY);
+    } catch {
+      return; // 隐私模式等 localStorage 不可用:无回程锚点,正常启动
+    }
+    if (!saved || !saved.startsWith('/') || saved.startsWith('//')) return;
+    if (saved === window.location.pathname + window.location.search) return;
+    void router.navigate(saved, { replace: true });
+  }, []);
+}
+
 // 注:暗色态已于 2026-07 移除 —— 切换机制曾完整存在(useApplyTheme 在此调用),
 // 但 setTheme 全站零调用点、设置页无任何主题 UI,`.dark` 类从未被挂上,
 // globals.css 的 18 个暗色覆写从未生效。连同 stores/theme.store.ts 一并删除。
 // 将来要做暗色态: 玄墨 12 档色阶可与亮色互为镜像,基于新色阶重新推导。
 function ShellRoot() {
   useCloseGlobalModalsOnNavigate();
+  usePayReturnPath();
   return (
     <>
       <AuthBootstrap />

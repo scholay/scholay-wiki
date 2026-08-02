@@ -328,9 +328,10 @@ func (s *Service) UserRegistrations(inviterUserID uint, page, pageSize int) ([]U
 	out := make([]UserRegistrationRow, 0, len(rows)) // 显式 [],防 nil→null
 	for _, r := range rows {
 		out = append(out, UserRegistrationRow{
-			Name:      maskIdentity(r.Email, r.Name),
-			Method:    r.Method,
-			CreatedAt: r.CreatedAt,
+			Name:            maskIdentity(r.Email, r.Name),
+			Method:          r.Method,
+			RewardedCredits: r.RewardedCredits,
+			CreatedAt:       r.CreatedAt,
 		})
 	}
 	return out, total, nil

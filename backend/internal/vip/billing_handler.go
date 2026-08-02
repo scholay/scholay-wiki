@@ -327,6 +327,11 @@ func (h *Handler) PublicPlans(c *gin.Context) {
 		"credit_to_points":       cfg.CreditToPoints,
 		"min_recharge_cents":     cfg.MinRechargeCents,
 		"popular_plan":           cfg.PopularPlan,
+		// 邀请奖励活动(0100):>0 = 活动开启,前端据此点亮「邀请有奖」入口与引导。
+		// 公开下发是刻意的 —— 活动本身就是要对外宣传的;0 = 关闭,入口全部隐藏。
+		// daily_cap 用于活动页规则行的正向措辞「每日最多计入 N 位好友的奖励」(0=不限,不显示)。
+		"invite_reward_credits":   clampNonNeg(cfg.InviteRewardCredits),
+		"invite_reward_daily_cap": clampNonNeg(cfg.InviteRewardDailyCap),
 		"enabled":                cfg.Enabled,
 		"test_payment":           testPaymentEnabled(),
 		// subscription_year_days 已移除:0090 起年度 = +1 个自然年,不再有「年度天数」这个概念。

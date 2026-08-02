@@ -80,12 +80,38 @@ func prismSkillAddDir() string {
 // 走同一个构造器后,两处不会再漂移。
 func prismSessionOptions() *agent.CreateSessionOptions {
 	return &agent.CreateSessionOptions{
-		// allowBash=false → 在 prismDisallowedTools 基础上并入 Bash/BashOutput/KillShell。
-		DisallowedTools: agentbridge.SessionDisallowedTools(prismDisallowedTools, false),
+		// 2026-08-01 拍板放开 Bash(allowBash=true → 不再并入 Bash/BashOutput/KillShell)。
+		//
+		// 为什么现在可以:**与 claw 对齐**。claw 早已 AllowBash=true(claw/spec.go:191),
+		// 而两者跑在**同一个 bwrap jail、同一套沙箱配置**(net 设置在 agent/src/server/ws.ts:473
+		// 硬编码,不分 feature)。也就是说放开 prism 不引入任何**新的**风险类别,
+		// 只是把一个已在生产敞着的面多暴露给一个 feature。
+		//
+		// 放开前做过真实 jail 内取证(用生产同一条 buildBwrapArgv 构造,非裸 docker exec):
+		//   ✅ 跨会话:别的会话 cwd 物理上不在 mount 命名空间里,读不到
+		//   ✅ 只读根:/usr /bin /lib 只读;/etc 与 / 是 bwrap 每次新建的 tmpfs,写了也不跨调用持久
+		//   ✅ 宿主敏感文件:/proc/1/environ、/root/.ssh 读不到
+		//   ⚠️ 内网:scholar_backend:8080 可达(mysql/redis/minio 不在同一 docker 网络,DNS 都解析不出)。
+		//      **这是全 feature 的既有议题**(claw 今天就是这个状态),不是 prism 的前置条件 ——
+		//      要收紧得改 ws.ts 的 net 策略或加出站白名单,那是独立一项,别在这里悄悄用「不放开 prism」代偿。
+		//
+		// prism 独有的担心已排除:Bash 写 document.md **不是绕过 struct 真源的后门** ——
+		// document.md 本就是设计给模型的编辑面(edit.go:201),applyStructRound 会读它回来经
+		// parseEditorMarkdown 合并进 DB 真源(struct_service.go:295)。Bash 与 Write/Edit 走同一道门。
+		//
+		// ⚠️ ExportDocument 仍在 prismDisallowedTools 里(理由见上),放开 Bash 不改变那条。
+		DisallowedTools: agentbridge.SessionDisallowedTools(prismDisallowedTools, true),
 		// MCP 正向白名单:收敛 minicod 76 工具到 prism 引用接地 + 投稿期刊子集(见 prismAllowedMcpTools)。
 		AllowedMcpTools: prismAllowedMcpTools,
 		// 每项目会话加载写作 skill(--add-dir),agent 写/改时可经 Skill 调对应指南。
 		AddDirs: []string{prismSkillAddDir()},
+		// 2026-07 线上审计 #4:prism 开诚实性核验(claw 同款旗标,见 claw/spec.go;
+		// 经 CreateSession body + hub seed_history 帧两条链下发)。delivery 维度**关**:
+		// prism 交付走项目文件(DB 真源 + 导出按钮),executor 的 ./out/ 判据会误报
+		// (agent 侧 verifyClaims 注释有预留);citations / fullread 开。
+		// 急停阀同 claw:agent env EXECUTOR_HONESTY_GUARD=off(免 rebuild)。
+		HonestyGuard:  true,
+		HonestyChecks: map[string]bool{"citations": true, "fullread": true, "delivery": false},
 	}
 }
 
@@ -142,7 +168,7 @@ func checkQuota(ctx context.Context, userID uint) error {
 	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			return agentbridge.NewQuotaError(err.Error())
+			return agentbridge.NewQuotaErrorFrom(err) // 保链:error 帧带结构化 quota 字段
 		}
 		return err
 	}

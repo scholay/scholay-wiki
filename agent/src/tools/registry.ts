@@ -2,14 +2,39 @@
 // 这些是 Scholay 自有实现,**非** cc-haha 工具移植。smart_search 不用(MCP-only);
 // claw(+bash)/prism(file-edit)在 step 7 全面启用 + sandbox 加固(step 8 bwrap)。
 
-import { resolve, relative, dirname, join, basename } from "node:path";
-import { readFile, writeFile, mkdir, readdir, stat, realpath, copyFile } from "node:fs/promises";
+import { resolve, relative, dirname, join, basename, extname } from "node:path";
+import { readFile, writeFile, appendFile, mkdir, readdir, stat, realpath, copyFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { wrapBash, buildBwrapArgv, sandboxMode } from "../sandbox/bwrap.ts";
 import { profileFor, unsandboxedBashGate } from "../sandbox/profile.ts";
 import { confinePath } from "../sandbox/confine.ts";
 import { localNow } from "./clock.ts";
 import { log } from "../obs/log.ts";
+// 2026-08 证据账本 P1:交付边界 resolve 闸(展开器唯一实现在 evidence/render.ts)。
+import { resolveFileForDelivery } from "../evidence/deliver.ts";
+import { markRead, resolveEidForPath } from "../evidence/ledger.ts";
+import { citationFailureText } from "../evidence/render.ts";
+
+/**
+ * 「读过原文」留痕(2026-08-01 Phase 0)。Read / ReadDocument 成功后调用。
+ *
+ * 🔴 它补的是账本上一个**结构性的空洞**:`markRead` 此前**全仓零生产调用点**,
+ *    于是 read_marks 恒为空、has_fulltext 恒 false,render.ts 的三档里有两档
+ *    (「有全文未读」「已读全文」)是**永远不会出现的话**,而没有一条测试会红。
+ *    Run 引擎的 step 完成判据要读它 —— 分母是空集就会静默无限重排队。
+ *
+ * 反查保守到宁可漏不可错(见 resolveEidForPath):认不出就什么都不做,**不猜、不报错**。
+ * 失败一律吞掉:留痕是审计增益,绝不能让一次账本写失败把用户的文件读操作也搞挂。
+ */
+async function noteEvidenceRead(workDir: string, absPath: string, tool: string, chars: number, turn: number): Promise<void> {
+  try {
+    const eid = resolveEidForPath(workDir, absPath);
+    if (!eid) return;
+    await markRead(workDir, eid, { turn, tool, chars });
+  } catch {
+    // 静默:见上。
+  }
+}
 
 export interface ToolCtx {
   workDir: string;
@@ -18,6 +43,9 @@ export interface ToolCtx {
   // --add-dir 目录:Skill 工具据此定位 <dir>/guides/<name>/SKILL.md(按需技能正文)。
   // 其它工具不用;可空(无按需技能的会话)。
   addDirs?: string[];
+  /** 本轮序号(runTools 的 turnOf 已经为账本算过一份,这里复用同一个值,不另算)。
+   *  只用于 read_mark 的展示字段;账本的顺序真源仍是 id 追加序,别当主键。 */
+  turn?: number;
 }
 
 export interface ToolResult {
@@ -147,6 +175,7 @@ const readTool: BuiltinTool = {
         if (text.length > MAX_READ_BYTES) {
           text = text.slice(0, MAX_READ_BYTES) + `\n\n[... truncated at ${MAX_READ_BYTES} bytes. Use a smaller limit.]`;
         }
+        await noteEvidenceRead(ctx.workDir, p, "Read", text.length, ctx.turn ?? 0);
         return ok(text);
       }
       if (buf.length > MAX_READ_BYTES) {
@@ -154,6 +183,7 @@ const readTool: BuiltinTool = {
           text.slice(0, MAX_READ_BYTES) +
           `\n\n[... truncated: file is ${buf.length} bytes, showing first ${MAX_READ_BYTES}. Use Grep or Read with offset/limit to read a narrower section.]`;
       }
+      await noteEvidenceRead(ctx.workDir, p, "Read", text.length, ctx.turn ?? 0);
       return ok(text);
     } catch (e) {
       return fail("read failed: " + String((e as Error)?.message ?? e));
@@ -575,6 +605,7 @@ const readDocumentTool: BuiltinTool = {
           `\n\n[... truncated at ${MAX_DOC_CHARS} chars. PDF: pass first_pages to narrow the range; ` +
           `xlsx: use Bash+python(openpyxl) to target a sheet/range if available, otherwise work with the extracted part and tell the user coverage is partial.]`;
       }
+      await noteEvidenceRead(ctx.workDir, p, "ReadDocument", text.length, ctx.turn ?? 0);
       return ok(text);
     } catch (e) {
       return fail("ReadDocument failed: " + String((e as Error)?.message ?? e));
@@ -678,6 +709,15 @@ const exportDocumentTool: BuiltinTool = {
         return fail("ExportDocument: unsupported target_format. Use one of: " + Object.keys(EXPORT_FORMATS).join(", "));
       }
       const src = await confinePath(ctx.workDir, String(input.source_path));
+      // 2026-08 证据账本 P1 · 交付边界 resolve 闸。展不开 = 不生成文件(终稿 §3.1 第 ③ 段)。
+      // 放在 pandoc **之前**:未入账引用不该先变成一个 docx 再被追认。
+      const cited = await resolveFileForDelivery(ctx.workDir, src);
+      if (cited && cited.missing.length > 0) {
+        return fail(
+          citationFailureText(cited.missing, cited.ledgerTotal, "ExportDocument(文档导出)"),
+          "文档里有对不上来源的引用编号,已阻止导出;AI 会修正后重试。",
+        );
+      }
       // 输出名:output_name 或源文件名(去扩展名)。清洗成安全 basename(保中英文数字 . _ -),防路径/注入。
       const rawBase = String(input.output_name || "").trim() || basename(String(input.source_path)).replace(/\.[^.]+$/, "");
       const base = rawBase.replace(/[^A-Za-z0-9._一-龥-]/g, "_").replace(/^\.+/, "").slice(0, 120) || "document";
@@ -690,7 +730,16 @@ const exportDocumentTool: BuiltinTool = {
       // 向量(恶意模型嵌入已知绝对路径的**图片**跨会话读)此前只在注释里说"靠执行器级沙箱兜"、实则没有 ——
       // 现经 runConverterConfined 把 pandoc 关进 bwrap jail(只 bind 本会话 cwd),该向量物理关闭。生产环境
       // 若 bwrap 自探失败则 fail-closed 拒绝导出(与 Bash 对称),故生产恒为「jail 或拒绝」,不会未 jail 裸跑。
-      const argv = ["pandoc", src, "-o", outAbs, "-t", fmt.pandocTo];
+      // 句柄已全部命中 → 展开后的正文落一份**隐藏**同级副本喂给 pandoc(不改模型的源文件:
+      // 它下一轮还要按句柄改稿)。隐藏名以 "." 开头,artifacts 的 out/ 扫描与根扫描都跳过点开头
+      // 条目,故不会多出一张产物卡。扩展名保持在末位,pandoc 的 reader 推断不受影响。
+      let pandocSrc = src;
+      if (cited && cited.changed) {
+        const cext = extname(src);
+        pandocSrc = join(dirname(src), `.${basename(src, cext)}.cited${cext}`);
+        await writeFile(pandocSrc, cited.text, "utf8");
+      }
+      const argv = ["pandoc", pandocSrc, "-o", outAbs, "-t", fmt.pandocTo];
       if (fmt.needsEngine && PDF_ENGINE) argv.push(`--pdf-engine=${PDF_ENGINE}`);
       const res = await runConverterConfined(ctx.workDir, argv);
       if (!res.ok) {
@@ -830,8 +879,20 @@ const buildDeckTool: BuiltinTool = {
       if (st.size > MAX) {
         return fail(`BuildDeck: the built deck is ${(st.size / 1024 / 1024).toFixed(1)}MB, over the ${MAX / 1024 / 1024}MB delivery cap. Reduce inlined image sizes (use smaller/compressed images or fewer full-bleed photos) and rebuild.`);
       }
+      // 2026-08 证据账本 P1 · 交付边界 resolve 闸。演示稿正文在 src/App.tsx 里,编译后成为 bundle 里的
+      // 字符串字面量 —— 故闸开在**构建产物**上(唯一能保证覆盖到所有幻灯片文案的位置),展不开就不交付。
+      // 替换文本经 inlineSafe 剔掉了引号/反斜杠/尖括号/花括号,插进 JS 字符串字面量不会破坏 bundle。
+      const cited = await resolveFileForDelivery(ctx.workDir, built);
+      if (cited && cited.missing.length > 0) {
+        return fail(
+          citationFailureText(cited.missing, cited.ledgerTotal, "BuildDeck(演示稿构建)") +
+            "\n(幻灯片文案在 src/App.tsx 里改,改完再调一次 BuildDeck。)",
+          "演示稿里有对不上来源的引用编号,已阻止交付;AI 会修正后重试。",
+        );
+      }
       await mkdir(dirname(outAbs), { recursive: true });
-      await copyFile(built, outAbs);
+      if (cited && cited.changed) await writeFile(outAbs, cited.text, "utf8");
+      else await copyFile(built, outAbs);
       return ok(`Deck built and delivered: ${outRel} (${st.size} bytes). The user can now preview it in the panel and download it. Opening the downloaded file in a browser enables presenter mode, annotations and deep-links.`);
     } catch (e) {
       return fail("BuildDeck failed: " + String((e as Error)?.message ?? e));
@@ -972,7 +1033,257 @@ const askUserQuestionTool: BuiltinTool = {
   },
 };
 
-const all: BuiltinTool[] = [readTool, readDocumentTool, exportDocumentTool, buildDeckTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool, askUserQuestionTool];
+// ── EvidenceGet(2026-08 证据账本 P0)────────────────────────────────────────
+// 证据账本的**唯一读回路**。为什么必须是一个工具而不是"再多注入点上下文":
+//   · smart_search 的 denylist 禁掉了 Write/Glob/Grep/Skill(spec.go),模型没有任何别的方式
+//     回看已检索到的东西 —— 它连自救式外置都物理做不到;
+//   · 会话闲置 30 分钟或容器重启后,重灌把 100% 的 tool_result 丢弃(shadowTurn.ts:50),
+//     此时账本是**唯一**还活着的证据介质(会话 cwd,TTL 30 天,扛驱逐与重启)。
+// 描述里刻意写足「什么时候必须用我」—— 终稿实测 18 个 MCP 工具里义务语 0/18,模型因此从不知道
+// 自己**该**回看;这条属工具可供性(affordance),不是纠偏文本。
+const MAX_EVIDENCE_IDS = 20;
+/** EvidenceGet fields=passages 单次最多回多少段:段落是拿来支撑论断的,不是拿来灌满上下文的。 */
+const MAX_PASSAGE_ROWS = Number(process.env.EVIDENCE_PASSAGE_ROWS_MAX || 20);
+
+function parseIdList(raw: unknown): string[] {
+  const out: string[] = [];
+  const push = (s: string) => {
+    for (const tok of s.split(/[\s,;、]+/)) {
+      const t = tok.trim();
+      if (t) out.push(t);
+    }
+  };
+  if (Array.isArray(raw)) for (const v of raw) push(String(v ?? ""));
+  else if (typeof raw === "string") push(raw);
+  return out.slice(0, MAX_EVIDENCE_IDS);
+}
+
+const evidenceGetTool: BuiltinTool = {
+  name: "EvidenceGet",
+  description:
+    "Look up the session's evidence ledger — the engine-written record of every paper any retrieval tool has actually returned in this conversation (id, title, authors, year, venue, DOI, source, abstract). " +
+    "The ledger lives on disk and survives context loss; the raw tool results do NOT. " +
+    "You MUST call this before writing anything that cites, lists, counts or characterises literature in this session when you cannot see the original tool results in your current context — " +
+    "for example after the conversation has been going on for a while, when the user follows up with \"what else\", \"summarise those\", \"which ones were about X\", or when you are about to say how many papers you found. " +
+    "Do NOT reconstruct bibliographic facts (titles, authors, years, journals, DOIs) from memory or from your own earlier prose: your earlier prose is kept in context but the evidence behind it may not be. " +
+    "Input: { ids?: [\"E3\",\"E7\"], fields?: \"meta\" | \"full\" | \"passages\", q?: \"keyword\" }. Omit ids to list the whole ledger (ids + one-line records). fields=\"full\" (default when ids are given) also returns abstracts. " +
+    "fields=\"passages\" returns the VERBATIM excerpts the retrieval tools actually returned for those papers (method/result sentences, numbers) — use it whenever you are about to state a specific figure (sample size, effect size, p-value, follow-up length) so you quote a real sentence instead of reconstructing one. Add q to filter excerpts by keyword.",
+  input_schema: {
+    type: "object",
+    properties: {
+      ids: {
+        type: "array",
+        items: { type: "string" },
+        description: `evidence ids such as ["E3","E7"] (max ${MAX_EVIDENCE_IDS}); omit to list the whole ledger`,
+      },
+      fields: {
+        type: "string",
+        enum: ["meta", "full", "passages"],
+        description: "meta = one line each; full = with abstract; passages = verbatim excerpts returned by the retrieval tools",
+      },
+      q: { type: "string", description: "only with fields=passages: case-insensitive substring filter over excerpts" },
+    },
+  },
+  parallelSafe: true,
+  async run(input, ctx) {
+    try {
+      const { loadLedger, getByIds, buildDigest, materialize, normalizeId } = await import("../evidence/ledger.ts");
+      const ids = parseIdList(input.ids);
+      if (ids.length === 0) {
+        // 无参 = 列全账(模型在失忆纪元里重新定位自己的唯一手段)。
+        const digest = await buildDigest(ctx.workDir);
+        return ok(
+          digest ||
+            "证据账本为空:本会话还没有任何工具返回过文献题录。若需要文献,先调用检索工具;不要凭记忆写题录。",
+        );
+      }
+      // fields=passages:把上游真的返回过的**原句**还回去。
+      // 🔴 它存在的理由:模型要写"随访 6.2 个月""效应量 0.31"这类具体数值时,手上若只有标题+摘要,
+      //    除了编没有第二条路(账本注释里那句"31 条效应量凭空出现的那条缝")。有原句可引,
+      //    "引真的"才第一次比"编假的"便宜 —— 这是让正确的路更便宜,不是加一道罚则。
+      if (input.fields === "passages") {
+        const { getPassages } = await import("../evidence/passages.ts");
+        const q = typeof input.q === "string" ? input.q : undefined;
+        const rows = await getPassages(ctx.workDir, ids, { q, max: MAX_PASSAGE_ROWS });
+        if (rows.length === 0) {
+          return ok(
+            "这些编号在账本里没有可引原文段落(检索结果只带了题录/摘要)。" +
+              "不要据此编造具体数值 —— 要么改用摘要里确有的表述,要么如实说明该数据需要读原文才能确认。",
+          );
+        }
+        const body = rows
+          .map((r) => `[${r.eid}]${r.section ? " (" + r.section + ")" : ""} ${r.text}`)
+          .join("\n\n");
+        return ok(`以下是检索工具**原样返回**的段落,可直接引用;引用时标注对应编号。\n\n${body}`);
+      }
+      const fields = input.fields === "meta" ? "meta" : "full";
+      const found = await getByIds(ctx.workDir, ids);
+      const gotten = new Set(found.map((r) => r.id));
+      const missing = ids.map(normalizeId).filter((i) => i && !gotten.has(i));
+      const total = (await loadLedger(ctx.workDir)).length;
+      const { renderRecordsForModel } = await import("../evidence/render.ts");
+      let text = renderRecordsForModel(found, missing, total, fields);
+      // 懒物化:只有真被取用过的记录才落 evidence/E<n>.md(全量物化会撞会话文件数帽 +
+      // 让 assertSessionQuota 的全目录递归变贵,见 ledger.ts 文件头硬约束 2)。
+      if (fields === "full" && found.length > 0) {
+        const paths = await materialize(ctx.workDir, found);
+        if (paths.length > 0) text += `\n\n[也已落盘,可随时 Read:${paths.join(" ")}]`;
+      }
+      return ok(text);
+    } catch (e) {
+      return fail(
+        "EvidenceGet failed: " + String((e as Error)?.message ?? e),
+        "读取证据记录未成功,AI 会尝试其它方式。",
+      );
+    }
+  },
+};
+
+// ── SubmitAnswer / DeclareInsufficient(2026-08 证据账本 P1)──────────────────
+// 「收工」从一个**免费的采样动作**(end_turn)变成一次工具调用。
+//
+// 为什么不用 tool_choice:探针实测(docs/tool-choice-probe-2026-08.md)线上主力
+// deepseek-v4-pro/flash 对 tool_choice **HTTP 200 + 静默无视**,glm-5.2 同,支持度是 per-model
+// 不是 per-provider。⇒ 这里只用**所有 provider 都支持的普通工具调用**,不依赖任何强制参数。
+// 相应地:模型硬 end_turn 不调本工具时,降级为可观测(research_state 帧照实印「本轮检索 0 次」),
+// **绝不做软形态强制**(吞掉 end_turn 再重发)—— 探针报告 §六已写死否决,那是最坏的一种 guard。
+//
+// 闸的判据是**引擎算数**:`ledger.count > 0`,零 LLM、零内容判断(终稿否决清单 #5)。
+// 不过闸时给的是精确差额 + 可执行的下一步(与仓内既有的工具失败双轨制同范式),不是一句「请检索」。
+// 轮次形态(取证型 / 闲聊型)由 policy/researchTurn.ts 的有序规则 Router 判定,并通过
+// **工具可见性**(turnLoop 只在取证轮把这两个工具放进 tools[])落地 —— 闲聊轮里它们根本不在场。
+
+/** 已执行检索的精确清单(闸的「差额」那一半)。空 = 本会话一次检索都没发生过。 */
+function renderQueryLedger(queries: Array<{ q: string; tool: string; args: unknown; delivered?: number; new_ids?: string[] }>): string {
+  if (queries.length === 0) return "本会话至今**一次检索都没有发生过**(已执行检索:0 次)。";
+  const lines = queries.slice(-12).map((r) => {
+    const tool = r.tool.replace(/^mcp__[a-z0-9]+__/i, "");
+    let args = "";
+    try {
+      args = JSON.stringify(r.args ?? {});
+    } catch {
+      args = "";
+    }
+    if (args.length > 120) args = args.slice(0, 120) + "…";
+    return `  · ${r.q} ${tool} ${args} → 送达 ${r.delivered ?? 0} 条、新增入账 ${r.new_ids?.length ?? 0} 条`;
+  });
+  return `本会话已执行的检索(${queries.length} 次,列最近 ${lines.length} 条):\n${lines.join("\n")}`;
+}
+
+const submitAnswerTool: BuiltinTool = {
+  name: "SubmitAnswer",
+  description:
+    "Deliver your final answer for this turn. In a retrieval-shaped turn this is how you finish: put the complete answer text in `answer` and call this tool — the platform renders that text to the user as your reply, so do NOT also write it out as a normal message. " +
+    "The call is REJECTED when this session's evidence ledger is empty, i.e. when no retrieval tool has actually returned anything yet. That rejection is arithmetic on the ledger, not a judgement about your answer: it means the answer would rest on recalled facts rather than on retrieved evidence. " +
+    "When rejected you get the exact shortfall (ledger size, the queries already run) and two ways forward: run a retrieval tool (any tool whose name starts with mcp__ — everything it returns is written to the ledger automatically), or, if the question genuinely cannot be grounded in the platform's literature, call DeclareInsufficient and then answer in plain text. " +
+    "Never invent bibliographic details (titles, authors, years, journals, DOIs) or statistics to get past this tool. " +
+    "Input: { answer: the full final reply, in the user's language, markdown allowed }.",
+  input_schema: {
+    type: "object",
+    properties: {
+      answer: {
+        type: "string",
+        description: "The complete final reply to show the user. Markdown allowed. Do not repeat it outside this tool.",
+      },
+    },
+    required: ["answer"],
+  },
+  parallelSafe: true,
+  async run(input, ctx) {
+    const answer = typeof input.answer === "string" ? input.answer.trim() : "";
+    if (!answer) {
+      return fail(
+        "SubmitAnswer 未执行:缺少 answer 参数(或为空)。answer 必须是要展示给用户的**完整最终回答正文**。",
+        "本次回答未能提交,AI 会重试。",
+      );
+    }
+    try {
+      const { stats, loadQueries } = await import("../evidence/ledger.ts");
+      const st = await stats(ctx.workDir);
+      // ── 闸:引擎算数,零 LLM、零内容判断 ────────────────────────────────────
+      if (st.total > 0) {
+        // 放行。正文由 turnLoop 直接发给用户并当场收轮 —— 这条回执只在冷回放里被看到。
+        return ok(`已交付(账本 ${st.total} 条)。回答已展示给用户,本轮到此结束,不要再重复输出正文。`);
+      }
+      const queries = await loadQueries(ctx.workDir);
+      return fail(
+        "SubmitAnswer 被拒绝:**本会话证据账本为 0 条**。\n" +
+          renderQueryLedger(queries) +
+          "\n\n判据是引擎对账本的计数,与你答案的写法无关 —— 现在交付的任何文献题录、数量、统计值都只能来自你的记忆。\n" +
+          "接下来二选一(不要原样重发本次调用):\n" +
+          "  1)调用检索工具(名字以 mcp__ 开头的任一个)真正取证 —— 它返回的每一条题录会被引擎自动记入账本;拿到结果后再调 SubmitAnswer。\n" +
+          "  2)如果这个问题确实无法用平台文献接地(例如纯方法解释、纯写作润色、用户只是闲聊),调用 DeclareInsufficient 说明缺什么,然后把答案作为**普通回复正文**写出来即可,不必再调 SubmitAnswer。\n" +
+          "严禁为了通过本工具而编造标题 / 作者 / 年份 / 期刊 / DOI / 统计数值。",
+        "本次回答尚未取得检索证据,AI 正在补充检索。",
+      );
+    } catch (e) {
+      // 账本读失败不该堵死交付面:放行 + 留痕(fail-soft,与 turnLoop 的账本读失败同口径)。
+      log.warn("SubmitAnswer gate degraded (ledger read failed)", { err: String((e as Error)?.message ?? e) });
+      return ok("已交付。回答已展示给用户,本轮到此结束,不要再重复输出正文。");
+    }
+  },
+};
+
+// DeclareInsufficient —— 诚实出口。这条路**必须留着**,但它与今天「标注即可」的关键区别是:
+// 今天是模型自己写一句话、写了没人管(smartsearch/spec.go 的逃生门正是这么把病灶合法化的);
+// 这里是**结构化记录** —— 落账本(ledger.jsonl 的 op 行)+ 进 research_state 帧 + 用户屏幕上
+// 由**引擎**打横幅(模型写什么都盖不掉它)。声明的是事实,不是免责声明。
+const declareInsufficientTool: BuiltinTool = {
+  name: "DeclareInsufficient",
+  description:
+    "Declare, on the record, that you cannot ground this answer in retrieved evidence and will answer from your own knowledge instead. " +
+    "Call this INSTEAD of quietly answering anyway whenever SubmitAnswer has told you the evidence ledger is empty and retrieval is not the right move (pure methodology explanation, writing/polishing, small talk, or retrieval that returned nothing usable). " +
+    "The platform records the declaration in this session's ledger and stamps a visible notice above your reply, so you do not need to write your own disclaimer — but you must still avoid inventing specific bibliographic details or statistics. " +
+    "After calling this, simply write your answer as a normal reply and end the turn (do not call SubmitAnswer). " +
+    "Input: { missing: what evidence is missing or why retrieval cannot ground this, attempted?: what you already tried }.",
+  input_schema: {
+    type: "object",
+    properties: {
+      missing: {
+        type: "string",
+        description: "What could not be grounded in retrieved evidence, and why (one or two sentences).",
+      },
+      attempted: {
+        type: "string",
+        description: "Optional: retrieval you already tried and why it did not help.",
+      },
+    },
+    required: ["missing"],
+  },
+  parallelSafe: true,
+  async run(input, ctx) {
+    const missing = typeof input.missing === "string" ? input.missing.trim().slice(0, 2000) : "";
+    if (!missing) {
+      return fail(
+        "DeclareInsufficient 未执行:缺少 missing 参数。请一句话说明「哪一部分无法用检索证据支撑、为什么」。",
+        "记录声明未成功,AI 会重试。",
+      );
+    }
+    const attempted = typeof input.attempted === "string" ? input.attempted.trim().slice(0, 2000) : "";
+    // 落账:与题录同一本账(evidence/ledger.jsonl),用 op 行 —— ledger.loadLedger 对没有
+    // id/key 的行直接跳过,故不污染题录读侧;终稿否决清单 #13「不许各写各的台账」。
+    // 追加式单行写入,不需要 ledger 的 id 分配锁(不分配 id、不改 INDEX)。
+    try {
+      const dir = join(ctx.workDir, "evidence"); // 与 evidence/ledger.ts 的 DIR/LEDGER 同布局
+      await mkdir(dir, { recursive: true });
+      await appendFile(
+        join(dir, "ledger.jsonl"),
+        JSON.stringify({ op: "insufficient", ts: new Date().toISOString(), missing, ...(attempted ? { attempted } : {}) }) + "\n",
+        "utf8",
+      );
+    } catch (e) {
+      // 记不上不该堵死诚实出口:横幅仍会打、research_state 帧仍会带 insufficient。
+      log.warn("DeclareInsufficient: ledger append failed", { err: String((e as Error)?.message ?? e) });
+    }
+    return ok(
+      "已记录「证据不足」声明,平台会在你的回答上方打出用户可见的提示横幅。\n" +
+        "现在直接把答案作为**普通回复正文**写出来并结束本轮 —— 不要再调用 SubmitAnswer,也不要自己再写一遍免责声明。\n" +
+        "仍然禁止编造具体文献题录(标题 / 作者 / 年份 / 期刊 / DOI)与统计数值;讲清楚哪些是通行认识、哪些需要用户自行核验即可。",
+    );
+  },
+};
+
+const all: BuiltinTool[] = [readTool, readDocumentTool, exportDocumentTool, buildDeckTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool, askUserQuestionTool, evidenceGetTool, submitAnswerTool, declareInsufficientTool];
 
 export const builtinRegistry: Map<string, BuiltinTool> = new Map(all.map((t) => [t.name, t]));
 

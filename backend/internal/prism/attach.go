@@ -8,11 +8,16 @@
 //   2. ensureProjectSession 解析 / 建该项目的 agent 会话;
 //   3. 调 agentattach 的 *ToSession 直通入口 (跳过表单 session_id 解析)。
 //
-// ⚠️ 遗留 (勿在本批次修): 上传文件落在会话 cwd **根目录** (uuid 前缀名), 没放 uploads/
-// 子目录 —— executor 的 pushSessionFile (agent/src/server/workspace.ts:156) 会 basename
-// 剥掉目录, 子目录落盘需要改 executor, 那是另一个批次。对 struct 轨项目无污染风险:
-// 铺源/回读只碰 document.md / references.bib / terminology.md, 根目录多出的附件不会
-// 被固化进 DB; LaTeX 编译在独立沙箱走 DB 真源, 也不受 cwd 附件影响。
+// 落盘位置: 附件走 uploads/ 子目录 (bootstrap 装配 NewUploader(...).WithSubdir("uploads");
+// executor pushSessionFile 白名单解析一层安全子目录段) —— prism 的 cwd 是 LaTeX 工作区,
+// 附件混进根目录会污染编译面。对 struct 轨项目无污染风险: 铺源/回读只碰 document.md /
+// references.bib / terminology.md, uploads/ 下的附件不会被固化进 DB; LaTeX 编译在独立沙箱
+// 走 DB 真源, 也不受 cwd 附件影响。
+//
+// ⚠️ 跨对话复用 (2026-07-31 线上审计): 用户在 A 对话上传、切到 B 对话再发送时, 附件路径仍指向
+// A 的 cwd, 权限层按本会话 cwd 前缀比对必拒 (AI 只能对用户说"我打不开你的文件", 该轮却仍标
+// complete)。治本在投递侧: agentattach.Relocator 在转发前把外来附件物化进当前轮的会话 cwd,
+// 上传侧 (本文件) 不需要改 —— 它本就把文件推到用户当前正在看的那条对话。
 //
 //   POST /prism/projects/:id/upload     multipart {file}
 //       → { sessionId, type:"image"|"file", name, mimeType, size, path }

@@ -15,7 +15,12 @@ export interface AgentStreamMessage {
 }
 
 // ── 共享「控制/元帧」契约(架构报告 M4 / Theme 3)──────────────────────────
-// agent WS 协议真源在 agent/src/server/ws/events.ts;三个 feature(claw/smart-search/prism)
+// ⚠️ agent WS 协议**已经没有单一声明文件了**:原 agent/src/server/ws/events.ts 的
+// ServerMessage union 在 a30add8d2「优化 agent架构」里被删除,且没有任何东西接替它。
+// 今天的发帧点是散的 —— agent/src/turn/turnLoop.ts(轮内帧,含 content_*/tool_*/research_state)
+// + turn/runTools.ts + turn/artifacts.ts + server/ws.ts(连接级帧)。要对帧形状请去读那四处,
+// 别再去找 events.ts(2026-08-01 实测不存在;仓库里还有 4 处注释同样指着它,一并改了)。
+// 三个 feature(claw/smart-search/prism)
 // 此前各自把 error / displaced / resync_user 这几个 arm 又抄了一份,且已漂移:claw 与
 // smart-search 的 error 漏了 code+retryable、smart-search 的 displaced 漏了 reason、prism 的
 // displaced.reason 退化成 string。这些 arm 收口到此一处,各 feature union 直接复用,从此「一处改、
@@ -40,6 +45,50 @@ export interface AgentClaimAudit {
   fullread_mismatch?: boolean;
   /** 本轮触发过自动纠偏(模型已在同轮内补验证/更正)→ 前端渲染中性小标注。 */
   corrective_fired?: boolean;
+}
+
+/**
+ * 证据账本过程状态帧(2026-08 证据账本 P0-c)——「带外过程可视化」的载体。
+ *
+ * 这是**引擎在工具执行咽喉点数出来的**计数,与模型在正文里自称做了什么完全独立:
+ * 今天模型对自己的过程有叙述垄断(它说「我刚检索了 16 篇」就没人能反驳),而生产数据里
+ * 有工具调用的轮 DOI 接地率 98%、零工具轮 43%。把引擎的真实计数印在它输出旁边,
+ * 不阻止伪造检索,但**当场剥夺其欺骗性**。
+ *
+ * 🔴 前端**不得**用自己从 blocks 里数出来的工具次数补位:那是把叙述垄断从模型转给前端启发式,
+ *    等于换个地方继续伪造。没有帧 = 不渲染 chip(引擎侧决定哪些轮发帧,前端没有策略)。
+ */
+export interface AgentResearchStateFrame {
+  type: 'research_state';
+  /**
+   * **本轮**(该帧所属这一轮)引擎计到的检索次数。0 ⇒ chip 显示「本轮未检索」。
+   * ⚠️ 口径固定为「本轮」——若执行器改发会话累计,chip 文案当场就成了新的谎,不要改这边的文案去迁就。
+   */
+  queries?: number;
+  /** 账本**累计**条数(整个会话的去重题录总量)。 */
+  ledger_total?: number;
+  /** 账本累计条数按来源拆分。键为 ledger 的 origin 枚举(retrieval / library_ref / user_upload / user_text)。 */
+  by_origin?: Record<string, number>;
+  /**
+   * 预检索状态(2026-08 证据账本 P1)。取证型轮 + 账本为空时,**引擎在模型开口之前**自动探一枪,
+   * 让模型开口时手上就有真题录 —— 这一枪计入上面的 `queries`。
+   *
+   * 🔴 **chip 必须消费它**:那一枪是引擎打的,不是模型搜的。只印「本轮检索 N 次」会把引擎的动作
+   * 记到模型头上 —— 这枚 chip 的全部意义是揭穿"模型自称检索过",它自己张冠李戴就等于制造了一条新的谎。
+   * 值域(执行器 PrefetchStatus):hit 命中并入账 / empty 该检索式零命中 / failed 上游失败(已静默回落)
+   *   / no_query 抽不出检索式 / unavailable 本轮工具面没有检索工具 / off 运维急停阀关闭。
+   * 缺席 = 本轮没跑预检索(老执行器或非取证轮),chip 照原样渲染。
+   */
+  prefetch?: string;
+}
+
+/**
+ * 账本新增条目帧(2026-08 证据账本 P0-b)。**P0 刻意不消费** —— 它是 P1 的
+ * `[[E<n>]]` 引用 resolve 与论文 chip 渲染的输入,P0 只让协议在类型上可见,避免各 feature 再各抄一份。
+ */
+export interface AgentEvidenceAppendedFrame {
+  type: 'evidence_appended';
+  ids?: string[];
 }
 
 /** error 帧(events.ts 真源形态)。code 驱动额度判定(isQuotaSignal),retryable 当前未消费但保留以对齐真源。 */
@@ -98,7 +147,8 @@ export function asAgentUserEchoFrame(e: AgentStreamMessage): AgentUserEchoFrame 
  * 而上层每帧对整个数组全量重折叠 ⇒ O(N²)(外加每帧 [...prev, evt] 的 O(N) 拷贝)。
  * 文本块的 delta 本就会被 fold 拼成一段,提前合并完全等价,却让数组长度退回 O(块数),
  * 折叠与拷贝都降一个数量级。只合并都带 string text 的相邻 delta:带 toolInput 的 delta
- * (工具入参流)fold 不消费,不参与合并以免误并入文本块。
+ * (工具入参流)在下方单独同类合并(2026-07 起三份 fold 经 appendToolInputStream 消费它,
+ * 驱动 ToolCallBlock 构建态预览),不与文本流互相误并。
  */
 export function appendStreamMessage<T extends AgentStreamMessage>(prev: T[], evt: T): T[] {
   if (evt.type === 'content_delta' && typeof evt.text === 'string') {

@@ -86,7 +86,7 @@ var agentDialer = &gorillaws.Dialer{
 var agentPingPayload = []byte(`{"type":"ping"}`)
 
 // agentReadDeadline 是 agent→backend 方向的读超时。我们每 25s 主动给 agent 发 ping,
-// agent 会回 {type:"pong"} (见 ws/events.ts ServerMessage.pong); 60s 内一帧都没收到
+// agent 会回 {type:"pong"} (发帧点 agent/src/server/ws.ts;原 ws/events.ts 已删,别去找); 60s 内一帧都没收到
 // 说明 agent 真的卡死或 TCP 断了。设短一点比 hang 在没响应的连接上好。
 const agentReadDeadline = 60 * time.Second
 
@@ -251,21 +251,33 @@ func decidePermission(raw []byte, sessionWorkDir string, denyTools []string) ([]
 		return nil, false
 	}
 
-	allowed := permissionAllowed(probe.ToolName, probe.Input, sessionWorkDir, denyTools)
+	allowed, knownTool := permissionAllowed(probe.ToolName, probe.Input, sessionWorkDir, denyTools)
+	var userMessage string
 	if !allowed {
-		// INFO 而非 WARN: 这是沙箱护栏按预期拒绝越界/危险工具(agent 探索时常态发生),
-		// 是安全审计信息而非系统故障。保留可见性(docker logs 可查), 但不污染 WARN/ERROR。
-		slog.Info("agentbridge ws: permission denied (guard enforced)",
-			"tool", probe.ToolName, "workdir", sessionWorkDir)
+		if !knownTool {
+			// 2026-07 线上审计:模型幻想的工具名(SearchPapers / GetDocument / 无前缀 search_papers 等)
+			// 此前与真越权共用「该操作未获授权,已跳过」文案,模型误以为是权限问题而放弃。
+			// 回执带 userMessage 区分「工具不存在」,给模型可自愈的改用提示(旧 agent 镜像忽略该字段)。
+			userMessage = "不存在名为 " + probe.ToolName + " 的工具,请改用可用工具。"
+			slog.Info("agentbridge ws: permission denied (unknown tool)",
+				"tool", probe.ToolName, "workdir", sessionWorkDir)
+		} else {
+			// INFO 而非 WARN: 这是沙箱护栏按预期拒绝越界/危险工具(agent 探索时常态发生),
+			// 是安全审计信息而非系统故障。保留可见性(docker logs 可查), 但不污染 WARN/ERROR。
+			slog.Info("agentbridge ws: permission denied (guard enforced)",
+				"tool", probe.ToolName, "workdir", sessionWorkDir)
+		}
 	}
 	reply, err := json.Marshal(struct {
-		Type      string `json:"type"`
-		RequestID string `json:"requestId"`
-		Allowed   bool   `json:"allowed"`
+		Type        string `json:"type"`
+		RequestID   string `json:"requestId"`
+		Allowed     bool   `json:"allowed"`
+		UserMessage string `json:"userMessage,omitempty"`
 	}{
-		Type:      "permission_response",
-		RequestID: probe.RequestID,
-		Allowed:   allowed,
+		Type:        "permission_response",
+		RequestID:   probe.RequestID,
+		Allowed:     allowed,
+		UserMessage: userMessage,
 	})
 	if err != nil {
 		return nil, false
@@ -279,16 +291,20 @@ var fileToolPathKeys = []string{"file_path", "source_path", "path", "notebook_pa
 // permissionAllowed 判定一次工具调用是否放行。
 // denyTools: 该会话(feature)显式禁用的工具 —— 后端二道防线,即便 agent 端 --disallowed-tools
 // 被绕过,这里也对禁用工具一律拒绝(Prism 写作:禁 Bash/Write/Edit/...,见 review F9)。
-func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir string, denyTools []string) bool {
+//
+// 2026-07 线上审计:第二返回值 known 标识 toolName 是否在本函数已知清单内(denylist 命中 /
+// mcp__ 前缀 / 下方各显式 case)。default 分支 = 模型幻想的工具名 → known=false,
+// decidePermission 据此把回执文案与真越权分开(「工具不存在」可自愈 vs「未获授权」)。
+func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir string, denyTools []string) (allowed, known bool) {
 	// 显式禁用名单最高优先级:任何匹配一律拒绝(无视路径/类型)。
 	for _, d := range denyTools {
 		if d == toolName {
-			return false
+			return false, true
 		}
 	}
 	// MCP 工具一律放行 (只读学术检索)
 	if strings.HasPrefix(toolName, "mcp__") {
-		return true
+		return true, true
 	}
 	// Bash 三件套 (Bash/BashOutput/KillShell) 现在按 feature 收敛 (C1, 2026-06):
 	// 只有 AllowBash=true 的 feature (目前仅 claw, 它要跑 pandoc/python 转 docx/xlsx) 才放行 ——
@@ -303,17 +319,17 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	// ⚠️ Task/Agent (子 agent) 不在此列, 仍全禁: 子 agent 的工具调用**旁路本裁决**, 必须等生产
 	// L2 沙箱 (bubblewrap/gVisor) 就位再放 (见 agent conversationService.ts 注释)。
 	if toolName == "WebFetch" || toolName == "WebSearch" || toolName == "Skill" {
-		return true
+		return true, true
 	}
 	// Bash 三件套: 走到这里 = 该 feature AllowBash=true (否则已在顶部 denylist 被拒)。
 	// shell 无法做路径限制, 对 AllowBash feature (claw) 放行 (风险见上方注释 / 生产靠 sandbox)。
 	if toolName == "Bash" || toolName == "BashOutput" || toolName == "KillShell" {
-		return true
+		return true, true
 	}
 	// TodayDate (2026-07): agent 内建的只读时钟工具 (查当前日期/时间, 治时间线幻觉)。
 	// 无参数、无路径、不碰文件系统与网络, 对全部 feature 放行。
 	if toolName == "TodayDate" {
-		return true
+		return true, true
 	}
 	// AskUserQuestion (2026-07, 交互提问): agent 把「只有用户能拍板的决策」做成选项卡片让用户点选。
 	// input 仅 { questions: [...] }(问题/选项文本,无路径、不碰文件系统与网络),纯前端渲染 + 回一条
@@ -322,7 +338,7 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	// 及 smart_search/prism 已把本工具经 SessionOptions.DisallowedTools 注入 denyTools,在本函数顶部
 	// 命中 denylist 被直接拒 —— P0 仅 claw 放开。
 	if toolName == "AskUserQuestion" {
-		return true
+		return true, true
 	}
 	// BuildDeck (2026-07, 制作PPT/boltslides): 把会话内预置的 bolt-slides 脚手架编译成单文件 HTML
 	// 落 ./out/。input 仅 { name? }(文件名 slug,无路径);工具内部把产物强制 confine 到 out/<name>.html,
@@ -330,7 +346,28 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	// 同 ReadDocument/ExportDocument 当年漏加即失效)。工具自身对非演示稿工作区自守卫(缺脚手架即拒),
 	// 故对非 boltslides feature 放行也无害。
 	if toolName == "BuildDeck" {
-		return true
+		return true, true
+	}
+	// EvidenceGet (2026-08 证据账本 P0): 只读回看本会话的证据账本 (引擎在工具返回时刻机械记录的题录)。
+	// input 仅 { ids?, fields? }, 无路径、不碰网络; 读写都被工具强制 confine 在 <cwd>/evidence/ 内。
+	// 🔴 必须在此显式放行: 否则命中下面 default: return false 被权限墙一律拒绝 = DOA
+	//    (ReadDocument/ExportDocument/BuildDeck 当年都漏加过, 同一个坑)。
+	//    它是 smart_search 的**唯一**读回路 —— 该 feature 的 denylist 禁掉了 Write/Glob/Grep/Skill,
+	//    没有它, 会话重灌 (tool_result 被整段丢弃) 之后模型没有任何方式回看已检索到的证据。
+	if toolName == "EvidenceGet" {
+		return true, true
+	}
+	// SubmitAnswer / DeclareInsufficient (2026-08 证据账本 P1): 取证轮的「交付出口」两件套。
+	// SubmitAnswer 是模型给最终答案的唯一通道(取证轮才出现在 tools[] 里), 账本为空时执行器侧
+	// 直接回 is_error + 可执行差额; DeclareInsufficient 是与之配对的**诚实出口** ——
+	// 把「证据不足」从一句没人管的散文变成结构化记录(落账本 + 进 research_state 帧 + 可 SQL 复盘)。
+	// input 均无路径、不碰网络, 读写被工具 confine 在 <cwd>/evidence/ 内, 放行面与 EvidenceGet 同级。
+	// 🔴 必须显式放行: 这是本仓库第四次踩「引擎造好没接线」——
+	//    ReadDocument / ExportDocument / BuildDeck / EvidenceGet 都漏加过, 症状一致:
+	//    命中下面 default 被判「不存在该工具」, 模型静默回落到今天的行为, 整条取证闸形同虚设。
+	//    自查: docker logs scholar_backend | grep "unknown tool" 出现这两个名字 = 漏接。
+	if toolName == "SubmitAnswer" || toolName == "DeclareInsufficient" {
+		return true, true
 	}
 	// ReadDocument/ExportDocument(2026-07-15):安全受限的文档抽取/导出工具(内部固定 argv 调
 	// pandoc/pdftotext,路径 confine 在会话 cwd)。二道防线仍校验 input 路径在会话目录内 —— 否则
@@ -343,12 +380,13 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 		p := extractPathFromInput(input)
 		if p == "" {
 			// Glob/Grep 不带 path 默认搜 cwd → 安全放行; 其它没路径视为异常 → 拒。
-			return toolName == "Glob" || toolName == "Grep"
+			return toolName == "Glob" || toolName == "Grep", true
 		}
-		return pathWithin(p, sessionWorkDir)
+		return pathWithin(p, sessionWorkDir), true
 	default:
-		// 其它工具理论上已被禁用 (agent --disallowed-tools), 兜底拒绝。
-		return false
+		// 其它工具兜底拒绝。2026-07 线上审计:走到这里的多是模型幻想的工具名(真实工具都已有
+		// 显式 case 或被 denylist 拦),known=false 让回执文案改为「工具不存在」引导模型自愈。
+		return false, false
 	}
 }
 
@@ -371,6 +409,10 @@ func extractPathFromInput(input json.RawMessage) string {
 	return ""
 }
 
+// sandboxWorkAlias 是 bwrap 沙箱内会话目录的挂载点:agent 端沙箱把 <sessionWorkDir> bind 到 /work,
+// 模型在沙箱视角看到的绝对路径是 /work/...。
+const sandboxWorkAlias = "/work"
+
 // pathWithin 判定 p 是否落在 workDir 子树内 (含 workDir 本身)。
 // 相对路径视为相对 cwd(=workDir) → 一定在内。绝对路径 Clean 后做前缀比对, 防 `..` 逃逸。
 func pathWithin(p, workDir string) bool {
@@ -384,6 +426,25 @@ func pathWithin(p, workDir string) bool {
 	}
 	cleaned := path.Clean(p)
 	root := path.Clean(workDir)
+	// 2026-07 线上审计:bwrap 沙箱把会话目录 bind 到 /work,模型常以 /work/... 绝对路径调用
+	// 文件工具,此前只认 <workDir> 前缀 → Read/Write/ExportDocument 全被拒(W0 沙箱上线后的回归)。
+	// 把 /work 识别为 workDir 的等价别名(/work/out/x ≡ <workDir>/out/x),仅做等价映射,
+	// 不放宽任何其他路径;先 Clean 再映射,/work/../etc 之类已被折算,无法借别名绕过前缀校验。
+	//
+	// 2026-07 审查([0]/[17]/[20]):这是「/work 整片按前缀重写到本会话 workDir」,不是无条件放行 ——
+	// 别名把 /work/<别人的 sessionId>/x 也映射进**本**会话目录,越权读不可能借它发生;
+	// 但也因此,后端放行的路径与工具真正会打开的路径必须同语义 —— 执行器侧的入站翻译在
+	// agent/src/sandbox/confine.ts(同一常量、同一规则),两边任何一侧单独改都会重现「批了却打不开」。
+	// 性质由 ws_path_test.go 锁住。
+	//
+	// workDir 自身落在 /work 子树时不做翻译(否则双重前缀,且与 confine.ts 的同款守卫不一致)。
+	if root != sandboxWorkAlias && !strings.HasPrefix(root, sandboxWorkAlias+"/") {
+		if cleaned == sandboxWorkAlias {
+			cleaned = root
+		} else if strings.HasPrefix(cleaned, sandboxWorkAlias+"/") {
+			cleaned = root + strings.TrimPrefix(cleaned, sandboxWorkAlias)
+		}
+	}
 	return cleaned == root || strings.HasPrefix(cleaned, root+"/")
 }
 
@@ -430,6 +491,89 @@ func (f *FeatureBridge) authenticateWSRequest(c *gin.Context, pathSessionID stri
 //   - user_echo 用注入前原文(调用方保留),不把容器绝对路径泄进其它端的气泡。
 // 格式与前端剥离器严格同构:`@"<绝对路径>" `×N + 正文;空正文补英文占位句(剥离器同样识别并隐藏)。
 // 路径须为绝对路径且不含引号/换行(防标记断裂);全部无效 → 不改帧。
+// attachmentPathIndices 返回 user_message 帧里**会被 foldUserAttachments 采纳**的 attachments 下标
+// (同一套数量帽 + 合法性过滤)。抽取与回写必须共用它 —— 两侧下标一旦错位, 就会把 A 附件的新
+// 路径写到 B 头上。
+func attachmentPathIndices(atts []any) []int {
+	const maxWsAttachments = 10 // 与 foldUserAttachments 同口径
+	if len(atts) > maxWsAttachments {
+		atts = atts[:maxWsAttachments]
+	}
+	var out []int
+	for i, a := range atts {
+		m, _ := a.(map[string]any)
+		p, _ := m["path"].(string)
+		if p == "" || !strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\"\n") {
+			continue // 与 fold 一致地跳过: 空 / 非绝对 / 含引号换行(会破坏 @"path" 标记)
+		}
+		out = append(out, i)
+	}
+	return out
+}
+
+// extractUserMessageAttachmentPaths 取出本帧里 fold 将会采纳的附件路径(顺序即 fold 顺序)。
+// 非 user_message / 无附件 → nil。供跨会话附件物化(AttachmentRelocator)使用。
+func extractUserMessageAttachmentPaths(raw []byte) []string {
+	if len(raw) == 0 || raw[0] != '{' {
+		return nil
+	}
+	var frame map[string]any
+	if err := json.Unmarshal(raw, &frame); err != nil || frame["type"] != "user_message" {
+		return nil
+	}
+	atts, _ := frame["attachments"].([]any)
+	idx := attachmentPathIndices(atts)
+	if len(idx) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(idx))
+	for _, i := range idx {
+		m, _ := atts[i].(map[string]any)
+		p, _ := m["path"].(string)
+		out = append(out, p)
+	}
+	return out
+}
+
+// rewriteUserMessageAttachmentPaths 把物化后的新路径按原顺序写回 attachments[].path。
+// newPaths 长度必须与 extractUserMessageAttachmentPaths 的返回等长(实现方契约), 否则
+// 整体放弃改写(返回 ok=false, 调用方沿用原帧)—— 宁可不改, 不可错配。
+func rewriteUserMessageAttachmentPaths(raw []byte, newPaths []string) ([]byte, bool) {
+	if len(raw) == 0 || raw[0] != '{' || len(newPaths) == 0 {
+		return nil, false
+	}
+	var frame map[string]any
+	if err := json.Unmarshal(raw, &frame); err != nil || frame["type"] != "user_message" {
+		return nil, false
+	}
+	atts, _ := frame["attachments"].([]any)
+	idx := attachmentPathIndices(atts)
+	if len(idx) != len(newPaths) {
+		slog.Warn("agentbridge: attachment relocate path count mismatch, keeping original frame",
+			"want", len(idx), "got", len(newPaths))
+		return nil, false
+	}
+	changed := false
+	for k, i := range idx {
+		m, _ := atts[i].(map[string]any)
+		if m == nil || newPaths[k] == "" {
+			continue
+		}
+		if cur, _ := m["path"].(string); cur != newPaths[k] {
+			m["path"] = newPaths[k]
+			changed = true
+		}
+	}
+	if !changed {
+		return nil, false // 全部本就在本会话: 零改写(常态路径)
+	}
+	out, err := json.Marshal(frame)
+	if err != nil {
+		return nil, false
+	}
+	return out, true
+}
+
 func foldUserAttachments(raw []byte) (rewritten []byte, newContent string, ok bool) {
 	if len(raw) == 0 || raw[0] != '{' {
 		return nil, "", false
@@ -611,6 +755,72 @@ var agentErrorFriendly = map[string]string{
 	"empty_turn":           "模型没有返回任何内容,本轮未完成,请重试。",
 	"turn_timeout":         "本轮处理时间过长已自动停止,已生成的内容保留在上方,请重试或换个问法。",
 	"model_protocol_error": "模型输出出现协议异常,本轮已终止,请重试或更换模型。",
+	// 2026-07 线上审计:agent 侧新增两个 code。round_cap 是从 busy 里拆出的「轮内步数达上限」
+	// (新 agent 镜像才会发;旧镜像仍发 busy,走下方 busy→overloaded 改名老路,向后兼容);
+	// content_blocked 是上游合规审查拦截。
+	"round_cap":       "本轮执行步骤已达上限,请精简需求或拆成多轮再试。",
+	"content_blocked": "内容未通过上游合规审查,请调整措辞后重试。",
+}
+
+// ─── 失败轮归责(2026-07-31 线上审计 §五)────────────────────────────────────
+//
+// 一轮以 error 终帧收场时,要回答两个独立的问题:
+//   ① 这笔上游消耗该不该记进**用户额度**?   → turnFailureChargedToUser
+//   ② 该不该**换个 provider 自动重投**这一轮? → turnFailureWorthProviderRetry
+// 两者判据不同(round_cap 不该扣用户额度,但重投必然再撞顶),故分两张表,不合并。
+
+// turnFailureChargedByUserTask —— 用户**任务本身**导致的失败:照常计入用户额度。
+//   - budget:         任务过大撞单轮预算,消耗真实发生且由用户需求驱动;
+//   - content_blocked: 上游合规审查拦截,内容是用户给的;
+//   - quota_exceeded:  额度本身的语义帧(不会带 usage,列此仅为口径完整)。
+//
+// **刻意用「计费白名单」而非「免单白名单」**:此后 agent 侧新增任何 error code,默认是
+// 「平台自担」而不是默默开始向用户收失败的钱 —— 收钱的口子必须显式登记(线上 9 连败教训)。
+var turnFailureChargedByUserTask = map[string]bool{
+	"budget":          true,
+	"content_blocked": true,
+	"quota_exceeded":  true,
+}
+
+// turnFailureChargedToUser 判定一帧 error 终帧携带的消耗是否计入用户额度。
+// false = 平台自担(仍记账本留成本快照,见 hooks.go recordAgentTokensPlatformFault)。
+func turnFailureChargedToUser(code string) bool {
+	return turnFailureChargedByUserTask[code]
+}
+
+// turnFailureProviderRetryable —— 「换个 provider 大概率就好」的失败类别:
+//   - upstream:             传输层(流断 / 上游 5xx / 超时),agent 已在同 provider 内重放过仍失败;
+//   - busy / overloaded:    容量类(上游过载;busy 是 agent 侧原始 code,sanitize 后才改名 overloaded);
+//   - model_protocol_error: 该模型吐了协议残渣(DSML 泄漏),换模型即换 provider 才有意义
+//     —— agent 自己的文案就是「请重试或更换模型」。
+//
+// 刻意**不含**:content_blocked / budget / round_cap / quota_exceeded(语义性失败,换 provider
+// 必然同样失败,重投只是白烧一遍钱)、config / internal(端点没配好 / 执行器内部异常,换端点无用)。
+var turnFailureProviderRetryable = map[string]bool{
+	"upstream":             true,
+	"busy":                 true,
+	"overloaded":           true,
+	"model_protocol_error": true,
+}
+
+// turnFailureWorthProviderRetry 判定该 error code 值不值得换 provider 重投一次该轮。
+func turnFailureWorthProviderRetry(code string) bool {
+	return turnFailureProviderRetryable[code]
+}
+
+// errorFrameCode 浅取一帧 error 的 code(非 error 帧 / 解析失败 → "")。
+func errorFrameCode(raw []byte) string {
+	if len(raw) == 0 || raw[0] != '{' {
+		return ""
+	}
+	var probe struct {
+		Type string `json:"type"`
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "error" {
+		return ""
+	}
+	return probe.Code
 }
 
 // agentErrorFriendlyPassthrough —— 这些 code 的 message 执行器已友好化(中文、无内部标识),原样保留。
@@ -797,6 +1007,24 @@ func classifyPreUserMessageError(err error) string {
 	default:
 		return "hook_error"
 	}
+}
+
+// quotaPayloadCarrier —— vip 侧 quota 错误实现的 duck-typed 接口(agentbridge 不反向
+// import vip):QuotaFramePayload 返回冻结契约的 quota 对象
+// {reset_at:"<RFC3339,无窗口时空串>", window_days, credit_balance_positive, credit_autopay}。
+type quotaPayloadCarrier interface{ QuotaFramePayload() map[string]any }
+
+// quotaFramePayload 从 PreUserMessage 拒绝错误链提取结构化 quota 对象(要求 spec 侧用
+// NewQuotaErrorFrom 保链)。无结构化字段(旧 NewQuotaError 纯文案 / 非 quota 错误)→ ok=false,
+// 帧上不带 quota,前端按缺失兼容。
+func quotaFramePayload(err error) (map[string]any, bool) {
+	var qc quotaPayloadCarrier
+	if errors.As(err, &qc) {
+		if p := qc.QuotaFramePayload(); p != nil {
+			return p, true
+		}
+	}
+	return nil, false
 }
 
 // preUserMessageUserText —— PreUserMessage 拒绝帧给用户看的文案(评审 SS#4 残留)。

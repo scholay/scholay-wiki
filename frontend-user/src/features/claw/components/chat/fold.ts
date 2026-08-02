@@ -30,7 +30,11 @@ import type {
   ToolBlock,
   Turn,
 } from '@/shared/types/chat';
-import { markPendingToolsAborted } from '@/shared/types/chat';
+import {
+  appendToolInputStream,
+  finishToolInputStream,
+  markPendingToolsAborted,
+} from '@/shared/types/chat';
 
 // ─── 实时 WS 事件流 → Turn[] ──────────────────────────────────────────────
 
@@ -57,6 +61,8 @@ export function foldMessagesIntoTurns(
 
   let turnIdx = 0;
   let currentTextBlock: TextBlock | null = null;
+  // 在途 tool_use 块(content_start 开、tool_use_complete 关)—— toolInput 流式增量挂它身上。
+  let currentToolBlock: ToolBlock | null = null;
 
   // tool block 按 toolUseId 建索引 —— 之前每来一条 tool_use_complete / tool_result 都做
   // turns×blocks 嵌套线性扫描 (O(M×B)), 长会话里和外层"每帧重折叠"叠成 O(N³)。改成 Map.O(1)。
@@ -76,6 +82,7 @@ export function foldMessagesIntoTurns(
     switch (msg.type) {
       case 'content_start':
         currentTextBlock = null;
+        currentToolBlock = null;
         if (msg.blockType === 'text') {
           currentTextBlock = {
             kind: 'text',
@@ -92,11 +99,15 @@ export function foldMessagesIntoTurns(
           };
           current.blocks.push(tb);
           toolBlockByUseId.set(msg.toolUseId, tb);
+          currentToolBlock = tb;
         }
         break;
       case 'content_delta':
         if (currentTextBlock && typeof msg.text === 'string') {
           currentTextBlock.text += msg.text;
+        } else if (currentToolBlock && typeof msg.toolInput === 'string' && msg.toolInput) {
+          // 构建期流式入参(此前丢弃):挂到在途工具块 → ToolCallBlock 实时预览。
+          appendToolInputStream(currentToolBlock, msg.toolInput, msg.toolPath);
         }
         break;
       case 'round_discarded':
@@ -113,6 +124,8 @@ export function foldMessagesIntoTurns(
         if (block) {
           block.toolName = msg.toolName;
           block.input = msg.input;
+          finishToolInputStream(block);
+          if (block === currentToolBlock) currentToolBlock = null;
         }
         break;
       }
@@ -135,6 +148,23 @@ export function foldMessagesIntoTurns(
         }
         break;
       }
+      case 'research_state':
+        // 证据账本带外计数(2026-08 P0-c):引擎在工具咽喉点数出来的,与模型自称的过程无关。
+        // 后到覆盖先到(帧是全量快照);wire 的 snake_case 只在这一处转驼峰。
+        // 缺字段按 0 处理 —— 「未知」在这里没有意义:引擎发了帧就代表它数过了。
+        current.research = {
+          queries: msg.queries ?? 0,
+          ledgerTotal: msg.ledger_total ?? 0,
+          byOrigin: msg.by_origin,
+          // 预检索(2026-08 P1):那一枪是**引擎**在模型开口前打的,却计入 queries ——
+          // 不透传这个字段,chip 就会把引擎的动作说成模型搜的(它自己制造一条新的谎)。
+          prefetch: msg.prefetch,
+        };
+        break;
+      case 'evidence_appended':
+        // P0 刻意不消费(见 AgentEvidenceAppendedFrame 注释):它是 P1 的 [[E<n>]] resolve 输入。
+        // 显式列出而不是靠 switch 落空,是为了让「这里没做」是一个可读的决定而不是一处遗漏。
+        break;
       case 'status':
         current.placeholder = {
           ...(current.placeholder ?? {}),
@@ -158,6 +188,7 @@ export function foldMessagesIntoTurns(
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
+        currentToolBlock = null;
         turnIdx++;
         break;
       case 'error':
@@ -168,6 +199,7 @@ export function foldMessagesIntoTurns(
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
+        currentToolBlock = null;
         turnIdx++;
         break;
       case 'connected':

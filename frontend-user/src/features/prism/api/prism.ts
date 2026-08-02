@@ -42,6 +42,9 @@ export interface PrismCompile {
   error_summary?: string;
   // 失败分类(mirrors prism.Compile.ErrorKind):latex=真 LaTeX 语法错(才 arm auto-fix)/ infra / timeout / 空=旧行未分类。
   error_kind?: string;
+  // 报错归属(mirrors prism.Compile.ErrorSource,2026-07 线上审计新增):body=正文 document.md /
+  // bibliography=参考文献 bib(回喂 AI 改 document.md 结构性修不了)/ infra=基础设施;空=旧后端未分类,按 body 兼容。
+  error_source?: string;
   duration_ms: number;
   page_count?: number; // 编译产物页数(mirrors prism.Compile.PageCount;V4-A3 页数对照)
   overfull_count?: number;

@@ -607,7 +607,13 @@ func parseCompileStats(log string) (pages, overfull int) {
 }
 
 func (s *Service) GetCompile(projectID, id uint) (*Compile, error) {
-	return s.repo.GetCompileInProject(projectID, id)
+	cm, err := s.repo.GetCompileInProject(projectID, id)
+	// 2026-07 线上审计 #3:失败行读时补 error_source(body/bibliography/infra),
+	// 供前端分流自动修复方向(bib 类错误不再回喂 AI 改 document.md)。
+	if err == nil && cm != nil && cm.Status == CompileError {
+		cm.ErrorSource = classifyCompileErrorSource(cm.ErrorKind, cm.ErrorSummary, cm.LogExcerpt)
+	}
+	return cm, err
 }
 
 // OpenLatestPDF 取项目最近成功编译的 PDF 流(handler 转发给浏览器 react-pdf)。

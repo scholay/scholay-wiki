@@ -47,6 +47,18 @@ const fmtCredit = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : Str
 const METHOD_ICONS: Record<string, LucideIcon> = { wechat: QrCode, alipay: CreditCard, test: Zap };
 
 /**
+ * 跳支付宝收银台前记住出发页(pathname + search)—— 支付回程由 App.tsx 读取本 key 后
+ * 把用户带回原页。key 与读取侧约定为 'scholay:pay-return-path',**一字不差**,改动须两侧同步。
+ */
+function rememberPayReturnPath() {
+  try {
+    localStorage.setItem('scholay:pay-return-path', window.location.pathname + window.location.search);
+  } catch {
+    // Safari 隐私模式等 localStorage 不可写 —— 回程走默认落点即可,不阻断支付
+  }
+}
+
+/**
  * 「用经费继续」开关(0094 按量付费)—— 周期额度用完后自动按真实成本从经费扣。
  *
  * 🔴 **默认关**,必须由用户在这里显式开。历史上的「自动消耗经费重置额度」就是因为
@@ -72,7 +84,6 @@ function CreditAutopayCard() {
           {data && (
             <p className="text-12 text-faint">
               当前经费 {Number.isInteger(data.credit.total) ? data.credit.total : data.credit.total.toFixed(2)}
-              (≈{data.credit.points.toLocaleString()} 算力点)
             </p>
           )}
         </div>
@@ -134,6 +145,7 @@ export function RechargePanel() {
         return;
       }
       const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: '科研经费充值'});
+      rememberPayReturnPath();
       window.location.href = pay.payment_url;
     } catch (err) {
       toast.error(toApiError(err).message ||'发起支付失败');
@@ -150,7 +162,7 @@ export function RechargePanel() {
         <section className="rounded-16 border border-border bg-surface-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-14 font-medium text-foreground">选择充值金额</h3>
-            <span className="text-12 text-faint">1 元 = {rate} 经费{plans?.credit_to_points ? ` ≈ ${rate * plans.credit_to_points} 算力点` : ''}</span>
+            <span className="text-12 text-faint">1 元 = {rate} 经费</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[30, 50, 20, 200, 500, 1000].map((v) => {
@@ -364,6 +376,7 @@ export function useSubscribeFlow() {
         return false;
       }
       const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${cycleLabel}订阅`});
+      rememberPayReturnPath();
       window.location.href = pay.payment_url;
       return true;
     } catch (err) {

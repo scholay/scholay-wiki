@@ -6,6 +6,7 @@ import {
   Inbox,
   Loader2,
   Lock,
+  RefreshCw,
   Settings2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -296,6 +297,23 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                     title="分析失败"
                     description={
                       (matrixQ.error as Error).message || '请稍后重试'
+                    }
+                    action={
+                      // 只重跑失败行(额度恢复 / 网络恢复后手动再来一次);成功缓存不动。
+                      // 额度恢复事件也会自动触发同一失效逻辑(见 useMatrixAnalysis)。
+                      <button
+                        type="button"
+                        onClick={matrixQ.retryFailed}
+                        disabled={matrixQ.isFetching}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {matrixQ.isFetching ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3" />
+                        )}
+                        重试
+                      </button>
                     }
                   />
                 </td>

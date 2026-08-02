@@ -6,7 +6,8 @@ import type { MathImg } from '../../lib/math-cache'
 export type { MathImg }
 
 export function renderMath(tex: string, display: boolean): Promise<MathImg> {
-  return request<MathImg>({ url: '/user/render/math', method: 'POST', data: { tex, display } })
+  // quotaModal:false —— 后台静默渲染(失败走文本兜底),不该因 6010 在用户阅读时弹全局额度提示
+  return request<MathImg>({ url: '/user/render/math', method: 'POST', data: { tex, display }, quotaModal: false })
 }
 
 // mermaid 图表 → PNG(agent headless Chromium 渲染,后端 Redis 长缓存)。
@@ -17,5 +18,6 @@ export interface MermaidImg {
   height: number
 }
 export function renderMermaid(code: string): Promise<MermaidImg> {
-  return request<MermaidImg>({ url: '/user/render/mermaid', method: 'POST', data: { code } })
+  // 同 renderMath:后台静默渲染失败回退源码卡,禁全局额度弹窗
+  return request<MermaidImg>({ url: '/user/render/mermaid', method: 'POST', data: { code }, quotaModal: false })
 }

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { AlertCircle, FileText, Image as ImageIcon } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
+import { AlertCircle, FileText, Image as ImageIcon, TriangleAlert } from 'lucide-react';
 import {
   replayHistoryAsTurns,
   parseUserEntryWithAttachments,
@@ -15,15 +15,20 @@ import {
   ProcessFold,
   ThinkingFold,
   ToolCallBlock,
+  ToolGroupBlock,
   ToolHeaderExtras,
   UserBubble,
   extractToolQuery,
   extractToolSourceBrand,
 } from '@/shared/components/chat';
+import {
+  classifyMinicodResultCached,
+  computeClawTurnLayout,
+} from '@/shared/lib/chat-turn-layout';
 import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
 import { classifyMinicodToolResult } from '@/shared/lib/minicod-results';
 import { Button } from '@/shared/ui/button';
-import type { Turn, TurnAttachment } from '@/shared/types/chat';
+import type { ToolBlock, Turn, TurnAttachment } from '@/shared/types/chat';
 import type { TranscriptEntry } from '../api/session-monitor';
 import type { AdminPreviewFile } from './AdminFilePreviewDialog';
 
@@ -134,8 +139,11 @@ function TurnTail({ turn }: { turn: Turn }) {
   );
 }
 
-/** claw 镜像(MessageTurn 只读版):附件 chips(可点开预览)+ 顺序块(minicod 工具同用户端特化成
- *  论文/期刊/作者/片段只读卡,其余工具走默认 ToolCallBlock)+ 错误/暂停。 */
+/** claw 镜像(MessageTurn 只读版,2026-07-31 已同步三段布局):附件 chips(可点开预览)
+ *  + ProcessFold(工具 chip + 同名聚组 + 中间叙述,只读态默认收起,标题带失败摘要)
+ *  + 特化只读卡外提(论文/期刊/作者/片段)+ 答案外提 + 错误/暂停。
+ *  切片纯函数与用户端同一份(shared/lib/chat-turn-layout),差异仅只读卡(PaperListReadonly
+ *  无收藏/翻译/曝光上报)与无流式态 —— 「管理端 = 用户端」对 claw 重新成立。 */
 function ClawTurn({
   turn,
   sessionId,
@@ -145,6 +153,27 @@ function ClawTurn({
   sessionId?: string;
   onPreview?: (f: AdminPreviewFile) => void;
 }) {
+  const layout = useMemo(() => computeClawTurnLayout(turn), [turn]);
+
+  // 单个工具 chip:minicod 露品牌/搜索词、卡片已外提的不给 JSON 展开(与用户端同款;
+  // admin 无 Skill 徽标特化 —— 走 tool-semantics 的「技能」通用 chip)。
+  const renderToolChip = (b: ToolBlock) => {
+    if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
+      const kind =
+        b.result !== undefined ? classifyMinicodResultCached(b.result, b.toolName) : 'unknown';
+      return (
+        <ToolCallBlock
+          tool={b}
+          expandable={kind === 'unknown'}
+          renderHeaderExtras={() => (
+            <ToolHeaderExtras brand={extractToolSourceBrand(b.input)} query={extractToolQuery(b.input)} />
+          )}
+        />
+      );
+    }
+    return <ToolCallBlock tool={b} />;
+  };
+
   return (
     <article className="flex flex-col gap-2.5 min-w-0">
       <UserBubble
@@ -156,35 +185,60 @@ function ClawTurn({
         }
       />
       {turn.thinkingText && <ThinkingFold text={turn.thinkingText} isActive={false} />}
-      {turn.blocks.map((b) => {
-        if (b.kind === 'text') {
-          if (!b.text) return null;
-          return <AssistantBubble key={b.id} text={b.text} />;
-        }
-        // minicod 工具:与用户端 claw(MessageTurn)同款 —— 按 dispatcher 判定结果类型渲成对应只读卡
-        // (论文 / 期刊 / 作者 / 原文片段)并隐藏 JSON + 露出品牌/搜索词 chip;'unknown' 才回退默认可展开,
-        // 让管理员至少能看到原始 JSON。非 minicod 工具(Bash / Read / 交付物等)维持默认 ToolCallBlock。
-        if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
-          const kind =
-            b.result !== undefined ? classifyMinicodToolResult(b.result, b.toolName) : 'unknown';
-          return (
-            <div key={b.id} className="space-y-2 min-w-0">
-              <ToolCallBlock
-                tool={b}
-                expandable={kind === 'unknown'}
-                renderHeaderExtras={() => (
-                  <ToolHeaderExtras brand={extractToolSourceBrand(b.input)} query={extractToolQuery(b.input)} />
-                )}
-              />
-              {kind === 'papers' && <PaperListReadonly content={b.result} />}
-              {kind === 'journals' && <MinicodJournalCards content={b.result} />}
-              {kind === 'authors' && <MinicodAuthorCards content={b.result} />}
-              {kind === 'snippets' && <MinicodSnippetCards content={b.result} />}
-            </div>
-          );
-        }
-        return <ToolCallBlock key={b.id} tool={b} />;
-      })}
+
+      {/* 结果卡在处理过程折叠**之前** —— 与用户端 claw MessageTurn 保持同一顺序。
+          用户端那边这个顺序是**功能性**的:流式期正文关在展开的折叠里,卡片若排在后面就会成为
+          DOM 末尾,use-stick-to-bottom 钉住静止卡片 → 用户以为回答停了(2026-08-02 线上反馈)。
+          admin 是历史回放、没有流式,那条理由在此不成立;这里同步纯粹是**镜像一致性**:
+          同一条 turn 在两个视图里显示成不同顺序,会让排查的人怀疑数据不一致。
+          顺序由 chat-turn-layout.order.test.ts 机械对咬两侧。 */}
+      {layout.resultCards.map(({ block, cardKind }) => (
+        <div key={`card-${block.id}`} className="min-w-0">
+          {cardKind === 'papers' && <PaperListReadonly content={block.result} />}
+          {cardKind === 'journals' && <MinicodJournalCards content={block.result} />}
+          {cardKind === 'authors' && <MinicodAuthorCards content={block.result} />}
+          {cardKind === 'snippets' && <MinicodSnippetCards content={block.result} />}
+        </div>
+      ))}
+
+      {layout.processItems.length > 0 && (
+        <ProcessFold
+          streaming={false}
+          toolSteps={layout.toolSteps}
+          summary={
+            // 与用户端同款摘要:只有失败信号。「· 检索 M 次 · 命中 K 篇」2026-08 已从
+            // chat-turn-layout 删除(前端数 blocks 的口径与引擎账本必然不等),两端一起消失。
+            layout.failedToolCount > 0 ? (
+              <span className="inline-flex items-center gap-1 text-brand-amber shrink-0">
+                <TriangleAlert className="size-3" strokeWidth={2.2} />
+                {layout.failedToolCount} 次未成功
+              </span>
+            ) : undefined
+          }
+        >
+          {layout.processItems.map((item) => {
+            if (item.kind === 'text') {
+              return <AssistantBubble key={item.block.id} variant="plain" text={item.block.text} />;
+            }
+            if (item.kind === 'toolGroup') {
+              return (
+                <ToolGroupBlock
+                  key={item.id}
+                  toolName={item.toolName}
+                  blocks={item.blocks}
+                  renderTool={renderToolChip}
+                />
+              );
+            }
+            return <Fragment key={item.block.id}>{renderToolChip(item.block)}</Fragment>;
+          })}
+        </ProcessFold>
+      )}
+
+      {layout.answerBlocks.map((b) => (
+        <AssistantBubble key={b.id} variant="plain" text={b.text} />
+      ))}
+
       <TurnTail turn={turn} />
     </article>
   );

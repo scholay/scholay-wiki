@@ -269,8 +269,9 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 	if opts.DateTo != "" {
 		body["date_to"] = opts.DateTo
 	}
-	if len(opts.Fields) > 0 {
-		body["fields"] = strings.Join(opts.Fields, ",")
+	// 2026-07 线上审计:fields 一律过白名单再透传(剔除 tldr 等已废/未知字段,防上游 400)。
+	if fs := filterPaperFields(opts.Fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 	if len(opts.Venue) > 0 {
 		body["venue"] = strings.Join(opts.Venue, ",")
@@ -327,8 +328,9 @@ func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetails
 	body := map[string]any{
 		"id": paperID,
 	}
-	if len(opts.Fields) > 0 {
-		body["fields"] = strings.Join(opts.Fields, ",")
+	// 2026-07 线上审计:fields 过白名单再透传(见 fields.go)。
+	if fs := filterPaperFields(opts.Fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	// Determine endpoint based on ID prefix
@@ -430,6 +432,8 @@ func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []
 	if len(paperIDs) == 0 {
 		return nil, nil
 	}
+	// 2026-07 线上审计:fields 过白名单再透传(下面 stc/olx/pmd 三桶共用,见 fields.go)。
+	fields = filterPaperFields(fields)
 
 	var stcIDs, olxIDs, pmdIDs []string
 	for _, id := range paperIDs {
@@ -534,8 +538,9 @@ func (c *Client) GetPaperCitations(ctx context.Context, paperID string, opts Cit
 	if opts.Offset > 0 {
 		body["offset"] = opts.Offset
 	}
-	if len(opts.Fields) > 0 {
-		body["fields"] = strings.Join(opts.Fields, ",")
+	// 2026-07 线上审计:fields 过白名单再透传(见 fields.go)。
+	if fs := filterPaperFields(opts.Fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	// Determine endpoint based on ID prefix
@@ -577,8 +582,9 @@ func (c *Client) GetPaperReferences(ctx context.Context, paperID string, opts Ci
 	if opts.Offset > 0 {
 		body["offset"] = opts.Offset
 	}
-	if len(opts.Fields) > 0 {
-		body["fields"] = strings.Join(opts.Fields, ",")
+	// 2026-07 线上审计:线上旧构建前端仍传已废 `tldr`,references 恒 400 —— fields 过白名单再透传。
+	if fs := filterPaperFields(opts.Fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	path := "/v1/stc/papers/references"
@@ -619,8 +625,9 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 	if offset > 0 {
 		body["offset"] = offset
 	}
-	if len(fields) > 0 {
-		body["fields"] = strings.Join(fields, ",")
+	// 2026-07 线上审计:作者字段词表过白名单再透传(见 fields.go)。
+	if fs := filterAuthorFields(fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	path := "/v1/stc/papers/authors"
@@ -707,8 +714,9 @@ func (c *Client) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*
 	if opts.Offset > 0 {
 		body["offset"] = opts.Offset
 	}
-	if len(opts.Fields) > 0 {
-		body["fields"] = strings.Join(opts.Fields, ",")
+	// 2026-07 线上审计:作者字段词表过白名单再透传(见 fields.go)。
+	if fs := filterAuthorFields(opts.Fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	prefix := sourcePrefix(opts.Source)
@@ -734,8 +742,9 @@ func (c *Client) GetAuthor(ctx context.Context, authorID string, fields []string
 	body := map[string]any{
 		"id": authorID,
 	}
-	if len(fields) > 0 {
-		body["fields"] = strings.Join(fields, ",")
+	// 2026-07 线上审计:作者字段词表过白名单再透传(见 fields.go)。
+	if fs := filterAuthorFields(fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	path := "/v1/stc/authors/get"
@@ -774,8 +783,9 @@ func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []
 	if offset > 0 {
 		body["offset"] = offset
 	}
-	if len(fields) > 0 {
-		body["fields"] = strings.Join(fields, ",")
+	// 2026-07 线上审计:线上旧构建前端仍传已废 `tldr`,authors/papers 恒 400 —— fields 过白名单再透传。
+	if fs := filterPaperFields(fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	path := "/v1/stc/authors/papers"
@@ -820,8 +830,9 @@ func (c *Client) GetRecommendationsForPaper(ctx context.Context, paperID string,
 	if opts.Limit > 0 {
 		body["limit"] = opts.Limit
 	}
-	if len(opts.Fields) > 0 {
-		body["fields"] = strings.Join(opts.Fields, ",")
+	// 2026-07 线上审计:fields 过白名单再透传(见 fields.go)。
+	if fs := filterPaperFields(opts.Fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	data, err := c.doPost(ctx, "/v1/stc/recommendations/paper", body)
@@ -850,8 +861,9 @@ func (c *Client) GetRecommendations(ctx context.Context, opts RecommendationsOpt
 	if opts.Limit > 0 {
 		body["limit"] = opts.Limit
 	}
-	if len(opts.Fields) > 0 {
-		body["fields"] = strings.Join(opts.Fields, ",")
+	// 2026-07 线上审计:fields 过白名单再透传(见 fields.go)。
+	if fs := filterPaperFields(opts.Fields); len(fs) > 0 {
+		body["fields"] = strings.Join(fs, ",")
 	}
 
 	data, err := c.doPost(ctx, "/v1/stc/recommendations", body)

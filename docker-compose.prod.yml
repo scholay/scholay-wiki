@@ -339,6 +339,12 @@ services:
     image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/agent:${IMAGE_TAG:-latest}
     container_name: scholar_agent
     restart: unless-stopped
+    # init: true —— 让 docker 塞一个 PID 1 的 init 进程负责 reap 僵尸子进程。
+    # 🔴 不加这行的后果(dev 实测):单会话 4 分钟漏 78 个 pid、累计 82 个僵尸,PPID=1 永不回收。
+    #    Bash 工具每次起子进程(bwrap → sh → python/pandoc),bun 不是 init、不 reap ⇒ 只增不减。
+    #    prod 有 `pids: 512` 上限 ⇒ 约 6 个重 Bash 会话就打满,之后该容器所有 Bash 全失败,
+    #    且**只能靠重启复位**。Run 引擎会把 Bash 调用集中到少数 Step,压强只会更高。
+    init: true
     logging: *default-logging
     environment:
       <<: *tz-env
@@ -367,7 +373,12 @@ services:
       - ./agent-skills/prism-skills:/prism-add/.claude/skills:ro
       # Prism 写作 lens(craft/rigor):按需加载(guides/ → 菜单行常驻 + Skill 工具懒加载正文)。
       - ./agent-skills/prism-lenses:/prism-add/guides:ro
-      - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # ⚠️ 这里曾有 `./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro`,
+      #    2026-08 证据账本 P0-a 删除(与 docker-compose.yml 同步,理由详见那份的同位注释)。
+      #    要点:零调用者(peerreview 走 server-side,reviewerSkillAddDir 无调用点)+ 回归陷阱
+      #    (132KB / 33 份 SKILL.md 远超 loader TOTAL_CAP=40000,补一行 AddDirs 就会静默丢掉
+      #    排序在后的全部 6 个横切质量维度,日志只有一条 warn)。
+      #    backend 侧 `/app/reviewer-skills` 那份挂载在真读,**必须保留**。
       # smart_search 检索策略 skill(minicod-search-strategy):查询拆解 / 引文滚雪球 / 覆盖度自检。
       - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
       # 制作PPT(boltslides)bolt-slides 演示稿创作 skill。

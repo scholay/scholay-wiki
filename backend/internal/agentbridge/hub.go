@@ -104,7 +104,21 @@ type sessionHub struct {
 	// 并复现幽灵轮(审计 [18])。匹配消费后清空;新轮 clientTurnId 不同,天然不误命中(agent 死亡也不遗毒)。
 	currentClientTurnID  string
 	timedOutClientTurnID string
+
+	// ── 轮级 provider 故障转移(2026-07-31 线上审计 §五;h.mu 守护)──
+	// inFlightAgentFrame:本轮转发给 executor 的 user_message 帧(**盖预算之前**的字节;
+	//   重投时按新模型重新盖,见 stampTurnBudget)。beginTurn 清、写上游成功后记、endTurn 清。
+	// turnRetries:本轮已做过几次「换 provider 重投」。beginTurn 清零,上限 maxTurnProviderRetries。
+	//   与 agent 侧 turnLoop 的同 provider 瞬态重放(isTransientStreamError)是**串联**关系不叠加:
+	//   agent 那层跑完自己的额度才会吐 error 终帧,我们只在收到终帧后动作,故总次数 = agent 内重放 × 1 轮
+	//   + 本层 1 次重投,天花板固定;且轮级硬超时计时器**不重置**,整轮墙钟仍被 TurnTimeout 兜住。
+	inFlightAgentFrame []byte
+	turnRetries        int
 }
+
+// maxTurnProviderRetries 每轮最多做几次「换 provider 重投」。1 = 一次机会:
+// 上游整体挂掉时不该拿用户的等待时间做轮询探测,一次换不活就如实报错。
+const maxTurnProviderRetries = 1
 
 // subscriber 是一条下游浏览器 WS。out 由独立 writeLoop 抽干 → 解耦慢客户端。
 type subscriber struct {
@@ -226,6 +240,34 @@ func isZeroUsage(u AgentUsage) bool {
 func replayHasVisibleText(buf [][]byte) bool {
 	for _, fr := range buf {
 		if t, ok := contentDeltaText(fr); ok && strings.TrimSpace(t) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// replayInvisibleFrames —— 广播出去但**不构成任何轮内可见产出**的帧类型:纯保活 / 纯控制面 /
+// 已自我作废的残缺前缀。轮级 provider 重投(2026-07-31 线上审计 §五)据此判断「本轮是否白纸一张」。
+var replayInvisibleFrames = map[string]bool{
+	"status":                 true, // 阶段提示,重投后会重新发
+	"ping":                   true,
+	"pong":                   true,
+	"round_discarded":        true, // agent 自己已撤回的残缺前缀
+	"runtime_config_updated": true,
+	"user_echo":              true,
+	"user_ack":               true,
+	"resync_start":           true,
+	"resync_user":            true,
+	"resync_end":             true,
+}
+
+// replayHasVisibleOutput:本轮 replayBuf 里是否已有任何**用户可见**产出(正文/思考/工具/产物/
+// 权限卡…)。刻意取「已知不可见」的反面 —— 将来 agent 新增任何内容型帧,默认被判为可见而
+// **阻止**重投,最坏结果是少救一轮;反过来(白名单可见)一旦漏登记就会把残缺前缀和重投后的
+// 完整答案拼成两段渲染出去。必须在 endTurn 之前读(endTurn 清空 replayBuf)。调用方持 h.mu。
+func replayHasVisibleOutput(buf [][]byte) bool {
+	for _, fr := range buf {
+		if !replayInvisibleFrames[frameType(fr)] {
 			return true
 		}
 	}
@@ -616,6 +658,171 @@ func (h *sessionHub) revalidateModelBeforeMessage() {
 	}
 }
 
+// stampTurnBudget 给一帧 user_message 盖单轮预算(SS#2)。
+// 给 5 个 chat feature(smart_search/claw/prism/boltslides/sci_draw)用:执行器据此让 agent
+// 自我配速 + 到界优雅收尾(透支带已取消,hard=soft)。每轮现算(read-only,不预扣)→ 在途一轮
+// 至多超支一轮。unlimited(不限额/收费关)与 BudgetProvider=nil(peerreview 任务型)→ 原帧返回。
+//
+// model = 该轮**实际将要跑**的会话模型:P5 成本制下 soft/hard 是**微元真实成本**,而执行器按 raw
+// token 4 类合计自配速 —— 必须除以该模型的「成本/token」(CostPerToken,微元/token)换算成 token
+// 预算,两侧才闭合。(旧 P3 是 ÷billing_weight;成本制下预算已是微元,÷weight 会错缩 weight 倍。)
+// 空 model(sendInitialModel 与首条消息竞态 / chat_default 未绑定)→ 回落本 feature 默认模型的成本,
+// 而非跳过换算(跳过会把微元当 token 下发,预算严重低估、配速失准)。
+//
+// 2026-07-31 线上审计:从 handleUserMessage 提出来,使**首投与故障转移重投**共用同一口径 ——
+// 重投换了模型却沿用旧帧里的 token 预算,会按新旧单价比把预算整体错缩/错放。
+func (h *sessionHub) stampTurnBudget(data []byte, model string) []byte {
+	f := h.f
+	if f.spec.BudgetProvider == nil {
+		return data
+	}
+	soft, hard, unlimited := f.spec.BudgetProvider(h.hookCtx, h.userID)
+	if unlimited {
+		return data
+	}
+	if cat := f.bridge.catalog; cat != nil {
+		if model == "" {
+			model = h.resolveChatDefault() // 主绑定 chat_default.<key>(+ purposeAlias 归并)
+		}
+		if model != "" {
+			if cpt := cat.CostPerToken(model); cpt > 0 {
+				soft = int64(float64(soft) / cpt)
+				hard = int64(float64(hard) / cpt)
+			}
+		}
+	}
+	return stampBudget(data, soft, hard)
+}
+
+// ─── 轮级 provider 故障转移(2026-07-31 线上审计 §五)──────────────────────────
+//
+// 线上最贵的一条:一位付费新客支付后 8 分钟内连吃 3 次上游硬错误就此永久流失,而**同一会话的
+// 下一轮系统自己落回默认模型就成功了** —— provider 池里有健康节点,只是失败时没人去切。
+// agent_turns.attempt 全库为 0 也印证:轮级重试机制此前从未存在。
+//
+// 分层:agent 侧 turnLoop 只在**同一 provider 内**重放瞬态流错误;它把额度用完仍失败才吐 error
+// 终帧,我们在这一层做**换 provider 的轮级重投**。两层串联、各自有界,不会叠成无限重试。
+
+// pickFailoverModel 选一个「与失败 provider 不同」的重投目标模型。
+// 候选链(顺序即优先级):① 本 feature 默认对话模型(chat_default.<key>,也正是线上那次自愈用的);
+// ② system.main 绑定模型。两者都必须 ValidateUserModel 通过 —— 故障转移**绝不**把用户临时抬到
+// 没买的档位(那等于按错误路径白送高档模型,且成本更高)。
+// 返回 ok=false = 目录里没有「用户有权用 ∧ 换了 provider」的候选,不重投、错误照常上抛。
+func (h *sessionHub) pickFailoverModel(failedModel, failedProvider string) (model string, isDefault bool, ok bool) {
+	cat := h.f.bridge.catalog
+	candidates := []struct {
+		id        string
+		isDefault bool
+	}{
+		{h.resolveChatDefault(), true},
+		{cat.Resolve("system.main"), false}, // purpose 常量对齐 modelcatalog.PurposeSystemMain
+	}
+	for _, c := range candidates {
+		if c.id == "" || c.id == failedModel {
+			continue
+		}
+		if cat.ProviderKey(c.id) == failedProvider {
+			continue // 同一个上游端点 —— 换了模型没换 provider,故障大概率照旧
+		}
+		if cat.ValidateUserModel(h.userID, c.id) != nil {
+			continue
+		}
+		return c.id, c.isDefault, true
+	}
+	return "", false, false
+}
+
+// tryProviderFailover 收到 error 终帧时尝试「换 provider 重投本轮」。返回 true 表示已重投:
+// 调用方必须**吞掉**这帧 error(不广播、不入 journal、不 endTurn),该轮继续在途。
+//
+// 前置条件全部是**正确性要求**,不是保守挡板:
+//   - 本轮尚无任何可见产出:重投是从头重答,已流出的半截会与新答案在同一轮里拼成两段
+//     (agent 侧同款守卫见 turnLoop 的 roundEmittedToolBlock/roundEmittedThinking);
+//   - 未被用户 stop、未被轮级硬超时收口:那两条路径都已给出终态,重投会造出幽灵轮;
+//   - 重投次数未超上限、有 user_message 原帧可重发、目录里确有可切换的健康 provider。
+//
+// 轮级硬超时计时器**故意不重置**:整轮墙钟仍由 TurnTimeout 兜住,重投不能变成延长赛。
+//
+// 时序依赖(executor 侧):error 终帧是在 runTurn 内发出的,ws.data.inFlight 要等 runTurn resolve
+// 后的 finally 才清 —— 但那是同一条微任务链,必然早于「下一条 socket 消息被派发」。故重投帧到达时
+// executor 已空闲。刻意**不加退避 sleep**:upstreamLoop 是该会话唯一的上游读者,在这里睡会把后续
+// 帧全部堵住;而且我们是换端点重投,不需要给原端点喘息时间。极端竞态下重投被回 busy,该轮如实收口
+// (重投额度已耗尽,不会连锁)。
+func (h *sessionHub) tryProviderFailover(rawErr []byte) bool {
+	f := h.f
+	cat := f.bridge.catalog
+	if cat == nil || !turnFailureWorthProviderRetry(errorFrameCode(rawErr)) {
+		return false
+	}
+
+	h.mu.Lock()
+	if h.closed || !h.inFlight || h.abortedTurn || h.timedOutTurn ||
+		h.turnRetries >= maxTurnProviderRetries || len(h.inFlightAgentFrame) == 0 ||
+		replayHasVisibleOutput(h.replayBuf) {
+		h.mu.Unlock()
+		return false
+	}
+	baseFrame := h.inFlightAgentFrame
+	failedModel := h.currentModel
+	turnID := h.currentTurnID
+	h.mu.Unlock()
+
+	failedProvider := cat.ProviderKey(failedModel)
+	target, isDefault, ok := h.pickFailoverModel(failedModel, failedProvider)
+	if !ok {
+		// 留痕:池子里没有可切的健康节点是运营问题(只配了一个 provider / 用户档位只够一个模型),
+		// 静默不重试会让「为什么线上还在连败」查无可查。
+		slog.Warn("agentbridge hub: 轮失败但无可切换的 provider,错误照常上抛",
+			"feature", f.spec.Key, "session_id", h.sessionID, "user_id", h.userID,
+			"failed_model", failedModel, "failed_provider", failedProvider)
+		return false
+	}
+
+	h.mu.Lock()
+	h.turnRetries++
+	attempt := h.turnRetries
+	h.replayBuf = nil // 失败尝试的散帧(status 等)不再补给迟到订阅者:本轮无可见产出,清空 = 回到轮首
+	h.mu.Unlock()
+
+	// 先切 executor 的 runtime config(模型 + providerId + 窗口),再重发 user_message。
+	if werr := h.writeAgent(gorillaws.TextMessage, runtimeConfigFrame(cat, target, cat.ContextWindow(target))); werr != nil {
+		slog.Warn("agentbridge hub: 故障转移下发模型帧失败,放弃重投",
+			"feature", f.spec.Key, "session_id", h.sessionID, "target_model", target, "err", werr)
+		return false // 调用方继续走原 error 路径(广播 + endTurn),该轮如实收口
+	}
+	h.setCurrentModel(target, isDefault) // 预算换算/计价/重校验都读它,必须与 executor 实跑一致
+	// 预算按**新模型**的成本/token 重算再盖:预算单位是微元真实成本,直接沿用旧帧会把 token 预算
+	// 错缩/错放 (新旧模型单价比) 倍,执行器自配速当场失准。
+	if werr := h.writeAgent(gorillaws.TextMessage, h.stampTurnBudget(baseFrame, target)); werr != nil {
+		slog.Warn("agentbridge hub: 故障转移重发 user_message 失败,放弃重投",
+			"feature", f.spec.Key, "session_id", h.sessionID, "target_model", target, "err", werr)
+		return false
+	}
+	// 模型确实换了 → 广播给所有端,选择器如实反映本轮在跑哪个模型(pinned_model **不动**:
+	// 这是本次故障的临时转移,用户自己的选择留在 DB 里,下次建连自动回到他选的那个)。
+	h.broadcastAgent(runtimeConfigUpdatedFrame(target, isDefault))
+
+	// attempt 落库:复用 agent_turns.attempt 字段语义(此前恒 0 = 没有任何重试机制)。
+	// 之所以不给失败尝试写 EvError:重投对用户是透明的,journal 里多一条 error 会让历史回放
+	// 在正常答案中间凭空插一段报错。失败尝试的可观测性由 attempt + 下面这条 WARN 承担。
+	if journal := f.bridge.log; journal != nil && turnID != 0 {
+		safego.Go("agentbridge-turn-attempt:"+f.spec.Key, func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := journal.BumpAttempt(ctx, turnID, attempt); err != nil {
+				slog.Warn("agentbridge hub: BumpAttempt 落库失败(不影响 live 重投)",
+					"turn_id", turnID, "attempt", attempt, "err", err)
+			}
+		})
+	}
+	slog.Warn("agentbridge hub: 轮级 provider 故障转移重投",
+		"feature", f.spec.Key, "session_id", h.sessionID, "user_id", h.userID, "turn_id", turnID,
+		"attempt", attempt, "code", errorFrameCode(rawErr),
+		"from_model", failedModel, "from_provider", failedProvider,
+		"to_model", target, "to_provider", cat.ProviderKey(target))
+	return true
+}
+
 // seedHistoryFromJournal 在(切到 executor 的)hub 建连后,把 journal 折叠的会话历史作为 seed_history
 // 控制帧喂给 executor —— executor 无状态、不自持久化历史(H1)。fork 路径不调用(fork 有 jsonl)。
 func (h *sessionHub) seedHistoryFromJournal() {
@@ -654,10 +861,19 @@ func (h *sessionHub) seedHistoryFromJournal() {
 	// (user 级系统提示 + MemoryBlocks)之后。放在 hasOpts 判定之前,使「仅画像」也能触发 seed 下发。
 	opts = h.f.applySessionProfile(ctx, h.sessionID, opts)
 	hasOpts := opts != nil && (opts.AppendSystemPrompt != "" || len(opts.AddDirs) > 0 || len(opts.DisallowedTools) > 0 || len(opts.AllowedMcpTools) > 0 || len(opts.Skills) > 0 || opts.HonestyGuard)
-	if len(msgs) == 0 && title == "" && !hasOpts {
+	// 2026-08 证据账本 P0-c:证据账本的最后一张引擎快照(EvEvidence 的 research_state 帧)。
+	// 账本真源是 executor workdir 的 evidence/ledger.jsonl —— 那份文件扛得住重启,但扛不住
+	// workdir 被 GC / 换机。故随 seed 带一张后端侧快照做重建入口。**P0 只负责把字段带上**
+	// (executor 目前忽略未知字段),消费在 P1;现在就能拿到的收益是:重建口径与 journal 同源,
+	// 不用等 P1 再回头补一条链路。
+	research := latestResearchState(evs)
+	if len(msgs) == 0 && title == "" && !hasOpts && len(research) == 0 {
 		return // 全新会话:无历史/标题/注入面,executor 从空起(并会生成标题)
 	}
 	payload := map[string]any{"type": "seed_history", "messages": msgs}
+	if len(research) > 0 {
+		payload["research"] = research
+	}
 	if title != "" {
 		payload["title"] = title
 	}
@@ -970,6 +1186,9 @@ func (h *sessionHub) beginTurn(content, clientTurnID string) bool {
 	h.inFlight = true
 	h.replayBuf = nil
 	h.inFlightUserText = content
+	// 新一轮:清上一轮的重投状态(帧字节 + 计数),使重投额度按轮而非按连接发放。
+	h.inFlightAgentFrame = nil
+	h.turnRetries = 0
 	h.currentClientTurnID = clientTurnID // 供孤儿终帧 id 匹配(审计 [18]);timedOutClientTurnID 故意不在此清
 	h.abortedTurn = false // 新一轮:清上一轮的 stop 标记
 	// W3-2:arm 轮级硬超时(spec 零值 = 默认 15min;负值禁用 → d=0 不 arm)。
@@ -992,6 +1211,7 @@ func (h *sessionHub) endTurn() {
 	h.inFlight = false
 	h.replayBuf = nil
 	h.inFlightUserText = ""
+	h.inFlightAgentFrame = nil // 轮已收口 → 重投素材作废(turnRetries 留到 beginTurn 清,便于收尾日志读)
 	// W3-2:轮结束即停硬超时计时器(正常完成 / error / 上游断开都不该再 fire)。
 	if h.turnTimer != nil {
 		h.turnTimer.Stop()
@@ -1048,9 +1268,11 @@ func (h *sessionHub) onTurnTimeout() {
 }
 
 // accountTurnUsage 只走计费/审计入账链路(OnMessageComplete 钩子 + 水位补差 + 台账),不广播、
-// 不写 journal。供「轮级硬超时后迟到的孤儿 complete」入账用(W3-2a)—— 上游真实消耗如实计费,
-// 但该轮的用户可见终态已由 turn_timeout 定格,不再动 UI 与 journal。
-func (h *sessionHub) accountTurnUsage(usage AgentUsage, calls []AgentUsage, sessionTotal *AgentUsage) {
+// 不写 journal。供「轮级硬超时后迟到的孤儿 complete/error」入账用(W3-2a)—— 上游真实消耗如实
+// 记账,但该轮的用户可见终态已由 turn_timeout 定格,不再动 UI 与 journal。
+//
+// chargeUser=false → 平台自担(2026-07-31 线上审计 §五):仍落账本留成本快照,但不扣用户额度。
+func (h *sessionHub) accountTurnUsage(usage AgentUsage, calls []AgentUsage, sessionTotal *AgentUsage, chargeUser bool) {
 	f := h.f
 	if f.spec.OnMessageComplete != nil {
 		hook, featureKey := f.spec.OnMessageComplete, f.spec.Key
@@ -1064,7 +1286,11 @@ func (h *sessionHub) accountTurnUsage(usage AgentUsage, calls []AgentUsage, sess
 		uid, feat, sid, rec := h.userID, f.spec.Key, h.sessionID, f.bridge.llmRec
 		safego.Go("agentbridge-usage-record:"+feat, func() {
 			for i := range rows {
-				recordAgentTokens(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
+				if chargeUser {
+					recordAgentTokens(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
+				} else {
+					recordAgentTokensPlatformFault(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
+				}
 			}
 		})
 	}
@@ -1140,7 +1366,8 @@ func (h *sessionHub) upstreamLoop() {
 					if orphanAfterTimeout {
 						slog.Info("agentbridge hub: orphan complete after turn-timeout, accounting only",
 							"feature", f.spec.Key, "session_id", h.sessionID)
-						h.accountTurnUsage(usage, calls, sessionTotal)
+						// 迟到的 complete = 上游其实跑完了(只是晚于我们的硬超时),消耗如实计入用户额度。
+						h.accountTurnUsage(usage, calls, sessionTotal, true)
 						continue
 					}
 
@@ -1257,7 +1484,8 @@ func (h *sessionHub) upstreamLoop() {
 					h.mu.Unlock()
 					if orphanErr {
 						if usage, calls, sessionTotal, hasUsage := extractErrorUsage(data); hasUsage {
-							h.accountTurnUsage(usage, calls, sessionTotal)
+							// 归责与主路径同口径(2026-07-31 线上审计 §五):平台责任的失败不扣用户额度。
+							h.accountTurnUsage(usage, calls, sessionTotal, turnFailureChargedToUser(errorFrameCode(data)))
 						}
 						slog.Info("agentbridge hub: orphan error after turn-timeout, accounting only",
 							"feature", f.spec.Key, "session_id", h.sessionID)
@@ -1266,9 +1494,19 @@ func (h *sessionHub) upstreamLoop() {
 				}
 				// 计费回归修复(2026-07-14):error 终帧可携带失败前已完成 LLM call 的 usage/calls
 				// (executor turnLoop 失败路径随帧带回)。按 message_complete 同一链路入账(用量钩子 +
-				// 水位补差 + 台账),否则「多轮工具循环最后一轮流被掐」整轮上游消耗漏记、配额不扣。
+				// 水位补差 + 台账),否则「多轮工具循环最后一轮流被掐」整轮上游消耗漏记。
 				// 刻意不做:记忆抽取(轮失败不抽取)、prompt_injected 标记(维持失败轮原语义)。
+				//
+				// 2026-07-31 线上审计 §五:入账**归责**在此分叉 —— 平台责任的失败(上游断流/过载/
+				// 模型协议异常/轮内步数撞我们自己的上限)照记账本但**不扣用户额度**;用户任务导致的
+				// (budget 任务过大 / content_blocked 内容合规)照扣。线上一位用户为 9 连败付了 9 轮钱。
 				if usage, calls, sessionTotal, hasUsage := extractErrorUsage(data); hasUsage {
+					chargeUser := turnFailureChargedToUser(errorFrameCode(data))
+					if !chargeUser {
+						slog.Warn("agentbridge hub: 失败轮平台自担(记成本不扣额度)",
+							"feature", f.spec.Key, "session_id", h.sessionID, "user_id", h.userID,
+							"code", errorFrameCode(data), "model", usage.Model)
+					}
 					if f.spec.OnMessageComplete != nil {
 						hook, featureKey := f.spec.OnMessageComplete, f.spec.Key
 						uid := h.userID
@@ -1281,10 +1519,21 @@ func (h *sessionHub) upstreamLoop() {
 						uid, feat, sid, rec := h.userID, f.spec.Key, h.sessionID, f.bridge.llmRec
 						safego.Go("agentbridge-usage-record:"+feat, func() {
 							for i := range rows {
-								recordAgentTokens(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
+								if chargeUser {
+									recordAgentTokens(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
+								} else {
+									recordAgentTokensPlatformFault(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
+								}
 							}
 						})
 					}
+				}
+				// 2026-07-31 线上审计 §五:传输层/容量类失败 → 换一个健康 provider 把这一轮重投一次。
+				// 成功派发即**吞掉**这帧 error(不净化、不入 journal、不 endTurn、不广播),该轮继续在途,
+				// 用户只感到多等了一会儿。上面的入账已完成 —— 失败尝试的真实消耗照记账本(平台自担)。
+				// 必须放在 endTurn 之前:replayBuf(判「本轮是否白纸一张」)与 inFlight 都由 endTurn 清。
+				if h.tryProviderFailover(data) {
+					continue
 				}
 				// 评审 #4:执行器 error 帧可能带原始英文 / 内部机制名(如 "awaiting PushConfig")。
 				// 用户面绝不回显内部标识 —— 按 code 换成友好中文再广播;原文留 slog 便于排查。
@@ -1503,12 +1752,9 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	// clientTurnId 提前抽取:除影子日志幂等键外,还用于向发送端回投递确认(user_ack)。
 	clientTurnID := extractClientTurnID(data)
 
-	// 附件断链修复(2026-07-14):attachments[].path 折进 content 首部 @"path" 标记(journal/seed/
-	// 转发同源携带);echoText 保留注入前原文 —— 其它端的 user_echo 气泡不显示容器绝对路径。
+	// echoText 保留注入前原文 —— 其它端的 user_echo 气泡不显示容器绝对路径。
+	// (附件折叠 foldUserAttachments 已下移到配额校验之后,见下方「跨会话附件物化」一段。)
 	echoText := content
-	if newData, newContent, folded := foldUserAttachments(data); folded {
-		data, content = newData, newContent
-	}
 
 	// P2:消息前重校验会话锁定模型(会员到期/模型下架对常开连接生效,不等 hub 重建)。
 	h.revalidateModelBeforeMessage()
@@ -1538,15 +1784,66 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 		if err := callPreUserMessage(f.spec.PreUserMessage, h.hookCtx, h.userID, content); err != nil {
 			slog.Info("agentbridge hub: user_message rejected by PreUserMessage",
 				"feature", f.spec.Key, "user_id", h.userID, "err", err)
-			frame, _ := json.Marshal(map[string]any{
+			errFrame := map[string]any{
 				"type":      "error",
 				"code":      classifyPreUserMessageError(err),
 				"message":   preUserMessageUserText(err),
 				"retryable": !errors.Is(err, ErrQuotaExceeded),
-			})
+			}
+			// 冻结契约:quota_exceeded 帧带结构化 quota 对象
+			// ({reset_at, window_days, credit_balance_positive, credit_autopay}),
+			// 前端 QuotaNotifier 据此渲染「等待重置 / 重置次数 / 升级 / 用经费继续」。
+			if q, ok := quotaFramePayload(err); ok {
+				errFrame["quota"] = q
+			}
+			frame, _ := json.Marshal(errFrame)
+			// 2026-07-31 线上审计 §五:拦截落 journal(agent_turns status=blocked / kind=quota +
+			// EvQuotaBlocked 事件,payload 就是这一帧),让「配额墙 → 付费」漏斗可 SQL 复盘,不再
+			// 依赖会被轮转掉的 INFO 日志。异步 + 失败只告警,绝不阻断拦截;读侧过滤保证不进前端回放。
+			f.bridge.turns.RecordBlocked(TurnInput{
+				AgentSessionID: h.sessionID, FeatureKey: f.spec.Key, UserID: h.userID,
+				ClientTurnID: clientTurnID, RoleUserText: content,
+				Kind: blockedTurnKind(err),
+			}, frame)
 			s.sendSelf(frame)
 			return
 		}
+	}
+
+	// ── 跨会话附件物化(2026-07-31 线上审计 §五)+ 附件折叠(2026-07-14)──────────────
+	// 顺序是硬要求:①配额校验已在上面通过 —— 不为一条注定被拒的消息白拷几十 MB;
+	// ②物化必须早于 foldUserAttachments —— 折叠会把 attachments[].path 写进 content 的
+	// @"path" 前缀,折完再改路径就来不及了。
+	// workDir 必须与 decidePermission 传给 pathWithin 的是**同一个字符串**:两者不同源
+	// 就会重现「批了却打不开」。
+	if f.spec.AttachmentRelocator != nil {
+		if paths := extractUserMessageAttachmentPaths(data); len(paths) > 0 {
+			workDir := path.Join(agentSessionWorkdirRoot(), h.sessionID)
+			localPaths, aerr := f.spec.AttachmentRelocator.EnsureLocal(
+				h.hookCtx, h.userID, h.sessionID, workDir, paths)
+			if aerr != nil {
+				// 失败必须用户可见:绝不静默 complete 让模型对着读不到的文件道歉(线上原症状)。
+				// 不 beginTurn、不计额度、不转发。用户文案由实现方给(鸭子类型,不 import agentattach)。
+				msg := "附件暂时不可用,请在当前对话重新上传后再试。"
+				if ue, ok := aerr.(interface{ UserMessage() string }); ok && ue.UserMessage() != "" {
+					msg = ue.UserMessage()
+				}
+				slog.Warn("agentbridge hub: attachment relocate failed, turn rejected",
+					"feature", f.spec.Key, "session_id", h.sessionID, "user_id", h.userID, "err", aerr)
+				frame, _ := json.Marshal(map[string]any{
+					"type": "error", "code": "attachment_unavailable",
+					"message": msg, "retryable": false,
+				})
+				s.sendSelf(frame)
+				return
+			}
+			if newData, ok := rewriteUserMessageAttachmentPaths(data, localPaths); ok {
+				data = newData
+			}
+		}
+	}
+	if newData, newContent, folded := foldUserAttachments(data); folded {
+		data, content = newData, newContent
 	}
 
 	// 回答中锁住:一轮进行中 → 拒绝再发(竞态兜底,前端忙态本已置灰)。
@@ -1619,33 +1916,14 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 		}
 	}
 
-	// SS#2:给 5 个 chat feature(smart_search/claw/prism/boltslides/sci_draw)的 user_message 盖上
-	// 单轮预算(执行器据此让 agent 自我配速 + 到界优雅收尾;透支带已取消,hard=soft)。每轮现算(read-only,不预扣)→
-	// 在途一轮至多超支一轮。unlimited(不限额/收费关)不盖 → 执行器无预算。
-	// peerreview BudgetProvider=nil → 不盖 → 任务型不受影响。
-	if f.spec.BudgetProvider != nil {
-		if soft, hard, unlimited := f.spec.BudgetProvider(h.hookCtx, h.userID); !unlimited {
-			// P5 成本制换算:额度余量 soft/hard 是**微元真实成本**,执行器按 raw token 4 类合计自配速 ——
-			// 除以会话模型的「成本/token」(CostPerToken,微元/token)换算成 token 预算,两侧才闭合。
-			// (旧 P3 是 ÷billing_weight;成本制下预算已是微元、不再有加权倍率,÷weight 会把预算错缩 weight 倍。)
-			// 每条消息现读 hub 内存态(随 set_runtime_config 同步更新),多端并发换模型至多错一轮,量级=一轮的换算误差,可接受。
-			if cat := f.bridge.catalog; cat != nil {
-				cur, _ := h.currentModelSnapshot()
-				if cur == "" {
-					// currentModel 未定(sendInitialModel 与首条消息竞态 / chat_default 未绑定)→ 回落
-					// 本 feature 默认模型的成本,而非跳过换算(跳过会把微元当 token 下发,预算严重低估、配速失准)。
-					cur = h.resolveChatDefault() // 主绑定 chat_default.<key>(+ purposeAlias 归并)
-				}
-				if cur != "" {
-					if cpt := cat.CostPerToken(cur); cpt > 0 {
-						soft = int64(float64(soft) / cpt)
-						hard = int64(float64(hard) / cpt)
-					}
-				}
-			}
-			data = stampBudget(data, soft, hard)
-		}
-	}
+	// 轮级 provider 故障转移的重投素材(2026-07-31 线上审计 §五):存**盖预算之前**的字节 ——
+	// 重投时模型可能已换,预算要按新模型的成本/token 重算再盖(见 stampTurnBudget)。
+	sessModel, _ := h.currentModelSnapshot()
+	h.mu.Lock()
+	h.inFlightAgentFrame = data
+	h.mu.Unlock()
+
+	data = h.stampTurnBudget(data, sessModel)
 
 	if err := h.writeAgent(gorillaws.TextMessage, data); err != nil {
 		slog.Debug("agentbridge hub: agent write end (user_message)", "feature", f.spec.Key, "err", err)
@@ -1692,20 +1970,39 @@ func trySend(ch chan []byte, frame []byte) {
 	}
 }
 
-// coalesceReplay 把相邻的文本 content_delta 合并进 replayBuf,使其大小退回 O(内容块) 而非 O(token),
-// 让迟到续流补帧有界。仅合并都带 text 且不带 toolInput 的 content_delta(工具入参流不并)。
+// coalesceReplay 把相邻的同类 content_delta 合并进 replayBuf,使其大小退回 O(内容块) 而非 O(token),
+// 让迟到续流补帧有界。文本流与工具入参流(toolInput)各自同类合并,不互并(2026-07 前 toolInput
+// 逐帧堆积不合并,长 Write 会把 replayCap=248 的窗口刷穿 —— 已修)。
 func coalesceReplay(buf [][]byte, frame []byte) [][]byte {
-	txt, ok := contentDeltaText(frame)
-	if !ok {
-		return append(buf, frame)
-	}
-	if n := len(buf); n > 0 {
-		if last, lok := contentDeltaText(buf[n-1]); lok {
-			if merged, err := json.Marshal(map[string]string{"type": "content_delta", "text": last + txt}); err == nil {
-				buf[n-1] = merged
-				return buf
+	if txt, ok := contentDeltaText(frame); ok {
+		if n := len(buf); n > 0 {
+			if last, lok := contentDeltaText(buf[n-1]); lok {
+				if merged, err := json.Marshal(map[string]string{"type": "content_delta", "text": last + txt}); err == nil {
+					buf[n-1] = merged
+					return buf
+				}
 			}
 		}
+		return append(buf, frame)
+	}
+	if ti, tp, ok := contentDeltaToolInput(frame); ok {
+		if n := len(buf); n > 0 {
+			if lti, ltp, lok := contentDeltaToolInput(buf[n-1]); lok {
+				path := ltp
+				if path == "" {
+					path = tp // toolPath 可能迟到:取任一非空(与前端 appendStreamMessage 同语义)
+				}
+				m := map[string]string{"type": "content_delta", "toolInput": lti + ti}
+				if path != "" {
+					m["toolPath"] = path
+				}
+				if merged, err := json.Marshal(m); err == nil {
+					buf[n-1] = merged
+					return buf
+				}
+			}
+		}
+		return append(buf, frame)
 	}
 	return append(buf, frame)
 }
@@ -1727,6 +2024,26 @@ func contentDeltaText(frame []byte) (string, bool) {
 		return "", false
 	}
 	return *p.Text, true
+}
+
+// contentDeltaToolInput 返回 (toolInput, toolPath, true) 仅当该帧是带 toolInput、不带 text 的 content_delta。
+func contentDeltaToolInput(frame []byte) (string, string, bool) {
+	if len(frame) == 0 || frame[0] != '{' {
+		return "", "", false
+	}
+	var p struct {
+		Type      string  `json:"type"`
+		Text      *string `json:"text"`
+		ToolInput *string `json:"toolInput"`
+		ToolPath  string  `json:"toolPath"`
+	}
+	if err := json.Unmarshal(frame, &p); err != nil {
+		return "", "", false
+	}
+	if p.Type != "content_delta" || p.ToolInput == nil || p.Text != nil {
+		return "", "", false
+	}
+	return *p.ToolInput, p.ToolPath, true
 }
 
 // ── P0 影子日志辅助 ───────────────────────────────────────────────────────────
@@ -1772,6 +2089,12 @@ func classifyJournalEv(frame []byte) (EvType, bool) {
 	case "round_discarded":
 		// DSML 作废重打标记:入 journal,回放时 FoldToMessages 据此丢弃本轮在途残缺前缀(审计 [10])。
 		return EvRoundDiscarded, true
+	case "research_state", "evidence_appended":
+		// 证据账本过程状态(2026-08 证据账本 P0-c):引擎口径的检索次数 / 账本条数 / 来源构成。
+		// 入 journal 拿指标(V8:ledger_total 与 origin 分布今天完全不可见)+ 给 seed_history 的
+		// research 字段供一张最新快照 + 让 FoldToMessages 折出带外 entry 还原历史轮的过程 chip
+		// (只认 research_state 快照;它不进模型上下文,见 EvEvidence 注释)。
+		return EvEvidence, true
 	case "error":
 		return EvError, true
 	default:

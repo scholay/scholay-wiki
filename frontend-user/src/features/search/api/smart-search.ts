@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react
 import { useAgentSocket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
 import type { AgentClaimAudit, AgentErrorFrame, AgentDisplacedFrame } from '@/shared/lib/agent-stream';
 import { http, toApiError } from '@/shared/lib/http';
+import type { AttachmentDTO, ReferenceItemDTO } from '@/shared/types/chat';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   makeAgentSessionApi,
@@ -65,7 +66,9 @@ export type ClientMessage =
   | { type: 'set_runtime_config'; providerId: string | null; modelId: string; useDefault?: boolean };
 
 /**
- * Agent 端实际发的事件类型来源:agent/src/server/ws/events.ts。
+ * Agent 端实际发的事件类型来源:agent/src/turn/{turnLoop,runTools,artifacts}.ts 的 sink.frame(...)
+ * 与 agent/src/server/ws.ts(连接级帧)。⚠️ 不再是 agent/src/server/ws/events.ts —— 那个
+ * ServerMessage union 已在 a30add8d2 删除,现在没有单一声明文件。
  * 本前端只消费"对话回放"所必需的子集,其他事件(team_update/task_update/
  * computer_use_permission_request/permission_request)都不属于智能搜索场景,
  * 不在 union 里声明,fold 时也不需要处理。
@@ -78,7 +81,8 @@ export type ServerMessage =
       toolName?: string;
       toolUseId?: string;
     }
-  | { type: 'content_delta'; text?: string; toolInput?: string }
+  // toolPath:toolInput 流所写目标文件(fold 构建期预览用,shared appendToolInputStream 消费)。
+  | { type: 'content_delta'; text?: string; toolInput?: string; toolPath?: string }
   | {
       type: 'tool_use_complete';
       toolName: string;
@@ -93,6 +97,9 @@ export type ServerMessage =
       /** 面向用户的失败摘要(仅 isError 时;agent 双轨制 W5 P0-A)。旧 agent 不发 → 可选。 */
       userMessage?: string;
     }
+  // DSML 作废重打(审计 [10]):撤回本轮已流式发出的残缺前缀。此前 union 漏声明 → fold 静默
+  // 忽略,残缺前缀与重打答案两段并存(claw/prism 已修的 bug 在 search 的残留,2026-07 审查补齐)。
+  | { type: 'round_discarded' }
   // claim_audit:诚实性核验元数据(W2 P1-b,agent 纠偏轮触发时附带)。旧 agent 不发 → 可选。
   | { type: 'message_complete'; claim_audit?: AgentClaimAudit }
   | AgentErrorFrame
@@ -404,4 +411,72 @@ export function smartSearchSessionFileUrl(sessionId: string, absPath: string): s
   const base = absPath.split('/').pop() || absPath;
   const qs = new URLSearchParams({ session_id: sessionId, path: base });
   return `${apiBase}/user/smart-search/session/file?${qs.toString()}`;
+}
+
+// ─── 未发送(命中额度被拦 / 投递失败)消息的持久化 ─────────────────────────────
+//
+// 与 claw 的 'scholay:claw:blocked-message' 同构,另立 smart-search key。命中额度时那条
+// user_message 被后端在转发给 agent 之前拒绝(根本没发出去);按 session 存 localStorage,
+// 无论用户怎么解额度(就地重置 / 跳支付宝充会员整页返回 / 换设备充值后回来),重新进入该会话
+// 都能看到「未发送」卡片并一键重发,不必重打。附件已在会话隔离 cwd(按 path 引用),只持久化元数据。
+const SS_BLOCKED_MSG_KEY = 'scholay:smart-search:blocked-message';
+
+export interface SmartSearchBlockedMessage {
+  text: string;
+  /** 含 agent cwd path,重发时直接复用(文件仍在会话 cwd);previewUrl(本地 blob)不持久化。 */
+  attachments: AttachmentDTO[];
+  /** 引用文献(资料已物化进会话 cwd 的 references/,重发时只需重附引用块)。 */
+  references?: ReferenceItemDTO[];
+}
+
+interface SSBlockedMap {
+  [sessionId: string]: SmartSearchBlockedMessage;
+}
+
+function readSSBlockedMap(): SSBlockedMap {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(SS_BLOCKED_MSG_KEY);
+    return raw ? (JSON.parse(raw) as SSBlockedMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSSBlockedMap(map: SSBlockedMap) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(SS_BLOCKED_MSG_KEY, JSON.stringify(map));
+  } catch {
+    // localStorage 满 / 隐私模式 → silently skip(重发能力降级为"要重打",不报错)
+  }
+}
+
+/** 读某 session 的「未发送」消息;没有返回 undefined。 */
+export function getSmartSearchBlockedMessage(
+  sessionId: string | null,
+): SmartSearchBlockedMessage | undefined {
+  if (!sessionId) return undefined;
+  return readSSBlockedMap()[sessionId];
+}
+
+/** 存某 session 的「未发送」消息(命中额度 / 投递失败时);剥离不可持久化的本地 previewUrl。 */
+export function setSmartSearchBlockedMessage(sessionId: string, msg: SmartSearchBlockedMessage) {
+  const map = readSSBlockedMap();
+  map[sessionId] = {
+    text: msg.text,
+    attachments: msg.attachments.map((a) => ({ ...a, previewUrl: undefined })),
+    references: msg.references,
+  };
+  writeSSBlockedMap(map);
+}
+
+/** 清某 session 的「未发送」消息(成功重发 / 用户忽略 / 发新消息放弃后)。 */
+export function clearSmartSearchBlockedMessage(sessionId: string | null) {
+  if (!sessionId) return;
+  const map = readSSBlockedMap();
+  if (map[sessionId]) {
+    delete map[sessionId];
+    writeSSBlockedMap(map);
+  }
 }

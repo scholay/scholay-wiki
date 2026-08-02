@@ -182,7 +182,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.PUT("/projects/:id/struct", h.prism.SaveStruct)
 			prismG.GET("/projects/:id/struct/versions", h.prism.ListStructVersions)                       // 结构体版本历史
 			prismG.POST("/projects/:id/struct/versions/:versionId/restore", h.prism.RestoreStructVersion) // 恢复某历史版本
-			prismG.POST("/projects/:id/template", h.prism.SetJournalTemplate) // 确定性换刊
+			prismG.POST("/projects/:id/template", h.prism.SetJournalTemplate)                             // 确定性换刊
 			prismG.GET("/projects/:id/conformance", h.prism.GetConformance)
 			// 写作画像(Phase 3):base 文体/学科人格。查看 + 用户覆盖 + planner 自动识别。
 			prismG.GET("/projects/:id/writing-profile", h.prism.GetWritingProfile)
@@ -201,8 +201,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.GET("/projects/:id/terminology", h.prism.GetTerminology)
 			prismG.PUT("/projects/:id/terminology", h.prism.PutTerminology)
 			prismG.POST("/projects/:id/clone-to-struct", h.prism.CloneToStruct) // 逃生口:旧项目→新版
-			prismG.GET("/projects/:id/export/docx", h.prism.ExportDocx)        // struct→Pandoc→Word
-			prismG.POST("/projects/:id/assets", h.prism.UploadAsset)           // 上传图片 → figure 块
+			prismG.GET("/projects/:id/export/docx", h.prism.ExportDocx)         // struct→Pandoc→Word
+			prismG.POST("/projects/:id/assets", h.prism.UploadAsset)            // 上传图片 → figure 块
 			// agent-native 用户 WS 编辑(实时流式 + diff + 应用门 + 重入续流)。
 			// 输入框附件:上传 / 引用文献集 —— agentattach 通用实现(2026-07-14 三 feature
 			// 输入框统一);会话 per-project,handler 内解析。上传走通用 UploadLimitMiddleware。
@@ -213,7 +213,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
 			prismG.GET("/projects/:id/conversations", h.prism.ListConversations) // 多对话:本项目对话列表(共享同一份论文)
 			prismG.POST("/projects/:id/conversations", h.prism.NewConversation)  // 多对话:新建一条对话
-			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession) // 手动重开会话(V3-4.6-1:文稿零损失)
+			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession)     // 手动重开会话(V3-4.6-1:文稿零损失)
 			prismG.GET("/projects/:id/session/messages", h.prism.GetWSMessages)
 			prismG.GET("/projects/:id/session/context", h.prism.GetContext)       // 上下文水位(token 占用)
 			prismG.POST("/projects/:id/round/prepare", h.prism.PrepareRound)      // 铺源 DB→cwd
@@ -310,12 +310,22 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 
 		// 智能助手 (Claw) — 通用对话 + 文件 / 图片上传 + Minicod MCP 检索。
 		// 跟 smart-search 一样的 session / ws-ticket 模式, 额外多一个 upload 端点。
+		// ── 科研内核 Run(2026-08 Phase 1)────────────────────────────────────
+		// 长任务:一条请求 = 一个持久 Run,分步跑、可续跑、可取消。
+		// 挂在 claw 下:claw 是内核,其余剖面是它的聚焦形态(老板的框架)。
+		// h.agentRun 未装配时(引擎关闭)这几条路由不挂 —— 见下方 nil 守卫。
 		userProtected.GET("/claw/session", h.claw.GetSession)
 		userProtected.POST("/claw/session/reset", h.claw.ResetSession)
 		userProtected.GET("/claw/session/messages", h.claw.GetSessionMessages)
 		userProtected.GET("/claw/session/context", h.claw.GetContextEstimate)
 		// 历史回放里图片缩略图/放大: 浏览器 <img src> 按 path 回取会话 cwd 内的原图 (cookie 鉴权)。
 		userProtected.GET("/claw/session/file", h.claw.GetSessionFile)
+		if h.agentRun != nil {
+			userProtected.POST("/claw/runs", h.agentRun.CreateRun)
+			userProtected.GET("/claw/runs", h.agentRun.ListRuns)
+			userProtected.GET("/claw/runs/:id", h.agentRun.GetRun)
+			userProtected.POST("/claw/runs/:id/cancel", h.agentRun.CancelRun)
+		}
 		// 成果交付: 列出会话 ./out 交付目录的产物 + 下载/预览单个产物 (agent 产出 → web 用户)。
 		userProtected.GET("/claw/session/artifacts", h.claw.GetSessionArtifacts)
 		userProtected.GET("/claw/artifact/:id", h.claw.DownloadArtifactByID)        // MinIO 交付物按 id 取(预览/下载)

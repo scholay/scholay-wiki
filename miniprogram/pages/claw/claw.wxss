@@ -676,6 +676,48 @@
   font-size: 24rpx;
 }
 
+/* 命中额度「尚未发送」卡(对标 Web blocked 轮:warning-soft 底 + 琥珀描边;
+   claw 页是纯白卡底,--amber-soft 在这里可见,不落米白页底) */
+.quota-blocked {
+  border: 1rpx solid var(--amber-line);
+  border-radius: 12rpx;
+  background: var(--amber-soft);
+  padding: 16rpx 24rpx;
+  margin: 12rpx 0;
+}
+.qb-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.qb-main {
+  flex: 1;
+  min-width: 0;
+}
+.qb-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--amber-ink);
+}
+.qb-sub {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: var(--text-weak);
+  word-break: break-word;
+}
+.qb-resend {
+  display: inline-block;
+  margin: 16rpx 0 4rpx 44rpx; /* 左缩进对齐标题(28rpx 图标 + 16rpx gap) */
+  background: var(--text);
+  color: var(--on-brand);
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 8rpx;
+  padding: 12rpx 28rpx;
+}
+
 /* 本轮产出文件卡(对标 Web TurnArtifacts:品牌绿强调) */
 .tarts {
   margin: 12rpx 0;

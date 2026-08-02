@@ -63,6 +63,12 @@ func indexNow() *upstream.Client {
 	return indexNowClient
 }
 
+// errIndexNowConfig — 本地配置错误(key 空 / siteOrigin 解析不出 host)。
+// 2026-07 审查:这两条早退此前是**裸 error**(不带任何 sentinel),worker 的错误分流
+// 会把它们落进 default 分支 → 每 5 分钟无限 Requeue 同一批 URL。重试多少次都不会好,
+// 挂上 sentinel 让 worker 直接判永久、落死信。
+var errIndexNowConfig = errors.New("indexnow: config invalid")
+
 // indexNowPayload 协议定义的请求体结构
 type indexNowPayload struct {
 	Host        string   `json:"host"`        // 站点 host,不带 scheme(如 www.scholay.com)
@@ -77,14 +83,14 @@ type indexNowPayload struct {
 // 失败原因 + 错误码 走结构化日志 (upstream 自动注入),便于线上诊断。
 func SubmitIndexNow(ctx context.Context, key, siteOrigin string, urls []string) error {
 	if key == "" {
-		return fmt.Errorf("indexnow: empty key")
+		return fmt.Errorf("%w: empty key", errIndexNowConfig)
 	}
 	if len(urls) == 0 {
 		return nil
 	}
 	host, err := extractHost(siteOrigin)
 	if err != nil {
-		return fmt.Errorf("indexnow: invalid site origin %q: %w", siteOrigin, err)
+		return fmt.Errorf("%w: invalid site origin %q: %v", errIndexNowConfig, siteOrigin, err)
 	}
 
 	// 过滤 host 不一致的 URL —— 协议要求 urlList 里所有 URL 的 host 都等于 payload.host,

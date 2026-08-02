@@ -6,6 +6,7 @@
 // 兑换确认复用 MobileAssetsCard 已有的 RedeemConfirmDialog(本弹层只收码 + onRedeem 交回父组件,
 // 父组件关本弹层 + 开确认弹层),避免 Dialog 套 Dialog。
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronRight, CreditCard, Crown, Gem, Loader2, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
@@ -46,6 +47,7 @@ export function MobileMembershipDialog({
   tier,
   onRedeem,
 }: MobileMembershipDialogProps) {
+  const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [payingTier, setPayingTier] = useState<Tier | null>(null);
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
@@ -173,6 +175,18 @@ export function MobileMembershipDialog({
             </p>
           ) : (
             <div className="flex flex-col gap-2">
+              {/* 每档一行定位语 —— 只给认知锚点,倍率动态取后端 multiplier(口径与 membership-plan-card
+                  一致:Pro 相对 Free、Max 相对 Pro),完整权益对比链去 /pricing,弹层保持纯购买。 */}
+              <div className="flex flex-col gap-1 pb-1">
+                {payPlans.map((p) => (
+                  <p key={p.tier} className="text-12 text-muted-foreground">
+                    <span className="font-medium text-foreground">{p.tier === 'max' ? 'Max' : 'Pro'}</span>
+                    {p.tier === 'max'
+                      ? ` · 高频科研主力 · ${p.multiplier}× 于 Pro 额度`
+                      : ` · 轻量检索与日常写作 · ${p.multiplier}× 于 Free 额度`}
+                  </p>
+                ))}
+              </div>
               {/* 月付 / 年付 切换(0079)—— 年付带「省 N%」徽标 */}
               {yearlyAvailable && (
                 <div className="flex justify-center pb-1">
@@ -235,6 +249,19 @@ export function MobileMembershipDialog({
             </div>
           )}
         </div>
+
+        {/* 完整权益对比在 /pricing(移动 UA 可达:device.ts 无对等映射 = 留在原地的响应式页)。
+            先关弹层再跳转,避免 Radix modal 在 open 态跨路由残留 body 锁。 */}
+        <button
+          type="button"
+          onClick={() => {
+            onOpenChange(false);
+            navigate('/pricing');
+          }}
+          className="mx-auto text-12 text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+        >
+          查看完整权益对比 →
+        </button>
       </DialogContent>
     </Dialog>
   );

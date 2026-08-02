@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import {
   AssistantBubble,
+  BlockedTurnCard,
   ChatStyles,
   MinicodAuthorCards,
   MinicodJournalCards,
@@ -14,6 +15,7 @@ import {
   extractToolQuery,
   extractToolSourceBrand,
 } from '@/shared/components/chat';
+import { useQuotaStore } from '@/stores/quota.store';
 import {
   hasVisibleAssistantContent,
   isLastBlockStreamingText,
@@ -35,7 +37,18 @@ import { MINICOD_TOOL_PREFIX } from './types';
  */
 // memo: 长会话里历史轮 turn 引用稳定(replayHistoryAsTurns 经 useMemo 缓存)→ 跳过重渲染,
 // 只有流式中那轮重渲染。配合 SmartSearchPanel 的渲染窗口压住长会话开销。
-export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn }) {
+export const AssistantTurn = memo(function AssistantTurn({
+  turn,
+  onResendBlocked,
+  onDismissBlocked,
+}: {
+  turn: Turn;
+  /** blocked(命中额度未发送)轮:点「重新发送」。引用稳定不破 memo(panel ref-latest 包装)。 */
+  onResendBlocked?: () => void;
+  /** blocked 轮:点「忽略」丢弃这条未发送消息。 */
+  onDismissBlocked?: () => void;
+}) {
+  const openReset = useQuotaStore((s) => s.openReset);
   const visible = hasVisibleAssistantContent(turn);
   const isThinkingActive =
     !turn.complete && turn.placeholder?.state === 'thinking';
@@ -44,14 +57,17 @@ export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn 
   const showTrailingIndicator =
     !turn.complete && !turn.errorMessage && visible && !isStreamingText;
 
-  // 未发送的那轮(命中每日额度被拦 / 投递失败·连接中断):agent 永不对它回事件(complete 永远
-  // false),不能走下面的流式占位分支(否则一直转圈)。渲染一条「未发送」提示,原文已回填输入框
-  // 可直接重发;具体原因由各自的 toast / 全局额度弹窗告知,这里保持通用文案。
+  // 未发送的那轮(命中每日额度被拦 / 投递失败):agent 永不对它回事件(complete 永远 false),
+  // 不能走下面的流式占位分支(否则一直转圈)。渲染 shared BlockedTurnCard(与 claw / prism 同款):
+  // 消息已按 session 持久化(localStorage),一键重发,无需重打;旧「原文回填输入框」方案已退役。
+  // 连接中断类投递失败仍由既有其它路径告知(toast「消息未能送达…」/ 误报恢复),卡片文案聚焦额度。
   if (turn.blocked) {
     return (
-      <div className="text-12 text-muted-foreground bg-surface-2 border border-border rounded-12 px-2.5 py-1.5">
-        本条未发送(额度已用完或连接中断)。原文已回填输入框,可直接重新发送。
-      </div>
+      <BlockedTurnCard
+        onResend={onResendBlocked}
+        onOpenReset={openReset}
+        onDismiss={onDismissBlocked}
+      />
     );
   }
 

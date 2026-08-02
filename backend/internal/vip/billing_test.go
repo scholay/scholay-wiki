@@ -613,6 +613,53 @@ func TestPaygAdjustedBudget(t *testing.T) {
 	}
 }
 
+// TestTurnCostCapAndWindDown —— 2026-07-31 线上审计「单轮预算与计费窗口联动硬顶」:
+// ① 硬顶就是窗口剩余额度(两层共用同一个数);② 剩余极低/为负时落到地板,绝不压到 0
+// (压到 0 = 执行器 round-0 就 wind-down,用户拿一句降级回答还被计费);
+// ③ 收尾触发点必须**严格小于**硬顶 —— 收尾那一次 LLM call 要落在窗口内,这正是旧口径
+// (收尾点 = 剩余额度)必然越线的地方。
+func TestTurnCostCapAndWindDown(t *testing.T) {
+	const floor = 30_000 // 默认 free 窗口 300_000 微元 → 地板 = 1/10
+	cases := []struct {
+		name      string
+		remaining int64
+		want      int64
+	}{
+		{"余量充足:硬顶=窗口剩余", 250_000, 250_000},
+		{"余量低于地板:抬到地板", 1_000, floor},
+		{"余量为 0(并发轮/payg):地板", 0, floor},
+		{"余量为负(在跑轮已越线):地板,不给负预算", -50_000, floor},
+		{"恰好等于地板", floor, floor},
+	}
+	for _, c := range cases {
+		if got := turnCapFromRemaining(c.remaining, floor); got != c.want {
+			t.Errorf("%s: remaining=%d → cap=%d want %d", c.name, c.remaining, got, c.want)
+		}
+	}
+
+	// 地板跟随 free 窗口伸缩,且不低于绝对地板。
+	if got := turnBudgetFloorMicro(&BillingConfig{FreeWindowTokens: 300_000}); got != floor {
+		t.Fatalf("默认配置地板 = %d want %d", got, floor)
+	}
+	if got := turnBudgetFloorMicro(&BillingConfig{FreeWindowTokens: 1_000}); got != minTurnBudgetMicro {
+		t.Fatalf("free 窗口极小时应落到绝对地板, got %d", got)
+	}
+	if got := turnBudgetFloorMicro(&BillingConfig{FreeWindowTokens: 3_000_000}); got != 300_000 {
+		t.Fatalf("free 窗口放大 10 倍时地板应同比例走, got %d", got)
+	}
+
+	// 收尾点严格小于硬顶:留出的尾巴就是「去掉工具 + 收尾指令」那一次 call 的成本空间。
+	for _, capMicro := range []int64{floor, 100_000, 300_000, 5_000_000} {
+		wd := windDownPoint(capMicro)
+		if wd >= capMicro {
+			t.Fatalf("收尾点必须小于硬顶: cap=%d wind_down=%d", capMicro, wd)
+		}
+		if wd <= 0 {
+			t.Fatalf("收尾点不能压到 0: cap=%d wind_down=%d", capMicro, wd)
+		}
+	}
+}
+
 // TestPayAsYouGoOverflow 守住「跨线那一笔只对超出部分收费」——
 // 整笔转经费会让用户为已经买过的额度再付一次钱,且恰好发生在刚用完套餐的时刻。
 func TestPayAsYouGoOverflow(t *testing.T) {

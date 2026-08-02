@@ -9,11 +9,11 @@
 
 import type { ServerWebSocket } from "bun";
 import { runTurn, addUsage, effectiveOutputCap, type CallUsage } from "../turn/turnLoop.ts";
-import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills, sessionWsOpened, sessionWsClosed, markSessionActive } from "./sessions.ts";
+import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills, sessionWsOpened, sessionWsClosed, markSessionActive, beginHydration, endHydration, awaitHydration, envNum } from "./sessions.ts";
 import { tryAcquireTurn } from "./admission.ts";
 import { buildUserContentWithImages } from "./attachments.ts";
 import { convertFlatToAnthropic, type FlatMessage } from "./shadowTurn.ts";
-import type { EventSink, TurnInput } from "../turn/types.ts";
+import type { EventSink, PermissionDecision, TurnInput } from "../turn/types.ts";
 import type { Tier } from "../config/models.ts";
 import { fallbackTitle, generateTitle } from "../turn/title.ts";
 import { fastCompletion } from "../turn/completion.ts";
@@ -32,7 +32,8 @@ export interface WSData {
   sessionId: string;
   inFlight: boolean;
   abort: AbortController | null;
-  pending: Map<string, (allowed: boolean) => void>;
+  // 回调第二参 = 控制面回执里的 userMessage(2026-07 审查 [16]/[21]);缺省(超时/断连默认拒)时不带。
+  pending: Map<string, (allowed: boolean, userMessage?: string) => void>;
   tier: Tier;
   modelOverride: string | null; // set_runtime_config{modelId};peerreview 按轮切具体模型
   // set_runtime_config{providerId}(F0 多 provider):额外 provider 的 executor 键(scholay-p<id>);
@@ -55,6 +56,10 @@ export interface WSData {
 }
 
 const PERMISSION_TIMEOUT_MS = Number(process.env.EXECUTOR_PERMISSION_TIMEOUT_MS || 120_000);
+
+// 水合(seed_history)等待硬上限(2026-07 线上审计 §2.3):正常 <50ms,给到秒级只为盖住磁盘抖动;
+// 超时即**拒绝本轮**(见 handleUserMessage),绝不带空上下文硬答。envNum 防误配成非数字 → NaN。
+const SEED_WAIT_MS = envNum("EXECUTOR_SEED_WAIT_MS", 10_000);
 
 // parseTaskBudget —— 从 user_message 帧的 budget 对象解析有界透支预算(SS#2)。
 // backend 只给 5 个 chat feature(smart_search/claw/prism/boltslides/sci_draw)盖章;
@@ -99,7 +104,8 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       const resolve = ws.data.pending.get(requestId);
       if (resolve) {
         ws.data.pending.delete(requestId);
-        resolve(frame.allowed === true);
+        // userMessage(可选):控制面对拒绝原因的可见说明,透传给 runTools 替换固定文案。
+        resolve(frame.allowed === true, typeof frame.userMessage === "string" ? frame.userMessage : undefined);
       }
       return;
     }
@@ -151,51 +157,15 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       return;
     }
     case "seed_history": {
-      // H1:后端在连接后、首条 user_message 前喂 journal 折叠的 history(执行器不自持久化)。
-      // 仅当会话内 history 为空时 seed —— 不覆盖进行中的内存会话(重连且本进程还活着时)。
-      const meta = await getOrCreateEphemeral(ws.data.sessionId);
-      if (meta.messages.length === 0 && Array.isArray(frame.messages)) {
-        meta.messages = convertFlatToAnthropic(frame.messages as FlatMessage[]);
+      // 2026-07 线上审计 §2.3「重连上下文竞态」:水合门 —— **同步**登记在途(必须在本帧处理的
+      // 任何 await 之前),让紧随其后到达的首条 user_message 等历史真正写回 meta 再进轮。
+      // finally 保证抛错/提前 return 也放行,绝不把会话卡死(见 sessions.ts 水合门注释)。
+      beginHydration(ws.data.sessionId);
+      try {
+        await handleSeedHistory(ws, frame);
+      } finally {
+        endHydration(ws.data.sessionId);
       }
-      // 后端拥有的已有标题一并喂入 → 已命名会话重连不再重复生成标题(与 DB 一致)。
-      if (typeof frame.title === "string" && frame.title && !meta.title) {
-        setTitle(meta.sessionId, frame.title);
-      }
-      // H3:回填注入面(system prompt 规则+记忆 / skills addDirs / denylist)。executor 重启后
-      // ephemeral meta 这些字段全空,只 seed messages 会让存量会话丢规则/记忆/skills。仅在 meta
-      // 当前为空时回填 —— 不覆盖本进程还活着的活会话(其字段已由 CreateSession 设好)。
-      if (typeof frame.appendSystemPrompt === "string" && frame.appendSystemPrompt && !meta.appendSystemPrompt) {
-        meta.appendSystemPrompt = frame.appendSystemPrompt;
-      }
-      if (Array.isArray(frame.addDirs) && frame.addDirs.length > 0 && meta.addDirs.length === 0) {
-        meta.addDirs = (frame.addDirs as unknown[]).map(String);
-      }
-      // 用户市场 skill:重连/重启后 backend 经 seed_history 带内联内容回填(与 CreateSession 同一物化路径)。
-      // **本进程尚未物化过(meta 无 .skills)即无条件走一次物化(清后写)**:即便本次启用集为空(用户禁用了
-      // 全部 skill → backend 不下发 skills 字段,frame.skills 缺省),也要清掉上个进程在可写层残留的旧 / 已停用
-      // guides —— 否则残留副本占盘、极端下被 loader 扫到。非空则清后重写当前集,物化目录并入 addDirs 供 guides 菜单识别。
-      if (!meta.addDirs.some((d) => d.endsWith(".skills"))) {
-        const skills = Array.isArray(frame.skills)
-          ? (frame.skills as { name: string; skillMd: string }[])
-          : undefined;
-        const skillsDir = await materializeSessionSkills(meta.workDir, skills);
-        if (skillsDir && !meta.addDirs.includes(skillsDir)) meta.addDirs.push(skillsDir);
-      }
-      if (Array.isArray(frame.disallowedTools) && frame.disallowedTools.length > 0 && meta.disallowedTools.length === 0) {
-        meta.disallowedTools = (frame.disallowedTools as unknown[]).map(String);
-      }
-      // MCP 白名单:重连/重启后 backend 经 seed_history 回填(与 disallowedTools 同策略,仅在本进程 meta
-      // 尚空时接受,不覆盖活会话)。缺省字段 → 保持不限制,行为不变。
-      if (frame.honestyGuard === true && !meta.honestyGuard) {
-        meta.honestyGuard = true; // seed_history 回填(存量会话 restart 后重灌)
-      }
-      if (frame.honestyChecks && typeof frame.honestyChecks === "object" && !meta.honestyChecks) {
-        meta.honestyChecks = frame.honestyChecks as { citations?: boolean; delivery?: boolean; fullread?: boolean };
-      }
-      if (Array.isArray(frame.allowedMcpTools) && frame.allowedMcpTools.length > 0 && meta.allowedMcpTools.length === 0) {
-        meta.allowedMcpTools = (frame.allowedMcpTools as unknown[]).map(String);
-      }
-      safeSend(ws, { type: "history_seeded", count: meta.messages.length });
       return;
     }
     case "prewarm_session":
@@ -227,6 +197,59 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
     default:
       return;
   }
+}
+
+// handleSeedHistory —— seed_history 帧的处理体(从 onMessage 里提出来,让水合门能用 try/finally 包住)。
+async function handleSeedHistory(ws: ServerWebSocket<WSData>, frame: Record<string, unknown>): Promise<void> {
+  // H1:后端在连接后、首条 user_message 前喂 journal 折叠的 history(执行器不自持久化)。
+  // 仅当会话内 history 为空时 seed —— 不覆盖进行中的内存会话(重连且本进程还活着时)。
+  const meta = await getOrCreateEphemeral(ws.data.sessionId);
+  if (meta.messages.length === 0 && Array.isArray(frame.messages)) {
+    meta.messages = convertFlatToAnthropic(frame.messages as FlatMessage[]);
+  }
+  // 后端拥有的已有标题一并喂入 → 已命名会话重连不再重复生成标题(与 DB 一致)。
+  if (typeof frame.title === "string" && frame.title && !meta.title) {
+    setTitle(meta.sessionId, frame.title);
+  }
+  // H3:回填注入面(system prompt 规则+记忆 / skills addDirs / denylist)。executor 重启后
+  // ephemeral meta 这些字段全空,只 seed messages 会让存量会话丢规则/记忆/skills。仅在 meta
+  // 当前为空时回填 —— 不覆盖本进程还活着的活会话(其字段已由 CreateSession 设好)。
+  if (typeof frame.appendSystemPrompt === "string" && frame.appendSystemPrompt && !meta.appendSystemPrompt) {
+    meta.appendSystemPrompt = frame.appendSystemPrompt;
+  }
+  if (Array.isArray(frame.addDirs) && frame.addDirs.length > 0 && meta.addDirs.length === 0) {
+    meta.addDirs = (frame.addDirs as unknown[]).map(String);
+  }
+  // 用户市场 skill:重连/重启后 backend 经 seed_history 带内联内容回填(与 CreateSession 同一物化路径)。
+  // **本进程尚未物化过(meta 无 .skills)即无条件走一次物化(清后写)**:即便本次启用集为空(用户禁用了
+  // 全部 skill → backend 不下发 skills 字段,frame.skills 缺省),也要清掉上个进程在可写层残留的旧 / 已停用
+  // guides —— 否则残留副本占盘、极端下被 loader 扫到。非空则清后重写当前集,物化目录并入 addDirs 供 guides 菜单识别。
+  if (!meta.addDirs.some((d) => d.endsWith(".skills"))) {
+    const skills = Array.isArray(frame.skills)
+      ? (frame.skills as { name: string; skillMd: string }[])
+      : undefined;
+    const skillsDir = await materializeSessionSkills(meta.workDir, skills);
+    if (skillsDir && !meta.addDirs.includes(skillsDir)) meta.addDirs.push(skillsDir);
+  }
+  // 2026-07 审查([3]/[5]):denylist 原带「仅 meta 为空时回填一次」守卫,prism 长寿命 project 会话
+  // 重连后永远拿旧 denylist → 模型看得见已被禁的工具、承诺后被 backend 拒(18 轮白烧)。
+  // seed_history 的 disallowedTools 由 hub 每次现算(buildCreateOptions,hub.go:672),本来就是最新值,
+  // 故改为**控制面下发即权威、无条件覆盖**。字段缺省(旧 backend / 该 feature 无 denylist)时保留现值。
+  if (Array.isArray(frame.disallowedTools) && frame.disallowedTools.length > 0) {
+    meta.disallowedTools = (frame.disallowedTools as unknown[]).map(String);
+  }
+  // MCP 白名单:重连/重启后 backend 经 seed_history 回填(与 disallowedTools 同策略,仅在本进程 meta
+  // 尚空时接受,不覆盖活会话)。缺省字段 → 保持不限制,行为不变。
+  if (frame.honestyGuard === true && !meta.honestyGuard) {
+    meta.honestyGuard = true; // seed_history 回填(存量会话 restart 后重灌)
+  }
+  if (frame.honestyChecks && typeof frame.honestyChecks === "object" && !meta.honestyChecks) {
+    meta.honestyChecks = frame.honestyChecks as { citations?: boolean; delivery?: boolean; fullread?: boolean };
+  }
+  if (Array.isArray(frame.allowedMcpTools) && frame.allowedMcpTools.length > 0 && meta.allowedMcpTools.length === 0) {
+    meta.allowedMcpTools = (frame.allowedMcpTools as unknown[]).map(String);
+  }
+  safeSend(ws, { type: "history_seeded", count: meta.messages.length });
 }
 
 // maybeReduceContext:近上限时分层降级会话上下文。两处调用:①handleUserMessage 每轮前;
@@ -312,8 +335,28 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   const content = String(frame.content ?? "");
   if (!content) return;
 
+  // 2026-07 线上审计 §2.3「重连上下文竞态」:重连后 backend 先写 seed_history 再转发本帧,但两者
+  // 在 executor 侧是并发的 async 链 —— 不等历史真正写回 meta 就进轮,模型会带空上下文明面失忆。
+  // 这里等在途水合落地(无在途 seed 时零等待);超时**拒绝本轮**并给用户明确可重发的提示,
+  // 绝不静默失忆继续答。放在 inFlight 置位之前,拒绝时无状态需要回滚。
+  if (!(await awaitHydration(ws.data.sessionId, SEED_WAIT_MS))) {
+    safeSend(ws, {
+      type: "error",
+      code: "context_not_ready",
+      message: "会话上下文正在恢复中,这条消息尚未发出,请稍后重新发送。",
+      retryable: true,
+    });
+    return;
+  }
+
   markSessionActive(ws.data.sessionId); // 刷新活动时刻:长连接内持续对话不被误淘汰
   const meta = await getOrCreateEphemeral(ws.data.sessionId);
+  // 2026-07 审查([3]/[5]):此处曾按 user_message 帧上的 disallowedTools 覆盖 denylist —— 死代码。
+  // backend 的 handleUserMessage 第一件事就是 stripInjectionSurface(hub.go:1497 / ws.go:604),
+  // 把 addDirs/disallowedTools/appendSystemPrompt/skills 顶层键整个删掉再转发(浏览器注入防线),
+  // 且全仓没有任何地方在 user_message 上重新盖章 → 该字段在真实链路上恒不存在。
+  // denylist 的**唯一权威通道是 seed_history**(hub 每次建连现算下发,上面已改为无条件覆盖)。
+  // 若将来 backend 要在每轮盖章,必须盖在 stripInjectionSurface 之后,并在此重新加消费点。
   // P2 图片通道:attachments 里的 image 从会话 cwd 读出并 base64 内嵌为 Anthropic image 块
   // (与 @"path" 文本标记并存:标记服务历史回放 chips 与文件语义,图块给模型「看见」)。
   // 无图 / 读取失败 → 纯文本(与旧行为一致)。是否真发给上游由 turnLoop 按 vision 能力过滤。
@@ -376,13 +419,15 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
       safeSend(ws, { type: "error", message, code });
     },
     requestPermission(req) {
-      return new Promise<boolean>((resolve) => {
+      // 2026-07 审查([16]/[21]):回执的 userMessage 一并透传给 runTools —— 控制面对「幻想的工具名」
+      // 给的自愈提示此前在这里被丢掉,模型只收到与真越权同文的 permission denied。
+      return new Promise<PermissionDecision>((resolve) => {
         const timer = setTimeout(() => {
-          if (ws.data.pending.delete(req.requestId)) resolve(false); // 超时默认拒(安全侧)
+          if (ws.data.pending.delete(req.requestId)) resolve({ allowed: false }); // 超时默认拒(安全侧)
         }, PERMISSION_TIMEOUT_MS);
-        ws.data.pending.set(req.requestId, (allowed) => {
+        ws.data.pending.set(req.requestId, (allowed, userMessage) => {
           clearTimeout(timer);
-          resolve(allowed);
+          resolve({ allowed, userMessage });
         });
         safeSend(ws, {
           type: "permission_request",
@@ -402,6 +447,10 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   // ① 裁老 tool_result ② 滚动摘要 ③ 硬裁;触发信号 max(上一轮真实占用, 当前估算),按会话模型窗口定界。
   const ctxWindow = ws.data.contextWindow ?? CONTEXT_WINDOW; // 供下方 TurnInput.contextWindow(反应式压缩用)
   await maybeReduceContext(ws, meta);
+
+  // 本轮开始前的 history 长度(**必须在压缩之后取** —— maybeReduceContext 会整体替换 meta.messages)。
+  // = turnLoop 里的 historyLen 语义:含本轮那条 user 消息,slice(historyBase) 即本轮新增。
+  const historyBase = meta.messages.length - 1;
 
   const input: TurnInput = {
     sessionId: meta.sessionId,
@@ -428,6 +477,14 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
 
   try {
     meta.messages = await runTurn(input, sink, abort.signal);
+    // 2026-07-31 线上审计:一轮以 error 终帧收场、且**什么都没往 history 里加**(只剩本轮这条 user
+    // 消息)→ 把它摘掉,让会话 history 回到「本轮从未发生过」。否则这条悬挂的 user 消息会与下一次
+    // 重发拼成 user-after-user 非法序列(用户手点重试的场景线上已在发生:一位用户 9 连败),
+    // 且它还带着 runTurn 盖上的语言指令 / 预算披露尾巴,会被当成用户原话再喂一遍模型。
+    // 用户主动 stop(abort)不摘:那轮是用户自己收的,问题留在 history 里符合他的预期。
+    if (!turnCompleted && !abort.signal.aborted && meta.messages.length === historyBase + 1) {
+      meta.messages.length = historyBase;
+    }
   } catch (e) {
     // 兜底:runTurn 内部已接住上游/流式失败(带日志+error 帧),走到这说明是意外异常 —— 必须留痕。
     log.error("runTurn threw (unexpected)", { err: String((e as Error)?.message ?? e), session_id: meta.sessionId });

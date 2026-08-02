@@ -83,6 +83,9 @@ const TURN_ERROR_TEXT: Record<string, string> = {
   empty_turn: '模型没有返回任何内容,本轮未完成,可点击重试。',
   turn_timeout: '本轮处理超时,已自动停止,可点击重试。',
   model_protocol_error: '模型输出出现协议异常,本轮已终止,可重试或更换模型。',
+  // 2026-07 线上审计新增两个终态 code —— 均**不可重试**(不进下方白名单,原样重试大概率复现):
+  round_cap: '本轮执行步骤已达上限:任务过于复杂,建议精简需求或拆成多轮。',
+  content_blocked: '内容未通过合规审查,请调整措辞后重试。',
 };
 
 /**
@@ -97,6 +100,15 @@ const RETRYABLE_TURN_ERROR_CODES = new Set([
   'turn_timeout',
   'empty_turn',
   'model_protocol_error',
+  // budget = 单轮 token 预算越界(backend SS#2 有界透支)。重试安全:预算按「轮」盖章,
+  // 下一轮 send 时后端重新盖章、重新计界,不会把上一轮的透支累进来 —— 用户精简需求后
+  // 点「重试」即可开新一轮,不必刷新页面。
+  'budget',
+  // 2026-07 线上审计:补上后端真实下发的两个可重试 code —— `upstream`(agent 上游连接中断,
+  // backend sanitizeAgentErrorFrame 保留原 code)与 `overloaded`(执行器过载,backend 把上行
+  // busy 换名而来);round_cap / content_blocked 刻意**不进**本白名单。
+  'upstream',
+  'overloaded',
 ]);
 
 export function isRetryableTurnError(code: string | undefined): boolean {

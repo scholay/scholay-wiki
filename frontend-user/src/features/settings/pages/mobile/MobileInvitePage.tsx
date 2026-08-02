@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { INVITE_METHOD_LABEL, useInvite, useInvitedUsers } from '../../api/invite';
+import { usePlans } from '../../api/membership';
 import { MeSubpageShell } from '../../components/mobile/MeSubpageShell';
 
 export function MobileInvitePage() {
@@ -20,6 +21,8 @@ function InviteBody() {
   const { data, isLoading } = useInvite();
   // 活动开关:reward_per_invite=0 = 未开,不提奖励(不给假承诺)
   const rewardOn = (data?.reward_per_invite ?? 0) > 0;
+  const { data: plansData } = usePlans();
+  const dailyCap = plansData?.invite_reward_daily_cap ?? 0;
 
   const onCopy = async () => {
     if (!data) return;
@@ -63,6 +66,30 @@ function InviteBody() {
             '好友通过你的链接注册后自动关联。'
           )}
         </p>
+      </section>
+
+      {/* 如何参与:三步玩法(活动开启时第三步讲奖励;规则行正向措辞「次日继续」) */}
+      <section className="rounded-16 border border-border bg-surface-card p-4">
+        <p className="text-12 font-medium text-faint">如何参与</p>
+        <ol className="mt-2 flex flex-col gap-2">
+          {(
+            [
+              ['1', '复制专属邀请链接,分享给同门好友'],
+              ['2', '好友通过链接注册 Scholay,自动与你关联'],
+              rewardOn ? ['3', '经费自动到账,并有站内信提醒'] : ['3', '在下方查看通过邀请注册的好友'],
+            ] as ReadonlyArray<readonly [string, string]>
+          ).map(([n, t]) => (
+            <li key={n} className="flex items-center gap-2 text-12 text-subtle">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-pill bg-surface-2 tabular-nums text-faint">
+                {n}
+              </span>
+              {t}
+            </li>
+          ))}
+        </ol>
+        {rewardOn && dailyCap > 0 && (
+          <p className="mt-2 text-12 text-faint">每日最多计入 {dailyCap} 位好友的奖励,次日继续。</p>
+        )}
       </section>
 
       {/* 统计卡 —— 活动开启时加「累计奖励」变三列,未开保持两列 */}
@@ -121,6 +148,9 @@ function InvitedList() {
               >
                 <span className="min-w-0 truncate text-12 text-subtle">{u.name}</span>
                 <span className="flex shrink-0 items-center gap-2 text-12 text-faint">
+                  {u.rewarded_credits > 0 && (
+                    <span className="font-medium tabular-nums text-brand-green">+{u.rewarded_credits}</span>
+                  )}
                   <span className="rounded-pill bg-surface-2 px-2 py-1">
                     {INVITE_METHOD_LABEL[u.method] ?? u.method}
                   </span>

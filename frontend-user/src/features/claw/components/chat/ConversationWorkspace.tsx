@@ -302,7 +302,13 @@ export function ConversationWorkspace({
   );
 
   return (
-    <SidebarLayout sidebar={sidebar}>
+    <SidebarLayout
+      /* 智能助手(含制作PPT模式)隐藏左下的浮动展开按钮(2026-08-02 设计走查拍板,
+         与文献搜索同一先例):对话页左下是输入区/工具链上下文,悬浮胶囊在这里打架。
+         侧栏仍可从顶栏 rail chip 展开,不是死路。 */
+      hideExpandButton
+      sidebar={sidebar}
+    >
       <div className="flex h-full flex-col bg-background">
         <header className="flex h-14 items-center gap-3 border-b border-border px-6">
           <div className="flex items-center gap-2">

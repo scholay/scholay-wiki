@@ -65,12 +65,22 @@ export { SafeSvg } from './SafeSvg';
 export { PausedNotice } from './PausedNotice';
 export { StallNotice } from './StallNotice';
 export { TurnErrorNotice } from './TurnErrorNotice';
+export { ResearchStateChip } from './ResearchStateChip';
+export { BlockedTurnCard, type BlockedTurnCardProps } from './BlockedTurnCard';
 export { ContextMeter, type ContextMeterProps } from './ContextMeter';
 export { Composer, type ComposerProps, type ComposerHandle, type ComposerContextInfo } from './Composer';
 export { ComposerAttachmentRow } from './ComposerAttachmentRow';
 export { ComposerPlusMenu } from './ComposerPlusMenu';
 export { LibraryReferencePicker, type ReferenceSelection } from './LibraryReferencePicker';
 export { ProcessFold } from './ProcessFold';
+export { ToolGroupBlock } from './ToolGroupBlock';
+export {
+  toolLabel,
+  toolIconFor,
+  toolRunningVerb,
+  toolParamSummary,
+  formatDurationSec,
+} from './tool-semantics';
 export {
   ToolHeaderExtras,
   extractToolQuery,

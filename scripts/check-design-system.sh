@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================================
-# 设计系统护栏 —— 全仓执行点(唯一一处「跨包镜像规则真的会跑」的地方)。
+# 设计系统护栏 —— 全仓执行点(三份**设计 token** 镜像唯一真的会跑的地方)。
+#
+# ⚠️ 本仓库的跨包镜像不止这三份。第四份是**证据账本解析器**
+#    (agent/src/evidence/parse.ts ←→ frontend-user/src/shared/lib/minicod-papers.ts),
+#    它由 scripts/check-evidence-mirror.sh 单独把关(bun,与本脚本各自独立出判决,
+#    同挂 pre-push)。刻意不并进来:那边要 bun、这边要 frontend-user/node_modules,
+#    合并会让「只改后端没装前端依赖」时本脚本 exit 2 提前返回、把那个闸一起连坐掉。
 #
 # 护栏本体是 frontend-user/tests/design-system-guard.test.ts +
 # design-tokens-compiled.test.ts,真源是 frontend-user/src/styles/globals.css。

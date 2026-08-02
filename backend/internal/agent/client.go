@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"scholar-backend/internal/agentconfig"
@@ -47,6 +48,10 @@ type Client struct {
 	httpClient     *http.Client
 	httpClientLong *http.Client // 慢端点(export-pptx 等)专用,长超时 + 无响应头超时
 	pushClient     *http.Client // PushSessionFile 专用(大文件流式推送,120s)
+	// skillEndpointGone:/api/agents 探测到 501(线上 agent 旧镜像无此端点)后置位,
+	// 短路后续所有 UpsertAgent 推送 —— 2026-07 线上审计:501 当普通失败进熔断 + 启动
+	// 重试,造成反复开合 11 分钟 ×40 条 ERROR 的重试风暴。详见 skill.go。
+	skillEndpointGone atomic.Bool
 }
 
 // NewClient baseURL 形如 http://scholar_agent:3456;authToken 为空时不带 Authorization。
@@ -157,8 +162,11 @@ type CreateSessionOptions struct {
 	// 缺省(空)= 不铺脚手架(其它 feature 行为不变)。
 	TemplateKind string `json:"templateKind,omitempty"`
 	// HonestyGuard: 诚实性核验 per-feature 旗标(W2 P0-C, 冻结契约 #5)。true → executor 在该会话
-	// 终轮跑宣称核验(DOI/交付/通读),不过则注入纠偏轮。默认 false(peerreview 的有界 JSON 报告 /
-	// prism 的项目文件交付路径会被误伤,须显式 opt-in);当前仅 claw spec 置 true。
+	// 终轮跑宣称核验(DOI/交付/通读)。默认 false(peerreview 的有界 JSON 报告会被误伤, 须显式 opt-in);
+	// 当前 claw / prism 置 true。
+	// 🔴 2026-08 证据账本 P0: executor 侧**已降级为纯观测** —— findings 只落 claim_audit 帧 + 日志,
+	// **不再注入纠偏轮**(旧注释的「不过则注入纠偏轮」已不成立)。本旗标现在的语义是「要不要跑核验并上报」,
+	// 不再是「要不要让 agent 自我更正」。降级理由见 agent/src/turn/verifyClaims.ts 头注释。
 	// 全链路: spec.SessionOptions → CreateSession body / hub seed_history 帧 → executor session meta。
 	HonestyGuard bool `json:"honestyGuard,omitempty"`
 	// HonestyChecks: 核验维度按位开关(prism 预备件)。HonestyGuard=true 时生效, 缺省全开;

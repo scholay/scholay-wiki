@@ -79,7 +79,7 @@ func checkQuota(ctx context.Context, userID uint) error {
 	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			return agentbridge.NewQuotaError(err.Error())
+			return agentbridge.NewQuotaErrorFrom(err) // 保链:error 帧带结构化 quota 字段
 		}
 		return err
 	}
@@ -152,6 +152,28 @@ var smartSearchAllowedMcpTools = []string{
 	"get_journal",
 }
 
+// smartSearchRetrievalDiscipline —— 2026-07 线上审计:11% 完成轮零检索工具调用(用户明确要求
+// 「用查询论文的工具来找」仍不查),且出现伪造「我刚检索过/检索来源」表述。硬约束前置到系统提示
+// 最前(prompts.SmartSearchSystemPrompt 本体不动)。
+//
+// 🔴 2026-08 证据账本 P1(终稿 §四①-1):删掉原本的第二句 ——
+//    「未调用任何检索工具时,回答必须以『以下内容基于模型知识,未经本平台检索验证』开头」。
+//    那是**我们自己写进提示词的逃生门**:前半句要求必须检索,后半句当场把"不检索"标价成一条
+//    合法路径(标注即可),规则自己把病灶合法化了。删它的替代路径不是另一段文字,而是引擎侧的
+//    证据账本 + 交付边界 resolve 闸(编造的引用在交付物层面展不开)。
+//    只做减法:剩下的两句都是**无条件**的,没有任何"否则就标注一下"的分支。
+//
+// 🔴 第三句是 2026-08-01 补的**形态契约**(与 prompts/claw.go 铁律 1 同款,口径必须对称):
+//    删掉逃生门后 smart_search 一度只剩无条件祈使句,而 claw 侧已经换成了可验证的形态约束 ——
+//    两个 feature 对同一件事给不同口径,模型会挑更宽松的那个(线上「~12 次预算」与 skill 的
+//    12-18 次滚雪球对撞时,它就挑了定量的那条)。形态契约的好处是**可验证**:
+//    「有没有出现书目形态」是看得见的事实,不是「有没有诚实标注」这种自由裁量的承诺。
+const smartSearchRetrievalDiscipline = "【检索纪律 — 每轮硬约束】\n" +
+	"每一轮回答前必须先调用检索工具获取本轮证据;" +
+	"不得使用「我刚检索」「检索来源」等任何暗示已检索的表述,除非本轮真的调用过检索工具并拿到了结果。\n" +
+	"本会话证据账本为空时,回答里不得出现任何书目形态 —— 具体指:带标题+作者+年份+期刊的文献条目、" +
+	"DOI、参考文献列表、以及「共找到 N 篇」这类计数。没有证据就直说没有,不要把记忆里的东西排版成检索结果。\n\n"
+
 // BuildSpec 构造 smart_search 的 FeatureSpec。
 func BuildSpec() agentbridge.FeatureSpec {
 	pre, onComplete := agentbridge.StandardHooks(agentbridge.StandardHooksConfig{
@@ -163,7 +185,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Key:                    FeatureKey,
 		AgentName:              agentName,
 		Description:            "Scholay 智能搜索:基于 Minicod MCP 的学术文献检索助手",
-		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.SmartSearchSystemPrompt),
+		// 2026-07 线上审计:检索纪律硬约束前缀(零检索轮 + 伪造检索表述),见 smartSearchRetrievalDiscipline。
+		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, smartSearchRetrievalDiscipline+prompts.SmartSearchSystemPrompt),
 		Color:                  "green",
 		InjectPromptOnFirstMsg: true, // 主 agent 默认带 Bash/Read, 必须强约束
 		// 默认模型走 chat_default.smart_search 能力绑定(admin 模型目录页可改;迁移初值=便宜档)。

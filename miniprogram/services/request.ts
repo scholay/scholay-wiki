@@ -21,6 +21,32 @@ export interface RequestOptions {
   data?: WechatMiniprogram.IAnyObject // 请求体(POST/PUT);GET 无
   auth?: boolean // 是否携带 token(默认 true)
   timeout?: number // 超时(ms),默认 20s;别再用微信默认 60s 让首屏骨架最坏挂一分钟
+  // 业务码 6010(本周期额度已用完)时是否弹统一额度提示(默认弹)。
+  // 已自行处理额度态的调用方(如后台静默渲染)传 false 防双弹;错误仍会正常 reject。
+  quotaModal?: boolean
+}
+
+// ── 额度耗尽(业务码 6010)统一提示 ─────────────────────────────────────────
+// 单一执行点:JSON 通道(request)自动弹;非 JSON 通道(翻译 SSE / claw WS)拿到额度信号后
+// 也调这里,三处共用同一份文案与按钮,不再各写各的。content 优先用后端动态文案(含重置时刻)。
+export const QUOTA_CODE = 6010
+let quotaModalShowing = false // 同屏多请求同时 6010 只弹一次
+export function showQuotaModal(message?: string): void {
+  if (quotaModalShowing) return
+  quotaModalShowing = true
+  wx.showModal({
+    title: '本周期额度已用完',
+    content: message || '可在「我的」页重置额度或升级会员后继续',
+    confirmText: '去我的页',
+    cancelText: '知道了',
+    showCancel: true,
+    success: (r) => {
+      if (r.confirm) wx.switchTab({ url: '/pages/me/me' })
+    },
+    complete: () => {
+      quotaModalShowing = false
+    },
+  })
 }
 
 // 业务/传输错误:同时携带业务码(code)与 HTTP 状态(httpStatus),
@@ -78,7 +104,7 @@ export function handleAuthFailure(httpStatus: number): void {
 }
 
 export function request<T = unknown>(opts: RequestOptions): Promise<T> {
-  const { url, method = 'GET', data, auth = true, timeout = 20000 } = opts
+  const { url, method = 'GET', data, auth = true, timeout = 20000, quotaModal = true } = opts
   const header: Record<string, string> = { 'Content-Type': 'application/json' }
   if (auth) {
     const token = getToken()
@@ -105,6 +131,8 @@ export function request<T = unknown>(opts: RequestOptions): Promise<T> {
         }
         const code = body && typeof body.code === 'number' ? body.code : status
         const message = (body && body.message) || '请求失败(' + status + ')'
+        // 额度耗尽统一收口:默认弹统一提示(后端动态文案含重置时刻);调用方仍会收到 reject 处理自身状态。
+        if (code === QUOTA_CODE && quotaModal) showQuotaModal(body && body.message)
         reject(new ApiError(code, message, status))
       },
       fail: (err) => {

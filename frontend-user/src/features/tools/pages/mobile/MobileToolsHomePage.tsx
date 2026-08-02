@@ -72,7 +72,7 @@ export function MobileToolsHomePage() {
               <p className="text-12 text-faint">Scholay 原生科研能力</p>
             </div>
 
-            {/* AI Claw 横幅 —— 琥珀软底高亮块走 bg-amber-soft(--amber-soft-bg #E5DFCE = amber-11)。
+            {/* AI Claw 横幅 —— 琥珀软底高亮块走 bg-amber-soft(--amber-soft-bg #E5DFCE = amber-12,2026-07-28 末两档归一化后)。
                 旧值 #F1EADA 是 2026-07 换 Figma 真源前的琥珀软底,已随 token 层收口退休。 */}
             <button
               type="button"

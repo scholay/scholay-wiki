@@ -299,38 +299,91 @@ func (s *Service) CheckDailyQuota(ctx context.Context, userID uint) error {
 	return s.payAsYouGoOrQuotaError(userID, tier, cfg, w)
 }
 
-// RemainingBudget —— 单轮预算(SS#2),给 agentbridge 每条 user_message 盖章用。
-// soft = hard = 到窗口上限还剩(可为负 = 在跑那轮已越线)。透支带已于 2026-07-30 取消
-// (owner 拍板「没有透支这个说法」),两个返回值保留是帧契约(softRemaining/hardRemaining)
-// 与执行器 wind-down 机制的形状不动。unlimited=true(收费关 / 上限<0 / 未登录)时无预算概念。只读不预扣。
+// ─── 单轮预算 = 窗口剩余额度(2026-07-31 线上审计 §五「单轮预算与计费窗口联动硬顶」)────
 //
-// payg 感知(0094/0095):开了「经费自动付费」且余额为正的用户,越过 ceiling 后的消耗走
-// 按量付费从经费**实扣**(payAsYouGoOverflow → chargePayAsYouGo),闸门也放行 —— 此时
-// 预算 = 「还能花多少」 = 窗口余量(截零)+ 钱包容量(经费可兑换的微元),而不是裸的窗口
-// 余量:否则 autopay 用户一越过上限 hard 即为负,agent 每轮 round-0 就 wind-down,
-// 付了钱却只拿到降级回答。钱包读失败安全降级为不加(预算宁紧勿松,slog.Warn 可见化)。
-func (s *Service) RemainingBudget(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
+// 线上证据:free 用户单轮吃掉 116 万 token,窗口 ceiling 才 30 万微元,实际成本超支 4.9 倍
+// (11 次 / 7 用户)。根因:入口 CheckDailyQuota 是**只读 gate**(只看「还有没有额度」),
+// 放行后执行器的单轮预算与窗口剩余额度各算各的 —— 运行中没有任何硬闸。
+//
+// 修法:窗口剩余额度**就是**本轮的成本上限,两层共用同一个数(TurnCostCap 是唯一算法,
+// RemainingBudget 从它派生),不再各算各的:
+//   - TurnCostCap      = 本轮成本硬顶(微元)。hub 轮内累计成本越过它 → 停轮(code=budget)。
+//   - RemainingBudget  = 收尾触发点 = 硬顶 × turnWindDownRatio,盖在 user_message 帧上下发。
+//     留出 25% 尾巴给「去掉工具 + 收尾指令」那一次收尾 LLM call,使**收尾后的落点 ≈ 硬顶**
+//     (旧口径收尾点就等于剩余额度,收尾那一刀必然落在窗口外)。
+//
+// 地板(turnBudgetFloorMicro):剩余额度极低甚至为负(并发轮 / payg)时不把轮预算压到 0 ——
+// 那会让执行器 round-0 就 wind-down、用户拿到一句降级回答却仍被计费。给一次基本问答的量。
+
+// turnWindDownRatio 收尾触发点占单轮硬顶的比例。0.75 = 留 1/4 尾巴给收尾那一次 LLM call
+// (wind-down 只在轮间判定,判定后模型还要带全量 history 再发一次请求)。
+const turnWindDownRatio = 0.75
+
+// minTurnBudgetMicro 单轮预算的绝对地板(微元真实成本)= 10 算力点 ≈ ¥0.01。
+// 兜住 admin 把 free 窗口调得极小的情形,保证地板永远够跑完一次基本问答。
+const minTurnBudgetMicro = 10_000
+
+// turnBudgetFloorMicro 单轮预算地板 = max(绝对地板, Free 整窗的 1/10)。
+// 跟随 free 窗口伸缩(admin 调整额度经济时地板同比例走),超支上界因此有界:
+// 剩余为 0 的用户最多再吃掉 free 窗口的 1/10。
+func turnBudgetFloorMicro(cfg *BillingConfig) int64 {
+	return max64(minTurnBudgetMicro, cfg.FreeWindowTokens/10)
+}
+
+// turnCapFromRemaining / windDownPoint 两个纯函数(便于单测):硬顶取地板,收尾点按比例回撤。
+func turnCapFromRemaining(remaining, floor int64) int64 { return max64(remaining, floor) }
+
+func windDownPoint(capMicro int64) int64 { return int64(float64(capMicro) * turnWindDownRatio) }
+
+// TurnCostCap —— **本轮成本硬顶**(微元真实成本;2026-07 线上审计)。
+// 语义:这一轮最多允许花掉多少真实成本 = 窗口剩余额度(payg 用户 + 钱包容量),不低于地板。
+// 只读、不预扣(与 CheckDailyQuota 同一口径:真实扣减仍走后置 AddUsage)。
+// unlimited=true(未登录 / 收费总开关关 / 该档不限额)时没有预算概念,调用方不要设闸。
+//
+// 消费方(契约见本次修复说明):agentbridge hub 在轮内实时累计本轮成本,越过 cap 即向 agent
+// 发 stop_generation 并回 code=budget 终帧 —— 成本口径与计费同源(同一个 pricer),
+// 不需要「微元 ÷ 估算的 CostPerToken」这层会失真的换算。
+//
+// payg 感知(0094/0095):开了「经费自动付费」且余额为正的用户,越过 ceiling 后的消耗从经费
+// **实扣**(payAsYouGoOverflow → chargePayAsYouGo),闸门也放行 —— 此时硬顶 = 窗口余量(截零)
+// + 钱包容量,而不是裸的窗口余量:否则 autopay 用户一越线就被按地板掐,付了钱只拿降级回答。
+// 钱包读失败安全降级为不加(预算宁紧勿松,slog.Warn 可见化)。
+func (s *Service) TurnCostCap(ctx context.Context, userID uint) (capMicro int64, unlimited bool) {
 	if userID == 0 {
-		return 0, 0, true
+		return 0, true
 	}
 	cfg := s.cfg.Get()
 	if !cfg.Enabled {
-		return 0, 0, true
+		return 0, true
 	}
 	tier := s.EffectiveTier(userID)
 	ceiling := cfg.WindowCeiling(tier)
 	if ceiling < 0 {
+		return 0, true
+	}
+	remaining := ceiling - s.loadWindow(ctx, userID).windowUsed()
+	if bal, err := s.wallet.Balance(userID, cfg); err != nil {
+		slog.Warn("billing: budget wallet read failed, skip payg capacity", "user_id", userID, "err", err)
+	} else {
+		_, remaining = paygAdjustedBudget(remaining, remaining, bal.PermMicro, bal.CreditAutopay, int64(cfg.creditToPoints()))
+	}
+	return turnCapFromRemaining(remaining, turnBudgetFloorMicro(cfg)), false
+}
+
+// RemainingBudget —— 下发给执行器的单轮预算(SS#2),给 agentbridge 每条 user_message 盖章用。
+// soft = hard = **收尾触发点** = TurnCostCap × turnWindDownRatio(微元真实成本;hub 盖章前按
+// CostPerToken 换算成 token)。两个返回值同值,保留双值是帧契约(softRemaining/hardRemaining)
+// 与执行器 wind-down 机制的形状不动。unlimited=true 时无预算概念。只读不预扣。
+//
+// 🔴 2026-07-31 审计后语义收紧两处:① 不再是「裸的窗口剩余」而是硬顶回撤 25%(收尾那一刀
+// 要落在窗口内);② 不再可能为负 —— 地板保证至少能跑完一次基本问答(见 turnBudgetFloorMicro)。
+func (s *Service) RemainingBudget(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
+	capMicro, unlimited := s.TurnCostCap(ctx, userID)
+	if unlimited {
 		return 0, 0, true
 	}
-	used := s.loadWindow(ctx, userID).windowUsed()
-	soft, hard = ceiling-used, ceiling-used // 透支带已取消:hard 与 soft 同值
-	bal, err := s.wallet.Balance(userID, cfg)
-	if err != nil {
-		slog.Warn("billing: budget wallet read failed, skip payg capacity", "user_id", userID, "err", err)
-		return soft, hard, false
-	}
-	soft, hard = paygAdjustedBudget(soft, hard, bal.PermMicro, bal.CreditAutopay, int64(cfg.creditToPoints()))
-	return soft, hard, false
+	wd := windDownPoint(capMicro)
+	return wd, wd, false
 }
 
 // paygAdjustedBudget 把钱包容量并入窗口预算(纯函数,便于单测)。
@@ -370,12 +423,23 @@ func (s *Service) payAsYouGoOrQuotaError(userID uint, tier string, cfg *BillingC
 	if err != nil {
 		slog.Warn("billing: payg balance read failed, falling back to quota error", "user_id", userID, "err", err)
 	}
+	// 结构化字段(冻结契约):bal 已在手、resetAt 顺手算 —— 零额外查询带出,
+	// 给 HTTP 6010 data.quota / WS error 帧 quota 用(前端 QuotaNotifier 三路恢复引导)。
+	details := QuotaDetails{ResetAt: w.resetAt(s.windowSeconds()), WindowDays: cfg.WindowDays}
+	if details.WindowDays <= 0 {
+		details.WindowDays = 7 // 与 WindowDuration 的兜底口径一致
+	}
+	if bal != nil {
+		details.CreditBalancePositive = bal.PermMicro > 0
+		details.CreditAutopay = bal.CreditAutopay
+	}
+	msg := quotaExceededMessage(tier, cfg, details.ResetAt)
 	if bal != nil && bal.PermMicro > 0 && !bal.CreditAutopay {
 		// 有钱但没开开关 —— 文案要指向「去开开关」,而不是笼统说额度没了。
-		return NewQuotaError(quotaExceededMessage(tier, cfg, w.resetAt(s.windowSeconds())) +
-			"你有可用经费,可在「账户资产」开启「用经费继续」后无需等待。")
+		// 刻意不点名「账户资产」页:移动端没有该页,具体入口由前端按钮按端承载。
+		msg += "你有可用经费,开启「用经费继续」后无需等待。"
 	}
-	return NewQuotaError(quotaExceededMessage(tier, cfg, w.resetAt(s.windowSeconds())))
+	return NewQuotaErrorWithDetails(msg, details)
 }
 
 // AddUsage —— 把一次 LLM 调用的**真实成本(微元)**计入当前窗口(由 llmusage.Record 观察者调用)。
@@ -387,6 +451,27 @@ func (s *Service) payAsYouGoOrQuotaError(userID uint, tier string, cfg *BillingC
 // **唯一的开窗点**:无有效 anchor 时 Lua CAS 原子换锚(首次消耗开表)。同时双写当日统计 key。
 // userID==0 / costMicro<=0 / Redis 挂 → 兜底或跳过(best-effort, 绝不阻塞)。
 func (s *Service) AddUsage(ctx context.Context, userID uint, costMicro int) {
+	s.addUsage(ctx, userID, costMicro, true)
+}
+
+// AddUsageCostOnly —— **平台责任失败轮**的记账入口(2026-07-31 线上审计 §一 P1「付费后立刻踩坑」:
+// 5 个付费转化中 3 个在支付前后 10 分钟内遭遇硬错误)。语义 = 「记成本、不扣额度」:
+//   - ① 成本观测不丢:当日消耗统计 key 照常累加(与账本 llm_token_usage 同口径,后台看板不失明);
+//   - ② 用户额度分毫不动:不进窗口 used、**不开窗**(平台故障不该给用户起 7 天窗口时钟)、
+//     不触发按量付费从经费实扣(那是真钱);
+//   - ③ 与 AddUsage / CheckDailyQuota 语义不冲突:窗口 used 少加多少,闸门就少判多少,
+//     两者天然一致 —— 本函数只是「不写 used」,没有任何补偿/回退逻辑。
+//
+// 判定「是不是平台责任」不在 vip 侧(vip 只认 cost 与 userID),由调用方给出;接线契约见
+// 本次修复说明(llmusage.Usage 加 NoQuota 位 → Record 分流到本入口)。
+func (s *Service) AddUsageCostOnly(ctx context.Context, userID uint, costMicro int) {
+	s.addUsage(ctx, userID, costMicro, false)
+}
+
+// addUsage AddUsage / AddUsageCostOnly 的共同实现。
+// chargeQuota=false → 只落「当日消耗统计」这一笔观测,后面整条额度链路(开窗 / 窗口累加 /
+// 按量付费扣经费 / 越线告警)全部不走。
+func (s *Service) addUsage(ctx context.Context, userID uint, costMicro int, chargeQuota bool) {
 	if userID == 0 || costMicro <= 0 {
 		return
 	}
@@ -398,6 +483,10 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, costMicro int) {
 		if dn, derr := rdb.IncrBy(ctx, dayStatKey(userID, now), int64(costMicro)).Result(); derr == nil && dn == int64(costMicro) {
 			_ = rdb.Expire(ctx, dayStatKey(userID, now), 25*time.Hour).Err()
 		}
+	}
+	// 平台责任失败轮到此为止:成本已进观测,额度链路一步不走(2026-07 线上审计)。
+	if !chargeQuota {
+		return
 	}
 	cfg := s.cfg.Get()
 	if !cfg.Enabled {

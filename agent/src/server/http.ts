@@ -30,6 +30,8 @@ import {
 } from "./sessions.ts";
 import { runShadowTurn, type ShadowTurnRequest } from "./shadowTurn.ts";
 import { oneShotComplete, oneShotStream, type OneShotMessage } from "../turn/oneshot.ts";
+import { turnSlotsInUse, maxTurnSlots } from "./admission.ts";
+import { mcpInflightSnapshot } from "../mcp/minicodClient.ts";
 import {
   readWorkspaceFile,
   listWorkspaceTree,
@@ -203,6 +205,21 @@ export async function handleHTTP(req: Request): Promise<Response> {
     invalidateClient();
     log.info("provider activated", { provider_id: id });
     return json({ ok: true });
+  }
+
+  // ── 并发槽快照(2026-08-01 Phase 0)────────────────────────────────────────
+  // 给 backend 的 Run 引擎做**让路型** admission:认领下一个 Step 前查一次,
+  // `inUse >= max - 1` 就不认领 —— 把最后一个槽留给交互用户。
+  //
+  // 🔴 为什么让路闸建在 backend 而不是这里加第二个 admission:ServerSideChat 会去抢
+  //    **同一批已经不够的槽**(全容器 max=2),在 agent 侧再加一道只会自锁。
+  //    这个端点只**如实报数**,不做决策 —— 决策在会排队的那一侧。
+  // 顺带把 MCP inflight 也报出来:检索是 Run 里最容易堆积的一环,两个数要能一起看。
+  if (path === "/api/admission" && method === "GET") {
+    return json({
+      turns: { inUse: turnSlotsInUse(), max: maxTurnSlots() },
+      mcp: mcpInflightSnapshot(),
+    });
   }
 
   if (path === "/api/models" && method === "GET") {

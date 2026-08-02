@@ -15,97 +15,99 @@ import (
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
+	"scholar-backend/internal/agentrun"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/announcement"
+	"scholar-backend/internal/boltslides"
+	"scholar-backend/internal/claw"
+	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cache"
-	"scholar-backend/internal/content"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
+	"scholar-backend/internal/content"
 	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/invite"
-	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/library"
+	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/modelcatalog"
 	"scholar-backend/internal/news"
 	"scholar-backend/internal/openaccess"
 	"scholar-backend/internal/payment"
+	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promo"
-	"scholar-backend/internal/seo"
-	"scholar-backend/internal/boltslides"
-	"scholar-backend/internal/claw"
-	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/scidraw"
+	"scholar-backend/internal/seo"
+	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/supportcenter"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
-	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/usagestat"
+	"scholar-backend/internal/user"
 	"scholar-backend/internal/usermemory"
 	"scholar-backend/internal/vip"
-	"scholar-backend/internal/peerreview"
-	"scholar-backend/internal/user"
+	"scholar-backend/internal/websocket"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
-	"scholar-backend/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 )
 
 // allHandlers 聚合所有 handler 实例，用于路由注册
 type allHandlers struct {
-	admin           *admin.Handler
-	dashboard       *admin.DashboardHandler
-	user            *user.Handler
-	config          *config.Handler
-	scholar         *minicod.Handler
-	ai              *ai.Handler
-	alipay          *payment.AlipayHandler
-	wechatPay       *payment.WeChatPayHandler
-	wechat          *wechat.Handler
-	wechatOfficial  *wechatofficial.Handler
-	usageStats      *usagestat.Handler
-	llmUsageAdmin   *llmusage.AdminHandler // 后台 token 用量看板 (llm_token_usage 聚合/明细/导出)
-	vip             *vip.Handler           // 会员: 用户兑换/状态 + 管理端生码/列表
-	hotContent      *hotcontent.Handler
-	seo             *seo.Handler
-	message         *message.Handler
-	feedback        *feedback.Handler
-	emailLog        *emaillog.Handler // 邮件发送记录(后台「邮件记录」菜单)
-	ws              *websocket.Handler
-	thirdParty      *thirdparty.Handler
-	announcement    *announcement.Handler
-	library         *library.Handler
-	stagingArea     *stagingarea.Handler
-	clientLog       *clientlog.Handler // 前端错误上报 → docker logs
-	umami           *umami.Handler     // admin /analytics 查询 umami HTTP API 渲染自有图表
-	agentConfig     *agentconfig.Handler // 通用 agent 服务 (scholar_agent) 的模型/端点配置
-	modelCatalog    *modelcatalog.Handler // 模型目录 + 能力绑定 (取代 4 槽位, P1)
-	smartSearch     *smartsearch.Handler // 智能搜索 backend 桥接 (HTTP 创会话 + WS 双向 pipe)
-	peerReview      *peerreview.Handler  // 智能审稿 v3 (我要投稿 + 审稿记录,服务端 4 轮编排)
-	claw            *claw.Handler        // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
-	boltSlides      *boltslides.Handler  // 制作PPT (bolt-slides 演示稿创作;智能助手页选项卡切入)
-	sciDraw         *scidraw.Handler     // 科研绘图 (原创矢量科研图;智能助手页模板卡切入)
-	skillMarket     *skillmarket.Handler // Skills 市场 (用户上传/分享 skill + claw 动态加载)
-	prism           *prism.Handler       // 智能写作 (LaTeX IDE: 项目/文件/编译沙箱; Phase 1 接 agent)
-	featureTool     *featuretool.Handler // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
-	agentBridge     *agentbridge.Bridge  // agent 内网回调端点 (带外 token 用量上报: title-gen 等)
-	supportCenter   *supportcenter.Handler // 客服与联系中心 (联系方式配置/IMAP 收件箱/飞书通知/写信)
-	promo           *promo.Handler         // 限时领取会员推广 (开关/二维码/文案 + 公开下发)
-	news            *news.Handler          // 情报 (学术新闻): webhook 接收/落库 + 公开读 + admin 配置
-	memory          *usermemory.Handler  // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
-	openAccess      *openaccess.Handler  // 合法 OA 全文查找 (DOI → Unpaywall 免费链接; 论文详情页兜底)
-	invite          *invite.Handler      // 邀请注册 (一人一码 + 落地页打开计数 + 新用户归因)
+	admin          *admin.Handler
+	dashboard      *admin.DashboardHandler
+	user           *user.Handler
+	config         *config.Handler
+	scholar        *minicod.Handler
+	ai             *ai.Handler
+	alipay         *payment.AlipayHandler
+	wechatPay      *payment.WeChatPayHandler
+	wechat         *wechat.Handler
+	wechatOfficial *wechatofficial.Handler
+	usageStats     *usagestat.Handler
+	llmUsageAdmin  *llmusage.AdminHandler // 后台 token 用量看板 (llm_token_usage 聚合/明细/导出)
+	vip            *vip.Handler           // 会员: 用户兑换/状态 + 管理端生码/列表
+	hotContent     *hotcontent.Handler
+	seo            *seo.Handler
+	message        *message.Handler
+	feedback       *feedback.Handler
+	emailLog       *emaillog.Handler // 邮件发送记录(后台「邮件记录」菜单)
+	ws             *websocket.Handler
+	thirdParty     *thirdparty.Handler
+	announcement   *announcement.Handler
+	library        *library.Handler
+	stagingArea    *stagingarea.Handler
+	clientLog      *clientlog.Handler     // 前端错误上报 → docker logs
+	umami          *umami.Handler         // admin /analytics 查询 umami HTTP API 渲染自有图表
+	agentConfig    *agentconfig.Handler   // 通用 agent 服务 (scholar_agent) 的模型/端点配置
+	modelCatalog   *modelcatalog.Handler  // 模型目录 + 能力绑定 (取代 4 槽位, P1)
+	smartSearch    *smartsearch.Handler   // 智能搜索 backend 桥接 (HTTP 创会话 + WS 双向 pipe)
+	peerReview     *peerreview.Handler    // 智能审稿 v3 (我要投稿 + 审稿记录,服务端 4 轮编排)
+	claw           *claw.Handler          // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
+	agentRun       *agentrun.Handler      // 科研内核 Run 引擎 (Phase 1: 创建/查询/取消长任务)
+	boltSlides     *boltslides.Handler    // 制作PPT (bolt-slides 演示稿创作;智能助手页选项卡切入)
+	sciDraw        *scidraw.Handler       // 科研绘图 (原创矢量科研图;智能助手页模板卡切入)
+	skillMarket    *skillmarket.Handler   // Skills 市场 (用户上传/分享 skill + claw 动态加载)
+	prism          *prism.Handler         // 智能写作 (LaTeX IDE: 项目/文件/编译沙箱; Phase 1 接 agent)
+	featureTool    *featuretool.Handler   // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
+	agentBridge    *agentbridge.Bridge    // agent 内网回调端点 (带外 token 用量上报: title-gen 等)
+	supportCenter  *supportcenter.Handler // 客服与联系中心 (联系方式配置/IMAP 收件箱/飞书通知/写信)
+	promo          *promo.Handler         // 限时领取会员推广 (开关/二维码/文案 + 公开下发)
+	news           *news.Handler          // 情报 (学术新闻): webhook 接收/落库 + 公开读 + admin 配置
+	memory         *usermemory.Handler    // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
+	openAccess     *openaccess.Handler    // 合法 OA 全文查找 (DOI → Unpaywall 免费链接; 论文详情页兜底)
+	invite         *invite.Handler        // 邀请注册 (一人一码 + 落地页打开计数 + 新用户归因)
 }
 
 // registerRoutes 注册所有 API 路由

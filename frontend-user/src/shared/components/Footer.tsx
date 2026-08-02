@@ -38,9 +38,11 @@ const SOLUTION_LINKS: { label: string; to: string; desc: string }[] = [
   { label: '同行评审', to: '/features/peer-review', desc: '同行评审与意见沉淀' },
 ];
 
-/** 法律 / 关于类链接 —— 路径与旧 frontend-user 保持一致(SEO 不丢) */
+/** 法律 / 关于类链接 —— 路径与旧 frontend-user 保持一致(SEO 不丢);
+ *  「定价」是未登录动线入口(/pricing 会员介绍页),与 LandingNav 的定价链接呼应 */
 const BRAND_LINKS: { label: string; to: string }[] = [
   { label: '关于我们', to: '/about' },
+  { label: '定价', to: '/pricing' },
   { label: '学术资源', to: '/resources' },
   { label: '帮助中心', to: '/help' },
   { label: '隐私政策', to: '/privacy' },

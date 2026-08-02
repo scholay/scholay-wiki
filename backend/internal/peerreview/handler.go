@@ -38,7 +38,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/storage"
 	"scholar-backend/internal/usagestat"
@@ -418,7 +417,7 @@ func (h *Handler) Submit(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+			vip.RespondQuotaExceeded(c, err) // 6010/429 + 结构化 quota 载荷(冻结契约)
 			return
 		}
 		slog.Error("peerreview submit", "err", err, "submission_id", id)
@@ -445,7 +444,7 @@ func (h *Handler) Retry(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+			vip.RespondQuotaExceeded(c, err) // 6010/429 + 结构化 quota 载荷(冻结契约)
 			return
 		}
 		slog.Error("peerreview retry", "err", err, "submission_id", id)
@@ -860,7 +859,7 @@ func (h *Handler) Advance(c *gin.Context) {
 		// 向导 step1→2 / step2→3 是真实 LLM 消耗,service 侧过 CheckDailyQuota;
 		// 与 Submit 一致映射成 6010/429 + 友好文案,触发前端「额度用尽」弹窗。
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+			vip.RespondQuotaExceeded(c, err) // 6010/429 + 结构化 quota 载荷(冻结契约)
 			return
 		}
 		// advance 失败基本是业务校验(文件已变更 / 未生成稿件信息 / 缺院校等),作为 400 回给用户。

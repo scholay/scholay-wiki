@@ -44,6 +44,13 @@ import {
   type CiteCandidate,
 } from '../api/prism';
 
+// 2026-07 线上审计:bibliography 类编译错(bibtex 条目结构问题)回喂 AI 改 document.md 修不了
+// (线上曾 11 轮白烧)—— 横幅改人话提示,不再消耗 AI 轮。
+const BIB_COMPILE_HINT = '参考文献条目格式有问题(如特殊字符/未闭合),系统已尝试自动修复,若仍失败请检查引用列表';
+// 2026-07 审查 [14]/[19]:infra 类(排队超时 / 素材读取失败 / 服务重启)AI 同样修不了。后端给的
+// error_summary 本身已是人话,这里只补一句明确出口,替掉此前那个「点了静默 return」的死按钮。
+const INFRA_COMPILE_HINT = '(编译服务暂时不可用,可点上方「编译」重试)';
+
 /**
  * 新版结构体写作工作台(Scholay Prism v2)。真源 = 结构体 JSON。
  * 布局:通用侧边栏(大纲/配图)| 左=AI 对话 | 右=预览(渲染文档);精确 PDF 默认隐藏,打开时与预览上下叠。
@@ -122,6 +129,18 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   }, [compile.data?.status, compile.data?.id]);
   const compiling = start.isPending || compile.data?.status === 'queued' || compile.data?.status === 'running';
   const compileError = compile.data?.status === 'error' ? compile.data.error_summary || compile.data.log_excerpt : '';
+  // 2026-07 线上审计:参考文献类报错单独识别 → 横幅换人话、不给「让 AI 修复」(error_source 缺失 = 旧后端,按 body 兼容)。
+  const bibCompileError = compile.data?.status === 'error' && compile.data.error_source === 'bibliography';
+  // 2026-07 审查 [14]/[19]:「让 AI 修复」的显示条件必须与 fixCompile 的守卫(:249)**同一个判定** ——
+  // 此前按钮只排除 bibliography,infra 类照样渲染但点下去第一行就 return,是个零反馈的死按钮。
+  const aiFixable =
+    compile.data?.status === 'error' && (!compile.data.error_source || compile.data.error_source === 'body');
+  // 非 body 类统一给人话提示(bib 换文案 / infra 补一句重试出口),保持与上一轮 bib 横幅同款处理。
+  const compileHint = bibCompileError
+    ? BIB_COMPILE_HINT
+    : compile.data?.error_source === 'infra'
+      ? `${compileError}${INFRA_COMPILE_HINT}`
+      : compileError;
   const pdfSource = useMemo(() => prismPdfSource(projectId, pdfKey), [projectId, pdfKey]);
 
   const triggerCompile = async () => {
@@ -238,6 +257,9 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // 报错**内容**(命令名/括号)去 document.md 定位,而非按行号。log_excerpt 带完整错误块,error_summary 兜底。
   const fixCompile = () => {
     if (compile.data?.status !== 'error' || chat.roundState !== 'idle') return;
+    // 2026-07 线上审计:只对正文类报错(error_source==='body' 或字段缺失=旧后端兼容)回喂 AI;
+    // bibliography/infra 类改 document.md 结构性修不了,回喂只会白烧 AI 轮(线上 11 轮实证)。
+    if (compile.data.error_source && compile.data.error_source !== 'body') return;
     const detail = compile.data.log_excerpt || compile.data.error_summary || '';
     if (!detail.trim()) return;
     // COMPILE_CHECK_PREFIX:标记这是**系统自动编译检查**回喂,而非用户提问 —— 前端据此把该轮
@@ -247,7 +269,9 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         '文档编译成 PDF 时报了 LaTeX 错误(见下)。请检查 document.md 里可能导致编译失败的内容并修正——' +
         '最常见是数学公式($$ 或 $ 里的 LaTeX 语法、括号不配对)、表格格式、或需要转义的特殊字符。' +
         '注意:你编辑的是 document.md,报错里的行号 l.NNN 指的是系统生成的 .tex(你看不到),' +
-        '请按报错的内容(命令名、缺失的括号等)去 document.md 里定位,而不是按行号。\n\n' +
+        '请按报错的内容(命令名、缺失的括号等)去 document.md 里定位,而不是按行号。' +
+        // 2026-07 线上审计:兜底旧后端(无 error_source 分类)—— bib 类报错别在 document.md 里空转。
+        '若报错来自参考文献(bibtex/\\newblock 等字样),请检查并修复 references.bib 而非 document.md。\n\n' +
         `<编译报错>\n${detail}\n</编译报错>`,
       undefined,
       '',
@@ -272,7 +296,8 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
     // 只对【真 LaTeX 语法错】(error_kind==='latex',或旧行无 error_kind 的兼容回退)才回喂 AI 自动修复;
     // infra(内部/素材/沙箱)/ timeout(排队超时)停在琥珀 banner 让用户手动重试 —— 杜绝把基础设施抖动
     // 放大成 AI 轮风暴(性能审计:伪「编译服务异常」曾被 auto-fix 回路放大)。
-    const autoFixable = !c.error_kind || c.error_kind === 'latex';
+    // 2026-07 线上审计:error_source 非 body(bibliography/infra)同样不武装自动修复(fixCompile 内也有同款守卫)。
+    const autoFixable = (!c.error_kind || c.error_kind === 'latex') && (!c.error_source || c.error_source === 'body');
     if (autoFixable && autoFixArmedRef.current && autoFixCountRef.current < MAX_AUTO_FIX && chat.roundState === 'idle') {
       autoFixCountRef.current += 1;
       autoFixArmedRef.current = false; // 下一轮 onApplied 会重新武装
@@ -601,16 +626,19 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <div className="min-w-0">
                 <p className="font-medium">本次编译未通过</p>
-                <p className="mt-1 break-words text-subtle">{compileError}</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2"
-                  onClick={fixCompile}
-                  disabled={chat.roundState !== 'idle'}
-                >
-                  让 AI 修复
-                </Button>
+                {/* 2026-07 线上审计:bib / infra 类错误人话提示,不给「让 AI 修复」(回喂修不了;见 aiFixable) */}
+                <p className="mt-1 break-words text-subtle">{compileHint}</p>
+                {aiFixable && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    onClick={fixCompile}
+                    disabled={chat.roundState !== 'idle'}
+                  >
+                    让 AI 修复
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -741,18 +769,21 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         ) : compileError ? (
           <div className="flex shrink-0 items-center gap-2 border-b border-brand-amber/30 bg-warning-soft px-4 py-1.5 text-12 text-brand-amber">
             <AlertTriangle className="size-3.5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate" title={compileError}>
-              本次编译未通过:{compileError}
+            {/* 2026-07 线上审计:bib / infra 类错误人话提示,不给「让 AI 修复」(回喂修不了;见 aiFixable) */}
+            <span className="min-w-0 flex-1 truncate" title={compileHint}>
+              本次编译未通过:{compileHint}
             </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 shrink-0 px-2 text-12"
-              onClick={fixCompile}
-              disabled={chat.roundState !== 'idle'}
-            >
-              让 AI 修复
-            </Button>
+            {aiFixable && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 shrink-0 px-2 text-12"
+                onClick={fixCompile}
+                disabled={chat.roundState !== 'idle'}
+              >
+                让 AI 修复
+              </Button>
+            )}
           </div>
         ) : null}
 

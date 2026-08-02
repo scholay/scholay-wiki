@@ -9,7 +9,7 @@ import { LANDINGS, LANDING_ORDER } from '../data/landings';
 /**
  * Landing 页专用顶栏 —— .pen 各 Landing 页顶部 72px nav:
  *   左:品牌 logo
- *   中:6 个功能链接(当前所在功能高亮)
+ *   中:6 个功能链接 + 定价(当前所在页高亮)
  *   右:登录 + 免费注册
  *
  * 不复用 AppShell 的 sidebar(那是产品内的导航),宣传页用更轻的 marketing nav。
@@ -47,6 +47,18 @@ export function LandingNav() {
               </Link>
             );
           })}
+          {/* 定价 —— 未登录动线入口(功能链接之后),与功能链接同样式/同高亮规则 */}
+          <Link
+            to="/pricing"
+            className={cn(
+              'text-12 whitespace-nowrap transition-colors',
+              pathname === '/pricing'
+                ? 'text-foreground font-medium'
+                : 'text-subtle hover:text-foreground'
+            )}
+          >
+            定价
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2 shrink-0 ml-auto">

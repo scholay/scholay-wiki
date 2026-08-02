@@ -16,12 +16,14 @@ package seosubmit
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
 
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/common/upstream"
 )
 
 // Service 主动提交服务。可空使用 —— 当 cfg.SEOSubmit.Enabled=false 时所有方法 no-op。
@@ -145,13 +147,14 @@ func (s *Service) processOne(ctx context.Context, batch int) {
 		return
 	}
 
-	// IndexNow:整批推一次,4xx/5xx 全批回队
+	// IndexNow:整批推一次。2026-07 线上审计修复:
+	//   1. 此前任何失败都全批回队 —— 结构性失败(host/key 不匹配)回队后每 5 分钟永动重试。
+	//      现按错误类型分流,细则见 submitIndexNowBatch。
+	//   2. 此前 IndexNow 失败会 return 短路百度 —— 现两通道独立成败,互不连坐。
+	//      (代价:IndexNow 临时失败回队后,下轮百度会重复收到同批 URL;重复提交幂等,
+	//      仅多耗每日配额,可接受。)
 	if s.indexNowReady() {
-		if err := SubmitIndexNow(ctx, s.cfg.IndexNowKey, s.siteOrigin, urls); err != nil {
-			slog.Warn("seo push indexnow failed, requeue", "count", len(urls), "err", err)
-			_ = Requeue(ctx, urls)
-			return // IndexNow 都没过,百度也别推了,等下轮重来
-		}
+		s.submitIndexNowBatch(ctx, urls)
 	}
 
 	// 百度:同一批,内部做配额限流。失败不回队(配额耗尽是预期行为,回队也没用)。
@@ -159,5 +162,56 @@ func (s *Service) processOne(ctx context.Context, batch int) {
 		if _, err := SubmitBaidu(ctx, s.cfg.BaiduSite, s.cfg.BaiduToken, urls, s.cfg.BaiduDailyQuota); err != nil {
 			slog.Warn("seo push baidu failed", "count", len(urls), "err", err)
 		}
+	}
+}
+
+// indexNowAuthStrikes — 连续多少轮鉴权失败(401/403)才判永久。
+// worker 默认 5 分钟一轮 → 3 轮 ≈ 15 分钟持续失败,足以跨过一次部署/CDN 抖动窗口。
+const indexNowAuthStrikes = 3
+
+// submitIndexNowBatch 推一批并按错误性质分流。三条路(2026-07 审查定):
+//
+//   - **结构性永久失败**(本地配置非法 / 400、422 host-key 不匹配):重试一万次也不会好,
+//     落死信 ZSET 留档(不是就地丢弃),运维改完配置可回灌。
+//   - **鉴权失败**(401/403):IndexNow 的 403 是搜索引擎异步反查 /{key}.txt 没过 ——
+//     我们自己部署/CDN 抖动期间它取不到 key 就回 403,单次不判死。连续 N 轮才落死信,
+//     否则照常回队。
+//   - **其余**(429/5xx/网络/熔断):临时,回队。
+func (s *Service) submitIndexNowBatch(ctx context.Context, urls []string) {
+	err := SubmitIndexNow(ctx, s.cfg.IndexNowKey, s.siteOrigin, urls)
+	if err == nil {
+		ResetIndexNowAuthStrike(ctx)
+		return
+	}
+
+	switch {
+	case errors.Is(err, errIndexNowConfig) || errors.Is(err, upstream.ErrBadRequest):
+		slog.Error("seo push indexnow structurally rejected, moved to dead-letter — 需运维核对 INDEXNOW_KEY / SITE_URL 与 /{key}.txt",
+			"count", len(urls), "dead_key", deadKey, "err", err)
+		s.toDeadLetter(ctx, urls, err)
+
+	case errors.Is(err, upstream.ErrAuth):
+		if n := IndexNowAuthStrike(ctx); n >= indexNowAuthStrikes {
+			slog.Error("seo push indexnow auth failed repeatedly, moved to dead-letter — /{key}.txt 连续多轮取不到或内容不符",
+				"count", len(urls), "strikes", n, "dead_key", deadKey, "err", err)
+			s.toDeadLetter(ctx, urls, err)
+			ResetIndexNowAuthStrike(ctx)
+		} else {
+			slog.Warn("seo push indexnow auth failed, requeue (可能只是部署窗口内取不到 key 文件)",
+				"count", len(urls), "strikes", n, "err", err)
+			_ = Requeue(ctx, urls)
+		}
+
+	default:
+		slog.Warn("seo push indexnow failed, requeue", "count", len(urls), "err", err)
+		_ = Requeue(ctx, urls)
+	}
+}
+
+// toDeadLetter 落死信;死信本身写失败(Redis 挂了)时退回普通队列,绝不静默丢 URL。
+func (s *Service) toDeadLetter(ctx context.Context, urls []string, cause error) {
+	if err := DeadLetter(ctx, urls, cause.Error()); err != nil {
+		slog.Warn("seo push dead-letter write failed, falling back to requeue", "count", len(urls), "err", err)
+		_ = Requeue(ctx, urls)
 	}
 }

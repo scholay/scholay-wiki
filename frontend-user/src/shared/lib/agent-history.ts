@@ -12,11 +12,13 @@
  * 核心折叠逻辑保持 feature 无关。
  *
  * 协议形态(cc-haha agent transcript,实测):
- *   entry.type ∈ {user, assistant, tool_use, tool_result, system, artifact, error}
+ *   entry.type ∈ {user, assistant, tool_use, tool_result, system, artifact, error, research_state}
  *   - tool_use / tool_result 在 cc-haha 是**顶级 entry**(content[0] 是对应 block);
  *     Anthropic 原生协议把它们塞在 user / assistant 的 content[] 里 —— 两种形态都兼容。
  *   - error 是 backend FoldToMessages 把 EvError 折出的合成 entry(W3 P1-A 冻结契约:
  *     content = {code, message}),回放成与实时 fold error 终帧同构的失败轮收口。
+ *   - artifact / research_state 是同一个范式的两个实例:执行器的**带外声明**入 journal,
+ *     backend 折出合成 entry,这里绑回对应轮(Turn.artifacts / Turn.research)。
  *   - 跳过 system entry 与 isSidechain(subagent 内部对话,跟主线无关);未知 type 一律跳过。
  *   - 每个 user entry 都尝试 strip backend 注入的 system prompt prefix(WS 重连会再注入一次,
  *     不能只对第一轮生效)。
@@ -27,6 +29,7 @@ import {
   type ToolBlock,
   type Turn,
   type TurnAttachment,
+  type TurnResearchState,
 } from '@/shared/types/chat';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import { stripReferenceBlock } from '@/shared/lib/agent-references';
@@ -70,6 +73,47 @@ interface ArtifactEntryBlock {
   kind?: unknown;
   mime?: unknown;
   size?: unknown;
+}
+
+/**
+ * research_state 合成 entry 的 content block —— 后端把 EvEvidence 里那一轮**最后一条**
+ * research_state 全量快照原帧透传过来,所以字段是 wire 的 snake_case,与
+ * `AgentResearchStateFrame` 同形(转驼峰在下面 parseResearchEntry 一次性做完)。
+ */
+interface ResearchEntryBlock {
+  queries?: unknown;
+  ledger_total?: unknown;
+  by_origin?: unknown;
+  prefetch?: unknown;
+}
+
+/**
+ * research_state entry 的 content → {@link TurnResearchState}(无效 content 返回 null)。
+ *
+ * 🔴 与实时 fold(features/claw/components/chat/fold.ts 的 `case 'research_state'`)**必须同构**:
+ * 同一份 snake→camel 搬运、缺字段一律按 0(引擎发了帧就代表它数过了,这里不存在「未知」)。
+ * 两侧一旦漂移,同一轮刷新前后会显示两个不同的数字 —— 那比不显示更糟。
+ */
+function parseResearchEntryContent(content: unknown): TurnResearchState | null {
+  const block = Array.isArray(content) ? content[0] : content;
+  if (!block || typeof block !== 'object') return null;
+  const {
+    queries,
+    ledger_total: ledgerTotal,
+    by_origin: byOrigin,
+    prefetch,
+  } = block as ResearchEntryBlock;
+  return {
+    queries: typeof queries === 'number' ? queries : 0,
+    ledgerTotal: typeof ledgerTotal === 'number' ? ledgerTotal : 0,
+    byOrigin:
+      byOrigin && typeof byOrigin === 'object' && !Array.isArray(byOrigin)
+        ? (byOrigin as Record<string, number>)
+        : undefined,
+    // 预检索状态必须与实时 fold 同构(铁律):引擎在模型开口前打的那一枪计入 queries,
+    // 回放侧丢了它,历史轮的 chip 就会把引擎的动作说成模型搜的。
+    prefetch: typeof prefetch === 'string' ? prefetch : undefined,
+  };
 }
 
 /** user entry 的解析结果:用户气泡正文 + 可选附件 chip。 */
@@ -294,6 +338,18 @@ export function replayHistoryAsTurns(
           size: typeof a.size === 'number' ? a.size : 0,
         });
       }
+      continue;
+    }
+
+    if (entry.type === 'research_state') {
+      // 取证过程计数带外声明(后端把 EvEvidence 的 research_state 全量快照折出的合成 entry)
+      // → 绑回当前轮的 .research,ResearchStateChip 据此在历史轮里重新出现。
+      // 后端已保证一轮至多一条(轮边界 flush,同轮取最后一条)—— 这里的赋值语义仍是覆盖,
+      // 与实时 fold「后到覆盖先到」同构,不依赖后端去重也是对的。
+      // 🔴 刻意不走 ensureCurrentTurn:孤儿快照(分页把它的 user entry 截掉了)不该凭空造一个
+      //    只装着「本轮未检索」的空轮 —— 同 error entry 的处理。
+      const research = parseResearchEntryContent(entry.content);
+      if (research && current) current.research = research;
       continue;
     }
 

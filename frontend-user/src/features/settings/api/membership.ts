@@ -9,7 +9,7 @@ export type { BillingCycle };
 
 // P4:额度 = 首次使用开锚的 7 天周期(mirrors vip/quota.go TokenStatus)。
 // P5 成本制:用户端后端 StripQuotaAmounts —— used/consumed_today 恒 0、ceiling 仅 -1(不限)或 0,
-// 用户只看百分比(percent 是真值)。绝对额度(算力点)只在后台可见。
+// 用户只看百分比(percent 是真值)。绝对额度与「算力点」字样只在后台可见(2026-07-31 拍板:用户端零露出)。
 export interface TokenStatus {
   used: number; // 用户端恒 0(已抹除;后台真值另走 admin 接口)
   ceiling: number; // 用户端:-1 = 不限,否则 0(已抹除)
@@ -28,8 +28,8 @@ export interface Balance {
   total: number; // == perm,保留字段名兼容既有调用点
   /** 余额真值,单位 micro-credit = 经费 × 1e6。精确运算以它为准。 */
   perm_micro: number;
-  /** 当前兑换率下折合的算力点。**必须与余额同屏展示** —— 兑换率可调,
-   *  只给「600 经费」用户无从知道它值多少算力(经费是储值,汇率不锁定)。 */
+  /** 当前兑换率下折合的算力点。🔴 2026-07-31 拍板:用户端**不再展示**(算力点是内部单位,
+   *  用户面零露出;经费=分,数字本身即可读出价值)。字段保留供后台/兼容,别在 UI 渲染。 */
   points: number;
   /** 周期额度用完后自动用经费续(0094)。默认关,须用户显式开启。 */
   credit_autopay: boolean;
@@ -108,6 +108,10 @@ export interface Plans {
   /** 1 经费可兑换的算力点(0094)。¥1 = recharge_rate × credit_to_points 算力点。 */
   credit_to_points: number;
   min_recharge_cents: number;
+  /** 邀请奖励活动(0100):>0=活动开启(「邀请有奖」入口点亮),0=关闭。 */
+  invite_reward_credits: number;
+  /** 每邀请人每日最多计奖励的邀请数(0=不限)。 */
+  invite_reward_daily_cap: number;
   popular_plan: string;
   enabled: boolean;
   test_payment: boolean; // 测试支付开关(PAYMENT_TEST_ENABLED)

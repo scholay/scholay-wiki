@@ -9,6 +9,7 @@ import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { INVITE_METHOD_LABEL, useInvite, useInvitedUsers } from '../api/invite';
+import { usePlans } from '../api/membership';
 
 export function InvitePage() {
   const { data, isLoading, isError } = useInvite();
@@ -66,6 +67,8 @@ export function InvitePage() {
                 '好友通过你的链接注册后自动关联。'
               )}
             </p>
+
+            <HowItWorks rewardOn={data.reward_per_invite > 0} />
           </>
         )}
       </section>
@@ -110,6 +113,10 @@ function InvitedList() {
               >
                 <span className="min-w-0 truncate text-14 text-subtle">{u.name}</span>
                 <span className="flex shrink-0 items-center gap-3 text-12 text-faint">
+                  {/* 到账透明化(0100):>0 才渲染「+N 经费」;0 不渲染负面态(活动关闭期/达日上限)。 */}
+                  {u.rewarded_credits > 0 && (
+                    <span className="font-medium tabular-nums text-brand-green">+{u.rewarded_credits} 经费</span>
+                  )}
                   <span className="rounded-pill bg-surface-2 px-2 py-1">
                     {INVITE_METHOD_LABEL[u.method] ?? u.method}
                   </span>
@@ -146,6 +153,41 @@ function InvitedList() {
         </>
       )}
     </section>
+  );
+}
+
+/** 活动玩法三步(业界四件套之 How it works;Dropbox/Gamma 标配)。
+ *  活动开启时第三步讲奖励;关闭时讲关联。规则行用正向措辞(每日上限「次日继续」)。 */
+function HowItWorks({ rewardOn }: { rewardOn: boolean }) {
+  const { data: plans } = usePlans();
+  const dailyCap = plans?.invite_reward_daily_cap ?? 0;
+  const steps: [string, string][] = [
+    ['复制专属邀请链接', '把链接分享给同门与好友'],
+    ['好友通过链接注册', '打开链接后注册 Scholay,自动与你关联'],
+    rewardOn
+      ? ['经费自动到账', '每成功 1 位,奖励经费自动发放并有站内信提醒']
+      : ['自动关联', '你可以在下方看到通过邀请注册的好友'],
+  ];
+  return (
+    <div className="mt-4 border-t border-border-hairline pt-4">
+      <p className="mb-3 text-12 font-medium text-faint">如何参与</p>
+      <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {steps.map(([t, d], i) => (
+          <li key={t} className="flex items-start gap-2">
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-12 tabular-nums text-subtle">
+              {i + 1}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-12 font-medium text-foreground">{t}</span>
+              <span className="text-12 leading-paragraph text-faint">{d}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {rewardOn && dailyCap > 0 && (
+        <p className="mt-3 text-12 text-faint">每日最多计入 {dailyCap} 位好友的奖励,次日继续。</p>
+      )}
+    </div>
   );
 }
 

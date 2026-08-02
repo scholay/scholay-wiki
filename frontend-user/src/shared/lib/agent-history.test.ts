@@ -90,3 +90,86 @@ describe('replayHistoryAsTurns — error entry(失败轮终态)', () => {
     expect(turns[0].blocks).toHaveLength(1);
   });
 });
+
+// ─── 取证过程计数回放(2026-08 证据账本 P0-c)──────────────────────────────
+//
+// 冻结契约:GET history 的 entries 中,发过 research_state 的轮出现顶级 entry
+//   `{type:"research_state", content:[<原帧>]}`(backend FoldToMessages 折 EvEvidence 的
+//   **最后一条全量快照**)。它存在的全部理由是:第二天回来复盘时,「本轮未检索」那一格
+//   还在 —— 在此之前只有实时轮看得到 chip,刷新即消失。
+// 与实时 fold 同构的断言在 features/claw/components/chat/fold.research.test.ts(那层能同时
+// import 两条 fold;shared 不许反向 import features)。
+const researchEntry = (
+  block: Record<string, unknown>,
+): AgentHistoryEntry => ({ type: 'research_state', content: [{ type: 'research_state', ...block }] });
+
+describe('replayHistoryAsTurns — research_state entry(取证过程计数)', () => {
+  it('绑回当前轮并转成驼峰形状', () => {
+    const turns = replayHistoryAsTurns([
+      userEntry('找几篇'),
+      { type: 'assistant', content: [{ type: 'text', text: '找到了' }] },
+      researchEntry({ queries: 3, ledger_total: 16, by_origin: { retrieval: 14, user_text: 2 } }),
+    ]);
+    expect(turns).toHaveLength(1);
+    expect(turns[0].research).toEqual({
+      queries: 3,
+      ledgerTotal: 16,
+      byOrigin: { retrieval: 14, user_text: 2 },
+    });
+  });
+
+  it('queries=0 原样保留(「本轮未检索」是有效结论,不是缺数据)', () => {
+    const turns = replayHistoryAsTurns([
+      userEntry('刚才那些帮我总结一下'),
+      researchEntry({ queries: 0, ledger_total: 16 }),
+    ]);
+    expect(turns[0].research?.queries).toBe(0);
+    expect(turns[0].research?.ledgerTotal).toBe(16);
+  });
+
+  it('缺字段按 0 落位(引擎发了帧即代表它数过了,不存在「未知」)', () => {
+    const turns = replayHistoryAsTurns([userEntry('你好'), researchEntry({})]);
+    expect(turns[0].research).toEqual({ queries: 0, ledgerTotal: 0, byOrigin: undefined });
+  });
+
+  it('计数各归各轮,不串轮', () => {
+    const turns = replayHistoryAsTurns([
+      userEntry('找几篇'),
+      researchEntry({ queries: 3, ledger_total: 16 }),
+      userEntry('总结一下'),
+      { type: 'assistant', content: [{ type: 'text', text: '好的' }] },
+      researchEntry({ queries: 0, ledger_total: 16 }),
+    ]);
+    expect(turns).toHaveLength(2);
+    expect(turns[0].research?.queries).toBe(3);
+    expect(turns[1].research?.queries).toBe(0);
+  });
+
+  it('同轮多条时后到覆盖先到(全量快照语义;与实时 fold 同构)', () => {
+    const turns = replayHistoryAsTurns([
+      userEntry('继续查'),
+      researchEntry({ queries: 1, ledger_total: 4 }),
+      researchEntry({ queries: 3, ledger_total: 16 }),
+    ]);
+    expect(turns[0].research).toEqual({ queries: 3, ledgerTotal: 16, byOrigin: undefined });
+  });
+
+  it('无 entry 的轮 research 保持 undefined(不许用 blocks 里的工具数补位)', () => {
+    const turns = replayHistoryAsTurns([
+      userEntry('找几篇'),
+      { type: 'tool_use', content: [{ type: 'tool_use', id: 'tu1', name: 'search_papers', input: {} }] },
+      { type: 'tool_result', content: [{ type: 'tool_result', tool_use_id: 'tu1', content: '[]' }] },
+    ]);
+    expect(turns[0].research).toBeUndefined();
+  });
+
+  it('防御性:无当前轮的孤儿快照(分页截断)跳过,不产出空轮', () => {
+    const turns = replayHistoryAsTurns([
+      researchEntry({ queries: 0, ledger_total: 16 }),
+      userEntry('你好'),
+    ]);
+    expect(turns).toHaveLength(1);
+    expect(turns[0].userText).toBe('你好');
+    expect(turns[0].research).toBeUndefined();
+  });
+});

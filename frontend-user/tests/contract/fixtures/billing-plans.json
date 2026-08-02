@@ -36,6 +36,8 @@
       }
     ],
     "popular_plan": "max",
+    "invite_reward_credits": 0,
+    "invite_reward_daily_cap": 0,
     "recharge_rate": 100,
     "test_payment": true,
     "window_days": 7

@@ -10,6 +10,7 @@ const C = {
   faint: '#6E6E78', // faint
   red: '#882828', // brand-red
   green: '#2F4D29', // brand-green
+  amberInk: '#805E00', // --amber-ink 琥珀软底上的可读色(裸琥珀 #E5A800 在浅底上仅 ~1.9:1,禁用)
   white: '#ffffff', // 深底按钮内图标(发送键等)
 }
 
@@ -96,6 +97,7 @@ export const ICONS = {
   arrowUpFaint: svg(P.arrowUp, C.faint),
   circleSlashFaint: svg(P.circleSlash, C.faint),
   alertCircleRed: svg(P.alertCircle, C.red),
+  alertCircleAmber: svg(P.alertCircle, C.amberInk), // 额度「尚未发送」琥珀卡
   checkCircleGreen: svg(P.checkCircle, C.green),
   terminalWeak: svg(P.terminal, C.weak),
   bookOpenGreen: svg(P.bookOpen, C.green),

@@ -342,7 +342,8 @@ func chatUsageToAgentUsage(u *ChatUsage) AgentUsage {
 }
 
 // serverEvent 是 agent S→C 消息的最小子集 — 只把我们 ServerSideChat 关心的字段抽出来。
-// 完整协议见 agent/src/server/ws/events.ts。
+// 完整协议**没有单一声明文件**(原 agent/src/server/ws/events.ts 已在 a30add8d2 删除):
+// 发帧点散在 agent/src/turn/{turnLoop,runTools,artifacts}.ts 与 agent/src/server/ws.ts。
 type serverEvent struct {
 	Type      string     `json:"type"`
 	Text      string     `json:"text,omitempty"`      // content_delta / thinking

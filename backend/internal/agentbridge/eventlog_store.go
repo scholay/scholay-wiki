@@ -14,10 +14,12 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"scholar-backend/internal/agent"
+	"scholar-backend/internal/common/safego"
 )
 
 // eventlogStore 是 EventLog 的 MySQL 实现(agent_turns / agent_turn_events /
@@ -40,6 +42,27 @@ func journalKindOrDefault(s, def string) string {
 	return s
 }
 
+// 被门禁拦下、从未转发给 agent 的轮在 journal 里的固定标记(2026-07-31 线上审计 §五)。
+// status=blocked 是**读侧过滤键**:所有前端回放/续流读路径都排除它,故它永远不会被误渲染成对话轮。
+const (
+	turnStatusBlocked = "blocked"
+	turnKindQuota     = "quota"
+	// 幂等键前缀:blocked 行与真实轮共用 uk_session_client_turn 唯一索引,必须隔离命名空间 ——
+	// 否则用户被拦后充值、前端原样重发同一个 clientTurnId 会被 BeginTurn 判成「已送达」直接丢帧。
+	blockedTurnIDPrefix = "blocked:"
+	maxClientTurnIDLen  = 64 // = agent_turns.client_turn_id 列宽
+	turnKindHookBlock   = "hook" // PreUserMessage 非配额原因的拒绝(panic 兜底等),别混进配额漏斗
+)
+
+// blockedTurnKind 把门禁拒绝错误映射成 agent_turns.kind:配额漏斗要的是纯净的 kind='quota',
+// 其它 hook 拒绝单独归 'hook'(数量极小,但混进去会污染转化率口径)。
+func blockedTurnKind(err error) string {
+	if errors.Is(err, ErrQuotaExceeded) {
+		return turnKindQuota
+	}
+	return turnKindHookBlock
+}
+
 // ── 写侧 ──
 
 func (s *eventlogStore) BeginTurn(ctx context.Context, in TurnInput) (*Turn, bool, error) {
@@ -48,7 +71,7 @@ func (s *eventlogStore) BeginTurn(ctx context.Context, in TurnInput) (*Turn, boo
 		ClientTurnID: in.ClientTurnID, RoleUserText: in.RoleUserText, Status: "running",
 		Kind: journalKindOrDefault(in.Kind, "interactive"), ModelMain: in.ModelMain,
 	}
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	insert := func(tx *gorm.DB) error {
 		var ex Turn
 		e := tx.Where("agent_session_id = ? AND client_turn_id = ?", in.AgentSessionID, in.ClientTurnID).First(&ex).Error
 		if e == nil { // 浏览器重发同 clientTurnId → 命中既有行,幂等
@@ -61,14 +84,25 @@ func (s *eventlogStore) BeginTurn(ctx context.Context, in TurnInput) (*Turn, boo
 		}
 		var maxSeq uint
 		tx.Model(&Turn{}).Where("agent_session_id = ?", in.AgentSessionID).Select("COALESCE(MAX(seq),0)").Scan(&maxSeq)
-		t.Seq = maxSeq + 1
+		t.ID, t.Seq = 0, maxSeq+1 // 重试时清掉上一次 Create 已回填的自增 ID,避免带 ID 重插
 		return tx.Create(t).Error
-	})
-	if err != nil && IsDuplicateKey(err) { // 并发同 clientTurnId → 回读既有行(沿用 repository.go 样板)
+	}
+	// 2026-07-31 线上审计 §五:RecordBlockedTurn 起了本表**第二个并发写者**(异步落配额拦截行),
+	// 它与本函数抢同一条 uk_session_seq(MAX(seq)+1 竞态)。撞键时旧代码只按 client_turn_id 回读,
+	// 回读不中就直接失败 → 那一轮 turnID=0、整轮事件无处可落(journal 静默缺一轮)。故补有界重试:
+	// seq 撞了就重算再插;client_turn_id 撞了走下面的回读幂等路径。
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		err = s.db.WithContext(ctx).Transaction(insert)
+		if err == nil || !IsDuplicateKey(err) {
+			break
+		}
+		// 并发同 clientTurnId → 回读既有行(沿用 repository.go 样板),命中即幂等返回。
 		var ex Turn
 		if e2 := s.db.WithContext(ctx).Where("agent_session_id = ? AND client_turn_id = ?", in.AgentSessionID, in.ClientTurnID).First(&ex).Error; e2 == nil {
 			return &ex, true, nil
 		}
+		// 回读不中 = 撞的是 seq 而非 clientTurnId → 重算 MAX(seq)+1 再试。
 	}
 	return t, t.existed, err
 }
@@ -83,6 +117,72 @@ func (s *eventlogStore) Append(turnID uint64, sid string, evType EvType, frame [
 func (s *eventlogStore) FlushTurn(ctx context.Context, turnID uint64) error {
 	s.batcher.flushTurn(turnID)
 	return nil
+}
+
+// BumpAttempt 记录该 turn 的重投次数(2026-07-31 线上审计 §五)。GREATEST 保证幂等取大:
+// 重复调用 / 乱序到达都不会把计数改小,也不需要读-改-写事务。
+func (s *eventlogStore) BumpAttempt(ctx context.Context, turnID uint64, n int) error {
+	if turnID == 0 || n <= 0 {
+		return nil
+	}
+	return s.db.WithContext(ctx).Model(&Turn{}).Where("id = ?", turnID).
+		Update("attempt", gorm.Expr("GREATEST(attempt, ?)", n)).Error
+}
+
+// RecordBlockedTurn 落一条被门禁拦下的轮(契约见 EventLog 接口注释)。一个事务两行:
+// agent_turns(status=blocked/kind=quota/completed_at=now) + 一条 EvQuotaBlocked 事件。
+// 不走 batcher —— blocked 轮没有后续的 FlushTurn/CompleteTurn 来触发落盘,直接同步 INSERT 更简单也更准。
+func (s *eventlogStore) RecordBlockedTurn(ctx context.Context, in TurnInput, payload []byte) error {
+	if in.AgentSessionID == "" {
+		return nil
+	}
+	if len(payload) == 0 {
+		payload = json.RawMessage(`{}`)
+	}
+	cid := in.ClientTurnID
+	if cid == "" {
+		cid = uuid.NewString() // 老客户端不带 clientTurnId → mint,保证每次尝试各占一行(漏斗要的是次数)
+	}
+	cid = blockedTurnIDPrefix + cid
+	if len(cid) > maxClientTurnIDLen {
+		cid = cid[:maxClientTurnIDLen]
+	}
+	now := time.Now()
+	t := &Turn{
+		AgentSessionID: in.AgentSessionID, FeatureKey: in.FeatureKey, UserID: in.UserID,
+		ClientTurnID: cid, RoleUserText: in.RoleUserText,
+		Status: turnStatusBlocked, Kind: journalKindOrDefault(in.Kind, turnKindQuota),
+		CompletedAt: &now,
+	}
+	insert := func(tx *gorm.DB) error {
+		var ex Turn
+		e := tx.Where("agent_session_id = ? AND client_turn_id = ?", in.AgentSessionID, cid).First(&ex).Error
+		if e == nil {
+			return nil // 同一次拦截重复上报(前端未送达看门狗重发同 id)→ 幂等 no-op
+		}
+		if !errors.Is(e, gorm.ErrRecordNotFound) {
+			return e
+		}
+		// seq 与真实轮共用 uk_session_seq 唯一索引 → 必须取号(不能恒 0,否则同会话第二次拦截撞键)。
+		var maxSeq uint
+		tx.Model(&Turn{}).Where("agent_session_id = ?", in.AgentSessionID).Select("COALESCE(MAX(seq),0)").Scan(&maxSeq)
+		t.ID, t.Seq = 0, maxSeq+1 // 重试时清掉上一次已回填的自增 ID(同 BeginTurn)
+		if cerr := tx.Create(t).Error; cerr != nil {
+			return cerr
+		}
+		return tx.Create(&TurnEventRow{
+			TurnID: t.ID, AgentSessionID: in.AgentSessionID, EvSeq: 1,
+			EvType: string(EvQuotaBlocked), Payload: payload,
+		}).Error
+	}
+	var err error
+	for attempt := 0; attempt < 3; attempt++ { // 与 BeginTurn 抢 MAX(seq)+1 时重算再试
+		err = s.db.WithContext(ctx).Transaction(insert)
+		if err == nil || !IsDuplicateKey(err) {
+			return err
+		}
+	}
+	return nil // 三次仍撞键:让步(漏斗少一行远轻于把错误往上抛),调用方本就只 Warn
 }
 
 func (s *eventlogStore) CompleteTurn(ctx context.Context, turnID uint64, status, modelMain string, ledger *BillingLedgerRow) error {
@@ -158,13 +258,15 @@ func (s *eventlogStore) ReadRecentTurns(ctx context.Context, sid string, limitTu
 	if limitTurns <= 0 {
 		limitTurns = 30
 	}
+	// blocked 轮(配额门拦下、从未执行)排除在回放之外(2026-07-31 线上审计 §五):它不是对话内容,
+	// 既不该占「最近 N 轮」的名额把真历史挤出 seed_history,也不该出现在 totalTurns / hasMore 口径里。
 	var total int64
-	s.db.WithContext(ctx).Model(&Turn{}).Where("agent_session_id = ?", sid).Count(&total)
+	s.db.WithContext(ctx).Model(&Turn{}).Where("agent_session_id = ? AND status <> ?", sid, turnStatusBlocked).Count(&total)
 	if total == 0 {
 		return nil, 0, false, nil
 	}
 	var turnIDs []uint64
-	s.db.WithContext(ctx).Model(&Turn{}).Where("agent_session_id = ?", sid).
+	s.db.WithContext(ctx).Model(&Turn{}).Where("agent_session_id = ? AND status <> ?", sid, turnStatusBlocked).
 		Order("seq DESC").Limit(limitTurns).Pluck("id", &turnIDs)
 	if len(turnIDs) == 0 {
 		return nil, int(total), false, nil
@@ -177,6 +279,30 @@ func (s *eventlogStore) ReadRecentTurns(ctx context.Context, sid string, limitTu
 	return toEvents(rows), int(total), hasMore, nil
 }
 
+// RecordBlocked —— TurnCoordinator 侧的门禁拦截落库入口(方法定义在此,与 RecordBlockedTurn 同处一屏)。
+// 2026-07-31 线上审计 §五:配额墙是全站最强付费触发器(拦截→支付最快 35 秒;9 个被拦用户 5 人付费、
+// 贡献 97% 订单额),但这条漏斗此前只有一条 INFO 日志,docker json-file 轮转后即失 —— 上线半年靠
+// grep 日志逐条对时才算得出转化率。落成 agent_turns(status=blocked, kind=quota) 后它是一等公民数据。
+//
+// 两条硬约束:
+//  ① **绝不阻塞拦截本身**:异步 goroutine + 自带 3s 超时的独立 ctx(调用方的 hookCtx 会随 hub 关闭
+//     被 cancel,不能借用),写库失败只 slog.Warn —— 拦截照常生效,用户照常收到 error 帧;
+//  ② **绝不进前端回放**:读侧按 status 过滤(ReadRecentTurns)+ EvQuotaBlocked 在 FoldToMessages
+//     无 case,两道都保证它不会被误渲染成对话轮。
+func (tc *TurnCoordinator) RecordBlocked(in TurnInput, payload []byte) {
+	if tc == nil || tc.log == nil {
+		return
+	}
+	safego.Go("agentbridge-record-blocked-turn", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := tc.log.RecordBlockedTurn(ctx, in, payload); err != nil {
+			slog.Warn("agentbridge: record blocked turn failed (interception unaffected)",
+				"feature", in.FeatureKey, "session_id", in.AgentSessionID, "user_id", in.UserID, "err", err)
+		}
+	})
+}
+
 func toEvents(rows []TurnEventRow) []Event {
 	out := make([]Event, 0, len(rows))
 	for _, r := range rows {
@@ -186,6 +312,42 @@ func toEvents(rows []TurnEventRow) []Event {
 		})
 	}
 	return out
+}
+
+// researchStateSnapshot 判定一条事件是否是证据账本的**全量快照**(EvEvidence 里 type=research_state
+// 的那种),是则原样返回其 payload,否则 nil。
+//
+// 刻意只认 research_state、跳过 evidence_appended:前者带 ledger_total / queries / by_origin,
+// **单条即当前态**;后者是增量事件,拼装是 P1 的事 —— 拼半套会长出第二套证据口径
+// (终稿否决清单 #2/#13:台账只能有一份)。
+//
+// EvEvidence 的两个读侧出口共用这一个判定 —— latestResearchState(seed_history 的重建入口)
+// 与 FoldToMessages(历史回放的过程 chip)。同一份「什么算快照」,两条读侧口径不可能漂移。
+func researchStateSnapshot(e Event) json.RawMessage {
+	if e.EvType != EvEvidence {
+		return nil
+	}
+	var f struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(e.Payload, &f); err != nil || f.Type != "research_state" {
+		return nil
+	}
+	return e.Payload
+}
+
+// latestResearchState 取整段事件流里最后一条 research_state 快照(没有则 nil)。
+//
+// 2026-08 证据账本 P0-c(终稿 §五 P0-b 最后一条):seedHistoryFromJournal 把它挂到 seed_history
+// 的 `research` 字段,作为「executor workdir 被 GC / 换机后账本文件没了」时的重建入口。
+// P0 只负责把字段带上,消费(executor 据此重建 evidence/ledger.jsonl)在 P1。
+func latestResearchState(evs []Event) json.RawMessage {
+	for i := len(evs) - 1; i >= 0; i-- {
+		if snap := researchStateSnapshot(evs[i]); snap != nil {
+			return snap
+		}
+	}
+	return nil
 }
 
 // FoldToMessages 折叠事件流成 agent.SessionMessage[](详细设计 §3.1.1 + §4 journal 中性化,修 HIGH-1)。
@@ -230,10 +392,22 @@ func (s *eventlogStore) FoldToMessages(evs []Event) []agent.SessionMessage {
 		bufKind = kind
 		buf += text
 	}
+	// 本轮最后一条 research_state 全量快照(后到覆盖先到);在轮边界(下一条 user_message)与
+	// 事件流末尾折出一条合成 entry。见 case EvEvidence。
+	var pendingResearch json.RawMessage
+	flushResearch := func() {
+		if pendingResearch == nil {
+			return
+		}
+		content, _ := json.Marshal([]json.RawMessage{pendingResearch})
+		out = append(out, agent.SessionMessage{Type: "research_state", Content: content})
+		pendingResearch = nil
+	}
 	for _, e := range evs {
 		switch e.EvType {
 		case EvUserMessage:
 			flushAsst()
+			flushResearch()
 			var f struct {
 				Content string `json:"content"`
 			}
@@ -352,8 +526,26 @@ func (s *eventlogStore) FoldToMessages(evs []Event) []agent.SessionMessage {
 			})
 			content, _ := json.Marshal([]json.RawMessage{block})
 			out = append(out, agent.SessionMessage{Type: "artifact", Content: content})
+		case EvEvidence:
+			// 取证过程计数带外声明 → 合成一条 `research_state` entry(content = [原帧])。范式与
+			// EvArtifact 逐条相同:带外声明入 journal → 折出合成 entry → 前端 replay 绑回对应轮。
+			// 没有它,刷新/重入后已完成轮的 ResearchStateChip 就消失 —— 而「本轮未检索」那一格
+			// 正是这枚 chip 存在的全部理由,第二天回来复盘时看不到它等于没做。
+			//
+			// 只认 research_state 全量快照(researchStateSnapshot 判定);evidence_appended 是增量,
+			// 拼装等于第二份台账(终稿否决清单 #2),那是 P1 的 [[E<n>]] resolve 才做的事。
+			// 同轮多条(重投 / 续流会重复发)取**最后一条** —— 与实时 fold 的 `case 'research_state'`
+			// (后到覆盖先到)同构,故 flush 推迟到轮边界,一轮至多产出一条。
+			//
+			// 🔴 **不回喂模型**:executor 侧 convertFlatToAnthropic 只保留 type=="text"/"tool_use"
+			// 的块,本 entry 的块两者都不是 → seed_history 里整条被丢弃(与 artifact / error 同款保证)。
+			// 引擎口径的账本真源仍只有 evidence/ledger.jsonl 一份。
+			if snap := researchStateSnapshot(e); snap != nil {
+				pendingResearch = snap
+			}
 		}
 	}
 	flushAsst()
+	flushResearch()
 	return out
 }

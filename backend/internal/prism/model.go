@@ -140,6 +140,10 @@ type Compile struct {
 	// ErrorKind 区分失败类型:latex=真 LaTeX 语法错(前端才 arm auto-fix)/ infra=内部/素材/沙箱错 / timeout=排队超时。
 	// 只对 latex 回喂 AI 自动修复,infra/timeout 停在琥珀 banner,杜绝把基础设施抖动放大成 AI 轮风暴(性能审计)。
 	ErrorKind    string     `gorm:"column:error_kind" json:"error_kind,omitempty"`
+	// ErrorSource 错误源头维度(2026-07 线上审计 #3):body=正文 / bibliography=参考文献 / infra=基础设施。
+	// 不落库:GetCompile 读时由 classifyCompileErrorSource 从已存 summary/excerpt 派生(向后兼容可选字段),
+	// 前端据此把 bib 类错误分流出正文 auto-fix 回路(改 document.md 修不了 .bib,线上 11 轮白烧)。
+	ErrorSource  string     `gorm:"-" json:"error_source,omitempty"`
 	DurationMs    int        `gorm:"column:duration_ms" json:"duration_ms"`
 	PageCount     int        `gorm:"column:page_count" json:"page_count"`
 	OverfullCount int        `gorm:"column:overfull_count" json:"overfull_count"`

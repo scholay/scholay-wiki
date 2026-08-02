@@ -119,6 +119,10 @@ const (
 //     单 prompt feature (smart_search/claw) 用 BySlugPicker;
 //     多视角 feature (peerreview) 用 PersonaRandomPicker (一个 persona 一个 picker)。
 type FeatureSpec struct {
+	// RunTemplates 本剖面支持的 Run 形态(2026-08 Phase 1)。
+	// **零值 = 不支持 Run**,行为与今天逐字等价 —— 这是 Phase 1 零回归的保证。
+	RunTemplates []RunTemplateJSON
+
 	// Key 是 agent_sessions.feature_key 的取值, 全局唯一, 用于
 	// (user_id, feature_key) 复合主键。简短的 snake_case, <= 64 字符。
 	// 例: smart_search / peerreview / claw。
@@ -180,6 +184,18 @@ type FeatureSpec struct {
 	// PreUserMessage 在每条 user_message 转发到 agent 前同步调用, 用于做配额 / 限流。
 	// nil → 不做检查直接放行。详见 PreUserMessageFn 定义。
 	PreUserMessage PreUserMessageFn
+
+	// AttachmentRelocator 把「上一个会话 cwd 里的附件」按需物化进**当前轮的会话 cwd**
+	// (2026-07-31 线上审计 §五)。nil = 不启用, 行为等同改造前。
+	//
+	// 治的是:用户在 prism 的 A 对话上传, 切到 B 对话再发送 —— 附件路径仍指向 A 的 cwd,
+	// 而权限层 (ws.go pathWithin) 只认**本会话 cwd** 前缀, 于是 Read/ReadDocument 全被拒,
+	// 模型对用户说「技术层面上我无法打开它们」而该轮仍 status=complete。
+	// 路径同源后权限层一行不用改, 也不放宽任何边界 —— 这是治本而非放行。
+	// 实现见 internal/agentattach.NewRelocator; 鸭子类型声明在此避免 agentbridge → agentattach 成环。
+	AttachmentRelocator interface {
+		EnsureLocal(ctx context.Context, userID uint, sessionID, sessionWorkDir string, paths []string) ([]string, error)
+	}
 
 	// BudgetProvider(SS#2)非 nil 时,hub 每条 user_message 现算「单轮预算」并盖到帧上,
 	// 执行器据此让 agent 自我配速 + 到界优雅收尾。nil = 不盖(peerreview 任务型,必须跑完)。
@@ -253,6 +269,31 @@ func specDeny(spec FeatureSpec) []string {
 	return deny
 }
 
+// RunTemplateJSON —— FeatureSpec 里声明的 Run 形态(2026-08 Phase 1)。
+//
+// 🔴 为什么在 agentbridge 里再声明一份、而不是直接 import agentrun.RunTemplate:
+//
+//	agentrun 依赖 agentbridge(它骑 SagaStepRow),反向 import 会成环。
+//	这里只放**纯数据**,由装配层(bootstrap)转成 agentrun.RunTemplate。
+//	字段名与 JSON tag 必须与 agentrun.RunTemplate 逐字对齐 ——
+//	由 agentrun 的 template_mirror_test.go 机械对咬,漂了当场红。
+//
+// **零值 = 该剖面不支持 Run**,行为与今天逐字等价。Phase 1 五个剖面全零值(opt-in)。
+// 方案 §Phase 3 起这条梯度会翻过来:内核新增的编排能力默认对所有剖面生效。
+type RunTemplateJSON struct {
+	Key   string        `json:"key"`
+	Title string        `json:"title"`
+	Steps []RunStepJSON `json:"steps"`
+}
+
+// RunStepJSON 见 RunTemplateJSON。
+type RunStepJSON struct {
+	Key       string `json:"key"`
+	Brief     string `json:"brief"`
+	MaxRounds int    `json:"max_rounds,omitempty"`
+	MaxRetry  int    `json:"max_retry,omitempty"`
+}
+
 // SessionDisallowedTools 是创建 agent session 时该 feature 应传给 --disallowed-tools 的工具集
 // (= specDeny 的同一真源)。BuildSpec 用它拼 SessionOptions.DisallowedTools,保证「agent 端禁的」
 // 与「backend 门禁的」完全一致,不漂移。导出供各 feature 的 BuildSpec 调用。
@@ -296,7 +337,7 @@ func (s FeatureSpec) TurnTimeoutOrDefault() time.Duration {
 //  2. PermissionMode 空 → 向后兼容旧 AutoApprovePermission:
 //     true  → PermissionAuto (现状: backend 自动裁决)
 //     false → PermissionPassthrough (旧代码 AutoApprovePermission=false 时根本不拦截
-//             permission_request, 等价于让它流向前端; 这里显式表达成 passthrough, 行为等价)。
+//     permission_request, 等价于让它流向前端; 这里显式表达成 passthrough, 行为等价)。
 //
 // 注: 历史上四个 feature 全是 AutoApprovePermission=true, 现已显式迁到 PermissionAuto。
 func (s FeatureSpec) EffectivePermissionMode() PermissionMode {

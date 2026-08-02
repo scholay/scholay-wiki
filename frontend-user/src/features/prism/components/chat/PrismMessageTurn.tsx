@@ -3,6 +3,7 @@ import { Wrench } from 'lucide-react';
 import {
   AssistantBubble,
   AttachmentChipList,
+  BlockedTurnCard,
   ChatStyles,
   PausedNotice,
   ProcessFold,
@@ -15,6 +16,7 @@ import {
 } from '@/shared/components/chat';
 import { stripContainerPaths } from '@/shared/lib/strip-container-paths';
 import { hasVisibleAssistantContent, isLastBlockStreamingText, type Turn } from '@/shared/types/chat';
+import { useQuotaStore } from '@/stores/quota.store';
 import { isCompileCheckText } from '../../lib/compile-check';
 
 /**
@@ -29,7 +31,18 @@ import { isCompileCheckText } from '../../lib/compile-check';
  * 拎出,写作轮「叙述→工具→叙述→工具」里每段中间叙述都会先在折叠外闪现、下一个工具到达又跳回折叠内,
  * 造成高频重排抖动(P0 对抗审查 finding #1)。故只在完成时一次性外提,流式期一律留在展开的折叠内实时可见。
  */
-export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn: Turn }) {
+export const PrismMessageTurn = memo(function PrismMessageTurn({
+  turn,
+  onResendBlocked,
+  onDismissBlocked,
+}: {
+  turn: Turn;
+  /** blocked(命中额度未发送)轮:点「重新发送」。引用稳定不破 memo(PrismChatPanel ref-latest 包装)。 */
+  onResendBlocked?: () => void;
+  /** blocked 轮:点「忽略」丢弃这条未发送消息。 */
+  onDismissBlocked?: () => void;
+}) {
+  const openReset = useQuotaStore((s) => s.openReset);
   const visible = hasVisibleAssistantContent(turn);
   const blocks = turn.blocks;
   const last = blocks[blocks.length - 1];
@@ -78,7 +91,10 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
       {/* thinking 提到顶层(对齐 claw),不再嵌进 ProcessFold */}
       {turn.thinkingText && <ThinkingFold text={turn.thinkingText} isActive={isThinkingActive} />}
 
-      {!turn.complete && !turn.errorMessage && !visible && <StreamingIndicator turn={turn} />}
+      {/* blocked 轮不渲染流式占位(fold 已置 complete=true,这里再显式排除一道,双保险)。 */}
+      {!turn.complete && !turn.errorMessage && !turn.blocked && !visible && (
+        <StreamingIndicator turn={turn} />
+      )}
 
       {/* 处理过程(工具 + 中间叙述)折叠 —— 不含最终答案 */}
       {hasProcessBlocks && (
@@ -113,8 +129,18 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
 
       {turn.errorMessage && <TurnErrorNotice message={turn.errorMessage} code={turn.errorCode} />}
 
+      {/* 命中额度「未发送」轮 —— 保留用户气泡 + 一键重发(无需重打),与 claw 同款 shared 卡片。
+          消息已按「项目+对话」持久化(localStorage),跳支付宝充会员整页返回 / 换设备回来都能重发。 */}
+      {turn.blocked && (
+        <BlockedTurnCard
+          onResend={onResendBlocked}
+          onOpenReset={openReset}
+          onDismiss={onDismissBlocked}
+        />
+      )}
+
       {/* 整轮被用户暂停 —— 末尾收尾标识(与 claw / smart-search 同款,历史回放也走这里) */}
-      {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}
+      {turn.complete && turn.paused && !turn.errorMessage && !turn.blocked && <PausedNotice />}
     </article>
   );
 });

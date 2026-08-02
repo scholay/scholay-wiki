@@ -1,3 +1,6 @@
+// 2026-07 线上审计:URL.parse polyfill(Safari<18 无此静态方法,pdfjs TextLayer 白屏)。
+// 必须排在所有业务 import 之前求值。
+import '@/shared/lib/polyfills';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from '@/app/App';

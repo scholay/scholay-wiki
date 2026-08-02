@@ -158,9 +158,14 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/VipCodesPage'))('VipCodesPage'),
       },
       {
+        path: 'activities',
+        handle: { title: '活动管理' },
+        lazy: lazyPage(() => import('./pages/ActivitiesPage'))('ActivitiesPage'),
+      },
+      {
+        // 限时活动统一管理(2026-07-31):原独立「限时领取会员」页并入 /admin/activities;老书签重定向。
         path: 'promo-config',
-        handle: { title: '限时领取会员' },
-        lazy: lazyPage(() => import('./pages/PromoConfigPage'))('PromoConfigPage'),
+        loader: () => redirect('/admin/activities'),
       },
       {
         // 三方账号已并入「模型与账号」页的 tab;老书签重定向。

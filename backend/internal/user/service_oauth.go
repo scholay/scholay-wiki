@@ -485,6 +485,16 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 		}
 	}
 
+	// 2026-07 线上审计:微信昵称直接当 username 且无查重 —— 昵称重复(线上实证「神经蛙」/'.'/'???')
+	// 撞 uk_username 唯一键 → Error 1062 → 该昵称的新用户永远注册失败(获客阻断)。
+	// 注册前查重,重复则加时间戳后缀(与本文件 CancelPendingMergeAndCreateUser 的既有去重口径一致)。
+	// 附注('???' 根因排查):DB 连接 DSN(common/database/database.go)与 users.username 列
+	// (0001_baseline.sql)均为 utf8mb4,非本侧连接/列把 emoji 打成 '?';疑为微信接口侧对
+	// emoji/生僻字昵称的降级返回,根因在上游,留档待查。无论根因,查重+1062 重试已兜住撞键。
+	if existing, _ := s.repo.FindByUsername(uname); existing != nil {
+		uname = fmt.Sprintf("%s_%d", uname, time.Now().Unix())
+	}
+
 	// Create user with WeChat info
 	user := &User{
 		Username:       &uname,
@@ -495,7 +505,18 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	}
 
 	if err := s.repo.Create(user); err != nil {
-		return nil, "", false, err
+		// 并发窗口兜底:查重与 Create 之间仍可能被同昵称用户抢注(分布式锁只锁同一 openID,
+		// 不同微信用户同昵称不互斥)。捕获 1062 换随机后缀重试一次(错误形态判断与本文件
+		// FinalizePendingMerge 的既有口径一致:GORM 不暴露 mysql 错误码,用错误字符串兜底)。
+		if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "duplicate key") {
+			retryName := fmt.Sprintf("%s_%04d", uname, utils.SecureRandomIntn(10000))
+			user.Username = &retryName
+			if err2 := s.repo.Create(user); err2 != nil {
+				return nil, "", false, err2
+			}
+		} else {
+			return nil, "", false, err
+		}
 	}
 
 	// Update last login time and IP (registration counts as first login)

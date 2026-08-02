@@ -19,7 +19,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { http, toApiError } from '@/shared/lib/http';
+import { http, toApiError, type ApiError } from '@/shared/lib/http';
 import { retryDetailQuery } from '@/shared/lib/query-config';
 import type {
   AttachmentCategory,
@@ -33,6 +33,26 @@ import { unwrap } from './_unwrap';
 
 const KEY = (...rest: (string | number)[]) =>
   ['peer-review', 'submissions', ...rest] as const;
+
+/**
+ * http.ts 新约定:额度类错误(6010)被全局拦截器消费、QuotaNotifier 已弹「额度耗尽」弹窗时,
+ * 错误对象上会带 `quotaHandled: true`。调用方 onError 据此**跳过自己的 toast**,
+ * 避免同一个失败双通知(弹窗 + toast)。类型断言即可,不依赖 http.ts 的导出。
+ */
+export function isQuotaHandled(e: unknown): boolean {
+  return !!(e as { quotaHandled?: boolean } | null | undefined)?.quotaHandled;
+}
+
+/**
+ * toApiError 归一化会**新建**对象 —— 拦截器打在原始 AxiosError 上的 quotaHandled 标记会丢。
+ * 这里带过去,保证 wizard onError 的「已弹弹窗则跳过 toast」判断在归一化之后仍成立。
+ * (若 shared 侧 toApiError 未来自己保留该标记,这里是幂等 no-op。)
+ */
+function toApiErrorPreserveQuotaFlag(err: unknown): ApiError {
+  const apiErr = toApiError(err);
+  if (isQuotaHandled(err)) (apiErr as ApiError & { quotaHandled?: boolean }).quotaHandled = true;
+  return apiErr;
+}
 
 // ─── 查询 ──────────────────────────────────────────────────────────────────
 
@@ -218,7 +238,7 @@ export function useSubmitSubmission(id?: number) {
       } catch (err) {
         // 抛归一化错误, 让 wizard 的 onError 拿到后端友好文案(如配额超限的「今日额度已用完, 升级会员…」),
         // 而不是 axios 的 "Request failed with status code 429"。
-        throw toApiError(err);
+        throw toApiErrorPreserveQuotaFlag(err);
       }
     },
     onSuccess: (data) => {
@@ -242,7 +262,7 @@ export function useRetrySubmission(id?: number) {
         );
         return unwrap<Submission>(r.data);
       } catch (err) {
-        throw toApiError(err);
+        throw toApiErrorPreserveQuotaFlag(err);
       }
     },
     onSuccess: (data) => {
@@ -345,11 +365,17 @@ export function useAdvanceStep(id?: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (fromStep: 1 | 2 | 3) => {
-      const r = await http.post<{ data?: Submission } & Partial<Submission>>(
-        `/user/peer-review/submissions/${id}/advance`,
-        { from: fromStep }
-      );
-      return unwrap<Submission>(r.data);
+      try {
+        const r = await http.post<{ data?: Submission } & Partial<Submission>>(
+          `/user/peer-review/submissions/${id}/advance`,
+          { from: fromStep }
+        );
+        return unwrap<Submission>(r.data);
+      } catch (err) {
+        // 同 submit/retry 的既有修法:归一化后再抛, 让 wizard 的 onError 拿到后端友好文案
+        // (如 6010 的「本周期额度已用完…」), 而不是 axios 的 "Request failed with status code 429"。
+        throw toApiErrorPreserveQuotaFlag(err);
+      }
     },
     onSuccess: (data) => {
       // 立刻把返回的 submission(可能带 computeState=computing_*)写进 cache,

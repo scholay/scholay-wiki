@@ -40,6 +40,9 @@ export function useInvite() {
 export interface InvitedUser {
   name: string;
   method: string;
+  /** 该次邀请给你发放的奖励经费(0100);0=未计奖励(活动关闭期注册/达当日上限)。
+   *  只对 >0 渲染「+N 经费」,0 不渲染负面态(业界惯例:防滥用结果不在主界面渲染成惩罚感)。 */
+  rewarded_credits: number;
   created_at: string;
 }
 

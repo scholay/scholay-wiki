@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Gift, Loader2, Save, Sparkles, Trash2, Upload } from 'lucide-react';
-import { AdminPageLayout } from '../components/AdminPageLayout';
 import { useApiToast } from '../hooks/useApiToast';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -10,7 +9,9 @@ import { Switch } from '@/shared/ui/switch';
 import { useAdminPromoConfig, useUpdatePromoConfig, type PromoConfig } from '../api/promo-config';
 
 /**
- * 限时领取会员推广(后台)——
+ * 限时领取会员推广(后台)—— 「活动管理」页的一个 tab 面板(ActivitiesPage 挂载,
+ * 原独立页 /admin/promo-config 已重定向;owner 拍板 2026-07-31:限时活动统一管理)。
+ *
  *   · 总开关:关 = 用户端无按钮、不弹窗;开 = 顶部导航出现按钮 + 首屏/额度用尽自动弹
  *   · 微信客服二维码(data URL 直存)——用户扫码加客服领取
  *   · 文案:标题 / 副标题 / 福利点(一行一条)/ 按钮文案,均可留空走前端内置默认
@@ -38,7 +39,7 @@ const EMPTY: FormState = {
   wechat_qr: '',
 };
 
-export function PromoConfigPage() {
+export function PromoConfigPanel() {
   const { data: cfg, isLoading } = useAdminPromoConfig();
   const update = useUpdatePromoConfig();
   const apiToast = useApiToast();
@@ -66,16 +67,16 @@ export function PromoConfigPage() {
     : PLACEHOLDER.benefits;
 
   return (
-    <AdminPageLayout
-      title="限时领取会员"
-      description="推广期专用 —— 开启后用户端顶部出现「限时领取会员」按钮,首屏 / 额度用尽自动弹窗引导扫码加客服领取"
-      actions={
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-12 text-muted-foreground">
+          开启后用户端「限时活动」菜单出现该活动,首屏 / 额度用尽自动弹窗引导扫码加客服领取。
+        </p>
         <Button size="sm" onClick={handleSave} disabled={update.isPending || isLoading}>
           {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           保存
         </Button>
-      }
-    >
+      </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
         {/* 表单 */}
         <div className="flex max-w-2xl flex-col gap-6">
@@ -160,7 +161,7 @@ export function PromoConfigPage() {
           </div>
         </div>
       </div>
-    </AdminPageLayout>
+    </div>
   );
 }
 

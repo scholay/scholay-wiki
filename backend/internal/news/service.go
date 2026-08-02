@@ -364,6 +364,13 @@ func parseTime(s string) *time.Time {
 	// 按主机本地时区(容器=北京)解释,而非默认的 UTC —— 避免上游裸时间被当 UTC 后显示偏 8 小时。
 	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {
 		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			// 2026-07 线上审计:上游发过 '0000-00-00' 类零值日期,落 upstream_created_at
+			// (DATETIME)报 Error 1292(×5)。'0000-00-00' 本身月/日越界、Go 解析失败已走 nil;
+			// 这里再兜「能解析成功的零值形态」('0000-01-01' / Go 零值 '0001-01-01' 等):
+			// MySQL DATETIME 下限是 1000-01-01,年份 <1000 一律视为上游零值占位,归一为 NULL。
+			if t.Year() < 1000 {
+				return nil
+			}
 			return &t
 		}
 	}

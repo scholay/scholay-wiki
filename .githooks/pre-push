@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# pre-push —— 设计系统护栏的自动执行点。
+# pre-push —— 仓库护栏的自动执行点。
 #
 # 🔴 生效前提(每台机器执行一次,否则本文件永远不会被调用):
 #        git config core.hooksPath .githooks
@@ -13,24 +13,37 @@
 #     结论与「这次提交的内容」对不上 —— 既能假绿也能假红。要对齐 index 就得 stash,
 #     而 stash 在本仓库(常年一堆未提交改动)是会丢东西的操作,不做。
 #     push 时工作区与将要推出去的内容基本一致,口径最诚实。
-#   · 频率。护栏一次约 3~4s。挂 pre-commit 上,每个 WIP commit 都付这个钱,
+#   · 频率。全部闸加起来一次约 3~4s。挂 pre-commit 上,每个 WIP commit 都付这个钱,
 #     两天就会长出 `--no-verify` 的肌肉记忆 —— 那时护栏比不装还糟(它还在,但没人跑,
 #     而所有人以为它在跑)。push 罕见得多,3s 没人想绕。
+#     ⇒ **往下面加闸时,秒级是硬预算。** 加一个要跑 30s 的闸 = 亲手养出绕过习惯。
 #   · push 是「代码离开本机」的边界,是最后一道属于自己的闸。
 #
 # 【绕过】
-#   SKIP_DESIGN_GUARD=1 git push   → 放行,但**留痕**:记一行到 .git/design-guard-bypass.log
+#   SKIP_DESIGN_GUARD=1 git push   → 放行(**所有闸一起**),但**留痕**:记一行到
+#                                    .git/design-guard-bypass.log
 #   git push --no-verify           → git 层面根本不调用本文件,**无痕**。别用这个。
+#   刻意只保留这一个绕过开关:每个闸各发一个 SKIP_* 会让「这次绕过了什么」无法一眼看清。
 #
-# 本钩子只跑设计护栏。要加别的闸(如 scripts/check-backend-conventions.sh),
-# 在下面照着加一段,并同样保留「exit 2 = 没能检查 ≠ 通过」的三档语义。
+# 【加新闸】
+#   往下面 GATES 里加一行即可 —— 三档退出码的处理只写了一份,新闸自动继承:
+#       0 = 检查通过 / 1 = 检查失败(阻断) / 2 = 没能检查(吵 + 留痕 + 放行)
+#   新闸脚本必须遵守这套契约,并自己保证「跳过 = 吵」(测试框架把 skip 算成绿是常态,
+#   vitest 与 bun 都如此 —— 见两个 check 脚本的文件头)。
+#   ⚠️ 闸之间**不短路**:一次 push 把所有闸都跑完再汇总,免得修好一个、推一次,
+#      才发现还有第二个。
 # ============================================================================
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 GITDIR="$(git rev-parse --git-dir 2>/dev/null)" || exit 0
 BYPASS_LOG="$GITDIR/design-guard-bypass.log"
-CHECK="$ROOT/scripts/check-design-system.sh"
+
+# 闸清单:「显示名|脚本路径」。顺序 = 执行顺序。
+GATES=(
+  "设计系统护栏|$ROOT/scripts/check-design-system.sh"
+  "跨包接线(解析器镜像+工具放行面)|$ROOT/scripts/check-evidence-mirror.sh"
+)
 
 banner() {
   echo ""
@@ -51,40 +64,56 @@ record() {
 }
 
 if [ -n "${SKIP_DESIGN_GUARD:-}" ]; then
-  record "bypass: SKIP_DESIGN_GUARD=1"
-  banner "⚠️  设计护栏被显式绕过(SKIP_DESIGN_GUARD=1)—— 本次 push 未经校验。" \
+  record "bypass: SKIP_DESIGN_GUARD=1 (全部闸)"
+  banner "⚠️  仓库护栏被显式绕过(SKIP_DESIGN_GUARD=1)—— 本次 push 未经任何校验。" \
           "   已记录到 $BYPASS_LOG"
   exit 0
 fi
 
-if [ ! -x "$CHECK" ]; then
-  record "not-run: $CHECK 缺失或不可执行"
-  banner "⚠️  设计护栏没跑:找不到可执行的 scripts/check-design-system.sh。" \
-          "   放行,但这不等于通过。已记录到 $BYPASS_LOG"
-  exit 0
+failed=()   # 判失败的闸(阻断)
+notrun=()   # 没能检查的闸(放行,但留痕 + 吵)
+
+for gate in "${GATES[@]}"; do
+  name="${gate%%|*}"
+  script="${gate#*|}"
+
+  if [ ! -x "$script" ]; then
+    record "not-run: [$name] $script 缺失或不可执行"
+    notrun+=("$name(脚本缺失或不可执行: $script)")
+    continue
+  fi
+
+  echo ""
+  # ⚠️ 必须 ${name} 带花括号:后面紧跟的「…」是多字节字符,而 macOS 自带的 bash 3.2
+  #    会把那几个字节当成变量名的一部分($name… → 查一个叫 name… 的变量),
+  #    配合 set -u 直接 "unbound variable" 让整个钩子挂掉。
+  #    本仓库的注释/文案全是中文,变量后面紧跟中文标点是高频写法 —— 加闸时注意。
+  echo "[pre-push] ${name}…"
+  "$script"
+  case "$?" in
+    0) ;;
+    2)
+      # 环境未就绪(缺 node_modules / 缺 bun / 缺兄弟包)。这不是违规,阻断就是误报 ——
+      # 而误报的下场从来是规则被人放宽。所以放行,但吵,并且留痕。
+      record "not-run: [$name] 环境未就绪 (exit 2)"
+      notrun+=("$name(环境未就绪,原因见上)")
+      ;;
+    *) failed+=("$name") ;;
+  esac
+done
+
+if [ ${#notrun[@]} -ne 0 ]; then
+  banner "⚠️  下列闸本次【没有跑】—— 那一块的绿灯不存在,别当成校验通过:" \
+          "$(printf '     ↓ %s\n' "${notrun[@]}")" \
+          "   已记录到 $BYPASS_LOG"
 fi
 
-echo "[pre-push] 设计系统护栏…"
-"$CHECK"
-rc=$?
+if [ ${#failed[@]} -ne 0 ]; then
+  banner "✗ 下列闸失败,push 已阻止:" \
+          "$(printf '     ✗ %s\n' "${failed[@]}")" \
+          "   修掉上面列出的违规再推。" \
+          "   确有必要绕过(会留痕):  SKIP_DESIGN_GUARD=1 git push"
+  exit 1
+fi
 
-case "$rc" in
-  0)
-    exit 0
-    ;;
-  2)
-    # 环境未就绪(缺 node_modules / 缺兄弟包)。这不是设计违规,阻断就是误报 ——
-    # 而误报的下场从来是规则被人放宽。所以放行,但吵,并且留痕。
-    record "not-run: 环境未就绪 (check-design-system.sh exit 2)"
-    banner "⚠️  设计护栏本次【没有跑】(环境未就绪,原因见上)。" \
-            "   push 放行,但绿灯不存在 —— 别把这次当成校验通过。" \
-            "   已记录到 $BYPASS_LOG"
-    exit 0
-    ;;
-  *)
-    banner "✗ 设计系统护栏失败,push 已阻止。" \
-            "   修掉上面列出的违规再推。" \
-            "   确有必要绕过(会留痕):  SKIP_DESIGN_GUARD=1 git push"
-    exit 1
-    ;;
-esac
+exit 0

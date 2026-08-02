@@ -1,5 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BookMarked,
   ChevronRight,
@@ -60,10 +61,33 @@ function LoggedOutView() {
 }
 
 function LoggedInView() {
+  // 邀请奖励活动信号(0100;['billing','plans'] 共享缓存,免登录端点)
+  const { data: plansLite } = useQuery({
+    queryKey: ['billing', 'plans'],
+    queryFn: async () =>
+      (await http.get<{ data: { invite_reward_credits: number } }>('/billing/plans')).data.data,
+    staleTime: 60_000,
+  });
+  const inviteReward = plansLite?.invite_reward_credits ?? 0;
+
   const profileQ = useProfile();
   const storedUser = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const qc = useQueryClient();
+
+  // ?upgrade=1 承接(QuotaNotifier 移动分流 navigate('/m/me?upgrade=1')):
+  // 自动打开 MobileAssetsCard 的开通会员弹层,并 replace 掉该参数(避免刷新/回退重复弹)。
+  // signal 用递增计数:同一会话内第二次带参进来(参数已被清过又加上)仍能重新打开弹层。
+  // 刻意放在 LoggedInView:未登录时不消费参数,登录完成挂载本组件时再承接。
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [membershipSignal, setMembershipSignal] = useState(0);
+  useEffect(() => {
+    if (searchParams.get('upgrade') !== '1') return;
+    setMembershipSignal((n) => n + 1);
+    const next = new URLSearchParams(searchParams);
+    next.delete('upgrade');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const profile = profileQ.data;
   const displayName =
@@ -127,7 +151,7 @@ function LoggedInView() {
       </nav>
 
       {/* 会员 / 资产 */}
-      <MobileAssetsCard />
+      <MobileAssetsCard membershipSignal={membershipSignal} />
 
       {/* 设置菜单 */}
       <nav className="overflow-hidden rounded-16 border border-border bg-surface-card">
@@ -151,6 +175,7 @@ function LoggedInView() {
           to="/m/me/invite"
           icon={<UserPlus className="size-4.5" />}
           label="邀请好友"
+          badge={inviteReward > 0 ? `邀请有奖 +${inviteReward} 经费` : undefined}
           last
         />
       </nav>
@@ -171,11 +196,14 @@ function MenuRow({
   to,
   icon,
   label,
+  badge,
   last,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
+  /** 行尾角标(如活动开启时的「得经费」),红字弱高亮。 */
+  badge?: string;
   last?: boolean;
 }) {
   return (
@@ -185,6 +213,7 @@ function MenuRow({
     >
       <span className="text-muted-foreground">{icon}</span>
       <span className="flex-1 text-14 text-foreground">{label}</span>
+      {badge && <span className="shrink-0 rounded-pill bg-brand-red/10 px-2 py-0.5 text-12 text-brand-red">{badge}</span>}
       <ChevronRight className="size-4 text-faint" />
     </Link>
   );

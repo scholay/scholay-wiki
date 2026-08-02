@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
-import { AlertCircle, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Fragment, memo, useMemo, type ReactNode } from 'react';
+import { ShieldCheck, TriangleAlert } from 'lucide-react';
 import {
   AssistantBubble,
+  BlockedTurnCard,
   AttachmentChipList,
   ChatStyles,
   extractSkillGuideName,
@@ -11,27 +12,30 @@ import {
   MinicodJournalCards,
   MinicodSnippetCards,
   PausedNotice,
+  ProcessFold,
   ReferenceChipList,
+  ResearchStateChip,
   SkillHeaderBadge,
   StreamingIndicator,
   TurnErrorNotice,
   ThinkingFold,
   ToolCallBlock,
+  ToolGroupBlock,
   ToolHeaderExtras,
   UserBubble,
 } from '@/shared/components/chat';
 import type { InstalledSkill } from '@/shared/api/skills';
 import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
-import { classifyMinicodToolResult } from '@/shared/lib/minicod-results';
 import { stripContainerPaths } from '@/shared/lib/strip-container-paths';
 import { isRetryableTurnError } from '@/shared/lib/friendly-tool-error';
 import { ClawPaperList } from './ClawPaperList';
+import { classifyMinicodResultCached, computeClawTurnLayout } from '@/shared/lib/chat-turn-layout';
 import {
   hasVisibleAssistantContent,
   isLastBlockStreamingText,
+  type ToolBlock,
   type Turn,
 } from '@/shared/types/chat';
-import { Button } from '@/shared/ui/button';
 import { useQuotaStore } from '@/stores/quota.store';
 import type { ClawArtifact } from '../../api/artifacts';
 import { TurnArtifacts } from './TurnArtifacts';
@@ -91,9 +95,10 @@ function mergeTurnArtifacts(turn: Turn, dtos: ClawArtifact[]): ClawArtifact[] {
  *   - <ToolCallBlock> 通用工具调用块, 默认 JSON 折叠展示 input/result
  *   - <StreamingIndicator> 末尾占位胶囊, "正在检索学者/正在执行命令…"
  *
- * 跟 smart-search 唯一的差异是:
- *   1. claw 支持 userAttachments → 通过 <AttachmentChipList> 挂在用户气泡上方
- *   2. claw 不做 minicod 论文工具特化 (ToolCallBlock 默认 JSON 展开就够用)
+ * 轮内结构(2026-07 工具交互 P0,切片算法见 shared/lib/chat-turn-layout.ts):
+ *   ThinkingFold → ProcessFold(工具 chip + 同名聚组 + 中间叙述;流式展开/完成收起)
+ *   → 特化结果卡外提(论文/期刊/作者/片段 —— 结果即交付物不折叠)
+ *   → 最终答案(complete 后外提;纯文本轮不套折叠) → 产物卡/错误/暂停收尾。
  */
 // memo: 长会话(成百上千轮)里, 父组件每次 re-render / 流式每个 delta 都会让所有轮重渲染。
 // 历史轮的 turn 对象引用稳定(replayHistoryAsTurns 被 useMemo 缓存)→ memo 直接跳过它们,
@@ -145,6 +150,62 @@ export const MessageTurn = memo(function MessageTurn({
   const showTrailingIndicator =
     !turn.complete && !turn.errorMessage && !turn.blocked && visible && !isStreamingText;
 
+  // 三段切片 + 同名工具聚组(2026-07 工具交互 P0,纯函数,详见 shared/lib/chat-turn-layout.ts 头注释):
+  //   处理过程折叠(工具 chip + 中间叙述)/ 特化结果卡外提 / 最终答案 complete 后外提。
+  const layout = useMemo(() => computeClawTurnLayout(turn), [turn]);
+  const lastBlock = turn.blocks[turn.blocks.length - 1];
+
+  // 单个工具 chip(minicod 品牌 chip / Skill 徽标 / 默认)—— 聚合组内外共用同一份渲染。
+  const renderToolChip = (b: ToolBlock): ReactNode => {
+    // minicod 工具:结果已被 dispatcher 认领成卡片(折叠外)的,chip 不再给 JSON 展开;
+    // 'unknown'(无法识别 / 失败)保留可展开 JSON 安全网,原始内容至少可见。
+    if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
+      const kind =
+        b.result !== undefined ? classifyMinicodResultCached(b.result, b.toolName) : 'unknown';
+      return (
+        <ToolCallBlock
+          tool={b}
+          expandable={kind === 'unknown'}
+          renderHeaderExtras={() => (
+            <ToolHeaderExtras
+              brand={extractToolSourceBrand(b.input)}
+              query={extractToolQuery(b.input)}
+            />
+          )}
+        />
+      );
+    }
+    // 技能加载:区分「你的技能」(市场自装,brand-green)与系统预置能力(中性灰)。失败加载
+    // (isError)不算"用了" → 落通用渲染,不打徽标。u<uid>- 命名空间未命中启用列表时刻意
+    // 落通用渲染,防泄漏内部 key(与改造前逐块渲染的语义完全一致)。
+    if (b.toolName === 'Skill') {
+      const guideName = extractSkillGuideName(b.input);
+      if (guideName && !b.isError) {
+        const mine = userSkillsByGuide?.get(guideName);
+        const isUserNs = /^u\d+-/.test(guideName);
+        if (mine) {
+          return (
+            <ToolCallBlock
+              tool={b}
+              renderHeaderExtras={() => <SkillHeaderBadge kind="user" label={mine.name} />}
+            />
+          );
+        }
+        if (!isUserNs) {
+          return (
+            <ToolCallBlock
+              tool={b}
+              renderHeaderExtras={() => (
+                <SkillHeaderBadge kind="system" label={humanizeSystemSkill(guideName)} />
+              )}
+            />
+          );
+        }
+      }
+    }
+    return <ToolCallBlock tool={b} />;
+  };
+
   return (
     <article className="flex flex-col gap-2.5 min-w-0">
       <ChatStyles />
@@ -175,100 +236,113 @@ export const MessageTurn = memo(function MessageTurn({
 
       {visible && (
         <>
-          {turn.blocks.map((b, idx) => {
-            if (b.kind === 'text') {
-              if (!b.text) return null;
-              const isLastTextStreaming =
-                !turn.complete &&
-                idx === turn.blocks.length - 1 &&
-                turn.placeholder?.state === 'streaming';
-              return (
-                <AssistantBubble
-                  key={b.id}
-                  // 出口清洗:兜住偶发泄漏的容器内部路径(主机制是提示词铁律 + 下方产物卡)。
-                  text={stripContainerPaths(b.text)}
-                  streaming={isLastTextStreaming}
-                  // 智能助手用「无气泡·全宽正文」现代风(智能搜索仍是默认 card)。
-                  variant="plain"
-                />
-              );
-            }
-            // 交互提问(AskUserQuestion,方案 B + 交互修订):**不在对话流里渲染**。待作答的问题由
-            // 输入框上方的 QuestionPrompt 分步面板承接(ConversationWorkspace / MobileClawPage);
-            // 历史/已答态则由用户的答案气泡表达上下文。故这里对该工具块一律不出卡片(避免大表格塞进结果)。
-            if (b.toolName === 'AskUserQuestion') {
-              return null;
-            }
-            // minicod 工具:按 dispatcher 判定结果类型渲染对应专用卡(论文 / 期刊 / 作者 / 原文片段,
-            // 与智能搜索一致,论文卡无暂存)并隐藏 JSON;'unknown'(高校/OpenAlex 实体/recommend 空壳等
-            // 无法识别)才回退默认可展开工具块,原始 JSON 至少可见,不再静默隐形。
-            if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
-              const kind =
-                b.result !== undefined
-                  ? classifyMinicodToolResult(b.result, b.toolName)
-                  : 'unknown';
-              return (
-                <div key={b.id} className="space-y-2 min-w-0">
-                  <ToolCallBlock
-                    tool={b}
-                    expandable={kind === 'unknown'}
-                    renderHeaderExtras={() => (
-                      <ToolHeaderExtras
-                        brand={extractToolSourceBrand(b.input)}
-                        query={extractToolQuery(b.input)}
-                      />
-                    )}
-                  />
-                  {kind === 'papers' && (
-                    <ClawPaperList content={b.result} toolUseId={b.toolUseId} />
-                  )}
-                  {kind === 'journals' && <MinicodJournalCards content={b.result} />}
-                  {kind === 'authors' && <MinicodAuthorCards content={b.result} />}
-                  {kind === 'snippets' && <MinicodSnippetCards content={b.result} />}
-                </div>
-              );
-            }
-            // 技能加载:模型经内建 Skill 工具打开一份 SKILL.md → 在 chip 上标注加载了哪个技能,
-            // 并区分「你的技能」(市场自装,brand-green)与系统预置能力(中性灰)。失败加载(isError)
-            // 不算"用了" → 落通用渲染,不打徽标。用户/系统靠 guideName 对照启用列表(精确匹配,非前缀猜)。
-            if (b.toolName === 'Skill') {
-              const guideName = extractSkillGuideName(b.input);
-              if (guideName && !b.isError) {
-                const mine = userSkillsByGuide?.get(guideName);
-                // u<uid>-<slug> 前缀 = 用户市场技能命名空间。命中启用列表 → 你的技能;未命中但仍是
-                // 用户命名空间(已卸载/停用/列表未就绪)→ **不能**当系统能力展示(否则把内部 key「u12-foo」
-                // 当能力名泄给用户),落通用渲染;只有非用户命名空间才是真·系统预置能力,打灰徽标。
-                const isUserNs = /^u\d+-/.test(guideName);
-                if (mine) {
-                  return (
-                    <ToolCallBlock
-                      key={b.id}
-                      tool={b}
-                      renderHeaderExtras={() => (
-                        <SkillHeaderBadge kind="user" label={mine.name} />
-                      )}
-                    />
-                  );
-                }
-                if (!isUserNs) {
-                  return (
-                    <ToolCallBlock
-                      key={b.id}
-                      tool={b}
-                      renderHeaderExtras={() => (
-                        <SkillHeaderBadge kind="system" label={humanizeSystemSkill(guideName)} />
-                      )}
-                    />
-                  );
-                }
-                // 未解析的用户技能 → 落末尾通用 <ToolCallBlock>(显示「技能」,不暴露 u<uid>- 内部 key)。
+          {/* ① 特化结果卡:论文/期刊/作者/片段 —— 结果即交付物,不随过程折叠收纳。
+                🔴 **必须排在处理过程折叠之前**(2026-08-02 交互修复)。
+                原本排在折叠之后,而流式期「正在输出的正文」是关在展开的折叠里的
+                (answerBlocks 是 complete-gated,见 chat-turn-layout.ts —— 那道闸是防抖动的,
+                 不能拆:流式期外提会让每段中间叙述在折叠外闪现、下一个工具到达又跳回去)。
+                于是 turn 的 DOM 末尾是**静止的卡片**,而 use-stick-to-bottom 钉的正是容器底部
+                ⇒ 用户视野停在不动的卡片上、新字在屏幕外增长,看起来像"回答停止了",
+                   必须手动上滚才能读到 —— 线上真实反馈。
+                把结果卡移到折叠之前,流式期的 DOM 末尾就自然是「展开的折叠 + 其中的活文本与生成指示」,
+                钉底行为不用改、complete 闸不用动、也不引入任何抖动。
+                完成态的阅读顺序也合理:检索到什么 → 处理过程(收起) → 最终答案。
+                (论文卡无暂存,与智能搜索一致;曝光上报仍按 toolUseId 去重,组件内机制不变。) */}
+          {layout.resultCards.map(({ block, cardKind }) => (
+            <div key={`card-${block.id}`} className="min-w-0">
+              {cardKind === 'papers' && (
+                <ClawPaperList content={block.result} toolUseId={block.toolUseId} />
+              )}
+              {cardKind === 'journals' && <MinicodJournalCards content={block.result} />}
+              {cardKind === 'authors' && <MinicodAuthorCards content={block.result} />}
+              {cardKind === 'snippets' && <MinicodSnippetCards content={block.result} />}
+            </div>
+          ))}
+
+          {/* ② 处理过程折叠:工具 chip(含同名聚组)+ 中间叙述。流式期展开实时可见,
+                完成后收起成「处理过程 · N 步 · X 次未成功 · 用时 Xs」一行。
+                🔴 摘要里**不再有「· 检索 M 次 · 命中 K 篇」**(2026-08 删):那两个数是前端从
+                blocks 数的,与下方 ResearchStateChip 的引擎口径必然不等(线上出现过 4 vs 2 并排)。
+                「检索」由 chip 独占,这里只留过程口径。理由见 shared/lib/chat-turn-layout.ts 头注释。 */}
+          {layout.processItems.length > 0 && (
+            <ProcessFold
+              streaming={!turn.complete}
+              toolSteps={layout.toolSteps}
+              summary={
+                // 失败信号必须在收起态可见 —— 否则相对旧版平铺 amber chip 是信息回退。
+                layout.failedToolCount > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-brand-amber shrink-0">
+                    <TriangleAlert className="size-3" strokeWidth={2.2} />
+                    {layout.failedToolCount} 次未成功
+                  </span>
+                ) : undefined
               }
-            }
-            return <ToolCallBlock key={b.id} tool={b} />;
-          })}
-          {showTrailingIndicator && <StreamingIndicator turn={turn} />}
+            >
+              {layout.processItems.map((item) => {
+                if (item.kind === 'text') {
+                  const streamingText =
+                    !turn.complete &&
+                    item.blockIdx === turn.blocks.length - 1 &&
+                    turn.placeholder?.state === 'streaming';
+                  return (
+                    <AssistantBubble
+                      key={item.block.id}
+                      // 出口清洗:兜住偶发泄漏的容器内部路径(主机制是提示词铁律 + 产物卡)。
+                      text={stripContainerPaths(item.block.text)}
+                      streaming={streamingText}
+                      variant="plain"
+                    />
+                  );
+                }
+                if (item.kind === 'toolGroup') {
+                  return (
+                    <ToolGroupBlock
+                      key={item.id}
+                      toolName={item.toolName}
+                      blocks={item.blocks}
+                      renderTool={renderToolChip}
+                    />
+                  );
+                }
+                return <Fragment key={item.block.id}>{renderToolChip(item.block)}</Fragment>;
+              })}
+              {/* 工具阶段(答案还没开始流)→ 折叠内尾部指示(prism 同款条件)。 */}
+              {!turn.complete && !turn.errorMessage && !isStreamingText && (
+                <StreamingIndicator turn={turn} />
+              )}
+            </ProcessFold>
+          )}
+
+          {/* ③ 最终答案:纯文本轮 = 全部正文(无折叠);工具轮 = complete 后外提的轮尾总结
+                (complete-gated,流式期在上方展开的折叠内实时可见 —— prism 防抖动同款)。 */}
+          {layout.answerBlocks.map((b) => (
+            <AssistantBubble
+              key={b.id}
+              text={stripContainerPaths(b.text)}
+              streaming={
+                !turn.complete && b === lastBlock && turn.placeholder?.state === 'streaming'
+              }
+              // 智能助手用「无气泡·全宽正文」现代风(智能搜索仍是默认 card)。
+              variant="plain"
+            />
+          ))}
+
+          {/* 纯文本轮的尾部指示(工具轮由折叠内指示承担,不重复)。 */}
+          {layout.processItems.length === 0 && showTrailingIndicator && (
+            <StreamingIndicator turn={turn} />
+          )}
         </>
       )}
+
+      {/* 本轮取证过程 —— 引擎口径的带外计数,紧贴回答正文下方(2026-08 证据账本 P0-c)。
+          刻意**不**放进 ProcessFold:那个折叠只在有工具块时才渲染(processItems.length > 0),
+          而这枚 chip 最要紧的取值恰恰是「本轮未检索」—— 放进去等于在唯一需要它的场景里消失。
+          2026-08 收敛后,本轮「检索了几次」**只有这一个出处**:ProcessFold 摘要里那句
+          「· 检索 M 次 · 命中 K 篇」(前端数 blocks)已删,理由见 chat-turn-layout.ts 头注释。
+          帧缺席(历史回放当前不带 research)时**不补位**:宁可这一格空着,也不拿前端启发式
+          冒充引擎事实 —— 那正是这枚 chip 存在的全部意义。
+          blocked 轮(消息从未发出)没有过程可言,不渲染。 */}
+      {turn.research && !turn.blocked && <ResearchStateChip research={turn.research} />}
 
       {/* 本轮产出的图/文件 —— 挂在这条回答下面(多文件/多轮各归各回答)。
           科研绘图(figuresInline):图直接内联展示(TurnFigures),不走文件卡/右侧面板;非图产物不展示。
@@ -300,31 +374,16 @@ export const MessageTurn = memo(function MessageTurn({
       )}
 
       {/* 命中额度「未发送」轮 —— 保留用户气泡 + 一键重发(无需重打)。开通会员/重置额度后点重发即可继续。
-          消息已持久化(localStorage),跳支付宝充会员整页返回 / 换设备回来都能在此一键重发。 */}
+          消息已持久化(localStorage),跳支付宝充会员整页返回 / 换设备回来都能在此一键重发。
+          卡片本体已上提为 shared BlockedTurnCard(本文件原内联卡是它的蓝本);claw 沿用原副文
+          (零行为变化迁移;shared 默认副文是「重置次数 / 用经费继续 / 升级会员」三出路新版)。 */}
       {turn.blocked && (
-        <div className="flex flex-col gap-2 rounded-16 border border-brand-amber/30 bg-warning-soft px-3 py-2.5">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-amber" />
-            <div className="min-w-0 flex-1">
-              <p className="text-14 font-medium text-foreground">本周期 AI 额度已用完,这条消息尚未发送</p>
-              <p className="text-12 text-muted-foreground">
-                开通会员或重置额度后,点「重新发送」即可继续(无需重新输入)。
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => onResendBlocked?.()}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              重新发送
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => openReset()}>
-              开通会员 / 重置额度
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => onDismissBlocked?.()}>
-              忽略
-            </Button>
-          </div>
-        </div>
+        <BlockedTurnCard
+          onResend={onResendBlocked}
+          onOpenReset={openReset}
+          onDismiss={onDismissBlocked}
+          message="开通会员或重置额度后,点「重新发送」即可继续(无需重新输入)。"
+        />
       )}
 
       {/* 整轮被用户暂停 —— 末尾收尾标识 (实时 + 重入回放都走这里) */}

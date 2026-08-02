@@ -357,6 +357,12 @@ services:
       dockerfile: Dockerfile
     container_name: scholar_agent
     restart: unless-stopped
+    # init: true —— 让 docker 塞一个 PID 1 的 init 进程负责 reap 僵尸子进程。
+    # 🔴 不加这行的后果(dev 实测):单会话 4 分钟漏 78 个 pid、累计 82 个僵尸,PPID=1 永不回收。
+    #    Bash 工具每次起子进程(bwrap → sh → python/pandoc),bun 不是 init、不 reap ⇒ 只增不减。
+    #    prod 有 `pids: 512` 上限 ⇒ 约 6 个重 Bash 会话就打满,之后该容器所有 Bash 全失败,
+    #    且**只能靠重启复位**。Run 引擎会把 Bash 调用集中到少数 Step,压强只会更高。
+    init: true
     logging: *default-logging
     environment:
       <<: *tz-env
@@ -394,7 +400,22 @@ services:
       - ./agent-skills/prism-skills:/prism-add/.claude/skills:ro
       # Prism 写作 lens(craft/rigor):按需加载(guides/ → 菜单行常驻 + Skill 工具懒加载正文)。
       - ./agent-skills/prism-lenses:/prism-add/guides:ro
-      - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # ⚠️ 这里曾有 `./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro`,
+      #    2026-08 证据账本 P0-a 删除。理由不是「没用到所以清理」,而是它是个**回归陷阱**:
+      #    ① 零调用者 —— 审稿走 server-side(peerreview/service.go:613 起已明确不再 AddDirs 加载
+      #       reviewer-skills:花名册改 in-band 注入、评分轮按 slug 后端读 SKILL.md 注入 persona)。
+      #       backend 的 reviewerSkillAddDir()(service_reviewers.go:96)当前**无任何调用点**,
+      #       PEERREVIEW_SKILL_ADDDIR 也未在任何 env 里设过。挂载在容器里躺着,没人读。
+      #    ② 而它一旦被「顺手用起来」就会静默劣化:reviewer-skills 共 33 份 SKILL.md / 132KB,
+      #       远超 loader 的 TOTAL_CAP=40000(agent/src/skills/loader.ts:15)。loader 按目录名
+      #       .sort() 确定性截断,实测在第 12 个目录 rv-domain-genomics 处触帽 → 排在其后的
+      #       **全部 6 个横切质量维度**(rv-integrity / rv-methodology / rv-novelty /
+      #       rv-reproducibility / rv-theory / rv-writing)+ 14 个领域人格被整体丢弃,
+      #       而日志里只有一条 warn。「配了却只生效三分之一」比「没配」更难发现。
+      #    结论:留着 = 给未来某人补一行 AddDirs 就踩坑的现成弹药。要恢复请先解掉 40KB 帽的冲突
+      #    (挂一个只含 reviewer-roster 的精简目录),而不是把整个 reviewer-skills 挂回来。
+      #    注:backend 侧的 `./agent-skills/reviewer-skills:/app/reviewer-skills:ro` 是另一份挂载,
+      #    评分轮真的在读它(PEERREVIEW_SKILLS_DIR),**必须保留**,别一起删。
       # smart_search 检索策略 skill(minicod-search-strategy):查询拆解 / 引文滚雪球 / 覆盖度自检。
       - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
       # 制作PPT(boltslides)bolt-slides 演示稿创作 skill。

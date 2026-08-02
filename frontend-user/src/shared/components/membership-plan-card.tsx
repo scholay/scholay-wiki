@@ -62,32 +62,43 @@ export function maxYearlySavingsPct(plans: MembershipPlanData[]): number {
 }
 
 function planFeatures(plan: MembershipPlanData, cycle: BillingCycle): string[] {
+  // 🔴 数字纪律(产品拍板):特性里绝不出现绝对算力点数(「N 点/周」全部禁止);
+  // 只允许相对倍数(动态 multiplier)与带「约」的次数。周度次数是本地真实账本 P75
+  // 保守口径的静态估算,调整须与 /pricing「这些额度能做什么」区块同步。
   if (plan.tier === 'free') {
-    return ['全部基础功能', '标准 AI 模型', '7 天周期基础额度 · 到期自动恢复'];
+    return [
+      '论文 · 期刊检索与文献管理 不限次(不耗额度)',
+      '智能搜索 · 助手 · 翻译 · 矩阵全功能可用',
+      '基础 7 天周期额度 · 到期自动恢复',
+      '标准 AI 模型',
+    ];
   }
   // 倍率口径:Pro 相对 Free,Max 相对 Pro(后端 WindowCeiling 同步)。
   const quota =
     plan.tier === 'max'
-      ? `${plan.multiplier}× 于 Pro 的 7 天周期额度`
-      : `${plan.multiplier}× 于 Free 的 7 天周期额度`;
+      ? `${plan.multiplier}× 于 Pro 的周期额度`
+      : `${plan.multiplier}× 于 Free 的周期额度`;
   const yearly = cycle === 'yearly' && planYearlyEnabled(plan);
   // 0090:「每月赠送 N 经费」与「经费可随时重置额度」两条卖点都已删 ——
   // 订阅不再赠送经费,且经费也买不到重置(重置改扣重置次数)。留着就是虚假承诺。
+  // 累加式(Cursor/Claude 范式):首行「包含上一档全部,另加:」由渲染层特判为分组行。
   if (plan.tier === 'pro') {
     return [
+      '包含 Free 全部,另加:',
       quota,
       ...(yearly ? ['锁定一年价格 · 免续费打扰'] : []),
+      '约每周 40 轮助手对话 + 3 份完整审稿',
       '优先使用更强 AI 模型',
       '新功能优先体验',
-      '额度到期自动恢复 · 无需操作',
     ];
   }
   // max —— 体现比 Pro 更高的优先级 / 模型 / 新功能
   return [
+    '包含 Pro 全部,另加:',
     quota,
     ...(yearly ? ['锁定一年价格 · 免续费打扰'] : []),
+    '约每周 15 份审稿 + 150 轮对话 + 20 份 PPT',
     '顶级优先级 · 最强 AI 模型',
-    '新功能抢先开放 · 专属能力',
     '优先算力队列 · 专属客服',
   ];
 }
@@ -102,17 +113,21 @@ export interface MembershipPlanCardProps {
   highlighted?: boolean;
   /** 整卡可点(弹窗选择模式);不传=不可点。 */
   onSelect?: () => void;
+  /** 紧凑模式(购买弹窗):只渲染前 4 条特性 + 周期重置行 —— 弹窗只做转化,
+   *  完整权益对比引导去 /pricing。 */
+  compact?: boolean;
   /** 底部 CTA(价格页按钮)/ 选择态(弹窗)slot。 */
   footer: ReactNode;
 }
 
-export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, highlighted, onSelect, footer }: MembershipPlanCardProps) {
+export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, highlighted, onSelect, compact, footer }: MembershipPlanCardProps) {
   const meta = PLAN_META[plan.tier] ?? { name: plan.tier, sub: '' };
   const isFree = plan.tier === 'free';
   // 该档未开放年付时,即使全局切到年付也回落月度展示(报价/下单侧同样回落)。
   const effCycle: BillingCycle = cycle === 'yearly' && planYearlyEnabled(plan) ? 'yearly' : 'monthly';
   const yearly = effCycle === 'yearly';
-  const features = planFeatures(plan, effCycle);
+  const allFeatures = planFeatures(plan, effCycle);
+  const features = compact ? allFeatures.slice(0, 4) : allFeatures;
 
   const priceCents = yearly ? plan.year_price_cents : plan.price_cents;
   const originalCents = yearly ? plan.year_original_cents : plan.original_cents;
@@ -180,14 +195,20 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
         </div>
       </div>
 
-      {/* 特性 */}
+      {/* 特性 —— 「包含 Free/Pro 全部,另加:」是累加式分组行,不带对勾、弱化显示 */}
       <ul className="flex flex-1 flex-col gap-2">
-        {features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-14 leading-paragraph text-subtle">
-            <Check className="mt-0.5 size-4 shrink-0 text-brand-green" strokeWidth={2.5} />
-            <span>{f}</span>
-          </li>
-        ))}
+        {features.map((f) =>
+          f.endsWith(':') ? (
+            <li key={f} className="text-12 font-medium text-faint">
+              {f}
+            </li>
+          ) : (
+            <li key={f} className="flex items-start gap-2 text-14 leading-paragraph text-subtle">
+              <Check className="mt-0.5 size-4 shrink-0 text-brand-green" strokeWidth={2.5} />
+              <span>{f}</span>
+            </li>
+          ),
+        )}
       </ul>
 
       {footer}

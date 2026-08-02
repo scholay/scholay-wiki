@@ -1,14 +1,20 @@
-import { useState } from 'react';
-import { Crown, Gem, RotateCcw, Ticket, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Crown, Gem, Plus, RotateCcw, Ticket, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { toApiError } from '@/shared/lib/http';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { Button } from '@/shared/ui';
+import { Switch } from '@/shared/ui/switch';
 import { RedeemConfirmDialog } from '../redeem-confirm-dialog';
 import { MobileMembershipDialog } from './MobileMembershipDialog';
+import { MobileRechargeDialog } from './MobileRechargeDialog';
 import {
   useBillingOverview,
   useResetQuota,
+  useSetCreditAutopay,
+  usePlans,
   type Tier,
 } from '../../api/membership';
 import { monthDay, resetInfo } from '../../lib/quota-display';
@@ -22,18 +28,32 @@ const TIER_BADGE_CLS: Record<Tier, string> = {
 
 /**
  * 移动端会员/账户资产卡 —— PC AccountAssetsCard 的纵向重排:
- * 等级铭牌+到期 / 本周期额度进度条 / 经费余额(临时+永久) / 重置 / 兑换码。
+ * 等级铭牌+到期 / 本周期额度进度条 / 经费余额 + 充值 / 「用经费继续」开关 / 重置 / 兑换码。
  * 数据与 mutation 全部复用 settings 的 membership hooks。
- * 升级/充值走支付网关,移动端暂不开,提示去电脑端操作。
+ * 升级 = MobileMembershipDialog(兑换码 + 支付宝 wap);充值 = MobileRechargeDialog(支付宝 wap)。
+ *
+ * membershipSignal:>0 的递增计数,每次变化自动打开「开通会员」弹层 ——
+ * 供 /m/me?upgrade=1(QuotaNotifier 移动分流的落点)承接用;用计数而非布尔,
+ * 用户关掉弹层后再次触发仍能重新打开。
  */
-export function MobileAssetsCard() {
+export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: number }) {
   const overviewQ = useBillingOverview();
   const resetMut = useResetQuota();
+  const autopayMut = useSetCreditAutopay();
 
   const [resetOpen, setResetOpen] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [membershipOpen, setMembershipOpen] = useState(false);
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  // 邀请奖励活动信号(0100;与 usePlans 同 queryKey 共享缓存)
+  const { data: plansData } = usePlans();
+  const inviteReward = plansData?.invite_reward_credits ?? 0;
+
+  // ?upgrade=1 承接:signal 递增 → 打开开通会员弹层(数据未回时先置 open,弹层随 data 渲染)。
+  useEffect(() => {
+    if (membershipSignal > 0) setMembershipOpen(true);
+  }, [membershipSignal]);
 
   const data = overviewQ.data;
   if (overviewQ.isLoading) {
@@ -141,9 +161,26 @@ export function MobileAssetsCard() {
           <span className="text-14 text-foreground">
             经费 <span className="font-medium">{credit.total.toLocaleString('en-US')}</span>
           </span>
-          {/* 🔴 兑换率可调,余额必须与「值多少算力点」同屏(同 PC AccountAssetsCard 口径)。 */}
-          <span className="text-12 text-faint">≈{credit.points.toLocaleString()} 算力点</span>
+          {/* 2026-07-31 拍板:算力点不对用户展示(经费=分,数字即价值)。 */}
         </div>
+        {/* 充值经费 —— 支付宝手机网站支付(MobileRechargeDialog),样式对齐上方「重置额度」pill */}
+        <button
+          type="button"
+          onClick={() => setRechargeOpen(true)}
+          className="flex shrink-0 items-center gap-1 rounded-pill border border-border-button px-2.5 py-1 text-12 text-foreground"
+        >
+          <Plus className="size-3" />
+          充值
+        </button>
+        {/* 邀请奖励活动(0100):余额位内嵌入口,活动开启才显示(Gamma 范式) */}
+        {inviteReward > 0 && (
+          <Link
+            to="/m/me/invite"
+            className="flex shrink-0 items-center gap-1 rounded-pill border border-brand-red px-2.5 py-1 text-12 text-brand-red"
+          >
+            邀请有奖
+          </Link>
+        )}
         {/* 0090:经费不再分临时/永久,只有一种 —— 拆分行删掉。 */}
         <div className="ml-auto flex shrink-0 flex-col items-end text-12 text-faint">
           <span>剩余重置次数 {data.reset_passes}</span>
@@ -152,6 +189,27 @@ export function MobileAssetsCard() {
             <span>{data.reset_passes} 次将于 {monthDay(data.reset_pass_next_expiry)} 前有效</span>
           )}
         </div>
+      </div>
+
+      {/* 用经费继续(0094 按量付费)—— PC CreditAutopayCard 同口径:
+          🔴 默认关、只能用户显式开(历史 auto_reset 因不知情扣费整个下线,同类风险),
+          文案必须把「会自动扣经费」讲明白。 */}
+      <div className="flex items-center gap-3 border-t border-border-soft px-4 py-3">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-14 text-foreground">用经费继续</span>
+          <span className="text-12 leading-paragraph text-faint">额度耗尽后自动用经费按量续用</span>
+        </div>
+        <Switch
+          checked={credit.credit_autopay}
+          disabled={autopayMut.isPending}
+          onCheckedChange={(v) => {
+            autopayMut.mutate(v, {
+              onSuccess: () =>
+                toast.success(v ? '已开启:额度用完将自动使用经费' : '已关闭:额度用完不再自动扣经费'),
+              onError: (e) => toast.error(toApiError(e).message || '保存失败'),
+            });
+          }}
+        />
       </div>
 
       {/* 兑换码 */}
@@ -222,6 +280,9 @@ export function MobileAssetsCard() {
         onOpenChange={setRedeemOpen}
         onRedeemed={() => setRedeemCode('')}
       />
+
+      {/* 充值经费(支付宝 wap;回跳 /m/me) */}
+      <MobileRechargeDialog open={rechargeOpen} onOpenChange={setRechargeOpen} />
     </section>
   );
 }

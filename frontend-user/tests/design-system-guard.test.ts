@@ -2190,6 +2190,14 @@ const LITERAL_MIRRORS: { path: string; why: string; allow?: Record<string, strin
       + '      所以站点图标会长期存在「当前版 + 同内容的旧名副本」两份,两份都要登记。\n'
       + '      2026-07-28 内容从手搓的 S 字母方块换成 Figma 品牌标本体(ScholayMark / node 1:220)。',
   },
+  {
+    path: 'frontend-user/public/favicon-v4.svg',
+    why:
+      '当前版站点图标(2026-08-02 起 index.html 引用它):标志换色 —— 视觉优化稿定稿把 mark 从\n'
+      + '      品牌 UI 色(#2F4D29/#E5A800)换成 logo 亮色组(#427935/#F1BF45,红 #882828 不变),\n'
+      + '      标志与字标自此同一套色(真源 zh4HSb7R3eRBY7Hexfgjm6 node 2:7604)。\n'
+      + '      favicon.svg / favicon-v3.svg 两个旧名同步为同内容副本(1 天 TTL 自愈)。',
+  },
   // ── 小程序:wxss 之外的四类结构性字面值 ──
   { path: 'miniprogram/app.json', why: '微信全局配置:导航栏 / tabBar 颜色。**JSON 结构上不可能**写 CSS 变量,小程序运行时也不解析它们' },
   { path: 'miniprogram/custom-tab-bar/index.ts', why: '自定义 tabBar 的选中/未选中文字色 —— 由 JS 传给 <cover-view>,同样不走 wxss' },

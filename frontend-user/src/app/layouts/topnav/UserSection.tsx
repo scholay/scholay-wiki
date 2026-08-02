@@ -1,6 +1,7 @@
 import { useNavigate } from'react-router-dom';
-import { Headphones } from'lucide-react';
-import { useAuthStatus } from'@/stores/auth.store';
+import { useQuery } from'@tanstack/react-query';
+import { Gift, Headphones } from 'lucide-react';
+import { canAccessAdmin, useAuthStatus } from'@/stores/auth.store';
 import { useAuthDialog } from'@/stores/auth-dialog.store';
 import { Button } from'@/shared/ui/button';
 import {
@@ -11,12 +12,16 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from'@/shared/ui/dropdown-menu';
 import { IconButton } from'@/shared/components/IconButton';
 import { NotificationBell } from'@/shared/components/NotificationBell';
-import { PromoNavButton } from'./PromoNavButton';
+import { ActivityNavMenu } from './ActivityNavMenu';
 import { UserMenuContent } from'@/shared/components/UserMenuContent';
+import { http } from'@/shared/lib/http';
+import { getAuthToken } from'@/shared/lib/auth-token';
+import { resetInfo } from'@/shared/lib/quota-display';
 import { cn } from'@/shared/lib/utils';
 
 /**
@@ -43,7 +48,8 @@ export function UserSection() {
     <div className="flex items-center gap-2">
       {/* 限时领取会员推广入口 —— 仅推广开启且非付费会员时显示(组件内部自判),点击弹二维码。
           < 1200 收进 CompactNavMenu(它是右段最宽的一颗,也是 P0 叠印的主要来源) */}
-      <PromoNavButton className="hidden min-[1200px]:inline-flex" />
+      {/* 限时活动统一入口(推广领取 + 邀请有奖收进一个菜单;全关则整个消失) */}
+      <ActivityNavMenu className="hidden min-[1200px]:inline-flex" />
 
       {/* 反馈 / 客服入口 —— /feedback 是 public 路由,登录与否都给入口。
           放在通知铃铛左边、用户区最外侧,与通知一组,视觉一致 (rounded-8 + bg-surface-2)。
@@ -89,6 +95,9 @@ export function UserSection() {
           </DropdownMenuTrigger>
           {/* p-0 让 UserMenuContent 自己控制内部 padding;w-auto 由 content 撑 240 */}
           <DropdownMenuContent align="end" sideOffset={8} className="p-0 w-auto">
+            {/* 常驻额度余量 —— 管理员不查额度(与 UserMenuContent 同款豁免) */}
+            {!canAccessAdmin(user.role) && <MenuQuotaSummary />}
+            {<MenuInviteReward />}
             <UserMenuContent />
           </DropdownMenuContent>
         </DropdownMenu>
@@ -103,6 +112,93 @@ export function UserSection() {
           <span className="hidden min-[1200px]:inline text-12 font-medium text-faint">我的账户</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// mirrors backend/internal/vip/quota.go Overview.token(P5:percent 是真值,绝对额度已抹除)。
+// 只声明本组件消费的字段;端点/queryKey 与 QuotaNotifier 同款(['settings','billing'],通常命中缓存)。
+interface QuotaOverviewLite {
+  token: {
+    percent: number; // 本周期已用百分比(0..100)
+    unlimited: boolean;
+    window_started_at: string | null;
+    window_reset_at: string | null;
+    window_days: number;
+  };
+}
+
+/** 邀请奖励活动入口(0100)—— 账户域常驻项(业界主流:设置/账户域,而非顶栏 gift 图标)。
+ *  活动开启(plans.invite_reward_credits>0)才渲染;app/layouts 不 import features,inline useQuery
+ *  与 usePlans 同 queryKey(['billing','plans'])共享缓存。 */
+function MenuInviteReward() {
+  const navigate = useNavigate();
+  const { data } = useQuery({
+    queryKey: ['billing', 'plans'],
+    queryFn: async () =>
+      (await http.get<{ data: { invite_reward_credits: number } }>('/billing/plans')).data.data,
+    staleTime: 60_000,
+  });
+  const reward = data?.invite_reward_credits ?? 0;
+  if (reward <= 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => navigate('/settings/invite')}
+      className="flex w-full items-center gap-2 border-b border-border-hairline px-3 py-2 text-left transition-colors hover:bg-surface-2"
+    >
+      <Gift className="size-4 shrink-0 text-brand-red" />
+      <span className="min-w-0 flex-1 truncate text-12 text-foreground">邀请有奖</span>
+      <span className="shrink-0 text-12 font-medium text-brand-red">+{reward} 经费/人</span>
+    </button>
+  );
+}
+
+/**
+ * 用户下拉里的常驻额度余量 —— 一行:剩余 % 细进度条 + 相对重置时间。
+ * percent>=100 转红「额度已用完」;点击进账户资产页。未登录 / 加载中 / 不限额度不渲染。
+ * app/layouts 不 import features(方向铁律),与 UserMenuContent 同款 inline useQuery。
+ */
+function MenuQuotaSummary() {
+  const navigate = useNavigate();
+  const { data } = useQuery({
+    queryKey: ['settings', 'billing'],
+    queryFn: async () =>
+      (await http.get<{ data: QuotaOverviewLite }>('/user/billing/overview')).data.data,
+    enabled: !!getAuthToken(),
+    staleTime: 30_000,
+  });
+
+  const t = data?.token;
+  if (!t || t.unlimited) return null; // 加载中不渲染;不限额度没有「余量」概念
+
+  const used = Math.min(100, Math.max(0, t.percent));
+  const remaining = Math.round(100 - used);
+  const exhausted = used >= 100;
+  const { rel } = resetInfo(t); // 「3 天后重置」「满额」「即将重置」等相对口径
+
+  return (
+    <div className="w-60 border-b border-border-hairline p-2">
+      <DropdownMenuItem
+        className="cursor-pointer rounded-8 px-3 py-2"
+        onSelect={() => navigate('/settings/membership')}
+      >
+        <div className="flex w-full flex-col gap-1">
+          <div className="flex items-center justify-between gap-2 text-12">
+            <span className={exhausted ? 'font-medium text-brand-red' : 'text-subtle'}>
+              {exhausted ? '额度已用完' : `额度剩余 ${remaining}%`}
+            </span>
+            <span className="shrink-0 text-faint">{rel}</span>
+          </div>
+          {/* 细进度条:剩余量;动态宽度属「动态计算尺寸」,允许内联 style */}
+          <div className="h-1 w-full overflow-hidden rounded-pill bg-surface-2">
+            <div
+              className={cn('h-full rounded-pill', exhausted ? 'bg-brand-red' : 'bg-brand-green')}
+              style={{ width: `${remaining}%` }}
+            />
+          </div>
+        </div>
+      </DropdownMenuItem>
     </div>
   );
 }

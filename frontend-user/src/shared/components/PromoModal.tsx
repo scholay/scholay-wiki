@@ -1,7 +1,7 @@
 // 限时领取会员推广弹窗(全局挂在 providers,与 QuotaNotifier 平级)——
 //  · 首屏自动弹一次/天(「今日不再弹出」当天抑制)
 //  · free 用户额度用尽(QUOTA_EXCEEDED_EVENT)再弹一次/会话(高意向时刻,即便当天已关也再弹)
-//  · 顶部导航「限时领取会员」按钮手动弹(PromoNavButton → usePromoStore.openPromo('manual'))
+//  · 顶部导航「限时活动」菜单手动弹(ActivityNavMenu / CompactNavMenu → usePromoStore.openPromo('manual'))
 //  · 已是付费会员(pro/max)一律不弹(推广目标是拉新,给会员看「领会员」没意义)
 // 服务端配置走 usePromoConfig(react-query);开关/触发态走 usePromoStore + localStorage(按日期)。
 import { useEffect, useRef } from 'react';
@@ -18,6 +18,7 @@ import {
 } from '@/shared/ui/dialog';
 import { usePromoEligible } from '@/shared/api/promo';
 import { usePromoStore } from '@/stores/promo.store';
+import { useQuotaStore, QUOTA_DIALOG_SNOOZE_MS } from '@/stores/quota.store';
 import { useLocalStorage } from '@/shared/hooks/useLocalStorage';
 import { QUOTA_EXCEEDED_EVENT } from '@/shared/lib/quota-events';
 
@@ -66,6 +67,12 @@ export function PromoModal() {
   useEffect(() => {
     const onQuota = () => {
       if (!visible) return;
+      // 额度重置弹窗打开期间 / 刚关掉的冷却期内**不叠加**营销弹窗 —— 那一刻用户正在处理
+      // 「额度耗尽」本身,推广盖上去两层 modal 互抢。此处不消耗每会话一次的名额
+      // (quotaTriggeredThisSession 不置位),冷却过后的下一次 6010 仍可弹。
+      // 注:QuotaNotifier 先于本组件挂载,监听器先执行 → 事件抵达时 resetOpen 已翻 true。
+      const qs = useQuotaStore.getState();
+      if (qs.resetOpen || Date.now() - qs.dismissedAt < QUOTA_DIALOG_SNOOZE_MS) return;
       if (quotaTriggeredThisSession) return;
       quotaTriggeredThisSession = true;
       openPromo('quota');

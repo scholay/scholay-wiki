@@ -61,8 +61,8 @@ const GROUPS: Group[] = [
       // 后台 PUT 是全列覆盖,表单不提交它会被写成 0,而迁移 0092 拿它当换算除数、每次启动重放,
       // 被写成 0 会让未换算批次按 1:1 换 = 超发 120 倍。保留只读展示,禁止编辑。
       { key: 'reset_cost_credits', label: '经费→重置次数换算率(历史迁移用)', hint: '已不参与运行时判定;仅迁移 0092 用作换算除数。**请勿改动**', readOnly: true },
-      { key: 'invite_reward_credits', label: '邀请奖励(经费/人)', hint: '每成功邀请 1 人赠送邀请人的经费;经费=分,100=¥1;0=关闭活动' },
-      { key: 'invite_reward_daily_cap', label: '邀请奖励每日上限(人)', hint: '每邀请人每天最多计奖励的邀请数;0=不限。防小号批量注册刷奖励' },
+      // 邀请奖励两旋钮(invite_reward_credits / invite_reward_daily_cap)已移至「活动管理」页
+      // 单点配置(2026-07-31 活动统一管理)。字段仍在 form state 全量透传,别从 interface 删。
     ],
   },
 ];

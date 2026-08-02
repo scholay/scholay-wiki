@@ -204,6 +204,24 @@ describe("verifyClaims(诚实性核验)", () => {
     expect(bad).toEqual(["10.9999/fake-abc"]);
   });
 
+  // 2026-08 证据账本 P0:引用判据的主语料改成账本 —— 冷重播后 messages 里工具证据已被折成一行摘要,
+  // 若仍只读 messages,每条**真实**引用都会被判成编造(旧版在最需要它的路径上是净负值)。
+  test("冷重播:真实 DOI 只在账本里(messages 已被折叠)→ 不误报", () => {
+    const cold = [
+      userMsg("继续写"),
+      { role: "assistant", content: [{ type: "text", text: "【已调用 search_papers query=\"ADHD\"】命中 20 条,已入证据账本 E1–E16" }] } as Anthropic.MessageParam,
+    ];
+    const ledger = [{ id: "E1", doi: "10.1234/real-one", title: "ADHD fMRI" }] as never;
+    expect(auditCitations("引用 10.1234/real-one", buildEvidenceCorpus(cold))).toEqual(["10.1234/real-one"]); // 旧口径:误报
+    expect(auditCitations("引用 10.1234/real-one", buildEvidenceCorpus(cold, ledger))).toEqual([]); // 新口径:不误报
+  });
+
+  test("账本里没有、messages 里也没有的 DOI 仍被观测到", () => {
+    const ledger = [{ id: "E1", doi: "10.1234/real-one" }] as never;
+    const bad = auditCitations("引用 10.9999/fake-abc", buildEvidenceCorpus([userMsg("q")], ledger));
+    expect(bad).toEqual(["10.9999/fake-abc"]);
+  });
+
   test("否定语境不算交付宣称", () => {
     expect(claimsDelivery("抱歉,未能生成文件,导出失败了。")).toBe(false);
     expect(claimsDelivery("如果需要,我可以生成文件供下载。")).toBe(false);

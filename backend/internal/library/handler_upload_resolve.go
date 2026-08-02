@@ -44,6 +44,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // JobTTL Redis 中 job 上下文的存活时间 —— 用户从看到结果到点确认通常 < 30s,
@@ -218,9 +219,12 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 	}
 
 	job := &JobState{
-		UserID:         uid,
-		SHA256:         shaHex,
-		OriginalName:   fileHeader.Filename,
+		UserID: uid,
+		SHA256: shaHex,
+		// 2026-07 审查:原始 multipart 文件名客户端可控且无长度限制,后面 4 处
+		// confirm 路径都会写进 pdf_original_filename varchar(255) —— 在这里裁一次
+		// 覆盖全部下游写入点(job 只在本函数构造)。
+		OriginalName:   truncateRunes(fileHeader.Filename, origFilenameMaxRunes),
 		Size:           fileHeader.Size,
 		TmpObjectKey:   tmpKey,
 		ParsedTitle:    parsed.Title,
@@ -417,6 +421,19 @@ func (h *Handler) confirmLinked(
 	if !IsValidUpstreamSource(choice.Source) {
 		return nil, false, fmt.Errorf("source 取值非法")
 	}
+	// 2026-07 审查:choice 来自 confirm 请求体,字段无长度校验;逐列按列宽 rune 截断,
+	// 防超长值撞 Error 1406(严格模式下是报错不是截断)让同一 job 反复 confirm 失败。
+	// source_paper_id 在下面既参与唯一键查询又参与 INSERT,必须在查询**之前**先裁剪,
+	// 保证两处口径一致。
+	choice.SourcePaperID = truncateRunes(choice.SourcePaperID, sourcePaperIDMaxRunes)
+	choice.Title = truncateRunes(choice.Title, titleMaxRunes)
+	choice.Venue = truncateRunes(choice.Venue, venueMaxRunes)
+	choice.DOI = truncateRunes(choice.DOI, doiMaxRunes)
+	choice.PdfURL = truncateRunes(choice.PdfURL, pdfURLMaxRunes)
+	// 2026-07 线上审计:该链路写入的是用户 PDF 抽取内容,GORM 默认 logger 出错时会把整条
+	// INSERT(含全部绑定值)dump 进日志 → docker logs 长期留存用户内容。此处静音 SQL Trace;
+	// 错误摘要仍经 writeConfirmError → utils.InternalError 带 RequestID 落日志,观测不丢。
+	db = db.Session(&gorm.Session{Logger: gormlogger.Discard})
 
 	// 查 (user_id, source, source_paper_id) 是否已存在
 	var existing UserLibraryPaper
@@ -522,6 +539,8 @@ func (h *Handler) confirmFree(
 	ctx context.Context, db *gorm.DB, uid uint64, folderID *uint64,
 	bucket string, job *JobState, now *time.Time,
 ) (*UserLibraryPaper, bool, error) {
+	// 2026-07 线上审计:同 confirmLinked —— 静音 GORM SQL Trace,防用户内容随错误日志泄漏。
+	db = db.Session(&gorm.Session{Logger: gormlogger.Discard})
 	// 查同 sha 是否已经收过为自由文件(秒传)
 	var existing UserLibraryPaper
 	q := db.Where("user_id = ? AND source = ? AND source_paper_id = ?",
@@ -647,6 +666,36 @@ func jsonFieldEmpty(raw json.RawMessage) bool {
 	return s == "" || s == "null" || s == "[]"
 }
 
+// user_library_papers 上「客户端可控」varchar 列的 rune 截断上限 —— 逐列对照
+// model.go / 0001_baseline.sql 的列宽,刻意留余量。
+// 2026-07 线上审计:pdfparse 偶发把整段摘要当标题抽出,超长直插 og_title 触发 Error 1406,
+// 线上上传 confirm 131 次全灭。og_abstract / abstract 是 mediumtext,无需截断。
+// 2026-07 审查:截断此前只覆盖 og_* 三列,同一条 INSERT 里同样客户端可控的
+// title / venue / doi / pdf_url / source_paper_id(来自 confirm 请求体的 link 对象,
+// 只有 binding:"required" 无长度校验)和 pdf_original_filename(原始 multipart 文件名)
+// 仍会撞 1406 → 同一 job 每次 confirm 必失败。补齐到全部列。
+const (
+	ogTitleMaxRunes = 1000 // og_title    varchar(1024)
+	ogVenueMaxRunes = 500  // og_venue    varchar(512)
+	ogDOIMaxRunes   = 250  // og_doi      varchar(255)
+
+	titleMaxRunes         = 1000 // title                 varchar(1024)
+	venueMaxRunes         = 500  // venue                 varchar(512)
+	doiMaxRunes           = 250  // doi                   varchar(255)
+	pdfURLMaxRunes        = 1000 // pdf_url               varchar(1024)
+	sourcePaperIDMaxRunes = 120  // source_paper_id       varchar(128)
+	origFilenameMaxRunes  = 250  // pdf_original_filename varchar(255)
+)
+
+// truncateRunes 按 rune 安全截断(不劈开多字节字符;len(r)<=max 原样返回)。
+func truncateRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
+}
+
 // applyParsedToNewOG 把 pdfparse「识别」抽到的字段写进一个**新行**的 og_*(新行 og 本为空,
 // 直接填非空值)。
 //
@@ -654,10 +703,11 @@ func jsonFieldEmpty(raw json.RawMessage) bool {
 // 分开——两条路互相独立。即使在线匹配错了 / 没匹配上,已识别出的题录也始终保留在 og_*,
 // 且经 pickField(og 优先)默认展示,不被在线增补层污染。
 func applyParsedToNewOG(paper *UserLibraryPaper, job *JobState) {
-	paper.OGTitle = job.ParsedTitle
+	// 2026-07 线上审计:入库前按列宽 rune 截断,防超长解析产物撞 Error 1406(见 truncateRunes)。
+	paper.OGTitle = truncateRunes(job.ParsedTitle, ogTitleMaxRunes)
 	paper.OGAbstract = job.ParsedAbstract
-	paper.OGVenue = job.ParsedVenue
-	paper.OGDOI = job.ParsedDOI
+	paper.OGVenue = truncateRunes(job.ParsedVenue, ogVenueMaxRunes)
+	paper.OGDOI = truncateRunes(job.ParsedDOI, ogDOIMaxRunes)
 	if job.ParsedYear > 0 {
 		y := job.ParsedYear
 		paper.OGYear = &y
@@ -671,17 +721,18 @@ func applyParsedToNewOG(paper *UserLibraryPaper, job *JobState) {
 // **只填空**:og 是用户侧真值,自动化路径绝不覆盖非空 og —— 仅当既有行 og 字段为空
 // 且本次 parsed 值非空时才写入。
 func applyParsedFillEmptyOG(updates map[string]interface{}, existing *UserLibraryPaper, job *JobState) {
+	// 2026-07 线上审计:与 applyParsedToNewOG 同款按列宽 rune 截断,防 Error 1406。
 	if strings.TrimSpace(existing.OGTitle) == "" && job.ParsedTitle != "" {
-		updates["og_title"] = job.ParsedTitle
+		updates["og_title"] = truncateRunes(job.ParsedTitle, ogTitleMaxRunes)
 	}
 	if strings.TrimSpace(existing.OGAbstract) == "" && job.ParsedAbstract != "" {
 		updates["og_abstract"] = job.ParsedAbstract
 	}
 	if strings.TrimSpace(existing.OGVenue) == "" && job.ParsedVenue != "" {
-		updates["og_venue"] = job.ParsedVenue
+		updates["og_venue"] = truncateRunes(job.ParsedVenue, ogVenueMaxRunes)
 	}
 	if strings.TrimSpace(existing.OGDOI) == "" && job.ParsedDOI != "" {
-		updates["og_doi"] = job.ParsedDOI
+		updates["og_doi"] = truncateRunes(job.ParsedDOI, ogDOIMaxRunes)
 	}
 	if existing.OGYear == nil && job.ParsedYear > 0 {
 		updates["og_year"] = job.ParsedYear

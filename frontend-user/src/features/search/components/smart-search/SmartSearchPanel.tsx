@@ -35,7 +35,7 @@ import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox'
 import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
 import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
 import { buildReferenceBlock } from '@/shared/lib/agent-references';
-import type { ReferenceItemDTO, TurnAttachment, TurnReference } from '@/shared/types/chat';
+import type { AttachmentDTO, ReferenceItemDTO, TurnAttachment, TurnReference } from '@/shared/types/chat';
 import {
   useCreateSmartSearchSession,
   useSmartSearchContext,
@@ -46,6 +46,10 @@ import {
   getSmartSearchNewConvModel,
   setSmartSearchNewConvModel,
   markSmartSearchPendingModel,
+  getSmartSearchBlockedMessage,
+  setSmartSearchBlockedMessage,
+  clearSmartSearchBlockedMessage,
+  type SmartSearchBlockedMessage,
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
 import { SmartComposer } from './SmartComposer';
@@ -190,8 +194,13 @@ export function SmartSearchPanel() {
       stopTimerRef.current = null;
     }
   }, []);
-  /** 最近一次成功提交的问题原文 —— 命中额度 / 投递失败被拦时用于回填输入框, 便于一键重发。 */
-  const lastSubmitTextRef = useRef<string>('');
+  /** 最近一次提交的原始 payload(text + 含 path 的 attachments + 引用)—— 命中额度 / 投递失败
+   *  被拦时据此把「未发送」消息持久化到 localStorage(BlockedTurnCard 一键重发,与 claw 同构;
+   *  旧「原文回填输入框」方案已退役)。 */
+  const lastSubmitRef = useRef<SmartSearchBlockedMessage | null>(null);
+  // sessionId 的最新镜像 —— 给 setTimeout / 只依赖单信号的 effect 读(闭包捕获的值会过期)。
+  const sessionIdRef = useRef<string | null>(sessionId);
+  sessionIdRef.current = sessionId;
 
   // 本次 mount 起的 sessionId 一旦确认, pendingSendRef 里如果还有未发的 user_message
   // 就在 WS open 后立刻发出去(flush effect 在下方 socket 解构后)。clientTurnId 与乐观气泡
@@ -229,10 +238,12 @@ export function SmartSearchPanel() {
       const timer = window.setTimeout(() => {
         ackWaitRef.current = null;
         firedAckRef.current = { clientTurnId, turnId }; // 保留配对供迟到证据解除误标
+        // 持久化「未发送」消息(同 claw):blocked 轮渲染 BlockedTurnCard 一键重发,不再回填输入框。
+        const sid = sessionIdRef.current;
+        const payload = lastSubmitRef.current;
+        if (sid && payload) setSmartSearchBlockedMessage(sid, payload);
         setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
-        const text = lastSubmitTextRef.current;
-        if (text) setInput((cur) => (cur.trim() ? cur : text));
-        toast.error('消息未能送达,已为你保留在输入框,可重新发送');
+        toast.error('消息未能送达,已为你保留,可点击重新发送');
       }, ACK_TIMEOUT_MS);
       ackWaitRef.current = { clientTurnId, turnId, timer };
     },
@@ -277,6 +288,7 @@ export function SmartSearchPanel() {
     if (ackHit || (grew && lastLive?.id === fired.turnId)) {
       firedAckRef.current = null;
       deliveredTurnIdRef.current = fired.turnId;
+      clearSmartSearchBlockedMessage(sessionIdRef.current); // 误报解除 → 撤销持久化的「未发送」
       setPendingTurns((prev) => prev.map((t) => (t.id === fired.turnId ? { ...t, blocked: false } : t)));
       toast.success('消息其实已送达,已恢复该轮显示');
     }
@@ -483,19 +495,21 @@ export function SmartSearchPanel() {
   // messages),agent 永不对这轮 emit message_complete → 这条 pendingTurn 永远 complete=false →
   // busy 永久为 true、composer 永久禁用、连 stop/reset 都救不了(评审 #1;claw/prism 早已修)。
   // quotaExceeded 单调自增 → 把卡住的本轮标 blocked(busy 排除 blocked → composer 解锁),
-  // 并把原文回填输入框便于一键重发(不覆盖用户已敲的新内容)。用户已由全局额度弹窗知道原因。
+  // 并把消息持久化到 localStorage(BlockedTurnCard 一键重发,跳支付宝充会员整页返回 / 换设备
+  // 回来都不丢;旧「原文回填输入框」方案已退役)。用户已由全局额度弹窗知道原因。
   const lastQuotaRef = useRef(0);
   useEffect(() => {
     if (quotaExceeded === 0 || quotaExceeded === lastQuotaRef.current) return;
     lastQuotaRef.current = quotaExceeded;
+    const sid = sessionIdRef.current;
+    const payload = lastSubmitRef.current;
+    if (sid && payload) setSmartSearchBlockedMessage(sid, payload);
     setPendingTurns((prev) =>
       prev.length > 0
         ? prev.map((t, i) => (i === prev.length - 1 ? { ...t, blocked: true } : t))
         : prev,
     );
     setStopping(false);
-    const text = lastSubmitTextRef.current;
-    if (text) setInput((cur) => (cur.trim() ? cur : text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotaExceeded]);
 
@@ -537,10 +551,11 @@ export function SmartSearchPanel() {
     // 已有送达证明的轮绝不判「未发送」,走中断收口而非诱导重发。
     const hasContent = last.blocks.length > 0 || !!last.thinkingText || !!last.placeholder;
     const delivered = deliveredTurnIdRef.current === last.id;
-    const text = lastSubmitTextRef.current;
-    if (!hasContent && !delivered && text && text === last.userText) {
+    const payload = lastSubmitRef.current;
+    if (!hasContent && !delivered && payload && payload.text === last.userText) {
+      const sid = sessionIdRef.current;
+      if (sid) setSmartSearchBlockedMessage(sid, payload); // 持久化 → BlockedTurnCard 一键重发
       setPendingTurns((prev) => prev.map((t) => (t.id === last.id ? { ...t, blocked: true } : t)));
-      setInput((cur) => (cur.trim() ? cur : text));
       return;
     }
     appendLocalFrame({
@@ -606,17 +621,18 @@ export function SmartSearchPanel() {
   }, [state, send, armAckWait]);
 
   // 懒新建死路兜底:createSession 成功但 WS 一直连不上(8 次退避耗尽落 error)→ pendingSendRef
-  // 永不 flush、乐观气泡永卡 busy。把这条转 blocked(未发送)+ 原文回填输入框,文字不丢。
+  // 永不 flush、乐观气泡永卡 busy。把这条转 blocked(未发送)+ 持久化,文字不丢(卡片一键重发)。
   useEffect(() => {
     if (state !== 'error' || !pendingSendRef.current) return;
     pendingSendRef.current = null;
+    const sid = sessionIdRef.current;
+    const payload = lastSubmitRef.current;
+    if (sid && payload) setSmartSearchBlockedMessage(sid, payload);
     const turnId = pendingSendTurnIdRef.current;
     pendingSendTurnIdRef.current = null;
     if (turnId) {
       setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
     }
-    const text = lastSubmitTextRef.current;
-    if (text) setInput((cur) => (cur.trim() ? cur : text));
   }, [state]);
 
   // 上下文水位实时刷新: 每一轮回答从 busy=true → false (message_complete) 时
@@ -664,6 +680,44 @@ export function SmartSearchPanel() {
     clearMessages();
   }, [sessionId, clearMessages, clearAckWait, clearStopFallback]);
 
+  // 恢复「未发送」消息:进入(或切回)某 session 时,若 localStorage 里存着该会话的「未发送」
+  // 消息(命中额度 / 投递失败被拦),补一条 blocked 轮渲染出来(BlockedTurnCard 一键重发)。
+  // 覆盖三条路径:跳支付宝充会员整页返回 / 换设备回来 / 切到别的会话再切回来。已有 blocked 轮
+  // (live 刚标记 / 已恢复过)则不重复补。同 claw useClawConversation 的恢复 effect。
+  useEffect(() => {
+    if (!sessionId) return;
+    const blocked = getSmartSearchBlockedMessage(sessionId);
+    if (!blocked) return;
+    setPendingTurns((prev) => {
+      if (prev.some((t) => t.blocked)) return prev;
+      return [
+        ...prev,
+        {
+          id: `blocked-${sessionId}`,
+          userText: blocked.text,
+          blocked: true,
+          // 重建引用 chip:重发时会用 blocked.references 重附引用块,这里让恢复的 blocked 轮
+          // 也把绿 chip 显示回来(与实时提交的气泡一致)。
+          userReferences: (blocked.references ?? []).map((r) => ({
+            kind: r.kind,
+            title: r.title,
+            paperCount: r.paperCount,
+            hasPdf: r.hasPdf,
+          })),
+          userAttachments: blocked.attachments.map((a) => ({
+            type: a.type,
+            name: a.name,
+            mimeType: a.mimeType,
+            size: a.size,
+            path: a.path,
+            previewUrl:
+              a.type === 'image' && a.path ? smartSearchSessionFileUrl(sessionId, a.path) : undefined,
+          })),
+        },
+      ];
+    });
+  }, [sessionId]);
+
   // 标题生成:agent 首轮后异步产标题并推 session_title_updated 帧 → invalidate sessions,
   // 让侧边栏「生成标题中…」spinner 换成真标题(该帧晚于 message_complete,故单独盯一手)。
   // 直接看「最后一帧是不是 title」(同 claw):messages 会话内 append-only、切会话 clearMessages 归零,
@@ -681,18 +735,24 @@ export function SmartSearchPanel() {
   //     pendingSendRef 待 open 后自动发。建会话失败则回滚乐观 turn。同 claw handleSubmit。
   // 2026-07 输入框统一:附件走方案 B(文件已在会话 cwd,只透传 path,backend hub 折 @"path"
   // 标记);引用块追加到 content 末尾(与 claw 同构,历史回放解析回 chip)。
-  const handleSubmit = useCallback(async () => {
-    const text = input.trim();
-    if (!text && att.attachments.length === 0 && references.length === 0) return;
-    trackEvent('search_submit', { len: text.length, files: att.attachments.length, refs: references.length });
-    lastSubmitTextRef.current = text;
-    const turnRefs: TurnReference[] = references.map((r) => ({
+  // override = 「重新发送」路径传入的持久化 payload(命中额度被拦的那条);不传 = 正常从
+  // composer 状态取值提交。两条路径共用同一套发送逻辑(懒新建 / ack 看门狗 / 配额拦截自然生效),
+  // 仅 composer 的清空 / 失败恢复只对 composer 路径生效(重发不碰用户正在敲的新输入)。
+  const handleSubmit = useCallback(async (override?: SmartSearchBlockedMessage) => {
+    const fromComposer = !override;
+    const text = override ? override.text : input.trim();
+    const atts: AttachmentDTO[] = override ? override.attachments : att.attachments;
+    const refs: ReferenceItemDTO[] = override ? override.references ?? [] : references;
+    if (!text && atts.length === 0 && refs.length === 0) return;
+    trackEvent('search_submit', { len: text.length, files: atts.length, refs: refs.length });
+    lastSubmitRef.current = { text, attachments: atts, references: refs };
+    const turnRefs: TurnReference[] = refs.map((r) => ({
       kind: r.kind,
       title: r.title,
       paperCount: r.paperCount,
       hasPdf: r.hasPdf,
     }));
-    const turnAtts: TurnAttachment[] = att.attachments.map((a) => ({
+    const turnAtts: TurnAttachment[] = atts.map((a) => ({
       type: a.type,
       name: a.name,
       mimeType: a.mimeType,
@@ -701,7 +761,7 @@ export function SmartSearchPanel() {
       // 已发送气泡里图片缩略图 —— 用后端取图代理 URL(与历史回放一致,刷新后仍有效)。
       previewUrl: a.type === 'image' && a.path ? smartSearchSessionFileUrl(a.sessionId, a.path) : undefined,
     }));
-    const wsAttachments = att.attachments.map((a) => ({
+    const wsAttachments = atts.map((a) => ({
       type: a.type,
       name: a.name,
       mimeType: a.mimeType,
@@ -729,11 +789,14 @@ export function SmartSearchPanel() {
       // 自动发(flush 成功后挂未送达看门狗)。
       // 关键:adoptingSessionIdRef 在**拿到 newId 之后**才置为该具体 id(不能 await 前置 bool)——
       // 否则 await 期间用户切到别的会话 B,那次 null→B 切换会误跳过清理、把 payload 串进 B(评审 #1)。
-      setInput('');
-      // 重发时先清掉上一条「未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
+      if (fromComposer) setInput('');
+      // 发新一轮时先清掉上一条「未发送」的 blocked 轮(+其持久化), 避免它和新一轮并存显得杂乱。
+      clearSmartSearchBlockedMessage(sessionIdRef.current);
       setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
-      att.clearAttachments();
-      setReferences([]);
+      if (fromComposer) {
+        att.clearAttachments();
+        setReferences([]);
+      }
       pendingSendRef.current = payload;
       pendingSendTurnIdRef.current = turnId;
       try {
@@ -748,7 +811,7 @@ export function SmartSearchPanel() {
         pendingSendRef.current = null;
         pendingSendTurnIdRef.current = null;
         setPendingTurns((prev) => prev.filter((t) => t.id !== turnId));
-        setInput((cur) => (cur.trim() ? cur : text));
+        if (fromComposer) setInput((cur) => (cur.trim() ? cur : text));
         toast.error((err as Error).message || '新建会话失败,请重试');
       }
       return;
@@ -760,14 +823,37 @@ export function SmartSearchPanel() {
       toast.error('连接未就绪,请稍后重试');
       return;
     }
-    setInput('');
-    // 重发时先清掉上一条「未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
+    if (fromComposer) setInput('');
+    // 发新一轮时先清掉上一条「未发送」的 blocked 轮(+其持久化), 避免它和新一轮并存显得杂乱。
+    clearSmartSearchBlockedMessage(sessionIdRef.current);
     setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
-    att.clearAttachments();
-    setReferences([]);
-    // 端到端投递确认:10s 内无 ack 且无任何流帧 → 该轮转「未发送」+ 回填输入框(半死 TCP 闭环)。
+    if (fromComposer) {
+      att.clearAttachments();
+      setReferences([]);
+    }
+    // 端到端投递确认:10s 内无 ack 且无任何流帧 → 该轮转「未发送」(持久化 + 卡片一键重发,半死 TCP 闭环)。
     armAckWait(clientTurnId, turnId);
   }, [input, state, send, att, references, sessionId, createSession, setActiveSessionId, armAckWait]);
+
+  // 一键重发「未发送」消息(BlockedTurnCard):清持久化 + 移除 blocked 轮 → 走正常发送路径
+  // (懒新建 / ack 看门狗 / 配额拦截自然生效)。若额度仍未解,会再次被拦成 blocked(行为一致,
+  // 不会卡死)。ref-latest 包 handleSubmit:它依赖 input(每键换引用),直接进依赖会让本回调
+  // 不稳、击穿全部 AssistantTurn 的 memo(长会话每键全量重渲染,智能页 CPU 风暴同款教训)。
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
+  const resendBlocked = useCallback(() => {
+    const sid = sessionIdRef.current;
+    const payload = getSmartSearchBlockedMessage(sid);
+    if (sid) clearSmartSearchBlockedMessage(sid);
+    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
+    if (payload) void handleSubmitRef.current(payload);
+  }, []);
+
+  // 忽略「未发送」消息:清持久化 + 移除 blocked 轮(用户决定不再发这条)。
+  const dismissBlocked = useCallback(() => {
+    clearSmartSearchBlockedMessage(sessionIdRef.current);
+    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
+  }, []);
 
   // 未登录态 hero 的提交 —— 不真正发送,而是弹登录;把刚输入的关键词排进
   // pending navigate(/search?mode=smart&q=…),登录成功后由 useReplayPendingAction
@@ -790,13 +876,16 @@ export function SmartSearchPanel() {
     (text: string) => {
       const t = text.trim();
       if (!t) return;
-      lastSubmitTextRef.current = t; // 投递失败时回填输入框用(与 handleSubmit 同款)
+      // 投递失败 / 命中额度时据此持久化「未发送」(与 handleSubmit 同款;答案无附件/引用)。
+      lastSubmitRef.current = { text: t, attachments: [], references: [] };
       const clientTurnId = crypto.randomUUID();
       if (state !== 'open' || !send({ type: 'user_message', content: t, clientTurnId })) {
         toast.error('连接未就绪,请稍后重试');
         return;
       }
       const turnId = `turn-${crypto.randomUUID()}`;
+      // 与 handleSubmit 同款:发新一轮即放弃上一条「未发送」(卡片 + 持久化一起清)。
+      clearSmartSearchBlockedMessage(sessionIdRef.current);
       setPendingTurns((prev) => [...prev.filter((x) => !x.blocked), { id: turnId, userText: t }]);
       armAckWait(clientTurnId, turnId);
     },
@@ -939,7 +1028,11 @@ export function SmartSearchPanel() {
                       attachments={turn.userAttachments}
                       references={turn.userReferences}
                     />
-                    <AssistantTurn turn={turn} />
+                    <AssistantTurn
+                      turn={turn}
+                      onResendBlocked={resendBlocked}
+                      onDismissBlocked={dismissBlocked}
+                    />
                   </div>
                 ))}
                 {state === 'reconnecting' && (

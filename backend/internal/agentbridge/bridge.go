@@ -636,6 +636,23 @@ type FeatureBridge struct {
 // Spec 返回绑定的 FeatureSpec (WS bridge 内部要用; feature 模块通常用不到)。
 func (f *FeatureBridge) Spec() FeatureSpec { return f.spec }
 
+// SetAttachmentRelocator 在 For() 之后注入跨会话附件物化器(2026-07-31 线上审计 §五)。
+//
+// 为什么不能在 BuildSpec 里直接填:实现方 agentattach.NewRelocator 需要的正是 For() 产出的
+// *FeatureBridge(它要借 AgentClient 读写会话工作区)——鸡生蛋。与 bootstrap 既有的
+// SetVIPChecker / SetUsageRecorder 同款「注入时机无关」语义:hub 在**每条 user_message**
+// 触发时才读 f.spec.AttachmentRelocator,只要在放流量之前注入完即可。
+// nil 入参 = 不启用(行为等同改造前),便于按 feature 灰度。
+func (f *FeatureBridge) SetAttachmentRelocator(r interface {
+	EnsureLocal(ctx context.Context, userID uint, sessionID, sessionWorkDir string, paths []string) ([]string, error)
+}) {
+	if r == nil {
+		f.spec.AttachmentRelocator = nil
+		return
+	}
+	f.spec.AttachmentRelocator = r
+}
+
 // AgentClient 暴露底层 agent.Client, 适用于 feature 在 server 端自驱动
 // (POST chat → poll status → fetch messages) 的场景, 例如 peer review 的
 // 后台 4 轮串行编排。普通对话场景应该走 WebSocket 桥接, 不需要直接持有 client。
