@@ -68,7 +68,7 @@ export function MobileRechargeDialog({ open, onOpenChange }: MobileRechargeDialo
         <DialogHeader>
           <DialogTitle>充值经费</DialogTitle>
           <DialogDescription>
-            按 ¥1 = {rate} 经费到账,经费不过期;可开启「用经费继续」在额度耗尽后按量续用。
+            按 1 元 = {rate} 经费到账,充多少用多少;开启「用经费继续」后,额度用完还能接着干活。
           </DialogDescription>
         </DialogHeader>
 

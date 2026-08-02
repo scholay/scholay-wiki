@@ -11,8 +11,11 @@ import { Button } from '@/shared/ui/button';
  * 本组件不感知 feature:重发 / 弹全局重置弹窗 / 忽略 全部经 props 注入
  * (弹窗一般传 useQuotaStore 的 openReset;shared 不 import stores,保持依赖方向)。
  */
+// 用户此刻是被拦下的:他最想确认的是「我这条消息还在不在」和「刚才那下扣我额度了吗」。
+// 原文一上来就列我们的三条解法(重置次数 / 用经费继续 / 升级会员),把用户的两个问题晾着。
+// 「没有产生任何消耗」与实现一致:PreUserMessage 钩子在转发给 agent **之前**就拒了,不会进 AddUsage。
 const DEFAULT_SUBTEXT =
-  '使用重置次数、开启用经费继续或升级会员后,点「重新发送」即可继续(无需重新输入)。';
+  '这条消息已经帮你留着了,刚才那下也没有产生任何消耗。额度恢复后点「重新发送」就能接着跑。';
 
 export interface BlockedTurnCardProps {
   /** 点「重新发送」:清持久化 + 移除 blocked 轮 + 走该 feature 的正常发送路径。 */
@@ -31,7 +34,7 @@ export function BlockedTurnCard({ onResend, onOpenReset, onDismiss, message }: B
       <div className="flex items-start gap-2">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-amber" />
         <div className="min-w-0 flex-1">
-          <p className="text-14 font-medium text-foreground">本周期 AI 额度已用完,这条消息尚未发送</p>
+          <p className="text-14 font-medium text-foreground">AI 额度用完了,这条还没发出去</p>
           <p className="text-12 text-muted-foreground">{message ?? DEFAULT_SUBTEXT}</p>
         </div>
       </div>
@@ -41,10 +44,10 @@ export function BlockedTurnCard({ onResend, onOpenReset, onDismiss, message }: B
           重新发送
         </Button>
         <Button size="sm" variant="outline" onClick={() => onOpenReset?.()}>
-          开通会员 / 重置额度
+          去恢复额度
         </Button>
         <Button size="sm" variant="ghost" onClick={() => onDismiss?.()}>
-          忽略
+          不发了
         </Button>
       </div>
     </div>

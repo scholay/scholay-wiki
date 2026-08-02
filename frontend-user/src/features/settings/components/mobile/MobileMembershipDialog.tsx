@@ -20,7 +20,15 @@ import {
 } from '@/shared/ui/dialog';
 import { toApiError } from '@/shared/lib/http';
 import { isWeChatBrowser } from '@/shared/lib/device';
-import { BillingCycleToggle, maxYearlySavingsPct, planYearlyEnabled, type SubQuote } from '@/shared/components';
+import {
+  BillingCycleToggle,
+  maxYearlySavingsPct,
+  planYearlyEnabled,
+  resolveDefaultCycle,
+  monthlyEquivalentCents,
+  yuanText,
+  type SubQuote,
+} from '@/shared/components';
 import {
   quoteSubscription,
   useCreateSubscription,
@@ -50,7 +58,9 @@ export function MobileMembershipDialog({
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [payingTier, setPayingTier] = useState<Tier | null>(null);
-  const [cycle, setCycle] = useState<BillingCycle>('monthly');
+  // 🔴 年付优先(2026-08-02 改版):默认周期派生自 plans,不硬编码。
+  // null = 用户还没手动选过 → 跟随派生值;数据到位后自动落到年付(任一档开放年付时)。
+  const [cyclePick, setCyclePick] = useState<BillingCycle | null>(null);
   // 每个可购档在当前周期下的真实报价(action + 应付金额 + 后端锁定周期),按 tier 缓存。
   const [quotes, setQuotes] = useState<Record<string, SubQuote>>({});
   const plansQ = usePlans();
@@ -68,6 +78,7 @@ export function MobileMembershipDialog({
   // 年付入口(0079):任一档配置了年价才显示切换;单档未开放年付时按钮回落月价。
   const yearlyAvailable = payPlans.some(planYearlyEnabled);
   const savingsPct = maxYearlySavingsPct(plansQ.data?.plans ?? []);
+  const cycle = cyclePick ?? resolveDefaultCycle(plansQ.data?.plans ?? []);
 
   // 拉每个可购档在所选周期下的报价(单档未开放年付则按月度询价)。
   useEffect(() => {
@@ -133,8 +144,8 @@ export function MobileMembershipDialog({
         </DialogHeader>
 
         {/* 兑换码开通(就地,不跳转)*/}
-        <div className="rounded-12 border border-border p-3.5">
-          <div className="mb-2 flex items-center gap-1.5 text-14 font-medium text-foreground">
+        <div className="rounded-12 border border-border p-4">
+          <div className="mb-2 flex items-center gap-2 text-14 font-medium text-foreground">
             <Ticket className="size-4 text-brand-green" /> 用兑换码开通会员
           </div>
           <form
@@ -161,8 +172,8 @@ export function MobileMembershipDialog({
         </div>
 
         {/* 支付宝手机网站支付(选套餐直接付)*/}
-        <div className="rounded-12 border border-border p-3.5">
-          <div className="mb-2 flex items-center gap-1.5 text-14 font-medium text-foreground">
+        <div className="rounded-12 border border-border p-4">
+          <div className="mb-2 flex items-center gap-2 text-14 font-medium text-foreground">
             <CreditCard className="size-4 text-muted-foreground" /> 支付宝付款开通
           </div>
           {inWeChat ? (
@@ -190,7 +201,7 @@ export function MobileMembershipDialog({
               {/* 月付 / 年付 切换(0079)—— 年付带「省 N%」徽标 */}
               {yearlyAvailable && (
                 <div className="flex justify-center pb-1">
-                  <BillingCycleToggle value={cycle} onChange={setCycle} savingsPct={savingsPct} />
+                  <BillingCycleToggle value={cycle} onChange={setCyclePick} savingsPct={savingsPct} />
                 </div>
               )}
               {payPlans.map((p) => {
@@ -205,10 +216,10 @@ export function MobileMembershipDialog({
                     type="button"
                     disabled={payingTier !== null || !q}
                     onClick={() => q && handlePay(p.tier, q)}
-                    className="flex items-center justify-between rounded-8 border border-border px-3 py-2.5 text-left transition-colors active:bg-surface-2 disabled:opacity-50"
+                    className="flex min-h-11 items-center justify-between rounded-8 border border-border px-3 py-2.5 text-left transition-colors active:bg-surface-2 disabled:opacity-50"
                   >
-                    <span className="flex flex-col gap-0.5">
-                      <span className="flex items-center gap-1.5 text-14 font-medium text-foreground">
+                    <span className="flex flex-col gap-1">
+                      <span className="flex items-center gap-2 text-14 font-medium text-foreground">
                         {p.tier === 'max' ? (
                           <Crown className="size-4 text-brand-red" />
                         ) : (
@@ -220,18 +231,23 @@ export function MobileMembershipDialog({
                         <span className="text-12 text-faint">剩余 {q.remaining_days} 天补差 · 到期日不变</span>
                       )}
                     </span>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-2">
                       <span className="flex flex-col items-end">
+                        {/* 🔴 主数字恒为**月口径**(2026-08-02 改版,与 PC 卡片同口径):
+                            年付显示折合月价,年总价降到副行。此前是「主数字 ¥590/年 + 脚注折合」——
+                            9 家大厂取样里 0 家这么做,用户要自己除以 12 才能和月付比。
+                            折合算法复用 shared 的 monthlyEquivalentCents(整数分 + floor,不虚高),
+                            这里原来是一份逐字重复的浮点实现,两侧改口径就会漂移。 */}
                         {q ? (
                           <span className="text-14 font-medium text-foreground">
-                            ¥{(q.amount_cents / 100).toFixed(2)}
-                            {!upgrade && <span className="text-12 font-normal text-faint">{yearly ? '/年' : '/月'}</span>}
+                            ¥{yuanText(yearly && !upgrade ? monthlyEquivalentCents(q.amount_cents) : q.amount_cents)}
+                            {!upgrade && <span className="text-12 font-normal text-faint">/月</span>}
                           </span>
                         ) : (
                           <Loader2 className="size-4 animate-spin text-faint" />
                         )}
                         {q && yearly && !upgrade && (
-                          <span className="text-12 text-faint">折合 ¥{(Math.floor((q.amount_cents / 100 / 12) * 10) / 10).toFixed(1)}/月</span>
+                          <span className="text-12 text-faint">按年付 ¥{yuanText(q.amount_cents)}</span>
                         )}
                       </span>
                       {payingTier === p.tier ? (

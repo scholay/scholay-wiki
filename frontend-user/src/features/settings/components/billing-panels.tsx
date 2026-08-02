@@ -32,11 +32,11 @@ const TXN_LABEL: Record<string, string> = {
   recharge: '充值到账',
   gift: '礼品码',
   task: '任务奖励',
-  reset_consume: '重置消耗',
-  expire: '到期清零',
+  reset_consume: '用于重置额度',
+  expire: '已过期收回',
   refund: '退款',
-  admin_adjust: '管理员调账',
-  payg_daily: '按量付费(当日累计)', // 0098:每天一行,当天内随消耗累加
+  admin_adjust: '人工调整',
+  payg_daily: '用经费继续(当天合计)', // 0098:每天一行,当天内随消耗累加
   invite_reward: '邀请奖励', // 邀请好友注册奖励(ref_id=被邀者 user_id)
 };
 
@@ -78,8 +78,10 @@ function CreditAutopayCard() {
         <div className="flex flex-col gap-1">
           <h3 className="text-14 font-medium text-foreground">用经费继续</h3>
           <p className="max-w-xl text-12 leading-paragraph text-muted-foreground">
-            开启后,本周期 AI 额度用完时**自动按实际用量从经费扣费**,不中断使用;
-            关闭时额度用完就停下,等周期自动恢复。套餐额度始终优先使用,用完才会动经费。
+            {/* ⚠️ 这里原文写的是 markdown 的 `**加粗**` —— JSX 里星号会被原样渲染成字面量,
+                用户看到的是「时**自动按实际用量从经费扣费**,不」。加粗要用 <b>。 */}
+            打开后:额度用完时不会中断,<b className="font-medium text-foreground">超出的那部分按你实际用掉的量从经费扣</b>,
+            手上的任务能接着跑。不打开:额度用完就停下来,等它自动重置。套餐额度永远先用完,才会动经费 —— 随时可以关。
           </p>
           {data && (
             <p className="text-12 text-faint">
@@ -92,7 +94,7 @@ function CreditAutopayCard() {
           disabled={setAutopay.isPending}
           onCheckedChange={(v) => {
             setAutopay.mutate(v, {
-              onSuccess: () => toast.success(v ? '已开启:额度用完将自动使用经费' : '已关闭:额度用完不再自动扣经费'),
+              onSuccess: () => toast.success(v ? '已开启。额度用完后会按实际用量从经费扣,只扣超出的那部分,随时可以关' : '已关闭。额度用完后会停下来,不会动你的经费'),
               onError: (e) => toast.error(toApiError(e).message || '保存失败'),
             });
           }}
@@ -120,7 +122,7 @@ export function RechargePanel() {
 
   // 支付方式按 admin 配置(支付宝/微信 是否启用)动态决定 + 开发环境的测试支付。
   const methods = [
-    ...(plans?.payment_methods?.wechat ? [{ id: 'wechat', name: '微信支付', desc: '推荐使用微信扫码支付'}] : []),
+    ...(plans?.payment_methods?.wechat ? [{ id: 'wechat', name: '微信支付', desc: '暂未开放,请先用支付宝'}] : []),
     ...(plans?.payment_methods?.alipay ? [{ id: 'alipay', name: '支付宝', desc: '支付宝账户余额或银行卡'}] : []),
     ...(plans?.test_payment ? [{ id: 'test', name: '测试支付', desc: '开发环境一键到账'}] : []),
   ];
@@ -129,12 +131,12 @@ export function RechargePanel() {
 
   const onPay = async () => {
     if (!sel) {
-      toast.error('管理员尚未配置支付方式');
+      toast.error('暂时无法在线支付,请稍后再试');
       return;
     }
     try {
       if (sel ==='wechat') {
-        toast.info('微信扫码支付即将开放,请暂用其他方式');
+        toast.info('微信支付还没开放,这次请用支付宝付款');
         return;
       }
       const order = await recharge.mutateAsync(cents);
@@ -148,7 +150,7 @@ export function RechargePanel() {
       rememberPayReturnPath();
       window.location.href = pay.payment_url;
     } catch (err) {
-      toast.error(toApiError(err).message ||'发起支付失败');
+      toast.error(toApiError(err).message ||'没能跳转到支付页面,这笔钱没有扣,稍后再试一次');
     }
   };
 
@@ -193,7 +195,7 @@ export function RechargePanel() {
         <section className="rounded-16 border border-border bg-surface-card p-5">
           <h3 className="mb-3 text-14 font-medium text-foreground">支付方式</h3>
           {methods.length === 0 && (
-            <p className="text-12 text-faint">管理员尚未配置支付渠道,暂时无法充值。</p>
+            <p className="text-12 text-faint">暂时无法在线充值,请稍后再试。</p>
           )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {methods.map((m) => {
@@ -239,7 +241,7 @@ export function RechargePanel() {
           {busy && <Loader2 className="size-3.5 animate-spin"/>}
           立即充值
         </Button>
-        <p className="mt-3 text-12 leading-paragraph text-faint">按 {rate} 经费 / 元到账,经费不过期,可开启「用经费继续」在额度耗尽后按量续用。</p>
+        <p className="mt-3 text-12 leading-paragraph text-faint">按 1 元 = {rate} 经费到账,充多少用多少;开启「用经费继续」后,额度用完还能接着干活。</p>
       </aside>
     </div>
   );
@@ -324,7 +326,7 @@ export function RedeemPanel() {
         onOpenChange={setConfirmOpen}
         onRedeemed={() => setSegs(['', '', '', ''])}
       />
-      <p className="mt-2 text-12 text-faint">礼品码可能来自活动赠送、机构发放或合作渠道。兑换码不可重复使用。</p>
+      <p className="mt-2 text-12 text-faint">礼品码来自活动赠送、机构发放或合作渠道,每个码只能用一次。</p>
 
       {recent.length > 0 && (
         <div className="mt-4 border-t border-border-soft pt-3">
@@ -380,7 +382,7 @@ export function useSubscribeFlow() {
       window.location.href = pay.payment_url;
       return true;
     } catch (err) {
-      toast.error(toApiError(err).message ||'发起支付失败');
+      toast.error(toApiError(err).message ||'没能跳转到支付页面,这笔钱没有扣,稍后再试一次');
       return false;
     }
   };
@@ -440,7 +442,7 @@ export function OrdersTable() {
       {isLoading ? (
         <p className="py-6 text-center text-12 text-faint">加载中…</p>
       ) : rows.length === 0 ? (
-        <p className="py-6 text-center text-12 text-faint">暂无订单明细</p>
+        <p className="py-6 text-center text-12 text-faint">还没有账单记录</p>
       ) : (
         <table className="w-full text-12">
           <thead>
@@ -459,7 +461,7 @@ export function OrdersTable() {
       )}
       {/* 0094 按量付费的扣减是微额高频,逐笔入流水会把明细刷成噪音 —— 后端刻意不逐笔落流水。 */}
       <p className="mt-3 text-12 leading-paragraph text-faint">
-        按量付费(用经费继续)按天汇总为一条「按量付费(当日累计)」流水,当天内随消耗累加。
+        「用经费继续」的扣费按天合并成一条记录,当天用多少就累加多少。
       </p>
     </section>
   );
@@ -482,7 +484,7 @@ function OrderRow({ o }: { o: Order }) {
   );
 }
 
-/** 总览 tab 内容:近期流水(经费) + 本月每日用量绿格热力图。对齐设计稿。 */
+/** 总览 tab 内容:最近的经费变动(经费) + 本月每日用量绿格热力图。对齐设计稿。 */
 export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
   const { data } = useTransactions({ page: 1, page_size: 5 });
   const items = data?.items ?? [];
@@ -490,13 +492,13 @@ export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <section className="rounded-16 border border-border bg-surface-card p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-14 font-medium text-foreground">近期流水</h3>
+          <h3 className="text-14 font-medium text-foreground">最近的经费变动</h3>
           <button onClick={onViewAll} className="text-12 text-muted-foreground hover:text-foreground">
             查看全部
           </button>
         </div>
         {items.length === 0 ? (
-          <p className="text-12 text-faint">暂无经费流水</p>
+          <p className="text-12 text-faint">还没有经费进出</p>
         ) : (
           <div className="flex flex-col gap-1">
             {items.map((t) => (

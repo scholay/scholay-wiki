@@ -56,13 +56,13 @@ func (h *Handler) ResetQuota(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, ErrNoResetPass) {
 			// 刻意不提「充值」——充值买不到重置次数了,给一条走不通的路比不给更糟。
-			utils.BadRequest(c, "重置次数已用完,无法立即重置。可等待本周期自动重置,或升级会员获得更高额度。")
+			utils.BadRequest(c, "你的重置次数已经用完了。这一轮额度到期会自动恢复满额;不想等,可以升级会员 —— 每个周期能做的事更多。")
 			return
 		}
-		utils.InternalError(c, 500, "重置额度失败,请稍后重试", err)
+		utils.InternalError(c, 500, "这次没能重置成功,请稍后再试。你的重置次数没有被扣除。", err)
 		return
 	}
-	utils.SuccessWithMessage(c, "已重置本周期额度", res.StripAmounts()) // 用户端只看百分比,不下发额度绝对值
+	utils.SuccessWithMessage(c, "额度已恢复满额,可以接着用了", res.StripAmounts()) // 用户端只看百分比,不下发额度绝对值
 }
 
 // SetCreditAutopay PUT /user/billing/autopay {enabled} —— 开/关「周期额度用完后自动用经费续」。
@@ -239,13 +239,13 @@ func (h *Handler) CreateSubscription(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrNoDowngrade):
-			utils.BadRequest(c, "不支持降级到更低套餐")
+			utils.BadRequest(c, "不能换成比当前更低的套餐。当前套餐到期后,可以再选想要的档位。")
 		case errors.Is(err, ErrPendingOrderExists):
-			utils.BadRequest(c, "您有一笔待支付的会员订单,请先完成支付或稍后再试")
+			utils.BadRequest(c, "你还有一笔会员订单没付完。回到刚才的收银台付掉那一笔即可;如果已经关掉了,2 小时后它会自动失效,那之后可以重新下单。同一时间只会有一笔生效,不会重复扣款。")
 		case errors.Is(err, ErrInvalidOrder):
-			utils.BadRequest(c, "套餐无效或未配置价格")
+			utils.BadRequest(c, "这个套餐暂时买不了,请刷新页面后重试。")
 		default:
-			utils.InternalError(c, 500, "创建订阅订单失败", err)
+			utils.InternalError(c, 500, "没能创建订单,这一步还没有产生任何扣款,请稍后再试。", err)
 		}
 		return
 	}

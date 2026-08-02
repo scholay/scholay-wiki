@@ -528,7 +528,7 @@ func (s *Service) payAsYouGoOrQuotaError(userID uint, tier string, cfg *BillingC
 	if bal != nil && bal.PermMicro > 0 && !bal.CreditAutopay {
 		// 有钱但没开开关 —— 文案要指向「去开开关」,而不是笼统说额度没了。
 		// 刻意不点名「账户资产」页:移动端没有该页,具体入口由前端按钮按端承载。
-		msg += "你有可用经费,开启「用经费继续」后无需等待。"
+		msg += "你有可用经费。开启「用经费继续」就能立刻接着做 —— 只扣超出额度的那部分,随时可以关掉。"
 	}
 	return NewQuotaErrorWithDetails(msg, details)
 }
@@ -681,7 +681,7 @@ func (r *ResetResult) StripAmounts() *ResetResult {
 // ErrQuotaServiceDown 额度计数器不可用时的重置拒绝(**不扣费**)。
 // 旧实现降级期照扣经费但解锁不了(base 写被 rdb!=nil 包住跳过)→ 用户反复扣费;
 // 日窗口下明早自愈,7 天周期会卡整窗,必须显式拒绝(评审 window7 修订)。
-var ErrQuotaServiceDown = errors.New("额度服务暂时不可用,请稍后再试(未扣除经费)")
+var ErrQuotaServiceDown = errors.New("暂时没能重置额度,请稍过一会儿再试。你的重置次数没有被扣除,额度也没有任何变化。")
 
 // ResetQuota —— 手动重置:消耗经费 → 窗口内额度满血(base=used)。经费不足回 ErrInsufficientCredit。
 func (s *Service) ResetQuota(ctx context.Context, userID uint) (*ResetResult, error) {
@@ -1000,14 +1000,14 @@ func quotaExceededMessage(tier string, _ *BillingConfig, resetAt time.Time) stri
 	}
 	if tier == TierFree {
 		if when != "" {
-			return fmt.Sprintf("本周期 AI 额度已用完,将于 %s 自动重置。升级会员可获更高额度,或使用重置次数立即重置。", when)
+			return fmt.Sprintf("你的 AI 额度用完了,到 %s 会自动恢复满额。不想等的话:用 1 次重置次数马上恢复,或者升级 Pro —— 每个周期能做的事更多。", when)
 		}
-		return "本周期 AI 额度已用完。升级会员可获更高额度,或使用重置次数立即重置。"
+		return "你的 AI 额度用完了。可以用 1 次重置次数马上恢复,或者升级 Pro —— 每个周期能做的事更多。"
 	}
 	if when != "" {
-		return fmt.Sprintf("本周期 AI 额度已用完,将于 %s 自动重置;也可使用重置次数立即重置。", when)
+		return fmt.Sprintf("你的 AI 额度用完了,到 %s 会自动恢复满额;不想等,可以用 1 次重置次数马上恢复。", when)
 	}
-	return "本周期 AI 额度已用完。可使用重置次数立即重置。"
+	return "你的 AI 额度用完了。可以用 1 次重置次数马上恢复。"
 }
 
 // ─── 会员/额度总览(给前端「账户资产 · 总览」+ 旧「我的会员」)────────────────────

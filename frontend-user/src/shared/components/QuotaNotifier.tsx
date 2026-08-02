@@ -41,6 +41,9 @@ import { showQuotaToast } from './quota-toast';
 
 interface Overview {
   tier: 'free' | 'pro' | 'max';
+  /** 当前计费周期(monthly|yearly);免费/过期时后端省略。用于把「续期」在跨周期时说成「转为年付」。
+   *  mirrors backend/internal/vip/quota.go Overview.Cycle */
+  cycle?: 'monthly' | 'yearly';
   token: {
     used: number;
     ceiling: number;
@@ -178,7 +181,7 @@ export function QuotaNotifier() {
       qc.invalidateQueries({ queryKey: KEY });
       closeReset();
     },
-    onError: (err) => toast.error(toApiError(err).message || '重置失败'),
+    onError: (err) => toast.error(toApiError(err).message || '这次没能重置成功,重置次数没有扣除,请稍后再试'),
   });
 
   // 兑换码就地开通 —— 兑换成功 = tier/经费即时到账,用户可直接回对话「重新发送」。inline 调 http,
@@ -186,13 +189,13 @@ export function QuotaNotifier() {
   const redeem = useMutation({
     mutationFn: async (c: string) => (await http.post('/user/redeem-code', { code: c })).data,
     onSuccess: () => {
-      toast.success('兑换成功,已到账');
+      toast.success('兑换成功,权益已经到账');
       setCode('');
       notifyQuotaRecovered();
       qc.invalidateQueries({ queryKey: KEY });
       closeReset();
     },
-    onError: (err) => toast.error(toApiError(err).message || '兑换失败,请检查兑换码'),
+    onError: (err) => toast.error(toApiError(err).message || '这个兑换码没能用上,检查一下有没有输错'),
   });
 
   // payg 第三条路:就地开启「用经费继续」(PUT /user/billing/autopay,与 features/settings
@@ -200,12 +203,12 @@ export function QuotaNotifier() {
   const autopay = useMutation({
     mutationFn: async () => (await http.put('/user/billing/autopay', { enabled: true })).data,
     onSuccess: () => {
-      toast.success('已开启,重新发送即可继续');
+      toast.success('已开启。回到对话点「重新发送」就能接着跑,只扣超出额度的那部分');
       notifyQuotaRecovered();
       qc.invalidateQueries({ queryKey: KEY });
       closeReset();
     },
-    onError: (err) => toast.error(toApiError(err).message || '开启失败,请稍后重试'),
+    onError: (err) => toast.error(toApiError(err).message || '没能开启「用经费继续」,你的设置没有变化,请稍后再试'),
   });
 
   // 升级就地化的支付流(mirrors features/settings useSubscribeFlow;shared 不可反向 import)。
@@ -221,14 +224,14 @@ export function QuotaNotifier() {
       ).data.data;
       if (method === 'test') {
         await http.post('/user/billing/test-pay', { order_no: order.order_no });
-        toast.success('已升级,可重新发送');
+        toast.success('已升级。回到对话点「重新发送」就能接着跑');
         notifyQuotaRecovered();
         qc.invalidateQueries({ queryKey: KEY });
         closeReset();
         return true;
       }
       if (method === 'wechat') {
-        toast.info('微信支付即将开放,请暂用其他方式');
+        toast.info('微信支付还没开放,这次请用支付宝付款');
         return false;
       }
       // 支付宝收银台:跳走前记回程锚点(App.tsx 启动读 PAY_RETURN_KEY → navigate 回当前页并清除)。
@@ -247,7 +250,7 @@ export function QuotaNotifier() {
       window.location.href = pay.payment_url;
       return true;
     } catch (err) {
-      toast.error(toApiError(err).message || '发起支付失败');
+      toast.error(toApiError(err).message || '没能打开收银台,这一步还没有产生任何扣款,稍后再试即可');
       return false;
     }
   };
@@ -287,29 +290,29 @@ export function QuotaNotifier() {
       {data && (
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>本周期 AI 额度已用完</DialogTitle>
+          <DialogTitle>AI 额度用完了</DialogTitle>
           <DialogDescription>
             {/* 后端 message 作正文首段(DialogDescription 是 <p>,内层只能用 block span 不能用 div)。 */}
             {exceededMsg && <span className="mb-1 block font-medium text-foreground">{exceededMsg}</span>}
             额度按 {windowDays} 天周期计算
             {resetAtText && (
-              <>,将于 <b className="text-foreground">{resetAtText}</b> 自动重置满额</>
+              <>,<b className="text-foreground">{resetAtText}</b> 会自动恢复满额</>
             )}
             。
             {enough ? (
-              <>可使用 <b className="text-foreground">1 次</b>重置次数立即重置(剩余 {data.reset_passes} 次),或升级会员获更高额度。</>
+              <>等不了的话:用 1 次重置次数马上恢复(还剩 <b className="text-foreground">{data.reset_passes}</b> 次),或者升级会员 —— 每个周期能做的事更多。</>
             ) : (
-              <>升级会员可获更高额度;有兑换码也可在下方立即开通。</>
+              <>等不了的话可以升级会员 —— 每个周期能做的事更多;有兑换码也能在下面直接开通。</>
             )}
             {/* payg 引导行(按 载荷/overview 分支;按钮在 footer,这里只讲清路径) */}
             {!autopayOn && creditPositive && (
-              <span className="mt-1 block">你有可用经费:开启「用经费继续」后按量续用,不中断当前工作。</span>
+              <span className="mt-1 block">你有可用经费。开启「用经费继续」就能立刻接着做 —— 只扣超出额度的那部分,随时可以关。</span>
             )}
             {!autopayOn && !creditPositive && (
-              <span className="mt-1 block">也可开启「用经费继续」,充值后按量续用不中断。</span>
+              <span className="mt-1 block">也可以先充一点经费再开「用经费继续」:额度用完时会自动接着跑,只扣超出的那部分。</span>
             )}
             {autopayOn && !creditPositive && (
-              <span className="mt-1 block">已开启「用经费继续」,但经费余额不足 —— 充值后即可无缝续用。</span>
+              <span className="mt-1 block">「用经费继续」已经开着了,只是经费不够。充值到账后就能直接接着用,不用再改任何设置。</span>
             )}
             {/* 邀请奖励次选路(0100)。🔴 铁律:业界(Gamma/Dropbox)把邀请与升级**并列为次选项**,
                 绝不做限额弹窗的主 CTA —— 这里只是一条文字链,主按钮仍是 重置/升级/payg。 */}
@@ -341,7 +344,7 @@ export function QuotaNotifier() {
           <Input
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="输入兑换码立即开通"
+            placeholder="有兑换码?贴在这里"
             className="h-9 flex-1"
           />
           <Button type="submit" size="sm" variant="outline" disabled={!code.trim() || redeem.isPending}>
@@ -351,7 +354,7 @@ export function QuotaNotifier() {
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="ghost" size="sm">稍后再说</Button>
+            <Button variant="ghost" size="sm">先不用</Button>
           </DialogClose>
           <Button variant="outline" size="sm" onClick={onUpgrade}>
             升级会员
@@ -399,6 +402,7 @@ export function QuotaNotifier() {
       plans={plansData?.plans ?? []}
       popularTier={plansData?.popular_plan}
       currentTier={data?.tier}
+      currentCycle={data?.cycle}
       quote={quoteSubscription}
       methods={subscribePayMethods(plansData?.payment_methods, plansData?.test_payment ?? false)}
       onPay={paySubscribe}

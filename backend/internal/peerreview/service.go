@@ -159,7 +159,7 @@ func (s *Service) ensureReviewBudget(ctx context.Context, userID uint64) error {
 	}
 	slog.Info("peerreview: 剩余额度不足以起跑一场审稿,拒绝投递",
 		"user_id", userID, "remaining_micro", remaining, "need_micro", peerreviewMinBudgetMicro)
-	return vip.NewQuotaError("智能审稿单次消耗较大,当前剩余额度不足以完成一份完整审稿。请等待额度重置、升级会员或开启「用经费继续」后再投递。")
+	return vip.NewQuotaError("剩余额度不够跑完一份完整的审稿,所以这次没有开始 —— 没有扣掉任何额度,你的稿件和填好的信息都还在。等额度自动恢复满额后再投递就行;想现在就跑,可以用 1 次重置次数、升级会员,或开启「用经费继续」(只扣超出额度的那部分)。")
 }
 
 // VIPCheckerWired 报告配额校验器是否已注入(bootstrap 启动断言付费功能已接线)。

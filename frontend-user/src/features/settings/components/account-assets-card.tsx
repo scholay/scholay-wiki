@@ -42,10 +42,10 @@ const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 // 0090:重置只扣重置次数、经费买不到重置、无临时经费 —— 轮播文案与此口径对齐,别把旧话术加回来。
 function buildSlides(proMult: number, maxMult: number, rate: number) {
   return [
-    { title: '额度区别', body: `Free 为基础周期额度(7 天),Pro 是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。额度越高,可连续使用越多。` },
-    { title: '会员特权', body: 'Pro / Max 优先使用更强 AI 模型、新功能优先体验;Max 享顶级优先级与最强模型。' },
-    { title: '额度重置机制', body: '额度按 7 天周期计算:首次使用开始计时,周期到期自动恢复 100%;耗尽后可使用重置次数立即重置。' },
-    { title: '经费说明', body: `充值按 ¥1 = ${rate} 经费到账,经费不过期;开启「用经费继续」后,额度耗尽可无缝按量续用,详见定价页。` },
+    { title: '各档能用多少', body: `Pro 的 AI 用量是 Free 的 ${proMult} 倍,Max 又是 Pro 的 ${maxMult} 倍。档位越高,一周能连着干的活越多。` },
+    { title: '会员多了什么', body: 'Pro 和 Max 能优先用上更强的 AI 模型,新功能也先给你用;Max 还能在高峰期优先处理。' },
+    { title: '用完了怎么办', body: '额度从你第一次用 AI 那天起算,7 天后自动回满。不想等,可以用 1 次重置次数当场回满。' },
+    { title: '经费怎么用', body: `按 1 元 = ${rate} 经费到账,充多少用多少。开启「用经费继续」后,额度用完还能接着干活 —— 只扣超出额度的那部分。` },
   ];
 }
 
@@ -108,6 +108,7 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
         plans={plans?.plans ?? []}
         popularTier={plans?.popular_plan}
         currentTier={data.tier}
+        currentCycle={data.cycle}
         quote={quoteSubscription}
         methods={methods}
         initialTier={upgrade.tier}
@@ -131,7 +132,7 @@ function ActiveRow({ data }: { data: Overview }) {
         <span className={cn('inline-flex h-6 shrink-0 items-center rounded-4 px-2 text-12 font-medium', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
-        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-12 text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽后可使用重置次数立即重置`}>?</span>
+        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-12 text-faint" title={`这条杠是你这一轮还剩多少 AI 额度。从第一次用 AI 起算 ${t.window_days} 天,到点自动回满;不想等可以用 1 次重置次数当场回满。`}>?</span>
         <span className="shrink-0 text-12 font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
         <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
           {!t.unlimited && (
@@ -246,10 +247,10 @@ function ResetDialog({ data, exhausted }: { data: Overview; exhausted: boolean }
   const onReset = async () => {
     try {
       await reset.mutateAsync();
-      toast.success('本周期额度已重置为 100%');
+      toast.success('额度已回满,可以接着用了');
       setOpen(false);
     } catch (err) {
-      toast.error(toApiError(err).message || '重置失败');
+      toast.error(toApiError(err).message || '没能重置,请再试一次');
     }
   };
 
@@ -269,28 +270,28 @@ function ResetDialog({ data, exhausted }: { data: Overview; exhausted: boolean }
         {enough ? (
           <>
             <DialogHeader>
-              <DialogTitle>{exhausted ? '本周期额度已耗尽' : '重置本周期额度'}</DialogTitle>
+              <DialogTitle>{exhausted ? 'AI 额度用完了' : '把额度恢复满额'}</DialogTitle>
               <DialogDescription>
-                使用 <b className="text-foreground">1 次</b>重置次数立即把本周期 AI 额度重置为 100%(剩余 {data.reset_passes} 次),或等待周期到期自动重置。
+                用掉 1 次重置次数,额度马上回满 —— 用完你还剩 <b className="text-foreground">{Math.max(0, data.reset_passes - 1)}</b> 次。也可以什么都不做,等它到期自动回满。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose asChild>
-                <Button variant="outline" size="sm">稍后再说</Button>
+                <Button variant="outline" size="sm">先不用</Button>
               </DialogClose>
               <Button size="sm" onClick={onReset} disabled={reset.isPending}>
                 {reset.isPending && <Loader2 className="size-3.5 animate-spin" />}
-                使用 1 次重置
+                马上回满
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>重置次数已用完</DialogTitle>
+              <DialogTitle>重置次数用完了</DialogTitle>
               <DialogDescription>
                 {/* 刻意不引导充值:0090 起经费买不到重置,给一条走不通的路比不给更糟。 */}
-                你已没有可用的重置次数。可等待本周期额度自动重置,或升级会员获得更高额度。
+                你的重置次数已经用完了。这一轮额度到期会自动回满;想现在就有更多额度,可以升级会员。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

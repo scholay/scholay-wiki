@@ -52,14 +52,25 @@ export function usePublicPlans() {
 
 /** 当前用户生效会员档(已登录才查;复用 ['settings','billing'] 总览缓存,返回完整对象保持一致)。 */
 export function useCurrentTier(): 'free' | 'pro' | 'max' | undefined {
+  return useCurrentMembership().tier;
+}
+
+/** 当前会员档 + 计费周期。周期用于把购买弹窗里的「续期」在跨周期时说成「转为年付」——
+ *  月付会员选年付时,后端 renew 分支会把 vip_cycle 一并改写,CTA 得如实反映这件事。 */
+export function useCurrentMembership(): { tier?: 'free' | 'pro' | 'max'; cycle?: 'monthly' | 'yearly' } {
   const { data } = useQuery({
     queryKey: ['settings', 'billing'],
-    queryFn: async () => (await http.get<{ data: { tier: string } }>('/user/billing/overview')).data.data,
+    queryFn: async () =>
+      (await http.get<{ data: { tier: string; cycle?: string } }>('/user/billing/overview')).data.data,
     enabled: !!getAuthToken(),
     staleTime: 30_000,
   });
   const t = data?.tier;
-  return t === 'pro' || t === 'max' ? t : t === 'free' ? 'free' : undefined;
+  const c = data?.cycle;
+  return {
+    tier: t === 'pro' || t === 'max' ? t : t === 'free' ? 'free' : undefined,
+    cycle: c === 'yearly' || c === 'monthly' ? c : undefined,
+  };
 }
 
 /** 价格页订阅:建单 + 按选定支付方式发起。测试支付→一键履约后进会员页;支付宝→跳收银台;微信→暂未开放。

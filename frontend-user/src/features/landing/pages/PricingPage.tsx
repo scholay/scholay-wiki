@@ -8,13 +8,14 @@ import {
   MembershipPlanCard,
   BillingCycleToggle,
   maxYearlySavingsPct,
+  resolveDefaultCycle,
   PLAN_META,
   type BillingCycle,
 } from '@/shared/components';
 import { getAuthToken } from '@/shared/lib/auth-token';
 import { cn } from '@/shared/lib/utils';
 import { LandingLayout } from '../layout/LandingLayout';
-import { usePublicPlans, useLandingSubscribe, useCurrentTier, quoteSubscription } from '../api/plans';
+import { usePublicPlans, useLandingSubscribe, useCurrentMembership, quoteSubscription } from '../api/plans';
 
 const RANK: Record<string, number> = { free: 0, pro: 1, max: 2 };
 
@@ -50,18 +51,30 @@ const WEEKLY_ROWS: { name: string; free: string; pro: string; max: string }[] = 
 /** 常见问题 —— 规则细节收口在这里(三层信息架构:弹窗=转化 / 本页=介绍 / FAQ=规则)。
  *  「不自动续费」是真实现状,当卖点写;绝不承诺具体折扣。
  *  🔴 2026-07-31 拍板:「永不过期」类承诺与「算力点」字样一律不对用户展示。 */
-const PRICING_FAQS: { q: string; a: string }[] = [
-  { q: '额度是怎么计算的?', a: '会员额度按 7 天为一个周期:自你首次使用 AI 能力开始计时,周期到期自动恢复满额,无需任何手动操作。' },
-  { q: '未用完的额度会结转吗?', a: '不会。周期到期时额度直接重置为满额,未用完的部分不结转;下一周期从满额重新开始。' },
-  { q: '经费是怎么扣费的?', a: '充值后开启「用经费继续」,周期额度用尽时会自动按每次调用的实际用量从经费扣费,只扣超出额度的部分;期间模型与速度与套餐内完全一致,不降级。' },
-  { q: '重置次数是什么?', a: '一种立即把本周期额度恢复到 100% 的凭证。不想等周期自动重置时,使用一次重置次数即可当场恢复满额。' },
-  { q: '额度用完了怎么办?', a: '有四条路:等周期到期自动重置;使用重置次数立即恢复满额;开启「用经费继续」按量续用(只扣超出额度的部分);或升级到更高档位。' },
-  { q: '升级什么时候生效?', a: '立即生效。按剩余时长补差价,当前周期与到期日保持不变;升级完成后还可以再按年续期。' },
-  { q: '订阅会自动续费扣款吗?', a: '不会。订阅为单次付清,到期自动失效,不设任何自动扣费 —— 是否续期、何时续期,完全由你决定。' },
-  { q: '年付更划算吗?', a: '是。按当前价目,年付相当于约省 2 个月费用,具体以页面上的实时价格与「省 N%」标识为准;且一次付清,一年内免续费打扰。' },
-  { q: '支持哪些支付方式?', a: '支持支付宝等主流支付方式,以购买弹窗内实际开放的支付渠道为准。' },
-  { q: '学生或机构有优惠吗?', a: '可以通过站内活动与兑换码获得会员权益,具体以站内公告为准。' },
-];
+function pricingFaqs(savingsPct: number): { q: string; a: string }[] {
+  // 年付那条的折扣**必须动态取** —— 原文写死「相当于约省 2 个月费用」,而年价是 admin 可调的
+  // (billing_config.pro_year_price_cents 等),后台一改这句就成了虚假承诺。
+  const yearlyAnswer =
+    savingsPct > 0
+      ? `是。按现在的价目,年付比连着按月付 12 个月省约 ${Math.round(savingsPct * 100)}%,而且一次付清,一整年不用再操心续费。`
+      : '年付一次付清,一整年不用再操心续费;优惠幅度以页面上的价格为准。';
+  // 🔴 问题用**用户真的会这么问**的说法,不是我们替他拟的规格问题。
+  // 原文的「额度是怎么计算的 / 未用完的额度会结转吗 / 重置次数是什么」都是拿内部概念当题面
+  // (「结转」是会计名词、「重置次数」是 reset_passes 的直译),用户不会这么问,也读不出结论。
+  // 答案一律**先给结论再给机制**。
+  return [
+    { q: '我一周能用多少?', a: '上面「这些额度能做什么」那一栏列了每一档一周大概能干多少活。额度从你第一次用 AI 那天起算,每 7 天回满一次,到点自动恢复,你什么都不用做。' },
+    { q: '这周没用完的额度,会留到下周吗?', a: '不会留。到点直接回满、从头开始 —— 所以不用省着用。' },
+    { q: '什么时候才会动我的经费?', a: '要两个条件同时成立才会扣:额度已经用完,而且你自己打开了「用经费继续」。扣的是超出额度的那部分,额度以内的用量不会再扣一次。用经费的时候,模型和速度跟套餐里完全一样。' },
+    { q: '不想等,能马上把额度弄回来吗?', a: '可以。用掉 1 次重置次数,额度当场回满。你还剩几次可以在「账户资产」里看到。' },
+    { q: '额度用完了怎么办?', a: '四条路随你挑:等它自动回满(最多一周);用 1 次重置次数当场回满;打开「用经费继续」按实际用量接着跑;或者升到更高的档位。' },
+    { q: '升级要等多久才生效?', a: '马上就能用。只补剩下这段时间的差价,到期日不变。想改成按年付,升级完再操作就行。' },
+    { q: '到期会自动扣我的钱吗?', a: '不会。订阅是一次付清、到期自动失效,我们不会在你不知情的时候扣款 —— 要不要续、什么时候续,完全由你决定。' },
+    { q: '年付更划算吗?', a: yearlyAnswer },
+    { q: '能用什么付款?', a: '目前用支付宝付款。付款弹窗里会列出当下能用的方式。' },
+    { q: '学生或机构有优惠吗?', a: '暂时没有固定的学生价或机构价。不定期的活动和兑换码可以直接换到会员权益,留意站内公告即可。' },
+  ];
+}
 
 /** 价格页某档卡片 CTA(随当前会员档变化:立即订阅 / 续期 / 升级 / 已拥有)。 */
 function ctaFor(cardTier: string, currentTier?: string): { label: string; disabled: boolean } {
@@ -85,12 +98,17 @@ function ctaFor(cardTier: string, currentTier?: string): { label: string; disabl
 export function PricingPage() {
   const { data } = usePublicPlans();
   const { subscribe } = useLandingSubscribe();
-  const currentTier = useCurrentTier();
+  const { tier: currentTier, cycle: currentCycle } = useCurrentMembership();
   const navigate = useNavigate();
   const [sub, setSub] = useState<{ open: boolean; tier?: 'pro' | 'max' }>({ open: false });
-  const [cycle, setCycle] = useState<BillingCycle>('monthly');
+  // 🔴 三态:null = 用户还没手动选过 → 跟随派生的默认周期(年付优先)。
+  // 不能写成 useState<BillingCycle>('yearly'):plans 是异步到达的,初值求值那一刻它还是 [],
+  // 硬编码 yearly 会在「admin 关掉年付」的库上默认到一个不存在的周期,再靠各处回落绕回月付 ——
+  // 那是四处独立兜底,漏一处就错。派生函数只有一份判据。
+  const [cyclePick, setCyclePick] = useState<BillingCycle | null>(null);
 
   const plans = data?.plans ?? [];
+  const cycle = cyclePick ?? resolveDefaultCycle(plans);
   // 经费换算链(充值汇率,非额度):¥1 = recharge_rate 经费,1 经费 = credit_to_points 算力点。
   // 动态取后端 /billing/plans,不写死;任一项缺失/为 0 → 隐藏经费专区
   // (汇率没配好时,展示「¥1 = 0 经费」比不展示更糟)。
@@ -115,78 +133,99 @@ export function PricingPage() {
     <LandingLayout>
       <RouteSEO
         title="学者订阅计划 - Scholay"
-        description="Scholay 学者订阅完整介绍:Free / Pro / Max 三档权益对比、每周可完成的工作量参考、经费按量付费说明与常见问题。额度按 7 天周期自动恢复,经费永不过期,不设自动续费。"
-        keywords="Scholay 会员,学术 AI 订阅,科研经费,Scholay 价格,Scholay 定价,按量付费"
+        description="Scholay 学者订阅完整介绍:Free / Pro / Max 三档权益对比、每周可完成的工作量参考、经费按量付费说明与常见问题。额度按 7 天周期自动重置,年付一次付清更划算,不设任何自动续费。"
+        keywords="Scholay 会员,学术 AI 订阅,科研经费,Scholay 价格,Scholay 定价,年付,按量付费"
       />
       <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
-        <div className="rounded-16 border border-border bg-surface-1 p-6 md:p-10">
+        {/* ── 首屏 ──────────────────────────────────────────────────────────
+            🔴 2026-08-02 改版:**拆掉了原来包住 eyebrow + 标题 + 切换器 + 三卡的
+            `rounded-16 border bg-surface-1 p-6 md:p-10` 外壳**。那是「卡中卡」——
+            白卡(surface-card)套在浅灰盒(surface-1)里再落米白页面底,三层堆叠把这套设计系统
+            赖以分层的 3.5% 明度差稀释掉了,卡片浮不起来,是这一页显得不高级的结构性主因。
+            现在三卡直接坐在页面米白底上,白卡对米白 = 本体系的标准抬升关系。
+            取样的 9 家大厂定价页也全部是「卡片直接坐在页面底上」,没有一家套外壳。 */}
+        <div className="text-center">
           <p className="text-12 font-medium text-brand-red">SCHOLAY 学者订阅</p>
-          <h1 className="mt-1 text-24 font-medium text-foreground">学者订阅计划</h1>
-          <p className="mt-2 max-w-2xl text-12 text-muted-foreground">
+          {/* 标题上展示档:全站有 text-display-36 而这页原来只用 text-24,首屏没有分量 */}
+          <h1 className="mt-2 font-display text-28 font-bold leading-display-tight text-foreground md:text-display-36">
+            选择适合你的科研节奏
+          </h1>
+          <p className="mx-auto mt-3 max-w-reading text-14 leading-paragraph text-muted-foreground">
             {/* 0090:订阅不再赠送经费、经费也买不到重置 —— 卖点回到「额度」本身。 */}
-            会员订阅提供更高的 AI 额度,按 7 天周期计算:自首次使用开始计时,到期自动恢复满额。
+            订阅后 AI 能用得更久,额度每 7 天重置一次 —— 就算用光,最多等一周。
+            论文检索、期刊检索和文献管理随便用,不占额度。
           </p>
 
-          {/* 月付 / 年付 切换 —— 年付带「省 N%」徽标(0079;任一档开放年付才显示) */}
+          {/* 月付 / 年付 切换 —— 年付带「省 N%」徽标(0079;任一档开放年付才显示)。
+              位置照大厂惯例放「标题下方、卡片上方」(取样 7 家里 6 家如此)。 */}
           {yearlyAvailable && (
             <div className="mt-6 flex justify-center">
-              <BillingCycleToggle value={cycle} onChange={setCycle} savingsPct={savingsPct} />
+              <BillingCycleToggle value={cycle} onChange={setCyclePick} savingsPct={savingsPct} />
             </div>
           )}
-
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {plans.map((p) => {
-              const isFree = p.tier === 'free';
-              const popular = data?.popular_plan === p.tier;
-              const cta = ctaFor(p.tier, currentTier);
-              return (
-                <MembershipPlanCard
-                  key={p.tier}
-                  plan={p}
-                  cycle={cycle}
-                  popularBadge={popular}
-                  highlighted={popular}
-                  footer={
-                    isFree ? (
-                      <Link
-                        to="/"
-                        className="inline-flex h-10 items-center justify-center rounded-8 border border-border-button text-14 font-medium text-faint transition-colors hover:bg-surface-2"
-                      >
-                        FREE
-                      </Link>
-                    ) : (
-                      <button
-                        onClick={() => !cta.disabled && onSubscribe(p.tier as 'pro' | 'max')}
-                        disabled={cta.disabled}
-                        className={cn(
-                          'inline-flex h-10 items-center justify-center gap-2 rounded-8 text-14 font-medium transition-colors',
-                          cta.disabled
-                            ? 'cursor-not-allowed border border-border-button text-faint'
-                            : popular
-                              ? 'bg-brand-red text-on-brand hover:bg-brand-red/90'
-                              : 'border border-border-button text-foreground hover:bg-surface-2',
-                        )}
-                      >
-                        {cta.label}
-                      </button>
-                    )
-                  }
-                />
-              );
-            })}
-          </div>
         </div>
+
+        <div className="mt-8 grid grid-cols-1 items-stretch gap-4 md:grid-cols-3 md:gap-6">
+          {plans.map((p) => {
+            const isFree = p.tier === 'free';
+            const popular = data?.popular_plan === p.tier;
+            const cta = ctaFor(p.tier, currentTier);
+            // CTA 满宽 + 填充度对比:推荐档实心、其余描边 —— 取样 9 家**零例外**,
+            // 这是 2026 大厂拉开推荐档视觉重量的主要手段(比徽章/色条更通用)。
+            const ctaBase =
+              'inline-flex h-10 w-full items-center justify-center gap-2 rounded-8 text-14 font-medium transition-colors';
+            return (
+              <MembershipPlanCard
+                key={p.tier}
+                plan={p}
+                cycle={cycle}
+                popularBadge={popular}
+                highlighted={popular}
+                footer={
+                  isFree ? (
+                    <Link
+                      to="/"
+                      // Free 档 CTA 刻意比付费档弱一档(文字用 faint):三卡的视觉层级
+                      // 靠「实心 → 描边 → 弱描边」三级递进,而不是靠给推荐档加装饰。
+                      className={cn(ctaBase, 'border border-border-button text-faint hover:bg-surface-2 hover:text-foreground')}
+                    >
+                      免费开始使用
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={() => !cta.disabled && onSubscribe(p.tier as 'pro' | 'max')}
+                      disabled={cta.disabled}
+                      className={cn(
+                        ctaBase,
+                        cta.disabled
+                          ? 'cursor-not-allowed border border-border-button text-faint'
+                          : popular
+                            ? 'bg-brand-red text-on-brand hover:bg-brand-red/90'
+                            : 'border border-border-button text-foreground hover:bg-surface-2',
+                      )}
+                    >
+                      {cta.label}
+                    </button>
+                  )
+                }
+              />
+            );
+          })}
+        </div>
+        <p className="mt-4 text-center text-12 text-faint">
+          订阅为单次付清,到期自动失效,<span className="font-medium text-subtle">不设任何自动扣费</span> —— 是否续期完全由你决定。
+        </p>
 
         {/* ── 这些额度能做什么 ──────────────────────────────────────────────
             组合口径三段 + 单项参考表格,全部静态保守估算(WEEKLY_COMBOS / WEEKLY_ROWS
             顶部有数字纪律说明)。「检索/文管不限次」是一等卖点(Cursor「无限兜底项」范式)。 */}
         <div className="mt-6 rounded-16 border border-border bg-surface-card p-6 md:p-8">
-          <p className="text-12 font-medium text-faint">额度干活预期</p>
+          <p className="text-12 font-medium text-faint">能干多少活</p>
           <h2 className="mt-1 text-20 font-medium text-foreground">这些额度能做什么?</h2>
           <p className="mt-2 max-w-2xl text-12 leading-paragraph text-muted-foreground">
-            <span className="font-medium text-foreground">论文检索、期刊检索与文献管理不耗额度、不限次</span>
-            ,任何档位都可无限使用;额度只在调用 AI 能力(对话 / 审稿 / 绘图 / 翻译等)时消耗。
-            下面是三档每周大致能完成的工作量。
+            <span className="font-medium text-foreground">论文检索、期刊检索、文献管理随便用,不占额度</span>
+            ,哪一档都一样;只有让 AI 干活(对话 / 审稿 / 绘图 / 翻译)时才会消耗。
+            下面是每一档一周大概能干完的量。
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {WEEKLY_COMBOS.map((c) => (
@@ -220,7 +259,7 @@ export function PricingPage() {
             </table>
           </div>
           <p className="mt-3 text-12 text-faint">
-            * 按默认模型与典型用量估算,实际随任务复杂度浮动,以实际为准。
+            * 这些是按常用模型、常见任务估的量。任务越复杂(比如稿子越长、要查的文献越多)消耗越快,实际以你自己的用量为准。
           </p>
         </div>
 
@@ -233,19 +272,19 @@ export function PricingPage() {
           <div className="mt-6 rounded-16 border border-border bg-surface-card p-6 md:p-8">
             {/* 🔴 2026-07-31 拍板:经费宣传不出现「永不过期」类承诺,也不出现「算力点」字样
                 (算力点是内部计量单位,用户端一律不露出)。主打「额度用完,工作不中断」。 */}
-            <p className="text-12 font-medium text-faint">经费 · 按量付费</p>
+            <p className="text-12 font-medium text-faint">额度之外</p>
             <h2 className="mt-1 text-20 font-medium text-foreground">额度用完,工作不中断</h2>
             <p className="mt-2 max-w-2xl text-12 leading-paragraph text-muted-foreground">
-              充值经费并开启「用经费继续」,周期额度用尽时自动按实际用量从经费扣费 ——
-              任务不停,思路不断。¥1 = {rechargeRate.toLocaleString()} 经费,充多少用多少,与订阅互不冲突。
+              额度用完时,如果你开了「用经费继续」,就会自动用经费接着跑 —— 手上的任务不会断在半路。
+              1 元 = {rechargeRate.toLocaleString()} 经费,充多少用多少,和订阅互不影响。
             </p>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
               {[
-                { k: '无缝续用', v: '额度用尽自动切换到经费,对话 / 审稿 / 写作进行中的任务不中断' },
-                { k: '只扣超出部分', v: '按每次调用的实际用量精确扣费,额度内的使用绝不重复计费' },
-                { k: '绝不降级', v: '用经费期间,模型与速度与套餐内完全一致' },
-                { k: `¥1 = ${rechargeRate.toLocaleString()} 经费`, v: '充值即时到账,随充随用;适合用量不稳定或偶尔超额的场景' },
-                { k: '你说了算', v: '按量付费默认关闭,须你显式开启,不会不知情扣费;可随时关闭' },
+                { k: '任务不会断在半路', v: '额度用完时自动接上,正在跑的对话、审稿、写作都不会中断' },
+                { k: '只扣超出的那部分', v: '额度以内的用量不会再扣一次,超出多少扣多少' },
+                { k: '不降速、不换小模型', v: '用经费的时候,模型和速度跟套餐里完全一样' },
+                { k: `1 元 = ${rechargeRate.toLocaleString()} 经费`, v: '充多少用多少,适合用量不稳定、偶尔超一点的情况' },
+                { k: '要不要用,你说了算', v: '这个开关默认是关的,得你自己打开才会花钱,随时可以关掉' },
               ].map((it) => (
                 <div key={it.k} className="rounded-12 border border-border bg-surface-1 p-4">
                   <p className="text-14 font-medium text-foreground">{it.k}</p>
@@ -254,7 +293,7 @@ export function PricingPage() {
               ))}
             </div>
             <p className="mt-4 text-12 text-faint">
-              已登录用户可在「账户资产 · 经费充值」充值并开启「用经费继续」。
+              登录后在「账户资产」里就能充值,并打开「用经费继续」。
             </p>
           </div>
         )}
@@ -263,9 +302,9 @@ export function PricingPage() {
             原生 details/summary 手风琴(shared/ui 无 Accordion,不引新依赖)。 */}
         <div className="mt-6 rounded-16 border border-border bg-surface-card p-6 md:p-8">
           <p className="text-12 font-medium text-faint">常见问题</p>
-          <h2 className="mt-1 text-20 font-medium text-foreground">订阅前,你可能想知道</h2>
+          <h2 className="mt-1 text-20 font-medium text-foreground">买之前,你可能想问</h2>
           <div className="mt-4">
-            {PRICING_FAQS.map((f) => (
+            {pricingFaqs(savingsPct).map((f) => (
               <details key={f.q} className="group border-b border-border-hairline last:border-b-0">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-3 text-14 font-medium text-foreground [&::-webkit-details-marker]:hidden">
                   {f.q}
@@ -284,6 +323,7 @@ export function PricingPage() {
         plans={plans}
         popularTier={data?.popular_plan}
         currentTier={currentTier}
+        currentCycle={currentCycle}
         quote={quoteSubscription}
         methods={methods}
         initialTier={sub.tier}
