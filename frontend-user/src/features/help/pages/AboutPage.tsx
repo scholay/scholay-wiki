@@ -56,7 +56,6 @@ interface Pillar {
   title: string;
   desc: string;
   to?: string;
-  status?: '已上线' | '即将推出';
 }
 
 const PILLARS: Pillar[] = [
@@ -65,28 +64,24 @@ const PILLARS: Pillar[] = [
     title: '文献搜索',
     desc: '覆盖 2 亿+ 学术论文,中英双语,关键词 + 语义双引擎,引文矩阵分析。',
     to: '/features/search',
-    status: '已上线',
   },
   {
     icon: PencilRuler,
     title: '智能写作 · Prism',
     desc: 'LaTeX 在线协作 + AI 辅助改写,从 outline 到投稿一气呵成。',
     to: '/features/prism',
-    status: '已上线',
   },
   {
     icon: GraduationCap,
     title: '智能助手 · Claw',
     desc: '研究问答与多论文对话,把论文 PDF 变成可以问的对象。',
     to: '/features/claw',
-    status: '已上线',
   },
   {
     icon: Target,
     title: '智能审稿',
     desc: '为期刊与会议设计的智能评审工作台,提前发现可能被审稿人指出的问题。',
     to: '/peer-review',
-    status: '已上线',
   },
 ];
 
@@ -211,18 +206,13 @@ function ValueCard({ value: { icon: Icon, title, desc } }: { value: Value }) {
   );
 }
 
-function PillarCard({ pillar: { icon: Icon, title, desc, to, status } }: { pillar: Pillar }) {
+function PillarCard({ pillar: { icon: Icon, title, desc, to } }: { pillar: Pillar }) {
   const inner = (
     <>
       <div className="flex items-start justify-between gap-3">
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-1 border border-border-soft shrink-0">
           <Icon className="size-4 text-foreground" strokeWidth={2} />
         </span>
-        {status === '即将推出' && (
-          <span className="inline-flex items-center h-5 px-1.5 rounded-pill bg-surface-2 text-faint text-12 font-medium whitespace-nowrap">
-            即将推出
-          </span>
-        )}
       </div>
       <p className="mt-3 text-12 font-medium text-foreground">{title}</p>
       <p className="mt-1 text-12 text-muted-foreground leading-paragraph">{desc}</p>

@@ -8,7 +8,6 @@ import {
   PenTool,
   Sparkles,
 } from 'lucide-react';
-import { PRISM_COMING_SOON } from '@/shared/lib/feature-flags';
 
 /**
  * 全站功能菜单 —— 唯一来源(对照 .pen `S72unz` 全站功能菜单浮层)。
@@ -33,11 +32,6 @@ export interface Menu {
   href: string;
   /** 分类 —— 用于全站功能菜单浮层分组 */
   category: MenuCategory;
-  /**
-   * "即将推出" 标记 —— true 时菜单点击仍可跳转,但会在 chip 上加 amber 角标,
-   * 进入页面后由各自 Page 渲染 ComingSoonView 占位预览
-   */
-  comingSoon?: boolean;
   /** 哪些路径前缀算"在当前菜单内" */
   match: (pathname: string) => boolean;
 }
@@ -91,7 +85,6 @@ export const MENUS: Menu[] = [
     href: '/prism',
     category: 'ai',
     match: startsWith('/prism'),
-    comingSoon: PRISM_COMING_SOON, // 临时:本版上线先标「即将推出」,迭代完把 env 关掉即去角标
   },
   {
     id: 'peer-review',

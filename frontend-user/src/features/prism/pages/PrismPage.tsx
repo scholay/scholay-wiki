@@ -1,8 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { useUrlState } from '@/shared/hooks';
-import { ComingSoonView } from '@/shared/components/ComingSoonView';
 import { LoadingState, ResourceError } from '@/shared/components';
-import { PRISM_COMING_SOON } from '@/shared/lib/feature-flags';
 import { PrismHome } from '../components/PrismHome';
 import { useProject } from '../api/prism';
 
@@ -10,7 +8,6 @@ import { useProject } from '../api/prism';
 // 此前【都】静态引入 → /prism 首访两代编辑器全下(~3MB)。改 lazy 后按 schema_version 只拉命中的一栈,V1/V2 互斥加载。
 const PrismWorkspace = lazy(() => import('../components/PrismWorkspace').then((m) => ({ default: m.PrismWorkspace })));
 const PrismWorkspaceV2 = lazy(() => import('../components/PrismWorkspaceV2').then((m) => ({ default: m.PrismWorkspaceV2 })));
-const PrismPreview = lazy(() => import('../components/PrismPreview').then((m) => ({ default: m.PrismPreview })));
 
 /**
  * 智能写作 (Scholay Prism) —— LaTeX IDE。两态共用 SidebarLayout(复用全站 sidebar 框架):
@@ -24,18 +21,6 @@ export function PrismPage() {
   // (连同它的文件 / 对话 / WS 等一大堆 hook)挂上去,空转成一个永远在转圈的死编辑器。
   // 与 PrismWorkspace 内部的 useProject 同 queryKey,命中同一份缓存,不会多打一次请求。
   const project = useProject(pid > 0 ? pid : undefined);
-
-  // 临时门:本版上线先盖蒙层(VITE_PRISM_COMING_SOON='true')。本地 dev 不设此 env → 放行真实 Prism。
-  // 迭代完成 / 正式上线时,把这段连同 feature-flags.ts 的开关一起删掉即可,下面真实逻辑不受影响。
-  if (PRISM_COMING_SOON) {
-    return (
-      <ComingSoonView
-        title="智能写作"
-        description="AI-native LaTeX 写作 IDE,正在打磨中"
-        preview={<Suspense fallback={null}><PrismPreview /></Suspense>}
-      />
-    );
-  }
 
   if (pid > 0) {
     if (project.isLoading) return <LoadingState className="h-full" />;

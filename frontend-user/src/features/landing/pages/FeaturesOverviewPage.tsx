@@ -24,7 +24,6 @@ interface FeatureEntry {
   englishName: string;
   desc: string;
   icon: LucideIcon;
-  comingSoon?: boolean;
 }
 
 const FEATURES: FeatureEntry[] = [
@@ -48,7 +47,6 @@ const FEATURES: FeatureEntry[] = [
     englishName: 'Scholay Prism',
     desc: '浏览器内的科研级 LaTeX 编辑器 + AI 续写',
     icon: PenTool,
-    comingSoon: true,
   },
   {
     to: '/features/claw',
@@ -70,7 +68,6 @@ const FEATURES: FeatureEntry[] = [
     englishName: 'Peer Review',
     desc: '为期刊与会议设计的智能评审工作台',
     icon: BookOpen,
-    comingSoon: true,
   },
 ];
 
@@ -118,11 +115,6 @@ function FeatureCard({ feature }: { feature: FeatureEntry }) {
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-8 bg-surface-1 border border-border">
           <Icon className="size-5 text-foreground" strokeWidth={1.8} />
         </span>
-        {feature.comingSoon && (
-          <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none">
-            即将推出
-          </span>
-        )}
       </div>
       <div>
         <p className="text-14 font-medium text-foreground">{feature.name}</p>

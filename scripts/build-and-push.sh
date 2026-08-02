@@ -55,8 +55,6 @@ fi
 # 兜底默认值(.env 不存在或没设时)
 : "${SITE_URL:=https://www.scholay.com}"
 : "${SITE_NAME:=Scholay}"
-# 临时:智能写作「即将推出」门。默认 true(本版上线先盖蒙层);Prism 正式上线时在 .env 设 PRISM_COMING_SOON=false 再 build。
-: "${PRISM_COMING_SOON:=true}"
 # UMAMI_WEBSITE_ID 不再 build-time 注入 —— 改为 runtime fetch /api/v1/public/umami-config
 
 # 检查并设置 buildx (仅用于 backend)
@@ -214,7 +212,6 @@ build_frontend() {
         --build-arg VITE_API_BASE_URL= \
         --build-arg VITE_SITE_URL="${SITE_URL}" \
         --build-arg VITE_SITE_NAME="${SITE_NAME}" \
-        --build-arg VITE_PRISM_COMING_SOON="${PRISM_COMING_SOON}" \
         ${context}
 
     # 打 latest 标签

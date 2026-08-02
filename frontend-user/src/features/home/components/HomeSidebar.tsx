@@ -48,15 +48,12 @@ function RichMenuItem({
   icon: Icon,
   label,
   subtitle,
-  comingSoon,
   inactive,
 }: {
   href: string;
   icon: LucideIcon;
   label: string;
   subtitle: string;
-  /**"即将推出"标记 —— 与顶栏 carousel / 全功能 overlay 保持一致 */
-  comingSoon?: boolean;
   /** disabled/灰显态 — .pen`m3`工具大全的图标用了更浅色 */
   inactive?: boolean;
 }) {
@@ -93,14 +90,6 @@ function RichMenuItem({
             inactive ? 'text-subtle' : 'text-foreground')}
         >
           <span className="truncate">{label}</span>
-          {comingSoon && (
-            // 之前用 bg-brand-amber 太抢眼 —— 首页 sidebar 已经有多条这种条目,
-            // 一排亮黄会盖过当前可用菜单的视觉重量。改成 surface-2 + faint 文字,
-            // 仍可识别但视觉权重明显下沉。
-            <span className="inline-flex items-center h-3.5 px-1 rounded-pill bg-surface-2 text-faint text-[9px] font-medium leading-none shrink-0">
-              即将推出
-            </span>
-          )}
         </span>
         <span className="text-10 text-faint truncate mt-px">{subtitle}</span>
       </div>
@@ -122,7 +111,6 @@ export function HomeSidebar() {
       <SidebarContent>
         {/* 按 menus.ts 分类渲染:检索 / 智能 / 资源 */}
         {/*"其他"段(设置/帮助与反馈)暂时移除 —— 相应路由还未实现,避免点击 404 */}
-        {/* 之前智能段挂了一个 BETA 徽章 —— 已删除,改成每条菜单各自带"即将推出"*/}
         {groups.map((g) => (
           <SidebarSection key={g.category} label={g.label}>
             {g.items.map((m) => (
@@ -132,9 +120,6 @@ export function HomeSidebar() {
                 icon={m.icon}
                 label={m.label}
                 subtitle={subtitleFor(m.id)}
-                comingSoon={m.comingSoon}
-                //"即将推出"整条灰显(标题 + 图标),与可用项拉开视觉重量
-                inactive={m.comingSoon}
               />
             ))}
           </SidebarSection>

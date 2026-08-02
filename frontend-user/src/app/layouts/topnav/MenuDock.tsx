@@ -543,7 +543,7 @@ function DockItem({
       type="button"
       onClick={onClick}
       onFocus={onFocus}
-      title={menu.comingSoon ? `${menu.label} · 即将推出` : menu.label}
+      title={menu.label}
       aria-current={active ? 'page' : undefined}
       style={{ fontSize, paddingLeft: pad, paddingRight: pad }}
       className={cn(
@@ -567,10 +567,6 @@ function DockItem({
       </motion.span>
       <span>{menu.label}</span>
 
-      {/* 「即将推出」—— 坞里没有横向余量放文字,用 amber 圆点示意 */}
-      {menu.comingSoon && (
-        <span aria-hidden className="size-1.5 shrink-0 rounded-pill bg-brand-amber" />
-      )}
     </motion.button>
   );
 }

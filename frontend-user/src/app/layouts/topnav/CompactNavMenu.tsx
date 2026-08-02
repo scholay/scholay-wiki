@@ -155,7 +155,6 @@ function MenuRow({
       icon={menu.icon}
       label={menu.label}
       active={menu.match(pathname)}
-      badge={menu.comingSoon ? '即将推出' : undefined}
       onSelect={onGo}
     />
   );
@@ -184,7 +183,6 @@ function Row({
       <Icon className="size-4 shrink-0" />
       <span className="truncate">{label}</span>
       {badge && (
-        // 「即将推出」徽章：h-4 rounded-pill bg-brand-amber + text-12,同 AllMenusOverlay。
         // 唯一差别是横向 padding 用 px-2(8) 而不是那两处的 px-1.5(6) ——
         // ① Figma §4.2 Badge padding 就是 4–8,8 在集合内、6 不在;
         // ② 护栏「半档间距」棘轮当前是 **零余量**(1293/1293),新增一个 px-1.5 会直接把

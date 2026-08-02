@@ -156,14 +156,6 @@ function ListItem({
       <div className="flex-1 min-w-0 flex flex-col">
         <span className="text-14 font-medium text-foreground truncate inline-flex items-center gap-1.5">
           {menu.label}
-          {menu.comingSoon && (
-            // 全站「即将推出」徽章统一规格:h-4 px-1.5 rounded-pill bg-brand-amber
-            // + text-12(Figma §4.2 Badge 文字 12px / 胶囊 / padding 4-8)。
-            // 原先是 text-[9px] + h-3.5 —— 9px 低于六档下限 12 且无 Figma 依据,已归档。
-            <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none">
-              即将推出
-            </span>
-          )}
         </span>
         <span className="text-12 text-faint truncate mt-px">
           {menu.englishName} · {menu.description}
@@ -210,12 +202,6 @@ function GridView({
                     isActive ? 'bg-surface-1' : 'hover:bg-surface-1'
                   )}
                 >
-                  {m.comingSoon && (
-                    // 规格同上(list 视图)—— 全站徽章一套规格,不因视图切换而变
-                    <span className="absolute top-1.5 right-1.5 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none">
-                      即将推出
-                    </span>
-                  )}
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-card border border-border">
                     <Icon className="size-4 text-subtle" />
                   </span>

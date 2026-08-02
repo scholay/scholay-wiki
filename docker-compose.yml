@@ -507,8 +507,6 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ""
-        # 临时:智能写作「即将推出」门(读 .env 的 PRISM_COMING_SOON,默认 true)。true=盖蒙层。
-        VITE_PRISM_COMING_SOON: ${PRISM_COMING_SOON:-true}
         # umami tracker 已改为运行时 fetch /api/v1/public/umami-config 拿 website_id,
         # 不需要 build-time 注入。换 umami DB / 重建 website 都无需 rebuild 前端。
     container_name: scholar_frontend_user
