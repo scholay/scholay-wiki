@@ -67,8 +67,13 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         // 限高滚动(max-h-[90dvh] + overflow-y-auto):长表单在窄屏不再溢出到屏幕外无法操作。
-        // 关键:不加任何 sm:/宽度/内边距 覆盖 —— 否则会「漏」过下游 p-0 / w-[...] 全屏弹窗的无前缀覆盖,
-        // 反而在桌面把它们的自定义留白/宽度改回来。设了自己 overflow/max-h 的弹窗经 tw-merge 各自胜出,不受影响。
+        // 关键:不加任何 sm:/宽度/内边距 覆盖 —— 否则会「漏」过下游全屏弹窗(自带零内边距与自定义
+        // 宽度)的无前缀覆盖,反而在桌面把它们的自定义留白/宽度改回来。
+        // 设了自己 overflow/max-h 的弹窗经 tw-merge 各自胜出,不受影响。
+        // ⚠️ 上面刻意用中文描述而不写类名:Tailwind v4 的扫描器不认识注释,注释里出现的类名会被
+        // 当成真用法编译进产物。这里原先写的是一个带省略号的占位任意值,产物 CSS 里就真多了一条
+        // 同名空规则(同族的另一处更糟:注释里的 padding 占位值编译出了非法的 env(),
+        // lightningcss 每次构建都报 Unexpected token —— 见 MobileBottomNav.tsx 的红字)。
         'fixed left-1/2 top-1/2 z-modal grid w-full max-w-lg max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain border border-border bg-surface-card p-6 shadow-overlay duration-200 sm:rounded-16',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',

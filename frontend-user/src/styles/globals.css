@@ -1,4 +1,14 @@
 @import 'tailwindcss';
+
+/* 🔴 把 tests/ 排除出 Tailwind 的扫描面(2026-08-02)。
+ *
+ * Tailwind v4 默认自动扫描项目源码,而它**不认识注释、也不认识"这是一个测试断言"** ——
+ * 任何形如 `前缀-[值]` 的字符串都会被当成真用法编译成一条 CSS 规则。
+ * 后果是 design-system-guard 这个**用来检测违规写法**的测试文件,自己把被检测的样例
+ * (如带省略号的占位任意值)注进了生产 CSS:产物里真的多出 `--tw-shadow:...` 这种非法声明,
+ * lightningcss 每次构建都报 Unexpected token。护栏反过来污染了它要保护的产物。
+ * 同族的两处注释占位值已就地改成中文描述(MobileBottomNav.tsx / dialog.tsx 的红字)。 */
+@source not "../../tests";
 @import 'tw-animate-css';
 /* Noto Serif SC 的 101 个 unicode-range 分片 —— 由 scripts/sync-noto-serif-sc.mjs 生成,
    920 行 @font-face 单独成文件以免淹没本文件。见下方「字体资产」注释。 */

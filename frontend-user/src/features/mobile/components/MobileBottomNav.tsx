@@ -53,7 +53,12 @@ export function MobileBottomNav() {
     /*
      * 全面屏 home indicator 让位(需 index.html 的 viewport-fit=cover)。
      *
-     * 🔴 修复(render-audit-2026-07-28 P1-6 同族):此前是 `h-16 … pb-[env(...)]` 写在同一个盒子上。
+     * 🔴 修复(render-audit-2026-07-28 P1-6 同族):此前是「定高 h-16 + 底部内边距走 env 安全区」
+     * 写在同一个盒子上。
+     * ⚠️ 上面这句话刻意**不写成类名形态** —— Tailwind v4 的源码扫描器不认识注释,
+     * 注释里出现的类名会被当成真用法编译进产物。此处原本写着一个带省略号的 pb 任意值,
+     * 于是产物里多了一条 `padding-bottom: env(...)` 的非法规则,lightningcss 每次构建都报
+     * 「Unexpected token Delim('.')」。在注释里描述类名时,要么写全可编译的值,要么改用中文描述。
      * Tailwind preflight 下 box-sizing 是 border-box → **定高 64px 里的 padding 是往里吃的**:
      * iPhone X+ 的 34px 安全区把 tab 内容盒压到 30px(图标 22 + 文字 15 放不下 → 挤扁),
      * 而 nav 总高仍是 64px、底边照样贴在 home indicator 上 —— 既压了内容又没让成位。
