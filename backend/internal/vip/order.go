@@ -27,6 +27,21 @@ import (
 // ErrInvalidOrder —— 下单参数非法(金额过低 / 套餐无效)。
 var ErrInvalidOrder = errors.New("vip: invalid order")
 
+// ErrUpgradeBasisStale —— 升级单的定价基准(下单时的剩余时长)已失效:会员到期日在
+// 下单→支付之间被延长过,这张单的差价买不到现在这段时长。见 activateSubscriptionInTx 的红字。
+// 回调返回它 = 不履约,网关会持续重推并最终留下失败记录,交人工处理(系统内无退款链路)。
+var ErrUpgradeBasisStale = errors.New("vip: upgrade order pricing basis is stale")
+
+// yuanToCents 元 → 分,四舍五入。金额比较一律先过它:orders.amount/final_amount 是
+// decimal(10,2) 但在 Go 侧是 float64,269.00 可能是 268.99999999999997,直接比浮点会随
+// 存取路径抖动。分是这条链上唯一没有表示误差的刻度。
+func yuanToCents(yuan float64) int64 { return int64(math.Round(yuan * 100)) }
+
+// upgradeBasisTolerance 升级单定价基准的容差:当前到期日比订单冻结值晚这么多以内仍算成立。
+// 取 24h —— 吸收 Truncate(time.Second) 对齐、DATETIME 进位与时区抖动;任何真实的
+// 「先续期再付旧升级单」都是整周期(≥1 个自然月)级别的偏移,远在容差之外。
+const upgradeBasisTolerance = 24 * time.Hour
+
 // Order orders 表一行(只映射本模块用到的列;其余列走 DB 默认)。
 type Order struct {
 	ID             uint64     `gorm:"primaryKey" json:"id"`
@@ -203,6 +218,17 @@ func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, n
 		// 保持不变 —— 否则同一笔升级的金额会随月份跳变,且档位阈值一起浮动会造成补差阶跃突变。
 		period := prorationDays(basisCycle)
 		diffCents := proratedDiff(cfg.PriceCentsFor(target, basisCycle)-cfg.PriceCentsFor(cur, basisCycle), remainingDays, period)
+		// 🔴 单调性地板(2026-08-02 计费审计 P1-10):basisCycle 是在 remainingDays>30 处**硬切**的,
+		// 而年价日率比月价日率低(现网 575 vs 700 分/天),于是补差在这一天**向下跳**:
+		// 余期 30 天补 ¥210.00,余期 31 天只补 ¥178.36 —— 多拿一天 Max 反而少付 ¥31.64,
+		// 且「先花 ¥59 续一个月再升级」能把整段的日率拉低。约 7/12 的月份(自然月 31 天)落在便宜档。
+		// 用「满一个月的月价补差」做地板:余期更长绝不更便宜。长余期不受影响(年价外推早已超过这个地板,
+		// 例:余期 100 天 = ¥575、393 天 = ¥2261,都远高于 ¥210),所以既有的防倒挂结论完全保留。
+		if basisCycle == CycleYearly {
+			if floor := cfg.PriceCentsFor(target, CycleMonthly) - cfg.PriceCentsFor(cur, CycleMonthly); floor > diffCents {
+				diffCents = floor
+			}
+		}
 		if diffCents < 1 {
 			diffCents = 1 // 价差地板, 避免 0 元单
 		}
@@ -357,8 +383,18 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 		if ord.Status != "pending" && ord.Status != "expired" {
 			return fmt.Errorf("order status not payable: %s", ord.Status)
 		}
-		if math.Abs(amount-ord.FinalAmount) > 0.01 {
-			return fmt.Errorf("amount mismatch: expect %.2f got %.2f", ord.FinalAmount, amount)
+		// 🔴 金额复核改**整数分**(2026-08-02 计费审计 P1-4)。
+		// 旧的 `math.Abs(amount-ord.FinalAmount) > 0.01` 有两个毛病:① 边界是「严格大于 0.01」,
+		// 于是恰好少付 1 分被静默放行 —— 而下单侧 int(amount*100) 的浮点截断产生的正是这种
+		// 0.00999… 级偏差,两个缺陷刚好互相掩护;② 用浮点比金额本身就不该出现在履约路径上。
+		// 允许多付(网关侧凑整/用户手滑),只堵少付。
+		paidCents, wantCents := yuanToCents(amount), yuanToCents(ord.FinalAmount)
+		if paidCents < wantCents {
+			return fmt.Errorf("amount mismatch: expect %d cents got %d cents (order %s)", wantCents, paidCents, orderNo)
+		}
+		if paidCents > wantCents {
+			slog.Warn("billing: 回调金额高于订单应付,按已支付履约", "order_no", orderNo,
+				"paid_cents", paidCents, "want_cents", wantCents)
 		}
 		// 标记已支付(并发兜底:只在仍可履约态时更新;含 expired,与上方复活口径一致)。
 		res := tx.Model(&Order{}).Where("id = ? AND status IN ('pending','expired')", ord.ID).
@@ -445,6 +481,30 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 
 	var newExp time.Time
 	if ord.SubAction == "upgrade" {
+		// 🔴 定价基准失效硬闸(2026-08-02 计费审计 P0-2)。
+		//
+		// 升级单的**价格**在下单时按「当时的剩余时长」算定并冻结,而**到期日**在这里按支付时刻
+		// 的会员状态重算(base = max(now, 当前到期))。这两件事在下单→支付之间会脱钩:只要
+		// vip_expires_at 在这段时间里被合法延长(续费履约 / 兑换码 / admin 直授),下面的
+		// `newExp = base` 就会把「按 1 天余期定价的 ¥7 差价」兑现成「整年高档」。
+		// 实测路径:t=0 建 ¥7 升级单 → 仍 pending 时拿住收银台 → 2h 后 stale 清理把它打成 expired
+		// (同时清空单活跃订阅单护栏)→ 建并支付 ¥590 年付续期 → 再付掉那 ¥7 → Max 整年,
+		// 牌价 ¥2690,单次净损失约 ¥2093。447-463 原有的两个 case 都是为「到期日变小 / 会员已过期」
+		// 写的,对「到期日变大」这一侧零覆盖;469-472 的防回退只会把 newExp 往上抬,更加坐实。
+		//
+		// 为什么是拒绝而不是「按已付时长封顶」:users 表只有一对 (vip_tier, vip_expires_at),
+		// 表达不了「Max 到 X、之后 Pro 到 Y」的排期;把 newExp 缩到 X 会连带砍掉用户真金白银买来的
+		// 续期,比不升档更糟。所以这里只做「基准是否还成立」的判定,不成立就不履约。
+		//
+		// 正常用户几乎撞不到:延长到期日的三条路径都会顺手作废该用户 pending 的升级单
+		// (见 voidPendingUpgradeOrders 的三个调用点),要落到这里必须在延期**之前**就把收银台
+		// 拿在手里 —— 那已经是刻意编排。容差 24h 吸收秒级对齐与时区抖动。
+		if ord.NewExpiresAt != nil && uv.VIPExpiresAt != nil &&
+			uv.VIPExpiresAt.Sub(*ord.NewExpiresAt) > upgradeBasisTolerance {
+			return fmt.Errorf("%w: order_no=%s frozen_expires=%s current_expires=%s",
+				ErrUpgradeBasisStale, ord.OrderNo,
+				ord.NewExpiresAt.Format(time.RFC3339), uv.VIPExpiresAt.Format(time.RFC3339))
+		}
 		// 升级:按剩余天数补差价,不延长周期,只升档。到期日=锚点。
 		newExp = base
 		switch {
@@ -480,10 +540,41 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 	if err := tx.Table("users").Where("id = ?", ord.UserID).Updates(updates).Error; err != nil {
 		return err
 	}
+	// new/renew 把到期日往后推了 → 该用户任何在途升级单的定价基准随之失效,就地作废(P0-2 第一道防线)。
+	// upgrade 单自己不延长到期日,不需要(也不该)作废别的升级单。
+	if ord.SubAction != "upgrade" {
+		if err := voidPendingUpgradeOrders(tx, ord.UserID, "subscription "+ord.SubAction+" extended expiry"); err != nil {
+			return err
+		}
+	}
 	// 0090 起订阅**不再赠送经费**:原先这里会按「约每 30 天一批」预发放临时经费
 	// (grantBatchedMonthlyInTx),该函数与整条临时经费链路一并下线。
 	// 注意:充值单(order_type=recharge)的 CreditsGranted 是另一回事(到账永久经费),
 	// 走 fulfillRechargeInTx 的 grantPermInTx,不受此处影响。
+	return nil
+}
+
+// voidPendingUpgradeOrders 作废该用户所有**在途升级单**(2026-08-02 计费审计 P0-2 的第一道防线)。
+//
+// 升级单的差价 = 「下单那一刻的剩余时长 × 档位价差 / 周期」。只要 vip_expires_at 在它 pending
+// 期间被延长(续费履约 / 兑换码 / admin 直授),这个定价基准就作废了 —— 那张 ¥7 的单会兑现成
+// 整年高档。这里在**每一条延长到期日的路径**里顺手把它们打成 expired,让用户根本走不到
+// activateSubscriptionInTx 里那道硬闸(那道闸会拒绝履约,而钱已经付了,是最后的兜底不是首选)。
+//
+// 只动 sub_action='upgrade' 且仍 pending 的单:new/renew 单的定价与到期日无关,充值单更无关。
+// 用 expired 而不是新增状态:fulfill 对 expired 的复活路径已有既定语义(逾期支付仍可履约),
+// 而升级单复活会被那道硬闸拦下 —— 两层配合,不引入第三种状态。
+func voidPendingUpgradeOrders(tx *gorm.DB, userID uint, reason string) error {
+	res := tx.Model(&Order{}).
+		Where("user_id = ? AND order_type = 'subscription' AND sub_action = 'upgrade' AND status = 'pending'", userID).
+		Update("status", "expired")
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		slog.Info("billing: 作废在途升级单(定价基准已随到期日延长而失效)",
+			"user_id", userID, "voided", res.RowsAffected, "reason", reason)
+	}
 	return nil
 }
 

@@ -130,6 +130,38 @@ type Service struct {
 // SetVIPChecker 注入会员限额服务(每次真正投递审稿扣 1)。允许 nil 禁用。
 func (s *Service) SetVIPChecker(v *vip.Service) { s.vip = v }
 
+// peerreviewMinBudgetMicro —— 起跑审稿所需的**最低剩余预算**(微元真实成本)。
+//
+// 🔴 2026-08-02 计费审计 P1-3:审稿是全平台单次成本最高的操作(一场 5-10M token,
+// 真实成本可达 free 整窗 300,000 微元的几十倍),而它的起跑闸 CheckDailyQuota 是纯布尔判定
+// ——「窗口已用 < 上限」为真即放行,剩 1 微元也照跑一整场。跑完的超支部分:开了 autopay 的
+// 从经费实扣(ConsumeForQuota 无余额校验、可扣成负),没开的平台全吃,系统里唯一的痕迹是
+// 一条 slog.Warn。这里改成「起跑前要求剩余预算够一场的量级」,把敞口从「一场」压到
+// 「至多一场,且只对本来就有额度的人发生」。
+//
+// 取 200,000 微元 = ¥0.2 真实成本 ≈ free 整窗的 2/3:比一场真实审稿便宜(不误伤正常用户),
+// 又足以把「几乎归零还硬跑一场」挡在门外。不做成 admin 旋钮:这是成本护栏不是产品参数,
+// 加旋钮只会多一个被误设成 0 的地方(参见 free_window_tokens 的教训)。
+const peerreviewMinBudgetMicro = 200_000
+
+// ensureReviewBudget 审稿起跑闸:先过通用额度闸,再要求剩余预算够一场的量级。
+// vip 未接线 / 不限额档 → 直接放行。
+func (s *Service) ensureReviewBudget(ctx context.Context, userID uint64) error {
+	if s.vip == nil {
+		return nil
+	}
+	if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
+		return err // vip.ErrQuotaExceeded → handler 映射成 6010/429
+	}
+	remaining, unlimited := s.vip.RemainingWindowMicro(ctx, uint(userID))
+	if unlimited || remaining >= peerreviewMinBudgetMicro {
+		return nil
+	}
+	slog.Info("peerreview: 剩余额度不足以起跑一场审稿,拒绝投递",
+		"user_id", userID, "remaining_micro", remaining, "need_micro", peerreviewMinBudgetMicro)
+	return vip.NewQuotaError("智能审稿单次消耗较大,当前剩余额度不足以完成一份完整审稿。请等待额度重置、升级会员或开启「用经费继续」后再投递。")
+}
+
 // VIPCheckerWired 报告配额校验器是否已注入(bootstrap 启动断言付费功能已接线)。
 func (s *Service) VIPCheckerWired() bool { return s.vip != nil }
 
@@ -1112,18 +1144,50 @@ func (s *Service) AdvanceStep(ctx context.Context, userID, submissionID uint64, 
 	// 否则已超额用户可反复点"下一步"烧平台成本(改一次文件即 cache miss 强制重跑, 更易反复触发;
 	// 历史事故: 向导单轮 10-17M token)。step3→4 无 agent, 不扣。放在 status/computeState/step
 	// 守门之后, 保证非法 id / 重复点击不白扣额度。
-	if (fromStep == 1 || fromStep == 2) && s.vip != nil {
-		if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
-			return nil, err // vip.ErrQuotaExceeded → handler 映射成 6010/429
+	if fromStep == 1 || fromStep == 2 {
+		// 🔴 抢计算权(审计 P1-8):上面的 ComputeState 判定是内存的,并发两个「下一步」会双双通过、
+		// 各自 resetAgentSession 再各自起 goroutine —— 同一条会话上两路并行,既多烧一整轮
+		// (向导单轮历史上到过 10-17M token),又互相污染上下文。条件更新让只有一个赢家。
+		// 注意抢的是**计算权而非最终状态**:cache 命中的分支不跑 LLM,下面会把它还原成 idle。
+		to := StateComputingMeta
+		if fromStep == 2 {
+			to = StateComputingLetter
 		}
+		won, cerr := s.repo.ClaimComputeState(submissionID, []string{StateIdle, StateFailed}, to)
+		if cerr != nil {
+			return nil, cerr
+		}
+		if !won {
+			return nil, errors.New("当前正在计算中, 请稍候")
+		}
+		release := func() {
+			if e := s.repo.SetComputeState(submissionID, StateIdle, ""); e != nil {
+				slog.Error("peerreview: 向导计算权释放失败(会卡在 computing 但无人在跑)",
+					"submission_id", submissionID, "err", e)
+			}
+		}
+		if s.vip != nil {
+			if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
+				release()
+				return nil, err // vip.ErrQuotaExceeded → handler 映射成 6010/429
+			}
+		}
+		// 内存态同步:下游 advanceTo2/advanceTo3 会据 sub.ComputeState 再判一次/回写。
+		sub.ComputeState = to
+		out, aerr := func() (*Submission, error) {
+			if fromStep == 1 {
+				return s.advanceTo2(ctx, sub)
+			}
+			return s.advanceTo3(ctx, sub)
+		}()
+		if aerr != nil {
+			release()
+			return nil, aerr
+		}
+		return out, nil
 	}
-	switch fromStep {
-	case 1:
-		return s.advanceTo2(ctx, sub)
-	case 2:
-		return s.advanceTo3(ctx, sub)
-	case 3:
-		// Step3 → Step4: 无 agent, 直接转
+	// fromStep==3:无 agent 调用、不烧 token,不需要抢计算权,直接转。
+	if fromStep == 3 {
 		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 4}); err != nil {
 			return nil, err
 		}
@@ -1161,6 +1225,11 @@ func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission,
 	if cache != nil && cache.InputFingerprint == fingerprint {
 		// Cache 命中: 直接转 step=2 (payload 已经在 submission.title/abstract/extra_meta_json,
 		// 因为上次成功后 goroutine 已经回填过)。
+		// 归还计算权(审计 P1-8):调用方为抢并发把 compute_state 置成了 computing_meta,
+		// 而这条分支不跑 LLM、没有 goroutine 会去清它 —— 不还就永远卡在「计算中」。
+		if err := s.repo.SetComputeState(sub.ID, StateIdle, ""); err != nil {
+			return nil, err
+		}
 		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 2}); err != nil {
 			return nil, err
 		}
@@ -1251,6 +1320,10 @@ func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission,
 	}
 	if cache != nil && cache.InputFingerprint == fingerprint {
 		// 命中: 已经写过 letter_body 到 submission, 直接转 step=3
+		// 归还计算权(审计 P1-8,同 advanceTo2 的红字):这条分支不跑 LLM,没人会清 computing_letter。
+		if err := s.repo.SetComputeState(sub.ID, StateIdle, ""); err != nil {
+			return nil, err
+		}
 		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 3}); err != nil {
 			return nil, err
 		}
@@ -1617,22 +1690,42 @@ func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, e
 		return nil, err
 	}
 
+	// 🔴 先抢起跑权,再做一切有成本的事(审计 P1-8)。
+	// 上面的 `sub.Status != "draft"` 是内存判定,并发下两个请求会双双通过 —— 用条件更新把
+	// draft→queued 变成只有一个赢家的原子动作。抢不到 = 别人已经在跑,直接返回当前状态(幂等)。
+	won, err := s.repo.ClaimStatus(id, "draft", map[string]any{"status": "queued"})
+	if err != nil {
+		return nil, err
+	}
+	if !won {
+		return s.repo.GetByID(id, userID) // 并发落败 = 已被投递,不重复跑、不扣额度
+	}
+	// 抢到之后任何一步失败都要把状态还回 draft,否则用户的草稿会永远卡在 queued 且没人在跑。
+	revert := func() {
+		if _, e := s.repo.ClaimStatus(id, "queued", map[string]any{"status": "draft"}); e != nil {
+			slog.Error("peerreview: 起跑失败后回滚 draft 失败(草稿会卡在 queued,需人工处理)",
+				"submission_id", id, "err", e)
+		}
+	}
+
 	// 到这里才是"草稿 + 稿件齐备、确实要跑一轮审稿" —— 此刻扣会员每日额度(最贵的功能)。
 	// 放在 status/manuscript 守门之后, 保证非法 id / 重复点击 / 无稿件 不会白烧额度。
-	if s.vip != nil {
-		if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
-			return nil, err // vip.ErrQuotaExceeded → handler 映射成 6010/429
-		}
+	// 起跑闸(审计 P1-3):通用额度闸 + 「剩余预算够跑完一场」。
+	if err := s.ensureReviewBudget(ctx, userID); err != nil {
+		revert()
+		return nil, err
 	}
 
 	// 复用 submission 自己的 agent session (CreateDraft 时建的);
 	// 不存在则补建一个 (不调 reset, 避免清掉 wizard 期间累积的 manuscript / letter 对话)。
 	sessionID, err := s.ensureAgentSession(ctx, sub)
 	if err != nil {
+		revert()
 		return nil, fmt.Errorf("agent session: %w", err)
 	}
 
 	if err := s.repo.MarkSubmitted(id, time.Now(), sessionID); err != nil {
+		revert()
 		return nil, err
 	}
 	_ = s.repo.SetComputeState(id, StateReviewing, "")
@@ -1660,18 +1753,30 @@ func (s *Service) RetryReview(ctx context.Context, userID, id uint64) (*Submissi
 	if !sub.ManuscriptAssetID.Valid {
 		return nil, ErrManuscriptMissing
 	}
-	if s.vip != nil {
-		if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
-			return nil, err // vip.ErrQuotaExceeded → handler 映射 6010/429
+	// 抢起跑权(审计 P1-8):failed→reviewing 的条件更新,并发重试只有一个赢家。
+	// 顺带把「先回 reviewing 让前端切走失败态」这件事一并做了(原来是后面的 MarkReviewing)。
+	won, err := s.repo.ClaimStatus(id, StateFailed, map[string]any{"status": "reviewing"})
+	if err != nil {
+		return nil, err
+	}
+	if !won {
+		return s.repo.GetByID(id, userID) // 并发落败 = 已被别的请求重试上了
+	}
+	revert := func() {
+		if _, e := s.repo.ClaimStatus(id, "reviewing", map[string]any{"status": StateFailed}); e != nil {
+			slog.Error("peerreview: 重试起跑失败后回滚 failed 失败(会卡在 reviewing 但无人在跑)",
+				"submission_id", id, "err", e)
 		}
+	}
+	// 起跑闸(审计 P1-3):重试同样是完整一场,与首跑同一把闸。
+	if err := s.ensureReviewBudget(ctx, userID); err != nil {
+		revert()
+		return nil, err
 	}
 	sessionID, err := s.ensureAgentSession(ctx, sub)
 	if err != nil {
+		revert()
 		return nil, fmt.Errorf("agent session: %w", err)
-	}
-	// 先回 reviewing + 清 compute_error,让前端立刻从「失败」态切走;runReviewBackground 首步也会 MarkReviewing。
-	if err := s.repo.MarkReviewing(id); err != nil {
-		return nil, err
 	}
 	_ = s.repo.SetComputeState(id, StateReviewing, "")
 	safego.Go(fmt.Sprintf("peerreview-retry-%d", id), func() {

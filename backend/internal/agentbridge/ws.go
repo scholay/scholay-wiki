@@ -767,19 +767,32 @@ var agentErrorFriendly = map[string]string{
 // 一轮以 error 终帧收场时,要回答两个独立的问题:
 //   ① 这笔上游消耗该不该记进**用户额度**?   → turnFailureChargedToUser
 //   ② 该不该**换个 provider 自动重投**这一轮? → turnFailureWorthProviderRetry
-// 两者判据不同(round_cap 不该扣用户额度,但重投必然再撞顶),故分两张表,不合并。
+// 两者判据不同(round_cap 该扣用户额度,但重投必然再撞顶),故分两张表,不合并。
 
 // turnFailureChargedByUserTask —— 用户**任务本身**导致的失败:照常计入用户额度。
-//   - budget:         任务过大撞单轮预算,消耗真实发生且由用户需求驱动;
+//   - budget:          任务过大撞单轮预算,消耗真实发生且由用户需求驱动;
 //   - content_blocked: 上游合规审查拦截,内容是用户给的;
-//   - quota_exceeded:  额度本身的语义帧(不会带 usage,列此仅为口径完整)。
+//   - quota_exceeded:  额度本身的语义帧(不会带 usage,列此仅为口径完整);
+//   - round_cap:       轮内工具步数撞 MAX_TOOL_ROUNDS;
+//   - step_incomplete: Run 分页,单步轮尽。
+//
+// 🔴 2026-08-02 计费审计 P0-3:round_cap / step_incomplete 是**后补进来**的,补的理由是它们
+// 与已在表里的 budget 同源 —— 都是「用户的任务过大,撞上我们自己设的上限」。此前它们落在
+// 默认的「平台自担」一侧,而这两个 code **完全由用户的 prompt 内容决定、可确定性诱导**:
+// 发一条「把这 30 篇文献逐篇检索并逐篇总结,每次只查一篇」必然打满 24 轮工具 → 该轮 24 次
+// LLM call(每次都带全量历史)的额度扣减为 0,而 token 水位照常前推、下一轮不会补扣;
+// 把同一条 prompt 复制粘贴重发即可无限白嫖。归责口径必须只看「谁导致的」,不能看「谁设的上限」。
 //
 // **刻意用「计费白名单」而非「免单白名单」**:此后 agent 侧新增任何 error code,默认是
 // 「平台自担」而不是默默开始向用户收失败的钱 —— 收钱的口子必须显式登记(线上 9 连败教训)。
+// 代价就是本条这种「该收的忘了登记」,所以新增自限类 code(撞我们自己设的某个上限)时,
+// 先问一句「这个上限是被用户的任务撑爆的,还是被我们的故障撑爆的」再决定放不放进来。
 var turnFailureChargedByUserTask = map[string]bool{
 	"budget":          true,
 	"content_blocked": true,
 	"quota_exceeded":  true,
+	"round_cap":       true,
+	"step_incomplete": true,
 }
 
 // turnFailureChargedToUser 判定一帧 error 终帧携带的消耗是否计入用户额度。

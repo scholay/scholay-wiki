@@ -10,6 +10,19 @@ import { localISO } from "../tools/clock.ts";
 
 const SESSIONS_ROOT = process.env.SESSIONS_ROOT || "/tmp/executor-sessions";
 
+// 🔴 会话累计 token 的落盘目录(2026-08-02 计费审计 P0-5)。
+//
+// 为什么必须落盘:cumUsage 此前只活在内存。轮终帧一旦丢失(上游断连 / hub grace 拆连 / backend 重启),
+// backend 不入账,唯一的补救是「下一轮 session_total 差额补回」;但 IDLE_TTL(默认 30min)一到
+// meta 被淘汰、cumUsage 归零,backend 看到累计回退就把水位 re-base 到 0(bridge.go accrueTurnUsage),
+// 那批已经烧掉的 token 从此追不回来。复现方式稳定得可以当操作手册:
+// 发一个重任务 → 10 秒后关标签页 → 隔天回来继续,循环即可白嫖。
+// 落盘后淘汰再水化能接着原累计走,backend 既有的 "(reconciled)" 差额补记机制自动把缺口补上。
+//
+// 为什么不放会话 workDir 里:那是模型可读可写的目录。把计费水位放进去 = 模型可以自己把它改小。
+// 单独一个根目录,不在任何 addDirs 里,jail 外。
+const USAGE_ROOT = process.env.EXECUTOR_USAGE_ROOT || "/tmp/executor-usage";
+
 // envNum:安全解析数值 env —— 非数字(如误配 "30d")回落默认值,绝不让 NaN 溜进比较逻辑
 // (审查发现:NaN 会让 GC 的三道保护比较全部恒 false → 首个 tick 删光所有未连接会话目录)。
 export function envNum(name: string, def: number): number {
@@ -214,7 +227,11 @@ export async function createSession(opts: CreateOpts): Promise<SessionMeta> {
     addDirs,
     appendSystemPrompt: opts.appendSystemPrompt,
     messages: [],
-    cumUsage: { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model: "" },
+    // 水化上次落盘的累计(审计 P0-5):内存淘汰后重连时接着原累计走,backend 的水位不会 re-base 到 0,
+    // 那些丢了终帧的轮由既有的 "(reconciled)" 差额补记机制补上。全新会话读不到文件 → 全 0,行为不变。
+    cumUsage: (await loadCumUsage(sid)) ?? {
+      input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model: "",
+    },
     createdAt: localISO(),
     lastActiveAt: Date.now(),
   };
@@ -225,6 +242,55 @@ export async function createSession(opts: CreateOpts): Promise<SessionMeta> {
 
 export function getSession(sid: string): SessionMeta | null {
   return sessions.get(sid) ?? null;
+}
+
+// ─── 会话累计 token 的落盘 / 水化(审计 P0-5)────────────────────────────────
+//
+// 只落 cumUsage 这一个字段:它是 backend 计费水位的唯一锚点,丢了就永久漏记;
+// messages 等其它字段的耐久真源在 backend 的事件溯源 journal,不归这里管。
+
+type CumUsage = SessionMeta["cumUsage"];
+
+function usagePathFor(sid: string): string {
+  return join(USAGE_ROOT, `${sid}.json`);
+}
+
+/** persistCumUsage 每轮终帧后落盘(fire-and-forget)。失败只留痕 —— 落盘失败最坏退回旧行为。 */
+export function persistCumUsage(sid: string, cum: CumUsage): void {
+  if (!validSessionId(sid)) return;
+  void (async () => {
+    try {
+      await mkdir(USAGE_ROOT, { recursive: true });
+      await writeFile(usagePathFor(sid), JSON.stringify(cum), "utf8");
+    } catch (e) {
+      log.warn("persist cumUsage failed (billing watermark may re-base on eviction)", {
+        session_id: sid, err: String((e as Error)?.message ?? e),
+      });
+    }
+  })();
+}
+
+/** loadCumUsage 建 meta 时水化。文件不存在 / 坏了 → 返回 null,按全 0 起算(即旧行为)。 */
+async function loadCumUsage(sid: string): Promise<CumUsage | null> {
+  try {
+    const raw = await readFile(usagePathFor(sid), "utf8");
+    const v = JSON.parse(raw) as Partial<CumUsage>;
+    const n = (x: unknown) => (typeof x === "number" && Number.isFinite(x) && x >= 0 ? x : 0);
+    return {
+      input_tokens: n(v.input_tokens),
+      output_tokens: n(v.output_tokens),
+      cache_read_tokens: n(v.cache_read_tokens),
+      cache_creation_tokens: n(v.cache_creation_tokens),
+      model: typeof v.model === "string" ? v.model : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function dropCumUsage(sid: string): void {
+  if (!validSessionId(sid)) return;
+  void rm(usagePathFor(sid), { force: true }).catch(() => {});
 }
 
 // 建 meta 的在途单飞表(sid → 正在建的 Promise)。见 getOrCreateEphemeral 注释。
@@ -317,6 +383,7 @@ export async function deleteSession(sid: string): Promise<boolean> {
   // 改为 Map miss 时回退按约定路径 safeSessionDir(SESSIONS_ROOT, sid) 删目录,让删除对重启幂等。
   const workDir = m?.workDir || safeSessionDir(SESSIONS_ROOT, sid);
   lastMarkerTouch.delete(sid);
+  dropCumUsage(sid); // 会话真的删了才清计费水位文件(内存淘汰不清 —— 那正是它存在的理由)
   try {
     await rm(workDir, { recursive: true, force: true });
     // 一并清理 per-session skill 物化目录(<workDir>.skills)、GC 活跃标记(.active)与模板标记(.template)。
@@ -457,6 +524,9 @@ export async function sweepStaleWorkdirs(): Promise<void> {
       await rm(dir, { recursive: true, force: true });
       await rm(dir + ".skills", { recursive: true, force: true });
       await rm(activityMarkerPath(dir), { force: true });
+      // 计费水位文件随会话目录一起回收(审计 P0-5:内存淘汰**不**清它,只有会话真的过期/被删才清 ——
+      // 否则它就失去了「淘汰后还能接着累计」这个唯一存在理由)。
+      dropCumUsage(name);
       sessions.delete(name);
       lastMarkerTouch.delete(name);
       removed++;

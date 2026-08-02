@@ -40,6 +40,9 @@ type CleanupService struct {
 	// 升级满血「待兑现」补偿(注入 vip.Service.ReconcilePendingRefills):删锚遇 Redis 抖动失败后,
 	// Redis 恢复时补删锚。用函数型避免 import vip。
 	pendingRefillReconciler PendingRefillReconciler
+
+	// 会员到期后的额度窗口对齐(注入 vip.Service.RealignExpiredMembershipWindows)。
+	expiredWindowRealigner ExpiredMembershipWindowRealigner
 }
 
 // CreditExpireSweeper 把已过期临时经费批次清零并写 expire 流水,返回清理批次数。
@@ -50,6 +53,10 @@ type PendingOrderCanceller func(ttl time.Duration) (int64, error)
 
 // PendingRefillReconciler 补偿未兑现的升级满血(删锚),返回本轮成功条数。
 type PendingRefillReconciler func(ctx context.Context) (int, error)
+
+// ExpiredMembershipWindowRealigner 把「刚到期的会员」在高档期开的额度窗口作废,返回本轮处理条数。
+// lookback 应明显大于调度间隔(重叠扫描无害,实现侧自带幂等判据)。用函数型避免 import vip。
+type ExpiredMembershipWindowRealigner func(ctx context.Context, lookback time.Duration) (int, error)
 
 // NewCleanupService creates a new cleanup service
 func NewCleanupService(db *gorm.DB) *CleanupService {
@@ -88,6 +95,11 @@ func (s *CleanupService) SetPendingRefillReconciler(fn PendingRefillReconciler) 
 	s.pendingRefillReconciler = fn
 }
 
+// SetExpiredMembershipWindowRealigner 注入会员到期后的额度窗口对齐(vip.Service.RealignExpiredMembershipWindows)。
+func (s *CleanupService) SetExpiredMembershipWindowRealigner(fn ExpiredMembershipWindowRealigner) {
+	s.expiredWindowRealigner = fn
+}
+
 // Start starts all cleanup tasks as background goroutines
 func (s *CleanupService) Start() {
 	slog.Info("Starting cleanup service")
@@ -123,6 +135,16 @@ func (s *CleanupService) Start() {
 	if s.pendingRefillReconciler != nil {
 		safego.Go("cleanup-pending-quota-refills", func() {
 			s.runPeriodic("pending_quota_refill", 2*time.Minute, s.reconcilePendingRefills)
+		})
+	}
+
+	// 会员到期 → 作废高档期开的额度窗口(审计 P1-2)。5 分钟一轮、回看 30 分钟:
+	// 重叠扫描是有意的(容忍漏跑/重启),幂等由「只删早于到期时刻的锚」保证。
+	// 到期这件事没有事件源(vip_expires_at 是惰性判定的),只能靠扫;5 分钟是「用户几乎无感」
+	// 与「一次轻量 SELECT」之间的折中。
+	if s.expiredWindowRealigner != nil {
+		safego.Go("cleanup-expired-membership-windows", func() {
+			s.runPeriodic("expired_membership_window", 5*time.Minute, s.realignExpiredMembershipWindows)
 		})
 	}
 
@@ -299,6 +321,21 @@ func (s *CleanupService) reconcilePendingRefills() error {
 	}
 	if n > 0 {
 		slog.Info("Reconciled pending quota refills", "count", n)
+	}
+	return nil
+}
+
+// realignExpiredMembershipWindows 把刚到期的会员在高档期开的额度窗口作废(审计 P1-2)。
+func (s *CleanupService) realignExpiredMembershipWindows() error {
+	if s.expiredWindowRealigner == nil {
+		return nil
+	}
+	n, err := s.expiredWindowRealigner(s.ctx, 30*time.Minute)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		slog.Info("Realigned quota windows after membership expiry", "count", n)
 	}
 	return nil
 }

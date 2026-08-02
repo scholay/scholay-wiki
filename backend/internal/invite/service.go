@@ -258,29 +258,23 @@ func (s *Service) maybeReward(reg *InviteRegistration) {
 		}
 		reg = got
 	}
-	// 日上限:今天已计奖励的邀请数(rewarded_credits>0 的行数)达到 cap 即跳过,归因本身不受影响。
-	if dailyCap > 0 {
-		n, err := s.repo.CountRewardedToday(reg.InviterUserID)
-		if err != nil {
-			slog.Error("invite: 邀请奖励发放失败(查当日已奖数失败)",
-				"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "err", err)
-			return
-		}
-		if n >= int64(dailyCap) {
-			slog.Info("invite: 邀请奖励达当日上限,未发放(归因照常)",
-				"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "daily_cap", dailyCap)
-			return
-		}
-	}
 	// 🔴 顺序:**先抢标记,再入账,失败回滚标记**。
 	//   · 先标记(WHERE rewarded_credits=0 条件更新)——并发/重放下只有一个执行流抢得到,
 	//     防双发;顺序反过来(先发后标)失败窗口会变成「已入账、没标记」→ 重放再发一次,
 	//     多发的钱不可回收,比标记错更糟。
 	//   · granter 失败把标记回滚成 0 —— 防「标了没发」把用户应得的奖励永久吞掉。
-	won, err := s.repo.MarkRewarded(reg.ID, amount)
+	//
+	// 日上限与抢标记合并进**同一个事务 + 邀请人 users 行锁**(审计 P1-11):两者分开时,
+	// N 个并发注册会各自读到 n<cap、各自抢到自己那一行,日上限完全不起作用。
+	won, cappedOut, err := s.repo.MarkRewardedWithinDailyCap(reg.InviterUserID, reg.ID, amount, dailyCap)
 	if err != nil {
 		slog.Error("invite: 邀请奖励发放失败(抢标记失败)",
 			"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "err", err)
+		return
+	}
+	if cappedOut {
+		slog.Info("invite: 邀请奖励达当日上限,未发放(归因照常)",
+			"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "daily_cap", dailyCap)
 		return
 	}
 	if !won {

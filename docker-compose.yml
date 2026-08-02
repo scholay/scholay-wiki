@@ -330,6 +330,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      # correctness 键池:必须等它 healthy 再起 backend。InitRedisPersist 连不上是**静默降级**
+      # (回落主 Redis + 一条 Warn),冷启动竞速会让额度键悄悄躺回会被 LRU 逐出的主池 ——
+      # 那正是 2026-08-02 审计 P0-1 的现网形态。用 depends_on 把它变成确定性的。
+      redis-persist:
+        condition: service_healthy
       minio:
         condition: service_healthy
       schema-sync:

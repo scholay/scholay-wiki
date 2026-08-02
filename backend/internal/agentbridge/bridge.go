@@ -77,6 +77,10 @@ type Bridge struct {
 	// 全局锁争用可忽略。
 	watermarkMu sync.Mutex
 
+	// watermarkSeq per-session 的持久化序号(受 watermarkMu 保护),用于「最新者胜」——
+	// 防两轮背靠背时两个异步落盘 goroutine 乱序提交、老值把新水位写回去(审计 P1-13)。
+	watermarkSeq map[string]uint64
+
 	// turns: Web-native 重构 P0 影子日志的 TurnCoordinator(允许 nil = 未 wired → 所有
 	// shadow 写都是 no-op,绝不影响 live)。bootstrap 经 SetTurnCoordinator 注入(此处有 *gorm.DB)。
 	// P0: 仅 shadow 写 agent_turns/agent_turn_events/agent_billing_ledger;jsonl + 内存 hub 仍权威。
@@ -219,6 +223,40 @@ func (b *Bridge) flushTokenWatermark(sessionID string) {
 // deleteTokenWatermark 会话删除时清理水位条目(防 process-local map 无界增长)。
 func (b *Bridge) deleteTokenWatermark(sessionID string) {
 	b.tokenWatermarks.Delete(sessionID)
+	b.watermarkMu.Lock()
+	delete(b.watermarkSeq, sessionID)
+	b.watermarkMu.Unlock()
+}
+
+// FlushAllTokenWatermarks 进程退出前把**所有**内存水位同步落库(审计 P1-13)。
+//
+// flushTokenWatermark 的注释一直宣称它防的是「优雅重启时恰有一笔在途未落」,但它只在
+// hub.shutdown 里被调用,而 SIGTERM 路径压根不遍历 hub(http.Server.Shutdown 不碰已 hijack 的
+// WS 连接)—— 那句承诺从未兑现。每轮的落库是 best-effort 异步 goroutine,发版时正在飞的那笔
+// 很可能还没提交进程就没了,新进程回源到旧水位 → 上一轮被当成新增量**再记一遍**(重复扣额度)。
+// 这里在 main 的 shutdown 序列里同步兜一次;单条 UPDATE、会话数量级小,10s 关闭窗口足够。
+func (b *Bridge) FlushAllTokenWatermarks() {
+	if b.repo == nil {
+		return
+	}
+	n := 0
+	b.tokenWatermarks.Range(func(k, v any) bool {
+		sid, ok1 := k.(string)
+		wm, ok2 := v.([4]int64)
+		if !ok1 || !ok2 {
+			return true
+		}
+		if err := b.repo.SetUsageWatermark(sid, formatWatermark(wm)); err != nil {
+			slog.Warn("agentbridge: flush usage watermark on shutdown failed",
+				"session_id", sid, "err", err)
+			return true
+		}
+		n++
+		return true
+	})
+	if n > 0 {
+		slog.Info("agentbridge: flushed usage watermarks on shutdown", "count", n)
+	}
 }
 
 // accrueTurnUsage 按「会话累计水位」算出本轮要落账本的行(per-call 明细 + 必要时一行对账补差),
@@ -287,12 +325,28 @@ func (b *Bridge) accrueTurnUsage(sessionID, sessionModel string, turnUsage Agent
 	}
 	// P3 水位持久化:异步落 agent_sessions.usage_watermark(best-effort,失败=至多回到
 	// 「重启后按全量重记一次」的旧行为)。不在 watermarkMu 内做 SQL —— 拷贝后 goroutine 写。
+	//
+	// 🔴 乱序覆盖护栏(2026-08-02 计费审计 P1-13):两轮背靠背时会起两个 goroutine,
+	// 谁先提交没有保证 —— 老的那个后落盘就把水位**写回去了**,下次重启回源到旧水位,
+	// 已记过的那一轮会被当成新增量**再记一遍**(用户被重复扣额度,账本上多出一行 (reconciled))。
+	// 用序号做「最新者胜」:抢到号的 goroutine 在写之前复查自己还是不是最新,不是就整个跳过
+	// (更新的那一次带着更大的水位,写它即可,少写一次没有任何损失)。
 	if b.repo != nil {
+		b.watermarkSeq[sessionID]++
+		mySeq := b.watermarkSeq[sessionID]
 		wmStr := formatWatermark(cur)
 		sid := sessionID
 		safego.Go("agentbridge-watermark-persist", func() {
+			b.watermarkMu.Lock()
+			stale := b.watermarkSeq[sid] != mySeq
+			b.watermarkMu.Unlock()
+			if stale {
+				return // 已有更新的一次持久化在路上/已完成,本次落盘只会把水位写回去
+			}
 			if err := b.repo.SetUsageWatermark(sid, wmStr); err != nil {
-				slog.Debug("agentbridge: persist usage watermark failed", "session_id", sid, "err", err)
+				// Warn 而非 Debug:落盘失败意味着「重启后这一轮会被重复计费」,是钱的事,不该只在 debug 级可见。
+				slog.Warn("agentbridge: persist usage watermark failed (restart would re-charge this turn)",
+					"session_id", sid, "err", err)
 			}
 		})
 	}
@@ -308,7 +362,7 @@ func nonNegInt64(x int64) int64 {
 
 // New 装配 Bridge。client 由 agent.LoadFromEnv() 构造, repo 由 NewRepository(db) 构造。
 func New(client agent.Executor, repo *Repository) *Bridge {
-	return &Bridge{client: client, repo: repo}
+	return &Bridge{client: client, repo: repo, watermarkSeq: map[string]uint64{}}
 }
 
 // ResolveUserSession — feature 中立地把一个「全局唯一的 agent_session_id」反查成它的 feature,

@@ -444,10 +444,26 @@ func (s *Service) ValidateUserModel(userID uint, modelID string) error {
 	if m == nil || !m.Enabled || !m.UserSelectable {
 		return errors.New("模型不在可选目录中")
 	}
+	// 🔴 计价准入的**运行时兜底**(2026-08-02 计费审计 P0-4)。
+	// validateModel 只在 admin 保存时跑,拦不住**已经躺在库里**的历史零价行(0063 种子灌进来的那批
+	// 就是这样躺到 0083 才被发现的),也拦不住 UpsertPlaceholderModel 自动登记的待补价行万一被
+	// 顺手勾上 enabled+user_selectable。零价模型的消耗一分不扣额度、不扣经费 = 对所有人无限免费,
+	// 所以这里在**用户真要用它**的那一刻再拦一次。文案不暴露"这个模型是免费的",免得被当成薅点。
+	if isUnpriced(m) {
+		slog.Error("modelcatalog: 目录里存在已启用且用户可选但四类单价全 0 的模型,已拒绝用户选用 —— 请立即补价",
+			"model_id", m.ModelID, "user_id", userID)
+		return errors.New("该模型暂不可用,请更换模型")
+	}
 	if m.MinTier != "" && tierRank(s.userTier(userID)) < tierRank(m.MinTier) {
 		return errors.New("该模型需要更高会员档位")
 	}
 	return nil
+}
+
+// isUnpriced 四类基础单价全 0 = 未计价(PriceUsage 对它恒返回 cost=0)。
+// 与 validateModel 的准入判据、ListForUser 的过滤判据共用同一个函数,避免三处口径漂移。
+func isUnpriced(m *AgentModel) bool {
+	return m.PriceIn == 0 && m.PriceOut == 0 && m.PriceCacheR == 0 && m.PriceCacheW == 0
 }
 
 // UserModelView 用户选择器 DTO(/api/v1/user/models)。
@@ -549,6 +565,24 @@ func validateModel(m *AgentModel) error {
 	// 第三档阈值必须 > 第二档阈值(否则档序倒置,PriceUsage 的链式切档语义会乱)。
 	if m.InputTierThreshold2 > 0 && m.InputTierThreshold2 <= m.InputTierThreshold {
 		return errors.New("第二分档阈值必须大于第一分档阈值(档3 阈值 > 档2 阈值)")
+	}
+	// 🔴 计价准入(2026-08-02 计费审计 P0-4):**已启用 + 用户可选**的模型不允许四类单价全 0。
+	//
+	// 「0 = 免费/未计价」这个二义是根因:PriceUsage 对全 0 单价返回 cost=0,而 llmusage.Record
+	// 的 observer 门是 `costMicro > 0` —— cost=0 ⇒ 不触发 observer ⇒ 窗口 used 不涨 ⇒
+	// CheckDailyQuota 恒放行、payAsYouGoOverflow 恒为 0,经费也一分不扣。也就是说这个模型
+	// **对所有用户无限免费**,而唯一的痕迹是每分钟限流一条的 WARN + 后台一张事后看板。
+	//
+	// 这不是「admin 点错了」才会发生:新建模型表单的默认值就是 price 全 0 + enabled + user_selectable,
+	// 「什么都不填直接保存」即成立。而且本仓库真实踩过 —— 迁移 0063 的种子把 agent_config 四槽位
+	// model 以 enabled=1/user_selectable=1 灌进目录且一个价格字段都不填,直到 0083 才补价。
+	//
+	// 刻意只拦「已启用且用户可选」:停用行 / 内部槽位占位行 / UpsertPlaceholderModel 自动登记的
+	// 待补价行都必须还能存在(它们正是提醒 admin 补价的载体),只是不能被用户选中来跑。
+	// 真的要提供免费模型,把 price_in 设成一个极小正数(如 0.0001 元/1M)即可 —— 成本可见、可对账,
+	// 而不是靠一个与「没配置」同形的 0。
+	if m.Enabled && m.UserSelectable && isUnpriced(m) {
+		return errors.New("已启用且用户可选的模型必须至少配置一项基础单价:四类单价全为 0 会让该模型的消耗完全不计入用户额度与经费(等于对所有人无限免费)。若确实要免费提供,请把输入单价设成一个极小正数(如 0.0001),让成本仍可见、可对账")
 	}
 	switch m.SpeedClass {
 	case "fast", "balanced", "powerful":

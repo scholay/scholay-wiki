@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Service struct {
@@ -151,6 +152,58 @@ func applyMembershipGrant(cur UserVIP, grantTier string, days int, now time.Time
 	return newTier, base.AddDate(0, 0, days)
 }
 
+// grantMembershipInTx —— 「授予 grantTier 续 days 天」的**唯一串行化落点**(兑换码 / admin 直授共用)。
+//
+// 🔴 2026-08-02 计费审计 P0-8:此前兑换码与 admin 直授都是「无锁读 uv → 内存算新到期 → 整值覆盖写」,
+// 只有订阅履约(activateSubscriptionInTx)对 users 行加了 FOR UPDATE。三条路两两并发都会丢授予:
+//   - 两张 30 天码几乎同时兑:各锁自己的 code 行,对 users 行是 REPEATABLE READ 快照 → 都读到 E、
+//     都写 E+30d → 用户少拿 30 天,而两条兑换流水已落库、两张码 used_count 都 +1(不可回兑);
+//   - 续费回调正在 fulfill(持 users 行 FOR UPDATE 写 E+1 月)时用户兑码 → 兑码用旧快照覆盖
+//     → **那笔 ¥59 的续费月份被吃掉:订单 paid、钱收了、权益没给**。
+// 现在三条路共用同一把 users 行锁,MySQL 会把它们排成队。
+//
+// cycleOverride 非空即写;为空时只在「用户当前不是在期付费会员」才回落 monthly ——
+// 防陈旧 vip_cycle 泄漏(过期年费用户重新开通后仍顶着「年费会员」徽标),在期叠加则不动现值。
+// 返回值 prevTier 是**授予前**的生效等级(调用方据此判断「这次授予是否真的抬升了档位」——
+// 兑换码的满血判定要用它,见 Service.Redeem 的红字)。
+func grantMembershipInTx(tx *gorm.DB, userID uint, grantTier string, days int, cycleOverride string, now time.Time) (newTier string, newExpires time.Time, prevTier string, err error) {
+	var uv UserVIP
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Table("users").Select("vip_tier, vip_expires_at, vip_cycle").Where("id = ?", userID).
+		Scan(&uv).Error; err != nil {
+		return "", time.Time{}, "", err
+	}
+	prevTier = effectiveTier(uv, now)
+	newTier, newExpires = applyMembershipGrant(uv, grantTier, days, now)
+	updates := map[string]any{"vip_tier": newTier, "vip_expires_at": newExpires}
+	switch {
+	case cycleOverride != "":
+		updates["vip_cycle"] = normCycle(cycleOverride)
+	case !isPaidTier(prevTier):
+		updates["vip_cycle"] = CycleMonthly
+	}
+	res := tx.Table("users").Where("id = ?", userID).Updates(updates)
+	if res.Error != nil {
+		return "", time.Time{}, "", res.Error
+	}
+	if res.RowsAffected == 0 {
+		// RowsAffected 只数「值有变化」的行,授予到同样的值是合法 no-op,不能据此判不存在。
+		var n int64
+		if err := tx.Table("users").Where("id = ?", userID).Count(&n).Error; err != nil {
+			return "", time.Time{}, "", err
+		}
+		if n == 0 {
+			return "", time.Time{}, "", ErrUserNotFound
+		}
+	}
+	// 到期日被延长 → 该用户手里任何按「旧余期」定价的在途升级单立刻失去定价基准,必须作废。
+	// 不作废的话,那张单仍可在网关侧被支付并复活履约(见 activateSubscriptionInTx 的 P0-2 红字)。
+	if err := voidPendingUpgradeOrders(tx, userID, "membership grant extended expiry"); err != nil {
+		return "", time.Time{}, "", err
+	}
+	return newTier, newExpires, prevTier, nil
+}
+
 // ─── 兑换 / 发码 ─────────────────────────────────────────────────────────
 
 // RedeemResult 兑换成功返回(tier 码:返回等级 + 到期;credit 码:返回到账经费)。
@@ -160,6 +213,9 @@ type RedeemResult struct {
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	Credits   int        `json:"credits,omitempty"`
 	CreditKind string    `json:"credit_kind,omitempty"` // temp | perm
+	// refillEligible 本次兑换是否有资格触发「额度窗口满血」。不外发(小写),由 repo 在事务内算出:
+	// 需要同时满足「档位真的抬升了」与「授予时长 ≥ 一个计费周期」。见 Redeem 的红字。
+	refillEligible bool
 }
 
 // Redeem 用户兑换:归一化码 → 事务里校验 + 授予(会员 or 经费)。成功后发站内信 + 邮件通知。
@@ -172,8 +228,21 @@ func (s *Service) Redeem(ctx context.Context, userID uint, rawCode string) (*Red
 	if err != nil {
 		return nil, err
 	}
-	// 兑换的是会员(非经费)→ 升级满血(只抬额度窗口起点,不动 used 统计)。
-	if res != nil && res.Kind == "tier" {
+	// 🔴 兑换码满血的两道闸(2026-08-02 计费审计 P1-7)。
+	//
+	// 旧写法只判「这是不是一张会员码」就无条件 ResetBaselineOnUpgrade,而后者 = DEL 窗口锚点
+	// = 送一个**完整周期的额度 + 重新起算的 7 天时钟**。对照同包里正规的手动重置 resetInternal:
+	// 它先判「窗口是否真的耗尽」再必须扣 1 次不可再生的 CreditResetPass,两道闸兑换码一道不过。
+	// 后果是一张码的平台成本与它授予的会员天数**完全解耦**:出厂配置下一张「Pro 1 天」码的成本
+	// 不是按天摊销的 ¥0.86,而是一整个 ¥6 窗口;发几张不同的短天数码即可线性叠加。
+	//
+	// 现在要求同时满足(判据在事务内算,见 repository.Redeem):
+	//   ① 档位**真的抬升**了 —— Max 用户兑一张最便宜的 Pro 码不再触发按 max 档算的满血;
+	//      同档续期也不再送整窗(它的 ceiling 没变,凭什么清零已用量)。
+	//   ② 授予时长 ≥ 一个计费周期 —— 不够一个窗口的码不配重置整个窗口。
+	// 不满足也不影响用户体验:档位抬升本身就把 ceiling 抬高了(Pro = 20× Free),
+	// 剩余额度自然变多,真正需要"清零已用量"的只有「已用量 ≥ 新档 ceiling」这种极少数情形。
+	if res != nil && res.Kind == "tier" && res.refillEligible {
 		s.ResetBaselineOnUpgrade(ctx, userID)
 	}
 	s.notifyRedeem(userID, res)
@@ -333,15 +402,17 @@ func (s *Service) GrantToUser(userID uint, tier string, days int, cycle string) 
 	if days <= 0 {
 		days = 30
 	}
-	uv, _ := s.repo.GetUserVIP(userID)
-	// 周期标识防陈旧泄漏(0079):admin 未显式选周期时,「不改动」只对**在期付费会员**成立;
-	// 对免费/已过期用户(可能残留上一段年费的 yearly),直授重新开通须重置回 monthly,
-	// 否则会错误顶着「年费会员」徽标。
-	if cycle == "" && !isPaidTier(effectiveTier(uv, time.Now())) {
-		cycle = CycleMonthly
-	}
-	newTier, exp := applyMembershipGrant(uv, tier, days, time.Now())
-	if err := s.repo.SetUserVIP(userID, newTier, &exp, cycle); err != nil {
+	// 走 grantMembershipInTx 这个唯一串行化落点(持 users 行 FOR UPDATE + 作废在途升级单)。
+	// 此前是「无锁 GetUserVIP → 内存算 → SetUserVIP 整值覆盖」,与兑换码/续费履约并发会丢授予
+	// (审计 P0-8)。周期标识的「防陈旧泄漏」规则也一并挪进去了:cycle 非空即写,为空时仅在
+	// 「当前不是在期付费会员」才回落 monthly —— 与原来逐字等价。
+	var newTier string
+	var exp time.Time
+	if err := s.repo.DB().Transaction(func(tx *gorm.DB) error {
+		var err error
+		newTier, exp, _, err = grantMembershipInTx(tx, userID, tier, days, cycle, time.Now())
+		return err
+	}); err != nil {
 		return time.Time{}, err
 	}
 	// 授予/续期到付费档 → 免费满血(只抬额度窗口起点,不动 used 统计)。
@@ -374,6 +445,10 @@ func (s *Service) RevokeUser(userID uint) error {
 		return nil
 	})
 	if err == nil {
+		// 降级窗口对齐(审计 P1-2):撤销把用户打回 free,但窗口 used 是跨档继承的 ——
+		// 不作废高档期开的那个窗口,用户的免费额度会恒为 0(甚至开了 autopay 就每次调用
+		// 100% 从经费实扣)。与「升级满血」对称,post-commit best-effort。
+		s.RealignWindowOnRevoke(context.Background(), userID)
 		slog.Info("vip: admin revoked membership", "user_id", userID)
 	}
 	return err

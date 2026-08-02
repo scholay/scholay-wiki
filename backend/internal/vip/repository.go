@@ -84,6 +84,16 @@ func (r *Repository) GetUserVIP(userID uint) (UserVIP, error) {
 	return uv, err
 }
 
+// windowDays 读计费周期天数(兑换码满血资格判据用;兑换是低频操作,多一次查询无所谓)。
+// 读不到 → 7,与 BillingConfig.WindowDuration 的兜底同口径。
+func (r *Repository) windowDays() int {
+	var d int
+	if err := r.db.Table("billing_config").Select("window_days").Where("id = 1").Scan(&d).Error; err != nil || d <= 0 {
+		return 7
+	}
+	return d
+}
+
 // SetUserVIP 直接设置某用户的等级 + 到期(admin 直授/取消会员用)。expiresAt nil = 永久/清空。
 // cycle = 计费周期标识(monthly|yearly);空串 = 不改动现值(admin 直授默认不动周期,防
 // 「给年费用户随手补 7 天」把年费标识冲掉)。用户不存在(错 id)→ ErrUserNotFound。
@@ -367,23 +377,19 @@ func (r *Repository) Redeem(userID uint, code string, now time.Time) (*RedeemRes
 		}
 
 		// 会员码:单调叠加(不降级 + 在期顺延)。
-		var uv UserVIP
-		if err := tx.Table("users").Select("vip_tier, vip_expires_at, vip_cycle").Where("id = ?", userID).Scan(&uv).Error; err != nil {
-			return err
-		}
-		newTier, newExpires := applyMembershipGrant(uv, rc.GrantTier, rc.GrantDays, now)
-		updates := map[string]any{"vip_tier": newTier, "vip_expires_at": newExpires}
-		// 周期标识防陈旧泄漏(0079):兑换码不是付费订阅,若用户**当前并非在期付费会员**
-		//(免费/已过期),把残留的 vip_cycle(如过期年费用户的 yearly)重置回 monthly,
-		// 否则兑换重新开通后会错误显示「年费会员」徽标。在期会员叠码则不动现值。
-		if !isPaidTier(effectiveTier(uv, now)) {
-			updates["vip_cycle"] = CycleMonthly
-		}
-		if err := tx.Table("users").Where("id = ?", userID).Updates(updates).Error; err != nil {
+		// 走 grantMembershipInTx 这个唯一串行化落点 —— 它持 users 行 FOR UPDATE(见其红字:
+		// 此前无锁读+整值覆盖会与订阅履约/另一张码互相吃掉授予),并顺手作废在途升级单。
+		// vip_cycle 的「防陈旧泄漏」规则也在里面(cycleOverride 传空 = 仅在非在期付费时回落 monthly)。
+		newTier, newExpires, prevTier, err := grantMembershipInTx(tx, userID, rc.GrantTier, rc.GrantDays, "", now)
+		if err != nil {
 			return err
 		}
 		exp := newExpires
-		result = &RedeemResult{Kind: GrantKindTier, Tier: newTier, ExpiresAt: &exp}
+		result = &RedeemResult{
+			Kind: GrantKindTier, Tier: newTier, ExpiresAt: &exp,
+			// 满血资格在事务内算(此处才拿得到 prevTier 与本码的 grant_days),见 Service.Redeem 红字。
+			refillEligible: tierRank(newTier) > tierRank(prevTier) && rc.GrantDays >= r.windowDays(),
+		}
 		return nil
 	})
 	return result, err

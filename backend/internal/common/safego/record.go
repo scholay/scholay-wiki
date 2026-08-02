@@ -19,7 +19,10 @@ package safego
 //
 // 何时用 Record vs 裸 Go: 见 pool.go 顶部注释 —— 统计/遥测类 per-event 落库一律走 Record。
 
-import "log/slog"
+import (
+	"log/slog"
+	"time"
+)
 
 const (
 	// recordPoolWorkers 在途统计写并发上限 —— 也是 DB 连接占用上限。
@@ -49,11 +52,26 @@ func Record(name string, fn func()) {
 	}
 }
 
+// ledgerSubmitWait 队列满时的最长等待。账本行丢一条就是「钱扣了但账上查无此笔」,
+// 值得让调用方多等一小会儿;上界 2s 保证 WS pipe 的转发路径不会被 DB 抖动卡死。
+const ledgerSubmitWait = 2 * time.Second
+
 // RecordLedger 把一条**账本类**写(llm_token_usage)提交进独立的 ledger 池,
 // 不与高频匿名 beacon 抢同一队列 —— 后者洪泛时不会顺带丢掉计费相关的账本行。
+//
+// 🔴 2026-08-02 计费审计 P1-5:额度/经费的扣减是**同步**发生的(llmusage.Record 里 observer
+// 直调 vip.AddUsage → Redis INCRBY + 越线时 MySQL 事务实扣经费),而账本 INSERT 走这条
+// 可丢的异步队列 —— 两者在 DB 劣化下的失败模式恰好相反:钱那边「慢但成」(ConsumeForQuota
+// 的事务没有 ctx deadline),账本这边「快且丢」。结果是用户被扣了钱、per-call 明细查无此笔,
+// admin 成本看板与用户月度热力图同步少计,且**没有任何补偿**(全仓无人读 rejected 计数、
+// 无重试、无落盘 spool)。
+// 现在:先等一小会儿(绝大多数抖动能排上),真丢了就打 **Error** 并把整行内容留在日志里 ——
+// 至少从 docker logs 可人工追补,而不是无声无息。
 func RecordLedger(name string, fn func()) {
-	if !ledgerPool.Submit(fn) {
-		_, rejected := ledgerPool.Stats()
-		slog.Warn("async ledger pool full, task dropped", "task", name, "rejected_total", rejected)
+	if ledgerPool.SubmitWait(fn, ledgerSubmitWait) {
+		return
 	}
+	_, rejected := ledgerPool.Stats()
+	slog.Error("async ledger pool full — 账本行已丢失(额度/经费已扣但 llm_token_usage 无此笔,需人工对账)",
+		"task", name, "rejected_total", rejected, "waited", ledgerSubmitWait)
 }

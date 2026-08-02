@@ -9,7 +9,7 @@
 
 import type { ServerWebSocket } from "bun";
 import { runTurn, addUsage, effectiveOutputCap, type CallUsage } from "../turn/turnLoop.ts";
-import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills, sessionWsOpened, sessionWsClosed, markSessionActive, beginHydration, endHydration, awaitHydration, envNum } from "./sessions.ts";
+import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills, sessionWsOpened, sessionWsClosed, markSessionActive, beginHydration, endHydration, awaitHydration, envNum, persistCumUsage } from "./sessions.ts";
 import { tryAcquireTurn } from "./admission.ts";
 import { buildUserContentWithImages } from "./attachments.ts";
 import { convertFlatToAnthropic, type FlatMessage } from "./shadowTurn.ts";
@@ -397,6 +397,10 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
         // C1:补会话累计 session_total(Go accrueTurnUsage 需要它做水位去重 + 计费)。
         meta.cumUsage = addUsage(meta.cumUsage, turnUsage);
         (f as Record<string, unknown>).session_total = meta.cumUsage;
+        // 落盘计费水位(审计 P0-5):这一帧可能根本发不出去(socket 已关 / hub 已 grace 拆连),
+        // 那样 backend 就不会入账;只要累计还在盘上,下一次连上来的差额就能把这轮补回去。
+        // 内存淘汰(IDLE_TTL 30min)之后重连仍能接着走,不再 re-base 到 0。
+        persistCumUsage(meta.sessionId, meta.cumUsage);
         // 水位口径(≠计费):lastUsage 记「本轮**最后一次** LLM call 的真实上下文占用」,而非 sumUsage 的
         // 跨 call 求和(turnUsage)—— 一轮 N 次工具循环里每次 prompt 都含全部历史,求和 = 把同一段上下文重复
         // 计 N 次,水位随之虚高到 100%。且必须计入 cache_read/cache_creation:命中前缀缓存的历史仍占满上下文

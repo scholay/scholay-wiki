@@ -537,6 +537,10 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// cleanup → 升级满血待兑现补偿(R6:删锚遇 Redis 抖动失败后,Redis 恢复时补删锚)。
 	cleanupService.SetPendingRefillReconciler(plat.vipService.ReconcilePendingRefills)
 
+	// cleanup → 会员到期后的额度窗口对齐(2026-08-02 计费审计 P1-2:窗口 used 跨档继承,
+	// 到期回落 free 后免费额度恒为 0、开了 autopay 的每次调用还会 100% 从经费实扣)。
+	cleanupService.SetExpiredMembershipWindowRealigner(plat.vipService.RealignExpiredMembershipWindows)
+
 	// 依赖全部注入完成,启动后台清理 + 对账任务。
 	cleanupService.Start()
 

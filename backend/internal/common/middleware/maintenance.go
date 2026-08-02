@@ -113,6 +113,17 @@ func isMaintenanceWhitelisted(path string) bool {
 		"/api/v1/announcements/active",
 		"/api/v1/user/login",
 		"/api/v1/user/profile",
+		// 🔴 server-to-server 回调必须永远放行(2026-08-02 计费审计 P1-14)。
+		//
+		// 这些请求由外部网关主动发起、不带 Bearer/cookie,因此拿不到上面 admin 角色那条豁免;
+		// 而它们注册在 /api/v1 组内(routes_scholar.go),维护模式一开就整体 503。
+		// 支付回调被 503 的后果是真金白银:支付宝/微信会按各自节奏重推约 24 小时,
+		// 维护一旦超过这个窗口,网关彻底放弃 → 用户钱已扣、订单永远 pending,
+		// 而本系统内既没有主动查单(payment.QueryStatus 零实现)也没有退款链路。
+		// 「维护中」是**我们**的状态,不该让上游把它当成我们拒收这笔钱。
+		"/api/v1/payment/",              // alipay/notify + wechat/notify
+		"/api/v1/wechat-official/webhook", // 公众号被动回复(微信 5s 内不回就判超时)
+		"/api/v1/webhook/",                // Minicod 情报推送等外部 webhook
 	}
 	for _, p := range allowed {
 		if strings.HasPrefix(path, p) {

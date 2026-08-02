@@ -189,6 +189,11 @@ func main() {
 		slog.Error("Error closing WebSocket hub", "err", err)
 	}
 
+	// 计费水位同步落库(2026-08-02 审计 P1-13):每轮的落库是 best-effort 异步,发版时正在飞的
+	// 那笔可能还没提交进程就没了 → 新进程回源到旧水位,上一轮被当成新增量再记一遍(重复扣额度)。
+	// 必须在 ShutdownJournal 之前:两者都写 DB,水位是钱、journal 是历史,先保钱。
+	svc.agentBridge.FlushAllTokenWatermarks()
+
 	// M5:drain agent 事件日志写通道(把未落盘事件写完再退,防重启丢历史)。
 	svc.agentBridge.ShutdownJournal(shutdownCtx)
 

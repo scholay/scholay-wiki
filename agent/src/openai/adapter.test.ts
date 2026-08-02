@@ -141,7 +141,11 @@ describe("stream 状态机", () => {
     expect((msg.usage as any).cache_creation_input_tokens).toBe(0);
   });
 
-  test("上游无 usage → 全 0 不炸;纯文本 stop→end_turn", async () => {
+  // 2026-08-02 计费审计 P0-6:本用例原来断言的是「全 0 不炸」,而全 0 恰恰是缺陷本身 ——
+  // 全 0 → session_total 不前进 → backend 的 accrueTurnUsage(delta<=0 return)与
+  // llmusage.Record(TotalTokens==0 return)双双兜掉 → 该轮在账本上根本不存在,整条不实现
+  // stream_options.include_usage 的端点长期 100% 免费。现在断言的是「回落到估算值」。
+  test("上游无 usage → 回落估算值(不再是全 0);纯文本 stop→end_turn", async () => {
     globalThis.fetch = (async () =>
       sse([{ choices: [{ delta: { content: "hi" } }] }, { choices: [{ delta: {}, finish_reason: "stop" }] }, "[DONE]"])) as never;
     const client = openAIAdapterClient(P) as any;
@@ -149,7 +153,32 @@ describe("stream 状态机", () => {
     for await (const _ of stream) { /* drain */ }
     const msg = await stream.finalMessage();
     expect(msg.stop_reason).toBe("end_turn");
-    expect(msg.usage.input_tokens).toBe(0);
+    // 估算值必须为正:账本上「这一轮存在」是硬要求,精确度是次要的。
+    expect(msg.usage.input_tokens).toBeGreaterThan(0);
+    expect(msg.usage.output_tokens).toBeGreaterThan(0);
+  });
+
+  // 抢救链路的回归闸(P0-6):适配器必须产 message_start / message_delta,否则 turnLoop 的
+  // partialUsage 恒 null,用户 stop 与瞬态重放两处 usage 抢救对所有 openai 格式 provider 全是空操作
+  // ——「大 prompt 发出即 stop」就成了可反复利用的绕配额通道。
+  test("产 message_start(估算)与 message_delta(真实 usage),供 turnLoop 抢救被中断轮", async () => {
+    globalThis.fetch = (async () =>
+      sse([
+        { choices: [{ delta: { content: "hi" } }] },
+        { choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 100, completion_tokens: 7 } },
+        "[DONE]",
+      ])) as never;
+    const client = openAIAdapterClient(P) as any;
+    const stream = client.messages.stream({ model: "m", max_tokens: 10, messages: [{ role: "user", content: "q" }] });
+    const seen: any[] = [];
+    for await (const ev of stream) seen.push(ev);
+    const start = seen.find((e) => e.type === "message_start");
+    expect(start).toBeDefined();
+    expect(start.message.usage.input_tokens).toBeGreaterThan(0); // 开流即有底,abort 也抢得到
+    const delta = seen.find((e) => e.type === "message_delta");
+    expect(delta).toBeDefined();
+    expect(delta.usage.input_tokens).toBe(100); // 真实值到达后覆盖估算
+    expect(delta.usage.output_tokens).toBe(7);
   });
 
   test("非流式 create:内容与 usage 归一", async () => {

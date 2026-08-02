@@ -217,10 +217,12 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: 0
-      # correctness 键(验证码/吊销/配额)专用 noeviction 实例(scholar_redis_persist)。
-      # ⚠️ 与 dev 不同,生产默认**空 = 不启用**(沿用主 Redis,与历史线上行为一致):启用属存储切换,
-      # 相关键会在新实例从零开始 —— 要开就在 .env 显式设 REDIS_PERSIST_HOST=redis-persist 并选低峰窗口。
-      REDIS_PERSIST_HOST: ${REDIS_PERSIST_HOST:-}
+      # correctness 键(验证码/吊销/**周期额度**/SEO 队列)专用 noeviction 实例(scholar_redis_persist)。
+      # 🔴 2026-08-02 计费审计 P0-1:默认从空改成 redis-persist,与 dev compose 对齐。
+      # 空值(=回落主 Redis)不是「与历史一致」这么中性 —— 主池 allkeys-lru 逐出 quota:anchor 与
+      # 「窗口到期」在 loadWindow 里完全同形,用户白拿整窗额度且零日志。这条不该由 .env 是否设过决定。
+      # ⚠️ 首次生效是一次存储切换(在飞窗口/吊销标记/推送队列从零开始),选低峰窗口部署。
+      REDIS_PERSIST_HOST: ${REDIS_PERSIST_HOST:-redis-persist}
       REDIS_PERSIST_PORT: ${REDIS_PERSIST_PORT:-6379}
       REDIS_PERSIST_PASSWORD: ${REDIS_PERSIST_PASSWORD:-}
       REDIS_PERSIST_DB: ${REDIS_PERSIST_DB:-0}
@@ -314,6 +316,11 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      # correctness 键池:必须等它 healthy 再起 backend。InitRedisPersist 连不上是**静默降级**
+      # (回落主 Redis + 一条 Warn),冷启动竞速会让额度键悄悄躺回会被 LRU 逐出的主池 ——
+      # 那正是 2026-08-02 审计 P0-1 的现网形态。用 depends_on 把它变成确定性的。
+      redis-persist:
         condition: service_healthy
       minio:
         condition: service_healthy

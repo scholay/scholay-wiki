@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"scholar-backend/internal/common/utils"
 )
 
 // DashboardStatistics represents overall dashboard statistics
@@ -126,8 +128,12 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	// 北京时间语义不变 —— 容器 TZ 即北京时, 直接取本地零点, 不做任何时区转换。
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	tomorrowStart := todayStart.AddDate(0, 0, 1)
-	start7d := todayStart.AddDate(0, 0, -7)
-	start30d := todayStart.AddDate(0, 0, -30)
+	// 🔴 2026-08-02 计费审计 P1-15:原来是 -7 / -30,零点对齐了但**多回看一天** ——
+	// 「30 日营收 / 30 日新增 / 30 日 AI 成本」三张 KPI 覆盖 31 个自然日,比**同一屏**的
+	// fillChartDays(_, 30) 折线(today-29..today)多整整一天,也比「订单与营收」页同样标
+	// 「近30天」的口径多一天。本文件 206-215 行的注释早就写明了正确口径,当时只改了图没改 KPI。
+	start7d := utils.WindowCutoff(7)
+	start30d := utils.WindowCutoff(30)
 
 	// 用户统计 —— 一律排除 admin/super_admin(与 internal/user/metrics.go 注册量同口径)。
 	// 历史 bug:此处不排除管理员 → 看板「今日新增/总用户」比用户管理页多算种子超管等管理员账号,

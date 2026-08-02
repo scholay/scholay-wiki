@@ -120,10 +120,15 @@ func (h *WeChatPayHandler) ActivateConfig(c *gin.Context) {
 	utils.Success(c, gin.H{"message": "WeChat Pay config activated successfully"})
 }
 
-// WeChatPaymentRequest 微信支付请求结构体
+// WeChatPaymentRequest 微信支付请求结构体。
+//
+// 🔴 2026-08-02 计费审计 P1-4:**刻意没有 Amount 字段**。此前它是客户端必填,CreatePayment
+// 原样把 req.Amount 送去微信下单,orderRecord.FinalAmount 全程一次都没读 —— 任意登录用户
+// 都能对自己的 ¥269 订单发起一笔 ¥0.01 的微信支付。获利方向被 fulfill 的金额复核堵着
+// (少付换不到服务),但钱会真的进商户号、订单永远 pending、系统内又没有退款链路,
+// 微信还会按 15m/15m/30m… 重推 24 小时全部失败。「本单应付多少钱」只能有服务端一个真源。
 type WeChatPaymentRequest struct {
-	OrderNo string  `json:"order_no" binding:"required"`
-	Amount  float64 `json:"amount" binding:"required,gt=0"`
+	OrderNo string `json:"order_no" binding:"required"`
 }
 
 // CreatePayment 创建微信支付订单
@@ -137,8 +142,6 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 	if !utils.BindJSON(c, &req) {
 		return
 	}
-
-	slog.Info("creating wechat payment", "order_no", req.OrderNo, "amount", req.Amount)
 
 	userID, ok := utils.GetUserID(c)
 	if !ok {
@@ -161,8 +164,12 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
+	// 金额只认订单行的 final_amount(P1-4)。
+	amount := orderRecord.FinalAmount
+	slog.Info("creating wechat payment", "order_no", req.OrderNo, "amount", amount)
+
 	description := fmt.Sprintf("订阅套餐-%s", orderRecord.PlanCode)
-	codeURL, err := h.service.CreateNativeOrder(c.Request.Context(), req.OrderNo, req.Amount, description)
+	codeURL, err := h.service.CreateNativeOrder(c.Request.Context(), req.OrderNo, amount, description)
 	if err != nil {
 		slog.Error("failed to create wechat payment", "order_no", req.OrderNo, "err", err)
 		utils.Error(c, 5002, "创建支付失败，请稍后重试")
@@ -172,7 +179,7 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 	utils.Success(c, gin.H{
 		"code_url":  codeURL,
 		"order_no":  req.OrderNo,
-		"amount":    req.Amount,
+		"amount":    amount,
 		"timestamp": time.Now().Unix(),
 	})
 }

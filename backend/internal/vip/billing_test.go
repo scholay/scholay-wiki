@@ -297,6 +297,49 @@ func TestUpgradeCrossPeriodNoOvercharge(t *testing.T) {
 	}
 }
 
+// TestUpgradeProrationMonotonic 补差必须随余期**单调不减**(2026-08-02 计费审计 P1-10)。
+//
+// basisCycle 在 remainingDays>30 处硬切成年价日率(575 分/天),而月价日率是 700 分/天 ——
+// 修复前余期 31 天(¥178.36)比余期 30 天(¥210.00)还便宜 15%,多拿一天反而少付钱,
+// 且「先续一个月再升级」能把整段日率拉低。约 7/12 的月份(自然月 31 天)恰好落在这个便宜档,
+// 这不是理论边界而是常态。现有用例只覆盖 20 天与 100/393 天,正好跳过了这个断点。
+func TestUpgradeProrationMonotonic(t *testing.T) {
+	cfg := &BillingConfig{
+		ProPriceCents: 5900, MaxPriceCents: 26900,
+		ProYearPriceCents: 59000, MaxYearPriceCents: 269000,
+	}
+	now := tm("2026-07-22 12:00:00")
+
+	priceAt := func(days int) int {
+		exp := now.AddDate(0, 0, days)
+		uv := UserVIP{VIPTier: TierPro, VIPExpiresAt: &exp, VIPCycle: CycleMonthly}
+		sp, err := computeSubscription(uv, TierMax, "", cfg, now)
+		if err != nil {
+			t.Fatalf("days=%d: %v", days, err)
+		}
+		return sp.AmountCents
+	}
+
+	prev := 0
+	for days := 1; days <= 400; days++ {
+		got := priceAt(days)
+		if got < prev {
+			t.Fatalf("补差随余期下降:余期 %d 天 = %d 分,但余期 %d 天 = %d 分(定价倒挂)",
+				days, got, days-1, prev)
+		}
+		prev = got
+	}
+
+	// 断点两侧的具体金额:30 天 = 满月价差 ¥210;31 天被地板托住,不得低于它。
+	if p30, p31 := priceAt(30), priceAt(31); p30 != 21000 || p31 < p30 {
+		t.Fatalf("断点金额不符:30天=%d(want 21000) 31天=%d(want >= 30天)", p30, p31)
+	}
+	// 长余期仍走年价日率、不被地板抬高(防「修单调性顺手把长余期改贵」)。
+	if p393 := priceAt(393); p393 != int(math.Round(float64(269000-59000)*393/365)) {
+		t.Fatalf("长余期补差被地板污染: %d", p393)
+	}
+}
+
 func TestPlanActionNameYearly(t *testing.T) {
 	cases := []struct{ tier, action, cycle, want string }{
 		{TierPro, "new", CycleYearly, "Pro · 年度订阅"},

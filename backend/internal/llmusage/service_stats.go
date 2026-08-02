@@ -8,6 +8,8 @@ package llmusage
 import (
 	"log/slog"
 	"time"
+
+	"scholar-backend/internal/common/utils"
 )
 
 // Overview 是看板一次拉取的全部聚合数据(KPI + 趋势 + 多维拆分 + top 用户)。
@@ -178,9 +180,10 @@ func fillDailyGaps(rows []DayPoint, f StatsFilter) []DayPoint {
 		from, to = f.DateFrom, f.DateTo
 	} else {
 		days := normalizeDays(f.Days)
-		now := time.Now()
-		from = now.AddDate(0, 0, -(days - 1))
-		to = now
+		// 零点对齐(审计 P1-15):这里原来只做了 -(days-1) 没对齐零点,补点循环的首个 ds
+		// 会随当前钟点漂移,与同页 KPI 的 cutoff(repository_admin.go 已对齐)差一格。
+		from = utils.WindowCutoff(days)
+		to = time.Now()
 	}
 
 	out := make([]DayPoint, 0)

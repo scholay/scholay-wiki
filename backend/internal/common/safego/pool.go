@@ -38,6 +38,7 @@ package safego
 import (
 	"log/slog"
 	"sync/atomic"
+	"time"
 )
 
 // Pool 是一个固定 worker 数 + 固定队列长度的 goroutine 池。
@@ -95,6 +96,34 @@ func (p *Pool) Submit(fn func()) bool {
 		p.submitted.Add(1)
 		return true
 	default:
+		p.rejected.Add(1)
+		return false
+	}
+}
+
+// SubmitWait 与 Submit 同,但队列满时**最多等 d**再放弃(而不是立刻 drop)。
+//
+// 2026-08-02 计费审计 P1-5:账本(llm_token_usage)这类「丢了就对不上账」的写不该与
+// 匿名 beacon 共用「满即丢」的语义 —— DB 短暂抖动(2 worker × 亚毫秒 INSERT,512 队列
+// 要打满意味着单条 INSERT 已逼近秒级)时,等一小会儿几乎总能排上,而立刻丢是永久损失。
+// 仍有上界:d 到了就放弃并返回 false,绝不无限阻塞调用方(Record 在 WS pipe 的转发路径上)。
+func (p *Pool) SubmitWait(fn func(), d time.Duration) bool {
+	if fn == nil {
+		return true
+	}
+	select {
+	case p.queue <- fn:
+		p.submitted.Add(1)
+		return true
+	default:
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case p.queue <- fn:
+		p.submitted.Add(1)
+		return true
+	case <-t.C:
 		p.rejected.Add(1)
 		return false
 	}

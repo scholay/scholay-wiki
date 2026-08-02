@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/big"
 	"net/http"
 	"strings"
@@ -194,8 +195,12 @@ func (s *WeChatPayService) CreateNativeOrder(ctx context.Context, orderNo string
 		return "", fmt.Errorf("failed to get active config: %w", err)
 	}
 
-	// 构建请求参数
-	amountInCents := int(amount * 100) // 转换为分
+	// 构建请求参数。
+	// 🔴 元→分用 math.Round 而不是 int() 截断(2026-08-02 计费审计 P1-4):float64 存不下
+	// 大多数两位小数,269.00 在二进制里可能是 268.99999999999997,int(x*100) 直接截成 26899 ——
+	// 少收 1 分,而履约侧的浮点容差恰好是「严格大于 0.01」,这 1 分差正好被静默放行,
+	// 账面仍记原价,只有商户号对账才看得出来。
+	amountInCents := int(math.Round(amount * 100))
 	requestBody := map[string]any{
 		"appid":        config.AppID,
 		"mchid":        config.MchID,

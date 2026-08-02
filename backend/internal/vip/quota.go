@@ -175,7 +175,14 @@ func warnQuotaDegraded(reason string, attrs ...any) {
 // ── 有界 fail-open:Redis 挂了时的进程内锚定兜底计数器(评审 SS#3,P4 锚定化)─────────
 // Redis 不可用时退回进程内「每用户一个锚 + 窗口累计」,仍按同一 tier 上限做闸门 —— 把敞口从
 // 「无限免费」收敛到「每实例 · 每用户 · 每窗口上限」量级。局限(有意接受):进程重启清零、
-// 多实例各算各的、Redis 恢复后不回填。MySQL 账本照记,可事后核账。仅在 rdb==nil 时启用。
+// 多实例各算各的、Redis 恢复后不回填。MySQL 账本照记,可事后核账。
+//
+// 🔴 2026-08-02 计费审计 P0-1:此前它**只被写、从未被读**,整套兜底是死代码。
+// 原因是读写两侧的降级判据不一致:写侧(addUsage)按「命令失败」降级,读侧(loadWindow)按
+// `rdb == nil` 降级,而 cache.GetRedisPersist() 在进程存活期间**不可能返回 nil**
+// (InitRedis 在 Ping 之前就给 rdb 赋值,Ping 失败时 main.go 直接 log.Fatalf 终止进程)。
+// 于是 Redis 一抖动,loadWindow 走的是「err != nil → 当作没窗口 → 满血」那一支,
+// 全站所有档位所有用户的额度闸门同时失效。读侧现已改成按命令失败降级,与写侧对齐。
 type fallbackCounter struct {
 	mu sync.Mutex
 	m  map[uint]*fbWindow
@@ -218,6 +225,10 @@ type quotaWindow struct {
 	anchor int64 // unix 秒;0 = 无有效窗口
 	used   int64 // 窗口内真实累计(统计口径,单调)
 	base   int64 // 窗口内基线(重置/升级抬升)
+	// degraded=true 表示 Redis 命令失败,used 取自进程内兜底计数器(非权威)。
+	// 调用方据此拒绝「需要权威窗口」的写操作(手动重置 / 升级删锚),避免把降级读当成事实:
+	// 降级读的 anchor 恒为 0,长得和「无窗口=满血」一模一样,直接采信会重演审计 P0-1。
+	degraded bool
 }
 
 func (w quotaWindow) windowUsed() int64 {
@@ -241,20 +252,49 @@ func (s *Service) windowSeconds() int64 {
 }
 
 // loadWindow 读当前窗口(anchor + used/base)。**只读,绝不开窗**(开窗唯一点在 AddUsage)。
-// Redis 挂 → 进程内兜底(used=兜底累计,base=0);key 缺失/过期 → 无窗口(满血)。
+//
+// 🔴 三种结果必须分开(2026-08-02 计费审计 P0-1)——旧实现把前两种合并成
+// `if err != nil || a <= 0 || 到期 { return quotaWindow{} }` 一个条件,于是「Redis 读不出来」
+// 与「这个用户从没用过」在闸门眼里完全同形,Redis 一抖动即全站免费,且读路径一条日志都不打:
+//
+//	① redis.Nil(key 不存在)/ anchor 已到期 → 无窗口 = 满血。这是正常业务语义。
+//	② 命令失败(连接断 / 超时 / OOM)      → 降级:读进程内兜底计数器,degraded=true。
+//	③ 正常                                 → 真实窗口。
+//
+// 注意 ① 里「已到期」不写 anchor(读路径永不开窗),下一次真实消耗由 AddUsage 的 Lua CAS 换锚。
+//
+// ⚠️ 主 Redis 是 allkeys-lru:anchor 被逐出会落进 ①(与"从没用过"不可区分)。这不是本函数能
+// 分辨的,必须靠 REDIS_PERSIST_HOST 指向 noeviction 池来杜绝 —— 两份 compose 与 .env/.env.prod
+// 已同步启用,别再把它改回空值。
 func (s *Service) loadWindow(ctx context.Context, userID uint) quotaWindow {
 	windowSec := s.windowSeconds()
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
-		warnQuotaDegraded("window read")
-		return quotaWindow{anchor: 0, used: quotaFallback.get(userID, windowSec)}
+		// 实际不可达(见 quotaFallback 上方注释),保留作纯防御。
+		warnQuotaDegraded("window read: nil client")
+		return quotaWindow{used: quotaFallback.get(userID, windowSec), degraded: true}
 	}
 	a, err := rdb.Get(ctx, anchorKey(userID)).Int64()
-	if err != nil || a <= 0 || time.Now().Unix() >= a+windowSec {
-		return quotaWindow{} // 从未用 / 已到期 → 满血(读路径不写 anchor)
+	switch {
+	case err == nil:
+		if a <= 0 || time.Now().Unix() >= a+windowSec {
+			return quotaWindow{} // 已到期 → 满血(读路径不写 anchor)
+		}
+	case errors.Is(err, redis.Nil):
+		return quotaWindow{} // 从未用过 → 满血
+	default:
+		// Redis 不可用 —— 绝不能当"满血"放行。退回进程内兜底计数器(有界 fail-open)。
+		warnQuotaDegraded("window anchor read failed", "user_id", userID, "err", err)
+		return quotaWindow{used: quotaFallback.get(userID, windowSec), degraded: true}
 	}
 	vals, err := rdb.MGet(ctx, tokenUsedKey(userID, a), tokenBaseKey(userID, a)).Result()
-	if err != nil || len(vals) != 2 {
+	if err != nil {
+		// anchor 读到了但 used 读不到:同样不能当 0(那等于满血)。用兜底累计顶上,
+		// 并保留 anchor —— 窗口起止时刻的展示仍然是准确的。
+		warnQuotaDegraded("window used read failed", "user_id", userID, "err", err)
+		return quotaWindow{anchor: a, used: quotaFallback.get(userID, windowSec), degraded: true}
+	}
+	if len(vals) != 2 {
 		return quotaWindow{anchor: a}
 	}
 	// MGET 缺失 key 是 nil 元素(不是 redis.Nil 错误),逐元素解析(评审修订)。
@@ -340,9 +380,24 @@ func windDownPoint(capMicro int64) int64 { return int64(float64(capMicro) * turn
 // 只读、不预扣(与 CheckDailyQuota 同一口径:真实扣减仍走后置 AddUsage)。
 // unlimited=true(未登录 / 收费总开关关 / 该档不限额)时没有预算概念,调用方不要设闸。
 //
-// 消费方(契约见本次修复说明):agentbridge hub 在轮内实时累计本轮成本,越过 cap 即向 agent
-// 发 stop_generation 并回 code=budget 终帧 —— 成本口径与计费同源(同一个 pricer),
-// 不需要「微元 ÷ 估算的 CostPerToken」这层会失真的换算。
+// 🔴 消费方的**真实**形态(2026-08-02 计费审计 P1-1 纠偏,原注释描述的是一个从未实现的设计)。
+//
+// 原注释写的是「hub 在轮内实时累计本轮成本,越过 cap 即向 agent 发 stop_generation 并回
+// code=budget 终帧」。事实是:TurnCostCap 全仓**只有 RemainingBudget 一个调用者**,而
+// RemainingBudget 的产物只经 hub.stampTurnBudget → ws.stampBudget 盖进 user_message 帧的
+// {budget:{softRemaining,hardRemaining}} 里 —— 那是**下发给执行器的建议值**,
+// 真正的收尾判定在 agent 侧的 turnLoop(轮间比对 + MAX_TURN_TOKENS 硬闸)。
+// 后端没有任何 stop_generation:agentbridge 里唯一那处是 turn-timeout,与预算无关。
+//
+// 为什么没做成服务端硬闸(给下一个想动它的人):轮内没有成本数据源。per-call 明细只在
+// message_complete / error 终帧的 calls[] 里一次性带回,轮跑到一半时 backend 手上什么都没有。
+// 要做真硬闸得先扩帧协议(让执行器每完成一次 LLM call 就上报一帧增量 usage),还要处理它与
+// accrueTurnUsage 水位口径的去重 —— 这是个独立的改造,不是补几行判断。
+// 在那之前,本函数的语义就是「建议值 + 地板」,别再照旧注释去找那个不存在的硬闸。
+//
+// 现实中的实际上界因此是:agent 侧 wind-down + MAX_TURN_TOKENS(500 万 raw token/轮)
+// + 全容器 2 个并发槽(agent/src/server/admission.ts)。裸露的窗口是 round-0 那一次调用
+// (预算与 MAX_TURN_TOKENS 都是轮间判定),上界 = 模型 MaxInput × 该模型 input 单价。
 //
 // payg 感知(0094/0095):开了「经费自动付费」且余额为正的用户,越过 ceiling 后的消耗从经费
 // **实扣**(payAsYouGoOverflow → chargePayAsYouGo),闸门也放行 —— 此时硬顶 = 窗口余量(截零)
@@ -368,6 +423,34 @@ func (s *Service) TurnCostCap(ctx context.Context, userID uint) (capMicro int64,
 		_, remaining = paygAdjustedBudget(remaining, remaining, bal.PermMicro, bal.CreditAutopay, int64(cfg.creditToPoints()))
 	}
 	return turnCapFromRemaining(remaining, turnBudgetFloorMicro(cfg)), false
+}
+
+// RemainingWindowMicro —— 该用户此刻**还能花多少真实成本**(微元):窗口余量(可为负)
+// 加上 autopay 开启时的钱包容量。与 TurnCostCap 的区别是**不套地板** —— 调用方需要区分
+// 「几乎没额度了」和「还有一整个窗口」,而 TurnCostCap 的 max(remaining, floor) 把这个信息抹平了。
+//
+// 给「单次操作成本远高于一轮对话」的功能做起跑闸用(2026-08-02 计费审计 P1-3:审稿单场可达
+// 窗口上限的几十倍,而它的起跑闸只是个「还剩 >0 就放行」的布尔判定,剩 1 微元也照跑)。
+// unlimited=true(未登录 / 收费开关关 / 该档不限额)时没有预算概念,调用方不要设闸。
+func (s *Service) RemainingWindowMicro(ctx context.Context, userID uint) (remaining int64, unlimited bool) {
+	if userID == 0 {
+		return 0, true
+	}
+	cfg := s.cfg.Get()
+	if !cfg.Enabled {
+		return 0, true
+	}
+	ceiling := cfg.WindowCeiling(s.EffectiveTier(userID))
+	if ceiling < 0 {
+		return 0, true
+	}
+	remaining = ceiling - s.loadWindow(ctx, userID).windowUsed()
+	if bal, err := s.wallet.Balance(userID, cfg); err != nil {
+		slog.Warn("billing: remaining-window wallet read failed, skip payg capacity", "user_id", userID, "err", err)
+	} else {
+		_, remaining = paygAdjustedBudget(remaining, remaining, bal.PermMicro, bal.CreditAutopay, int64(cfg.creditToPoints()))
+	}
+	return remaining, false
 }
 
 // RemainingBudget —— 下发给执行器的单轮预算(SS#2),给 agentbridge 每条 user_message 盖章用。
@@ -413,8 +496,16 @@ func (s *Service) CheckDailyQuotaOverdraft(ctx context.Context, userID uint) err
 // 开了「经费自动付费」且**余额为正**就放行(本轮成本由 AddUsage 从经费扣),否则回额度错误。
 //
 // 为什么只要求「余额为正」而不是「余额够本轮」:本轮成本在开跑前不可知(取决于模型吐多少 token)。
-// 起跑闸把关、单轮内不打断(闸门只在 user_message 起点执法),agent 靠预算章优雅收尾;
-// 单轮内欠出的部分 ≈ 一轮的成本,下一轮起跑时余额已 <=0 就拦住了。
+// 起跑闸把关、单轮内不打断(闸门只在 user_message 起点执法),agent 靠预算章优雅收尾。
+//
+// ⚠️ 「欠出的部分 ≈ **一轮**的成本」这句话不严谨(2026-08-02 计费审计 P1-12 纠偏)。
+// 闸门是纯只读、不预留额度,而忙态锁按 (feature, agent session) 寻址、**不是按 user** ——
+// 同一用户在多个会话/多个 feature 同时发消息,K 条帧会各自独立过闸,每一条拿到的硬顶还都是
+// 「窗口余量 + 整个钱包容量」(paygAdjustedBudget 不知道有别的轮在飞)。所以真实上界是
+// **K 轮**而不是一轮。K 今天被 agent 容器的进程级准入压着(MAX_CONCURRENT_TURNS 默认 2,
+// 全容器所有租户共用),再叠上执行器的 MAX_TURN_TOKENS=5M,量级仍然有界 —— 这也是这条
+// 没有被当成 P0 修的原因。但那个上界来自**别处的一个常量**,不是这里的设计保证:
+// 谁要调大 MAX_CONCURRENT_TURNS,必须先在这里补 per-user 在途轮计数或真正的额度预留。
 func (s *Service) payAsYouGoOrQuotaError(userID uint, tier string, cfg *BillingConfig, w quotaWindow) error {
 	bal, err := s.wallet.Balance(userID, cfg)
 	if err == nil && bal.CreditAutopay && bal.PermMicro > 0 {
@@ -629,6 +720,12 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	// (已被并发重置 / 窗口到期自然满血 / 刚升级抬高了上限)。复用为闭包,扣费前再判一次堵竞态。
 	resetNotNeeded := func() (quotaWindow, bool) {
 		w := s.loadWindow(ctx, userID)
+		// 降级读的 anchor 恒为 0、used 来自进程内兜底 —— 拿它判「需不需要重置」会得到
+		// 「不需要」这个假成功:用户点了重置、接口回 200、额度纹丝不动(2026-08-02 审计 P0-1)。
+		// 降级期一律走下面的 ErrQuotaServiceDown 拒绝路径(不扣次数),与 rdb==nil 口径一致。
+		if w.degraded {
+			return w, false
+		}
 		ceiling := cfg.WindowCeiling(s.EffectiveTier(userID))
 		// 不限额档(ceiling<0)重置零收益:窗口对它没有任何约束,换锚不改变任何行为,
 		// 却要扣 1 次不可再生的重置次数 —— 直接按「无需重置」成功返回,不扣次数。
@@ -640,6 +737,9 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 
 	// 1) 锁内首判:不需要就直接成功,绝不扣费。
 	w, notNeeded := resetNotNeeded()
+	if w.degraded {
+		return ErrQuotaServiceDown // 降级期无法判定也无法兑现,显式拒绝且不扣次数
+	}
 	if notNeeded {
 		return nil
 	}
@@ -657,7 +757,9 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 
 	// 2.5) 竞态护栏:读 tier(首判)与读余额期间「升级到 Pro」事务可能恰好提交 —— 上限抬高后
 	//      本次重置已无必要。扣费前用最新状态再判一次,杜绝「刚充值升级却被白扣重置费」的 TOCTOU。
-	if w2, notNeeded2 := resetNotNeeded(); notNeeded2 {
+	if w2, notNeeded2 := resetNotNeeded(); w2.degraded {
+		return ErrQuotaServiceDown
+	} else if notNeeded2 {
 		return nil
 	} else {
 		w = w2
@@ -752,6 +854,14 @@ func (s *Service) ResetBaselineOnUpgrade(ctx context.Context, userID uint) {
 		return
 	}
 	w := s.loadWindow(ctx, userID)
+	if w.degraded {
+		// 降级读的 anchor 恒为 0,与「本来就没窗口」不可区分 —— 直接 return 会让付了钱的用户
+		// 卡在旧窗口里到自然到期(R6 想修的正是这个)。落标记交 reconciler 补,与 rdb==nil 同口径。
+		if err := s.wallet.MarkRefillPending(userID, time.Now()); err != nil {
+			slog.Warn("billing: mark refill pending failed (quota redis degraded at upgrade)", "user_id", userID, "err", err)
+		}
+		return
+	}
 	if w.anchor <= 0 {
 		return // 无活跃窗口:已满血,付款后首次使用自然开锚 = 已符合 R6,无需动作
 	}
@@ -780,6 +890,80 @@ func (s *Service) applyUpgradeRefill(ctx context.Context, userID uint) bool {
 		return false
 	}
 	return true
+}
+
+// ─── 降级/到期后的窗口对齐(2026-08-02 计费审计 P1-2)────────────────────────────
+//
+// 问题:窗口的 used 是**跨档继承**的,而闸门用的是**当前档**的 ceiling。会员到期或被 admin 撤销时
+// 没有任何一条路径去动锚点(全仓 ResetBaselineOnUpgrade 的 3 个调用点全是升级方向,cleanup 里
+// 也没有任何任务读 vip_expires_at)。于是 Pro 期用掉 400 万微元的用户一旦回落 free(ceiling 30 万):
+//   - windowUsed(4,000,000) >= ceiling(300,000) → 免费额度恒为 0,被锁到 anchor+7d;
+//   - 开了 credit_autopay 的更糟:payAsYouGoOverflow 在 prevWin>=ceiling 时返回**整笔** costMicro,
+//     每一次调用 100% 从经费实扣,而 ConsumeForQuota 连余额校验都没有、可扣成负。
+// 触发门槛极低:窗口内用超 ¥0.3 真实成本即可,对活跃付费用户几乎是常态。
+//
+// 修法 = 降级那一刻把高档期开的窗口作废(换锚语义,与「升级满血」对称)。
+
+// anchorDelIfLua 「值仍等于期望值才删」的原子脚本 —— 防 Get 与 Del 之间 AddUsage 恰好换了新锚,
+// 把用户降级后新开的那个窗口误删(误删=白送一个窗口,周期任务重复跑会变成无限免费)。
+const anchorDelIfLua = `if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end`
+
+// realignWindowAfterDowngrade 作废「在降级时刻之前开的」窗口。返回是否真的删了。
+//
+// 幂等的关键是 `a >= downgradedAt` 这一条:降级之后新开的窗口是用户以新档位自己开的,再删就等于
+// 每跑一次周期任务白送一个整窗 —— 那会把一个补偿任务变成无限免费通道。别去掉这个判断。
+func (s *Service) realignWindowAfterDowngrade(ctx context.Context, userID uint, downgradedAt time.Time) bool {
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return false
+	}
+	raw, err := rdb.Get(ctx, anchorKey(userID)).Result()
+	if err != nil {
+		return false // redis.Nil = 本就无窗口(已满血);其他错误留给下一轮重试
+	}
+	var a int64
+	if _, perr := fmt.Sscanf(raw, "%d", &a); perr != nil || a <= 0 || a >= downgradedAt.Unix() {
+		return false
+	}
+	n, err := rdb.Eval(ctx, anchorDelIfLua, []string{anchorKey(userID)}, raw).Int64()
+	if err != nil {
+		slog.Warn("billing: 降级窗口对齐删锚失败(下轮重试)", "user_id", userID, "err", err)
+		return false
+	}
+	if n == 0 {
+		return false // 期间被 AddUsage 换了新锚 → 那是降级后的窗口,放过
+	}
+	slog.Info("billing: 会员降级/到期 — 作废高档期开的额度窗口(下次使用重新开锚)",
+		"user_id", userID, "old_anchor", a, "downgraded_at", downgradedAt.Format(time.RFC3339))
+	return true
+}
+
+// RealignExpiredMembershipWindows 周期任务:把「刚到期的会员」在高档期开的窗口作废。
+// lookback 要明显大于调度间隔(重叠扫描无害:realignWindowAfterDowngrade 自带幂等判据)。
+func (s *Service) RealignExpiredMembershipWindows(ctx context.Context, lookback time.Duration) (int, error) {
+	now := time.Now()
+	var rows []struct {
+		ID        uint      `gorm:"column:id"`
+		ExpiresAt time.Time `gorm:"column:vip_expires_at"`
+	}
+	if err := s.repo.DB().Table("users").
+		Select("id, vip_expires_at").
+		Where("vip_expires_at IS NOT NULL AND vip_expires_at <= ? AND vip_expires_at > ?", now, now.Add(-lookback)).
+		Scan(&rows).Error; err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, r := range rows {
+		if s.realignWindowAfterDowngrade(ctx, r.ID, r.ExpiresAt) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// RealignWindowOnRevoke admin 撤销会员时的即时对齐(撤销比自然到期更需要:它是人为的、立刻生效的降级)。
+func (s *Service) RealignWindowOnRevoke(ctx context.Context, userID uint) {
+	s.realignWindowAfterDowngrade(ctx, userID, time.Now())
 }
 
 // ReconcilePendingRefills 由 cleanup 周期调用:对有「待满血」标记的用户补删锚(Redis 恢复后),

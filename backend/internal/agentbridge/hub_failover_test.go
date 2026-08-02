@@ -107,13 +107,16 @@ func TestPickFailoverModelNeverUpgradesTier(t *testing.T) {
 
 func TestTurnFailureBillingResponsibility(t *testing.T) {
 	// 用户任务导致的失败 → 照计额度。
-	for _, code := range []string{"budget", "content_blocked", "quota_exceeded"} {
+	// round_cap / step_incomplete 于 2026-08-02 计费审计 P0-3 从「平台自担」挪到这里:
+	// 它们与 budget 同源(用户任务撑爆我们设的上限),且完全由 prompt 内容确定性诱导 ——
+	// 留在平台自担侧等于一条「复制粘贴同一条 prompt 即可无限免费」的通道。
+	for _, code := range []string{"budget", "content_blocked", "quota_exceeded", "round_cap", "step_incomplete"} {
 		if !turnFailureChargedToUser(code) {
 			t.Fatalf("code=%s 应计入用户额度", code)
 		}
 	}
 	// 平台责任的失败 → 记账本但不计用户额度。
-	for _, code := range []string{"upstream", "overloaded", "busy", "model_protocol_error", "round_cap",
+	for _, code := range []string{"upstream", "overloaded", "busy", "model_protocol_error",
 		"internal", "config", "empty_turn", "turn_timeout"} {
 		if turnFailureChargedToUser(code) {
 			t.Fatalf("code=%s 不应计入用户额度(平台自担)", code)
