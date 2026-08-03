@@ -78,3 +78,7 @@ backups/
 /feature-tools-academic-audit/
 /.feature-tools-academic-10k-cache/
 feature-tools-coldstart/
+
+# Pencil editor local asset cache (fonts/images fetched from localhost during edit)
+design/pencil/fonts/
+design/pencil/images/

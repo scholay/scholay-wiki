@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FlaskConical, RotateCcw, X } from "lucide-react";
+import { useHotkey } from "@/shared/hooks/useHotkey";
 import {
   MOCK_STORAGE,
   getMockLatency,
@@ -41,6 +42,13 @@ export function MockControlPanel() {
       return false;
     }
   });
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(MOCK_STORAGE.panelHidden) === "true";
+    } catch {
+      return false;
+    }
+  });
   const persona = getMockPersona();
   const latency = getMockLatency();
   const scenario = getMockScenario();
@@ -53,6 +61,21 @@ export function MockControlPanel() {
       // 不支持持久化时只影响当前页。
     }
   };
+
+  const togglePanelHidden = () => {
+    setHidden((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(MOCK_STORAGE.panelHidden, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  // 完全隐藏/唤回 —— 录屏演示用；隐藏后组件仍挂载,快捷键始终生效。
+  useHotkey("mod+shift+m", togglePanelHidden);
 
   const switchPersona = (next: MockPersona) => {
     if (next === persona) return;
@@ -91,6 +114,8 @@ export function MockControlPanel() {
     window.location.assign("/");
   };
 
+  if (hidden) return null;
+
   if (collapsed) {
     return (
       <button
@@ -120,7 +145,7 @@ export function MockControlPanel() {
             DEV · MOCK BOARD
           </div>
           <p className="mt-1.5 text-[10px] normal-case tracking-normal text-lime-200/45">
-            browser-only · no real backend · design branch
+            browser-only · no real backend · mod+shift+M hide
           </p>
         </div>
         <button

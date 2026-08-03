@@ -6,6 +6,7 @@ export const MOCK_STORAGE = {
   latency: "scholay.mock.latency",
   scenario: "scholay.mock.scenario",
   panelCollapsed: "scholay.mock.panel-collapsed",
+  panelHidden: "scholay.mock.panel-hidden",
 } as const;
 
 export const DEFAULT_MOCK_LATENCY = 180;
