@@ -38,11 +38,25 @@ export interface HotPaper {
   last_viewed_at: string;
 }
 
-/** 后端未必返回这个 stats —— 如果接口缺失,UI 应该 fallback 到 keywords.length / papers.length */
+/**
+ * GET /admin/hot-content/stats 的真实形态 —— 对齐 backend/internal/hotcontent/service.go
+ * `GetStats()` 返回的那张 map(全表 count + 当前生效的清理策略)。
+ *
+ * ⚠️ 这个 interface 此前写的是 `total_keywords` / `total_papers` / `last_updated`,
+ * 三个键**后端一个都不返回**。TS 上全是可选字段所以编译期毫无提示,运行时永远 undefined:
+ * 两张 KPI 卡一直在显示 `keywords?.total`(那是**当前筛选 + 30 天窗口**的分页 total,
+ * 切到「期刊」筛选就跟着变,却挂着「热搜词条数」的标签),而「最近更新:」那行文案
+ * 因为 `last_updated` 恒为 undefined,从上线起就没渲染过一次。
+ */
 export interface HotStats {
-  total_keywords?: number;
-  total_papers?: number;
-  last_updated?: string;
+  /** hot_search_keywords 全表行数(不受列表的 days / search_type 筛选影响) */
+  keywords_count: number;
+  /** hot_papers 全表行数 */
+  papers_count: number;
+  /** 当前生效的保留天数(来自 hot_content_config,读不到时后端用常量兜底) */
+  retention_days: number;
+  /** 当前生效的最大记录数 */
+  max_records: number;
 }
 
 /**

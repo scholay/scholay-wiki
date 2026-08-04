@@ -6,9 +6,12 @@ export interface VipCode {
   id: number;
   code: string;
   grant_kind: string; // tier | credit
-  grant_tier: string;
+  grant_tier: string; // free | pro | max —— 展示一律走 Free/Pro/Max 大写标签,不直出裸小写
+  /** 授予**数量**(字段名是历史遗留,不再等于「天数」);单位看 grant_unit */
   grant_days: number;
-  grant_credits: number;
+  /** day | month | year(0110 起)。存量码是空串 = day,渲染前一律过 normGrantUnit */
+  grant_unit: string;
+  grant_credits: number; // credit 码发放的经费。刻度「经费 = 分」(100 经费 = ¥1)
   credit_kind: string; // temp | perm
   credit_validity_days: number;
   max_uses: number; // 可兑换总次数(1..100)
@@ -24,6 +27,7 @@ export interface VipCode {
 
 export interface VipCodeParams {
   status?: string; // ''|'unredeemed'|'redeemed'
+  /** 后端 ListCodes 是 `grant_tier = ?` 精确匹配。实际只会生成 pro / max 两种会员码 —— 不要给 free 选项(恒 0 条)。 */
   tier?: string;
   redeemer?: string; // 兑换人:ID/用户名/邮箱/手机号
   page?: number;
@@ -34,7 +38,8 @@ export interface GenerateCodesReq {
   count: number;
   grant_kind?: string; // tier(默认) | credit
   tier?: string; // tier 码: pro | max
-  grant_days?: number;
+  grant_days?: number; // 授予**数量**,单位由 grant_unit 决定
+  grant_unit?: string; // day | month | year;不传 = day(老客户端行为不变)
   grant_credits?: number; // credit 码
   credit_kind?: string; // temp | perm
   credit_validity_days?: number;
@@ -93,14 +98,18 @@ export function useIncreaseVipCodeUses() {
 }
 
 /**
- * 改会员天数:覆盖会员(tier)码授予的 grant_days。只影响【之后的兑换】——
- * 兑换时后端实时读该码的 grant_days,已兑换用户的会员到期已落定、不受影响。返回更新后的码。
+ * 改会员时长:覆盖会员(tier)码授予的 grant_days + grant_unit。只影响【之后的兑换】——
+ * 兑换时后端实时读该码的两列,已兑换用户的会员到期已落定、不受影响。返回更新后的码。
+ *
+ * 🔴 `unit` 必传,哪怕就是 'day'。后端 SetCodeGrantDays 一次写两列:
+ * 一张 grant_unit='month' 的码,管理员想把它改成 7 天而只传 days=7 时,
+ * 单位仍是 month → 实际发 7 个月。这是最容易发生的静默放大,所以类型上不给可选。
  */
 export function useSetVipCodeGrantDays() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, days }: { id: number; days: number }) =>
-      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/grant-days`, { days })).data.data,
+    mutationFn: async ({ id, days, unit }: { id: number; days: number; unit: string }) =>
+      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/grant-days`, { days, unit })).data.data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
   });
 }

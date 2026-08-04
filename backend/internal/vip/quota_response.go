@@ -21,7 +21,7 @@ import (
 // err 的文案由 NewQuotaError* 构造,本就是给用户看的友好中文,直接透出;
 // 结构化字段缺失(旧位点 / 非本包构造)时降级为无 data 的 6010,前端兼容 quota 缺失。
 func RespondQuotaExceeded(c *gin.Context, err error) {
-	msg := "本周期 AI 额度已用完。"
+	msg := "你的 AI 额度用完了。"
 	if err != nil {
 		msg = err.Error()
 	}

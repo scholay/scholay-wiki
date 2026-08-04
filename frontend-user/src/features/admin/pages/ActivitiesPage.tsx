@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Loader2, Save, Sparkles, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/tabs';
@@ -6,10 +7,12 @@ import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { cn } from '@/shared/lib/utils';
 import { AdminPageLayout } from '../components/AdminPageLayout';
+import { ConfigPageGuard } from '../components/ConfigPageGuard';
 import { useApiToast } from '../hooks/useApiToast';
 import { PromoConfigPanel } from './PromoConfigPage';
 import { useBillingConfig, useUpdateBillingConfig, type BillingConfig } from '../api/billing-config';
 import { useInviteSummary } from '../api/invites';
+import { creditsToYuan, FALLBACK_RECHARGE_RATE } from '../lib/format';
 
 /**
  * 活动管理 —— 限时运营活动统一配置(owner 拍板 2026-07-31:「限时领取会员」与「邀请有奖」
@@ -23,11 +26,22 @@ import { useInviteSummary } from '../api/invites';
  * 以后新活动加一个 TabsTrigger + 面板即可。
  */
 export function ActivitiesPage() {
+  const qc = useQueryClient();
+  // 两个 tab 各挂各的配置查询;刷新按钮统一失效这两族 key(不必把 hook 提到本层重复订阅)。
+  const fetchingBilling = useIsFetching({ queryKey: ['admin', 'billing-config'] });
+  const fetchingPromo = useIsFetching({ queryKey: ['admin', 'promo'] });
+
   return (
     <Tabs defaultValue="invite" className="flex h-full min-h-0 flex-col">
       <AdminPageLayout
         title="活动管理"
         description="限时运营活动统一配置 —— 各活动独立开关;用户端顶栏「限时活动」菜单只显示进行中的活动"
+        onRefresh={() => {
+          void qc.invalidateQueries({ queryKey: ['admin', 'billing-config'] });
+          void qc.invalidateQueries({ queryKey: ['admin', 'promo'] });
+          void qc.invalidateQueries({ queryKey: ['admin', 'invites'] });
+        }}
+        refreshing={fetchingBilling + fetchingPromo > 0}
         tabs={
           <TabsList>
             <TabsTrigger value="invite">邀请有奖</TabsTrigger>
@@ -46,38 +60,44 @@ export function ActivitiesPage() {
   );
 }
 
+/** 经费 → 人民币。经费的刻度是「经费 = 分」(100 经费 = ¥1)。 */
 /** 邀请有奖活动面板:两个旋钮 + 状态 + 发放数据摘要 + 邀请监控入口。 */
 function InviteRewardPanel() {
-  const { data, isLoading } = useBillingConfig();
+  const q = useBillingConfig();
+
+  // 🔴 三态守卫。原写法 `if (isLoading || !form)` 与计费配置页是同一份写法同一个症状:
+  // GET 失败后 isLoading=false、form 恒 null → 永久转圈,分不清后端挂了还是自己没权限。
+  return (
+    <ConfigPageGuard query={q} resourceName="活动配置">
+      {(cfg) => <InviteRewardForm initial={cfg} blocked={q.isError || !q.data} />}
+    </ConfigPageGuard>
+  );
+}
+
+function InviteRewardForm({ initial, blocked }: { initial: BillingConfig; blocked: boolean }) {
   const update = useUpdateBillingConfig();
   const { data: summary } = useInviteSummary();
   const apiToast = useApiToast();
 
-  const [form, setForm] = useState<BillingConfig | null>(null);
+  const [form, setForm] = useState<BillingConfig>(initial);
   useEffect(() => {
-    if (data) setForm(data);
-  }, [data]);
+    setForm(initial);
+  }, [initial]);
 
-  const active = (form?.invite_reward_credits ?? 0) > 0;
+  // 折算走**当前这份配置里的** recharge_rate,不写死 100:它就在同一个页面上可编辑,
+  // 硬编码会让「奖励 600 经费 = ¥6」在汇率被调整后变成一个错误的成本数字。
+  const rate = form.recharge_rate || FALLBACK_RECHARGE_RATE;
+
+  const active = (form.invite_reward_credits ?? 0) > 0;
   const setNum = (key: 'invite_reward_credits' | 'invite_reward_daily_cap', raw: string) =>
-    setForm((f) => (f ? { ...f, [key]: Math.max(0, Number(raw) || 0) } : f));
+    setForm((f) => ({ ...f, [key]: Math.max(0, Number(raw) || 0) }));
 
   const onSave = async () => {
-    if (!form) return;
     await apiToast(update.mutateAsync(form), {
       success: form.invite_reward_credits > 0 ? '已保存,活动进行中' : '已保存,活动已关闭',
       failure: '保存失败(需管理员权限)',
     });
   };
-
-  if (isLoading || !form) {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-16 border border-border p-6 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        加载配置…
-      </div>
-    );
-  }
 
   return (
     <div className="flex max-w-2xl flex-col gap-4">
@@ -90,9 +110,13 @@ function InviteRewardPanel() {
           )}
         >
           <span className={cn('size-1.5 rounded-pill', active ? 'bg-brand-green' : 'bg-faint')} />
-          {active ? `活动进行中 · 每邀 1 人奖励 ${form.invite_reward_credits} 经费` : '活动已关闭'}
+          {active
+            ? `活动进行中 · 每邀 1 人奖励 ${form.invite_reward_credits.toLocaleString()} 经费(${creditsToYuan(form.invite_reward_credits, rate)})`
+            : '活动已关闭'}
         </span>
-        <Button size="sm" onClick={onSave} disabled={update.isPending}>
+        {/* blocked 是第二道闸:这个 PUT 是 billing_config 全列覆盖,
+            GET 失败时误点会把整张计费配置写空(Guard 之外再挡一层)。 */}
+        <Button size="sm" onClick={onSave} disabled={update.isPending || blocked}>
           {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           保存
         </Button>
@@ -117,6 +141,9 @@ function InviteRewardPanel() {
               value={form.invite_reward_credits}
               onChange={(e) => setNum('invite_reward_credits', e.target.value)}
             />
+            <span className="text-12 tabular-nums text-subtle">
+              = 每人 {creditsToYuan(form.invite_reward_credits, rate)}
+            </span>
             <span className="text-12 text-faint">经费=分,100 = ¥1;设 0 = 关闭活动</span>
           </label>
           <label className="flex flex-col gap-1">
@@ -133,13 +160,20 @@ function InviteRewardPanel() {
         <p className="text-12 text-faint">保存后最多约 90 秒对用户端全量生效(配置 30s + 前端缓存 60s)。</p>
       </div>
 
-      {/* 数据摘要 + 监控入口 */}
+      {/* 数据摘要 + 监控入口 —— 成本用 ¥ 做主数字,裸经费数放副标(与邀请监控页 KPI 同口径) */}
       <div className="flex items-center justify-between gap-3 rounded-16 border border-border bg-surface-card p-4">
         <div className="flex flex-col gap-1">
           <span className="text-12 text-faint">累计成功邀请 / 已发放奖励</span>
           <span className="text-14 font-medium tabular-nums text-foreground">
-            {summary ? `${summary.total_registrations} 人 · ${summary.total_reward_credits} 经费` : '—'}
+            {summary
+              ? `${summary.total_registrations.toLocaleString()} 人 · ${creditsToYuan(summary.total_reward_credits, rate)}`
+              : '—'}
           </span>
+          {summary && (
+            <span className="text-12 tabular-nums text-faint">
+              {summary.total_reward_credits.toLocaleString()} 经费(100 经费 = ¥1)
+            </span>
+          )}
         </div>
         <Link
           to="/admin/invites"

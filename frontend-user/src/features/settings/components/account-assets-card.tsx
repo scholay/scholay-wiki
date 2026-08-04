@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/shared/ui/dialog';
-import { SubscribeDialog, subscribePayMethods } from '@/shared/components';
+import { SubscribeDialog, subscribePayMethods, WechatPayDialog } from '@/shared/components';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { useResetQuota, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
@@ -54,7 +54,7 @@ function buildSlides(proMult: number, maxMult: number, rate: number) {
 export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () => void }) {
   const locked = ALL_TIERS.filter((t) => TIER_RANK[t] > TIER_RANK[data.tier]);
   const { data: plans } = usePlans();
-  const { subscribe } = useSubscribeFlow();
+  const { subscribe, wechatOrder, closeWechat, onWechatPaid } = useSubscribeFlow();
   const [upgrade, setUpgrade] = useState<{ open: boolean; tier?: 'pro' | 'max' }>({ open: false });
 
   const methods = subscribePayMethods(plans?.payment_methods, plans?.test_payment ?? false);
@@ -113,6 +113,15 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
         methods={methods}
         initialTier={upgrade.tier}
         onPay={(tier, method, cycle) => subscribe(tier, method, cycle, PLAN_LABEL[tier])}
+      />
+
+      {/* 微信支付:上面的 onPay 选微信时会关掉套餐弹窗、把已建订单交到这里继续扫码。
+          必须挂上,否则微信分支会留下 pending 孤儿订单(见 useSubscribeFlow 的红字)。 */}
+      <WechatPayDialog
+        orderNo={wechatOrder?.orderNo ?? null}
+        subject={wechatOrder?.subject}
+        onOpenChange={(o) => !o && closeWechat()}
+        onPaid={onWechatPaid}
       />
     </section>
   );

@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { Coins, Activity, Database, Users, TriangleAlert } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
+import { toApiError } from '@/shared/lib/http';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { TokenUsageFilterBar } from '../components/token-usage/TokenUsageFilterBar';
@@ -10,6 +13,7 @@ import {
   useTokenUsageSummary,
   compactTokens,
   compactPoints,
+  exactPoints,
   formatPoints,
   formatYuan,
   type TokenUsageFilters,
@@ -52,6 +56,9 @@ function userRows(items: TokenUserItem[]): DimRow[] {
     key: u.user_id == null ? 'anon' : String(u.user_id),
     // 统一:始终带 #ID。匿名(公众号/系统)无 user_id。
     label: u.user_id == null ? '公众号/匿名' : `${u.username || u.email || '用户'} #${u.user_id}`,
+    // 「谁一天烧掉几万算力点」之后必然要去看这个人是谁 —— 深链到用户管理的关键词搜索
+    // (UsersPage 读的就是 `q`),否则只能手抄 ID 再去搜。匿名行没有实体可跳。
+    href: u.user_id == null ? undefined : `/admin/users?q=${u.user_id}`,
     sub: u.user_id != null && u.username && u.email ? u.email : undefined,
     input: u.input_tokens,
     output: u.output_tokens,
@@ -65,7 +72,11 @@ function userRows(items: TokenUserItem[]): DimRow[] {
 
 export function TokenUsageStatsPage() {
   const [filters, setFilters] = useState<TokenUsageFilters>({ days: 30 });
-  const { data, isLoading } = useTokenUsageSummary(filters);
+  const { data, isLoading, isError, error, refetch } = useTokenUsageSummary(filters);
+  const qc = useQueryClient();
+  // 刷新整页(概览 + 明细 + facets 三条 query 共前缀);isFetching 单看这一族,
+  // 本页没有轮询 query,所以不会出现"按钮常年 disabled"。
+  const fetching = useIsFetching({ queryKey: ['admin', 'token-usage'] }) > 0;
 
   const t = data?.totals;
   const cacheTotal = (t?.cache_read_tokens ?? 0) + (t?.cache_creation_tokens ?? 0);
@@ -85,32 +96,69 @@ export function TokenUsageStatsPage() {
     <AdminPageLayout
       title="算力用量统计"
       description="统一 LLM 账本 · 按各模型自己的单价精算 · 1 算力点 = ¥0.001,与用户额度同单位"
+      onRefresh={() => qc.invalidateQueries({ queryKey: ['admin', 'token-usage'] })}
+      refreshing={fetching}
     >
       <TokenUsageFilterBar onChange={setFilters} />
 
-      {/* KPI —— 算力点打头,token 退到第 3 张卡 */}
+      {/* 🔴 加载失败横幅 —— 这一页最贵的错误是"说反话":概览接口一挂,四张 KPI 全走 `?? 0`,
+          图空、拆分「暂无数据」、明细「暂无调用记录」,整页读起来就是「这段时间平台一次
+          LLM 都没调用、一分钱没花」。成本看板显示 0 会直接影响"要不要继续放量"的判断,
+          所以失败必须先声明出来,KPI 也一律不回落成数字(StatCard 传了 error 就只给 —)。 */}
+      {isError && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-12 border border-border bg-danger-soft px-3 py-2 text-12">
+          <span className="flex items-center gap-2 font-medium text-brand-red">
+            <TriangleAlert className="size-3.5 shrink-0" />
+            用量数据加载失败
+          </span>
+          <span className="text-subtle">{toApiError(error).message}</span>
+          <span className="text-faint">下方 KPI / 图表 / 拆分为空,不代表这段时间没有调用。</span>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            重试
+          </Button>
+        </div>
+      )}
+
+      {/* KPI —— 算力点打头,token 退到第 3 张卡。
+          紧凑值(1.2k)扫趋势够用,但算力点是计费单位、对账要精确数 —— 挂 title 补上。 */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard
           icon={<Coins />}
           label="总算力点"
-          value={compactPoints(t?.cost_micro_yuan ?? 0)}
+          loading={isLoading}
+          error={error}
+          value={
+            <span title={`精确值 ${exactPoints(t?.cost_micro_yuan ?? 0)} 算力点`}>
+              {compactPoints(t?.cost_micro_yuan ?? 0)}
+            </span>
+          }
           hint={`≈ ${formatYuan(t?.cost_micro_yuan ?? 0)} 真实成本`}
         />
         <StatCard
           icon={<Activity />}
           label="调用次数"
+          loading={isLoading}
+          error={error}
           value={(t?.total_calls ?? 0).toLocaleString()}
           hint={`公众号/匿名 ${(t?.anon_calls ?? 0).toLocaleString()} 次`}
         />
         <StatCard
           icon={<Database />}
           label="总 Tokens"
-          value={compactTokens(t?.total_tokens ?? 0)}
+          loading={isLoading}
+          error={error}
+          value={
+            <span title={`精确值 ${(t?.total_tokens ?? 0).toLocaleString()} tokens`}>
+              {compactTokens(t?.total_tokens ?? 0)}
+            </span>
+          }
           hint={`缓存 ${compactTokens(cacheTotal)} · 命中率 ${cacheHitRate.toFixed(1)}%`}
         />
         <StatCard
           icon={<Users />}
           label="独立用户"
+          loading={isLoading}
+          error={error}
           value={(t?.unique_users ?? 0).toLocaleString()}
           hint={`匿名消耗 ${formatPoints(t?.anon_cost_micro_yuan ?? 0)} 算力点`}
         />
@@ -141,10 +189,13 @@ export function TokenUsageStatsPage() {
         daily={data?.daily ?? []}
         byModel={data?.daily_by_model ?? []}
         byFeature={data?.daily_by_feature ?? []}
+        loading={isLoading}
+        error={error}
+        onRetry={() => refetch()}
       />
 
       {/* 维度拆分(Tab 切换 + 算力点横条) */}
-      <TokenDimensionPanel tabs={tabs} loading={isLoading} />
+      <TokenDimensionPanel tabs={tabs} loading={isLoading} error={error} onRetry={() => refetch()} />
 
       {/* 明细 */}
       <TokenUsageLogTable filters={filters} />

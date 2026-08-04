@@ -6,6 +6,7 @@ import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
 import { Label } from '@/shared/ui/label';
 import { Switch } from '@/shared/ui/switch';
+import { ConfigPageGuard } from '../components/ConfigPageGuard';
 import { useAdminPromoConfig, useUpdatePromoConfig, type PromoConfig } from '../api/promo-config';
 
 /**
@@ -30,27 +31,37 @@ const PLACEHOLDER = {
 
 type FormState = Omit<PromoConfig, 'id'>;
 
-const EMPTY: FormState = {
-  enabled: false,
-  title: '',
-  subtitle: '',
-  benefits: '',
-  button_text: '',
-  wechat_qr: '',
-};
-
+/**
+ * 🔴 **本页是整份审计里最典型的「一次误点 = 线上事故」**,所以必须走 ConfigPageGuard:
+ * 原写法 `useState(EMPTY)` + `useEffect(() => { if (cfg) setForm(cfg) })` + 保存按钮
+ * `disabled={update.isPending || isLoading}` —— GET 挂掉时 isLoading 变 false、cfg 是 undefined、
+ * effect 不跑,屏幕上是一份**看起来完全正常的空表单**,而保存按钮**是可点的**。
+ * 后端 PUT 整行覆盖,点一下就把线上的客服二维码、活动标题、福利点全部写成空串,
+ * 且 enabled 会被写成 false(活动直接下线),全程零异常提示。
+ */
 export function PromoConfigPanel() {
-  const { data: cfg, isLoading } = useAdminPromoConfig();
+  const q = useAdminPromoConfig();
+  return (
+    <ConfigPageGuard query={q} resourceName="限时领取会员配置">
+      {(cfg) => <PromoConfigForm initial={cfg} blocked={q.isError || !q.data} />}
+    </ConfigPageGuard>
+  );
+}
+
+/** 后端配置行 → 表单态(去掉主键 id;PUT 只提交可编辑字段)。 */
+function toFormState({ id: _id, ...rest }: PromoConfig): FormState {
+  return rest;
+}
+
+function PromoConfigForm({ initial, blocked }: { initial: PromoConfig; blocked: boolean }) {
   const update = useUpdatePromoConfig();
   const apiToast = useApiToast();
 
-  const [form, setForm] = useState<FormState>(EMPTY);
+  const [form, setForm] = useState<FormState>(() => toFormState(initial));
+  // 刷新拿到新配置时重新同步(react-query 结构共享:内容不变则引用不变,不会打断编辑)
   useEffect(() => {
-    if (cfg) {
-      const { id: _id, ...rest } = cfg;
-      setForm(rest);
-    }
-  }, [cfg]);
+    setForm(toFormState(initial));
+  }, [initial]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -72,7 +83,8 @@ export function PromoConfigPanel() {
         <p className="text-12 text-muted-foreground">
           开启后用户端「限时活动」菜单出现该活动,首屏 / 额度用尽自动弹窗引导扫码加客服领取。
         </p>
-        <Button size="sm" onClick={handleSave} disabled={update.isPending || isLoading}>
+        {/* blocked 是 Guard 之外的第二道闸 —— PUT 是整行覆盖,GET 失败时绝不能让按钮可点 */}
+        <Button size="sm" onClick={handleSave} disabled={update.isPending || blocked}>
           {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           保存
         </Button>

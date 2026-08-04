@@ -43,7 +43,11 @@ var paperFieldSpec = map[string][]string{
 	"reference_count":  {"reference_count", "referenceCount"},
 	"venue":            {"venue"},
 	"is_open_access":   {"is_open_access", "isOpenAccess"},
-	"pdf_url":          {"pdf_url", "pdfUrl", "openAccessPdf"},
+	// ⚠️ `pdfUrl` 这个拼法**被上游拒绝**(2026-08-03 逐别名实测:pdf_url ✅ / openAccessPdf ✅ /
+	// pdfUrl ❌ 400,stc 的 authors-papers、papers/get、papers/search 三个端点一致)。
+	// 白名单的职责是拦下会让上游 400 的字段,放行一个必炸的别名等于给它发通行证 —— 故删除。
+	// 不要"为了对称"把它加回来:同族别名并非都被上游接受,这一族里只有它不行。
+	"pdf_url": {"pdf_url", "openAccessPdf"},
 	"url":              {"url"},
 	"fields_of_study":  {"fields_of_study", "fieldsOfStudy"},
 	"authors":          {"authors"},
@@ -111,6 +115,30 @@ func filterFields(fields []string, allow map[string]struct{}) []string {
 // filterPaperFields 论文类端点(search/get/batch/citations/references/authors-papers/
 // recommendations)的 fields 白名单过滤。
 func filterPaperFields(fields []string) []string { return filterFields(fields, paperFieldAllow) }
+
+// authorPapersDefaultFields —— /stc/authors/papers 在**不传 fields 时的显式兜底**。
+//
+// 🔴 这里不能"过滤后为空就不发 fields、取上游默认" —— 那正是这个端点挂掉的原因:
+// **上游自己的默认字段集里含 `tldr`,而它自己的字段校验器又拒绝 `tldr`**,于是
+// 「不传 fields」这一种请求形态 100% 返回
+//     400 {"error":"Unrecognized or unsupported fields: [tldr]"}
+// (2026-08-03 实测:同一作者不传 fields 必 400、显式传合法 fields 必 200;换作者结论不变。)
+// 这是上游的缺陷,但触发它的是我们的请求形态,而且修复权在我们这边 —— 只能绕开。
+//
+// 影响面(修复前):所有 stc 源学者的论文列表页恒失败,而 stc 占 seo_authors 的 592/693 ≈ 85%。
+// olx 走 /v1/olx/authors/papers,其上游默认正常,故不受影响(已作对照实测)。
+//
+// ⚠️ 只给这一个端点加兜底,不要顺手推广到 papers/get、references、search ——
+// 那三个的上游默认是好的(已实测),给它们塞显式 fields 反而会**裁掉**上游默认里我们在用的
+// 字段(比如 models.go 解析的 tldr),把一个没坏的东西改坏。
+//
+// 字段取自 shared/api/authors.ts 的 normalizePaper 实际消费集合;拼法用 snake_case 规范名,
+// 别名一律不用(见上面 pdfUrl 的红字)。
+var authorPapersDefaultFields = []string{
+	"id", "title", "abstract", "year", "venue", "url",
+	"citation_count", "reference_count", "is_open_access", "pdf_url",
+	"authors", "fields_of_study",
+}
 
 // filterAuthorFields 作者类端点(authors/search/get、papers/authors)的 fields 白名单过滤。
 func filterAuthorFields(fields []string) []string { return filterFields(fields, authorFieldAllow) }

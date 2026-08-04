@@ -8,6 +8,8 @@
 package payment
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -66,6 +68,18 @@ func (r *WeChatPayRepository) DeleteConfig(id uint64) error {
 // DeactivateAllConfigs 停用所有配置
 func (r *WeChatPayRepository) DeactivateAllConfigs() error {
 	return r.db.Model(&WeChatPayConfig{}).Where("is_active = ?", true).Update("is_active", false).Error
+}
+
+// UpdateValidation 只更新校验状态三件套。
+//
+// 刻意不用 Save(config):测试是只读操作,如果顺手把整行写回去,会把并发的
+// 配置编辑覆盖掉(测试按钮和编辑表单在同一个页面上,很容易同时发生)。
+func (r *WeChatPayRepository) UpdateValidation(id uint64, status, message string, at time.Time) error {
+	return r.db.Model(&WeChatPayConfig{}).Where("id = ?", id).Updates(map[string]any{
+		"validation_status":       status,
+		"last_validation_message": message,
+		"last_validated_at":       at,
+	}).Error
 }
 
 // ActivateConfig 激活指定配置（会停用其他配置）

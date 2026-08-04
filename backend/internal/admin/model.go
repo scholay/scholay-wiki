@@ -48,6 +48,13 @@ const (
 	PermConfigManage    = "config.manage"     // 系统/凭证/支付/模型/计费等配置（仅完整管理员）
 	PermContentManage   = "content.manage"    // 内容/互动运营：公告/反馈/审核/站内信/邮件/工具/推广
 	PermAnalyticsView   = "analytics.view"    // 只读看板/统计/日志/会话监控/营收
+	// PermFinanceRefund 订单退款登记 —— 唯一一个「点一下就把公司的钱转出去 + 回收用户权益」的动作。
+	//
+	// 单列一个权限点而不是复用 config.manage：退款和「改支付配置」是两类事，
+	// 应该能独立授予/收回（比如让财务只有退款权、没有改商户凭证的权）。
+	// 运营（operations）**不给** —— 订单只读接口在 analytics.view 组里，运营看得到订单，
+	// 但看得到 ≠ 退得了。
+	PermFinanceRefund = "finance.refund"
 )
 
 // PermissionsForRole 返回该角色拥有的全部权限列表（单一真源）。
@@ -57,11 +64,13 @@ func PermissionsForRole(role string) []string {
 		return []string{
 			PermUsersView, PermUsersManage, PermUsersRoleAssign,
 			PermConfigManage, PermContentManage, PermAnalyticsView,
+			PermFinanceRefund,
 		}
 	case RoleAdmin:
 		return []string{
 			PermUsersView, PermUsersManage,
 			PermConfigManage, PermContentManage, PermAnalyticsView,
+			PermFinanceRefund,
 		}
 	case RoleOperations:
 		// 运营：内容/用户运营 + 只读看板；不含 config.manage / users.manage / 角色分配。

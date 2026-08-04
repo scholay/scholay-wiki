@@ -11,6 +11,8 @@ import {
   YAxis,
 } from 'recharts';
 import { cn } from '@/shared/lib/utils';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { ResourceError } from '@/shared/components/ResourceError';
 import { chartTheme } from '@/shared/lib/theme-bridge';
 import { isTodayBucket, withWeekday } from '@/shared/lib/daily-trend';
 import { compactTokens, toPoints, type TokenDayPoint, type TokenDayDimPoint } from '../../api/token-usage';
@@ -131,10 +133,17 @@ export function TokenDailyChart({
   daily,
   byModel,
   byFeature,
+  loading,
+  error,
+  onRetry,
 }: {
   daily: TokenDayPoint[];
   byModel: TokenDayDimPoint[];
   byFeature: TokenDayDimPoint[];
+  loading?: boolean;
+  /** 概览 query 的 error —— 不传的话接口挂了会画出一个空坐标系,看起来像"这段时间没用量"。 */
+  error?: unknown;
+  onRetry?: () => void;
 }) {
   const [mode, setMode] = useState<Mode>('model');
 
@@ -189,6 +198,24 @@ export function TokenDailyChart({
           ))}
         </div>
       </div>
+      {/* 三态顺序:error → loading → 空。
+          🔴 空坐标系(只有网格和 0 刻度)是本页第二贵的"说反话":读者无法区分
+          「筛选没命中」和「图挂了」,而两者的下一步动作完全相反。 */}
+      {error ? (
+        <ResourceError
+          error={error}
+          resourceName="每日用量"
+          onRetry={onRetry}
+          autoRedirect={false}
+          className="h-auto bg-surface-card"
+        />
+      ) : loading && rows.length === 0 ? (
+        <Skeleton className="h-56 w-full rounded-12" />
+      ) : rows.length === 0 ? (
+        <p className="flex h-56 items-center justify-center text-12 text-faint">
+          当前筛选下没有用量数据 —— 换个时间窗口或清掉维度筛选试试
+        </p>
+      ) : (
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
@@ -225,6 +252,7 @@ export function TokenDailyChart({
           </BarChart>
         </ResponsiveContainer>
       </div>
+      )}
     </section>
   );
 }

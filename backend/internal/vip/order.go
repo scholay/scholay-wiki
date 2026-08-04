@@ -64,6 +64,17 @@ type Order struct {
 	GrantExpiresAt *time.Time `gorm:"column:grant_expires_at" json:"grant_expires_at"`
 	NewExpiresAt   *time.Time `gorm:"column:new_expires_at" json:"new_expires_at"`
 	CreatedAt      time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+
+	// ── 退款(0107)────────────────────────────────────────────────────────────
+	// 刻意**不复用 status** 表达退款:改 status 会让这笔单从用户账单里整行消失
+	// (ListUserOrders 硬编码 status='paid')、让历史营收被追溯性改写、并让延迟到达的
+	// 网关回调被 fulfill 判为不可履约而 NACK。详见 migration 0107 头注释。
+	//
+	// ⚠️ 这两个字段**会随用户端 /user/billing/orders 一起下发**(该接口原样返回 Order)。
+	// 这是有意的:用户有权知道自己这笔单退了多少。但也因此,任何**内部**信息
+	// (操作人、内部退款原因)绝不能加到这个 struct 上 —— 那些只存在于 order_refunds。
+	RefundedAmount float64 `gorm:"column:refunded_amount" json:"refunded_amount"`
+	RefundStatus   string  `gorm:"column:refund_status" json:"refund_status"` // ""|partial|full
 }
 
 func (Order) TableName() string { return "orders" }
@@ -298,6 +309,11 @@ func planActionName(tier, action, cycle string) string {
 }
 
 // ListUserOrders 列出某用户**已支付**的订单(订阅 + 充值),供「明细查看」。orderType 可空。
+//
+// 退款单仍然会出现在这里 —— 这正是当初退款不改 orders.status 的原因之一:
+// 若把退款单的 status 改成 'refunded',这个 `status='paid'` 的过滤会让它从用户自己的
+// 账单明细里**整行消失**,用户视角像是记录被删掉了,比显示「已退款」严重得多。
+// 现在退款走 refund_status 列,订单照常在列,前端据此打「已退款 / 部分退款」徽章。
 func (o *OrderService) ListUserOrders(userID uint, orderType string) ([]Order, error) {
 	q := o.db.Where("user_id = ? AND status = ?", userID, "paid").Order("created_at DESC").Limit(200)
 	if orderType == "subscription" || orderType == "recharge" {
@@ -505,12 +521,27 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 				ErrUpgradeBasisStale, ord.OrderNo,
 				ord.NewExpiresAt.Format(time.RFC3339), uv.VIPExpiresAt.Format(time.RFC3339))
 		}
+		// 🔴 到期日为 NULL = 会员已被整体撤销(退款回收 / admin 撤销)。
+		//
+		// 这本身就是「定价基准不成立」的最强信号,必须拒绝履约 —— 上面那条闸门有
+		// `uv.VIPExpiresAt != nil` 前置条件,撞上 NULL 时整条短路,拦不住。
+		// 不拦的后果(退款功能上线后实测可复现):用户 Pro 年付 A + 在途 Max 升级单 B,
+		// 管理员对 A 全额退款并撤销会员 → B 被打成 expired,但 fulfill 的可履约白名单
+		// **包含 expired**(逾期支付复活语义),B 被支付时照样进来;base=now、
+		// 下面「兑现冻结到期日」的分支再把 newExp 抬回原到期日 T、curEff=free 让 newTier=max
+		// —— 被退款撤销掉的会员整段回来了,而且档更高。用户既拿回全款又持有到 T 的 Max。
+		if ord.NewExpiresAt != nil && uv.VIPExpiresAt == nil {
+			return fmt.Errorf("%w: order_no=%s frozen_expires=%s current_expires=<null>(会员已被撤销/退款)",
+				ErrUpgradeBasisStale, ord.OrderNo, ord.NewExpiresAt.Format(time.RFC3339))
+		}
 		// 升级:按剩余天数补差价,不延长周期,只升档。到期日=锚点。
 		newExp = base
 		switch {
-		case ord.NewExpiresAt != nil && ord.NewExpiresAt.After(newExp):
+		case ord.NewExpiresAt != nil && uv.VIPExpiresAt != nil && ord.NewExpiresAt.After(newExp):
 			// 到期日被外部改小(admin 回收等):至少兑现下单时冻结在订单行的承诺到期日。
 			// 在期支付的正常路径 base >= 冻结值(到期日只增不减),此分支不改变原语义。
+			// ⚠️ 加 `uv.VIPExpiresAt != nil` 是第二道闸:会员被撤销时不能靠这个分支把
+			// 到期日"兑现"回来(上面已经拒绝履约了,这里是纵深防御)。
 			newExp = *ord.NewExpiresAt
 		case ord.NewExpiresAt != nil && uv.VIPExpiresAt != nil && uv.VIPExpiresAt.Before(now):
 			// 跨会员到期支付防打水漂:会员在下单→支付之间过期(base=now),newExp=base 会让

@@ -252,6 +252,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// 支付 (用户端支付发起;simulate 调试入口已下线)
 		userProtected.POST("/payment/alipay/create", h.alipay.CreatePayment)
 		userProtected.POST("/payment/wechat/create", h.wechatPay.CreatePayment)
+		// 扫码后前端轮询;本地仍 pending 时会主动向微信查单,回调丢失可自愈。
+		userProtected.GET("/payment/wechat/status/:orderNo", h.wechatPay.QueryPaymentStatus)
 
 		// 反馈
 		userProtected.POST("/feedback", h.feedback.CreateFeedbackWithUser)

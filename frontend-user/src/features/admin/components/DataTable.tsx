@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { LoadingState } from '@/shared/components/LoadingState';
+import { ResourceError } from '@/shared/components/ResourceError';
 import { Checkbox } from '@/shared/ui/checkbox';
 
 export interface Column<T> {
@@ -39,7 +40,11 @@ export function DataTable<T>({
   columns,
   rows,
   loading,
+  error,
+  onRetry,
   emptyMessage = '这里还没有数据',
+  emptyDescription,
+  emptyAction,
   rowKey,
   // ---- 多选(可选)----
   selection,
@@ -50,7 +55,22 @@ export function DataTable<T>({
   columns: Column<T>[];
   rows: T[] | undefined;
   loading?: boolean;
+  /**
+   * query 的 error —— **必须透传**。
+   *
+   * 不传的后果不是"少个提示",而是**说反话**:请求失败时 rows 是 undefined,
+   * 会和"真的没有记录"一样落进下面的 EmptyState,后台于是显示
+   * 「这里还没有数据」/「没有符合条件的用户」/「暂无订单」。
+   * 管理员据此得出"库里没有这条记录"的结论 —— 排查支付、封号、工单时会直接判断错。
+   */
+  error?: unknown;
+  /** 重试(通常传 query.refetch);不传则错误态只显示原因不给按钮 */
+  onRetry?: () => void;
   emptyMessage?: string;
+  /** 空态副文案 —— 用来区分「还没有数据」与「当前筛选没命中」 */
+  emptyDescription?: ReactNode;
+  /** 空态操作 —— 典型是「清除筛选」 */
+  emptyAction?: ReactNode;
   rowKey?: (row: T, index: number) => string | number;
   /**
    * 服务端排序 —— 传入则带 serverSortKey 的列表头点击改服务端 sort 参数(跨页全量重排),
@@ -99,8 +119,37 @@ export function DataTable<T>({
     return copy;
   }, [safeRows, sort, columns, serverSort]);
 
-  if (loading) return <LoadingState />;
-  if (!sortedRows || sortedRows.length === 0) return <EmptyState title={emptyMessage} />;
+  // 三态的**顺序**是有讲究的:
+  //   error 必须先于 loading —— react-query 自动重试期间 isFetching 会再次为 true,
+  //   若 loading 先判,失败会被"转圈"永久盖住,管理员看不到任何原因。
+  if (error) {
+    return (
+      <div className="rounded-12 border border-border bg-surface-card overflow-hidden">
+        <ResourceError
+          error={error}
+          resourceName="数据"
+          onRetry={onRetry}
+          autoRedirect={false}
+          // 覆盖 ResourceError 面向详情页的整屏样式(h-full/bg-surface-3),让它嵌进表格卡片
+          className="h-auto bg-surface-card"
+        />
+      </div>
+    );
+  }
+  // loading 只在**手上一行都没有**时接管整表;翻页 / 刷新时保留旧行,
+  // 否则每次换页整表卸载重建,表格高度塌陷一下再弹回来。
+  //
+  // 🔴 判据必须同时覆盖「rows 是 undefined」和「rows 是空数组」。只写 `!sortedRows` 不够:
+  // `safeRows = Array.isArray(rows) ? rows : undefined`,所以调用方传 `[]` 时 sortedRows 是
+  // truthy 的 `[]`,这个分支永远进不去,直接掉进下面的空态 —— 加载中的表格会显示
+  // 「这里还没有数据」。ProviderSection 传的正是 `(models ?? []).filter(...)`,
+  // 那条空态还带「点右上『添加模型』接入」的 CTA,管理员照着点就会造出重复模型。
+  // 有行时 length > 0,不会误进 loading,保留旧行的意图不受影响。
+  if (loading && (!sortedRows || sortedRows.length === 0)) return <LoadingState />;
+  if (!sortedRows || sortedRows.length === 0)
+    return (
+      <EmptyState title={emptyMessage} description={emptyDescription} action={emptyAction} />
+    );
 
   const selectedKeys = selection?.selectedKeys ?? new Set();
   const allSelected =
@@ -197,6 +246,16 @@ export function DataTable<T>({
                 <th
                   key={i}
                   style={c.width ? { width: c.width } : undefined}
+                  // 客户端排序与服务端排序的表头图标长得一模一样,但含义天差地别:
+                  // 前者只重排**当前页**这 20 行,后者是全量重排。旁边就摆着分页条,
+                  // 很容易把「本页最大」读成「全站最大」—— 用 title 把口径说明白。
+                  title={
+                    sortable
+                      ? serverSort
+                        ? '按该列全量排序'
+                        : '仅对当前页排序'
+                      : undefined
+                  }
                   className={cn(
                     'h-9 px-3 text-faint font-medium text-12 text-left',
                     c.align === 'right' && 'text-right',

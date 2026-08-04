@@ -201,3 +201,44 @@ func (s *Service) notifyRedeem(userID uint, r *RedeemResult) {
 		CTAText: "查看会员权益", CTAURL: membershipURL(),
 	})
 }
+
+// notifyOrderRefunded 管理台登记退款后通知用户。
+//
+// 与 notifyOrderFulfilled 同一套通道(站内信 + 邮件),全 best-effort。
+// 🔴 **不下发内部退款原因**:reason 是给运维/财务看的内部字段(可能写着「用户投诉话术恶劣」
+// 这种不该给用户看的内容),邮件里只说事实(退了多少、权益怎么变),原因由客服另行沟通。
+func (s *Service) notifyOrderRefunded(ord *Order, amount float64, membershipRevoked bool, creditsReclaimed int) {
+	if ord == nil {
+		return
+	}
+	title := "退款已处理"
+	rows := [][2]string{
+		{"退款金额", yuanStr(amount)},
+		{"原订单号", ord.OrderNo},
+	}
+	// 权益变化必须写清楚 —— 用户看到扣钱/掉会员却没有解释是最容易变成工单的一类。
+	if creditsReclaimed > 0 {
+		rows = append(rows, [2]string{"回收经费", fmt.Sprintf("%d 经费", creditsReclaimed)})
+	}
+	if membershipRevoked {
+		rows = append(rows, [2]string{"会员状态", "已终止"})
+	}
+
+	inApp := fmt.Sprintf("您订单 %s 的退款 %s 已处理。", ord.OrderNo, yuanStr(amount))
+	switch {
+	case membershipRevoked && creditsReclaimed > 0:
+		inApp += fmt.Sprintf("同时已终止对应会员权益并回收 %d 经费。", creditsReclaimed)
+	case membershipRevoked:
+		inApp += "同时已终止对应会员权益。"
+	case creditsReclaimed > 0:
+		inApp += fmt.Sprintf("同时已回收 %d 经费。", creditsReclaimed)
+	}
+
+	s.notify(ord.UserID, title, inApp, utils.EmailContent{
+		Title: title,
+		Intro: "您的订单退款已处理完成。退款到账时间以支付渠道为准(通常 1–7 个工作日)。",
+		Rows:  rows,
+		CTAText: "查看账户", CTAURL: membershipURL(),
+		Note: "如对本次退款有疑问,请通过站内客服联系我们。",
+	})
+}

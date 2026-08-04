@@ -16,28 +16,28 @@ const PRESETS: Record<
 > = {
   half: {
     color: 'amber',
-    title: '本周期额度已消耗过半',
-    body: '建议优先处理关键科研任务;额度按 7 天周期到期自动恢复满额。也可开启「用经费继续」按量续用。',
+    title: 'AI 额度用掉一半了',
+    body: '还够用一阵,重要的活可以先做。额度每 7 天自动回满;想不受影响地继续,可以开「用经费继续」。',
     action: { label: '查看用量', to: '/settings/membership' },
   },
   almost: {
     color: 'red',
-    title: '本周期额度即将耗尽',
-    body: '剩余额度较少。耗尽后可使用重置次数立即重置,或等待周期到期自动恢复。也可开启「用经费继续」按量续用。',
+    title: 'AI 额度快用完了',
+    body: '用完之后:等它自动回满、用 1 次重置次数当场回满,或者开「用经费继续」按实际用量接着跑。',
     action: { label: '查看用量', to: '/settings/membership' },
   },
-  reset: { color: 'green', title: '额度已重置', body: '本周期科研额度已重置为 100%,可继续使用。' },
+  reset: { color: 'green', title: '额度已回满', body: '可以接着用了。' },
   recharge: {
     color: 'blue',
-    title: '经费购入成功',
-    body: '经费已到账。在账户资产开启「用经费继续」,额度耗尽后可按量续用不中断。',
+    title: '经费已到账',
+    body: '在「账户资产」打开「用经费继续」,额度用完时就能自动接着跑,只扣超出的那部分。',
     action: { label: '去开启', to: '/settings/membership?tab=recharge' },
   },
   // 弹窗关闭后的 60s 冷却期内再次命中 6010 → 只出这条轻 toast,不重弹弹窗(QuotaNotifier 消费)。
   exhausted: {
     color: 'red',
-    title: '本周期 AI 额度已用完',
-    body: '可使用重置次数、升级会员,或开启「用经费继续」按量续用。',
+    title: 'AI 额度用完了',
+    body: '用 1 次重置次数当场回满、升级会员,或者开「用经费继续」按实际用量接着跑。',
     action: { label: '查看用量', to: '/settings/membership' },
   },
 };

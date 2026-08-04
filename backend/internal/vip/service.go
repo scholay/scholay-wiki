@@ -27,6 +27,11 @@ type Service struct {
 	msg      MessageSender       // 站内信(bootstrap 注入, 可 nil)
 	emailCfg EmailConfigProvider // 邮件配置(bootstrap 注入, 可 nil)
 	payNotify func(*Order)       // 付费成功外部通知(飞书等;bootstrap 注入, 可 nil)
+
+	// usedFlush 额度窗口 used 快照的节流刷盘器(quota_persist.go)。构造即可用(纯内存标脏),
+	// 后台 ticker 由 StartQuotaPersistence 启动 —— 不在 NewService 里起 goroutine:
+	// 单测会构造 Service,起了就得每个测试记得停,漏一个就是泄漏的 ticker。
+	usedFlush *usedFlusher
 }
 
 // SetPaymentNotifier 注入「付费成功」外部通知钩子(如飞书客服消息)。
@@ -42,7 +47,19 @@ func NewService(repo *Repository) *Service {
 		wallet: NewWalletService(repo.DB()),
 	}
 	s.order = newOrderService(s)
+	s.usedFlush = newUsedFlusher(s)
 	return s
+}
+
+// StartQuotaPersistence 启动额度窗口 used 快照的后台刷盘;返回停止函数(bootstrap 在
+// 关停序列里调用,退出前会同步 flush 最后一批)。
+//
+// 🔴 必须真的接线并真的在 SIGTERM 里调 stop。本仓库有过 flushTokenWatermark 的前科:
+// 注释宣称它防优雅重启丢水位,而 SIGTERM 路径从头到尾没调用过它 —— 一个「写好了但没人叫」
+// 的刷盘函数和不存在完全等价,却会让读代码的人以为这块已经有兜底。
+func (s *Service) StartQuotaPersistence() (stop func()) {
+	s.usedFlush.Start()
+	return s.usedFlush.Stop
 }
 
 // Config / Wallet / Order 暴露给 handler / 支付回调。
@@ -72,10 +89,17 @@ func (s *Service) ListUserRedemptions(userID uint, limit, offset int) ([]UserRed
 
 // PaymentMethods 返回当前可用的支付渠道(按 admin 配置表里有无 is_active 配置决定)。
 // 充值前端据此决定显示哪些支付方式(再叠加 dev 的测试支付)。
+//
+// 🔴 微信侧额外要求 validation_status='valid':这个「能力位」直接决定前端要不要显示
+// 「微信支付」按钮。只看 is_active 的话,管理员一保存并启用配置,全站用户立刻看到一个
+// 按下去必然失败的入口 —— 而配置到底哪一步不对,用户和管理员都无从得知。
+// 加上 valid 之后,支付入口只在「后台点过『测试配置』且通过」之后才出现。
+// (0105 迁移给存量行的默认值是 untested,所以升级后需要管理员去点一次测试。)
 func (s *Service) PaymentMethods() (alipay bool, wechat bool) {
 	var a, w int64
 	s.repo.DB().Table("alipay_configs").Where("is_active = ?", true).Count(&a)
-	s.repo.DB().Table("wechat_pay_configs").Where("is_active = ?", true).Count(&w)
+	s.repo.DB().Table("wechat_pay_configs").
+		Where("is_active = ? AND validation_status = ?", true, "valid").Count(&w)
 	return a > 0, w > 0
 }
 
@@ -136,10 +160,27 @@ func effectiveCycle(uv UserVIP, now time.Time) string {
 	return normCycle(uv.VIPCycle)
 }
 
-// applyMembershipGrant —— 单调地把「授予 grantTier 续 days 天」叠加到当前会员状态上(纯函数)。
+// maxGrantAmount 各单位的上界 —— 防手滑(把 365 填进「年」= 365 年)。
+// 天 3650(≈10 年,与兑换码 SetCodeGrantDays 的既有夹取同口径)/ 月 120(10 年)/ 年 10。
+func maxGrantAmount(unit string) int {
+	switch NormGrantUnit(unit) {
+	case GrantUnitMonth:
+		return 120
+	case GrantUnitYear:
+		return 10
+	default:
+		return 3650
+	}
+}
+
+// applyMembershipGrant —— 单调地把「授予 grantTier 续 amount 个 unit」叠加到当前会员状态上(纯函数)。
 // 规则:① 绝不降级(取当前生效等级与 grantTier 中更高的);② 绝不截断(在期则从现到期日顺延)。
-// 返回(新等级, 新到期)。被 兑换码 / admin 直授 / 订阅开通 复用。
-func applyMembershipGrant(cur UserVIP, grantTier string, days int, now time.Time) (string, time.Time) {
+// 返回(新等级, 新到期)。被 兑换码 / admin 直授 复用。
+//
+// unit ∈ {day, month, year}(0110 起)。月/年走 AddPeriodN 的**真自然月/年**(carbon NoOverflow),
+// 与购买/续费的 AddPeriod 同一口径 —— 「发 1 个月」和「买 1 个月」必须给出同一个到期日,
+// 否则同一个用户从两条路拿到的时长不一致,是最难解释的一类客诉。
+func applyMembershipGrant(cur UserVIP, grantTier string, amount int, unit string, now time.Time) (string, time.Time) {
 	curTier := effectiveTier(cur, now)
 	base := now
 	if isPaidTier(curTier) && cur.VIPExpiresAt != nil && cur.VIPExpiresAt.After(now) {
@@ -149,7 +190,7 @@ func applyMembershipGrant(cur UserVIP, grantTier string, days int, now time.Time
 	if tierRank(curTier) > tierRank(grantTier) {
 		newTier = curTier // 不降级
 	}
-	return newTier, base.AddDate(0, 0, days)
+	return newTier, AddPeriodN(base, unit, amount)
 }
 
 // grantMembershipInTx —— 「授予 grantTier 续 days 天」的**唯一串行化落点**(兑换码 / admin 直授共用)。
@@ -166,7 +207,12 @@ func applyMembershipGrant(cur UserVIP, grantTier string, days int, now time.Time
 // 防陈旧 vip_cycle 泄漏(过期年费用户重新开通后仍顶着「年费会员」徽标),在期叠加则不动现值。
 // 返回值 prevTier 是**授予前**的生效等级(调用方据此判断「这次授予是否真的抬升了档位」——
 // 兑换码的满血判定要用它,见 Service.Redeem 的红字)。
-func grantMembershipInTx(tx *gorm.DB, userID uint, grantTier string, days int, cycleOverride string, now time.Time) (newTier string, newExpires time.Time, prevTier string, err error) {
+func grantMembershipInTx(tx *gorm.DB, userID uint, grantTier string, amount int, unit string, cycleOverride string, now time.Time) (newTier string, newExpires time.Time, prevTier string, err error) {
+	// 秒对齐 —— 与订阅履约(activateSubscriptionInTx)口径一致。
+	// vip_expires_at 是 DATETIME(无亚秒),MySQL 对带小数秒的值是**四舍五入**进位;
+	// 授予链路此前传的是裸 time.Now(),纳秒原样进去会被上取整最多 +1 秒,
+	// 与订阅链路对同一列产生两套口径(审计 2026-08-04 指出)。
+	now = now.Truncate(time.Second)
 	var uv UserVIP
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Table("users").Select("vip_tier, vip_expires_at, vip_cycle").Where("id = ?", userID).
@@ -174,7 +220,7 @@ func grantMembershipInTx(tx *gorm.DB, userID uint, grantTier string, days int, c
 		return "", time.Time{}, "", err
 	}
 	prevTier = effectiveTier(uv, now)
-	newTier, newExpires = applyMembershipGrant(uv, grantTier, days, now)
+	newTier, newExpires = applyMembershipGrant(uv, grantTier, amount, unit, now)
 	updates := map[string]any{"vip_tier": newTier, "vip_expires_at": newExpires}
 	switch {
 	case cycleOverride != "":
@@ -255,6 +301,9 @@ type CodePreview struct {
 	GrantKind    string     `json:"grant_kind"` // tier | credit
 	GrantTier    string     `json:"grant_tier,omitempty"`
 	GrantDays    int        `json:"grant_days,omitempty"`
+	// GrantUnit day|month|year —— 用户端兑换确认弹窗据此渲染「N 天 / N 个月 / N 年」。
+	// 🔴 漏了它就会把「1 个月」的码显示成「1 天」,那是用户点确认前看到的唯一时长承诺。
+	GrantUnit    string     `json:"grant_unit,omitempty"`
 	GrantCredits int        `json:"grant_credits,omitempty"`
 	CreditKind   string     `json:"credit_kind,omitempty"`
 	Note         string     `json:"note,omitempty"`
@@ -293,7 +342,8 @@ func (s *Service) PreviewCode(ctx context.Context, userID uint, rawCode string) 
 		return nil, ErrCodeAlreadyRedeemed
 	}
 	return &CodePreview{
-		GrantKind: rc.GrantKind, GrantTier: rc.GrantTier, GrantDays: rc.GrantDays,
+		GrantKind: rc.GrantKind, GrantTier: rc.GrantTier,
+		GrantDays: rc.GrantDays, GrantUnit: NormGrantUnit(rc.GrantUnit),
 		GrantCredits: rc.GrantCredits, CreditKind: rc.CreditKind,
 		Note: rc.Note, ValidUntil: rc.ValidUntil, UsesLeft: maxUses - rc.UsedCount,
 	}, nil
@@ -320,8 +370,19 @@ func (s *Service) GenerateCodes(in GenerateCodesInput, createdBy *uint) ([]strin
 		}
 	}
 	grantDays := in.GrantDays
+	// 单位归一化 + 按单位兜底/夹取。
+	// 🔴 兜底必须按单位分叉:传了 unit=month 但数量 <=0 时回落 30 会变成「30 个月」(≈2.5 年)。
+	// 顺带补上界:生成路径此前只有下界,而事后「改时长」是夹到 3650 的 —— 同一字段两套口径。
+	grantUnit := NormGrantUnit(in.GrantUnit)
 	if grantDays <= 0 {
-		grantDays = 30
+		if grantUnit == GrantUnitDay {
+			grantDays = 30
+		} else {
+			grantDays = 1
+		}
+	}
+	if max := maxGrantAmount(grantUnit); grantDays > max {
+		grantDays = max
 	}
 	// 0090:临时经费退休 —— 新建的经费码一律永久,忽略入参 kind(后台表单已移除该选项)。
 	creditKind := CreditKindPerm
@@ -367,7 +428,7 @@ func (s *Service) GenerateCodes(in GenerateCodesInput, createdBy *uint) ([]strin
 		out = append(out, c)
 		vu := validUntil
 		codes = append(codes, RedemptionCode{
-			Code: c, GrantKind: kind, GrantTier: tier, GrantDays: grantDays,
+			Code: c, GrantKind: kind, GrantTier: tier, GrantDays: grantDays, GrantUnit: grantUnit,
 			GrantCredits: in.GrantCredits, CreditKind: creditKind, CreditValidityDays: creditValidity,
 			MaxUses: maxUses, ValidUntil: &vu, Note: in.Note, CreatedBy: createdBy,
 		})
@@ -385,6 +446,7 @@ type GenerateCodesInput struct {
 	GrantKind          string // tier | credit
 	Tier               string // tier 码:pro|max
 	GrantDays          int
+	GrantUnit          string // day|month|year;空=day
 	GrantCredits       int    // credit 码:经费数
 	CreditKind         string // credit 码:temp|perm
 	CreditValidityDays int    // credit 码 temp 时有效天数
@@ -395,12 +457,24 @@ type GenerateCodesInput struct {
 
 // GrantToUser 管理员**直接**授予/续期会员(不走兑换码)。单调:不降级 + 在期顺延。返回新到期。
 // cycle = 计费周期标识(monthly|yearly);空串 = 不改动(默认,防随手补天数冲掉年费标识)。
-func (s *Service) GrantToUser(userID uint, tier string, days int, cycle string) (time.Time, error) {
+// GrantToUser admin 直授/续期会员。amount + unit(day|month|year)。
+func (s *Service) GrantToUser(userID uint, tier string, amount int, unit string, cycle string) (time.Time, error) {
 	if tier != TierPro && tier != TierMax {
 		tier = TierPro
 	}
-	if days <= 0 {
-		days = 30
+	unit = NormGrantUnit(unit)
+	// 兜底按**单位**分叉:传了 unit=month 但 amount<=0 时,回落成 30 天是错的(那是天单位的默认),
+	// 应该回落成 1 个月。上界也按单位夹,防止手滑把 365 填进「年」变成 365 年。
+	if amount <= 0 {
+		switch unit {
+		case GrantUnitMonth, GrantUnitYear:
+			amount = 1
+		default:
+			amount = 30
+		}
+	}
+	if max := maxGrantAmount(unit); amount > max {
+		amount = max
 	}
 	// 走 grantMembershipInTx 这个唯一串行化落点(持 users 行 FOR UPDATE + 作废在途升级单)。
 	// 此前是「无锁 GetUserVIP → 内存算 → SetUserVIP 整值覆盖」,与兑换码/续费履约并发会丢授予
@@ -410,14 +484,17 @@ func (s *Service) GrantToUser(userID uint, tier string, days int, cycle string) 
 	var exp time.Time
 	if err := s.repo.DB().Transaction(func(tx *gorm.DB) error {
 		var err error
-		newTier, exp, _, err = grantMembershipInTx(tx, userID, tier, days, cycle, time.Now())
+		newTier, exp, _, err = grantMembershipInTx(tx, userID, tier, amount, unit, cycle, time.Now())
 		return err
 	}); err != nil {
 		return time.Time{}, err
 	}
 	// 授予/续期到付费档 → 免费满血(只抬额度窗口起点,不动 used 统计)。
 	s.ResetBaselineOnUpgrade(context.Background(), userID)
-	slog.Info("vip: admin granted membership", "user_id", userID, "tier", newTier, "days", days, "cycle", cycle)
+	// 审计日志必须带单位 —— 只记 "days=1" 无法区分 1 天与 1 个月,而 admin 直授不落任何业务表,
+	// 这条日志是唯一的事后追溯凭据。
+	slog.Info("vip: admin granted membership", "user_id", userID, "tier", newTier,
+		"amount", amount, "unit", unit, "cycle", cycle, "expires_at", exp)
 	return exp, nil
 }
 
@@ -500,17 +577,21 @@ func (s *Service) IncreaseCodeUses(id uint64, add int) (*RedemptionCode, error) 
 // SetCodeGrantDays 管理员修改会员码授予的会员天数(grant_days)。只对**之后的兑换**生效:
 // 兑换时实时读本行 grant_days,已兑换用户的会员到期已落定、不受影响。仅限 tier 码。
 // days 夹到 [1, 3650](与续期同口径,防误填天文数字)。返回最新行。
-func (s *Service) SetCodeGrantDays(id uint64, days int) (*RedemptionCode, error) {
-	if days < 1 {
-		days = 1
+func (s *Service) SetCodeGrantDays(id uint64, amount int, unit string) (*RedemptionCode, error) {
+	unit = NormGrantUnit(unit)
+	if amount < 1 {
+		amount = 1
 	}
-	if days > 3650 {
-		days = 3650
+	if max := maxGrantAmount(unit); amount > max {
+		amount = max
 	}
-	if err := s.repo.SetGrantDays(id, days); err != nil {
+	// 🔴 数量与单位必须**一次写两列**。
+	// 只写数量的话:一张 grant_unit='month' 的码,管理员在「改时长」里填 7 想改成 7 天,
+	// 结果 grant_days=7 而 unit 仍是 month → 实际发 7 个月。这是最容易发生的静默放大。
+	if err := s.repo.SetGrantDays(id, amount, unit); err != nil {
 		return nil, err
 	}
-	slog.Info("vip: set redemption code grant_days", "code_id", id, "days", days)
+	slog.Info("vip: set redemption code grant duration", "code_id", id, "amount", amount, "unit", unit)
 	return s.repo.GetCodeByID(id)
 }
 

@@ -1,4 +1,4 @@
-// PeerReviewRecordView 的子部件(tab 条 / 稿件文件区 / 调试数据)—— 拆出来保主文件 ≤300 行。
+// PeerReviewRecordView 的子部件(tab 条 / 稿件文件区 / 运维信息 / 调试数据)—— 拆出来保主文件 ≤300 行。
 import { Download, Eye, FileText, Scale } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -7,12 +7,17 @@ import { effectiveResult } from '@/shared/lib/peer-review/partial-parse';
 import {
   recBadgeClasses,
   recFillBg,
+  recLabel,
   recShortLabel,
   recTextColor,
 } from '@/shared/lib/peer-review/recommendation';
 import type { ReviewReport, ReviewerRole } from '@/shared/lib/peer-review/types';
 import { downloadAdminFile } from './AdminFileViewer';
+import { CopyableId } from './CopyableId';
+import { TimeCell } from './TimeCell';
 import type { AdminPreviewFile } from './AdminFilePreviewDialog';
+import { formatBytes, formatCount, formatDurationSec } from '../lib/format';
+import { prAssetLabel, prComputeStateLabel, prRoleLabel } from '../lib/pr-labels';
 import type { PRAsset, PRSubmissionDetail } from '../api/peer-review-monitor';
 
 /**
@@ -116,10 +121,9 @@ export function AssetsSection({
                 <span className="min-w-0 truncate text-12 font-medium text-foreground" title={a.filename}>
                   {a.filename}
                 </span>
-                <span className="text-12 text-faint">
-                  {a.role}
-                  {a.category ? `/${a.category}` : ''} · {(a.size / 1024).toFixed(0)}KB · {a.mime}
-                  {a.textChars != null ? ` · 抽取 ${a.textChars} 字` : ''}
+                <span className="text-12 text-faint" title={`${a.role}${a.category ? `/${a.category}` : ''} · ${a.size} B · ${a.mime}`}>
+                  {prAssetLabel(a.role, a.category)} · {formatBytes(a.size)} · {a.mime}
+                  {a.textChars != null ? ` · 抽取 ${formatCount(a.textChars)} 字` : ''}
                 </span>
                 <div className="ml-auto flex shrink-0 gap-1.5">
                   <Button
@@ -156,6 +160,87 @@ export function AssetsSection({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * 运维信息(用户视图没有的运营字段)—— 排查一条审稿时真正要用的那几个值:
+ * agent 会话 ID(去后端日志定位的唯一键)、计算状态、失败原因 / 计算错误、每份报告的耗时与 token。
+ *
+ * 这些值改造前散在详情弹窗的 15 个 KV 里,且:
+ *   - 会话 ID 是纯文本、非等宽,手选很容易漏字符 → 这里走 CopyableId(带 execCommand 兜底,
+ *     线上明文 HTTP 下 navigator.clipboard 是 undefined,不能裸调再无条件报成功);
+ *   - token 用的是 `in ${in} / out ${out}` 一段式,只要 in 有值而 out 为 null 就会渲染出
+ *     字面 `out null` → 这里三段各自独立判空,并带千分位;
+ *   - 耗时裸写 `${sec}s`,而审稿常在 600s 量级 → 走 formatDurationSec。
+ */
+export function OpsInfo({ detail }: { detail: PRSubmissionDetail }) {
+  const s = detail.submission;
+  return (
+    <section className="rounded-12 border border-border bg-surface-1 p-3">
+      <div className="mb-2 text-12 text-faint">运维信息(用户视图不含)</div>
+      <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+        <OpsRow label="agent 会话">
+          {s.agentSessionId ? (
+            <CopyableId value={s.agentSessionId} label="会话 ID" className="max-w-full text-12 text-subtle" />
+          ) : (
+            <span className="text-12 text-faint">—(尚未创建会话)</span>
+          )}
+        </OpsRow>
+        <OpsRow label="计算状态">
+          <span className="text-12 text-subtle" title={s.computeState}>
+            {prComputeStateLabel(s.computeState)}
+          </span>
+        </OpsRow>
+        <OpsRow label="提交时间">
+          <TimeCell value={s.submittedAt} absolute className="text-12 text-subtle" />
+        </OpsRow>
+        <OpsRow label="完成时间">
+          <TimeCell value={s.completedAt} absolute className="text-12 text-subtle" />
+        </OpsRow>
+        {/* 完整文案在顶部的 FailedNote / ComputeErrorNote 里已经原样展开(可换行),
+            这里给的是「可一键复制去贴工单/日志检索」的形态,故允许截断。 */}
+        {s.failedReason && (
+          <OpsRow label="失败原因">
+            <CopyableId value={s.failedReason} label="失败原因" className="max-w-full text-12 text-brand-red" />
+          </OpsRow>
+        )}
+        {s.computeError && (
+          <OpsRow label="计算错误">
+            <CopyableId value={s.computeError} label="计算错误" className="max-w-full text-12 text-brand-amber" />
+          </OpsRow>
+        )}
+      </div>
+
+      {detail.reports.length > 0 && (
+        <div className="mt-3 border-t border-border-soft pt-2">
+          <div className="mb-1 text-12 text-faint">各轮用量</div>
+          <div className="flex flex-col gap-1">
+            {detail.reports.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center gap-x-3 text-12 text-subtle">
+                <span className="min-w-16 font-medium text-foreground" title={r.role}>
+                  {prRoleLabel(r.role)}
+                </span>
+                <span className="text-faint">耗时 {formatDurationSec(r.agentDurationSec)}</span>
+                <span className="text-faint">输入 {formatCount(r.agentTokensIn)} token</span>
+                <span className="text-faint">输出 {formatCount(r.agentTokensOut)} token</span>
+                {r.recommendation && <span className="text-faint">结论 {recLabel(r.recommendation)}</span>}
+                <TimeCell value={r.createdAt} className="text-12" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OpsRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-baseline gap-2">
+      <span className="shrink-0 text-12 text-faint">{label}</span>
+      <span className="min-w-0 flex-1">{children}</span>
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
+import { TimeCell } from '../components/TimeCell';
+import { ConfigPageGuard } from '../components/ConfigPageGuard';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHasPermission, PERM } from '../permissions';
@@ -78,49 +80,54 @@ function CleanupConfigCard() {
           每天 04:30 自动清理 · 改完下次清理按新值生效
         </span>
       </div>
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-12 text-muted-foreground">
-            保留天数(last_*_at 早于此天数即删 · {HOT_CONTENT_RETENTION_MIN}-{HOT_CONTENT_RETENTION_MAX})
-          </label>
-          <Input
-            type="number"
-            value={days}
-            onChange={(e) => setDays(e.target.value)}
-            min={HOT_CONTENT_RETENTION_MIN}
-            max={HOT_CONTENT_RETENTION_MAX}
-            className="w-32"
-            disabled={cfgQ.isLoading}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-12 text-muted-foreground">
-            最大记录数(超出按最久未动顺序删 · {HOT_CONTENT_MAX_RECORDS_MIN.toLocaleString()}-
-            {HOT_CONTENT_MAX_RECORDS_MAX.toLocaleString()})
-          </label>
-          <Input
-            type="number"
-            value={maxRec}
-            onChange={(e) => setMaxRec(e.target.value)}
-            min={HOT_CONTENT_MAX_RECORDS_MIN}
-            max={HOT_CONTENT_MAX_RECORDS_MAX}
-            className="w-44"
-            disabled={cfgQ.isLoading}
-          />
-        </div>
-        <Button
-          size="sm"
-          onClick={onSave}
-          disabled={!dirty || !dValid || !mValid || update.isPending}
-        >
-          {update.isPending ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Save className="size-3.5" />
-          )}
-          保存
-        </Button>
-      </div>
+      {/* 🔴 GET 失败时绝不渲染这份表单:PUT 是整行覆盖,一个空表单 + 可点的保存
+          就能把线上的保留天数 / 上限写成非法值。Guard 是第一道闸,按钮的
+          `cfgQ.isError || !cfgQ.data` 是第二道。 */}
+      <ConfigPageGuard query={cfgQ} resourceName="清理策略">
+        {() => (
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-12 text-muted-foreground">
+                保留天数(last_*_at 早于此天数即删 · {HOT_CONTENT_RETENTION_MIN}-{HOT_CONTENT_RETENTION_MAX})
+              </label>
+              <Input
+                type="number"
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                min={HOT_CONTENT_RETENTION_MIN}
+                max={HOT_CONTENT_RETENTION_MAX}
+                className="w-32"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-12 text-muted-foreground">
+                最大记录数(超出按最久未动顺序删 · {HOT_CONTENT_MAX_RECORDS_MIN.toLocaleString()}-
+                {HOT_CONTENT_MAX_RECORDS_MAX.toLocaleString()})
+              </label>
+              <Input
+                type="number"
+                value={maxRec}
+                onChange={(e) => setMaxRec(e.target.value)}
+                min={HOT_CONTENT_MAX_RECORDS_MIN}
+                max={HOT_CONTENT_MAX_RECORDS_MAX}
+                className="w-44"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={onSave}
+              disabled={!dirty || !dValid || !mValid || update.isPending || cfgQ.isError || !cfgQ.data}
+            >
+              {update.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              保存
+            </Button>
+          </div>
+        )}
+      </ConfigPageGuard>
     </section>
   );
 }
@@ -131,9 +138,12 @@ export function HotContentPage() {
   const [kwType, setKwType] = useState<SearchType | undefined>(undefined);
   const [kwPage, setKwPage] = useState(1);
   const [paperPage, setPaperPage] = useState(1);
-  const { data: stats } = useHotStats();
-  const { data: keywords, isLoading: loadingK } = useHotKeywords(kwPage, PAGE_SIZE, 30, kwType);
-  const { data: papers, isLoading: loadingP } = useHotPapers(paperPage, PAGE_SIZE);
+  const statsQ = useHotStats();
+  const stats = statsQ.data;
+  const kwQ = useHotKeywords(kwPage, PAGE_SIZE, 30, kwType);
+  const paperQ = useHotPapers(paperPage, PAGE_SIZE);
+  const keywords = kwQ.data;
+  const papers = paperQ.data;
   const cleanup = useCleanupHotContent();
   const apiToast = useApiToast();
   const confirm = useConfirm();
@@ -179,8 +189,8 @@ export function HotContentPage() {
     { header: '搜索次数', width: 110, align: 'right', cell: (r) => <span className="text-subtle">{r.search_count.toLocaleString()}</span> },
     {
       header: '最近搜索',
-      width: 150,
-      cell: (r) => <span className="text-12 text-faint">{r.last_searched_at?.slice(0, 16).replace('T', ' ')}</span>,
+      width: 130,
+      cell: (r) => <TimeCell value={r.last_searched_at} />,
     },
   ];
 
@@ -203,7 +213,19 @@ export function HotContentPage() {
   return (
     <AdminPageLayout
       title="热门内容"
-      description={stats?.last_updated ? `最近更新:${stats.last_updated.slice(0, 16).replace('T', ' ')}` : '搜索热词 · 热门论文'}
+      // 后端 stats 里带的是**当前生效的清理策略**,不是「最近更新时间」
+      // (那个字段后端从来没返回过,见 api/hot-content.ts 的 HotStats 注释)
+      description={
+        stats
+          ? `搜索热词 · 热门论文 · 保留 ${stats.retention_days} 天 / 上限 ${stats.max_records.toLocaleString()} 条`
+          : '搜索热词 · 热门论文'
+      }
+      onRefresh={() => {
+        void statsQ.refetch();
+        void kwQ.refetch();
+        void paperQ.refetch();
+      }}
+      refreshing={statsQ.isFetching || kwQ.isFetching || paperQ.isFetching}
       actions={
         canManage ? (
           <Button size="sm" variant="outline" disabled={cleanup.isPending} onClick={handleCleanup}>
@@ -213,16 +235,25 @@ export function HotContentPage() {
         ) : undefined
       }
     >
+      {/* 数字全部来自 stats(全表 count)。以前的 `?? keywords?.total ?? 0` 有两个问题:
+          ① 接口挂了会斩钉截铁显示 0;② 回落到的 keywords.total 是**当前筛选 + 30 天窗口**
+          的分页总数,切「期刊」筛选它就变,却挂着「热搜词条数」的标签。 */}
       <section className="grid grid-cols-2 gap-4 mb-6">
         <StatCard
           icon={<Search />}
           label="热搜词条数"
-          value={(stats?.total_keywords ?? keywords?.total ?? 0).toLocaleString()}
+          value={stats ? stats.keywords_count.toLocaleString() : '—'}
+          loading={statsQ.isLoading}
+          error={statsQ.error}
+          hint="全表总数,不受下方筛选影响"
         />
         <StatCard
           icon={<FileText />}
           label="热门论文数"
-          value={(stats?.total_papers ?? papers?.total ?? 0).toLocaleString()}
+          value={stats ? stats.papers_count.toLocaleString() : '—'}
+          loading={statsQ.isLoading}
+          error={statsQ.error}
+          hint="全表总数,不受下方筛选影响"
         />
       </section>
 
@@ -256,13 +287,29 @@ export function HotContentPage() {
           <DataTable
             columns={keywordColumns}
             rows={keywords?.items}
-            loading={loadingK}
+            loading={kwQ.isLoading}
+            error={kwQ.error}
+            onRetry={() => void kwQ.refetch()}
             rowKey={(r) => `${r.search_type}:${r.keyword}`}
+            emptyMessage={kwType ? '当前类型下没有热搜词' : '最近 30 天没有搜索记录'}
+            emptyDescription="只统计最近 30 天;更早的记录会被清理策略删掉。"
+            emptyAction={
+              kwType ? <Button size="sm" variant="outline" onClick={() => setKwType(undefined)}>查看全部类型</Button> : undefined
+            }
           />
           <Pagination total={keywords?.total ?? 0} page={kwPage} pageSize={PAGE_SIZE} onPageChange={setKwPage} />
         </TabsContent>
         <TabsContent value="papers" className="mt-4">
-          <DataTable columns={paperColumns} rows={papers?.items} loading={loadingP} rowKey={(r) => r.paper_id} />
+          <DataTable
+            columns={paperColumns}
+            rows={papers?.items}
+            loading={paperQ.isLoading}
+            error={paperQ.error}
+            onRetry={() => void paperQ.refetch()}
+            rowKey={(r) => r.paper_id}
+            emptyMessage="最近 30 天没有论文浏览记录"
+            emptyDescription="只统计最近 30 天;更早的记录会被清理策略删掉。"
+          />
           <Pagination total={papers?.total ?? 0} page={paperPage} pageSize={PAGE_SIZE} onPageChange={setPaperPage} />
         </TabsContent>
       </Tabs>

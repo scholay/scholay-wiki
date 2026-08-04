@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  MessageSquare, Bell, Plug, CreditCard, Settings, CheckCircle2,
+  MessageSquare, Bell, Plug, CreditCard, Settings, CheckCircle2, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAdminAlerts } from '../hooks/useAdminAlerts';
@@ -9,10 +9,14 @@ import { useAdminAlerts } from '../hooks/useAdminAlerts';
 /**
  * Dashboard 第一屏 —— "现在需要你做什么"。
  * 没有告警时显示一个绿色 "全部干净" 状态;有告警时按 tone 排序展示。
+ *
+ * ⚠️ 「全部干净」这句话是有前提的:**六项检查全部查到了**。任何一项没查到就不能这么说 ——
+ * 见 useAdminAlerts 的 degraded/failedChecks 注释。
  */
 export function TodayPanel() {
   const navigate = useNavigate();
-  const { alerts, isLoading, hasAnyAlert } = useAdminAlerts();
+  const { alerts, isLoading, hasAnyAlert, noPaymentChannel, degraded, failedChecks, refetchAll } =
+    useAdminAlerts();
 
   if (isLoading && !hasAnyAlert) {
     return (
@@ -22,15 +26,45 @@ export function TodayPanel() {
     );
   }
 
+  // 降级态优先于「全部干净」:有项目没查到时,绿灯是在说反话。
+  // 即使另有真实告警也要挂这条,否则会以为"待办就这些了"。
+  const degradedBanner = degraded ? (
+    <section className="rounded-16 border border-border bg-warning-soft p-4 flex items-start gap-3">
+      <AlertTriangle className="size-5 shrink-0 text-brand-amber" />
+      <div className="min-w-0 flex-1">
+        <div className="text-14 font-medium text-foreground">部分状态未能查到</div>
+        {/* JSX 文本节点不走 Markdown,`**x**` 会原样渲染成星号 —— 强调要用 <strong> */}
+        <div className="text-12 text-muted-foreground">
+          {failedChecks.join(' · ')} 加载失败 —— 下面的结论
+          <strong className="font-medium text-foreground">不完整</strong>
+          ,别当成「没问题」。
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={refetchAll}
+        className="shrink-0 inline-flex items-center gap-1 rounded-8 px-2 h-7 text-12 text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
+      >
+        <RefreshCw className="size-3" />
+        重试
+      </button>
+    </section>
+  ) : null;
+
   if (!hasAnyAlert) {
     return (
-      <section className="rounded-16 border border-border bg-surface-card p-4 flex items-center gap-3">
-        <CheckCircle2 className="size-5 text-brand-green" />
-        <div>
-          <div className="text-14 font-medium text-foreground">今日无待办</div>
-          <div className="text-12 text-muted-foreground">所有反馈已处理 · 三方账号健康 · 支付配置激活中</div>
-        </div>
-      </section>
+      <div className="flex flex-col gap-3">
+        {degradedBanner}
+        {!degraded && (
+          <section className="rounded-16 border border-border bg-surface-card p-4 flex items-center gap-3">
+            <CheckCircle2 className="size-5 text-brand-green" />
+            <div>
+              <div className="text-14 font-medium text-foreground">今日无待办</div>
+              <div className="text-12 text-muted-foreground">所有反馈已处理 · 三方账号健康 · 支付配置激活中</div>
+            </div>
+          </section>
+        )}
+      </div>
     );
   }
 
@@ -57,16 +91,15 @@ export function TodayPanel() {
       href: '/admin/third-party',
     });
   }
-  if (!alerts.hasActiveAlipay || !alerts.hasActiveWechatPay) {
-    const missing: string[] = [];
-    if (!alerts.hasActiveAlipay) missing.push('支付宝');
-    if (!alerts.hasActiveWechatPay) missing.push('微信支付');
+  // 判据与侧栏红点、hasAnyAlert 保持同一条(两个渠道都没启用才是事故);
+  // 只接其中一个是正常经营选择,报出来就是狼来了。
+  if (noPaymentChannel) {
     items.push({
-      tone: 'warning',
+      tone: 'danger',
       icon: <CreditCard />,
-      label: '支付配置缺失',
-      value: missing.join(' · '),
-      hint: '当前无激活商户,用户无法支付',
+      label: '无可用支付渠道',
+      value: '支付宝 · 微信支付',
+      hint: '两者均未启用,用户当前无法完成支付',
       href: '/admin/payment',
     });
   }
@@ -92,6 +125,8 @@ export function TodayPanel() {
   }
 
   return (
+    <div className="flex flex-col gap-3">
+    {degradedBanner}
     <section className="rounded-16 border border-border bg-surface-card">
       <header className="px-4 py-3 border-b border-border-soft flex items-center justify-between">
         <h2 className="text-16 font-medium text-foreground">今日待办</h2>
@@ -137,6 +172,7 @@ export function TodayPanel() {
         ))}
       </ul>
     </section>
+    </div>
   );
 }
 

@@ -23,6 +23,9 @@ import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { StatCard } from '../components/StatCard';
 import { UserCell } from '../components/UserCell';
+import { TimeCell } from '../components/TimeCell';
+import { creditsToYuan, creditsTitle, FALLBACK_RECHARGE_RATE } from '../lib/format';
+import { useBillingConfig } from '../api/billing-config';
 import {
   useInviteSummary,
   useInviteList,
@@ -39,10 +42,11 @@ function fmt(n?: number): string {
   return n == null ? '—' : n.toLocaleString();
 }
 
-function fmtTime(s?: string | null): string {
-  return s ? s.slice(0, 19).replace('T', ' ') : '—';
-}
-
+/**
+ * 经费 → 人民币。经费的刻度是「经费 = 分」(100 经费 = ¥1),api/invites.ts 与
+ * ActivitiesPage 的输入框 hint 都是这个口径。运营盯活动成本时屏幕上必须直接是钱,
+ * 不能只给一个要心算除以 100 的中间量。
+ */
 /** 打开→注册转化率;open=0 显「—」(除零无意义,也别显 0%)。 */
 function fmtRate(open: number, registered: number): string {
   if (!open) return '—';
@@ -59,11 +63,15 @@ export function InvitesPage() {
   const keyword = useDebounce(searchInput, 400);
 
   const summary = useInviteSummary();
-  const { data, isLoading } = useInviteList({
+  // 经费→¥ 的折算率是 BillingConfigPage 上一个可编辑旋钮,不写死 100 ——
+  // 否则汇率一改,这一页的成本数字就与「发放经费」确认弹窗里的对不上。
+  const rate = useBillingConfig().data?.recharge_rate || FALLBACK_RECHARGE_RATE;
+  const listQ = useInviteList({
     page,
     page_size: PAGE_SIZE,
     keyword: keyword || undefined,
   });
+  const { data, isLoading } = listQ;
 
   // 被邀清单抽屉:inviter 常驻(关抽屉不清,保住退场动画),open 单独管
   const [inviter, setInviter] = useState<InviteListItem | null>(null);
@@ -87,24 +95,26 @@ export function InvitesPage() {
         <span className="select-all font-mono text-12 text-foreground">{r.code}</span>
       ),
     },
+    // 🔴 这四列原来都挂了 sortKey —— 那是 DataTable 的**客户端**排序,只重排当前页 20 行,
+    // 而本表是服务端分页。点「成功注册」表头想看"谁拉新最猛",得到的只是本页内部的顺序,
+    // 第 2 页那个带来 500 注册的人永远排不进第一页顶部,而这正是本页唯一的用途 ——
+    // 一个会给出错误结论的排序入口,不如不给。
+    // 正解:后端补 sort_by / sort_order 白名单后,改用 DataTable 已支持的 serverSort。
     {
       header: '生成时间',
-      width: 160,
-      sortKey: (r) => r.created_at,
-      cell: (r) => <span className="text-12 tabular-nums text-faint">{fmtTime(r.created_at)}</span>,
+      width: 130,
+      cell: (r) => <TimeCell value={r.created_at} className="text-12" />,
     },
     {
       header: '打开次数',
       width: 90,
       align: 'right',
-      sortKey: (r) => r.open_count,
       cell: (r) => <span className="tabular-nums text-subtle">{fmt(r.open_count)}</span>,
     },
     {
       header: '成功注册',
       width: 90,
       align: 'right',
-      sortKey: (r) => r.registered_count,
       cell: (r) => (
         <span className={r.registered_count > 0 ? 'font-medium tabular-nums text-brand-green' : 'tabular-nums text-faint'}>
           {fmt(r.registered_count)}
@@ -113,11 +123,13 @@ export function InvitesPage() {
     },
     {
       header: '奖励经费',
-      width: 90,
+      width: 110,
       align: 'right',
-      sortKey: (r) => r.reward_credits,
       cell: (r) => (
-        <span className={r.reward_credits > 0 ? 'font-medium tabular-nums text-foreground' : 'tabular-nums text-faint'}>
+        <span
+          className={r.reward_credits > 0 ? 'font-medium tabular-nums text-foreground' : 'tabular-nums text-faint'}
+          title={creditsTitle(r.reward_credits, rate)}
+        >
           {fmt(r.reward_credits)}
         </span>
       ),
@@ -147,26 +159,58 @@ export function InvitesPage() {
     <AdminPageLayout
       title="邀请监控"
       description="邀请码的生成 / 链接打开 / 注册归因:谁在拉新、拉来了谁"
+      onRefresh={() => {
+        void summary.refetch();
+        void listQ.refetch();
+      }}
+      refreshing={summary.isFetching || listQ.isFetching}
     >
-      {/* KPI ×5 */}
+      {/* KPI ×5 —— loading/error 都透传给 StatCard:接口挂时显示「—」而不是斩钉截铁的 0 */}
       <section className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard icon={<Users />} label="生成邀请人数" value={fmt(summary.data?.inviter_count)} />
-        <StatCard icon={<MousePointerClick />} label="链接总打开" value={fmt(summary.data?.total_opens)} />
+        <StatCard
+          icon={<Users />}
+          label="生成邀请人数"
+          value={fmt(summary.data?.inviter_count)}
+          loading={summary.isLoading}
+          error={summary.error}
+        />
+        <StatCard
+          icon={<MousePointerClick />}
+          label="链接总打开"
+          value={fmt(summary.data?.total_opens)}
+          loading={summary.isLoading}
+          error={summary.error}
+        />
         <StatCard
           icon={<UserPlus />}
           label="成功注册总数"
           value={fmt(summary.data?.total_registrations)}
+          loading={summary.isLoading}
+          error={summary.error}
           hint={
             summary.data
               ? `占打开 ${fmtRate(summary.data.total_opens, summary.data.total_registrations)}`
               : undefined
           }
         />
-        <StatCard icon={<CalendarRange />} label="近 7 天注册" value={fmt(summary.data?.registrations_7d)} />
+        <StatCard
+          icon={<CalendarRange />}
+          label="近 7 天注册"
+          value={fmt(summary.data?.registrations_7d)}
+          loading={summary.isLoading}
+          error={summary.error}
+        />
+        {/* 钱做主数字、经费做副标 —— 「1,250,000 经费」实际是 ¥12,500,
+            换算规则(经费=分)此前只写在另一个页面的输入框下方 */}
         <StatCard
           icon={<Coins />}
           label="累计发放奖励"
-          value={summary.data ? `${fmt(summary.data.total_reward_credits)} 经费` : '—'}
+          value={creditsToYuan(summary.data?.total_reward_credits, rate)}
+          loading={summary.isLoading}
+          error={summary.error}
+          hint={
+            summary.data ? `${fmt(summary.data.total_reward_credits)} 经费 · 100 经费 = ¥1` : undefined
+          }
         />
       </section>
 
@@ -186,12 +230,30 @@ export function InvitesPage() {
         </div>
       </section>
 
+      {/* error 必须透传:不传的话请求失败会和"还没有用户生成过邀请码"落进同一个空态 */}
       <DataTable
         columns={columns}
         rows={data?.items}
         loading={isLoading}
+        error={listQ.error}
+        onRetry={() => void listQ.refetch()}
         rowKey={(r) => r.user_id}
         emptyMessage={keyword ? '没有匹配的邀请人' : '还没有用户生成过邀请码'}
+        emptyDescription={keyword ? `关键词「${keyword}」没有命中任何邀请人 / 邀请码。` : undefined}
+        emptyAction={
+          keyword ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSearchInput('');
+                setPage(1);
+              }}
+            >
+              清除搜索
+            </Button>
+          ) : undefined
+        }
       />
       <Pagination total={data?.total ?? 0} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
@@ -236,10 +298,11 @@ function RegistrationList({
   page: number;
   onPageChange: (p: number) => void;
 }) {
-  const { data, isLoading } = useInviteRegistrations(inviterId, {
+  const regQ = useInviteRegistrations(inviterId, {
     page,
     page_size: DETAIL_PAGE_SIZE,
   });
+  const { data, isLoading } = regQ;
 
   const columns: Column<InviteRegistration>[] = [
     {
@@ -257,8 +320,8 @@ function RegistrationList({
     },
     {
       header: '注册时间',
-      width: 150,
-      cell: (r) => <span className="text-12 tabular-nums text-faint">{fmtTime(r.created_at)}</span>,
+      width: 130,
+      cell: (r) => <TimeCell value={r.created_at} className="text-12" />,
     },
   ];
 
@@ -268,6 +331,8 @@ function RegistrationList({
         columns={columns}
         rows={data?.items}
         loading={isLoading}
+        error={regQ.error}
+        onRetry={() => void regQ.refetch()}
         rowKey={(r) => r.invited_user_id}
         emptyMessage="该邀请还没有带来注册"
       />

@@ -150,7 +150,7 @@ func TestIntegrationBilling(t *testing.T) {
 			t.Fatalf("应升级 max")
 		}
 		// 不降级:再给一张 pro(admin 直授)→ 仍 max
-		if _, err := svc.GrantToUser(id, TierPro, 30, ""); err != nil {
+		if _, err := svc.GrantToUser(id, TierPro, 30, GrantUnitDay, ""); err != nil {
 			t.Fatal(err)
 		}
 		if svc.EffectiveTier(id) != TierMax {
@@ -375,6 +375,22 @@ func TestIntegrationBilling(t *testing.T) {
 		}).Error; err != nil {
 			t.Fatal(err)
 		}
+		// 🔴 换锚断言的前置:把 anchor 显式挪到 2 秒前。
+		// resetInternal 换的新锚是 `now.Unix()`(秒粒度),而本用例从开窗到这里通常在同一秒内跑完 ——
+		// 于是 new anchor == old anchor,下面那条「anchor 必须变」就会失败。这不是产品缺陷
+		// (真实世界烧穿一个窗口不可能发生在 1 秒内,quota.go 也已就同秒换锚显式清了 used key),
+		// 而是本用例的前置不确定。此前它靠「机器/DB 够慢,每步间隔 >1s」侥幸通过,属真·flake:
+		// 2026-08-03 在本机稳定复现失败,且在**未含任何改动的干净基线**上同样失败。
+		// 顺带把 used key 一起改名过去,保持「旧窗口有用量」这个被断言的前提不被破坏。
+		agedAnchor := time.Now().Unix() - 2
+		if err := cache.GetRedisPersist().Rename(ctx, tokenUsedKey(id, w.anchor), tokenUsedKey(id, agedAnchor)).Err(); err != nil {
+			t.Fatalf("age used key: %v", err)
+		}
+		if err := cache.GetRedisPersist().Set(ctx, anchorKey(id), agedAnchor, svc.quotaKeyTTL()).Err(); err != nil {
+			t.Fatalf("age anchor: %v", err)
+		}
+		w = svc.loadWindow(ctx, id)
+
 		res, err := svc.ResetQuota(ctx, id)
 		if err != nil {
 			t.Fatalf("reset: %v", err)

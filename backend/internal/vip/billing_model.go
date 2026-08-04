@@ -208,6 +208,83 @@ func AddPeriod(base time.Time, cycle string) time.Time {
 	return c.AddMonthsNoOverflow(1).StdTime()
 }
 
+// ─── 授予时长单位(0110)──────────────────────────────────────────────────────
+//
+// admin 直授与兑换码此前**只有「天」**。加上自然月/年之后,三种单位共用同一套算术,
+// 与购买/续费的 AddPeriod 保持同一口径(carbon NoOverflow),不再各写各的。
+const (
+	GrantUnitDay   = "day"
+	GrantUnitMonth = "month"
+	GrantUnitYear  = "year"
+)
+
+// NormGrantUnit 归一化授予单位;未知一律回落 day。
+//
+// 回落到 day 而不是报错:存量兑换码的 grant_unit 是空串(迁移 0110 的 DEFAULT 兜住了新行,
+// 但代码里仍可能拿到零值),而它们的语义**就是天** —— 回落 day 才能让老码行为不变。
+func NormGrantUnit(u string) string {
+	switch u {
+	case GrantUnitMonth, GrantUnitYear:
+		return u
+	default:
+		return GrantUnitDay
+	}
+}
+
+// AddPeriodN 把 base 往后推 n 个「单位」。day = 自然日,month/year = 自然月/年(NoOverflow 钳位)。
+//
+// 🔴 **一次性传 n,绝不能循环调用 AddPeriod n 次** —— 这是本函数存在的全部理由。
+//
+// 循环会把「月末钳位」的一次性偏移放大成逐月漂移:从 1/31 出发发放 12 个月,
+//   - 循环 12 次:1/31→2/28→3/28→…→次年 1/28  (少 3 天)
+//   - 一次性 +12 月:time.Date 把 month+12 归一化,day=31 在 1 月不需要钳 → 次年 1/31 (0 天误差)
+// 实测两者相差 72 小时。发 3 个月、6 个月这类多周期时,循环写法会系统性少给用户天数。
+//
+// carbon 的 AddMonthsNoOverflow(n)/AddYearsNoOverflow(n) 本身就接受任意 n 并只在**最终**
+// 落点做一次钳位,正是我们要的语义。
+func AddPeriodN(base time.Time, unit string, n int) time.Time {
+	if n <= 0 {
+		return base
+	}
+	switch NormGrantUnit(unit) {
+	case GrantUnitMonth:
+		return carbon.CreateFromStdTime(base).AddMonthsNoOverflow(n).StdTime()
+	case GrantUnitYear:
+		return carbon.CreateFromStdTime(base).AddYearsNoOverflow(n).StdTime()
+	default:
+		// 天:stdlib 就是对的(没有"月末"概念,不存在溢出规范化问题)
+		return base.AddDate(0, 0, n)
+	}
+}
+
+// GrantDurationDays 把「n 个单位」折算成**近似天数**,仅用于需要与天数阈值比大小的场景
+// (如兑换码「够不够一个额度窗口」的判定)。
+//
+// ⚠️ 只用于比较,**绝不能用它算到期日** —— 到期日必须走 AddPeriodN 的真自然月/年。
+// 折算分母沿用 prorationDays 的 30/365 常量口径(理由见那里:常量分母才不会让阈值随月份跳)。
+func GrantDurationDays(unit string, n int) int {
+	switch NormGrantUnit(unit) {
+	case GrantUnitMonth:
+		return n * 30
+	case GrantUnitYear:
+		return n * 365
+	default:
+		return n
+	}
+}
+
+// GrantUnitLabel 中文单位名(日志 / 通知文案用)。
+func GrantUnitLabel(unit string) string {
+	switch NormGrantUnit(unit) {
+	case GrantUnitMonth:
+		return "个月"
+	case GrantUnitYear:
+		return "年"
+	default:
+		return "天"
+	}
+}
+
 // prorationDays 升级补差价的按天折算分母 —— **刻意固定 30/365,不跟自然月走**(owner 拍板 2026-07-29)。
 //
 // 周期长度改自然月之后,这里有过一个看似更"精确"的选项:分母用这一次周期的真实天数(28~31)。

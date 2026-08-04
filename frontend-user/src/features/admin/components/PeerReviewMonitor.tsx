@@ -1,6 +1,5 @@
-import { Fragment, useState } from 'react';
-import { Download, Eye, FileText } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState } from 'react';
+import { Eye } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { Input } from '@/shared/ui/input';
@@ -11,204 +10,29 @@ import {
   DialogTitle,
 } from '@/shared/ui/dialog';
 import { useDebounce } from '@/shared/hooks';
-import { MarkdownRenderer } from '@/shared/components/chat';
+import { ResourceError } from '@/shared/components/ResourceError';
 import { DataTable, type Column } from './DataTable';
 import { Pagination } from './Pagination';
 import { UserCell } from './UserCell';
+import { TimeCell } from './TimeCell';
+import { CopyableId } from './CopyableId';
 import { AdminFilePreviewDialog, type AdminPreviewFile } from './AdminFilePreviewDialog';
-import { downloadAdminFile } from './AdminFileViewer';
+import { PeerReviewRecordView } from './PeerReviewRecordView';
+import { prModeLabel, prStatusBadgeVariant, prStatusLabel } from '../lib/pr-labels';
 import {
   usePRSubmissions,
   usePRSubmissionDetail,
   type PRSubmissionRow,
-  type PRReport,
-  type PRAsset,
 } from '../api/peer-review-monitor';
 
-const fmtTime = (s?: string | null) => (s ? s.slice(0, 16).replace('T', ' ') : '—');
-
-function KV({ label, value }: { label: string; value?: string | number | null }) {
-  if (value === '' || value == null) return null;
-  return (
-    <div className="min-w-0">
-      <div className="text-12 text-faint">{label}</div>
-      <div className="text-12 text-subtle break-words">{value}</div>
-    </div>
-  );
-}
-
-function MdBlock({ label, md }: { label: string; md?: string }) {
-  if (!md) return null;
-  return (
-    <div className="rounded-8 border border-border bg-surface-1 p-3">
-      <div className="mb-1 text-12 text-faint">{label}</div>
-      <div className="text-12 text-subtle">
-        <MarkdownRenderer text={md} />
-      </div>
-    </div>
-  );
-}
-
-// ---------- 结构化渲染:把 scores/dimensions/line-comments/… 的 JSON 渲染成可读 UI(替代裸 JSON.stringify) ----------
-
-/** camelCase / snake_case 键名 → 更易读的展示串。 */
-function prettyKey(k: string): string {
-  return k.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
-}
-
-function ObjectRows({ obj }: { obj: Record<string, unknown> }) {
-  const entries = Object.entries(obj).filter(([, v]) => v != null && v !== '');
-  if (entries.length === 0) return <span className="text-12 text-faint">—</span>;
-  return (
-    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-      {entries.map(([k, v]) => (
-        <Fragment key={k}>
-          <div className="text-12 text-faint">{prettyKey(k)}</div>
-          <div className="min-w-0">
-            <StructuredValue value={v} />
-          </div>
-        </Fragment>
-      ))}
-    </div>
-  );
-}
-
-function StructuredValue({ value }: { value: unknown }) {
-  if (value == null || value === '') return <span className="text-12 text-faint">—</span>;
-  if (typeof value === 'string') return <span className="whitespace-pre-wrap break-words text-12 text-subtle">{value}</span>;
-  if (typeof value === 'number' || typeof value === 'boolean')
-    return <span className="text-12 tabular-nums text-foreground">{String(value)}</span>;
-  if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="text-12 text-faint">(空)</span>;
-    const allObj = value.every((v) => v != null && typeof v === 'object' && !Array.isArray(v));
-    if (allObj) {
-      return (
-        <div className="space-y-1.5">
-          {value.map((v, i) => (
-            <div key={i} className="rounded-4 border border-border-soft bg-surface-card p-2">
-              <ObjectRows obj={v as Record<string, unknown>} />
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return (
-      <ul className="ml-4 list-disc space-y-0.5">
-        {value.map((v, i) => (
-          <li key={i} className="text-12 text-subtle">
-            <StructuredValue value={v} />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  if (typeof value === 'object') return <ObjectRows obj={value as Record<string, unknown>} />;
-  return <span className="text-12 text-subtle">{String(value)}</span>;
-}
-
-/** 结构化数据块:可读渲染 + 「原始 JSON」折叠兜底(便于核对)。 */
-function StructuredBlock({ label, data }: { label: string; data?: unknown }) {
-  if (data == null || (Array.isArray(data) && data.length === 0)) return null;
-  return (
-    <div className="rounded-8 border border-border bg-surface-1 p-2.5">
-      <div className="mb-1.5 text-12 text-faint">{label}</div>
-      <StructuredValue value={data} />
-      <details className="mt-1.5">
-        <summary className="cursor-pointer text-12 text-faint">原始 JSON</summary>
-        <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words text-12 text-muted-foreground">
-          {JSON.stringify(data, null, 2)}
-        </pre>
-      </details>
-    </div>
-  );
-}
-
-function ReportCard({ r }: { r: PRReport }) {
-  return (
-    <div className="space-y-2 rounded-12 border border-border bg-surface-card p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="default">{r.role}</Badge>
-        {r.decision && <span className="text-12 text-foreground">决定: {r.decision}</span>}
-        {r.recommendation && <span className="text-12 text-subtle">推荐: {r.recommendation}</span>}
-        {r.score != null && <span className="text-12 text-subtle">评分: {r.score}</span>}
-        {r.expertise && <span className="text-12 text-faint">{r.expertise}</span>}
-        <span className="ml-auto text-12 text-faint">
-          {r.agentDurationSec != null ? `${r.agentDurationSec}s · ` : ''}
-          {r.agentTokensIn != null ? `in ${r.agentTokensIn} / out ${r.agentTokensOut}` : ''}
-        </span>
-      </div>
-      <MdBlock label="总评 (final summary)" md={r.finalSummaryMd} />
-      <MdBlock label="评审正文 (content)" md={r.contentMd} />
-      <MdBlock label="主编裁定 · 摘要" md={r.rulingSummaryMd} />
-      <MdBlock label="主编裁定 · 正文" md={r.rulingParagraphMd} />
-      <KV label="给作者的一句话" value={r.summaryForAuthor} />
-      <div className="grid gap-1.5 sm:grid-cols-2">
-        <StructuredBlock label="评分明细 (scores)" data={r.scores} />
-        <StructuredBlock label="维度评分 (dimensions)" data={r.dimensions} />
-        <StructuredBlock label="逐句意见 (line comments)" data={r.lineComments} />
-        <StructuredBlock label="宏观意见 (macro comments)" data={r.macroComments} />
-        <StructuredBlock label="must-fix" data={r.mustFix} />
-        <StructuredBlock label="修改建议 (suggestions)" data={r.suggestions} />
-        <StructuredBlock label="审稿人回应 (responses)" data={r.reviewerResponses} />
-      </div>
-    </div>
-  );
-}
-
-/** 附件卡:文件名 + 元信息 badges + [预览][下载] + 可折叠的 AI 抽取文本(textExcerpt)。 */
-function AssetCard({
-  a,
-  submissionId,
-  onPreview,
-}: {
-  a: PRAsset;
-  submissionId: number;
-  onPreview: (f: AdminPreviewFile) => void;
-}) {
-  const src = `/admin/peer-review/submissions/${submissionId}/assets/${a.id}`;
-  return (
-    <div className="rounded-12 border border-border bg-surface-1 p-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <FileText className="size-4 shrink-0 text-faint" />
-        <span className="min-w-0 truncate text-12 font-medium text-foreground" title={a.filename}>
-          {a.filename}
-        </span>
-        <span className="text-12 text-faint">
-          {a.role}
-          {a.category ? `/${a.category}` : ''} · {(a.size / 1024).toFixed(0)}KB · {a.mime}
-          {a.textChars != null ? ` · 抽取 ${a.textChars} 字` : ''}
-        </span>
-        <div className="ml-auto flex shrink-0 gap-1.5">
-          <Button size="sm" variant="outline" className="h-7" onClick={() => onPreview({ src, mime: a.mime, filename: a.filename })}>
-            <Eye className="size-3.5" />
-            预览
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7"
-            onClick={() => {
-              downloadAdminFile(`${src}?download=1`, a.filename).catch(() => toast.error('下载失败,请重试'));
-            }}
-          >
-            <Download className="size-3.5" />
-            下载
-          </Button>
-        </div>
-      </div>
-      {a.textExcerpt && (
-        <details className="mt-1.5">
-          <summary className="cursor-pointer text-12 text-faint">AI 实际读到的抽取文本(节选)</summary>
-          <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words text-12 text-muted-foreground">
-            {a.textExcerpt}
-          </pre>
-        </details>
-      )}
-    </div>
-  );
-}
-
-/** 审稿监控:列投稿 → 看完整数据(草稿过程 + 附件含抽取文本/可预览下载 + 每个审稿人报告)。 */
+/**
+ * 审稿监控:列投稿 → 看完整审稿记录。
+ *
+ * 详情正文用 **PeerReviewRecordView**(镜像用户端 RecordDetailPage:中文状态 / 失败横幅 /
+ * 审稿人 A·B·C + 主审 tab / 评分面板 / 附件 / 运维信息 / 原始 DTO 折叠),
+ * 取代改造前那份「15 个 KV + 一堆原始 JSON 平铺」—— 同一份数据,前者能一眼看出结论,
+ * 后者要在 JSON 里翻。完整原始字段没有丢:RecordView 底部的 RawDebug 仍把整个 DTO 折叠保留。
+ */
 export function PeerReviewMonitor() {
   const [page, setPage] = useState(1);
   const [kwInput, setKwInput] = useState('');
@@ -216,9 +40,8 @@ export function PeerReviewMonitor() {
   const [viewingId, setViewingId] = useState<number | null>(null);
   const [preview, setPreview] = useState<AdminPreviewFile | null>(null);
 
-  const { data, isLoading } = usePRSubmissions({ keyword: keyword.trim() || undefined, page, pageSize: 20 });
-  const { data: detail, isLoading: loadingDetail } = usePRSubmissionDetail(viewingId);
-  const s = detail?.submission;
+  const listQ = usePRSubmissions({ keyword: keyword.trim() || undefined, page, pageSize: 20 });
+  const detailQ = usePRSubmissionDetail(viewingId);
 
   const columns: Column<PRSubmissionRow>[] = [
     {
@@ -226,18 +49,31 @@ export function PeerReviewMonitor() {
       width: 200,
       cell: (r) => <UserCell id={r.userId} name={r.username} email={r.userEmail} />,
     },
-    { header: '标题', cell: (r) => <span className="text-12 text-subtle line-clamp-2">{r.title || '(未填)'}</span> },
+    {
+      header: '标题',
+      cell: (r) => <span className="text-12 text-subtle line-clamp-2">{r.title || '(未填)'}</span>,
+    },
     {
       header: '模式',
       width: 90,
       cell: (r) => (
-        <span className="text-12 text-faint">
-          {r.mode === 'thesis' ? '学位论文' : r.mode === 'journal' ? '期刊投稿' : r.mode}
+        <span className="text-12 text-faint" title={r.mode}>
+          {prModeLabel(r.mode)}
         </span>
       ),
     },
-    { header: '状态', width: 100, cell: (r) => <Badge variant="muted">{r.status}</Badge> },
-    { header: '时间', width: 130, cell: (r) => <span className="text-12 text-faint">{fmtTime(r.createdAt)}</span> },
+    {
+      header: '状态',
+      width: 100,
+      // 改造前这里是清一色的灰底 `<Badge variant="muted">{r.status}</Badge>`(还直出英文枚举),
+      // 失败的投稿和已结案的长得一模一样 —— 而「哪几条炸了」正是这张表的主要用途。
+      cell: (r) => (
+        <Badge variant={prStatusBadgeVariant(r.status)} title={r.status}>
+          {prStatusLabel(r.status)}
+        </Badge>
+      ),
+    },
+    { header: '时间', width: 120, cell: (r) => <TimeCell value={r.createdAt} className="text-12" /> },
     {
       header: '',
       width: 100,
@@ -250,6 +86,8 @@ export function PeerReviewMonitor() {
       ),
     },
   ];
+
+  const hasKeyword = !!keyword.trim();
 
   return (
     <>
@@ -264,70 +102,63 @@ export function PeerReviewMonitor() {
           className="h-9 w-full sm:w-72"
         />
       </div>
-      <DataTable columns={columns} rows={data?.list} loading={isLoading} />
-      <Pagination total={data?.total ?? 0} page={page} pageSize={20} onPageChange={setPage} />
+      <DataTable
+        columns={columns}
+        rows={listQ.data?.list}
+        loading={listQ.isLoading}
+        error={listQ.error}
+        onRetry={() => listQ.refetch()}
+        emptyMessage={hasKeyword ? '没有匹配的投稿' : '还没有投稿'}
+        emptyDescription={
+          hasKeyword
+            ? `关键字「${keyword.trim()}」没有命中任何投稿(可搜 ID / 用户名 / 邮箱 / 手机号 / 标题)。`
+            : '用户在智能审稿里提交投稿后,记录会出现在这里。'
+        }
+        emptyAction={
+          hasKeyword ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setKwInput('');
+                setPage(1);
+              }}
+            >
+              清除筛选
+            </Button>
+          ) : undefined
+        }
+      />
+      <Pagination total={listQ.data?.total ?? 0} page={page} pageSize={20} onPageChange={setPage} />
 
       <Dialog open={viewingId != null} onOpenChange={(o) => !o && setViewingId(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-5xl max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>审稿数据 · #{viewingId}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 pr-8">
+              审稿记录
+              <CopyableId
+                value={viewingId ?? ''}
+                prefix="#"
+                label="投稿 ID"
+                className="text-12 font-normal text-muted-foreground"
+              />
+            </DialogTitle>
           </DialogHeader>
-          {loadingDetail || !s ? (
+
+          {/* 三分支,**error 必须先判**。改造前的判据是 `loadingDetail || !s`:
+              请求失败时 isLoading 回到 false、detail 是 undefined → `!s` 为真 →
+              弹窗**永久转圈**,既转不出来也不报错。管理员只会以为是慢,反复重开弹窗。 */}
+          {detailQ.isError ? (
+            <ResourceError
+              error={detailQ.error}
+              resourceName="审稿记录"
+              onRetry={() => detailQ.refetch()}
+              autoRedirect={false}
+              className="h-auto bg-surface-card"
+            />
+          ) : !detailQ.data ? (
             <div className="py-8 text-center text-12 text-faint">加载中…</div>
           ) : (
-            <div className="space-y-4">
-              {/* 投稿草稿过程数据 */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-12 border border-border bg-surface-1 p-3 sm:grid-cols-3">
-                <KV label="模式" value={s.mode} />
-                <KV label="状态" value={s.status} />
-                <KV label="步骤" value={s.step} />
-                <KV label="计算状态" value={s.computeState} />
-                <KV label="期刊" value={s.journalName} />
-                <KV label="学校" value={s.schoolName} />
-                <KV label="学位" value={s.degreeType} />
-                <KV label="学科" value={s.disciplineField} />
-                <KV label="导师" value={s.advisorName} />
-                <KV label="提交时间" value={fmtTime(s.submittedAt)} />
-                <KV label="完成时间" value={fmtTime(s.completedAt)} />
-                <KV label="创建时间" value={fmtTime(s.createdAt)} />
-                <KV label="agent 会话" value={s.agentSessionId} />
-                <KV label="失败原因" value={s.failedReason} />
-                <KV label="计算错误" value={s.computeError} />
-              </div>
-              <MdBlock label="标题" md={s.title} />
-              <MdBlock label="摘要" md={s.abstract} />
-              <MdBlock label="投稿信 (cover letter)" md={s.letterBody} />
-              <div className="grid gap-1.5 sm:grid-cols-2">
-                <StructuredBlock label="期刊元数据" data={s.journalMeta} />
-                <StructuredBlock label="额外元数据 (keywords/subjects)" data={s.extraMeta} />
-              </div>
-
-              {/* 附件(可预览/下载 + AI 实际读到的抽取文本) */}
-              {detail.assets.length > 0 && (
-                <div>
-                  <div className="mb-1.5 text-12 text-faint">附件 ({detail.assets.length})</div>
-                  <div className="space-y-1.5">
-                    {detail.assets.map((a) => (
-                      <AssetCard key={a.id} a={a} submissionId={s.id} onPreview={setPreview} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 审稿结果(每个审稿人) */}
-              <div>
-                <div className="mb-1.5 text-12 text-faint">审稿报告 ({detail.reports.length})</div>
-                {detail.reports.length === 0 ? (
-                  <div className="text-12 text-faint">暂无审稿报告(可能还在审稿中或已失败)</div>
-                ) : (
-                  <div className="space-y-3">
-                    {detail.reports.map((r) => (
-                      <ReportCard key={r.id} r={r} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <PeerReviewRecordView detail={detailQ.data} onPreview={setPreview} />
           )}
         </DialogContent>
       </Dialog>

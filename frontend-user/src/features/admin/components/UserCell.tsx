@@ -4,8 +4,9 @@
 //     卡片数据**懒加载**(打开才拉 detail + vip,避免列表 N+1)。
 //   · 无 user_id(公众号/系统/匿名)→ 显示匿名文案,不可点开。
 import { useState } from 'react';
-import { Mail, Smartphone, CheckCircle2, Link2, Loader2, Crown, Wallet } from 'lucide-react';
+import { AlertTriangle, Mail, Smartphone, CheckCircle2, Link2, Loader2, Crown, Wallet } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { toApiError } from '@/shared/lib/http';
 import { Popover, PopoverTrigger, PopoverContent } from '@/shared/ui/popover';
 import { useUserDetail, useUserVipStatus, type UserLoginMethods, type UserVipStatus } from '../api/users';
 
@@ -77,14 +78,20 @@ export function UserCell(props: UserCellProps) {
             <span className="truncate text-12 font-medium text-foreground">{displayName(props)}</span>
             <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-12 text-faint">#{id}</span>
           </div>
-          <TierBadge tier={vip.data?.tier} loading={vip.isLoading} />
+          <TierBadge tier={vip.data?.tier} loading={vip.isLoading} error={vip.isError} />
         </div>
 
         <div className="flex flex-col gap-3 px-3 py-3">
-          {/* 登录方式 + 关联账号 */}
+          {/* 登录方式 + 关联账号。失败时回落到行数据(email/phone)并明确标注是"降级显示",
+              否则会让人以为这个号真的只有邮箱、没绑任何第三方。 */}
           <Block title="登录方式">
             {detail.isLoading ? (
               <LoadingRow text="加载登录方式…" />
+            ) : detail.isError ? (
+              <>
+                <ErrorRow error={detail.error} onRetry={() => void detail.refetch()} />
+                <FallbackMethods email={props.email} phone={props.phone} />
+              </>
             ) : detail.data ? (
               <LoginMethods d={detail.data} />
             ) : (
@@ -92,10 +99,12 @@ export function UserCell(props: UserCellProps) {
             )}
           </Block>
 
-          {/* 会员 + 经费余额 */}
+          {/* 会员 + 经费余额 —— 失败绝不显示「暂无会员信息」(等于把 Max 用户说成没会员) */}
           <Block title="会员 / 经费">
             {vip.isLoading ? (
               <LoadingRow text="加载会员信息…" />
+            ) : vip.isError ? (
+              <ErrorRow error={vip.error} onRetry={() => void vip.refetch()} />
             ) : vip.data ? (
               <VipSummary v={vip.data} />
             ) : (
@@ -125,8 +134,34 @@ function LoadingRow({ text }: { text: string }) {
   );
 }
 
-function TierBadge({ tier, loading }: { tier?: string; loading?: boolean }) {
+/** 卡片内的紧凑失败态 —— 保留后端原因 + 一个重试链接(卡片窄,不用按钮)。 */
+function ErrorRow({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return (
+    <span className="flex items-start gap-1.5 text-12 text-brand-red">
+      <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+      <span className="min-w-0">
+        {toApiError(error).message || '加载失败'}
+        <button
+          type="button"
+          onClick={onRetry}
+          className="ml-1.5 rounded-4 text-faint underline underline-offset-2 transition-colors hover:text-foreground"
+        >
+          重试
+        </button>
+      </span>
+    </span>
+  );
+}
+
+function TierBadge({ tier, loading, error }: { tier?: string; loading?: boolean; error?: boolean }) {
   if (loading) return <Loader2 className="size-3 shrink-0 animate-spin text-faint" />;
+  // 取不到就显示"取不到" —— 回落成 Free 徽章会把 Max 用户说成免费用户
+  if (error)
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 text-12 text-faint" title="会员状态加载失败">
+        <AlertTriangle className="size-3 text-brand-red" />—
+      </span>
+    );
   const t = tier ?? 'free';
   const isPro = t === 'pro' || t === 'max';
   return (

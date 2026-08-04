@@ -79,6 +79,19 @@ export const ResourceError = forwardRef<HTMLDivElement, ResourceErrorProps>(func
 
   const canBack = !!onBack || !!backTo;
 
+  /**
+   * 何时给「重试」按钮。
+   *
+   * 曾经只在 `isNetworkOrServer`(断网 / 5xx)时给,理由是"4xx 重试也没用"。
+   * 但这个组件现在也被 DataTable / ConfigPageGuard 用作**内嵌**错误态,那里既没有
+   * backTo 也没有 onBack —— 于是一个 400(比如手改 URL 把 page 改成非法值)或 403
+   * 会渲染出一张既没有「重试」也没有「返回」的卡片,管理员只能自己按 F5,成了死胡同。
+   *
+   * 现在的判据:调用方给了 onRetry 就给按钮,只排除 404「不存在」(那个确实重试无意义,
+   * 且它已有自动返回)。重试一次 4xx 的代价只是再失败一次,比没有出路好。
+   */
+  const showRetry = !!onRetry && (isNetworkOrServer || api.status !== 404);
+
   // 用 ref 持有最新的返回动作,避免 effect 因闭包过期 / 依赖抖动而误触发。
   const backRef = useRef<() => void>(() => {});
   backRef.current = () => {
@@ -107,9 +120,9 @@ export const ResourceError = forwardRef<HTMLDivElement, ResourceErrorProps>(func
         title={resolvedTitle}
         description={resolvedDesc}
         action={
-          (canBack || (isNetworkOrServer && onRetry)) && (
+          (canBack || showRetry) && (
             <div className="flex items-center gap-2">
-              {isNetworkOrServer && onRetry && (
+              {showRetry && (
                 <Button variant="outline" onClick={onRetry}>
                   重试
                 </Button>

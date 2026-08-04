@@ -444,6 +444,10 @@ describe('颜色', () => {
     const ALLOW = [
       'features/claw/components/figure/', // 科研绘图素材(bioicons CC0 + 自绘),碱基/细胞器配色是科研语义
       'shared/components/ProviderLogo', // 第三方品牌 logo
+      // 支付渠道 logo —— 微信绿 #07C160 / 支付宝蓝 #1677FF 是**他人的品牌资产**,
+      // 不能换成我们的 token。微信支付《物料管理规范》明确要求商户收银台
+      // 「不得以任何方式遮挡或弱化」官方标识,染成 --brand-red 恰恰是弱化。
+      'shared/components/PayMethodLogo',
       'shared/components/brand/', // Scholay 标志与文字标 —— 从 Figma 导出的 SVG,颜色是品牌资产
       'shared/lib/theme-bridge', // token → 第三方主题的唯一适配层
     ];

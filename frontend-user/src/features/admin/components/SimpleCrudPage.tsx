@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
@@ -48,6 +48,15 @@ export interface SimpleCrudPageProps<T extends { id: number }> {
   description?: ReactNode;
   rows: T[] | undefined;
   loading?: boolean;
+  /**
+   * query 的 error —— **必须透传**,否则请求失败会和"真的没有记录"一样落进空态,
+   * 表格显示「这里还没有数据」(说反话)。详见 DataTable 的同名 prop。
+   */
+  error?: unknown;
+  /** 重试(通常传 query.refetch) */
+  onRetry?: () => void;
+  /** 空态主文案 —— 默认「这里还没有数据」 */
+  emptyMessage?: string;
   columns: Column<T>[];
   fields: FormField<T>[];
   /** 创建按钮文案(默认 "新建") */
@@ -56,8 +65,15 @@ export interface SimpleCrudPageProps<T extends { id: number }> {
   onCreate: (data: Partial<T>) => Promise<unknown>;
   onUpdate: (id: number, data: Partial<T>) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
-  /** 删除二次确认提示文案,默认 "确定删除?" */
-  deleteConfirm?: (row: T) => string;
+  /**
+   * 删除二次确认文案 —— **必填**,而且必须点名删的是哪一行。
+   *
+   * 原来这里是可选的、默认「确定删除?」:行操作按钮在表格最右侧、行高只有 40px,
+   * 一句不带对象的确认等于没有确认。当前唯一调用方(代码片段库,管的是**全站脚本注入**)
+   * 本来就传了自定义文案,所以改必填的成本为零 —— 而下一个接入方沿用那个默认值
+   * 就是误删事故的温床。
+   */
+  deleteConfirm: (row: T) => string;
   /** 嵌入模式:去掉 AdminPageLayout 外壳(title/description 收进顶部工具条),供并入多 tab 页时用 */
   embedded?: boolean;
 }
@@ -67,6 +83,9 @@ export function SimpleCrudPage<T extends { id: number }>({
   description,
   rows,
   loading,
+  error,
+  onRetry,
+  emptyMessage,
   columns,
   fields,
   createLabel = '新建',
@@ -84,7 +103,8 @@ export function SimpleCrudPage<T extends { id: number }>({
 
   const handleDelete = async (row: T) => {
     const ok = await confirm({
-      title: deleteConfirm ? deleteConfirm(row) : '确定删除?',
+      title: deleteConfirm(row),
+      description: '删除后不可恢复。',
       danger: true,
       confirmText: '删除',
     });
@@ -121,7 +141,14 @@ export function SimpleCrudPage<T extends { id: number }>({
 
   const body = (
     <>
-      <DataTable columns={allColumns} rows={rows} loading={loading} />
+      <DataTable
+        columns={allColumns}
+        rows={rows}
+        loading={loading}
+        error={error}
+        onRetry={onRetry}
+        emptyMessage={emptyMessage}
+      />
 
       <Dialog open={!!mode} onOpenChange={(o) => !o && setMode(null)}>
         <DialogContent className="max-w-2xl">
@@ -176,12 +203,17 @@ function CrudForm<T>({
   fields: FormField<T>[];
   initial: Partial<T>;
   onCancel: () => void;
-  onSubmit: (data: Partial<T>) => void;
+  onSubmit: (data: Partial<T>) => Promise<void>;
 }) {
+  // 保存按钮此前无 pending:它服务的是分析维度、代码片段这类资源,
+  // 慢一点的网络下双击就是**真的建出两条重复记录**(片段 code_key 唯一还会撞库报错)。
+  const [submitting, setSubmitting] = useState(false);
+
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
+        if (submitting) return;
         const fd = new FormData(e.currentTarget);
         const result = {} as Partial<T>;
         for (const f of fields) {
@@ -194,7 +226,12 @@ function CrudForm<T>({
             (result as Record<string, unknown>)[f.name] = v == null ? '' : String(v);
           }
         }
-        onSubmit(result);
+        setSubmitting(true);
+        try {
+          await onSubmit(result);
+        } finally {
+          setSubmitting(false);
+        }
       }}
       className="space-y-3"
     >
@@ -247,8 +284,11 @@ function CrudForm<T>({
         ))}
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>取消</Button>
-        <Button type="submit">保存</Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>取消</Button>
+        <Button type="submit" disabled={submitting}>
+          {submitting && <Loader2 className="size-3.5 animate-spin" />}
+          保存
+        </Button>
       </DialogFooter>
     </form>
   );

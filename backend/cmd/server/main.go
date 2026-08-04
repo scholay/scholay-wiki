@@ -194,6 +194,12 @@ func main() {
 	// 必须在 ShutdownJournal 之前:两者都写 DB,水位是钱、journal 是历史,先保钱。
 	svc.agentBridge.FlushAllTokenWatermarks()
 
+	// 额度窗口 used 快照落库(0103):同上,发版时正在飞的那一分钟的消耗必须落进兜底副本,
+	// 否则「优雅重启 + 之后某天 Redis 丢数据」这个组合会让恢复读回一个偏小的 used = 白送额度。
+	if svc.stopQuotaPersist != nil {
+		svc.stopQuotaPersist()
+	}
+
 	// M5:drain agent 事件日志写通道(把未落盘事件写完再退,防重启丢历史)。
 	svc.agentBridge.ShutdownJournal(shutdownCtx)
 

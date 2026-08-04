@@ -266,6 +266,12 @@ func (s *Service) windowSeconds() int64 {
 // ⚠️ 主 Redis 是 allkeys-lru:anchor 被逐出会落进 ①(与"从没用过"不可区分)。这不是本函数能
 // 分辨的,必须靠 REDIS_PERSIST_HOST 指向 noeviction 池来杜绝 —— 两份 compose 与 .env/.env.prod
 // 已同步启用,别再把它改回空值。
+//
+// 🔴 「读路径永不开窗」这条不变式在 0103 之后有一个**明确的例外**:redis.Nil 分支会去 MySQL
+// 兜底副本找回窗口并回灌 Redis(restoreWindowFromDB)。它写 anchor,但**不是开窗** ——
+// 开窗是「创建一个用户此前没有的窗口」,恢复是「把一个已经存在、只是在 Redis 里丢了的窗口读回来」。
+// 方向上也永远是保守的:恢复只可能让用户可用额度**变少**,不可能变多(没找到就照旧算满血),
+// 所以它不会成为「读一下就白拿一个窗口」的漏洞。回灌用 SETNX,不与并发开窗争。
 func (s *Service) loadWindow(ctx context.Context, userID uint) quotaWindow {
 	windowSec := s.windowSeconds()
 	rdb := cache.GetRedisPersist()
@@ -281,6 +287,16 @@ func (s *Service) loadWindow(ctx context.Context, userID uint) quotaWindow {
 			return quotaWindow{} // 已到期 → 满血(读路径不写 anchor)
 		}
 	case errors.Is(err, redis.Nil):
+		// 🔴 恢复路径**只挂在这一个分支上**。
+		// 「Redis 明确说没有这个 key」有两种成因:用户真没用过 AI(绝大多数),
+		// 或者 Redis 侧丢了数据(换池 / 目录丢失 / FLUSHALL)。前者 DB 里也查不到活窗口,
+		// 后者查得到 —— 只有 MySQL 兜底副本能把这两者分开。
+		// 刻意**不挂在下面的 default(命令失败)分支**:那时全站会同时涌向 MySQL,
+		// 等于把一次 Redis 抖动放大成一次 DB 故障;降级仍走进程内兜底计数器。
+		// 恢复后不再读 base:quota:base:* 已退休(P5 成本制),恒 0。
+		if w, ok := s.restoreWindowFromDB(ctx, rdb, userID); ok {
+			return quotaWindow{anchor: w.anchor, used: w.used}
+		}
 		return quotaWindow{} // 从未用过 → 满血
 	default:
 		// Redis 不可用 —— 绝不能当"满血"放行。退回进程内兜底计数器(有界 fail-open)。
@@ -602,6 +618,13 @@ func (s *Service) addUsage(ctx context.Context, userID uint, costMicro int, char
 	if anchor <= 0 {
 		return
 	}
+	// 开窗落库(0103):Lua 在「换新锚」分支返回的就是 ARGV[1]=now,故 anchor==now 即本次开窗。
+	// 同一秒内并发消耗可能都判为开窗 → persistWindowOpen 走 ON DUPLICATE,幂等。
+	// 这里同步写:一个用户 7 天一次,单条 INSERT,远不到需要异步的量级;而异步会引入
+	// 「开窗写还没落地就被 used 刷盘的 INSERT 抢先」的顺序问题(虽然那也能自愈,但没必要引入)。
+	if anchor == now.Unix() {
+		s.persistWindowOpen(userID, anchor, "usage", cfg)
+	}
 	key := tokenUsedKey(userID, anchor)
 	n, err := rdb.IncrBy(ctx, key, int64(costMicro)).Result()
 	if err != nil {
@@ -609,6 +632,12 @@ func (s *Service) addUsage(ctx context.Context, userID uint, costMicro int, char
 		warnQuotaDegraded("usage incr failed", "user_id", userID, "err", err)
 		return
 	}
+	// used 快照标脏(纯内存,微秒级)。取 IncrBy 的返回值 = Redis 侧绝对值,零额外读。
+	// 落盘由后台 flusher 节流批量做 —— **不在这里写 DB**:本函数的频率是 LLM 调用频率
+	// (agent 一轮工具循环几十次),而它所在的链路(llmusage.Record → observer)的既定纪律
+	// 是「必须轻量、不可阻塞」。
+	// 顺带的自愈:若上面的开窗写失败了,flusher 的 INSERT 半边带 state='open',60 秒内补上。
+	s.usedFlush.mark(userID, anchor, n)
 	// used key TTL 每次续期(评审 R4:仅首次设 TTL,会在 admin 把 window_days 调大后被旧短 TTL 在
 	// 新窗口到期前先蒸发 → 静默满血/限额绕过;每次续到当前 quotaKeyTTL,使 TTL 恒 ≥ 当前窗口+1 天)。
 	if e := rdb.Expire(ctx, key, s.quotaKeyTTL()).Err(); e != nil {
@@ -780,6 +809,10 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	// 同秒换锚(now == 旧 anchor,仅极端/测试可现;真实世界耗尽需秒级以上)会与旧窗共用 used key →
 	// 显式清零新锚下 used/base,保证满血确定不受旧窗残值影响。
 	_ = rdb.Del(ctx, tokenUsedKey(userID, now), tokenBaseKey(userID, now)).Err()
+	// 新窗落库(0103)。这里**不需要**给旧窗打 tombstone:主键是 (user_id, anchor_at),
+	// 恢复读的是 anchor 最大的那一行 —— 新窗 now > 旧 anchor,天然赢。
+	// (升级/降级两条路径必须打 tombstone,是因为它们**不产生新行**,只是把 anchor 删掉。)
+	s.persistWindowOpen(userID, now, "reset", cfg)
 
 	// 4) 基线已抬,扣 1 次重置次数(预检已确认有,ConsumeResetPass 行锁兜底)。
 	if err := s.wallet.ConsumeResetPass(userID); err != nil {
@@ -880,12 +913,25 @@ func (s *Service) ResetBaselineOnUpgrade(ctx context.Context, userID uint) {
 
 // applyUpgradeRefill 删窗口锚点(满血 + 下次使用重开窗)。Redis 不可用/写失败 → false(交 reconciler)。
 // DEL 幂等:锚点已被 AddUsage 换新/已到期删除也返回成功。
+//
+// 🔴 用 GETDEL 而非 DEL,是为了拿到被删的 anchor 去给 MySQL 副本打 tombstone(0103)。
+// 没有 tombstone 的后果不是「少一条审计」,而是**把用户付钱买到的满血从背后撤销**:
+// 恢复路径会从 DB 读回升级前那个已耗尽的窗口,而且看起来完全合法(anchor 有效、used 有据),
+// 上面这一整套 refill_pending + reconciler 补偿保证的兑现就这么没了。
+// GETDEL 是原子的(Redis 6.2+),不存在「读到 anchor 后被 AddUsage 换锚、结果删了新窗口」的空档 ——
+// 这正是降级路径要靠 anchorDelIfLua 才能达到的性质,这里由单条命令天然具备。
 func (s *Service) applyUpgradeRefill(ctx context.Context, userID uint) bool {
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return false
 	}
-	if err := rdb.Del(ctx, anchorKey(userID)).Err(); err != nil {
+	old, err := rdb.GetDel(ctx, anchorKey(userID)).Int64()
+	switch {
+	case err == nil:
+		s.persistWindowVoided(userID, old, "upgrade")
+	case errors.Is(err, redis.Nil):
+		// 本就无窗口(已满血 / 已到期被蒸发)—— 幂等成功,无窗口可作废。
+	default:
 		slog.Warn("billing: upgrade refill del anchor failed (pending marker kept)", "user_id", userID, "err", err)
 		return false
 	}
@@ -933,6 +979,9 @@ func (s *Service) realignWindowAfterDowngrade(ctx context.Context, userID uint, 
 	if n == 0 {
 		return false // 期间被 AddUsage 换了新锚 → 那是降级后的窗口,放过
 	}
+	// tombstone:与升级满血同理 —— 没有它,恢复路径会把这个刚被作废的高档窗口读回来,
+	// 用户降级后反而继续背着高档期的 used(正是本函数存在的那个 bug 本身)。
+	s.persistWindowVoided(userID, a, "downgrade")
 	slog.Info("billing: 会员降级/到期 — 作废高档期开的额度窗口(下次使用重新开锚)",
 		"user_id", userID, "old_anchor", a, "downgraded_at", downgradedAt.Format(time.RFC3339))
 	return true

@@ -26,6 +26,18 @@ function fmtCredit(n?: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2)
 }
 
+// 授予时长单位的中文名(0110)—— 后端 vip.GrantUnitLabel 的镜像。
+// 未知 / 缺省回落「天」,与后端 vip.NormGrantUnit 同口径(存量兑换码这一列是空串,语义就是天)。
+const UNIT_LABEL: Record<string, string> = { day: '天', month: '个月', year: '年' }
+
+// 兑换码授予的会员时长文案。
+// 🔴 这是用户在小程序里点「确认」前看到的唯一时长承诺:必须带单位,否则
+// 「1 个月」的码会显示成「1 天」;数量缺失时只报等级,不编一个假天数出来。
+function fmtGrantDuration(n?: number, unit?: string): string {
+  if (typeof n !== 'number' || !isFinite(n) || n <= 0) return ''
+  return ' ' + n + ' ' + (UNIT_LABEL[unit || 'day'] || '天')
+}
+
 Page({
   data: {
     ic: ICONS,
@@ -150,7 +162,9 @@ Page({
         wx.hideLoading()
         const desc =
           preview.grant_kind === 'tier'
-            ? '会员 ' + (preview.grant_tier || '') + ' ' + (preview.grant_days || 0) + ' 天'
+            ? '会员 ' +
+              (TIER_LABEL[preview.grant_tier || ''] || preview.grant_tier || '') +
+              fmtGrantDuration(preview.grant_days, preview.grant_unit)
             : '经费 ' + (preview.grant_credits || 0) // 0090:经费不分类型,不再标注(永久)/(临时)
         wx.showModal({
           title: '确认兑换',

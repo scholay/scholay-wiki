@@ -112,3 +112,51 @@ func TestFieldSpecMatchesAPI1JSON(t *testing.T) {
 	// homepage:不在 Author schema,但 seoenrich 线上在用且上游接受 —— 唯一登记例外。
 	check("authorFieldSpec", authorFieldSpec, "Author", map[string]bool{"homepage": true}, []string{"source"})
 }
+
+// TestBannedAliases —— 禁用字段必须在**别名层**也被拦住,不只是顶层 key。
+//
+// 🔴 这条测试是补 2026-08-03 一次真实漏网:`pdfUrl` 当时作为 `pdf_url` 的别名躺在白名单里,
+// 而上游对它恒 400(逐别名实测:pdf_url ✅ / openAccessPdf ✅ / pdfUrl ❌)。
+// 上面那个 check() 只扫 spec 的顶层 key,别名列表整个没被看过 —— 于是白名单给一个
+// 必炸的字段发了通行证,而白名单存在的唯一理由恰恰是拦这种字段。
+func TestBannedAliases(t *testing.T) {
+	// 逐条都有线上/实测依据,不要凭"看起来对称"往回加。
+	banned := map[string]string{
+		"tldr":   "fields 过滤参数不接受(响应字段≠可选字段),线上 400 实证",
+		"bibtex": "同 tldr",
+		"source": "上游已废,2026-07-29 seoenrich 审计实证恒 400",
+		"pdfUrl": "上游不认此拼法,2026-08-03 逐别名实测 400(用 pdf_url 或 openAccessPdf)",
+	}
+	for specName, spec := range map[string]map[string][]string{
+		"paperFieldSpec":  paperFieldSpec,
+		"authorFieldSpec": authorFieldSpec,
+	} {
+		for key, aliases := range spec {
+			for _, a := range aliases {
+				if why, bad := banned[a]; bad {
+					t.Errorf("%s[%q] 的别名里出现了禁用字段 %q —— %s", specName, key, a, why)
+				}
+			}
+		}
+	}
+}
+
+// TestAuthorPapersDefaultFields 锁住「不传 fields 时的显式兜底」这一修复。
+//
+// 该端点的上游默认字段集含 tldr、而上游自己的校验器拒绝 tldr → 不发 fields 必 400。
+// 兜底列表本身必须全部是白名单内的规范名,否则兜底自己就会把请求打 400。
+func TestAuthorPapersDefaultFields(t *testing.T) {
+	if len(authorPapersDefaultFields) == 0 {
+		t.Fatal("兜底字段列表不能为空 —— 空 = 回到'不发 fields',那正是 400 的成因")
+	}
+	// ① 必须全部能过白名单(过滤后一个不少)
+	if got := filterPaperFields(authorPapersDefaultFields); len(got) != len(authorPapersDefaultFields) {
+		t.Errorf("兜底字段被白名单剔除了:传入 %v,过滤后 %v", authorPapersDefaultFields, got)
+	}
+	// ② 必须是 spec 的规范 key(snake_case),不用别名 —— 别名族里已经出过 pdfUrl 那种雷
+	for _, f := range authorPapersDefaultFields {
+		if _, ok := paperFieldSpec[f]; !ok {
+			t.Errorf("兜底字段 %q 不是 paperFieldSpec 的规范 key(别名不可用于兜底,见 pdfUrl 教训)", f)
+		}
+	}
+}

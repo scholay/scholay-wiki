@@ -1,5 +1,9 @@
+// mirrors backend/internal/peerreview/admin.go
+//   AdminPRListRow / AdminPRSubmission / AdminPRAsset / AdminPRReport / AdminPRDetail
+// 改字段时两侧一起改。
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { retryDetailQuery } from '@/shared/lib/query-config';
 
 export interface PRSubmissionRow {
   id: number;
@@ -116,11 +120,17 @@ export function usePRSubmissions(params: PRListParams) {
   });
 }
 
-/** 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。 */
+/**
+ * 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。
+ *
+ * `retry: retryDetailQuery` —— 4xx 不重试,失败态秒出。详情弹窗的三分支渲染依赖它:
+ * 默认重试会让「加载中…」多挂一个来回,而这里的失败恰恰长得像"慢"(见 PeerReviewMonitor)。
+ */
 export function usePRSubmissionDetail(id: number | null) {
   return useQuery({
     queryKey: ['admin', 'pr-monitor', 'detail', id],
     enabled: !!id,
+    retry: retryDetailQuery,
     queryFn: async () =>
       (await http.get<{ data: PRSubmissionDetail }>(`/admin/peer-review/submissions/${id}`)).data.data,
   });

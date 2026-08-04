@@ -31,6 +31,8 @@ export {
   type SubscribeDialogProps,
   type SubQuote,
 } from './subscribe-dialog';
+export { WechatPayDialog, type WechatPayDialogProps } from './wechat-pay-dialog';
+export { PayMethodLogo, type PayMethod } from './PayMethodLogo';
 export {
   ConfirmDialog,
   ConfirmDialogRoot,

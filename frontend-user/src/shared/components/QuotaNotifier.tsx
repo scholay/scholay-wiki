@@ -36,6 +36,7 @@ import {
 } from '@/shared/lib/quota-events';
 import { useQuotaStore, QUOTA_DIALOG_SNOOZE_MS } from '@/stores/quota.store';
 import { SubscribeDialog, subscribePayMethods, type SubQuote } from './subscribe-dialog';
+import { WechatPayDialog } from './wechat-pay-dialog';
 import type { BillingCycle, MembershipPlanData } from './membership-plan-card';
 import { showQuotaToast } from './quota-toast';
 
@@ -101,6 +102,8 @@ export function QuotaNotifier() {
   const [payloadQuota, setPayloadQuota] = useState<QuotaPayload | null>(null);
   // 升级会员就地化:PC 在本组件内直接挂 SubscribeDialog(移动 UA 走 /m/me?upgrade=1)。
   const [subOpen, setSubOpen] = useState(false);
+  // 微信支付:订单建好后交给 WechatPayDialog 扫码(null = 关着)。
+  const [wechatOrder, setWechatOrder] = useState<{ orderNo: string; subject: string } | null>(null);
 
   const { data } = useQuery({
     queryKey: KEY,
@@ -231,8 +234,9 @@ export function QuotaNotifier() {
         return true;
       }
       if (method === 'wechat') {
-        toast.info('微信支付还没开放,这次请用支付宝付款');
-        return false;
+        // 订单已建好 —— 关掉套餐弹窗、把单号交给扫码弹窗(不跳走,用户扫完就能回对话重发)。
+        setWechatOrder({ orderNo: order.order_no, subject: `${cycleLabel}订阅` });
+        return true;
       }
       // 支付宝收银台:跳走前记回程锚点(App.tsx 启动读 PAY_RETURN_KEY → navigate 回当前页并清除)。
       try {
@@ -406,6 +410,20 @@ export function QuotaNotifier() {
       quote={quoteSubscription}
       methods={subscribePayMethods(plansData?.payment_methods, plansData?.test_payment ?? false)}
       onPay={paySubscribe}
+    />
+
+    {/* 微信扫码支付(常驻挂载 + orderNo 控制,同 Radix 铁律)。
+        成功副作用与上面 test 分支逐条对齐:提示可回对话重发 + 广播恢复 + 刷新额度 + 收起额度弹窗。 */}
+    <WechatPayDialog
+      orderNo={wechatOrder?.orderNo ?? null}
+      subject={wechatOrder?.subject}
+      onOpenChange={(o) => !o && setWechatOrder(null)}
+      onPaid={() => {
+        toast.success('已升级。回到对话点「重新发送」就能接着跑');
+        notifyQuotaRecovered();
+        qc.invalidateQueries({ queryKey: KEY });
+        closeReset();
+      }}
     />
     </>
   );

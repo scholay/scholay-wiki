@@ -15,9 +15,20 @@ import { useRedeemPreview, useRedeemCode, type CodePreview, type Tier } from '..
 // 会员等级展示名全站统一:Free / Pro / Max(不用「免费套餐 / Pro 套餐」等变体)。
 const TIER_NAME: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 
+// 授予时长单位的中文名(0110)—— 后端 vip.GrantUnitLabel 的前端镜像。
+// 未知 / 缺省一律回落「天」,与后端 vip.NormGrantUnit 同一口径:存量兑换码的
+// grant_unit 是空串,而它们的语义就是天,回落 day 才能让老码的显示保持不变。
+const UNIT_LABEL: Record<string, string> = { day: '天', month: '个月', year: '年' };
+
 function grantContent(pv: CodePreview): string {
   if (pv.grant_kind === 'tier') {
-    return `Scholay ${TIER_NAME[pv.grant_tier ?? 'pro']} · ${pv.grant_days ?? 30} 天`;
+    const tier = `Scholay ${TIER_NAME[pv.grant_tier ?? 'pro']}`;
+    const n = pv.grant_days ?? 0; // grant_days 是**数量**,单位看 grant_unit
+    // 🔴 这一行是用户点「确认兑换」前看到的**唯一时长承诺**,两条都不能省:
+    //  ① 必须带 grant_unit —— 否则「1 个月」的码会显示成「1 天」;
+    //  ② 数量缺失时**不编数字** —— 旧代码的 `?? 30` 会把字段缺失渲染成「30 天」,
+    //     那是凭空造出来的承诺;宁可只显示等级,让用户看不到假时长。
+    return n > 0 ? `${tier} · ${n} ${UNIT_LABEL[pv.grant_unit ?? 'day'] ?? '天'}` : tier;
   }
   // 0090:经费不再分临时/永久,对外统一叫「科研经费」(credit_kind 仅协议兼容保留,不渲染)。
   return `${pv.grant_credits ?? 0} 科研经费`;

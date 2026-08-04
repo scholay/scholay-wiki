@@ -567,7 +567,8 @@ REST + WS 协议的真源是 `backend/internal/agent/` 的客户端代码与 `in
 The platform integrates with multiple payment providers for the Chinese market:
 
 - **Alipay Integration**: Supports web and mobile payment flows
-- **WeChat Pay Integration**: Native WeChat payment support (JSAPI, APP, Native, H5)
+- **WeChat Pay Integration**: v3 接口,支持 **Native(扫码)/ H5(手机浏览器)/ JSAPI(微信内)** 三种场景。
+  APP 支付**未实现**(历史文档曾写 "JSAPI, APP, Native, H5",APP 那项不属实)
 - **Order Management**: Links orders with subscription purchases
 - **Payment Verification**: Validates payment callbacks and signatures
 - **Refund**: ⚠️ **系统内退款链路不存在**(`payment/provider.go` 的 Refund 接口零实现零路由)。真实退款只能去网关后台手工操作,且系统内订单仍是 paid、会员/经费不会自动回收 —— 需要人工同步(admin 撤销会员 / 调账扣经费)。历史文档曾写 "Admin can process refunds through the system",不属实
@@ -579,8 +580,56 @@ The platform integrates with multiple payment providers for the Chinese market:
   - WeChat Pay: `wechat_pay_*.go` files
 - Payment callbacks trigger subscription activation
 - Secure signature verification for all payment notifications
-- Support for multiple payment scenarios (web, mobile app, mini program)
 - Debug tool: `./scripts/check-alipay-callback.sh` for troubleshooting
+
+#### 微信支付 v3 —— 接入要点(2026-08-03 重做)
+
+> 上一轮接入没调通的直接原因:`rsa.SignPKCS1v15(rand, key, **0**, digest)` —— hash 参数传 0
+> 表示「digest 已是完整 DigestInfo,直接裸签」,签出来的值缺少 SHA-256 的 ASN.1 前缀,
+> 微信一律回 401 SIGN_ERROR。同包的支付宝实现一直是对的 `crypto.SHA256`,两者并排放着,
+> 肉眼与编译器都发现不了。现在 `wechat_pay_crypto_test.go` 有一条回归测试专门钉死这一点。
+
+**文件分工**(`backend/internal/payment/`):
+| 文件 | 职责 |
+|---|---|
+| `wechat_pay_crypto.go` | 纯密码学:签名/验签/AES-GCM 解密/证书校验。无网络无 DB,全部有 KAT 测试 |
+| `wechat_pay_client.go` | v3 HTTP 客户端。**刻意不走 `common/upstream`** —— 见文件头注释 |
+| `wechat_pay_service.go` | 配置 CRUD + 校验、下单、查单/关单、回调验证 |
+| `wechat_pay_handler.go` | gin 层。回调的 HTTP 应答契约在这里 |
+| `wechat_pay_crypto_test.go` | 含一条**微信官方真实应答**的签名向量 + 假网关端到端测试 |
+
+**三条铁律**:
+1. 请求签名 = SHA256withRSA over `METHOD\nURL\ntimestamp\nnonce\nbody\n`(五行,body 后还有一个 `\n`)。
+   URL **含查询串** —— GET 查单的 `?mchid=` 必须进签名,漏了会出现「下单好使、查单永远 401」。
+2. 应答/回调验签 = SHA256withRSA over `timestamp\nnonce\n` + **原始响应字节** + `\n`。
+   任何 JSON 反序列化再序列化都会让验签失败 → 回调必须 `io.ReadAll` 拿原始 body,
+   **不能用 `utils.BindJSON`**(它会消费掉 body,验签在结构上就不可能)。
+3. 回调解密 = AEAD_AES_256_GCM,key 是 APIv3 密钥的原始 UTF-8 字节(**必须 32 字符**)。
+
+**两种验签模式**(靠 `wechatpay_public_key_id` 是否为空分流,规则是微信官方定的):
+- **公钥模式**(2024 年后新商户号默认):填公钥ID(`PUB_KEY_ID_` 开头)+ 公钥 PEM。
+  出站请求必须带 `Wechatpay-Serial: <公钥ID>` 头,微信才会用公钥给应答签名。
+- **平台证书模式**(老商户号):两项留空,后端用 APIv3 密钥调 `GET /v3/certificates`
+  自动下载 + 缓存 + 轮换。
+
+⚠️ `Authorization` 里的 `serial_no` 是**商户证书**序列号,`Wechatpay-Serial` 请求头是**微信支付公钥ID** —— 两个不同的值,经常被搞混。
+
+**后台「测试配置」按钮**(`POST /admin/payment/wechat/config/:id/test`):
+先跑 6 项离线检查(不发网络:密钥格式、APIv3 长度、证书↔私钥↔序列号↔商户号四者自洽、
+回调地址),再打一次微信官方的 `POST /v3/security/echo` 验签测试接口(不产生真实交易,可随便点)。
+**永远回 HTTP 200 + 逐项诊断**,失败信息在 body 里 —— 用 4xx 会被前端 apiToast 吞掉响应体。
+
+🔴 **上线闸门**:`validation_status` 必须是 `valid` 才允许启用(`ActivateConfig` 硬性检查),
+且 `vip.Service.PaymentMethods()` 也要求 `valid` 才对用户显示微信支付入口。
+凭证一改就打回 `untested` 并自动下线。理由:没有这道闸门时,管理员保存并启用配置的瞬间,
+全站用户就看到一个按下去必然失败的支付按钮,而错在哪一步谁都不知道。
+
+⚠️ **`is_sandbox` 列已不参与逻辑**:v3 **没有沙箱**,老代码里的 `/sandboxnew/` 是 v2 的仿真环境,
+打开只会让所有请求 404。列保留只为不破坏既有数据。
+
+**两条确认通道**:回调(被动)+ `GET /user/payment/wechat/status/:orderNo`(前端轮询时主动查单)。
+后者在本地仍 pending 时会向微信查一次,查到已支付就地履约 —— 回调丢失(反代/重启/回调地址
+临时不可达)时,用户自己的轮询就能把订单救回来。两条通道汇入同一个幂等的 `fulfill`。
 
 ### WeChat Integration
 

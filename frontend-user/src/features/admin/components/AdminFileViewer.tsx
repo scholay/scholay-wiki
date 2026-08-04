@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Download, FileWarning, Loader2 } from 'lucide-react';
 import { http } from '@/shared/lib/http';
 import { MarkdownRenderer } from '@/shared/components/chat';
+import { formatBytes } from '../lib/format';
 
 /**
  * 管理端文件内联预览器 —— 会话监控 / 审稿监控里「用户上传的文件、稿件、引用文档」共用。
@@ -60,6 +61,12 @@ interface State {
   kind?: Kind;
 }
 
+/** 下载进度 —— `total` 只有服务端给了 Content-Length 才有(gzip / chunked 时为 0/undefined)。 */
+interface Progress {
+  loaded: number;
+  total?: number;
+}
+
 export function AdminFileViewer({
   src,
   mime,
@@ -72,13 +79,24 @@ export function AdminFileViewer({
   filename: string;
 }) {
   const [state, setState] = useState<State>({ loading: true });
+  const [progress, setProgress] = useState<Progress | null>(null);
 
   useEffect(() => {
     let objectUrl: string | undefined;
     let cancelled = false;
     setState({ loading: true });
+    setProgress(null);
     http
-      .get(src, { responseType: 'blob' })
+      .get(src, {
+        responseType: 'blob',
+        // 稿件 PDF 常有几十 MB,而这里是**一次性取整份 blob**(端点走 AdminAuthMiddleware,
+        // 不能直接把 URL 丢给 <iframe>)。没有进度时,管理员面对的是一个不动的 spinner,
+        // 分不清"在下载"和"卡死了",于是反复关掉重开 —— 每次重开都从头再拉一遍整份文件。
+        onDownloadProgress: (e) => {
+          if (cancelled) return;
+          setProgress({ loaded: e.loaded ?? 0, total: e.total || undefined });
+        },
+      })
       .then(async (res) => {
         if (cancelled) return;
         const blob = res.data as Blob;
@@ -117,10 +135,29 @@ export function AdminFileViewer({
   const kind = state.kind ?? 'other';
 
   if (state.loading) {
+    // total 未知(gzip / chunked)时退化成"已加载多少",仍然比一个不动的 spinner 强:
+    // 数字在涨 = 链路是活的。
+    const pct =
+      progress && progress.total ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : null;
     return (
       <div className="flex flex-col items-center gap-2 py-10 text-12 text-faint">
         <Loader2 className="size-5 animate-spin" />
-        加载文件中…
+        <span className="tabular-nums">
+          加载文件中…{pct != null ? ` ${pct}%` : ''}
+          {progress && progress.loaded > 0 && (
+            <>
+              {' · '}
+              {formatBytes(progress.loaded)}
+              {progress.total ? ` / ${formatBytes(progress.total)}` : ''}
+            </>
+          )}
+        </span>
+        {pct != null && (
+          <div className="h-1 w-40 overflow-hidden rounded-pill bg-surface-2">
+            {/* 动态宽度必须内联(设计约束允许:动态计算的尺寸) */}
+            <div className="h-full rounded-pill bg-brand-green transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        )}
       </div>
     );
   }

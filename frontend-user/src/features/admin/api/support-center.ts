@@ -1,6 +1,6 @@
 // 客服与联系中心(后台)—— 字段对齐 backend/internal/supportcenter。
 // 配置:联系方式展示(邮箱/二维码)+ IMAP 收件 + 飞书通知;收件箱:列表/详情/回信;写信。
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 export interface SupportCenterConfig {
@@ -40,6 +40,11 @@ export function useSupportCenterConfig(showSensitive = false) {
           params: showSensitive ? { show_sensitive: 'true' } : undefined,
         })
       ).data.data,
+    // 🔴 showSensitive 进了 queryKey —— 点一下密码框的「眼睛」就是换 key 重新取。
+    // 不保留上一份数据的话,那一瞬间 isLoading 会变 true,页面上的 ConfigPageGuard
+    // 会把整个表单卸载成 LoadingState,运维填了半页的 IMAP/SMTP 参数随组件一起消失。
+    // 保留旧数据 → isLoading 恒 false,只有 isFetching 闪一下,表单不动。
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -67,18 +72,21 @@ export function useTestSMTP() {
   });
 }
 
+/** 测试连接 —— 返回该邮箱当前的信件总数(backend: supportcenter/handler.go TestIMAP)。 */
 export function useTestIMAP() {
   return useMutation({
     mutationFn: async () =>
-      (await http.post<{ data: { mailbox_messages: number } }>('/admin/support-center/imap/test')).data,
+      (await http.post<{ data: { mailbox_messages: number } }>('/admin/support-center/imap/test')).data
+        .data,
   });
 }
 
+/** 手动拉取一轮 —— 返回本轮**新增**邮件数(backend: supportcenter/handler.go PollNow)。 */
 export function usePollIMAPNow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () =>
-      (await http.post<{ data: { new_mails: number } }>('/admin/support-center/imap/poll')).data,
+      (await http.post<{ data: { new_mails: number } }>('/admin/support-center/imap/poll')).data.data,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin', 'support-center', 'inbox'] }),
   });
 }
@@ -113,6 +121,9 @@ export function useInboxList(params: { status?: string; keyword?: string; page?:
       );
       return r.data.data;
     },
+    // 典型盯屏页(用户在电话/群里说「我邮件发了」,运维等它进来)。后端 IMAP 轮询是另一件事:
+    // 它只负责把新邮件写进库,页面不自己重取就永远不出现。全局 refetchOnWindowFocus 是关的。
+    refetchInterval: 60_000,
   });
 }
 
@@ -123,8 +134,17 @@ export function useInboxMail(id: number | null) {
     enabled: !!id,
     queryFn: async () => {
       const r = await http.get<{ data: InboxMail }>(`/admin/support-center/inbox/${id}`);
-      // 详情打开后端已把 unread → read,列表角标同步刷新
-      void qc.invalidateQueries({ queryKey: ['admin', 'support-center', 'inbox'], exact: false });
+      // 详情打开后端已把 unread → read,列表角标同步刷新。
+      // 🔴 predicate 必须把 detail 自己排除掉:detail 的 key 也以 [...,'inbox'] 打头,
+      // 连自己一起失效 = 在 queryFn 里让自己重取。react-query 对「已有 data 且正在 fetch」
+      // 的查询走 cancelRefetch 分支(取消当前这次、立刻重发),于是 queryFn → invalidate →
+      // 重发 → queryFn … 变成一个打后端的死循环(首次打开因 data===undefined 走去重分支
+      // 不会触发,所以只在 30s staleTime 过后**再次**打开同一封信时才炸,极难现场复现)。
+      void qc.invalidateQueries({
+        queryKey: ['admin', 'support-center', 'inbox'],
+        exact: false,
+        predicate: (query) => query.queryKey[3] !== 'detail',
+      });
       return r.data.data;
     },
   });

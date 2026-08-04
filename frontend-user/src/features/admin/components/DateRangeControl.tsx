@@ -67,8 +67,13 @@ function Chip({
 export interface DateRangeControlProps {
   value: DateWindow;
   onChange: (w: DateWindow) => void;
-  /** 自定义可选的最大日期,默认今天。 */
   className?: string;
+}
+
+/** 当前生效窗口的人话描述 —— 自定义没填完时用来说明"你现在看的其实是哪一段"。 */
+function effectiveWindowText(w: DateWindow): string {
+  if (w.start && w.end) return `${w.start} 至 ${w.end}`;
+  return `近 ${w.days ?? 30} 天`;
 }
 
 export function DateRangeControl({ value, onChange, className }: DateRangeControlProps) {
@@ -78,12 +83,38 @@ export function DateRangeControl({ value, onChange, className }: DateRangeContro
   const [openCustom, setOpenCustom] = useState(isCustom);
   const showCustom = openCustom || isCustom;
 
-  const presetActive = (d: number) => value.days === d && !value.start;
+  /**
+   * 🔴 自定义起止用**本地草稿**,只有两侧都填齐才向上抛。
+   *
+   * 旧写法是每次 onChange 直接抛 `{start: e.target.value, end: value.end || today}` ——
+   * 清空一侧后 window 变成 `{start:'', end:'…'}`,而下游 windowParams 要求两者同时为真,
+   * 否则**静默**回落到 days:30。于是页面悄悄换成近 30 天,可「自定义」chip 还高亮着、
+   * 日期框里还留着一个 end,管理员会以为自己看的是某个特定区间。
+   * 现在:没填齐就不改窗口,并明写当前实际生效的是哪一段。
+   */
+  const [draft, setDraft] = useState({ start: value.start ?? '', end: value.end ?? '' });
+  // 外部改窗口(点预设 chip / 父级重置)时把草稿同步过来。渲染期对齐,避免 effect 慢一帧。
+  const sig = `${value.start ?? ''}|${value.end ?? ''}`;
+  const [lastSig, setLastSig] = useState(sig);
+  if (sig !== lastSig) {
+    setLastSig(sig);
+    setDraft({ start: value.start ?? '', end: value.end ?? '' });
+  }
+
+  const commitDraft = (next: { start: string; end: string }) => {
+    setDraft(next);
+    if (next.start && next.end) onChange({ start: next.start, end: next.end });
+  };
+  const draftIncomplete = showCustom && !(draft.start && draft.end);
+
+  // 「自定义」展开时,预设 chip 一律让位 —— 否则点开自定义的那一刻 window 还没变,
+  // 「近30天」和「自定义」会同时呈朱砂实底激活态(两个互斥选项同时亮)。
+  const presetActive = (d: number) => value.days === d && !value.start && !openCustom;
 
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
       <Chip
-        active={isToday}
+        active={isToday && !openCustom}
         onClick={() => {
           setOpenCustom(false);
           onChange({ start: today, end: today });
@@ -110,21 +141,26 @@ export function DateRangeControl({ value, onChange, className }: DateRangeContro
         <div className="flex items-center gap-1.5">
           <Input
             type="date"
-            value={value.start ?? ''}
-            max={value.end || today}
-            onChange={(e) => onChange({ start: e.target.value, end: value.end || today })}
+            value={draft.start}
+            max={draft.end || today}
+            onChange={(e) => commitDraft({ ...draft, start: e.target.value })}
             className={DATE_INPUT_CLS}
           />
           <span className="text-12 text-faint">至</span>
           <Input
             type="date"
-            value={value.end ?? ''}
-            min={value.start || undefined}
+            value={draft.end}
+            min={draft.start || undefined}
             max={today}
-            onChange={(e) => onChange({ start: value.start || e.target.value, end: e.target.value })}
+            onChange={(e) => commitDraft({ ...draft, end: e.target.value })}
             className={DATE_INPUT_CLS}
           />
         </div>
+      )}
+      {draftIncomplete && (
+        <span className="text-12 text-brand-amber">
+          起止都填齐才会生效,当前仍是{effectiveWindowText(value)}
+        </span>
       )}
     </div>
   );

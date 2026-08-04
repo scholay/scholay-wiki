@@ -300,13 +300,30 @@ function PrismTurn({ turn }: { turn: Turn }) {
   const finalText = turn.complete && last && last.kind === 'text' && last.text ? last : null;
   const processBlocks = finalText ? blocks.slice(0, -1) : blocks;
   const toolSteps = processBlocks.filter((b) => b.kind === 'tool').length;
+  // 失败工具数 —— 判据与 claw 侧(chat-turn-layout.computeClawTurnLayout)逐字一致:
+  // isError 且非中止且已落定。折叠**默认收起**,标题上不露失败信号的话,排查智能写作会话时
+  // 每一轮看着都正常,必须逐个展开才知道哪轮报错(ClawTurn 一直有这个摘要,prism 漏了)。
+  const failedToolCount = processBlocks.filter(
+    (b) => b.kind === 'tool' && b.isError && !b.aborted && b.result !== undefined,
+  ).length;
   const hasProcess = !!turn.thinkingText || processBlocks.length > 0;
 
   return (
     <article className="flex flex-col gap-2 min-w-0">
       <UserBubble text={turn.userText} />
       {hasProcess && (
-        <ProcessFold streaming={false} toolSteps={toolSteps}>
+        <ProcessFold
+          streaming={false}
+          toolSteps={toolSteps}
+          summary={
+            failedToolCount > 0 ? (
+              <span className="inline-flex items-center gap-1 text-brand-amber shrink-0">
+                <TriangleAlert className="size-3" strokeWidth={2.2} />
+                {failedToolCount} 次未成功
+              </span>
+            ) : undefined
+          }
+        >
           {turn.thinkingText && <ThinkingFold text={turn.thinkingText} isActive={false} />}
           {processBlocks.map((b) => {
             if (b.kind === 'text') {

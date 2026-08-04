@@ -37,10 +37,19 @@ type DashboardStatistics struct {
 	FreeUsers     int64 `json:"free_users"`
 
 	// 收入统计(orders, status=paid)
+	// 🔴 这四个是**毛额**(orders.status='paid' 的 final_amount 之和),口径不变。
+	// 退款刻意不改 orders.status(见 migration 0107),所以它们不会因退款而减少 ——
+	// 净额请用下面的 Refunded* 自行相减,**不要**直接拿毛额当收入汇报,更不要用它算毛利。
 	TotalRevenue float64 `json:"total_revenue"`
 	RevenueToday float64 `json:"revenue_today"`
 	Revenue7d    float64 `json:"revenue_7d"`
 	Revenue30d   float64 `json:"revenue_30d"`
+	// 退款额(order_refunds,按退款**发生时间**归属)。与订单页「毛/退/净」同一套口径 ——
+	// 少了它,首页与订单页会对同一天给出互相矛盾的收入数字,且首页无从解释差额。
+	TotalRefunded float64 `json:"total_refunded"`
+	RefundedToday float64 `json:"refunded_today"`
+	Refunded7d    float64 `json:"refunded_7d"`
+	Refunded30d   float64 `json:"refunded_30d"`
 
 	// 订单统计
 	TotalOrders   int64 `json:"total_orders"`
@@ -176,6 +185,27 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 		Select("COALESCE(SUM(final_amount), 0)").
 		Where("status = ? AND payment_time >= ? AND payment_time < ?", "paid", start30d, tomorrowStart).
 		Scan(&stats.Revenue30d)
+
+	// 退款额 —— 与上面的毛额并列,前端据此算净额。按 order_refunds.created_at 归属。
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ?", "done").
+		Scan(&stats.TotalRefunded)
+
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ? AND created_at >= ? AND created_at < ?", "done", todayStart, tomorrowStart).
+		Scan(&stats.RefundedToday)
+
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ? AND created_at >= ? AND created_at < ?", "done", start7d, tomorrowStart).
+		Scan(&stats.Refunded7d)
+
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ? AND created_at >= ? AND created_at < ?", "done", start30d, tomorrowStart).
+		Scan(&stats.Refunded30d)
 
 	// 订单统计
 	s.db.Table("orders").Count(&stats.TotalOrders)

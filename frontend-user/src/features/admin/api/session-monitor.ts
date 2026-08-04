@@ -32,6 +32,10 @@ export interface AdminSessionListParams {
   pageSize?: number;
 }
 
+/** 会话列表自动刷新间隔 —— 监控台是「盯着看会话有没有起来」的场景,
+ *  而全局 refetchOnWindowFocus 是关的(query-config.ts),不轮询就只能 F5 整页。 */
+const SESSION_POLL_MS = 30_000;
+
 /** 列某 feature 下用户的 agent 会话(管理端监控)。 */
 export function useAdminSessions(params: AdminSessionListParams) {
   return useQuery({
@@ -43,6 +47,8 @@ export function useAdminSessions(params: AdminSessionListParams) {
       const r = await http.get<{ data: AdminSessionListResponse }>('/admin/agent-sessions', { params: wire });
       return r.data.data;
     },
+    refetchInterval: SESSION_POLL_MS,
+    // 页签切到后台时停止轮询(默认行为)—— 后台没人看,别白烧后端查询。
   });
 }
 
@@ -55,7 +61,14 @@ export interface TranscriptEntry {
   isSidechain?: boolean;
 }
 
-/** 拉某会话的完整 transcript(只读监控)。会话已清理时返回空数组。 */
+/**
+ * 拉某会话的完整 transcript(只读监控)。会话已清理时返回**空数组**。
+ *
+ * 🔴 「空数组」与「请求失败」必须由调用方分开渲染:后端 500 / agent 容器挂 / jsonl 读不到时
+ * 这里抛错、data 是 undefined,若调用方 `transcript ?? []` 直接喂给 AdminTranscriptView,
+ * 管理员看到的会是一句肯定的业务结论「用户尚未对话」—— 那不是缺信息,是给了假信息。
+ * 故本 hook 刻意不吞错误,调用方必须处理 isError。
+ */
 export function useAdminTranscript(sessionId: string | null) {
   return useQuery({
     queryKey: ['admin', 'agent-sessions', 'transcript', sessionId],
@@ -66,5 +79,7 @@ export function useAdminTranscript(sessionId: string | null) {
       );
       return r.data.data.messages ?? [];
     },
+    // 刻意不设 refetchInterval:transcript 弹窗里正在读的长会话被定时整份换掉会打断阅读
+    // (滚动位置 / 已展开的处理过程折叠都会跳),增量刷新交给 DialogHeader 上的手动刷新按钮。
   });
 }

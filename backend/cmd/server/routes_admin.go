@@ -206,6 +206,22 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 	}
 
 	// ────────────────────────────────────────────────────────────────────
+	// 退款组(finance.refund)—— 全后台唯一一个「点一下就把公司的钱转出去 + 回收用户权益」
+	// 的动作,单独一个权限点,便于独立授予/收回。
+	//
+	// 🔴 绝不能挂进上面的 opsRead(analytics.view):那是全后台权限最低的一档,
+	//    连 operations 运营角色都有 —— 订单的两个 GET 就在那儿。看得到订单 ≠ 退得了款。
+	// ────────────────────────────────────────────────────────────────────
+	financeRefund := api.Group("/admin")
+	financeRefund.Use(middleware.RequirePermission(admin.PermFinanceRefund))
+	{
+		// 登记一笔退款(不调网关:钱由管理员先在商户后台退掉,这里做记账 + 权益回收 + 通知)
+		financeRefund.POST("/billing/orders/:orderNo/refund", h.vip.AdminRefundOrder)
+		// 某订单的退款明细(部分退款可能有多笔)
+		financeRefund.GET("/billing/orders/:orderNo/refunds", h.vip.AdminListOrderRefunds)
+	}
+
+	// ────────────────────────────────────────────────────────────────────
 	// 系统/凭证/财务/AI 配置组(config.manage)—— 仅管理员:凭证、支付、模型、计费、
 	// 兑换码(发钱)、代码片段库(站点级脚本注入)、清理动作等。运营一律不可见/403。
 	// ────────────────────────────────────────────────────────────────────
@@ -282,6 +298,9 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminOnly.PUT("/payment/wechat/config/:id", h.wechatPay.UpdateConfig)
 		adminOnly.DELETE("/payment/wechat/config/:id", h.wechatPay.DeleteConfig)
 		adminOnly.POST("/payment/wechat/config/:id/activate", h.wechatPay.ActivateConfig)
+		// 「测试配置」:离线自洽校验 + 微信官方 /v3/security/echo 验签测试。
+		// 启用前必须先通过它(ActivateConfig 会硬性检查 validation_status)。
+		adminOnly.POST("/payment/wechat/config/:id/test", h.wechatPay.TestConfig)
 
 		// 微信 OAuth 配置 (前端只用 active/configs/create/update/activate; DELETE 已下线)
 		adminOnly.GET("/wechat/config", h.wechat.GetActiveConfig)

@@ -1,5 +1,8 @@
+import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
-import { compactTokens, formatPoints, formatYuan } from '../../api/token-usage';
+import { ListSkeleton } from '@/shared/components/LoadingState';
+import { ResourceError } from '@/shared/components/ResourceError';
+import { compactTokens, exactPoints, formatPoints, formatYuan } from '../../api/token-usage';
 
 /**
  * 维度拆分面板 —— 一张卡 + Tab 切维度(模型/功能/来源/Provider/用户)。
@@ -16,6 +19,12 @@ import { compactTokens, formatPoints, formatYuan } from '../../api/token-usage';
 export interface DimRow {
   key: string;
   label: string;
+  /**
+   * 该行实体的详情深链(如 Top 用户 → `/admin/users?q=<id>`)。
+   * 传了就把 label 渲染成链接 —— 「谁烧掉了几万算力点」之后必然要点进去看,
+   * 纯文本会逼人手抄 ID 再去别的页面搜。
+   */
+  href?: string;
   sub?: string;
   input: number;
   output: number;
@@ -37,7 +46,18 @@ export interface DimTab {
   emptyText?: string;
 }
 
-export function TokenDimensionPanel({ tabs, loading }: { tabs: DimTab[]; loading?: boolean }) {
+export function TokenDimensionPanel({
+  tabs,
+  loading,
+  error,
+  onRetry,
+}: {
+  tabs: DimTab[];
+  loading?: boolean;
+  /** 概览 query 的 error —— 不传就会把"接口挂了"渲染成"暂无数据"。 */
+  error?: unknown;
+  onRetry?: () => void;
+}) {
   return (
     <section className="mb-6 rounded-16 border border-border bg-surface-card p-4">
       <Tabs defaultValue={tabs[0]?.value}>
@@ -55,7 +75,13 @@ export function TokenDimensionPanel({ tabs, loading }: { tabs: DimTab[]; loading
         </div>
         {tabs.map((t) => (
           <TabsContent key={t.value} value={t.value} className="mt-0">
-            <DimRows rows={t.rows} loading={loading} emptyText={t.emptyText ?? '暂无数据'} />
+            <DimRows
+              rows={t.rows}
+              loading={loading}
+              error={error}
+              onRetry={onRetry}
+              emptyText={t.emptyText ?? '暂无数据'}
+            />
           </TabsContent>
         ))}
       </Tabs>
@@ -63,18 +89,57 @@ export function TokenDimensionPanel({ tabs, loading }: { tabs: DimTab[]; loading
   );
 }
 
-function DimRows({ rows, loading, emptyText }: { rows: DimRow[]; loading?: boolean; emptyText: string }) {
+function DimRows({
+  rows,
+  loading,
+  error,
+  onRetry,
+  emptyText,
+}: {
+  rows: DimRow[];
+  loading?: boolean;
+  error?: unknown;
+  onRetry?: () => void;
+  emptyText: string;
+}) {
   const max = Math.max(1, ...rows.map((r) => r.costMicro));
+
+  // 三态顺序与 DataTable 一致:error 先于 loading —— react-query 自动重试期间
+  // loading 会再次为 true,先判 loading 会让失败被骨架永久盖住。
+  if (error) {
+    return (
+      <ResourceError
+        error={error}
+        resourceName="维度拆分"
+        onRetry={onRetry}
+        autoRedirect={false}
+        className="h-auto bg-surface-card"
+      />
+    );
+  }
+  // loading 时 rows 也是空数组 —— 若直接走 map,切筛选那一两秒整张卡是空白且高度塌陷,
+  // 会带动下方明细表上下跳。骨架把高度撑住。
+  if (loading && rows.length === 0) return <ListSkeleton rows={5} withTrailing={false} />;
+
   return (
     <div className="flex flex-col gap-3">
       {rows.map((r) => (
         <div key={r.key} className="flex flex-col">
           <div className="flex items-baseline justify-between gap-2 text-12">
-            <span className="truncate font-medium text-subtle">
-              {r.label}
+            <span className="min-w-0 truncate font-medium text-subtle" title={r.label}>
+              {r.href ? (
+                <Link to={r.href} className="hover:text-brand-red hover:underline underline-offset-2">
+                  {r.label}
+                </Link>
+              ) : (
+                r.label
+              )}
               {r.sub && <span className="ml-1 font-normal text-faint">{r.sub}</span>}
             </span>
-            <span className="shrink-0 tabular-nums text-faint">
+            <span
+              className="shrink-0 tabular-nums text-faint"
+              title={`${exactPoints(r.costMicro)} 算力点 ≈ ${formatYuan(r.costMicro)}`}
+            >
               <span className="font-medium text-foreground">{formatPoints(r.costMicro)}</span> 算力点 ·{' '}
               {r.calls.toLocaleString()} 次
             </span>
@@ -83,7 +148,7 @@ function DimRows({ rows, loading, emptyText }: { rows: DimRow[]; loading?: boole
             <div
               className="h-full rounded-pill bg-brand-green"
               style={{ width: `${(r.costMicro / max) * 100}%` }}
-              title={`${formatPoints(r.costMicro)} 算力点 ≈ ${formatYuan(r.costMicro)}`}
+              title={`${exactPoints(r.costMicro)} 算力点 ≈ ${formatYuan(r.costMicro)}`}
             />
           </div>
           <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-12 tabular-nums text-faint">
@@ -98,7 +163,7 @@ function DimRows({ rows, loading, emptyText }: { rows: DimRow[]; loading?: boole
           </div>
         </div>
       ))}
-      {!loading && rows.length === 0 && <p className="py-6 text-center text-12 text-faint">{emptyText}</p>}
+      {rows.length === 0 && <p className="py-6 text-center text-12 text-faint">{emptyText}</p>}
     </div>
   );
 }

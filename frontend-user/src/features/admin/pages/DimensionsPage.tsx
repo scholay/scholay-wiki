@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
+import { TruncatedText } from '@/shared/components/TruncatedText';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { useApiToast } from '../hooks/useApiToast';
@@ -34,7 +35,8 @@ import {
  * AI 分析 prompt 在每次请求时基于这里的维度动态拼出维度清单 + JSON schema。
  */
 export function DimensionsPage() {
-  const { data, isLoading } = useDimensions();
+  const q = useDimensions();
+  const { data, isLoading } = q;
   const update = useUpdateDimension();
   const apiToast = useApiToast();
   const [editing, setEditing] = useState<AnalysisDimension | null>(null);
@@ -59,11 +61,16 @@ export function DimensionsPage() {
     },
     {
       header: '描述 / AI 分析指示',
-      cell: (r) => (
-        <span className="text-12 text-muted-foreground line-clamp-2 max-w-xl">
-          {r.description || '—'}
-        </span>
-      ),
+      // 这段文本会被原样拼进每次论文分析的 prompt —— 只给两行截断且无 title 时,
+      // 想核对某个维度到底写了什么只能逐个点开编辑弹窗。TruncatedText 给「全部」查看入口。
+      cell: (r) =>
+        r.description ? (
+          <TruncatedText lines={2} className="text-12 text-muted-foreground max-w-xl">
+            {r.description}
+          </TruncatedText>
+        ) : (
+          <span className="text-12 text-faint">—</span>
+        ),
     },
     {
       header: '排序',
@@ -98,9 +105,27 @@ export function DimensionsPage() {
   return (
     <AdminPageLayout
       title="分析维度"
-      description={`共 ${data?.length ?? 0} 个系统维度 · 名称 / 描述 / 排序 / 启用可改,key 锁定`}
+      // 接口失败时 `data?.length ?? 0` 会报「共 0 个系统维度」—— 分析维度是 AI 分析 prompt
+      // 的真源,显示成 0 会让人以为维度表被清空。失败就说失败,不报数。
+      description={
+        q.isError
+          ? '维度加载失败 · 下方为错误详情'
+          : isLoading
+            ? '正在加载系统维度…'
+            : `共 ${data?.length ?? 0} 个系统维度 · 名称 / 描述 / 排序 / 启用可改,key 锁定`
+      }
+      onRefresh={() => void q.refetch()}
+      refreshing={q.isFetching}
     >
-      <DataTable columns={columns} rows={data} loading={isLoading} />
+      <DataTable
+        columns={columns}
+        rows={data}
+        loading={isLoading}
+        error={q.error}
+        onRetry={() => void q.refetch()}
+        emptyMessage="没有任何系统维度"
+        emptyDescription="分析维度由后端种子数据初始化,列表为空通常意味着迁移未执行。"
+      />
 
       <DimensionEditDialog
         dimension={editing}

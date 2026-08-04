@@ -1,4 +1,9 @@
 // 计费体系配置 —— admin hooks。对齐 backend/internal/vip (BillingConfig)。
+//
+// 🔴 本文件同时并存**三种钱的刻度**,改任何一个字段前先认清是哪一种:
+//   · `*_cents`            —— 「分」。¥19.9 = 1990。表单必须回显 `= ¥x.xx`,否则少一个 0 就是 ¥1.99。
+//   · `free_window_tokens` —— 「微元」真实成本。展示按算力点(1 点 = 1000 微元 = ¥0.001)。
+//   · `*_credits`(经费)   —— 0095 起「经费 = 分」,100 经费 = ¥1。
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
@@ -8,8 +13,9 @@ export interface BillingConfig {
   free_window_tokens: number; // 7 天周期基准额度(判定真源)
   window_days: number;
   base_price_per_m: number; // P3 加权计费换算锚点(先落库)
-  pro_multiplier: number;
-  max_multiplier: number;
+  pro_multiplier: number; // Pro 周期额度 = Free × 此值;<=0 = 不限(语义翻转,表单要显式显示派生结果)
+  max_multiplier: number; // Max 周期额度 = Pro × 此值;<=0 = 不限
+  // ── 月度套餐价格,单位「分」
   pro_price_cents: number;
   pro_original_cents: number;
   max_price_cents: number;
@@ -21,8 +27,8 @@ export interface BillingConfig {
   max_year_price_cents: number;
   max_year_original_cents: number;
   // 0090 退休:pro/max_year_grant_credits + subscription_year_days。
-  recharge_rate: number;
-  min_recharge_cents: number;
+  recharge_rate: number; // 1 元 = N 经费(0095 起为 100,即经费 = 分)
+  min_recharge_cents: number; // 起充金额,单位「分」
   // reset_cost_credits 运行时已不读(重置改扣次数),但**必须保留**:迁移 0092 拿它当换算率,
   // 而后台 PUT 是全列覆盖 —— 从这个 interface 删掉会让它被写成 0,导致换算超发 120 倍。
   /** 1 经费可兑换的算力点(0094 按量付费)。与 recharge_rate 共同决定按量单价 ——

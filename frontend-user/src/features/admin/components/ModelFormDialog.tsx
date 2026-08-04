@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -12,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
+import { cn } from '@/shared/lib/utils';
 import {
   useAdminProviders,
   MODEL_PRESETS,
@@ -21,9 +24,47 @@ import {
 } from '../api/model-catalog';
 
 /**
+ * 数字输入的**中间态**处理。
+ *
+ * 旧写法 `Number(e.target.value) || 0` 有两个致命面:
+ *   - 清空输入框 → `value` 是 ''(number input 对非法文本也回 '')→ 折成 0 写回受控 state,
+ *     输入框当场跳回 `0`,用户得先删掉那个 0 才能继续打字;
+ *   - 输入「0.」这类合法中间态同样被 sanitize 成 '' → 小数点被吞,而价格 step=0.0001
+ *     恰恰是最需要输小数的地方。
+ * 更要命的是 **0 在成本制里等于免费**:一次「先清空再重填」中途保存,就上线了一个白送的模型。
+ *
+ * 现在允许 NaN 停在 state 里(渲染成空串,DOM 里用户正在敲的原文不被 React 覆写),
+ * 提交前统一 `sanitizeNumbers` 归 0。
+ */
+const num = (v: number) => (Number.isNaN(v) ? 0 : v);
+const numValue = (v: number) => (Number.isNaN(v) ? '' : v);
+
+const NUMERIC_KEYS: (keyof AgentModelPayload)[] = [
+  'provider_id', 'context_window', 'max_input', 'max_output', 'sort_order',
+  'price_in', 'price_out', 'price_cache_r', 'price_cache_w',
+  'input_tier_threshold', 'price_in_hi', 'price_out_hi', 'price_cache_r_hi', 'price_cache_w_hi',
+  'input_tier_threshold_2', 'price_in_hi2', 'price_out_hi2', 'price_cache_r_hi2', 'price_cache_w_hi2',
+];
+
+function sanitizeNumbers(f: AgentModelPayload): AgentModelPayload {
+  const out: AgentModelPayload = { ...f };
+  for (const k of NUMERIC_KEYS) {
+    const v = out[k];
+    if (typeof v === 'number' && Number.isNaN(v)) (out as Record<string, unknown>)[k] = 0;
+  }
+  return out;
+}
+
+/** 输入 + 输出单价都是 0 → 成本制下 cost 恒为 0 → 该模型对所有用户等于免费。 */
+const isUnpriced = (f: AgentModelPayload) => !(num(f.price_in) > 0) && !(num(f.price_out) > 0);
+
+/**
  * ModelFormDialog — 模型目录的新建 / 编辑弹窗(ModelCatalogPage 专用)。
  * model=null 时为新建;编辑时 model_id 可改(后端校验唯一)。
- * 价格四项与计费倍率:P1 只是录入与展示,倍率在 P3(加权计费)才参与额度扣减。
+ *
+ * 🔴 四类单价**不是**"只是录入与展示"(旧注释如此写,已过时):P5 起是成本制计费,
+ * 用户额度按 cost_micro_yuan 扣,而 cost 就是这四个单价算出来的。单价 0 → cost 恒为 0
+ * → 该模型对所有用户免费。所以本弹窗有未计价警示 + 提交闸门,见 isUnpriced。
  */
 export function ModelFormDialog({
   open,
@@ -56,13 +97,22 @@ export function ModelFormDialog({
   const setCtxField = (key: 'context_window' | 'max_input' | 'max_output', v: number) =>
     setForm((f) => {
       const next = { ...f, [key]: v };
-      const zeros = [next.context_window, next.max_input, next.max_output].filter((x) => !x || x <= 0).length;
+      // 用户正在清空这一格(NaN 中间态)→ 不自动补,否则刚删完就被填回去,永远清不掉。
+      if (Number.isNaN(v)) return next;
+      const ctx = num(next.context_window);
+      const mi = num(next.max_input);
+      const mo = num(next.max_output);
+      const zeros = [ctx, mi, mo].filter((x) => x <= 0).length;
       if (zeros !== 1) return next; // 只在「恰好一个空」时自动补
-      if (!next.context_window) next.context_window = next.max_input + next.max_output;
-      else if (!next.max_input) next.max_input = Math.max(0, next.context_window - next.max_output);
-      else if (!next.max_output) next.max_output = Math.max(0, next.context_window - next.max_input);
+      if (ctx <= 0) next.context_window = mi + mo;
+      else if (mi <= 0) next.max_input = Math.max(0, ctx - mo);
+      else if (mo <= 0) next.max_output = Math.max(0, ctx - mi);
       return next;
     });
+
+  // 未计价警示 —— 价格区块上方常驻,「启用 + 用户可选」时升级成红框(那是真正会漏钱的组合)。
+  const unpriced = isUnpriced(form);
+  const unpricedAndLive = unpriced && form.enabled && form.user_selectable;
 
   // 上游 Provider:0 = 默认端点;openai 格式 provider 由 agent 出口自动翻译(F3)。
   const { data: providers } = useAdminProviders();
@@ -82,7 +132,16 @@ export function ModelFormDialog({
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              onSave(form);
+              const payload = sanitizeNumbers(form);
+              // 提交闸门:未计价 + 启用 + 用户可选 = 全站白送。必须先填价或先关掉一个开关。
+              if (isUnpriced(payload) && payload.enabled && payload.user_selectable) {
+                toast.error('输入 / 输出单价均为 0 —— 该模型对所有用户等于免费', {
+                  description:
+                    '成本制按四类单价算成本,单价 0 → cost 恒为 0,不扣任何额度。请填写真实单价,或先关闭「启用」/「用户可选」再保存。',
+                });
+                return;
+              }
+              onSave(payload);
             }}
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -127,8 +186,8 @@ export function ModelFormDialog({
                 <Input
                   id="m-ctx"
                   type="number"
-                  value={form.context_window}
-                  onChange={(e) => setCtxField('context_window', Number(e.target.value) || 0)}
+                  value={numValue(form.context_window)}
+                  onChange={(e) => setCtxField('context_window', e.target.valueAsNumber)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -136,8 +195,8 @@ export function ModelFormDialog({
                 <Input
                   id="m-maxin"
                   type="number"
-                  value={form.max_input}
-                  onChange={(e) => setCtxField('max_input', Number(e.target.value) || 0)}
+                  value={numValue(form.max_input)}
+                  onChange={(e) => setCtxField('max_input', e.target.valueAsNumber)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -145,8 +204,8 @@ export function ModelFormDialog({
                 <Input
                   id="m-maxout"
                   type="number"
-                  value={form.max_output}
-                  onChange={(e) => setCtxField('max_output', Number(e.target.value) || 0)}
+                  value={numValue(form.max_output)}
+                  onChange={(e) => setCtxField('max_output', e.target.valueAsNumber)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -154,8 +213,8 @@ export function ModelFormDialog({
                 <Input
                   id="m-sort"
                   type="number"
-                  value={form.sort_order}
-                  onChange={(e) => set('sort_order', Number(e.target.value) || 0)}
+                  value={numValue(form.sort_order)}
+                  onChange={(e) => set('sort_order', e.target.valueAsNumber)}
                 />
               </div>
             </div>
@@ -194,6 +253,32 @@ export function ModelFormDialog({
               </div>
             )}
 
+            {/* 🔴 未计价警示 —— 成本制下单价 0 = 该模型对所有用户免费。默认值就是 0,
+                而「启用 + 用户可选」也默认开着,只填 model_id + 展示名就能存下一个白送的模型。 */}
+            {unpriced && (
+              <div
+                className={cn(
+                  'flex items-start gap-2 rounded-12 border p-3',
+                  unpricedAndLive ? 'border-brand-red bg-danger-soft' : 'border-border-soft bg-surface-1',
+                )}
+              >
+                <TriangleAlert
+                  className={cn('size-3.5 shrink-0 mt-0.5', unpricedAndLive ? 'text-brand-red' : 'text-brand-amber')}
+                />
+                <div className="text-12">
+                  <p className={cn('font-medium', unpricedAndLive ? 'text-brand-red' : 'text-foreground')}>
+                    输入 / 输出单价都是 0 —— 该模型将不消耗任何用户额度
+                  </p>
+                  <p className="text-muted-foreground mt-0.5">
+                    成本制按四类单价算成本(cost 恒为 0 → 扣 0)。
+                    {unpricedAndLive
+                      ? '它当前还是「启用 + 用户可选」,保存后全站用户都能免费用 —— 请填真实单价,或先关掉下方任一开关(否则保存会被拦下)。'
+                      : '当前未同时处于「启用 + 用户可选」,可以先存;正式上线前请填入真实单价。'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {(
                 [
@@ -210,8 +295,11 @@ export function ModelFormDialog({
                     type="number"
                     step="0.0001"
                     min={0}
-                    value={form[key]}
-                    onChange={(e) => set(key, Number(e.target.value) || 0)}
+                    value={numValue(form[key])}
+                    onChange={(e) => set(key, e.target.valueAsNumber)}
+                    className={cn(
+                      unpricedAndLive && (key === 'price_in' || key === 'price_out') && 'border-brand-red',
+                    )}
                   />
                 </div>
               ))}
@@ -230,8 +318,8 @@ export function ModelFormDialog({
                     type="number"
                     min={0}
                     className="w-28"
-                    value={form.input_tier_threshold}
-                    onChange={(e) => set('input_tier_threshold', Number(e.target.value) || 0)}
+                    value={numValue(form.input_tier_threshold)}
+                    onChange={(e) => set('input_tier_threshold', e.target.valueAsNumber)}
                   />
                   <span className="text-12 text-faint">token 切档2</span>
                 </div>
@@ -257,8 +345,8 @@ export function ModelFormDialog({
                           type="number"
                           step="0.0001"
                           min={0}
-                          value={form[key]}
-                          onChange={(e) => set(key, Number(e.target.value) || 0)}
+                          value={numValue(form[key])}
+                          onChange={(e) => set(key, e.target.valueAsNumber)}
                         />
                       </div>
                     ))}
@@ -275,8 +363,8 @@ export function ModelFormDialog({
                         type="number"
                         min={0}
                         className="w-28"
-                        value={form.input_tier_threshold_2}
-                        onChange={(e) => set('input_tier_threshold_2', Number(e.target.value) || 0)}
+                        value={numValue(form.input_tier_threshold_2)}
+                        onChange={(e) => set('input_tier_threshold_2', e.target.valueAsNumber)}
                       />
                       <span className="text-12 text-faint">token 切档3</span>
                     </div>
@@ -298,8 +386,8 @@ export function ModelFormDialog({
                             type="number"
                             step="0.0001"
                             min={0}
-                            value={form[key]}
-                            onChange={(e) => set(key, Number(e.target.value) || 0)}
+                            value={numValue(form[key])}
+                            onChange={(e) => set(key, e.target.valueAsNumber)}
                           />
                         </div>
                       ))}

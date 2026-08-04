@@ -5,10 +5,12 @@ import { Input } from '@/shared/ui/input';
 import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { ProviderLogo } from '@/shared/components/ProviderLogo';
+import { ConfigPageGuard } from './ConfigPageGuard';
 import { useApiToast } from '../hooks/useApiToast';
 import {
   useWechatMiniProgramConfig,
   useUpdateWechatMiniProgramConfig,
+  type WechatMiniProgramConfig,
 } from '../api/wechat-miniprogram';
 
 /**
@@ -16,28 +18,52 @@ import {
  * AppID/AppSecret 来自 mp.weixin.qq.com「开发管理 → 开发设置」,用于 /sns/jscode2session 一键登录
  * (与网页 OAuth 的公众号配置是两套凭据,别混)。后端:GET/PUT /admin/wechat-miniprogram/config;
  * AppSecret 脱敏读写(留空=不修改)。样式对齐同页的 ProviderPanel(卡片式表单 + 顶部标题)。
+ *
+ * 🔴 GET 失败时**绝不渲染表单**(ConfigPageGuard):这个 PUT 是整行覆盖,
+ * 而改造前这里只解构了 isLoading —— 接口 500 / 401 / 断网时 isLoading 会变回 false、
+ * data 是 undefined,屏幕上是一份「AppID 空 + 启用未勾」的正常表单,保存按钮可点。
+ * 管理员在这份未知状态上按一次保存,就把线上的 AppID / AppSecret 写空、
+ * 把 enabled 覆盖成 false(小程序一键登录全站关闭),全程没有任何异常提示。
  */
 export function WechatMiniProgramPanel() {
   // 默认脱敏;点密文字段右侧小眼睛 → reveal → 重新拉明文(show_sensitive)。
   const [reveal, setReveal] = useState(false);
-  const { data, isLoading } = useWechatMiniProgramConfig({ showSensitive: reveal });
+  const q = useWechatMiniProgramConfig({ showSensitive: reveal });
+
+  return (
+    <ConfigPageGuard query={q} resourceName="微信小程序配置">
+      {(cfg) => (
+        <MiniProgramForm
+          config={cfg}
+          reveal={reveal}
+          onToggleReveal={() => setReveal((v) => !v)}
+          // 第二道闸:即便 Guard 之后 query 转成错误态(重新取数失败),保存也不放行。
+          blocked={q.isError || !q.data}
+        />
+      )}
+    </ConfigPageGuard>
+  );
+}
+
+function MiniProgramForm({
+  config,
+  reveal,
+  onToggleReveal,
+  blocked,
+}: {
+  config: WechatMiniProgramConfig;
+  reveal: boolean;
+  onToggleReveal: () => void;
+  blocked: boolean;
+}) {
   const update = useUpdateWechatMiniProgramConfig();
   const apiToast = useApiToast();
 
   // AppSecret 受控,随后端返回同步(脱敏 ******** ↔ 明文),避免无关重拉冲掉正在编辑的值。
   const [appSecret, setAppSecret] = useState('');
   useEffect(() => {
-    setAppSecret(data?.app_secret ?? '');
-  }, [data?.app_secret]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-16 border border-border bg-surface-card p-4 text-muted-foreground sm:p-6">
-        <Loader2 className="size-4 animate-spin" />
-        加载微信小程序配置…
-      </div>
-    );
-  }
+    setAppSecret(config.app_secret ?? '');
+  }, [config.app_secret]);
 
   return (
     <form
@@ -68,7 +94,7 @@ export function WechatMiniProgramPanel() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="wxmp-app_id">AppID(小程序ID)</Label>
-          <Input id="wxmp-app_id" name="app_id" defaultValue={data?.app_id} placeholder="wx..." required />
+          <Input id="wxmp-app_id" name="app_id" defaultValue={config.app_id} placeholder="wx..." required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="wxmp-app_secret">AppSecret(小程序密钥)</Label>
@@ -78,7 +104,7 @@ export function WechatMiniProgramPanel() {
             value={appSecret}
             onChange={(e) => setAppSecret(e.target.value)}
             revealed={reveal}
-            onToggleReveal={() => setReveal((v) => !v)}
+            onToggleReveal={onToggleReveal}
             placeholder="留空表示不修改"
           />
         </div>
@@ -89,7 +115,7 @@ export function WechatMiniProgramPanel() {
           id="wxmp-enabled"
           name="enabled"
           type="checkbox"
-          defaultChecked={data?.enabled}
+          defaultChecked={config.enabled}
           className="size-4"
         />
         <Label htmlFor="wxmp-enabled" className="text-12">
@@ -101,7 +127,7 @@ export function WechatMiniProgramPanel() {
       </p>
 
       <div className="border-t border-border-soft pt-3">
-        <Button type="submit" disabled={update.isPending}>
+        <Button type="submit" disabled={update.isPending || blocked}>
           {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           保存微信小程序配置
         </Button>

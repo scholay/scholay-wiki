@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 // mirrors backend/internal/wechat/miniprogram.go MiniProgramConfig
@@ -12,6 +12,11 @@ export interface WechatMiniProgramConfig {
 export function useWechatMiniProgramConfig({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
     queryKey: ['admin', 'wechat-miniprogram', 'config', { showSensitive }],
+    // showSensitive 进了 queryKey —— 点密钥框的「眼睛」就是换 key 重取。
+    // 没有 keepPreviousData 的话新 key 无缓存 → isLoading 瞬时为 true → 上层守卫
+    // (ConfigPageGuard / `if (isLoading) return <Loading/>`)会把整张表单卸载重建,
+    // 管理员填了一半还没保存的内容会无声消失。保住旧值,表单始终挂载。
+    placeholderData: keepPreviousData,
     queryFn: async () =>
       (
         await http.get<{ data: WechatMiniProgramConfig }>('/admin/wechat-miniprogram/config', {

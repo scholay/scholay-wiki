@@ -4,7 +4,7 @@ import { Label } from '@/shared/ui/label';
 import { Select } from '@/shared/ui/select';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
-import { useUrlState, usePatchUrlState } from '@/shared/hooks';
+import { useUrlState, usePatchUrlState, useDebounce } from '@/shared/hooks';
 import { todayISO } from '../DateRangeControl';
 import {
   useTokenUsageFacets,
@@ -39,10 +39,20 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
   const [anon] = useUrlState('anon', '');
   const patch = usePatchUrlState();
 
+  /**
+   * 🔴 用户关键词必须防抖后再进 filters。
+   * URL 仍然即时更新(输入手感 / 前进后退不丢),但抛给父级的 filters 走 debounced 值 ——
+   * 否则每敲一个字符都会连锁触发:summary 换 queryKey 发一次(llm_token_usage 全表
+   * GROUP BY + LIKE),明细表的 fkey 变化重置分页再发一次。输入一个邮箱 ≈ 28 次重查询。
+   * 同项目 UsersPage 早就是这个写法。
+   */
+  const debouncedKeyword = useDebounce(keyword, 300);
+
   // facets 下拉用 days 窗口取(自定义区间时也用 days 兜底, 足够覆盖可选项)。
   const { data: facets } = useTokenUsageFacets(days);
 
   const customRange = !!(start && end);
+  const today = todayISO();
 
   // 把当前控件值解析成 TokenUsageFilters 抛给父级。primitive 依赖, 不会循环。
   useEffect(() => {
@@ -59,13 +69,13 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
     if (provider) f.provider = provider;
     if (anon === '1') {
       f.anon = 1;
-    } else if (keyword) {
-      f.keyword = keyword;
+    } else if (debouncedKeyword) {
+      f.keyword = debouncedKeyword;
     }
     onChange(f);
     // onChange 是父级稳定引用; 仅在控件值变化时重算
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days, start, end, feature, source, model, provider, keyword, anon, customRange]);
+  }, [days, start, end, feature, source, model, provider, debouncedKeyword, anon, customRange]);
 
   const hasDimFilter = !!(feature || source || model || provider || keyword || anon === '1' || start || end);
 
@@ -80,10 +90,10 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
         <div className="flex gap-1">
           <button
             type="button"
-            onClick={() => patch({ days: null, start: todayISO(), end: todayISO() })}
+            onClick={() => patch({ days: null, start: today, end: today })}
             className={cn(
               'h-8 px-3 rounded-8 text-12 font-medium transition-colors',
-              start && start === todayISO() && end === todayISO()
+              start && start === today && end === today
                 ? 'bg-foreground text-on-dark'
                 : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
             )}
@@ -111,10 +121,14 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       {/* 自定义区间 */}
       <div className="w-full space-y-1 sm:w-auto">
         <Label className="text-12 text-faint">自定义起止</Label>
+        {/* min/max 是必需的:没有它可以选到 2027 年(拿回空数据,看起来像"这段时间没用量"),
+            也可以让 end 早于 start(后端条件恒假,同样是空)—— 两种都是"筛出来的空"
+            与"真的没有"不可区分。同项目 DateRangeControl 对这两点都做了约束。 */}
         <div className="flex items-center gap-1">
           <Input
             type="date"
             value={start}
+            max={end || today}
             onChange={(e) => patch({ start: e.target.value || null })}
             className="h-8 min-w-0 flex-1 sm:w-36 sm:flex-none"
           />
@@ -122,6 +136,8 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
           <Input
             type="date"
             value={end}
+            min={start || undefined}
+            max={today}
             onChange={(e) => patch({ end: e.target.value || null })}
             className="h-8 min-w-0 flex-1 sm:w-36 sm:flex-none"
           />

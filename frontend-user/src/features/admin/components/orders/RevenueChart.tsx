@@ -9,9 +9,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AlertTriangle } from 'lucide-react';
 import { isTodayBucket, withWeekday } from '@/shared/lib/daily-trend';
 import { compactYuanAxis } from '@/shared/lib/chart-format';
 import { chartTheme } from '@/shared/lib/theme-bridge';
+import { toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
 import type { AdminRevenueDay } from '../../api/orders';
 
@@ -21,12 +23,16 @@ import type { AdminRevenueDay } from '../../api/orders';
  *
  * 头部自带:近 N 天**区间总计**(总营收 + 充值/订阅拆分)+ 7/30/90 天筛选(与整页 days 同一状态,
  * 也驱动上方 KPI 与下方订单表)。今日为进行中 → 一条竖向虚线标注,不当最终值看。
+ *
+ * 🔴 `error` 必须由调用方透传:接口失败时 daily=[],不区分的话图里会写「窗口内还没有已支付订单」——
+ * 那是在肯定地宣称"这段时间零收入",而后端 queryRev 自己都注释着这两者不可分辨。
  */
 
 const DAY_PRESETS = [7, 30, 90];
 
+// 🔴 undefined 一律「—」而不是「¥0」:总计缺失时不能显示成"确实是 0 元"。
 const yuan = (n?: number) =>
-  typeof n === 'number' ? `¥${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '¥0';
+  typeof n === 'number' ? `¥${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—';
 
 function RevenueTooltip(props: {
   active?: boolean;
@@ -65,6 +71,7 @@ export function RevenueChart({
   daily,
   days,
   onDaysChange,
+  error,
   totalRevenue,
   totalRecharge,
   totalSubscription,
@@ -73,6 +80,8 @@ export function RevenueChart({
   daily: AdminRevenueDay[];
   days: number;
   onDaysChange: (d: number) => void;
+  /** 统计接口的 error —— 传了就渲染失败态,而不是「窗口内还没有已支付订单」 */
+  error?: unknown;
   /** 区间总计(后端 totals.revenue / recharge_revenue / subscription_revenue / paid_count) */
   totalRevenue?: number;
   totalRecharge?: number;
@@ -92,7 +101,7 @@ export function RevenueChart({
             <span className="text-16 font-medium tabular-nums text-foreground">{yuan(totalRevenue)}</span>
             <span className="text-12 text-faint">近 {days} 天总计</span>
             <span className="text-12 tabular-nums text-subtle">
-              订单 {(totalOrders ?? 0).toLocaleString()} 笔
+              订单 {totalOrders == null ? '—' : totalOrders.toLocaleString()} 笔
             </span>
             <span className="text-12 tabular-nums" style={{ color: 'var(--color-brand-green)' }}>
               充值 {yuan(totalRecharge)}
@@ -122,7 +131,13 @@ export function RevenueChart({
       </div>
 
       <div className="h-56">
-        {daily.length === 0 ? (
+        {error ? (
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-12 text-brand-red">
+            <AlertTriangle className="size-4" />
+            <span>营收趋势加载失败</span>
+            <span className="text-subtle">{toApiError(error).message}</span>
+          </div>
+        ) : daily.length === 0 ? (
           <div className="flex h-full items-center justify-center text-12 text-faint">窗口内还没有已支付订单</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">

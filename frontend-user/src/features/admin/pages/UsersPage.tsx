@@ -1,11 +1,19 @@
-import { useState } from 'react';
-import { Search, MoreHorizontal, Lock, Unlock, Trash2, ShieldCheck, Crown, Eye, Copy, UserCog, UserRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, Search, MoreHorizontal, Lock, Unlock, Trash2, ShieldCheck, Crown, Eye, Copy, UserCog, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +22,12 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
 import { useDebounce, useUrlState, usePatchUrlState } from '@/shared/hooks';
+import { copyToClipboard } from '@/shared/lib/clipboard';
 import { useHasPermission, PERM, roleLabel, roleBadgeVariant } from '../permissions';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
+import { TimeCell } from '../components/TimeCell';
 import { UserMetricsPanel } from '../components/UserMetricsPanel';
 import { UserDetailDrawer } from '../components/UserDetailDrawer';
 import { useApiToast } from '../hooks/useApiToast';
@@ -47,6 +57,12 @@ function effectiveTier(u: AdminUser): 'free' | 'pro' | 'max' {
   return 'free';
 }
 
+/** 后端 handler_admin_ops.go:48 硬拒绝冻结 admin / super_admin —— 前端同口径隐藏入口,
+ *  别显示一个按下去必然 400 的按钮(operations 是可以冻的,后端只挡这两个角色)。 */
+function canFreeze(u: AdminUser): boolean {
+  return u.role !== 'admin' && u.role !== 'super_admin';
+}
+
 export function UsersPage() {
   // URL 是唯一真源:读取走 useUrlState,写入一律走 patch ——
   // 多个 useUrlState setter 在同一同步事件里会互相覆盖(react-router 同步 navigate,
@@ -70,7 +86,7 @@ export function UsersPage() {
   const canManageUsers = useHasPermission(PERM.usersManage);
   const canAssignRole = useHasPermission(PERM.usersRoleAssign);
 
-  const { data, isLoading } = useUserList({
+  const listQuery = useUserList({
     page,
     page_size: 20,
     q: debounced || undefined,
@@ -83,6 +99,7 @@ export function UsersPage() {
     sort_by: sortBy as UserListParams['sort_by'],
     sort_order: sortOrder as UserListParams['sort_order'],
   });
+  const { data, isLoading } = listQuery;
 
   const freeze = useFreezeUser();
   const unfreeze = useUnfreezeUser();
@@ -90,8 +107,18 @@ export function UsersPage() {
   const batchDel = useBatchDeleteUsers();
   const updateRole = useUpdateUserRole();
 
-  // 选中行 keys —— 切页/查询会保留(用户跨页选择常见)
+  // 选中行 keys。
+  // 🔴 **刻意不跨页保留**:DataTable 的批量条显示的是 `selectedKeys.size`(可能跨页),
+  // 而传给 bulkActions 的 selectedRows 只从**当前页**过滤 —— 第 1 页选 5 个 + 第 2 页选 3 个时,
+  // 顶部写「已选 8 项」、确认框写「批量删除 3 个用户?」、实际删 3 个,另外 5 个被静默丢弃。
+  // 一个不可逆操作上两个数字打架,比"多点两次"危险得多。所以换页/换筛选一律清空选择。
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
+  useEffect(() => {
+    setSelected(new Set());
+  }, [page, debounced, role, status, tier, verified, createdFrom, createdTo, sortBy, sortOrder]);
+
+  // 冻结原因收集(后端 reason 必填,见 useFreezeUser 的注释)
+  const [freezeTarget, setFreezeTarget] = useState<AdminUser | null>(null);
 
   // 详情抽屉
   const [detailUser, setDetailUser] = useState<AdminUser | null>(null);
@@ -133,12 +160,22 @@ export function UsersPage() {
     setSelected(new Set());
   };
 
-  const handleFreeze = async (u: AdminUser) => {
-    const action = u.status === 2 ? unfreeze.mutateAsync(u.id) : freeze.mutateAsync(u.id);
-    await apiToast(action, {
-      success: u.status === 2 ? `已解冻 ${labelOf(u)}` : `已冻结 ${labelOf(u)}`,
-      failure: '操作失败',
+  // 冻结 / 解冻拆两支:冻结必须先收原因(后端 required),解冻是恢复性操作直接执行。
+  const handleUnfreeze = async (u: AdminUser) => {
+    await apiToast(unfreeze.mutateAsync(u.id), {
+      success: `已解冻 ${labelOf(u)}`,
+      failure: '解冻失败',
     });
+  };
+
+  const submitFreeze = async (reason: string) => {
+    const u = freezeTarget;
+    if (!u) return;
+    const ok = await apiToast(freeze.mutateAsync({ id: u.id, reason }), {
+      success: `已冻结 ${labelOf(u)}`,
+      failure: '冻结失败',
+    });
+    if (ok !== null) setFreezeTarget(null);
   };
 
   const handleDelete = async (u: AdminUser) => {
@@ -172,9 +209,13 @@ export function UsersPage() {
     });
   };
 
-  const copyId = (u: AdminUser) => {
-    navigator.clipboard?.writeText(String(u.id));
-    toast.success(`已复制用户 ID #${u.id}`);
+  // 走 copyToClipboard(带 execCommand 兜底)并**按真实结果**提示 ——
+  // 线上后台是明文 HTTP,`navigator.clipboard` 是 undefined,旧写法的 `?.` 让它变成静默 no-op,
+  // 绿色 toast 照弹但粘出来是空的。
+  const copyId = async (u: AdminUser) => {
+    const ok = await copyToClipboard(String(u.id));
+    if (ok) toast.success(`已复制用户 ID #${u.id}`);
+    else toast.error('复制失败,请手动选中复制');
   };
 
   const columns: Column<AdminUser>[] = [
@@ -235,28 +276,24 @@ export function UsersPage() {
         ),
       width: 90,
     },
+    // 三列时间统一走 TimeCell:主显相对时间(「3 天前」),精确时刻挂 title。
+    // 这三列存在的唯一理由就是回答"刚刚还是上个月",扫一列 `2026-08-01 09:12` 是答不出来的。
     {
       header: '注册时间',
-      cell: (u) => (
-        <span className="text-12 text-muted-foreground">{u.created_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
-      ),
-      width: 150,
+      cell: (u) => <TimeCell value={u.created_at} className="text-12" />,
+      width: 130,
       serverSortKey: 'created_at',
     },
     {
       header: '最后活跃',
-      cell: (u) => (
-        <span className="text-12 text-muted-foreground">{u.last_active_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
-      ),
-      width: 150,
+      cell: (u) => <TimeCell value={u.last_active_at} className="text-12" />,
+      width: 130,
       serverSortKey: 'last_active_at',
     },
     {
       header: '最后登录',
-      cell: (u) => (
-        <span className="text-12 text-muted-foreground">{u.last_login_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
-      ),
-      width: 150,
+      cell: (u) => <TimeCell value={u.last_login_at} className="text-12" />,
+      width: 130,
       serverSortKey: 'last_login_at',
     },
     {
@@ -279,23 +316,22 @@ export function UsersPage() {
               <Copy className="size-3.5 mr-2" />
               复制用户 ID
             </DropdownMenuItem>
-            {/* 冻结/解冻 —— 用户写操作,需 users.manage(运营看不到) */}
-            {canManageUsers && (
+            {/* 冻结/解冻 —— 用户写操作,需 users.manage(运营看不到);
+                admin / super_admin 后端硬拒(canFreeze),不显示必失败的按钮 */}
+            {canManageUsers && (u.status === 2 || canFreeze(u)) && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => handleFreeze(u)}>
-                  {u.status === 2 ? (
-                    <>
-                      <Unlock className="size-3.5 mr-2" />
-                      解冻账号
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="size-3.5 mr-2" />
-                      冻结账号
-                    </>
-                  )}
-                </DropdownMenuItem>
+                {u.status === 2 ? (
+                  <DropdownMenuItem onSelect={() => handleUnfreeze(u)}>
+                    <Unlock className="size-3.5 mr-2" />
+                    解冻账号
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onSelect={() => setFreezeTarget(u)}>
+                    <Lock className="size-3.5 mr-2" />
+                    冻结账号…
+                  </DropdownMenuItem>
+                )}
               </>
             )}
             {/* 角色分配 —— 仅 super_admin(users.role.assign);不能改动其他 super_admin */}
@@ -344,7 +380,10 @@ export function UsersPage() {
   return (
     <AdminPageLayout
       title="用户管理"
-      description={`共 ${data?.total ?? 0} 个账号 · 含管理员 · 可筛选 / 管会员 / 冻结 / 删除`}
+      // 🔴 接口挂了绝不能显示「共 0 个账号」—— 那是个会被当成经营结论的错数字。降级为「—」。
+      description={`共 ${data ? data.total.toLocaleString() : '—'} 个账号 · 含管理员 · 可筛选 / 管会员 / 冻结 / 删除`}
+      onRefresh={() => listQuery.refetch()}
+      refreshing={listQuery.isFetching}
       actions={
         <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-faint" />
@@ -439,7 +478,19 @@ export function UsersPage() {
         columns={columns}
         rows={data?.users}
         loading={isLoading}
+        // error 必须透传:不传的话请求失败 rows=undefined 会落进空态,
+        // 后台就"斩钉截铁"地显示「没有符合条件的用户」—— 排查封号/工单时会直接判断错。
+        error={listQuery.error}
+        onRetry={() => listQuery.refetch()}
         emptyMessage="没有符合条件的用户"
+        emptyDescription={hasFilter ? '当前筛选条件下没有命中任何账号。' : undefined}
+        emptyAction={
+          hasFilter ? (
+            <Button variant="outline" size="sm" onClick={resetFilters}>
+              清除筛选
+            </Button>
+          ) : undefined
+        }
         selection={
           canManageUsers
             ? {
@@ -484,6 +535,15 @@ export function UsersPage() {
       />
 
       <UserDetailDrawer user={detailUser} open={drawerOpen} onOpenChange={setDrawerOpen} />
+
+      {/* 常驻挂载(open 由 target 决定)—— 绝不用 `{target && <Dialog open/>}`,
+          那是"挂载条件 == open",Radix 的 body pointer-events 锁会泄漏成全站点击失灵。 */}
+      <FreezeReasonDialog
+        user={freezeTarget}
+        pending={freeze.isPending}
+        onCancel={() => setFreezeTarget(null)}
+        onSubmit={submitFreeze}
+      />
     </AdminPageLayout>
   );
 }
@@ -494,5 +554,82 @@ function FilterField({ label, children }: { label: string; children: React.React
       <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
+  );
+}
+
+/**
+ * 冻结原因弹窗 —— 后端 `FreezeUserRequest.Reason` 是 `required,min=1,max=255`,
+ * 不填就是 400。原因落库到 `users.frozen_reason`,详情抽屉里能看到(用户申诉时的唯一依据),
+ * 所以这里不是走个形式,写清楚"为什么封"是有下游消费者的。
+ */
+function FreezeReasonDialog({
+  user,
+  pending,
+  onCancel,
+  onSubmit,
+}: {
+  user: AdminUser | null;
+  pending: boolean;
+  onCancel: () => void;
+  onSubmit: (reason: string) => void | Promise<void>;
+}) {
+  const [reason, setReason] = useState('');
+  const uid = user?.id;
+  useEffect(() => {
+    setReason('');
+  }, [uid]);
+
+  const trimmed = reason.trim();
+  const valid = trimmed.length >= 1 && trimmed.length <= 255;
+  const name = user ? user.username || user.email || user.phone || `#${user.id}` : '';
+
+  return (
+    <Dialog open={!!user} onOpenChange={(o) => !o && !pending && onCancel()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="size-5 text-brand-red" />
+            冻结账号 {name}?
+          </DialogTitle>
+          <DialogDescription>
+            该用户会立即被强制下线(已签发 token 当场吊销)且无法再登录。冻结原因会记入账号档案,
+            用户申诉时后台可查。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="freeze-reason" className="text-12 text-muted-foreground">
+            冻结原因(必填,最多 255 字)
+          </Label>
+          {/* placeholder 里别写 `#` + 三位十六进制(如工单号 #123):
+              设计护栏的「硬编码 hex」正则会把它当成颜色,构建期直接红 */}
+          <Input
+            id="freeze-reason"
+            value={reason}
+            autoFocus
+            maxLength={255}
+            placeholder="如:批量注册小号刷邀请奖励(工单 No.1024)"
+            onChange={(e) => setReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && valid && !pending) onSubmit(trimmed);
+            }}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
+            取消
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={!valid || pending}
+            onClick={() => onSubmit(trimmed)}
+          >
+            冻结账号
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Pencil, Trash2, ExternalLink, Upload, Webhook as WebhookIcon } from 'lucide-react';
+import { Pencil, Trash2, ExternalLink, Upload, Webhook as WebhookIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
@@ -8,10 +8,11 @@ import { Textarea } from '@/shared/ui/textarea';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
-import { useApiToast } from '@/shared/hooks';
+import { useApiToast, useDebounce } from '@/shared/hooks';
 import { useConfirm } from '@/shared/components';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
+import { Pagination } from '../components/Pagination';
 import {
   useAdminToolList,
   useAdminToolCategories,
@@ -27,22 +28,28 @@ const STATUS_LABEL: Record<string, { text: string; variant: 'default' | 'outline
   archived: { text: '归档', variant: 'outline' },
 };
 
+const PAGE_SIZE = 20;
+
 export function FeatureToolsPage() {
-  const [q, setQ] = useState('');
+  const [qInput, setQInput] = useState('');
+  // 搜索框防抖 —— 直接把输入值塞进 queryKey 时,输入「zotero」= 6 次 /admin/tools,
+  // 而 placeholderData 让这件事在界面上完全看不出来(只有后端日志知道)。
+  const q = useDebounce(qInput, 400);
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<FeatureTool | null>(null);
 
   const { data: catData } = useAdminToolCategories();
-  const { data, isLoading } = useAdminToolList({ q: q || undefined, status: status || undefined, category: category || undefined, page, page_size: 20 });
+  const { data, isLoading, isFetching, error, refetch } = useAdminToolList({ q: q || undefined, status: status || undefined, category: category || undefined, page, page_size: PAGE_SIZE });
   const update = useUpdateTool();
   const del = useDeleteTool();
   const apiToast = useApiToast();
   const confirm = useConfirm();
 
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / 20));
+  const hasFilter = !!qInput || !!status || !!category;
+  const clearFilters = () => { setQInput(''); setStatus(''); setCategory(''); setPage(1); };
 
   const handleDelete = async (row: FeatureTool) => {
     const ok = await confirm({ title: `删除工具「${row.name}」?`, description: '删除会触发 webhook 通知下游同步删除。', danger: true, confirmText: '删除' });
@@ -94,6 +101,8 @@ export function FeatureToolsPage() {
     <AdminPageLayout
       title="功能广场"
       description={`学术工具黄页 · 共 ${total} 个`}
+      onRefresh={() => void refetch()}
+      refreshing={isFetching}
       actions={
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link to="/admin/tools-webhooks"><WebhookIcon className="size-3.5" />Webhook</Link></Button>
@@ -102,7 +111,7 @@ export function FeatureToolsPage() {
       }
     >
       <div className="mb-4 flex flex-wrap gap-2">
-        <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="搜索名称…" className="w-full sm:max-w-xs" />
+        <Input value={qInput} onChange={(e) => { setQInput(e.target.value); setPage(1); }} placeholder="搜索名称…" className="w-full sm:max-w-xs" />
         <div className="w-full sm:max-w-[12rem]">
           <Select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
             <option value="">全部分类</option>
@@ -120,19 +129,27 @@ export function FeatureToolsPage() {
         </div>
       </div>
 
-      <DataTable columns={columns} rows={data?.items} loading={isLoading} emptyMessage="还没有工具,去导入吧" />
+      <DataTable
+        columns={columns}
+        rows={data?.items}
+        loading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
+        emptyMessage={hasFilter ? '当前筛选下没有工具' : '还没有工具,去导入吧'}
+        emptyDescription={hasFilter ? '换个关键词 / 分类 / 状态再试,或清除筛选看全部。' : undefined}
+        emptyAction={
+          hasFilter
+            ? <Button size="sm" variant="outline" onClick={clearFilters}>清除筛选</Button>
+            : <Button asChild size="sm"><Link to="/admin/tools-import"><Upload className="size-3.5" />导入工具</Link></Button>
+        }
+      />
 
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-3 text-12 text-faint">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">下一页</button>
-        </div>
-      )}
+      <Pagination total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
       <EditDialog
         tool={editing}
         categories={(catData?.categories ?? []).map((c) => ({ slug: c.slug, label: c.label }))}
+        pending={update.isPending}
         onClose={() => setEditing(null)}
         onSubmit={async (merged) => {
           const ok = await apiToast(update.mutateAsync({ id: merged.id, data: merged }), { success: '已更新(已通知下游)', failure: '更新失败' });
@@ -146,11 +163,14 @@ export function FeatureToolsPage() {
 function EditDialog({
   tool,
   categories,
+  pending,
   onClose,
   onSubmit,
 }: {
   tool: FeatureTool | null;
   categories: { slug: string; label: string }[];
+  /** 保存中 —— 每次 PUT 都会触发下游 webhook 同步,连点两下 = 下游收到重复事件 */
+  pending: boolean;
   onClose: () => void;
   onSubmit: (merged: FeatureTool) => void;
 }) {
@@ -162,6 +182,7 @@ function EditDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (pending) return;
             const fd = new FormData(e.currentTarget);
             // 关键:基于完整原对象做合并, 保留 spec/faq/access 等嵌套字段不被清空
             const tagsRaw = String(fd.get('tags') || '').trim();
@@ -219,8 +240,11 @@ function EditDialog({
             </Select>
           </Field>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>取消</Button>
-            <Button type="submit">保存</Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>取消</Button>
+            <Button type="submit" disabled={pending}>
+              {pending && <Loader2 className="size-3.5 animate-spin" />}
+              保存
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

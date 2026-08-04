@@ -256,10 +256,12 @@ func (r *Repository) AddMaxUses(id uint64, delta, capValue int) error {
 // SetGrantDays 覆盖会员码授予的会员天数(grant_days)。仅限 tier 码(WHERE grant_kind='tier')。
 // 兑换在 Redeem 时【实时读取本行 grant_days】(applyMembershipGrant),故改完只影响之后的兑换,
 // 已兑换的用户 vip_expires_at 早已落定、不受影响。RowsAffected==0 时区分「不存在」与「非 tier 码」。
-func (r *Repository) SetGrantDays(id uint64, days int) error {
+func (r *Repository) SetGrantDays(id uint64, amount int, unit string) error {
+	// 🔴 两列一起写。只写 grant_days 会让「改成 7」落在一张 unit='month' 的码上变成 7 个月 ——
+	// 数量与单位是一对,分开写就会产生语义不明的码。
 	res := r.db.Model(&RedemptionCode{}).
 		Where("id = ? AND grant_kind = ?", id, GrantKindTier).
-		UpdateColumn("grant_days", days)
+		Updates(map[string]any{"grant_days": amount, "grant_unit": NormGrantUnit(unit)})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -380,15 +382,21 @@ func (r *Repository) Redeem(userID uint, code string, now time.Time) (*RedeemRes
 		// 走 grantMembershipInTx 这个唯一串行化落点 —— 它持 users 行 FOR UPDATE(见其红字:
 		// 此前无锁读+整值覆盖会与订阅履约/另一张码互相吃掉授予),并顺手作废在途升级单。
 		// vip_cycle 的「防陈旧泄漏」规则也在里面(cycleOverride 传空 = 仅在非在期付费时回落 monthly)。
-		newTier, newExpires, prevTier, err := grantMembershipInTx(tx, userID, rc.GrantTier, rc.GrantDays, "", now)
+		newTier, newExpires, prevTier, err := grantMembershipInTx(tx, userID, rc.GrantTier, rc.GrantDays, rc.GrantUnit, "", now)
 		if err != nil {
 			return err
 		}
 		exp := newExpires
 		result = &RedeemResult{
 			Kind: GrantKindTier, Tier: newTier, ExpiresAt: &exp,
-			// 满血资格在事务内算(此处才拿得到 prevTier 与本码的 grant_days),见 Service.Redeem 红字。
-			refillEligible: tierRank(newTier) > tierRank(prevTier) && rc.GrantDays >= r.windowDays(),
+			// 满血资格在事务内算(此处才拿得到 prevTier 与本码的时长),见 Service.Redeem 红字。
+			//
+			// 🔴 必须先把「数量 + 单位」折算成天再与窗口天数比。
+			// 直接拿 rc.GrantDays 比是**静默错**:一张「1 个月」的码 GrantDays=1 < 7,
+			// 会被判成「不够一个额度窗口」→ 兑换后不给满血重置,无报错、无日志、用户无从察觉;
+			// 反过来「1 年」的码 GrantDays=1 也一样被误判。
+			refillEligible: tierRank(newTier) > tierRank(prevTier) &&
+				GrantDurationDays(rc.GrantUnit, rc.GrantDays) >= r.windowDays(),
 		}
 		return nil
 	})

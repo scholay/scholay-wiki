@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { toApiError } from '@/shared/lib/http';
 import { Button } from '@/shared/ui/button';
 import { useTokenUsageSummary, compactTokens, formatPoints, formatYuan } from '../api/token-usage';
 
@@ -37,7 +38,20 @@ export function UserTokenUsagePanel({ userId }: { userId: number }) {
         ))}
       </div>
 
-      {q.isLoading ? (
+      {/* error 先于 loading:失败时 totals 是 undefined,会和"真的没用量"一样落到
+          「该时段无 AI 用量」—— 那是个肯定的结论,而事实是接口没回来。 */}
+      {q.isError ? (
+        <div className="flex items-start gap-1.5 rounded-8 border border-border bg-danger-soft px-2.5 py-2 text-12">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-brand-red" />
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <span className="text-brand-red">用量加载失败:{toApiError(q.error).message || '未知错误'}</span>
+            <span className="text-faint">这不代表该用户没有用量。</span>
+            <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
+              重试
+            </Button>
+          </div>
+        </div>
+      ) : q.isLoading ? (
         <Loader2 className="size-4 animate-spin text-faint" />
       ) : !totals || totals.total_tokens === 0 ? (
         <p className="py-2 text-12 text-faint">该时段无 AI 用量</p>

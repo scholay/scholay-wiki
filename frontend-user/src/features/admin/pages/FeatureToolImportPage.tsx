@@ -4,8 +4,12 @@ import { Upload, FileJson, CheckCircle2, AlertTriangle, ArrowRight } from 'lucid
 import { Button } from '@/shared/ui/button';
 import { Textarea } from '@/shared/ui/textarea';
 import { useApiToast } from '@/shared/hooks';
+import { LoadingState, ResourceError } from '@/shared/components';
 import { AdminPageLayout } from '../components/AdminPageLayout';
-import { useImportTools, useImportToolsZip, useImportJob, type ImportJob } from '../api/feature-tools';
+import {
+  useImportTools, useImportToolsZip, useImportJob, isJobRunning,
+  IMPORT_JOB_STATUS_LABEL, type ImportJob,
+} from '../api/feature-tools';
 
 /** 把粘贴/上传的 JSON 解析成工具数组。支持顶层数组, 或 {items:[...]} / {assignments:[...]} 包裹。 */
 function parseItems(text: string): { items: unknown[]; error?: string } {
@@ -39,9 +43,10 @@ export function FeatureToolImportPage() {
   const count = parsed.items.length;
   const busy = importMut.isPending || zipMut.isPending;
 
-  // 任务进度轮询 (running 时)
-  const { data: job } = useImportJob(jobId ?? undefined, jobId != null);
-  const running = job?.status === 'pending' || job?.status === 'running';
+  // 任务进度轮询 —— 轮询是否继续由任务状态决定(见 api/feature-tools.ts useImportJob)
+  const jobQ = useImportJob(jobId ?? undefined, jobId != null);
+  const job = jobQ.data;
+  const running = isJobRunning(job?.status);
 
   const onFile = async (file: File) => {
     if (/\.zip$/i.test(file.name)) {
@@ -77,7 +82,13 @@ export function FeatureToolImportPage() {
   };
 
   return (
-    <AdminPageLayout title="导入工具" description="粘贴 / 上传结构化 JSON, 批量 upsert 到功能广场 (按 source_topic_id / slug 幂等)">
+    <AdminPageLayout
+      title="导入工具"
+      description="粘贴 / 上传结构化 JSON, 批量 upsert 到功能广场 (按 source_topic_id / slug 幂等)"
+      onRefresh={jobId != null ? () => void jobQ.refetch() : undefined}
+      refreshing={jobQ.isFetching}
+      actions={<Button asChild variant="outline" size="sm"><Link to="/admin/tools-jobs">全部任务</Link></Button>}
+    >
       <div className="mx-auto max-w-3xl space-y-5">
         {/* 上传 */}
         <div className="flex flex-wrap items-center gap-3">
@@ -132,23 +143,42 @@ export function FeatureToolImportPage() {
         </div>
 
         {/* 任务进度 */}
+        {jobId != null && jobQ.isError && (
+          <div className="rounded-16 border border-border bg-surface-card p-4">
+            <ResourceError
+              error={jobQ.error}
+              resourceName="导入任务"
+              onRetry={() => void jobQ.refetch()}
+              autoRedirect={false}
+              className="h-auto bg-transparent py-6"
+            />
+          </div>
+        )}
+        {jobId != null && !jobQ.isError && !job && (
+          <div className="rounded-16 border border-border bg-surface-card p-4"><LoadingState dense /></div>
+        )}
         {job && (() => {
           const uploadingLogos = job.phase === 'uploading_logos';
           const pct = uploadingLogos
             ? (job.logo_total ? Math.round((job.logo_done / job.logo_total) * 100) : 0)
             : (job.total ? Math.round((job.processed / job.total) * 100) : 0);
-          const statusLabel = !running
-            ? (job.status === 'succeeded' ? '完成' : job.status === 'partial' ? '部分完成' : job.status)
-            : uploadingLogos ? '上传图标中…' : '导入中…';
+          // 状态文案走全表 —— 原来只映射了 succeeded / partial,失败时页面上是裸英文 `failed`
+          const statusLabel = running
+            ? (uploadingLogos ? '上传图标中…' : '导入中…')
+            : (IMPORT_JOB_STATUS_LABEL[job.status] ?? job.status);
+          const failures = (job.detail ?? []).filter((d) => d.action === 'failed');
+          const failed = job.status === 'failed';
           return (
             <div className="rounded-16 border border-border bg-surface-card p-4">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-12 font-medium text-foreground">任务 #{job.id} · {statusLabel}</p>
-                <Link to="/admin/tools-jobs" className="text-12 text-brand-red hover:underline">全部任务 →</Link>
+                <p className="text-12 font-medium text-foreground">
+                  任务 #{job.id} · <span className={failed ? 'text-brand-red' : undefined}>{statusLabel}</span>
+                </p>
+                <Link to={`/admin/tools-jobs?job=${job.id}`} className="text-12 text-brand-red hover:underline">任务详情 →</Link>
               </div>
               <div className="h-1.5 overflow-hidden rounded-pill bg-surface-2">
                 <div
-                  className={`h-full transition-all ${uploadingLogos ? 'bg-brand-amber' : 'bg-brand-green'}`}
+                  className={`h-full transition-all ${failed ? 'bg-brand-red' : uploadingLogos ? 'bg-brand-amber' : 'bg-brand-green'}`}
                   style={{ width: `${pct}%` }}
                 />
               </div>
@@ -160,10 +190,36 @@ export function FeatureToolImportPage() {
                     <span>进度 {job.processed}/{job.total}</span>
                     <span className="text-brand-green">新增 {job.created_cnt}</span>
                     <span className="text-brand-amber">更新 {job.updated_cnt}</span>
-                    {job.failed_cnt > 0 && <span className="text-brand-red">失败 {job.failed_cnt}</span>}
+                    {/* 跳过 = 幂等命中。少了它,总数就和其余几项对不上账 */}
+                    <span className="text-faint">跳过 {job.skipped_cnt}</span>
+                    <span className={job.failed_cnt > 0 ? 'text-brand-red' : 'text-faint'}>失败 {job.failed_cnt}</span>
                   </>
                 )}
               </div>
+
+              {/* 🔴 失败原因必须在**这一页**看得见 —— 刚点完导入的这一刻正是最需要它的时候,
+                  原先只能跳到 /admin/tools-jobs 再打开弹窗才知道为什么。 */}
+              {job.error && (
+                <p className="mt-3 break-all rounded-8 bg-danger-soft px-2 py-1.5 font-mono text-12 text-brand-red">
+                  {job.error}
+                </p>
+              )}
+              {failures.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {failures.slice(0, 3).map((f) => (
+                    <p key={f.idx} className="break-all rounded-8 border border-border-soft bg-surface-1 px-2 py-1 text-12">
+                      <span className="text-foreground">#{f.idx} {f.name || '(无名)'}</span>
+                      <span className="ml-2 text-brand-red">{f.error}</span>
+                    </p>
+                  ))}
+                  <Link
+                    to={`/admin/tools-jobs?job=${job.id}`}
+                    className="inline-flex items-center gap-1 text-12 text-brand-red hover:underline"
+                  >
+                    查看 {failures.length} 条失败明细 <ArrowRight className="size-3.5" />
+                  </Link>
+                </div>
+              )}
             </div>
           );
         })()}

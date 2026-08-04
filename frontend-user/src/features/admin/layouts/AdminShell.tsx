@@ -1,13 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useMatches } from 'react-router-dom';
-import { PanelLeft } from 'lucide-react';
+import { PanelLeft, Search } from 'lucide-react';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { IconButton } from '@/shared/components/IconButton';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import { Kbd } from '@/shared/ui/kbd';
+import { useHotkey } from '@/shared/hooks';
 import { useSidebar } from '@/stores/sidebar.store';
-import { useIsAuthenticated } from '@/stores/auth.store';
+import { useIsAuthenticated, useAuthStore } from '@/stores/auth.store';
 import { AdminSidebar } from '../components/AdminSidebar';
+import { AdminCommandPalette, CMDK_HOTKEY } from '../components/AdminCommandPalette';
+import { ROLE_LABEL } from '../permissions';
 
 /**
  * Admin 专用 shell —— 结构对齐用户端 AppShell:
@@ -38,6 +42,16 @@ export function AdminShell() {
     ? `${routeTitle} · Scholay Admin`
     : 'Scholay Admin';
 
+  // ⌘K 命令面板 —— AdminCommandPalette 是一个写好的 200 行面板(20 个页面跳转 +
+  // 用户搜索 + 快捷动作),但此前只有定义没有任何调用方,整整一个组件是死代码。
+  // 单人运维、35 个页面靠侧栏一项项翻,这是最高性价比的一次"接线"。
+  const [cmdkOpen, setCmdkOpen] = useState(false);
+  useHotkey(CMDK_HOTKEY, () => setCmdkOpen(true), { enableOnFormTags: true });
+
+  // 当前角色 —— 菜单是按 role 过滤的(nav.ts 的 requires),排查"为什么我看不到计费配置"
+  // 时界面上此前没有任何地方告诉你自己是什么角色。
+  const role = useAuthStore((s) => s.user?.role);
+
   // 顶栏 ☰ —— 与用户端一致:hasPanel 决定可否切换(后台恒有侧栏面板 → 恒可用)。
   const hasPanel = useSidebar((s) => s.hasPanel);
   const toggleSidebar = useSidebar((s) => s.toggle);
@@ -55,7 +69,7 @@ export function AdminShell() {
     <div className="flex h-dvh min-h-0 flex-col bg-background text-foreground">
       <title>{docTitle}</title>
 
-      {/* 顶部占位导航条 —— 对齐用户端 TopNav 的左上角 [☰][Logo];右侧刻意留白(后台不挂菜单/用户区)。 */}
+      {/* 顶部导航条 —— 左上角 [☰][Logo] 对齐用户端 TopNav;右侧放搜索入口与当前角色。 */}
       <header className="h-16 shrink-0 flex items-center gap-2 px-6 border-b border-border bg-background sticky top-0 z-nav">
         <IconButton
           aria-label="展开/收起侧栏"
@@ -68,7 +82,36 @@ export function AdminShell() {
         <Link to="/admin" className="inline-flex items-center" aria-label="返回后台首页">
           <BrandLogo size="sm" />
         </Link>
+
+        {/* 当前页标题 —— 侧栏收起后原本无从知道自己在哪一页(此前 routeTitle 只写进了 <title>) */}
+        {routeTitle && (
+          <>
+            <span className="hidden sm:block h-4 w-px bg-border" aria-hidden />
+            <span className="hidden sm:block text-14 text-subtle truncate">{routeTitle}</span>
+          </>
+        )}
+
+        <div className="flex-1" />
+
+        {/* 显式搜索入口:只有快捷键的话,不知道有这功能的人等于没有 */}
+        <button
+          type="button"
+          onClick={() => setCmdkOpen(true)}
+          className="inline-flex items-center gap-2 h-8 rounded-8 border border-border px-2.5 text-12 text-faint hover:bg-surface-1 hover:text-foreground transition-colors"
+        >
+          <Search className="size-3.5" />
+          <span className="hidden sm:inline">搜索页面 / 用户</span>
+          <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
+        </button>
+
+        {role && (
+          <span className="hidden md:inline text-12 text-faint" title="当前登录角色 —— 侧栏菜单按角色过滤">
+            {ROLE_LABEL[role] ?? role}
+          </span>
+        )}
       </header>
+
+      <AdminCommandPalette open={cmdkOpen} onOpenChange={setCmdkOpen} />
 
       <div className="flex-1 min-h-0">
         <SidebarLayout sidebar={<AdminSidebar />}>

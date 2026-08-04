@@ -25,6 +25,8 @@ type UpdateEmailConfigRequest struct {
 	SMTPPassword string `json:"smtpPassword"` // 不设置 required，允许留空
 	FromEmail    string `json:"fromEmail" binding:"required,email"`
 	FromName     string `json:"fromName" binding:"required"`
+	// 邮件通道总开关 —— 语义同 UpdateSMSConfigRequest.IsActive,见那里的说明
+	IsActive *bool `json:"is_active"`
 }
 
 // TestEmailConfigRequest represents a test email config request
@@ -80,7 +82,8 @@ func (h *Handler) UpdateEmailConfig(c *gin.Context) {
 		SMTPPassword: password,
 		FromEmail:    req.FromEmail,
 		FromName:     req.FromName,
-		IsActive:     true,
+		// 没传 → 沿用旧行为(启用);传了 → 尊重管理员的选择
+		IsActive: req.IsActive == nil || *req.IsActive,
 	}
 
 	err = h.service.CreateEmailConfig(config)
@@ -156,6 +159,13 @@ type UpdateSMSConfigRequest struct {
 	TemplateCode    string `json:"template_code" binding:"required"`
 	TemplateContent string `json:"template_content" binding:"required"`
 	Endpoint        string `json:"endpoint"`
+	// 短信通道总开关。指针 = 可区分「没传」与「传了 false」——
+	// 老客户端不传时保持既有行为(启用)，不破坏兼容。
+	//
+	// 之前这里没有这个字段、下面写死 IsActive: true，于是后台那个「启用短信通道」开关
+	// 是个纯摆设：管理员关掉它、点保存、看到绿色「已保存」，通道其实照常启用，
+	// 重新拉取后开关还会自己弹回「开」。界面不能承诺不会发生的事。
+	IsActive *bool `json:"is_active"`
 }
 
 // TestSMSConfigRequest represents a test SMS config request
@@ -224,7 +234,8 @@ func (h *Handler) UpdateSMSConfig(c *gin.Context) {
 		TemplateCode:    strings.TrimSpace(req.TemplateCode),
 		TemplateContent: strings.TrimSpace(req.TemplateContent),
 		Endpoint:        strings.TrimSpace(endpoint),
-		IsActive:        true,
+		// 没传 → 沿用旧行为(启用);传了 → 尊重管理员的选择
+		IsActive: req.IsActive == nil || *req.IsActive,
 	}
 
 	err = h.service.CreateSMSConfig(config)

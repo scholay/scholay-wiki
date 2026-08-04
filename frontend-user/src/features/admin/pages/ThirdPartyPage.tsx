@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Zap, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, RotateCcw, Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/shared/ui/dialog';
 import { DataTable, type Column } from '../components/DataTable';
+import { TimeCell } from '../components/TimeCell';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
 import {
@@ -48,14 +49,22 @@ const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
 export function ThirdPartyPanel() {
   // reveal 由编辑弹窗的小眼睛控制; reveal=true 时列表用 ?show_sensitive=true 重拉明文,
   // 弹窗选中 row 的 secret 字段随之同步成明文。脱敏/明文分开缓存(queryKey 含 showSensitive)。
+  //
+  // 🔴 关弹窗必须一并复位 —— 否则列表 query 长期停在 `?show_sensitive=true`,
+  // 之后每一次 refetch(现在还叠了 30s 自动刷新)都把全部明文 API key 拉进前端,
+  // 而界面上没有任何提示。见下方 onClose + 「明文模式」按钮。
   const [reveal, setReveal] = useState(false);
-  const { data, isLoading } = useThirdPartyAccounts({ showSensitive: reveal });
+  const accountsQ = useThirdPartyAccounts({ showSensitive: reveal });
+  const { data, isLoading, error, dataUpdatedAt } = accountsQ;
   const create = useCreateThirdParty();
   const update = useUpdateThirdParty();
   const del = useDeleteThirdParty();
   const test = useTestThirdParty();
   const reset = useResetThirdPartyStats();
   const [mode, setMode] = useState<EditMode>(null);
+  // 「测试连接」共用一个 mutation 实例,上游超时时一次十几秒 —— 没有 per-row 的
+  // pending 标记,界面毫无反应,管理员会连点好几行且分不清 toast 是哪条回来的。
+  const [testingId, setTestingId] = useState<number | null>(null);
   const apiToast = useApiToast();
   const confirm = useConfirm();
 
@@ -71,10 +80,16 @@ export function ThirdPartyPanel() {
   };
 
   const handleTest = async (r: ThirdPartyAccount) => {
-    await apiToast(test.mutateAsync(r.id), {
-      success: `「${r.name}」连接成功`,
-      failure: `「${r.name}」连接失败`,
-    });
+    if (testingId != null) return; // 串行:一次只测一个,toast 才对得上行
+    setTestingId(r.id);
+    try {
+      await apiToast(test.mutateAsync(r.id), {
+        success: `「${r.name}」连接成功`,
+        failure: `「${r.name}」连接失败`,
+      });
+    } finally {
+      setTestingId(null);
+    }
   };
 
   const handleReset = async (r: ThirdPartyAccount) => {
@@ -86,30 +101,60 @@ export function ThirdPartyPanel() {
     await apiToast(reset.mutateAsync(r.id), { success: '用量已重置', failure: '重置失败' });
   };
 
-  // 成功率展示 —— total_requests 是成功率的真实分母(= success + fail,含重试)。
-  // 没有任何请求记录(total=0,如未被使用过、或不纳入统计的 minicod 账号)时显示「—」,
-  // 不显示 0.0%(那会被误读成"全部失败")。
-  const successRate = (r: ThirdPartyAccount): string => {
+  // 成功率 —— total_requests 是真实分母(= success + fail,含重试)。
+  // 没有任何请求记录(total=0,如未被使用过、或不纳入统计的 minicod 账号)时返回 null,
+  // 展示「—」而不是 0.0%(那会被误读成"全部失败")。
+  const rateOf = (r: ThirdPartyAccount): number | null => {
     const total = r.total_requests ?? 0;
-    if (total === 0) return '—';
-    const rate = r.stats?.success_rate ?? (r.success_count ?? 0) / total;
-    return `${(rate * 100).toFixed(1)}%`;
+    if (total === 0) return null;
+    return r.stats?.success_rate ?? (r.success_count ?? 0) / total;
+  };
+
+  // 这一页是判断「哪个 API key 挂了」的唯一入口,而改造前 12.3% 和 99.9% 都是同一档
+  // text-faint 小灰字 —— 扫一列灰字找病灶等于没有监控。按阈值上色。
+  const rateClass = (rate: number | null) =>
+    rate == null ? 'text-faint' : rate < 0.8 ? 'text-brand-red font-medium' : rate < 0.95 ? 'text-brand-amber' : 'text-faint';
+
+  const rateTitle = (r: ThirdPartyAccount) =>
+    `成功 ${(r.success_count ?? 0).toLocaleString()} / 失败 ${(r.fail_count ?? 0).toLocaleString()}` +
+    (r.stats?.avg_latency_ms ? ` · 平均 ${Math.round(r.stats.avg_latency_ms)}ms` : '') +
+    (r.stats?.slow_rate ? ` · 慢请求 ${(r.stats.slow_rate * 100).toFixed(1)}%` : '');
+
+  const baseUrlOf = (r: ThirdPartyAccount) =>
+    typeof r.config?.base_url === 'string' ? r.config.base_url : '';
+
+  // key 尾号 —— 后端默认把整个 api_key 换成 `********`(utils.MaskedSecretValue),
+  // 遮罩态下**拿不到任何尾号**;只有开了明文模式才有真实值可截。
+  const keyTailOf = (r: ThirdPartyAccount): string => {
+    const k = typeof r.config?.api_key === 'string' ? r.config.api_key : '';
+    if (!k || k.includes('****')) return '';
+    return k.length <= 4 ? k : `····${k.slice(-4)}`;
   };
 
   const columns: Column<ThirdPartyAccount>[] = [
     {
       header: '账号',
-      cell: (r) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-foreground">{r.name}</span>
-          <span className="text-12 text-faint">优先级 {r.priority}</span>
-        </div>
-      ),
+      cell: (r) => {
+        const base = baseUrlOf(r);
+        const tail = keyTailOf(r);
+        return (
+          <div className="flex flex-col min-w-0">
+            <span className="font-medium text-foreground">{r.name}</span>
+            {/* 同一 type 下常有主 key / 备用 / 不同中转,不标上游只能逐个点开弹窗才知道指哪 */}
+            <span className="block max-w-80 truncate text-12 text-faint" title={base || undefined}>
+              优先级 {r.priority}
+              {base && ` · ${base}`}
+              {tail && ` · key ${tail}`}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: '类型',
       width: 150,
       cell: (r) => <Badge variant="muted">{TYPE_LABEL[r.type] || r.type}</Badge>,
+      sortKey: (r) => r.type,
     },
     {
       header: '状态',
@@ -120,28 +165,35 @@ export function ThirdPartyPanel() {
         ) : (
           <Badge variant="outline">停用</Badge>
         ),
+      sortKey: (r) => r.status,
     },
     {
       header: '调用',
-      width: 110,
+      width: 130,
       align: 'right',
-      cell: (r) => (
-        <div className="flex flex-col items-end">
-          <span className="text-12 text-foreground">
-            {(r.total_requests ?? 0) > 0 ? (r.total_requests ?? 0).toLocaleString() : '—'}
-          </span>
-          <span className="text-12 text-faint">成功率 {successRate(r)}</span>
-        </div>
-      ),
+      sortKey: (r) => r.total_requests ?? 0,
+      cell: (r) => {
+        const rate = rateOf(r);
+        const avg = r.stats?.avg_latency_ms ?? 0;
+        return (
+          <div className="flex flex-col items-end" title={rateTitle(r)}>
+            <span className="text-12 text-foreground tabular-nums">
+              {(r.total_requests ?? 0) > 0 ? (r.total_requests ?? 0).toLocaleString() : '—'}
+            </span>
+            <span className="text-12 text-faint tabular-nums">
+              成功率{' '}
+              <span className={rateClass(rate)}>{rate == null ? '—' : `${(rate * 100).toFixed(1)}%`}</span>
+              {avg > 0 && ` · ${Math.round(avg)}ms`}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: '最近使用',
       width: 140,
-      cell: (r) => (
-        <span className="text-12 text-faint">
-          {r.last_used_at?.slice(0, 16).replace('T', ' ') || '—'}
-        </span>
-      ),
+      sortKey: (r) => r.last_used_at ?? null,
+      cell: (r) => <TimeCell value={r.last_used_at} className="text-12" />,
     },
     {
       header: '',
@@ -149,8 +201,15 @@ export function ThirdPartyPanel() {
       align: 'right',
       cell: (r) => (
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" className="size-7" title="测试" onClick={() => handleTest(r)}>
-            <Zap className="size-3.5" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            title={testingId === r.id ? '正在测试…' : '测试'}
+            disabled={testingId != null}
+            onClick={() => handleTest(r)}
+          >
+            {testingId === r.id ? <Loader2 className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
           </Button>
           <Button variant="ghost" size="icon" className="size-7" title="重置用量" onClick={() => handleReset(r)}>
             <RotateCcw className="size-3.5" />
@@ -168,24 +227,56 @@ export function ThirdPartyPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-12 text-muted-foreground">
-          共 {data?.length ?? 0} 个 · API key 池,按优先级和健康度轮询,5 分钟缓存
+          共 {data?.length ?? 0} 个 · API key 池,按优先级和健康度轮询,5 分钟缓存 · 每 30 秒自动刷新
+          {dataUpdatedAt > 0 && (
+            <>
+              {' · 更新于 '}
+              <TimeCell value={new Date(dataUpdatedAt).toISOString()} className="text-muted-foreground" />
+            </>
+          )}
         </p>
-        <Button size="sm" className="shrink-0" onClick={() => setMode({ kind: 'create' })}>
-          <Plus className="size-3.5" />
-          添加账号
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* 明文模式是全局可见状态 —— 列表此刻正以 ?show_sensitive=true 拉全部明文 key */}
+          {reveal && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-brand-red text-brand-red"
+              title="列表正在以 ?show_sensitive=true 拉取,全部 API key 明文进入前端;自动刷新也会带明文。点此关闭。"
+              onClick={() => setReveal(false)}
+            >
+              <Eye className="size-3.5" />
+              明文模式 · 点此关闭
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setMode({ kind: 'create' })}>
+            <Plus className="size-3.5" />
+            添加账号
+          </Button>
+        </div>
       </div>
 
-      <DataTable columns={columns} rows={data} loading={isLoading} />
+      <DataTable
+        columns={columns}
+        rows={data}
+        loading={isLoading}
+        error={error}
+        onRetry={() => accountsQ.refetch()}
+        emptyMessage="还没有三方账号"
+        emptyDescription="API key 池是空的 —— 上游 AI / MiniCod 调用都会失败。点右上「添加账号」接入。"
+      />
 
       <ThirdPartyDialog
         mode={mode}
         accounts={data}
         reveal={reveal}
         onToggleReveal={() => setReveal((v) => !v)}
-        onClose={() => setMode(null)}
+        onClose={() => {
+          setMode(null);
+          setReveal(false); // 关弹窗即退出明文模式,别让列表长期停在 show_sensitive
+        }}
         onSubmit={async (form) => {
           const ok =
             mode?.kind === 'create'
@@ -193,7 +284,10 @@ export function ThirdPartyPanel() {
               : mode?.kind === 'edit'
               ? await apiToast(update.mutateAsync({ id: mode.row.id, data: form }), { success: '已更新', failure: '更新失败' })
               : null;
-          if (ok !== null) setMode(null);
+          if (ok !== null) {
+            setMode(null);
+            setReveal(false);
+          }
         }}
       />
     </div>

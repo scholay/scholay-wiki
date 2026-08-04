@@ -40,7 +40,10 @@ type RedemptionCode struct {
 	Code               string     `gorm:"column:code" json:"code"`
 	GrantKind          string     `gorm:"column:grant_kind" json:"grant_kind"` // tier | credit
 	GrantTier          string     `gorm:"column:grant_tier" json:"grant_tier"`
-	GrantDays          int        `gorm:"column:grant_days" json:"grant_days"`
+	// GrantDays 授予**数量**;它的单位由 GrantUnit 决定(0110 起)。
+	// 名字保留 grant_days 是为了不动存量列与既有 API 契约 —— 存量码全部是「天」。
+	GrantDays int    `gorm:"column:grant_days" json:"grant_days"`
+	GrantUnit string `gorm:"column:grant_unit" json:"grant_unit"` // day | month | year
 	GrantCredits       int        `gorm:"column:grant_credits" json:"grant_credits"`         // credit 码:经费数
 	CreditKind         string     `gorm:"column:credit_kind" json:"credit_kind"`             // temp | perm
 	CreditValidityDays int        `gorm:"column:credit_validity_days" json:"credit_validity_days"`

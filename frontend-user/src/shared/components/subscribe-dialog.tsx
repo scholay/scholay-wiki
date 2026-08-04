@@ -11,7 +11,8 @@
 //   实际应付金额按 quote(tier, cycle) 报价显示;测试支付当作一种支付方式平等对待。
 import { useEffect, useState } from 'react';
 import { quotaNavigate } from '@/shared/lib/quota-events';
-import { Loader2, Check, QrCode, CreditCard, Zap, type LucideIcon } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
+import { PayMethodLogo } from './PayMethodLogo';
 import { Button } from '@/shared/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
@@ -47,7 +48,8 @@ export interface SubQuote {
   new_expires_at?: string | null; // 履约后会员到期日
 }
 
-const METHOD_ICON: Record<string, LucideIcon> = { wechat: QrCode, alipay: CreditCard, test: Zap };
+// 支付方式图标走品牌 logo(PayMethodLogo),不再用 lucide 通用图标 ——
+// 「微信支付」配一个通用二维码、「支付宝」配一张信用卡,两者互换也说得通,等于没有标识。
 const RANK: Record<string, number> = { free: 0, pro: 1, max: 2 };
 
 /** 从 admin 支付配置 + 测试支付开关派生可选支付方式(settings / landing 共用)。 */
@@ -316,7 +318,6 @@ export function SubscribeDialog({
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {methods.map((m) => {
-                const Icon = METHOD_ICON[m.id] ?? CreditCard;
                 const active = m.id === sel;
                 return (
                   <button
@@ -327,7 +328,11 @@ export function SubscribeDialog({
                       active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2',
                     )}
                   >
-                    <Icon className={cn('size-5 shrink-0', active ? 'text-brand-red' : 'text-faint')} />
+                    {/* 品牌 logo 恒定本色,不随选中态改色 —— 选中反馈由边框/底色/单选点承担。 */}
+                    <PayMethodLogo
+                      method={m.id}
+                      className={cn('size-5', m.id === 'test' && (active ? 'text-brand-red' : 'text-faint'))}
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-14 font-medium text-foreground">{m.name}</p>
                       <p className="text-12 text-faint">{m.desc}</p>

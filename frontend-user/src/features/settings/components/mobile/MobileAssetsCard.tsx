@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Crown, Gem, Plus, RotateCcw, Ticket, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
+import { notifyBillingChanged } from '@/shared/lib/quota-events';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { WechatPayDialog } from '@/shared/components/wechat-pay-dialog';
 import { Button } from '@/shared/ui';
 import { Switch } from '@/shared/ui/switch';
 import { RedeemConfirmDialog } from '../redeem-confirm-dialog';
@@ -37,6 +40,7 @@ const TIER_BADGE_CLS: Record<Tier, string> = {
  * 用户关掉弹层后再次触发仍能重新打开。
  */
 export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: number }) {
+  const qc = useQueryClient();
   const overviewQ = useBillingOverview();
   const resetMut = useResetQuota();
   const autopayMut = useSetCreditAutopay();
@@ -46,6 +50,14 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [membershipOpen, setMembershipOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
+  // 微信支付 handoff:开通/充值弹层建单成功后把单号交上来,由这里统一开扫码弹窗
+  // (两个来源共用一个弹窗实例,避免 Dialog 套 Dialog)。
+  const [wxOrder, setWxOrder] = useState<{ orderNo: string; subject: string } | null>(null);
+  const openWechat = (orderNo: string, subject: string) => {
+    setMembershipOpen(false);
+    setRechargeOpen(false);
+    setWxOrder({ orderNo, subject });
+  };
   // 邀请奖励活动信号(0100;与 usePlans 同 queryKey 共享缓存)
   const { data: plansData } = usePlans();
   const inviteReward = plansData?.invite_reward_credits ?? 0;
@@ -272,6 +284,7 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
           setMembershipOpen(false);
           setRedeemOpen(true);
         }}
+        onWechatOrder={openWechat}
       />
 
       <RedeemConfirmDialog
@@ -281,8 +294,21 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
         onRedeemed={() => setRedeemCode('')}
       />
 
-      {/* 充值经费(支付宝 wap;回跳 /m/me) */}
-      <MobileRechargeDialog open={rechargeOpen} onOpenChange={setRechargeOpen} />
+      {/* 充值经费(支付宝 wap 回跳 /m/me;微信走下面的扫码/h5 弹窗) */}
+      <MobileRechargeDialog open={rechargeOpen} onOpenChange={setRechargeOpen} onWechatOrder={openWechat} />
+
+      {/* 微信支付 —— 开通会员 / 充值经费 共用一个实例。
+          移动浏览器里它会用 mode:'h5' 直接跳微信;微信内则显示可长按识别的二维码。 */}
+      <WechatPayDialog
+        orderNo={wxOrder?.orderNo ?? null}
+        subject={wxOrder?.subject}
+        onOpenChange={(o) => !o && setWxOrder(null)}
+        onPaid={() => {
+          toast.success('支付成功,权益已到账');
+          notifyBillingChanged();
+          qc.invalidateQueries({ queryKey: ['settings', 'billing'] });
+        }}
+      />
     </section>
   );
 }

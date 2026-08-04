@@ -1,15 +1,19 @@
-// 账户资产子面板:经费充值 / 兑换码激活 / 明细查看。被 MembershipPage(账户资产)的 tab 调用。
+// 账户资产「买东西」子面板:经费充值 / 兑换码激活 / 订阅支付流(支付宝 · 微信 · 测试通道)。
+// 「看账单」那半边(明细表格 / 总览流水 / 用量热力图)在 ./billing-history-panels,
+// 本文件底部对它做同名再导出,调用点不用感知这次拆分。
 import { Fragment, useRef, useState } from'react';
-import { Loader2, Ticket, QrCode, CreditCard, Zap, Coins, Download, type LucideIcon } from'lucide-react';
+import { useQueryClient } from'@tanstack/react-query';
+import { Loader2, Ticket, Zap, Coins } from'lucide-react';
 import { toast } from'sonner';
 import { Button } from'@/shared/ui/button';
 import { Switch } from'@/shared/ui/switch';
 import { Input } from'@/shared/ui/input';
-import { Select } from'@/shared/ui/select';
 import { cn } from'@/shared/lib/utils';
 import { toApiError } from'@/shared/lib/http';
 import { notifyBillingChanged } from'@/shared/lib/quota-events';
 import { showQuotaToast } from'@/shared/components/quota-toast';
+import { WechatPayDialog } from'@/shared/components/wechat-pay-dialog';
+import { PayMethodLogo } from'@/shared/components/PayMethodLogo';
 import { RedeemConfirmDialog } from'./redeem-confirm-dialog';
 import {
   useCreateRecharge,
@@ -17,34 +21,13 @@ import {
   useStartAlipay,
   useTestPay,
   useTransactions,
-  useUsageCalendar,
   useBillingOverview,
   useSetCreditAutopay,
-  useOrders,
   usePlans,
   type BillingCycle,
-  type CreditTxn,
-  type Order,
 } from'../api/membership';
 
-const TXN_LABEL: Record<string, string> = {
-  grant_subscription: '订阅赠送',
-  recharge: '充值到账',
-  gift: '礼品码',
-  task: '任务奖励',
-  reset_consume: '用于重置额度',
-  expire: '已过期收回',
-  refund: '退款',
-  admin_adjust: '人工调整',
-  payg_daily: '用经费继续(当天合计)', // 0098:每天一行,当天内随消耗累加
-  invite_reward: '邀请奖励', // 邀请好友注册奖励(ref_id=被邀者 user_id)
-};
-
-// 0098 起流水金额可带小数(payg 日聚合行;经费=分,一天可能只有零点几经费)。
-// 整数原样;小数最多保留 4 位并去尾零(0.0053 这类微量也要可见,不能四舍五入成 0.00)。
-const fmtCredit = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : String(parseFloat(v.toFixed(4))));
-
-const METHOD_ICONS: Record<string, LucideIcon> = { wechat: QrCode, alipay: CreditCard, test: Zap };
+// 支付方式图标走品牌 logo(PayMethodLogo),见该组件头注释:通用图标对渠道零标识力。
 
 /**
  * 跳支付宝收银台前记住出发页(pathname + search)—— 支付回程由 App.tsx 读取本 key 后
@@ -107,11 +90,14 @@ function CreditAutopayCard() {
 /** 经费充值 —— 两栏:左(金额 + 支付方式)/ 右(订单详情)。对齐设计稿。 */
 export function RechargePanel() {
   const { data: plans } = usePlans();
+  const qc = useQueryClient();
   const recharge = useCreateRecharge();
   const startAlipay = useStartAlipay();
   const testPay = useTestPay();
   const [yuan, setYuan] = useState('20');
   const [method, setMethod] = useState('');
+  // 微信支付:建单成功后把单号交给扫码弹窗(null = 弹窗关着)。
+  const [wxOrder, setWxOrder] = useState<string | null>(null);
 
   const rate = plans?.recharge_rate ?? 1;
   const minYuan = (plans?.min_recharge_cents ?? 1000) / 100;
@@ -122,7 +108,7 @@ export function RechargePanel() {
 
   // 支付方式按 admin 配置(支付宝/微信 是否启用)动态决定 + 开发环境的测试支付。
   const methods = [
-    ...(plans?.payment_methods?.wechat ? [{ id: 'wechat', name: '微信支付', desc: '暂未开放,请先用支付宝'}] : []),
+    ...(plans?.payment_methods?.wechat ? [{ id: 'wechat', name: '微信支付', desc: '微信扫码支付'}] : []),
     ...(plans?.payment_methods?.alipay ? [{ id: 'alipay', name: '支付宝', desc: '支付宝账户余额或银行卡'}] : []),
     ...(plans?.test_payment ? [{ id: 'test', name: '测试支付', desc: '开发环境一键到账'}] : []),
   ];
@@ -135,15 +121,16 @@ export function RechargePanel() {
       return;
     }
     try {
-      if (sel ==='wechat') {
-        toast.info('微信支付还没开放,这次请用支付宝付款');
-        return;
-      }
       const order = await recharge.mutateAsync(cents);
       if (sel ==='test') {
         await testPay.mutateAsync(order.order_no);
         showQuotaToast('recharge');
         notifyBillingChanged(); // 广播刷新额度/经费(账户资产卡 + 全局通知器)
+        return;
+      }
+      if (sel ==='wechat') {
+        // 微信不跳收银台:留在本页开扫码弹窗,支付结果由弹窗轮询(端点顺带兜底对账)。
+        setWxOrder(order.order_no);
         return;
       }
       const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: '科研经费充值'});
@@ -199,7 +186,6 @@ export function RechargePanel() {
           )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {methods.map((m) => {
-              const Icon = METHOD_ICONS[m.id] ?? CreditCard;
               const active = sel === m.id;
               return (
                 <button
@@ -207,7 +193,11 @@ export function RechargePanel() {
                   onClick={() => setMethod(m.id)}
                   className={cn('flex items-center gap-2 rounded-12 border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
                 >
-                  <Icon className={cn('size-5 shrink-0', active ? 'text-brand-red' : 'text-faint')} />
+                  {/* 品牌 logo 恒定本色;仅「测试通道」是非品牌图标,跟随选中态。 */}
+                  <PayMethodLogo
+                    method={m.id}
+                    className={cn('size-5', m.id === 'test' && (active ? 'text-brand-red' : 'text-faint'))}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-14 font-medium text-foreground">{m.name}</p>
                     <p className="truncate text-12 text-faint">{m.desc}</p>
@@ -243,6 +233,19 @@ export function RechargePanel() {
         </Button>
         <p className="mt-3 text-12 leading-paragraph text-faint">按 1 元 = {rate} 经费到账,充多少用多少;开启「用经费继续」后,额度用完还能接着干活。</p>
       </aside>
+
+      {/* 微信扫码支付 —— 成功副作用与上面 test 分支对齐(toast + 广播 + 失效总览缓存)。
+          Radix 铁律:根节点常驻,靠 orderNo=null 关窗,不做条件挂载。 */}
+      <WechatPayDialog
+        orderNo={wxOrder}
+        subject="科研经费充值"
+        onOpenChange={(o) => !o && setWxOrder(null)}
+        onPaid={() => {
+          showQuotaToast('recharge');
+          notifyBillingChanged();
+          qc.invalidateQueries({ queryKey: ['settings', 'billing'] });
+        }}
+      />
     </div>
   );
 }
@@ -352,12 +355,21 @@ export function RedeemPanel() {
 
 /** 订阅下单 + 指定支付方式发起支付。供「购买会员弹窗」的 onPay 用。
  * cycle=yearly 走年度订阅(0079)。
- * 返回 true=已完成(关弹窗 + 刷新);false=保持弹窗(微信暂未开放 / 出错)。
- * 支付宝走收银台跳转(返回 true,页面随即离开)。 */
+ * 返回 true=已完成(关弹窗 + 刷新);false=保持弹窗(出错)。
+ * 支付宝走收银台跳转(返回 true,页面随即离开);
+ * 微信返回 true 关掉套餐弹窗,把已建订单交给 wechatOrder → 调用方渲染的 WechatPayDialog 接手。
+ *
+ * ⚠️ 调用方**必须**把返回的 wechatOrder / closeWechat / onWechatPaid 接到一个
+ * `<WechatPayDialog>` 上,否则微信分支会静默留下一个 pending 孤儿订单
+ * (这正是改造前的 bug:先建单、再 `toast.info('即将开放')` 就走人)。 */
 export function useSubscribeFlow() {
+  const qc = useQueryClient();
   const sub = useCreateSubscription();
   const startAlipay = useStartAlipay();
   const testPay = useTestPay();
+  // 已建单、待微信支付。label 留着给成功文案(与 test 分支同口径)。
+  const [wechatOrder, setWechatOrder] = useState<{ orderNo: string; subject: string; label: string } | null>(null);
+
   const subscribe = async (
     plan: 'pro'|'max',
     method: string,
@@ -374,8 +386,9 @@ export function useSubscribeFlow() {
         return true;
       }
       if (method ==='wechat') {
-        toast.info('微信支付即将开放,请暂用其他方式');
-        return false;
+        // 订单已经建好了 —— 把单号交给扫码弹窗,绝不在这里 return false 丢下它。
+        setWechatOrder({ orderNo: order.order_no, subject: `${cycleLabel}订阅`, label: cycleLabel });
+        return true;
       }
       const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${cycleLabel}订阅`});
       rememberPayReturnPath();
@@ -386,216 +399,21 @@ export function useSubscribeFlow() {
       return false;
     }
   };
-  return { subscribe, busy: sub.isPending || startAlipay.isPending || testPay.isPending };
-}
 
-const ORDER_TYPE_LABEL: Record<string, string> = { subscription: '订阅', recharge: '充值'};
-
-/** 明细查看:已支付订单(订阅 / 充值)表格 + 筛选 + 月份 + 导出 + 申请发票。对齐设计稿。 */
-export function OrdersTable() {
-  const [filter, setFilter] = useState<'all'|'subscription'|'recharge'>('all');
-  const [month, setMonth] = useState('');
-  const { data, isLoading } = useOrders(filter ==='all' ? undefined : filter);
-  const items = data ?? [];
-  const months = Array.from(new Set(items.map((o) => (o.created_at ?? '').slice(0, 7)).filter(Boolean))).sort().reverse();
-  const rows = month ? items.filter((o) => (o.created_at ?? '').startsWith(month)) : items;
-
-  const exportCsv = () => {
-    const head ='时间,类型,说明,金额\n';
-    const body = rows
-      .map((o) =>`${(o.created_at ??'').slice(0, 16).replace('T', ' ')},${ORDER_TYPE_LABEL[o.order_type] ?? o.order_type},${o.plan_name ??''},¥${o.final_amount.toFixed(2)}`)
-      .join('\n');
-    const blob = new Blob(['﻿'+ head + body], { type: 'text/csv;charset=utf-8'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download ='账单明细.csv';
-    a.click();
-    URL.revokeObjectURL(a.href);
+  return {
+    subscribe,
+    busy: sub.isPending || startAlipay.isPending || testPay.isPending,
+    wechatOrder,
+    closeWechat: () => setWechatOrder(null),
+    /** 微信支付成功 —— 与 test 分支同一套副作用(成功 toast + 广播 + 失效总览缓存)。 */
+    onWechatPaid: () => {
+      toast.success(`支付成功!${wechatOrder?.label ?? '会员'}已开通`);
+      notifyBillingChanged();
+      qc.invalidateQueries({ queryKey: ['settings', 'billing'] });
+    },
   };
-
-  return (
-    <section className="rounded-16 border border-border bg-surface-card p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1">
-          {([['all', '全部'], ['subscription', '订阅'], ['recharge', '充值']] as const).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setFilter(id)}
-              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ? 'bg-foreground text-on-dark' : 'bg-surface-2 text-subtle hover:bg-surface-1')}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={month} onChange={(e) => setMonth(e.target.value)} fullWidth={false}>
-            <option value="">全部月份</option>
-            {months.map((m) => (
-              <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
-            ))}
-          </Select>
-          <Button variant="outline" onClick={exportCsv} className="gap-1 border-border text-subtle">
-            <Download className="size-3.5"/> 导出
-          </Button>
-        </div>
-      </div>
-      {isLoading ? (
-        <p className="py-6 text-center text-12 text-faint">加载中…</p>
-      ) : rows.length === 0 ? (
-        <p className="py-6 text-center text-12 text-faint">还没有账单记录</p>
-      ) : (
-        <table className="w-full text-12">
-          <thead>
-            <tr className="border-b border-border text-faint">
-              <th className="py-2 text-left font-medium">时间</th>
-              <th className="py-2 text-left font-medium">类型</th>
-              <th className="py-2 text-right font-medium">说明</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((o) => (
-              <OrderRow key={o.id ?? o.order_no} o={o} />
-            ))}
-          </tbody>
-        </table>
-      )}
-      {/* 0094 按量付费的扣减是微额高频,逐笔入流水会把明细刷成噪音 —— 后端刻意不逐笔落流水。 */}
-      <p className="mt-3 text-12 leading-paragraph text-faint">
-        「用经费继续」的扣费按天合并成一条记录,当天用多少就累加多少。
-      </p>
-    </section>
-  );
 }
 
-function OrderRow({ o }: { o: Order }) {
-  const isSub = o.order_type ==='subscription';
-  return (
-    <tr className="border-b border-border-soft last:border-0">
-      <td className="py-3 tabular-nums text-subtle">{(o.created_at ?? '').slice(0, 16).replace('T', ' ')}</td>
-      <td className="py-3">
-        <span className={cn('rounded-pill px-2 py-0.5 text-12 font-medium', isSub ? 'bg-brand-green/10 text-brand-green' : 'bg-warning-soft text-brand-amber')}>
-          {ORDER_TYPE_LABEL[o.order_type] ?? o.order_type}
-        </span>
-      </td>
-      <td className="py-3 text-right text-subtle">
-        {o.plan_name || (isSub ? '会员订阅' : '经费充值')} <span className="font-medium text-foreground">¥{o.final_amount.toFixed(2)}</span>
-      </td>
-    </tr>
-  );
-}
-
-/** 总览 tab 内容:最近的经费变动(经费) + 本月每日用量绿格热力图。对齐设计稿。 */
-export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
-  const { data } = useTransactions({ page: 1, page_size: 5 });
-  const items = data?.items ?? [];
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <section className="rounded-16 border border-border bg-surface-card p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-14 font-medium text-foreground">最近的经费变动</h3>
-          <button onClick={onViewAll} className="text-12 text-muted-foreground hover:text-foreground">
-            查看全部
-          </button>
-        </div>
-        {items.length === 0 ? (
-          <p className="text-12 text-faint">还没有经费进出</p>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {items.map((t) => (
-              <TxnRow key={t.id} t={t} />
-            ))}
-          </div>
-        )}
-      </section>
-      <UsageHeatmap />
-    </div>
-  );
-}
-
-const GREEN_LEVELS = ['bg-surface-2', 'bg-brand-green/25', 'bg-brand-green/50', 'bg-brand-green/75', 'bg-brand-green'];
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
-
-// 入参 pct = 后端算好的**相对**强度百分比(0..999)。绝对成本与参考线都不再下发到用户端
-// (见 backend billing_handler.go UsageCalendar 的红字):这里只做分档,不做除法。
-function levelOf(pct: number): number {
-  if (pct <= 0) return 0;
-  return pct >= 75 ? 4 : pct >= 50 ? 3 : pct >= 25 ? 2 : 1;
-}
-
-/** 本月每日用量 —— GitHub 风格绿格热力图(只看当月,相对活跃度;不显示绝对额度)。 */
-function UsageHeatmap() {
-  const { data } = useUsageCalendar();
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth(); // 0-indexed
-  const unlimited = data?.unlimited ?? false;
-  const byDate = new Map((data?.days ?? []).map((d) => [d.date, d.pct]));
-  const pad = (n: number) => String(n).padStart(2, '0');
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const startWeekday = new Date(year, month, 1).getDay();
-  const weeks: (number | null)[][] = [];
-  let col: (number | null)[] = new Array(startWeekday).fill(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    col.push(d);
-    if (col.length === 7) { weeks.push(col); col = []; }
-  }
-  if (col.length) { while (col.length < 7) col.push(null); weeks.push(col); }
-
-  const activeDays = (data?.days ?? []).filter((d) => d.pct > 0).length;
-
-  return (
-    <section className="rounded-16 border border-border bg-surface-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-14 font-medium text-foreground">本月每日活跃</h3>
-        <span className="text-12 tabular-nums text-faint">{activeDays} 天有使用</span>
-      </div>
-      <div className="flex gap-1">
-        <div className="flex flex-col gap-1 pr-1">
-          {WEEKDAYS.map((w, i) => (
-            <span key={i} className="flex h-4 items-center text-12 text-faint">{i % 2 === 1 ? w : ''}</span>
-          ))}
-        </div>
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-1">
-            {week.map((day, di) => {
-              if (day === null) return <span key={di} className="size-4"/>;
-              const date =`${year}-${pad(month + 1)}-${pad(day)}`;
-              const pct = byDate.get(date) ?? 0;
-              const tip =
-                pct <= 0
-                  ? `${date} · 无使用`
-                  : unlimited
-                    ? `${date} · 约 ${pct}% 本月峰值`
-                    : `${date} · 约 ${pct}% 日均参考`;
-              return (
-                <span key={di} title={tip} className={cn('size-4 rounded-4', GREEN_LEVELS[levelOf(pct)])} />
-              );
-            })}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center justify-end gap-1 text-12 text-faint">
-        少
-        {GREEN_LEVELS.map((c, i) => <span key={i} className={cn('size-3 rounded-4', c)} />)}
-        多
-      </div>
-    </section>
-  );
-}
-
-function TxnRow({ t }: { t: CreditTxn }) {
-  const positive = t.amount >= 0;
-  return (
-    <div className="flex items-center justify-between border-b border-border-soft py-2 last:border-0">
-      <div className="flex flex-col">
-        <span className="text-14 text-subtle">{TXN_LABEL[t.type] ?? t.type}</span>
-        <span className="text-12 text-faint">{t.created_at.slice(0, 19).replace('T', ' ')}</span>
-      </div>
-      <span className={cn('text-14 font-medium tabular-nums', positive ? 'text-brand-green' : 'text-brand-red')}>
-        {positive ? '+' : ''}
-        {fmtCredit(t.amount)} 经费
-      </span>
-    </div>
-  );
-}
+/* 账单历史(明细表格 / 总览流水 + 热力图)已拆到 ./billing-history-panels —— 这里同名再导出,
+   MembershipPage 等调用点的 import 路径不用动。拆分理由见那个文件的头注释。 */
+export { OrdersTable, OverviewContent } from './billing-history-panels';

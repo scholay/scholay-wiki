@@ -1,13 +1,16 @@
 // 移动端「开通会员」弹层 —— 把原本死胡同的「升级会员」按钮(只弹 toast「去电脑端」)换成可操作的开通入口:
 //   ① 兑换码开通(就地,不跳转,唯一不依赖支付网关的方式);
-//   ② 支付宝**手机网站支付**(alipay.trade.wap.pay)选套餐 → 下单 → 跳收银台 / 唤起支付宝 App。
-// 微信内置浏览器无法唤起支付宝(行业限制)→ 检测到则提示「在浏览器打开」,不给假按钮。
+//   ② 支付宝**手机网站支付**(alipay.trade.wap.pay)选套餐 → 下单 → 跳收银台 / 唤起支付宝 App;
+//   ③ 微信支付 —— 下单后把 order_no 交回父组件的 WechatPayDialog(手机浏览器走 h5 直跳,
+//      微信内走「长按识别二维码」)。
+// 微信内置浏览器无法唤起支付宝(行业限制)→ 该环境下**不把支付宝列为可选项**,不给假按钮。
 //
 // 兑换确认复用 MobileAssetsCard 已有的 RedeemConfirmDialog(本弹层只收码 + onRedeem 交回父组件,
-// 父组件关本弹层 + 开确认弹层),避免 Dialog 套 Dialog。
+// 父组件关本弹层 + 开确认弹层),避免 Dialog 套 Dialog —— 微信支付走同一套 handoff。
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, CreditCard, Crown, Gem, Loader2, Ticket } from 'lucide-react';
+import { PayMethodLogo } from '@/shared/components/PayMethodLogo';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -18,6 +21,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/shared/ui/dialog';
+import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { isWeChatBrowser } from '@/shared/lib/device';
 import {
@@ -47,6 +51,8 @@ export interface MobileMembershipDialogProps {
   tier: Tier;
   /** 用户提交兑换码 → 父组件关本弹层并打开兑换确认弹层(复用已有 RedeemConfirmDialog)。 */
   onRedeem: (code: string) => void;
+  /** 微信支付:订阅单已建好 → 父组件关本弹层并打开 WechatPayDialog(同 onRedeem 的 handoff 形状)。 */
+  onWechatOrder: (orderNo: string, subject: string) => void;
 }
 
 export function MobileMembershipDialog({
@@ -54,6 +60,7 @@ export function MobileMembershipDialog({
   onOpenChange,
   tier,
   onRedeem,
+  onWechatOrder,
 }: MobileMembershipDialogProps) {
   const navigate = useNavigate();
   const [code, setCode] = useState('');
@@ -63,6 +70,8 @@ export function MobileMembershipDialog({
   const [cyclePick, setCyclePick] = useState<BillingCycle | null>(null);
   // 每个可购档在当前周期下的真实报价(action + 应付金额 + 后端锁定周期),按 tier 缓存。
   const [quotes, setQuotes] = useState<Record<string, SubQuote>>({});
+  // 支付方式:null = 用户没手选过 → 跟随下面派生的默认值(可用项里的第一个)。
+  const [methodPick, setMethodPick] = useState<'wechat' | 'alipay' | null>(null);
   const plansQ = usePlans();
   const createSub = useCreateSubscription();
   const startAlipay = useStartAlipay();
@@ -70,6 +79,14 @@ export function MobileMembershipDialog({
   const inWeChat = isWeChatBrowser();
 
   const alipayOn = plansQ.data?.payment_methods?.alipay ?? false;
+  const wechatOn = plansQ.data?.payment_methods?.wechat ?? false;
+  // 🔴 微信内**不把支付宝列为可选项**:微信禁止站内拉起支付宝,列出来点了必然失败。
+  // 微信支付在微信内反而是可用的(弹窗走「长按识别二维码」)。
+  const methodOptions = [
+    ...(wechatOn ? (['wechat'] as const) : []),
+    ...(alipayOn && !inWeChat ? (['alipay'] as const) : []),
+  ];
+  const method = methodPick && methodOptions.includes(methodPick) ? methodPick : methodOptions[0];
   // 只展示当前档及以上(不支持降级);升级/续期/新购的真实金额与文案全部由 quote 驱动,
   // 杜绝「按钮标全年价、实际是月度补差 + subject 谎称年度会员」的货不对板(评审 pricing-math)。
   const payPlans = (plansQ.data?.plans ?? [])
@@ -102,13 +119,10 @@ export function MobileMembershipDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, cycle, tier, plansQ.data]);
 
-  // 选套餐 → 下单 → 发起支付宝**手机网站支付**(channel=wap)→ 跳收银台 / 唤起 App。
+  // 选套餐 → 下单 →(微信:交回父组件开扫码弹窗 / 支付宝:手机网站支付 channel=wap 跳收银台)。
   // 金额与周期一律取 quote(后端权威):升级=当前周期补差;subject 按 action/周期如实拼,不谎称年度。
   const handlePay = async (planTier: Tier, q: SubQuote) => {
-    if (inWeChat) {
-      toast.info('请在浏览器中打开本页面后再用支付宝支付');
-      return;
-    }
+    if (!method) return;
     setPayingTier(planTier);
     const label = planTier === 'max' ? 'Max' : 'Pro';
     const subject =
@@ -119,6 +133,12 @@ export function MobileMembershipDialog({
           : `Scholay ${label} 会员`;
     try {
       const order = await createSub.mutateAsync({ plan: planTier, cycle: q.cycle });
+      if (method === 'wechat') {
+        // Dialog 套 Dialog 会打架 —— 照 onRedeem 的先例把单号交回父组件,由它关本弹层 + 开扫码弹窗。
+        onWechatOrder(order.order_no, subject);
+        setPayingTier(null);
+        return;
+      }
       const back = `${window.location.origin}/m/me`;
       const pay = await startAlipay.mutateAsync({
         order_no: order.order_no,
@@ -171,21 +191,46 @@ export function MobileMembershipDialog({
           </p>
         </div>
 
-        {/* 支付宝手机网站支付(选套餐直接付)*/}
+        {/* 在线付款(选支付方式 + 选套餐直接付)*/}
         <div className="rounded-12 border border-border p-4">
           <div className="mb-2 flex items-center gap-2 text-14 font-medium text-foreground">
-            <CreditCard className="size-4 text-muted-foreground" /> 支付宝付款开通
+            <CreditCard className="size-4 text-muted-foreground" /> 在线付款开通
           </div>
-          {inWeChat ? (
-            <p className="text-12 leading-paragraph text-brand-red">
-              检测到你在微信内打开,微信无法调起支付宝。请点右上角「···」→「在浏览器打开」后再付款,或用上方兑换码 / 电脑端开通。
-            </p>
-          ) : !alipayOn || payPlans.length === 0 ? (
-            <p className="text-12 leading-paragraph text-muted-foreground">
-              支付暂未开放,请用上方兑换码开通,或在电脑端付款。
+          {!method || payPlans.length === 0 ? (
+            <p
+              className={cn(
+                'text-12 leading-paragraph',
+                inWeChat && alipayOn ? 'text-brand-red' : 'text-muted-foreground',
+              )}
+            >
+              {inWeChat && alipayOn
+                ? '检测到你在微信内打开,微信无法调起支付宝(本站也还没开通微信支付)。请点右上角「···」→「在浏览器打开」后再付款,或用上方兑换码 / 电脑端开通。'
+                : '支付暂未开放,请用上方兑换码开通,或在电脑端付款。'}
             </p>
           ) : (
             <div className="flex flex-col gap-2">
+              {/* 支付方式(两种都开通时才需要选;只有一种时下面的按钮文案已经写明是哪种) */}
+              {methodOptions.length > 1 && (
+                <div className="flex items-center gap-2">
+                  {methodOptions.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMethodPick(m)}
+                      className={cn(
+                        'flex min-h-8 flex-1 items-center justify-center gap-1 rounded-8 border text-12 transition-colors',
+                        method === m
+                          ? 'border-brand-red bg-danger-soft text-brand-red'
+                          : 'border-border text-muted-foreground',
+                      )}
+                    >
+                      {/* 品牌 logo 恒定本色,不跟随选中态 —— 见 PayMethodLogo 头注释。 */}
+                      <PayMethodLogo method={m} className="size-3.5" />
+                      {m === 'wechat' ? '微信支付' : '支付宝'}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* 每档一行定位语 —— 只给认知锚点,倍率动态取后端 multiplier(口径与 membership-plan-card
                   一致:Pro 相对 Free、Max 相对 Pro),完整权益对比链去 /pricing,弹层保持纯购买。 */}
               <div className="flex flex-col gap-1 pb-1">
@@ -259,8 +304,12 @@ export function MobileMembershipDialog({
                   </button>
                 );
               })}
-              <p className="text-12 text-faint">
-                付款将跳转支付宝完成,开通后自动回到本页。
+              <p className="text-12 leading-paragraph text-faint">
+                {method === 'wechat'
+                  ? inWeChat
+                    ? '将生成微信支付二维码,长按识别即可付款,开通后本页自动更新。'
+                    : '将打开微信完成付款,开通后回到本页自动更新。'
+                  : '付款将跳转支付宝完成,开通后自动回到本页。'}
               </p>
             </div>
           )}

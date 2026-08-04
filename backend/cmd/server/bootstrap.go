@@ -100,6 +100,9 @@ type services struct {
 	supportCenterService *supportcenter.Service
 	// agentBridge 顶层暴露给 main:跨实例 displacement 订阅 goroutine 需用 bgCtx 启动 (C2)。
 	agentBridge *agentbridge.Bridge
+	// stopQuotaPersist 停额度窗口 used 刷盘器,退出前同步刷最后一批(0103)。
+	// 与 FlushAllTokenWatermarks 同一类:必须真的在 SIGTERM 序列里被调用。
+	stopQuotaPersist func()
 }
 
 // bootstrapServices 初始化全部模块与依赖注入。
@@ -541,8 +544,20 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 到期回落 free 后免费额度恒为 0、开了 autopay 的每次调用还会 100% 从经费实扣)。
 	cleanupService.SetExpiredMembershipWindowRealigner(plat.vipService.RealignExpiredMembershipWindows)
 
+	// cleanup → 额度窗口 Redis↔MySQL 副本的漂移对账 + 保留期清扫(0103)。
+	// 对账那条**不是为了修数据**(它只读只告警),是为了让恢复路径依赖的那份副本平时就被验证 ——
+	// 副本没写进去这件事,不该等到 Redis 真丢数据那天才被发现。
+	cleanupService.SetQuotaWindowMaintainers(
+		plat.vipService.ReconcileQuotaWindowDrift,
+		plat.vipService.ReconcileQuotaWindowOrphans,
+		plat.vipService.PurgeOldQuotaWindows,
+	)
+
 	// 依赖全部注入完成,启动后台清理 + 对账任务。
 	cleanupService.Start()
+
+	// 额度窗口 used 快照刷盘器(0103)。stop 走 main 的关停序列同步刷最后一批。
+	stopQuotaPersist := plat.vipService.StartQuotaPersistence()
 
 	// message + ws：站内信实时推送
 	plat.message.SetWebSocketHub(plat.wsHub)
@@ -748,5 +763,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		wsHub:                plat.wsHub,
 		supportCenterService: supportCenterService,
 		agentBridge:          agentBridge,
+		stopQuotaPersist:     stopQuotaPersist,
 	}
 }

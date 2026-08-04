@@ -784,15 +784,23 @@ func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []
 		body["offset"] = offset
 	}
 	// 2026-07 线上审计:线上旧构建前端仍传已废 `tldr`,authors/papers 恒 400 —— fields 过白名单再透传。
-	if fs := filterPaperFields(fields); len(fs) > 0 {
-		body["fields"] = strings.Join(fs, ",")
+	//
+	// 🔴 2026-08-03 追加:过滤后为空**不能**留空(旧行为是不发 fields、取上游默认)。
+	// 该端点的上游默认字段集含 `tldr`,而上游自己的校验器拒绝 `tldr` → 不发 fields 必 400。
+	// 前端从不传 fields,所以这条路径自上线起对**所有 stc 学者 100% 失败**。
+	// 详见 fields.go 的 authorPapersDefaultFields 红字。
+	fs := filterPaperFields(fields)
+	if len(fs) == 0 {
+		fs = authorPapersDefaultFields
 	}
+	body["fields"] = strings.Join(fs, ",")
 
 	path := "/v1/stc/authors/papers"
 	if strings.HasPrefix(authorID, "olx:") {
 		path = "/v1/olx/authors/papers"
 		body["author_id"] = strings.TrimPrefix(authorID, "olx:")
 		// 同 GetAuthor:olx 源字段名词表与 STC 不同,不转发 STC 字段名(否则 400),取上游默认。
+		// olx 的上游默认是好的(实测 200),故这里维持"不发 fields"。
 		delete(body, "fields")
 	}
 

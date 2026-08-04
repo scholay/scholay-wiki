@@ -43,32 +43,32 @@ func TestApplyMembershipGrant(t *testing.T) {
 	now := tm("2026-06-08 12:00:00")
 
 	// free 用户开 pro 30 天 → 从 now 起算。
-	tier, exp := applyMembershipGrant(UserVIP{VIPTier: "free"}, TierPro, 30, now)
+	tier, exp := applyMembershipGrant(UserVIP{VIPTier: "free"}, TierPro, 30, GrantUnitDay, now)
 	if tier != TierPro || !exp.Equal(now.AddDate(0, 0, 30)) {
 		t.Fatalf("free→pro: tier=%s exp=%v", tier, exp)
 	}
 
 	// 在期 pro 再续 30 天 → 从现到期日**顺延**(续期不截断)。
 	curExp := now.AddDate(0, 0, 10)
-	tier, exp = applyMembershipGrant(UserVIP{VIPTier: "pro", VIPExpiresAt: ptr(curExp)}, TierPro, 30, now)
+	tier, exp = applyMembershipGrant(UserVIP{VIPTier: "pro", VIPExpiresAt: ptr(curExp)}, TierPro, 30, GrantUnitDay, now)
 	if tier != TierPro || !exp.Equal(curExp.AddDate(0, 0, 30)) {
 		t.Fatalf("pro续期顺延: tier=%s exp=%v want %v", tier, exp, curExp.AddDate(0, 0, 30))
 	}
 
 	// 在期 pro 用一张「pro 码」不变;但若给 max → 升级 max, 仍从现到期日顺延。
-	tier, _ = applyMembershipGrant(UserVIP{VIPTier: "pro", VIPExpiresAt: ptr(curExp)}, TierMax, 30, now)
+	tier, _ = applyMembershipGrant(UserVIP{VIPTier: "pro", VIPExpiresAt: ptr(curExp)}, TierMax, 30, GrantUnitDay, now)
 	if tier != TierMax {
 		t.Fatalf("pro→max 升级: tier=%s want max", tier)
 	}
 
 	// 在期 max 用一张「pro 码」→ **绝不降级**, 保持 max, 从现到期日顺延。
-	tier, exp = applyMembershipGrant(UserVIP{VIPTier: "max", VIPExpiresAt: ptr(curExp)}, TierPro, 30, now)
+	tier, exp = applyMembershipGrant(UserVIP{VIPTier: "max", VIPExpiresAt: ptr(curExp)}, TierPro, 30, GrantUnitDay, now)
 	if tier != TierMax || !exp.Equal(curExp.AddDate(0, 0, 30)) {
 		t.Fatalf("max不降级: tier=%s exp=%v", tier, exp)
 	}
 
 	// 已过期 pro → 从 now 起算(不顺延过去的时间)。
-	tier, exp = applyMembershipGrant(UserVIP{VIPTier: "pro", VIPExpiresAt: ptr(now.Add(-time.Hour))}, TierPro, 30, now)
+	tier, exp = applyMembershipGrant(UserVIP{VIPTier: "pro", VIPExpiresAt: ptr(now.Add(-time.Hour))}, TierPro, 30, GrantUnitDay, now)
 	if tier != TierPro || !exp.Equal(now.AddDate(0, 0, 30)) {
 		t.Fatalf("过期pro: tier=%s exp=%v", tier, exp)
 	}
@@ -730,5 +730,128 @@ func TestPayAsYouGoOverflow(t *testing.T) {
 	}
 	if got := payAsYouGoOverflow(0, 999999, 0); got != 0 {
 		t.Errorf("ceiling=0 不应产生按量扣费, 得到 %d", got)
+	}
+}
+
+// ─── 授予单位:天 / 自然月 / 自然年(0110)───────────────────────────────────────
+
+// TestAddPeriodNOneShotNotLoop —— 🔴 本次改造最重要的一条断言。
+//
+// 「发 N 个月」必须**一次性**推 N 个月,不能循环调用「+1 月」N 次:
+// 循环会把月末钳位的一次性偏移放大成逐月漂移。从 1/31 发 12 个月,
+// 循环得到次年 1/28(少 3 天),一次性得到次年 1/31(0 误差)。
+// 这条测试就是防止有人图省事把 AddPeriodN 改写成 for 循环。
+func TestAddPeriodNOneShotNotLoop(t *testing.T) {
+	base := tm("2026-01-31 10:00:00")
+
+	oneShot := AddPeriodN(base, GrantUnitMonth, 12)
+	if want := tm("2027-01-31 10:00:00"); !oneShot.Equal(want) {
+		t.Fatalf("一次性 +12 月: got %v want %v", oneShot, want)
+	}
+
+	// 循环写法(错误示范)——确认它确实不等价,这条差异正是本函数存在的理由
+	loop := base
+	for i := 0; i < 12; i++ {
+		loop = AddPeriod(loop, CycleMonthly)
+	}
+	if loop.Equal(oneShot) {
+		t.Fatal("循环与一次性居然相等 —— 说明 AddPeriodN 被改成了循环实现,月末漂移会被放大")
+	}
+	if diff := oneShot.Sub(loop); diff != 72*time.Hour {
+		t.Fatalf("一次性比循环多的天数变了(预期 72h): %v", diff)
+	}
+}
+
+// TestAddPeriodNClamping —— 月末钳位与闰年,覆盖 day/month/year 三种单位。
+func TestAddPeriodNClamping(t *testing.T) {
+	cases := []struct {
+		name       string
+		base, want string
+		unit       string
+		n          int
+	}{
+		// 月末钳位:1/31 + 1 月 = 2/28(不是 3/3)
+		{"1月31日+1月", "2026-01-31 10:00:00", "2026-02-28 10:00:00", GrantUnitMonth, 1},
+		{"1月31日+1月(闰年)", "2028-01-31 10:00:00", "2028-02-29 10:00:00", GrantUnitMonth, 1},
+		{"3月31日+1月", "2026-03-31 10:00:00", "2026-04-30 10:00:00", GrantUnitMonth, 1},
+		// 一次性多个月:只在最终落点钳一次
+		{"1月31日+3月", "2026-01-31 10:00:00", "2026-04-30 10:00:00", GrantUnitMonth, 3},
+		{"1月31日+6月", "2026-01-31 10:00:00", "2026-07-31 10:00:00", GrantUnitMonth, 6},
+		// 年:闰日 +1 年钳到 2/28
+		{"闰日+1年", "2024-02-29 10:00:00", "2025-02-28 10:00:00", GrantUnitYear, 1},
+		{"闰日+4年(仍闰年)", "2024-02-29 10:00:00", "2028-02-29 10:00:00", GrantUnitYear, 4},
+		{"普通日+2年", "2026-06-08 10:00:00", "2028-06-08 10:00:00", GrantUnitYear, 2},
+		// 天:stdlib 语义,跨月正常进位
+		{"+30天", "2026-01-31 10:00:00", "2026-03-02 10:00:00", GrantUnitDay, 30},
+		// 未知单位回落 day —— 存量兑换码的 grant_unit 是空串,语义必须仍是「天」
+		{"空单位回落天", "2026-01-31 10:00:00", "2026-03-02 10:00:00", "", 30},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := AddPeriodN(tm(c.base), c.unit, c.n)
+			if want := tm(c.want); !got.Equal(want) {
+				t.Fatalf("got %v want %v", got, want)
+			}
+			// 时区必须保持(项目铁律:时间不做 UTC 转换)
+			if got.Location() != tm(c.base).Location() {
+				t.Fatalf("时区丢了: %v", got.Location())
+			}
+		})
+	}
+	// n <= 0 是 no-op(不倒推)
+	b := tm("2026-06-08 10:00:00")
+	if !AddPeriodN(b, GrantUnitMonth, 0).Equal(b) || !AddPeriodN(b, GrantUnitMonth, -3).Equal(b) {
+		t.Fatal("n<=0 应原样返回,绝不能倒推到期日")
+	}
+}
+
+// TestApplyMembershipGrantUnits —— 发放路径的月/年必须与购买路径(AddPeriod)算出同一个到期日。
+// 「发 1 个月」与「买 1 个月」给出不同结果是最难解释的一类客诉。
+func TestApplyMembershipGrantUnits(t *testing.T) {
+	// 刻意选月末:按天算与按自然月算**不相等**的日子,否则断言永远绿(本文件历史上踩过)
+	now := tm("2026-01-31 12:00:00")
+
+	_, exp := applyMembershipGrant(UserVIP{VIPTier: "free"}, TierPro, 1, GrantUnitMonth, now)
+	if want := AddPeriod(now, CycleMonthly); !exp.Equal(want) {
+		t.Fatalf("发 1 个月应等于买 1 个月: got %v want %v", exp, want)
+	}
+	if exp.Equal(now.AddDate(0, 0, 30)) {
+		t.Fatal("发 1 个月退化成了 30 天 —— 自然月语义丢失")
+	}
+
+	_, exp = applyMembershipGrant(UserVIP{VIPTier: "free"}, TierPro, 1, GrantUnitYear, now)
+	if want := AddPeriod(now, CycleYearly); !exp.Equal(want) {
+		t.Fatalf("发 1 年应等于买 1 年: got %v want %v", exp, want)
+	}
+
+	// 在期顺延:从现到期日起算,不截断
+	curExp := tm("2026-03-31 12:00:00")
+	_, exp = applyMembershipGrant(
+		UserVIP{VIPTier: "pro", VIPExpiresAt: ptr(curExp)}, TierPro, 1, GrantUnitMonth, now)
+	if want := tm("2026-04-30 12:00:00"); !exp.Equal(want) {
+		t.Fatalf("在期发 1 个月应从到期日顺延并钳位: got %v want %v", exp, want)
+	}
+}
+
+// TestGrantDurationDays —— 折算只用于「够不够一个额度窗口」的比较,不参与到期日计算。
+func TestGrantDurationDays(t *testing.T) {
+	cases := []struct {
+		unit string
+		n, want int
+	}{
+		{GrantUnitDay, 7, 7},
+		{GrantUnitMonth, 1, 30},
+		{GrantUnitYear, 1, 365},
+		{"", 7, 7}, // 未知回落天
+	}
+	for _, c := range cases {
+		if got := GrantDurationDays(c.unit, c.n); got != c.want {
+			t.Fatalf("GrantDurationDays(%q,%d) = %d want %d", c.unit, c.n, got, c.want)
+		}
+	}
+	// 🔴 回归:1 个月的兑换码必须够得上默认 7 天的额度窗口。
+	// 改造前判据是裸比 grant_days(=1),会把「1 个月」判成不够一个窗口 → 静默不给满血。
+	if GrantDurationDays(GrantUnitMonth, 1) < 7 {
+		t.Fatal("1 个月的码必须够得上 7 天窗口(refillEligible 的折算回归)")
 	}
 }

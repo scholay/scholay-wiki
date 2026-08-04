@@ -10,7 +10,11 @@ export interface InviteSummary {
   total_opens: number; // 邀请链接总打开次数
   total_registrations: number; // 经邀请成功注册总数
   registrations_7d: number; // 近 7 天经邀请注册数
-  total_reward_credits: number; // 全站累计发放的邀请奖励经费(经费=分)
+  /**
+   * 全站累计发放的邀请奖励经费。刻度「经费 = 分」—— 100 经费 = ¥1。
+   * 🔴 展示时必须折算成 ¥ 做主数字:1,250,000 经费 = ¥12,500,裸数字会被读成 125 万元。
+   */
+  total_reward_credits: number;
 }
 
 /** GET /admin/invites 列表行 —— 一个邀请人一行(邀请码与用户 1:1)。 */
@@ -22,9 +26,15 @@ export interface InviteListItem {
   created_at: string; // 「生成邀请」时刻
   open_count: number;
   registered_count: number;
-  reward_credits: number; // 该邀请人累计已获的邀请奖励经费(经费=分)
+  reward_credits: number; // 该邀请人累计已获的邀请奖励经费(经费=分,100 = ¥1)
 }
 
+/**
+ * ⚠️ 后端**没有** sort_by / sort_order —— 列表恒按后端默认序返回。
+ * 所以列表页的四个数字列**不能挂 DataTable 的 sortKey**:那是客户端排序,只重排当前页 20 行,
+ * 而这是服务端分页,点「成功注册」得到的"排行榜"结论是错的。要真排序先在后端补白名单,
+ * 前端再改用 DataTable.serverSort。
+ */
 export interface InviteListParams {
   page?: number;
   page_size?: number;

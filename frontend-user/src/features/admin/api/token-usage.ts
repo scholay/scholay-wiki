@@ -272,6 +272,17 @@ export function compactPoints(microYuan: number): string {
   return compactTokens(Math.round(p));
 }
 
+/**
+ * 精确算力点(不缩写、不取整)—— **只给 title 用**。
+ *
+ * KPI 上的「1.2k」对看趋势够了,但算力点是计费单位(与用户被扣的额度同源同单位),
+ * 对账时需要的是精确数;缩写后页面上任何地方都拿不到它。最小非零成本是 1 微元 = 0.001 点,
+ * 故保留 3 位小数 —— 再截就会把「有消耗」显示成 0。
+ */
+export function exactPoints(microYuan: number): string {
+  return toPoints(microYuan).toLocaleString('zh-CN', { maximumFractionDigits: 3 });
+}
+
 /** 微元 → 人民币展示(¥x.xx)。给「这些算力点折多少钱」的副文案用;财务视角仍以元为准。 */
 export function formatYuan(microYuan: number): string {
   return `¥${((microYuan || 0) / 1_000_000).toFixed(2)}`;

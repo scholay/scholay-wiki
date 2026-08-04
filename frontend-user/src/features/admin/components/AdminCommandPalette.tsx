@@ -77,14 +77,31 @@ export function AdminCommandPalette({
 
           <Command.List className="flex-1 overflow-y-auto p-2">
             <Command.Empty className="text-center text-12 text-faint py-6">
-              {userSearch.isFetching && debouncedQuery ? '搜索中…' : '没找到匹配项,换个关键词试试'}
+              {userSearch.isFetching && debouncedQuery
+                ? '搜索中…'
+                : // 搜索**失败**不能说成"没找到" —— 那会让人以为库里真的没这个用户
+                  userSearch.isError && debouncedQuery
+                  ? '用户搜索失败,请稍后重试(页面跳转不受影响)'
+                  : '没找到匹配项,换个关键词试试'}
             </Command.Empty>
 
             {/* ---------- 用户搜索结果 ---------- */}
             {debouncedQuery && (userSearch.data?.length ?? 0) > 0 && (
               <Command.Group heading="用户" className="text-12 text-faint px-2 pb-1 pt-1 font-medium">
                 {userSearch.data?.map((u) => (
-                  <UserItem key={u.id} user={u} onSelect={() => jumpTo(`/admin/users?q=${encodeURIComponent(u.email || u.username || '')}`)} />
+                  <UserItem
+                    key={u.id}
+                    user={u}
+                    // 兜底链要带上 phone / id:微信与手机号注册的用户 email 和 username 都可能为空,
+                    // 只取前两个会拼出 `?q=`,等于跳回全量列表 —— 看起来像"点了没反应"。
+                    onSelect={() =>
+                      jumpTo(
+                        `/admin/users?q=${encodeURIComponent(
+                          u.email || u.username || u.phone || String(u.id)
+                        )}`
+                      )
+                    }
+                  />
                 ))}
               </Command.Group>
             )}

@@ -42,8 +42,14 @@ export function CountBadge({
  */
 export function StatusDot({
   tone,
+  /**
+   * 具体是什么事 —— 一个没有 title 的圆点等于让人去每个 tab 里挨个翻。
+   * 必填不是洁癖:这个点唯一的作用就是引导点进去,不说清楚就只是个装饰。
+   */
+  title,
 }: {
   tone: 'warning' | 'danger' | 'success';
+  title: string;
 }) {
   const labels = { warning: '需要注意', danger: '告警', success: '正常' };
   return (
@@ -54,7 +60,8 @@ export function StatusDot({
         tone === 'danger' && 'bg-brand-red',
         tone === 'success' && 'bg-brand-green'
       )}
-      aria-label={labels[tone]}
+      title={title}
+      aria-label={`${labels[tone]}:${title}`}
     />
   );
 }

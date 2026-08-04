@@ -10,6 +10,7 @@ import {
   maxYearlySavingsPct,
   resolveDefaultCycle,
   PLAN_META,
+  WechatPayDialog,
   type BillingCycle,
 } from '@/shared/components';
 import { getAuthToken } from '@/shared/lib/auth-token';
@@ -97,7 +98,7 @@ function ctaFor(cardTier: string, currentTier?: string): { label: string; disabl
  */
 export function PricingPage() {
   const { data } = usePublicPlans();
-  const { subscribe } = useLandingSubscribe();
+  const { subscribe, wechatOrder, closeWechat, onWechatPaid } = useLandingSubscribe();
   const { tier: currentTier, cycle: currentCycle } = useCurrentMembership();
   const navigate = useNavigate();
   const [sub, setSub] = useState<{ open: boolean; tier?: 'pro' | 'max' }>({ open: false });
@@ -329,6 +330,15 @@ export function PricingPage() {
         initialTier={sub.tier}
         initialCycle={cycle}
         onPay={(tier, method, payCycle) => subscribe(tier, method, payCycle, PLAN_META[tier]?.name ?? tier)}
+      />
+
+      {/* 微信扫码支付 —— 选微信时套餐弹窗关闭、已建订单交到这里继续。
+          Radix 铁律:常驻挂载,靠 orderNo=null 关窗。 */}
+      <WechatPayDialog
+        orderNo={wechatOrder?.orderNo ?? null}
+        subject={wechatOrder?.subject}
+        onOpenChange={(o) => !o && closeWechat()}
+        onPaid={onWechatPaid}
       />
     </LandingLayout>
   );

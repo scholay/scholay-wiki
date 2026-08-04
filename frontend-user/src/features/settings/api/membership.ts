@@ -57,11 +57,17 @@ export interface RedeemResult {
   credit_kind?: 'temp' | 'perm';
 }
 
-/** 兑换前预览(确认弹窗用):码有效时返回将授予的内容。 */
+/** 兑换前预览(确认弹窗用):码有效时返回将授予的内容。mirrors backend/internal/vip/service.go CodePreview */
 export interface CodePreview {
   grant_kind: 'tier' | 'credit';
   grant_tier?: Tier;
+  /** 授予**数量**(不是天数)—— 真正的时长 = grant_days × grant_unit。 */
   grant_days?: number;
+  /** 授予时长的单位:day | month | year(0110)。
+   *  🔴 缺省/未知一律按 `day` 解读(与后端 vip.NormGrantUnit 同一回落口径:存量兑换码
+   *  这一列是空串,而它们的语义就是「天」)。**不要**把它当可有可无的展示字段忽略 ——
+   *  漏读会把「1 个月」的码在确认弹窗里写成「1 天」,那是对用户的错误承诺。 */
+  grant_unit?: string;
   grant_credits?: number;
   credit_kind?: 'temp' | 'perm';
   note?: string;
@@ -134,6 +140,16 @@ export interface Order {
   payment_method?: string;
   created_at?: string;
   payment_time?: string | null;
+
+  // ── 退款(0107,mirrors backend/internal/vip/refund.go)────────────────────
+  // 🔴 退款**不改 status** —— 退过款的单在这里依然是 'paid'。改 status 会让这笔单从
+  // ListUserOrders(硬编码 status='paid')里整行消失、让历史营收被追溯性改写、
+  // 并让延迟到达的网关回调被拒而触发网关无限重推。所以退款是叠加的第二个维度,
+  // 渲染时也必须是「已支付」之上叠一枚退款标识,不是把状态换掉。
+  /** 累计已退金额(元);未退款时为 0 或缺省 */
+  refunded_amount?: number;
+  /** ''=未退款 | partial=部分退款 | full=已全额退完 */
+  refund_status?: '' | 'partial' | 'full';
 }
 
 /** 已支付订单明细(明细查看)。type 可选 subscription|recharge。 */
@@ -278,6 +294,24 @@ export function useTestPay() {
     onSuccess: invalidate,
   });
 }
+
+/**
+ * 微信支付 —— 建单(useStartWechat)与轮询(useWechatPayStatus)。
+ *
+ * 实现真源在 `@/shared/api/wechat-pay`,这里只是**同名再导出**,让 settings 侧调用点
+ * 与 useStartAlipay 并列、写法一致。放 shared 的原因:四条支付路径里有一条
+ * (shared/components/QuotaNotifier)在 shared 下,而 shared 不能反向 import features ——
+ * 真源只能落在 shared,否则两侧各写一份必然漂移。
+ *
+ * 🔴 useStartWechat 的 body 只有 order_no / mode,**绝不传 amount**(见真源红字)。
+ */
+export {
+  useStartWechat,
+  useWechatPayStatus,
+  type WechatPayMode,
+  type WechatPayCreated,
+  type WechatPayStatus,
+} from '@/shared/api/wechat-pay';
 
 /** 对已建订单发起支付宝支付, 返回收银台 URL(由调用方跳转)。
  *  channel='wap' → 手机网站支付(移动端);省略/'pc' → 电脑网站支付(默认)。

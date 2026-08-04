@@ -1,5 +1,6 @@
 // 公开套餐(价格/倍率/赠送)+ 订阅下单流程 —— 落地价格页用。对齐 backend billing_handler.PublicPlans。
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
@@ -73,11 +74,17 @@ export function useCurrentMembership(): { tier?: 'free' | 'pro' | 'max'; cycle?:
   };
 }
 
-/** 价格页订阅:建单 + 按选定支付方式发起。测试支付→一键履约后进会员页;支付宝→跳收银台;微信→暂未开放。
+/** 价格页订阅:建单 + 按选定支付方式发起。测试支付→一键履约后进会员页;支付宝→跳收银台;
+ *  微信→关弹窗、把已建订单交给 wechatOrder(调用方渲染 `<WechatPayDialog>` 扫码)。
  *  cycle=yearly 走年度订阅(订单/权益/文案由后端按周期履约)。
- *  返回 true=已完成(关弹窗),false=保持弹窗。登录闸门在调用方(点订阅时)先做。 */
+ *  返回 true=已完成(关弹窗),false=保持弹窗。登录闸门在调用方(点订阅时)先做。
+ *
+ *  ⚠️ 调用方**必须**接上 wechatOrder / closeWechat / onWechatPaid,否则微信分支会留下
+ *  pending 孤儿订单(改造前的 bug 就是先建单再 toast「即将开放」)。 */
 export function useLandingSubscribe() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [wechatOrder, setWechatOrder] = useState<{ orderNo: string; subject: string; label: string } | null>(null);
   const sub = useMutation({
     mutationFn: async (vars: { plan: 'pro' | 'max'; cycle: BillingCycle }) =>
       (await http.post<{ data: { order_no: string; final_amount: number } }>('/user/billing/subscribe', vars)).data.data,
@@ -104,8 +111,9 @@ export function useLandingSubscribe() {
         return true;
       }
       if (method === 'wechat') {
-        toast.info('微信支付即将开放,请暂用其他方式');
-        return false;
+        // 订单已建好 —— 交给扫码弹窗,不能在这里丢下它。
+        setWechatOrder({ orderNo: order.order_no, subject: `${cycleLabel}订阅`, label: cycleLabel });
+        return true;
       }
       const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${cycleLabel}订阅` });
       window.location.href = pay.payment_url;
@@ -115,5 +123,17 @@ export function useLandingSubscribe() {
       return false;
     }
   };
-  return { subscribe, busy: sub.isPending || testPay.isPending || startAlipay.isPending };
+  return {
+    subscribe,
+    busy: sub.isPending || testPay.isPending || startAlipay.isPending,
+    wechatOrder,
+    closeWechat: () => setWechatOrder(null),
+    /** 微信支付成功 —— 与本页 test 分支同一套副作用(成功 toast + 广播 + 进会员页)。 */
+    onWechatPaid: () => {
+      toast.success(`支付成功!${wechatOrder?.label ?? '会员'}已开通`);
+      notifyBillingChanged();
+      qc.invalidateQueries({ queryKey: ['settings', 'billing'] });
+      navigate('/settings/membership');
+    },
+  };
 }

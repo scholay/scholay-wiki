@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   CalendarRange,
   Clock,
   UserPlus,
@@ -24,7 +25,9 @@ import {
   YAxis,
 } from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { Button } from '@/shared/ui/button';
 import { Checkbox } from '@/shared/ui/checkbox';
+import { toApiError } from '@/shared/lib/http';
 import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { compactAxis } from '@/shared/lib/chart-format';
 import { chartSeriesColor, chartTheme } from '@/shared/lib/theme-bridge';
@@ -44,7 +47,11 @@ import { useUserMetrics } from '../api/user-metrics';
  */
 export function UserMetricsPanel() {
   const [days, setDays] = useState<7 | 30 | 90>(30);
-  const { data, isLoading } = useUserMetrics(days, 'day');
+  const { data, isLoading, error, refetch } = useUserMetrics(days, 'day');
+  // 四张图共用同一个 query —— 一挂全挂。error 必须传下去:否则四张图会渲染
+  // 「窗口内暂无注册 / 活跃记录」「该窗口内无登录记录」这类**肯定的业务结论**,
+  // 而真相是接口没回来。运营据此汇报"这周一个新用户都没有"是可能发生的。
+  const retry = () => void refetch();
 
   return (
     <section className="mb-6 space-y-3">
@@ -58,6 +65,8 @@ export function UserMetricsPanel() {
           icon={UserPlus}
           title={`注册量 · 活跃用户 · 最近 ${days} 天`}
           loading={isLoading}
+          error={error}
+          onRetry={retry}
           hint="面积=当日新注册;折线=当日去重活跃用户(打开即活跃,不含注册当天)。两者共用同一纵轴,可勾选下方开关单看某条"
           stat={
             data ? (
@@ -76,7 +85,7 @@ export function UserMetricsPanel() {
           )}
         </ChartCard>
 
-        <ChartCard icon={Activity} title="注册渠道占比" loading={isLoading}>
+        <ChartCard icon={Activity} title="注册渠道占比" loading={isLoading} error={error} onRetry={retry}>
           {data && data.sources.length > 0 ? (
             <SourcesDonut data={data.sources} />
           ) : (
@@ -84,7 +93,7 @@ export function UserMetricsPanel() {
           )}
         </ChartCard>
 
-        <ChartCard icon={Clock} title="24h 活跃时段分布" loading={isLoading}>
+        <ChartCard icon={Clock} title="24h 活跃时段分布" loading={isLoading} error={error} onRetry={retry}>
           {data && data.hourly_activity.length > 0 ? (
             <HourlyBarChart data={data.hourly_activity} />
           ) : (
@@ -92,7 +101,7 @@ export function UserMetricsPanel() {
           )}
         </ChartCard>
 
-        <ChartCard icon={CalendarRange} title="MAU · 最近 12 个月" loading={isLoading}>
+        <ChartCard icon={CalendarRange} title="MAU · 最近 12 个月" loading={isLoading} error={error} onRetry={retry}>
           {data && data.mau_trend.length > 0 ? (
             <MAULine data={data.mau_trend} />
           ) : (
@@ -144,6 +153,8 @@ function ChartCard({
   hint,
   stat,
   loading,
+  error,
+  onRetry,
   children,
 }: {
   icon: LucideIcon;
@@ -152,8 +163,18 @@ function ChartCard({
   /** 标题右侧的「本区间总量」等小统计(可选)。 */
   stat?: React.ReactNode;
   loading?: boolean;
+  /**
+   * query 的 error —— **必须透传**。不传的话请求失败时 data 是 undefined,
+   * 会和"窗口内真的没数据"一样落进 `<Empty/>`,图表区就写着
+   * 「窗口内暂无注册 / 活跃记录」—— 一个肯定的业务结论,而事实是接口挂了。
+   */
+  error?: unknown;
+  onRetry?: () => void;
   children?: React.ReactNode;
 }) {
+  // 顺序:error 先于 loading —— react-query 自动重试期间 isLoading/isFetching 会再次为 true,
+  // 若 loading 先判,失败会被骨架屏永久盖住。
+  const errMsg = error ? toApiError(error).message || '加载失败' : null;
   return (
     <div className="rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -161,9 +182,29 @@ function ChartCard({
           <h3 className="text-14 font-medium text-foreground">{title}</h3>
           {hint && <p className="mt-0.5 text-12 text-faint">{hint}</p>}
         </div>
-        {stat ?? <Icon className="size-3.5 shrink-0 text-faint" />}
+        {errMsg ? (
+          <AlertTriangle className="size-3.5 shrink-0 text-brand-red" />
+        ) : (
+          stat ?? <Icon className="size-3.5 shrink-0 text-faint" />
+        )}
       </div>
-      <div className="h-52">{loading ? <Skeleton className="h-full w-full" /> : children}</div>
+      <div className="h-52">
+        {errMsg ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+            <span className="text-12 text-brand-red">加载失败:{errMsg}</span>
+            <span className="text-12 text-faint">这不代表窗口内没有数据。</span>
+            {onRetry && (
+              <Button variant="outline" size="sm" onClick={onRetry}>
+                重试
+              </Button>
+            )}
+          </div>
+        ) : loading ? (
+          <Skeleton className="h-full w-full" />
+        ) : (
+          children
+        )}
+      </div>
     </div>
   );
 }

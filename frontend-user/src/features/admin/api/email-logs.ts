@@ -46,5 +46,8 @@ export function useEmailLogs(params: EmailLogParams) {
         stats: r.data.data.stats ?? { total: 0, success: 0, failed: 0 },
       };
     },
+    // 典型用法是「让用户再点一次发送验证码,我盯着这页看有没有记录进来」——
+    // 全局 refetchOnWindowFocus 关着,不自动重取就只能整页 F5。
+    refetchInterval: 30_000,
   });
 }

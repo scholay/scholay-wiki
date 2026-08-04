@@ -170,6 +170,12 @@ func (h *Handler) HandleVerification(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "加载配置失败,请稍后重试")
 		return
 	}
+	// 还没配置过 —— 没有 token 就无从验签,直接拒;不能往下走(config 是 nil,解引用会 panic)
+	if config == nil {
+		slog.Warn("wechat oa: verification hit but config not set up yet")
+		c.String(http.StatusServiceUnavailable, "公众号尚未配置")
+		return
+	}
 
 	// Verify signature
 	if h.service.VerifySignature(signature, timestamp, nonce, config.Token) {
@@ -189,6 +195,12 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 	if err != nil {
 		slog.Error("wechat oa: load config for POST verify failed", "err", err)
 		c.String(http.StatusInternalServerError, "加载配置失败")
+		return
+	}
+	// 同 HandleVerification:没配置过就没有 token,解引用会 panic,且此时任何消息都不该被处理
+	if config == nil {
+		slog.Warn("wechat oa: message received but config not set up yet", "ip", c.ClientIP())
+		c.String(http.StatusServiceUnavailable, "公众号尚未配置")
 		return
 	}
 	if !h.service.VerifySignature(c.Query("signature"), c.Query("timestamp"), c.Query("nonce"), config.Token) {
@@ -340,6 +352,13 @@ func (h *Handler) GetConfig(c *gin.Context) {
 	config, err := h.service.GetConfig()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "加载配置失败,请稍后重试")
+		return
+	}
+	// 「还没配置过」返回一份空配置而不是错误 —— 与 config/handler_email_sms.go 的
+	// email/sms 口径一致。后台的表单需要能渲染出来,管理员才做得了首次配置;
+	// 回 500 的话前端的"加载失败就不渲染表单"守卫会把首次配置彻底堵死。
+	if config == nil {
+		utils.SuccessResponse(c, http.StatusOK, "success", &WeChatOfficialConfig{})
 		return
 	}
 
