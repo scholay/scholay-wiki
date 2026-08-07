@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserLibraryPaper } from '@/shared/api/types';
+import { toApiError } from '@/shared/lib/http';
 import {
   uploadAndResolveStream,
   useConfirmUploadJob,
@@ -15,7 +16,7 @@ import {
   footerGhostCn,
   footerPrimaryCn,
 } from '../shared/dialog-chrome';
-import { validateFile } from '../shared/validate-pdf';
+import { checkPdfFile, pdfCheckErrorText } from '../shared/validate-pdf';
 import type { WizardStep } from './types';
 import { PdfUploadEntry } from './PdfUploadEntry';
 import { PdfUploadInspecting } from './PdfUploadInspecting';
@@ -53,15 +54,24 @@ export function PdfUploadTab({
   const [step, setStep] = useState<WizardStep>({ kind: 'upload' });
   const [parsedMeta, setParsedMeta] = useState<ParsedEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** 降级警告(如扫描件读不出文字)—— 与 error 分开:它不打回第一步,配色也不同 */
+  const [warning, setWarning] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const confirmMut = useConfirmUploadJob();
   const folderId = typeof currentFilter === 'number' ? currentFilter : undefined;
   const saving = confirmMut.isPending;
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // 错误条渲染在这块 overflow-y-auto 区域的所有内容**之后** —— decide 步候选多时
+  // 它会落在视口外,用户的体感是"点了没反应"。出错就把它滚进视口。
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [error]);
 
   const cancelAndClose = () => {
     abortRef.current?.abort();
@@ -71,12 +81,20 @@ export function PdfUploadTab({
   // ──────────────────────────────────────────────────────────────────────────
   // 上传 → SSE 流
   // ──────────────────────────────────────────────────────────────────────────
-  const startUpload = (file: File) => {
-    if (!validateFile(file, setError)) return;
+  // async:magic bytes 预检要读文件前 5 字节
+  const startUpload = async (file: File) => {
+    const check = await checkPdfFile(file);
+    if (!check.ok) {
+      setError(pdfCheckErrorText(check));
+      return;
+    }
+    // 放行但有事要说(如文件名会被截短)—— 警告不打断流程,不占错误条
+    if (check.warning) toast.warning(check.warning);
     setError(null);
     setParsedMeta(null);
     setStep({ kind: 'parsing', file, phase: 'uploading' });
 
+    setWarning(null);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
@@ -97,6 +115,10 @@ export function PdfUploadTab({
             hits = e.payload.papers ?? [];
             setStep({ kind: 'parsing', file, phase: 'done' });
             break;
+          case 'warn':
+            // 降级提示 —— 流程继续,不动 step,不占错误条
+            setWarning(e.payload.message);
+            break;
         }
       },
     })
@@ -110,8 +132,9 @@ export function PdfUploadTab({
           setStep({ kind: 'upload' });
           return;
         }
-        const msg = err instanceof Error ? err.message : '解析失败';
-        setError(msg);
+        // 同 PdfPanel:上传/解析流抛的可能是 toApiError 的对象字面量(instanceof 恒 false),
+        // 也可能是流内部 throw 的真 Error —— toApiError 幂等,两种都能拿到 message。
+        setError(toApiError(err).message || '解析失败');
         setStep({ kind: 'upload' });
       });
   };
@@ -132,7 +155,9 @@ export function PdfUploadTab({
       {
         onSuccess: (r) => onCreated(r.paper, r.merged),
         onError: (err: unknown) => {
-          setError(err instanceof Error ? err.message : '保存失败,请检查网络后重试');
+          // 原来兜底文案写死"请检查网络" —— 但这一步的失败绝大多数与网络无关
+          // (job 过期 / 存储故障 / 文献集到上限),把真实 message 透出来。
+          setError(toApiError(err).message || '保存失败,请重试');
         },
       }
     );
@@ -195,8 +220,18 @@ export function PdfUploadTab({
           }}
         />
 
+        {warning && !error && (
+          <div className="mt-3 flex items-start gap-2 rounded-8 bg-brand-amber-soft border border-brand-amber/20 px-3 py-2">
+            <AlertTriangle className="size-3.5 text-brand-amber shrink-0 mt-0.5" />
+            <span className="text-12 text-muted-foreground">{warning}</span>
+          </div>
+        )}
+
         {error && (
-          <div className="mt-3 px-3 py-2 rounded-8 bg-danger-soft text-12 text-brand-red">
+          <div
+            ref={errorRef}
+            className="mt-3 px-3 py-2 rounded-8 bg-danger-soft text-12 text-brand-red"
+          >
             {error}
           </div>
         )}

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "statkit"
+version = "0.1.0"
+description = "Scholay 数据分析引擎:方法卡注册表 + 确定性守门 + 交付层"
+requires-python = ">=3.11"
+# 🔴 刻意留空:全部依赖(numpy/pandas/scipy/statsmodels/scikit-posthocs/PyYAML/Jinja2/seaborn)
+#    都由 Debian apt 或上一层 pip 提供,且构建期断言已钉死「pip 不得顶掉 Debian 的 numpy/pandas」。
+#    在这里声明 dependencies 会让 `pip install ./stat-kit` 去解依赖、可能拉一份自己的 numpy ——
+#    那正是 agent/Dockerfile 那条断言要防的事。安装时必须配 `--no-deps`。
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["statkit*"]
+
+[tool.setuptools.package-data]
+statkit = ["cards/**/*.yaml", "cards/**/*.yml"]

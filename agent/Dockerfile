@@ -68,13 +68,67 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 单独一层(实测 +130MB),别合进上面的大层(整层重装 Docker Desktop 易 OOM,同 sci_draw 层的理由)。
 # 运行期是断网 bwrap 沙箱 + /usr 只读,pip/apt 都不可用 → 依赖必须构建期就位。
 # pip 装到 /usr/local/lib/python3.*/dist-packages,已在 bwrap 的 `--ro-bind /usr /usr` 覆盖内(已实测)。
+# ⚠️ 2026-08-05「数据分析」能力(方案 R · 方法卡注册表)追加四项,四项都在本层、不新开层:
+#   · python3-yaml    —— 方法卡/policy/system 全是 YAML,**是方案 R 的地基**。2026-08-05 容器实测
+#                        `import yaml` 是 ModuleNotFoundError:四份设计稿把 YAML 注册表当成整个架构的
+#                        立论基础,却没有一份实测过它能不能 import。属 P0 硬 DOA,必须在第一层就位。
+#   · python3-jinja2  —— Results/Methods 段模板插值(数字从 bundle 取值填模板,文字里的数字物理上不
+#                        经模型手)。同样实测 MISS。
+#   · python3-seaborn —— **不是为画图装的**:是 scikit-posthocs 的包级依赖。显式用 apt 装 = 让 pip
+#                        找到已满足的依赖而不去 PyPI 拉一份自己的(那份会连带拖 numpy/pandas,正是下方
+#                        断言要防的事)。同 scipy 那条的理由:传递依赖必须显式声明,否则静默漂移。
+#   · scikit-posthocs —— PyPI only,走 pip。**发布版 0.14.0 的实际导出面**(2026-08-05 逐名核对
+#                        v0.14.0 tag 的 __init__.py,并由下方断言在构建期机械复核):
+#                        ✅ 有 —— `_grouping.compact_letter_display`(a/b/c 显著性字母标记这张王牌:
+#                           吃任意 posthoc_* 的 p 值矩阵,原生 52 字母 = a-z 再 A-Z 即「大小写双水平」,
+#                           Piepho 2004 sweep-and-absorb 等价算法)· `posthoc_dunn` / `conover` /
+#                           `dscf` / `nemenyi` / `tamhane` / `scheffe` / `tukey` / `tukey_hsd` / `dunnett`
+#                           + Friedman 一族。
+#                        ❌ 没有 —— `posthoc_duncan`(D-09 农学/食品默认)· `posthoc_games_howell`
+#                           (D-11 方差不齐时的默认)· `dunnett_t3` / `lsd` / `snk`。
+#                           这几个**只存在于 GitHub master,从未进发布版** ⇒ 必须自写(scipy 的
+#                           `stats.studentized_range` 提供 q 分布,Duncan 与 Games-Howell 各约 60-80 行)。
+#                        🔴 **本条是踩出来的**:先读 master 分支源码看到 `posthoc_duncan` 就以为有,
+#                           构建期断言当场 ImportError。**读 GitHub master ≠ 发布版有** —— 涉及
+#                           「某库有没有某函数」的结论,一律以 tag/发布产物为准,并让构建期断言复核。
+# 版本钉死同上游策略;scikit-posthocs 0.14.0 requires_python >=3.9,依赖 numpy/scipy>=1.9/statsmodels/
+# pandas/seaborn/matplotlib —— 全部已由 Debian 提供且版本满足,pip 不应重装任何一个,由下方断言机械保证。
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3-scipy python3-statsmodels python3-sklearn python3-pip \
+        python3-scipy python3-statsmodels python3-sklearn \
+        python3-yaml python3-jinja2 python3-seaborn python3-pip \
     && pip3 install --break-system-packages --no-cache-dir --root-user-action=ignore \
-        -i https://mirrors.aliyun.com/pypi/simple/ lifelines==0.30.3 \
-    && apt-get purge -y python3-pip && apt-get autoremove -y \
+        -i https://mirrors.aliyun.com/pypi/simple/ lifelines==0.30.3 scikit-posthocs==0.14.0 \
     && rm -rf /var/lib/apt/lists/* \
-    && python3 -c "import numpy,scipy,pandas,matplotlib,statsmodels,sklearn,lifelines; assert numpy.__file__.startswith('/usr/lib/python3/dist-packages'), 'pip clobbered Debian numpy: '+numpy.__file__; print('stats engines OK', statsmodels.__version__, sklearn.__version__, lifelines.__version__)"
+    && python3 -c "\
+import numpy,scipy,pandas,matplotlib,seaborn,statsmodels,sklearn,lifelines,yaml,jinja2,scikit_posthocs;\
+from scikit_posthocs import posthoc_dunn, posthoc_conover, posthoc_dscf, posthoc_tamhane, posthoc_scheffe, posthoc_tukey, posthoc_dunnett, compact_letter_display;\
+from scipy.stats import studentized_range;\
+import scikit_posthocs as _skp;\
+[__import__('sys').exit('scikit-posthocs 发布面变了: 现在有 '+n+',自写实现应改为库调用并更新本注释') for n in ('posthoc_duncan','posthoc_games_howell','posthoc_dunnett_t3','posthoc_lsd','posthoc_snk') if hasattr(_skp,n)];\
+DEB='/usr/lib/python3/dist-packages';\
+[__import__('sys').exit('pip clobbered Debian '+m.__name__+': '+str(m.__file__)) for m in (numpy,scipy,pandas,matplotlib,seaborn,yaml) if not str(m.__file__).startswith(DEB)];\
+print('stats engines OK', statsmodels.__version__, sklearn.__version__, lifelines.__version__, scikit_posthocs.__version__, yaml.__version__)"
+
+# ── statkit:数据分析引擎(方案 R · 方法卡注册表)────────────────────────────────
+# 🔴 **刻意独立一层,且放在 pip purge 之前**:上一层(apt + lifelines + scikit-posthocs)实测 796s,
+#    而 statkit 在 P0 期间几乎每天都改。合进上一层 = 每次改引擎重装 130MB 依赖;
+#    放到 purge 之后 = 没有 pip 可用装不了。故顺序必须是「装依赖 → 装 statkit → purge pip」。
+#
+# `--no-deps` 是硬要求:statkit 的 pyproject 刻意把 dependencies 留空(numpy/pandas/scipy/
+# statsmodels/scikit-posthocs/PyYAML/Jinja2 全由上一层提供),但仍要 --no-deps 兜底 ——
+# 一旦 pip 去解依赖就可能拉一份自己的 numpy,那正是上一层那条断言在防的事。
+#
+# 构建期两道闸,不过不出镜像:
+#   ① `run_tests.py` —— 19 条,含「引擎代码里不得出现卡片 id」(方案 R 立论的唯一硬证据)
+#      与它的阳性对照(防豁免把护栏掏空);
+#   ② `doctor --strict` —— 卡片能加载 / 出处可及(primary 不得是纸质)/ golden 非空 /
+#      缺库方法被大声列出。
+COPY stat-kit /tmp/stat-kit
+RUN pip3 install --break-system-packages --no-cache-dir --no-deps --root-user-action=ignore /tmp/stat-kit \
+    && python3 /tmp/stat-kit/run_tests.py \
+    && python3 -m statkit doctor --strict \
+    && rm -rf /tmp/stat-kit \
+    && apt-get purge -y python3-pip && apt-get autoremove -y
 
 # 科研绘图(sci_draw)分子结构图运行时:RDKit。SMILES → 确定性 2D 结构图(MolDraw2DSVG,零幻觉),
 # 药物/化学分子结构走它、不交给模型手画。单独一层(rdkit 较大);apt 走上面已设阿里云镜像;运行期断网可用。
@@ -119,11 +173,31 @@ RUN cd /opt/bolt-slides \
 # 避免只 COPY package.json 时按 caret 现场解析导致「构建即漂移/不可复现」(旧行为漏了 lock → 见
 # minicod 对齐审计 #14)。lock 与 package.json 不一致时 --frozen-lockfile 会 fail-fast 而非静默重解析。
 COPY package.json bun.lock ./
+# 🔴 走 npmmirror 源:与本文件里 apt(阿里云)/ pip(阿里云 PyPI)同一条策略 ——
+#    此前**唯独 bun 直连 npm 官方源**,2026-08-05 实测连续四次栽在
+#    `error: Fail extracting tarball for "cytoscape-fcose"`(清 builder 缓存也无效),
+#    而同一次构建里 apt 与 pip 层全绿。症状与 memory 里那条 clash fake-ip 的
+#    apt 超时同型:大包在这条链路上拉不完整。
+#    `--frozen-lockfile` 保持不变 —— 换源只换下载地址,版本仍由 bun.lock 钉死,不引入漂移。
+ENV BUN_CONFIG_REGISTRY=https://registry.npmmirror.com
 RUN bun install --frozen-lockfile
 
 # source
 COPY tsconfig.json ./
 COPY src ./src
+
+# 🔴 构建期类型检查 —— 不过不出镜像。
+#
+# 为什么这一行值得单独存在:`typecheck` 脚本本来就在 package.json 里,但**没有任何执行点**
+# (不在 Dockerfile、不在 git 钩子、不在任何脚本),等于写了没人跑。
+# 2026-08-05 浏览器端到端测试实测的后果:`StatRun` 工具体内误用了一个不存在的函数 `toolText`,
+# bun 运行期直到**模型真的调用该工具**才抛 `toolText is not defined` —— 前面
+# tsc / 单测 / 构建 / 起栈全绿,工具却从未成功执行过一次。
+# 而 `tsc --noEmit` 一行就能抓:`TS2304: Cannot find name 'toolText'`(已实测)。
+#
+# 这类错误的特征是**只在真实调用路径上才暴露**,而 executor 工具恰恰最难被单测覆盖
+# (要真 jail、真子进程)。把类型检查钉在构建期,是成本最低的一道。
+RUN bunx tsc --noEmit
 
 ENV PORT=3456
 ENV NODE_ENV=production

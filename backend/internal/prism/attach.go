@@ -77,14 +77,16 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"code": 503, "message": "附件功能未启用"})
 		return
 	}
-	sessionID, _, ok := h.attachSession(c)
+	sessionID, uid, ok := h.attachSession(c)
 	if !ok {
 		return
 	}
-	att, err := h.uploader.UploadToSession(c, sessionID)
+	// uid 是附件行的归属列(0112):prism 的**会话**归属是 project,但**上传的人**永远是
+	// 一个已鉴权自然人,附件表按 user_id 归属(删号级联 / per-user 配额都靠它)。
+	att, err := h.uploader.UploadToSession(c, uid, sessionID)
 	if err != nil {
-		// UploadToSession 的错误是面向用户的校验反馈(类型不支持 / 超限),原样回显。
-		utils.SafeError(c, codeAttachFailed, err)
+		// 同 claw:配额满走 7010(前端弹附件管理),其余原样回显。
+		agentattach.RespondUploadError(c, codeAttachFailed, err)
 		return
 	}
 	utils.Success(c, att)

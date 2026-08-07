@@ -15,6 +15,7 @@ import { toolPermitted } from "../policy/featurePolicy.ts";
 import { capToolResult } from "./resultCap.ts";
 import { ingest as ingestEvidence, annotate as annotateEvidence } from "../evidence/ledger.ts";
 import { log } from "../obs/log.ts";
+import { isTurnStart } from "./window.ts";
 import type { EventSink, TurnInput } from "./types.ts";
 
 interface ToolUse {
@@ -28,6 +29,11 @@ export async function runTools(
   input: TurnInput,
   sink: EventSink,
   signal?: AbortSignal,
+  /** 本轮生效的 model id。turnLoop 已经解析过(modelOverride ?? resolveTier(tier)),
+   *  这里**接过来**而不是再解析一遍 —— 两处各算一份就会有对不上的那天。
+   *  目前唯一消费者是 StatRun:ICMJE 披露要求分析用 AI 写进 Methods(含工具与版本),
+   *  而此前交付物只披露 statkit、一个字不提大模型。 */
+  model?: string,
 ): Promise<Anthropic.ToolResultBlockParam[]> {
   // 用户 stop 后,进行中的工具批直接短路成 aborted(否则串行工具会一路跑完,stop 形同虚设)。
   if (signal?.aborted) {
@@ -36,7 +42,7 @@ export async function runTools(
   // MCP / parallelSafe built-in 可并发;非 parallelSafe(write/edit/bash)串行,保顺序与互斥。
   const allParallel = toolUses.every((tu) => isMcpTool(tu.name) || builtinRegistry.get(tu.name)?.parallelSafe);
   if (allParallel) {
-    return Promise.all(toolUses.map((tu) => runOne(tu, input, sink)));
+    return Promise.all(toolUses.map((tu) => runOne(tu, input, sink, model)));
   }
   const out: Anthropic.ToolResultBlockParam[] = [];
   for (const tu of toolUses) {
@@ -45,12 +51,13 @@ export async function runTools(
       out.push(errResult(tu.id, "aborted", sink, "已停止"));
       continue;
     }
-    out.push(await runOne(tu, input, sink));
+    out.push(await runOne(tu, input, sink, model));
   }
   return out;
 }
 
-async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<Anthropic.ToolResultBlockParam> {
+async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink,
+                      model?: string): Promise<Anthropic.ToolResultBlockParam> {
   // 第二道墙:执行器绝不跑控制面 denylist / 结构规则拒绝的工具
   if (!toolPermitted(tu.name, input)) {
     return errResult(tu.id, "tool not permitted: " + tu.name, sink, "该操作暂不可用,已跳过。");
@@ -96,6 +103,7 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
         net: input.net,
         addDirs: input.addDirs ?? [], // Skill 工具据此定位 guides/<name>/SKILL.md
         turn: turnOf(input), // read_mark 用;与 ledger.ingest 同源,避免两处各算一份而对不上
+        model,
       });
       content = r.content;
       isError = r.isError;
@@ -140,9 +148,12 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
 // turnOf:本轮在会话里的序号 —— 执行器无状态,只能从后端喂来的 messages 里数 user 条数。
 // ⚠️ window/compact 会裁历史 → 这个值可能回退,故账本侧再做一次单调化(ledger.ingest),
 //    且账本的**顺序真源是 id 的追加序**,turn 只作展示。别把它当主键用。
+// ⚠️ 2026-08-08:必须用 isTurnStart 而不是 `m.role === "user"` —— 回填的 tool_result 消息也是
+//    role:user,裸数 user 会把「一轮里的每批工具结果」各记一轮。热路径一直在多数;冷路径此前因为
+//    历史被折成纯文本而**碰巧对**,结构还原后两条路径口径统一到 isTurnStart。
 function turnOf(input: TurnInput): number {
   let n = 0;
-  for (const m of input.messages ?? []) if (m.role === "user") n++;
+  for (const m of input.messages ?? []) if (isTurnStart(m)) n++;
   return n;
 }
 

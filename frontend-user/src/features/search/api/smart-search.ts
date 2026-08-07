@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react
 import { useAgentSocket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
 import type { AgentClaimAudit, AgentErrorFrame, AgentDisplacedFrame } from '@/shared/lib/agent-stream';
 import { http, toApiError } from '@/shared/lib/http';
+import { attachmentUrl } from '@/shared/lib/agent-attachment';
 import type { AttachmentDTO, ReferenceItemDTO } from '@/shared/types/chat';
 import { useAuthStore } from '@/stores/auth.store';
 import {
@@ -405,12 +406,18 @@ export function useSmartSearchSocket(sessionId: string | null): UseSmartSearchSo
 }
 
 /** 历史回放/已发送气泡里图片取图代理 URL(cookie 鉴权,<img src> 直接用,标签发不了 Bearer)。
- *  path 取 basename(上传文件落会话 cwd 根,agent 侧再校验越界)。同 claw 的 clawSessionFileUrl。 */
+ *  path 取 basename(上传文件落会话 cwd 根,agent 侧再校验越界)。
+ *  claw / boltslides / sci_draw / stat_lab 的同款实现在 hooks/makeAgentConversationHook.ts 的
+ *  `sessionFileUrl`(它们各自 hook 文件里那四份具名导出已于 2026-08-07 删除,零 import 且拼老 URL)。 */
 export function smartSearchSessionFileUrl(sessionId: string, absPath: string): string {
+  // 0112 起优先走 feature 无关的统一附件端点(字节在 MinIO,与会话工作区是否还在无关)。
+  // 老代理 URL 随 ?fb= 一起送:存量附件同样剥得出 UUID,前端分辨不了它有没有 DB 行,
+  // 由后端在查不到行时 302 交还给老代理(该路由保留不删)。
   const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
   const base = absPath.split('/').pop() || absPath;
   const qs = new URLSearchParams({ session_id: sessionId, path: base });
-  return `${apiBase}/user/smart-search/session/file?${qs.toString()}`;
+  const legacy = `${apiBase}/user/smart-search/session/file?${qs.toString()}`;
+  return attachmentUrl(absPath, legacy) ?? legacy;
 }
 
 // ─── 未发送(命中额度被拦 / 投递失败)消息的持久化 ─────────────────────────────

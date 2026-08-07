@@ -134,6 +134,10 @@ func (s *Service) DeleteProject(ctx context.Context, proj *Project) error {
 		if items, lerr := s.feature.ListOwnerSessions(ctx, "project", uint64(proj.ID)); lerr == nil {
 			for _, it := range items {
 				s.deleteSessionBestEffort(it.SessionID) // 逐条释放 agent 端 workspace,不留孤儿
+				// 附件(0112):这条删除路径**不经** DeleteSessionByID(项目级会话过不了它的
+				// 用户级归属校验),所以 Bridge 内部那个清理钩子在这里不会被触发 —— 不显式调
+				// 一次,用户删掉整个项目后附件行仍活着、继续占他的 per-user 额度。
+				s.feature.CleanSessionData(ctx, it.SessionID)
 			}
 		}
 		_ = s.feature.UnbindOwnerSession("project", uint64(proj.ID)) // 清所有 owner=project 映射行

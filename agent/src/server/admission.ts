@@ -8,7 +8,15 @@
 // 不排队 —— 排队会让请求连同其连接/半成品状态堆在内存里,与「限内存」初衷相悖;即刻拒 + 客户端重试是干净的背压。
 // 标题生成 / 记忆抽取 / math / mermaid 等旁路负载不占此配额(它们各有自己的串行队列或属轻量旁路)。
 //
-// 阈值按容器内存标定:1.5G ≈ 2;若把 compose 内存上限提到 3-4G,同步调大 EXECUTOR_MAX_CONCURRENT_TURNS。
+// 阈值按容器内存标定:1.5G ≈ 2。
+//
+// ⚠️ 2026-08-05 更正上一句原本的「若把内存上限提到 3-4G,同步调大 EXECUTOR_MAX_CONCURRENT_TURNS」——
+//    prod 内存确已上调到 4G(docker-compose.prod.yml,为「数据分析」的 statkit 子进程留位),但
+//    **并发槽刻意维持 2,没有调大**。两者约束的不是同一件事:
+//      · 本槽约束「同时几条 turn」—— 每条 turn 的常驻峰值 ~765MiB(LLM 流式 + 上下文);
+//      · 统计计算另有 **StatRun 信号量 = 1** 约束「同时几个吃内存的统计子进程」(~800MB/个)。
+//    4G 的预算是 2×765MiB + 1×800MB + 头。把本槽提到 4 = 允许 4 个 statkit 同时跑 = 3.2G 只喂统计,
+//    又回到「OOM 杀整容器、连坐所有租户」的老路。**改这个数之前先算这道题。**
 
 const MAX_CONCURRENT_TURNS = Math.max(1, Number(process.env.EXECUTOR_MAX_CONCURRENT_TURNS || 2));
 

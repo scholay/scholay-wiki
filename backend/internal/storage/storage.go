@@ -55,6 +55,7 @@ type Config struct {
 	BucketPrism               string
 	BucketFeatureTools        string
 	BucketAgentArtifacts      string
+	BucketAgentAttachments    string
 	BucketSkillBundles        string
 	UseSSL                    bool
 }
@@ -99,24 +100,10 @@ func Init(cfg Config) error {
 		if err := ensureBucket(ctx, c, cfg.BucketPaperPDFs); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketPaperPDFs, err)
 		}
-		// Tier 2 防游离文件 —— 给 PDF bucket 挂"tmp/ 24h 自动过期"规则。
-		// MinIO ILM 后台自己扫,前后端零代码参与;用户上传后中途关浏览器 / 断网 /
-		// 忘了 confirm 这类高频孤立场景由它兜得稳。失败只 warn:lifecycle 不生效
-		// 不阻塞 backend 启动(还有 Tier 1 + Tier 3 兜底)。
-		if err := ensureTmpLifecycle(ctx, c, cfg.BucketPaperPDFs); err != nil {
-			slog.Warn("storage: 设置 tmp 生命周期规则失败,跳过(Tier 1 仍生效)",
-				"bucket", cfg.BucketPaperPDFs, "err", err)
-		}
 	}
 	if cfg.BucketFeedbackAttachments != "" {
 		if err := ensureBucket(ctx, c, cfg.BucketFeedbackAttachments); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketFeedbackAttachments, err)
-		}
-		// 反馈附件 bucket 同样挂 "tmp/ 24h 过期" lifecycle —— 用户填表中途关浏览器,
-		// 已上传但未绑定 feedback_id 的对象在 ~25h 内被清,业务侧 cleanup task 兜底其它情况。
-		if err := ensureTmpLifecycle(ctx, c, cfg.BucketFeedbackAttachments); err != nil {
-			slog.Warn("storage: 设置 feedback tmp 生命周期规则失败",
-				"bucket", cfg.BucketFeedbackAttachments, "err", err)
 		}
 	}
 	if cfg.BucketPrism != "" {
@@ -129,12 +116,20 @@ func Init(cfg Config) error {
 		if err := ensureBucket(ctx, c, cfg.BucketPeerReviewAssets); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketPeerReviewAssets, err)
 		}
-		// 审稿稿件 bucket 也走 tmp/ 24h ILM —— 用户在 wizard 中途关浏览器,
-		// 上传后没走到 submit 的文件在 ~25h 内被清。submit 时 service 层把对象
-		// 从 tmp/<draftId>/ 移动(实际就是 copy + delete)到 submitted/<id>/。
-		if err := ensureTmpLifecycle(ctx, c, cfg.BucketPeerReviewAssets); err != nil {
-			slog.Warn("storage: 设置 peer-review tmp 生命周期规则失败",
-				"bucket", cfg.BucketPeerReviewAssets, "err", err)
+	}
+
+	// tmp/ 24h ILM 的挂载 / 摘除:哪些桶该挂由 TmpILMBuckets 一处判定(理由见那里),
+	// 摘除清单见 TmpILMRevokedBuckets。失败只 warn —— ILM 是兜底手段,不该阻塞启动。
+	for _, b := range TmpILMBuckets(cfg) {
+		if err := ensureTmpLifecycle(ctx, c, b); err != nil {
+			slog.Warn("storage: 设置 tmp 生命周期规则失败,跳过(业务侧删除路径仍生效)",
+				"bucket", b, "err", err)
+		}
+	}
+	for _, b := range TmpILMRevokedBuckets(cfg) {
+		if err := removeTmpLifecycle(ctx, c, b); err != nil {
+			slog.Warn("storage: 摘除 tmp 生命周期规则失败(该桶仍有对象被自动过期的风险)",
+				"bucket", b, "err", err)
 		}
 	}
 
@@ -147,6 +142,16 @@ func Init(cfg Config) error {
 	if cfg.BucketAgentArtifacts != "" {
 		if err := ensureBucket(ctx, c, cfg.BucketAgentArtifacts); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketAgentArtifacts, err)
+		}
+	}
+	// agent 输入框附件桶(0112):**刻意不挂任何 lifecycle**。
+	// 这里的对象是用户上传的原始数据 —— 正是耐久化方案要保护的东西本身。回收只由三条
+	// 显式路径触发:用户主动永久删除 / 删会话 / 删用户(见 agentattach 与 user.DeleteUser)。
+	// 桶级 ILM 会把这三条之外的语义偷偷加进来,而且没人会在删数据那天想起来它。
+	// (写下这条是因为 scholar-agent-artifacts 当年没写,今天没人分得清那是决策还是遗漏。)
+	if cfg.BucketAgentAttachments != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketAgentAttachments); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketAgentAttachments, err)
 		}
 	}
 	// skill bundle 桶:永久资源(不挂 tmp/ ILM)。存用户上传的 skill 原始 tarball(审计/归档);
@@ -184,6 +189,59 @@ func ensureBucket(ctx context.Context, c *minio.Client, bucket string) error {
 	return c.MakeBucket(ctx, bucket, minio.MakeBucketOptions{})
 }
 
+// ─── tmp/ 24h ILM:唯一判据与唯一前缀 ────────────────────────────────────────
+
+// TmpILMPrefix 是"MinIO 会自动删掉里面东西"的前缀。**只有这一个**。
+// 导出是为了让业务侧能在单元测试里钉死「我的 object_key 不在自动删除区」——
+// 2026-08 的 peer-review 事故就是这条不变式只写在注释里:注释说 submit 时会把对象搬出
+// tmp/,代码里从来没有这个动作,于是全部稿件在 24h 后被清空、DB 40 行全成死链。
+const TmpILMPrefix = "tmp/"
+
+// IsTmpILMManaged 报告 key 是否落在自动过期区。业务侧生成 object_key 时应当自测这个。
+func IsTmpILMManaged(key string) bool { return strings.HasPrefix(key, TmpILMPrefix) }
+
+// TmpILMBuckets 列出**应当**挂 tmp/ 24h 过期规则的桶。
+//
+// 判据只有一条:桶里存在「PutObject 已成功、但还没有任何 DB 行认领它」的中间态对象 ——
+// 这种对象没有任何业务代码路径会去删它,只能靠桶级 ILM 兜底。
+//   - paper PDFs:`tmp/<uid>/<jobId>.pdf` 只挂在内存 job 上,confirm 才 move 到 papers/ 并落库。
+//   - feedback:  `tmp/<uploadKey>/...` 上传即写行但 is_used=false,用户可能永不提交那张表单。
+//
+// 反过来:**对象一落地就有 DB 行引用的桶绝不能挂**。ILM 不认识 DB,它只按前缀 + 时间删,
+// 结果是把还被引用的对象删成死链。peer-review 桶就是这么丢光的(见 TmpILMRevokedBuckets)。
+//
+// ⚠️ 已知缺口(本次未修,已上报):feedback 桶满足上面的判据,但它**绑定之后 object_key 也不搬家**,
+// 于是已提交工单的附件同样在 24h 后消失 —— 管理员隔天打开工单只会拿到死链。正确修法是
+// BindAttachmentsToFeedback 时把对象提升出 tmp/(与 library 的 movePdfTmpToFinal 同形),
+// 不是把这个桶从名单里删掉(删掉会让"传了没提交"的对象永久堆积)。
+func TmpILMBuckets(cfg Config) []string {
+	var out []string
+	if cfg.BucketPaperPDFs != "" {
+		out = append(out, cfg.BucketPaperPDFs)
+	}
+	if cfg.BucketFeedbackAttachments != "" {
+		out = append(out, cfg.BucketFeedbackAttachments)
+	}
+	return out
+}
+
+// TmpILMRevokedBuckets 列出曾经挂过 tmp/ ILM、现在必须**主动摘掉**的桶。
+//
+// 为什么不能"只把 object_key 改出 tmp/ 就算了":lifecycle 规则是写在**桶**上的持久配置,
+// 不显式 Remove 就一直是 Enabled 状态。下一个往这个桶写 tmp/ 的人不会去读这段历史,
+// 会原样再踩一次同一个坑,而且同样要等 24 小时后才发现。
+func TmpILMRevokedBuckets(cfg Config) []string {
+	var out []string
+	// peer-review 稿件桶:UploadAsset 里 PutObject 成功后同一个请求就 CreateAsset 落行,
+	// 中间态窗口只有几毫秒且已由 CreateAsset 失败时的补偿删除覆盖 —— 没有 ILM 该管的东西。
+	// 而稿件本身必须活到审稿结束之后(草稿可跨天 resume、submit 后 runReviewBackground /
+	// RetryReview / 管理端下载都还要回读),挂 24h 过期等于定时删用户稿件。
+	if cfg.BucketPeerReviewAssets != "" {
+		out = append(out, cfg.BucketPeerReviewAssets)
+	}
+	return out
+}
+
 // ensureTmpLifecycle 给 bucket 挂"tmp/ 前缀对象 24h 自动过期"的 lifecycle rule。
 //
 // 幂等:同 ID 的 rule 反复 Set 不会出问题,MinIO 直接替换。
@@ -191,20 +249,31 @@ func ensureBucket(ctx context.Context, c *minio.Client, bucket string) error {
 // 通常每小时左右扫一次,过期对象在创建后 ~25h 内被清理。
 // 这个时长对"用户上传后忘了 confirm"的场景完全足够。
 func ensureTmpLifecycle(ctx context.Context, c *minio.Client, bucket string) error {
+	return c.SetBucketLifecycle(ctx, bucket, tmpLifecycleConfig())
+}
+
+// tmpLifecycleConfig 是那条规则本身(抽出来供测试直接读,规则与 TmpILMPrefix 同源不漂移)。
+func tmpLifecycleConfig() *lifecycle.Configuration {
 	cfg := lifecycle.NewConfiguration()
 	cfg.Rules = []lifecycle.Rule{
 		{
 			ID:     "scholay-tmp-uploads-24h",
 			Status: "Enabled",
 			RuleFilter: lifecycle.Filter{
-				Prefix: "tmp/",
+				Prefix: TmpILMPrefix,
 			},
 			Expiration: lifecycle.Expiration{
 				Days: 1,
 			},
 		},
 	}
-	return c.SetBucketLifecycle(ctx, bucket, cfg)
+	return cfg
+}
+
+// removeTmpLifecycle 摘掉桶上的 lifecycle 配置。
+// S3 的 DeleteBucketLifecycle 对"本来就没有规则"的桶也返回成功,所以每次启动重复调用是安全的。
+func removeTmpLifecycle(ctx context.Context, c *minio.Client, bucket string) error {
+	return c.SetBucketLifecycle(ctx, bucket, lifecycle.NewConfiguration())
 }
 
 // IsEnabled 返回当前 storage 是否可用 —— handler 层在所有 PDF 路由开头先检查。
@@ -254,6 +323,13 @@ func AgentArtifactsBucket() string {
 	mu.RLock()
 	defer mu.RUnlock()
 	return config.BucketAgentArtifacts
+}
+
+// AgentAttachmentsBucket 暴露 agent 输入框上传附件 bucket 名(耐久真源;cwd 是工作副本)。
+func AgentAttachmentsBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketAgentAttachments
 }
 
 // SkillBundlesBucket 暴露 skill 市场 bundle bucket 名。

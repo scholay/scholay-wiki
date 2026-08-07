@@ -60,3 +60,4 @@ function makeAgentSocketHook(basePath: string, displacedDefaultText: string) {
 export const useClawSocket = makeAgentSocketHook('/user/claw', '此会话已在其他窗口打开');
 export const useBoltslidesSocket = makeAgentSocketHook('/user/boltslides', '此演示稿已在其他窗口打开');
 export const useSciDrawSocket = makeAgentSocketHook('/user/sci_draw', '此绘图会话已在其他窗口打开');
+export const useStatLabSocket = makeAgentSocketHook('/user/stat_lab', '此分析会话已在其他窗口打开');

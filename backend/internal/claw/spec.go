@@ -237,10 +237,16 @@ func BuildSpec() agentbridge.FeatureSpec {
 		OnMessageComplete: onComplete,
 		// SS#2:单轮预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
 		BudgetProvider: budgetProvider,
-		// claw 会话加载 library-reference skill(--add-dir /claw-add)。DisallowedTools 留空
-		// (claw 不裁工具,Bash 由 AllowBash 单独管),仅借 SessionOptions 挂 AddDirs。
+		// claw 会话加载 library-reference skill(--add-dir /claw-add)。claw 基本不裁工具
+		// (Bash 由 AllowBash 单独管),仅借 SessionOptions 挂 AddDirs + 下面这一条 denylist。
 		SessionOptions: &agent.CreateSessionOptions{
-			AddDirs: []string{clawSkillAddDir()},
+			// 🔴 2026-08-08:builtin 工具走 **deny-list** ⇒ 2026-08 新增的 StatRun / StatReport
+			// 在发版当天就被 claw 继承了(backend permissionAllowed 对二者无条件 return true,
+			// 没有第二道闸)。统计能力是 stat_lab 这个 feature 的本体,不该由通用助手顺手继承整个
+			// statkit 面。线上调用次数目前 0,所以这是**关暴露面**,不是回滚已有能力。
+			// 要给 claw 数据分析能力就正经立项,不要靠 deny-list 的默认授予悄悄拿到。
+			DisallowedTools: []string{"StatRun", "StatReport"},
+			AddDirs:         []string{clawSkillAddDir()},
 			// MCP 正向白名单:收敛 minicod 76 工具到 claw 需要的论文/作者/期刊/片段子集(见 clawAllowedMcpTools)。
 			AllowedMcpTools: clawAllowedMcpTools,
 			// W2 P0-C 诚实性核验:claw 是 2026-07 审计的事故重灾区(编造 DOI 55 会话 / 幻影交付 17 会话),

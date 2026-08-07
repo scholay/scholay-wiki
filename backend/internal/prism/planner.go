@@ -49,19 +49,43 @@ func (s *Service) SetWritingProfileFromUser(ctx context.Context, proj *Project, 
 	return profile, nil
 }
 
-// invalidateSessionForProfile —— 画像变更后令活会话下次连接用新画像重建 seed。删 agent 会话 + 清 DB 映射
-// (+统一归属表),下次 ensureProjectSession 重建、hub seedHistoryFromJournal 重放历史并注入新画像。
-// best-effort:删失败仅意味着旧会话多活一会,不影响正确性(下次仍会重建)。
+// invalidateSessionForProfile —— 画像变更后,令活会话下次连接用新画像重建 seed。
+//
+// 🔴 2026-08-07 线上事故修复:本函数**绝不能改变 session id**。
+//
+// 旧实现除了删 executor 会话,还做了两件致命的事:
+//
+//	_ = s.repo.SetProjectSession(projectID, "")            // 清空项目指针
+//	_ = s.feature.UnbindOwnerSession("project", projectID) // 删 agent_sessions 映射行
+//
+// 于是下次 ensureProjectSession 会建一条**全新 id 的空会话**。而会话历史在 journal 里是
+// **按 session id 索引**的(agent_turns.agent_session_id)—— id 一换,旧 id 下的全部历史
+// 就再也没有任何东西指向它,对用户就是「对话历史凭空消失」。
+//
+// 旧注释写着「下次 hub seedHistoryFromJournal 重放历史并注入新画像」—— 这句话是错的:
+// seed 是按 **新** session id 去 journal 取的,当然取到 0 条。线上日志留下了铁证:
+//
+//	agentbridge hub: seeded executor history  session_id=<新id>  messages=0
+//
+// 实测代价:用户 1248 / 项目 367 丢了 4 轮全文润色(14:30–14:59);全库 **64 个 prism 会话**
+// 处于「有轮次、无映射行」的孤儿态。
+//
+// ⚠️ 这与 2026-07-18 删掉 recreateProjectSession 时记录的是**同一个 bug**(见 edit.go 那条注释:
+// 「agent 404 时应重连同一 session_id …绝不换新会话」)。那次只删掉了一个调用点,
+// 本函数在做一模一样的事却没人发现 —— 所以这次补了机械防线(planner_session_test.go)。
+//
+// 现在的做法:**只删 executor 侧的会话,不动任何 id/指针/映射**。这在架构上是充分的 ——
+// hub.seedHistoryFromJournal 的注释自陈「executor 无状态、不自持久化历史(H1)」,
+// 每次建连都会用 journal 历史 + 当前画像(spec.SessionProfile)重新 seed。
+// 也就是说「让新画像生效」这件事**本来就不需要换会话**,删 executor 会话只是让它更干净地重建。
 func (s *Service) invalidateSessionForProfile(_ context.Context, projectID uint) {
 	sid, _ := s.repo.GetProjectSession(projectID)
 	if sid == "" {
 		return
 	}
+	// best-effort:删失败仅意味着 executor 侧旧上下文多活一会,下次建连的 seed 仍会覆盖它。
 	s.deleteSessionBestEffort(sid)
-	_ = s.repo.SetProjectSession(projectID, "")
-	if s.feature != nil {
-		_ = s.feature.UnbindOwnerSession("project", uint64(projectID))
-	}
+	// 🔴 到此为止。**不要**在这里清 SetProjectSession 或 UnbindOwnerSession —— 见上方长注释。
 }
 
 // ResetProjectSession(V3-4.6-1)手动「重开会话」:真源在 DB,重开只丢对话连续性(文稿/画像/文献库零损失)。
@@ -72,8 +96,18 @@ func (s *Service) ResetProjectSession(ctx context.Context, proj *Project) error 
 	if sid != "" && s.feature != nil && s.feature.SessionBusy(sid) {
 		return ErrRoundBusy
 	}
-	s.invalidateSessionForProfile(ctx, proj.ID)
-	slog.Info("prism_session_reset", "project_id", proj.ID, "old_session", sid)
+	// 🔴 2026-08-07:这里从 invalidateSessionForProfile 改成 newConversation。
+	//
+	//    用户点「重开会话」要的是**一段不带旧上下文的新对话**(长会话撞窗的当日止血),
+	//    而不是「把上一段对话删掉」。旧实现走的是清指针 + 解绑 —— 那会让上一段对话
+	//    连同它的全部历史变成孤儿(journal 里还在,但再没有任何东西指向它)。
+	//    prism 本来就是多对话模型(owner_kind=project 可挂多条),新建一条即可:
+	//    旧对话仍然绑定、仍然出现在对话列表里,用户随时能切回去看。
+	newSID, err := s.newConversation(ctx, proj.ID, proj.UserID)
+	if err != nil {
+		return err
+	}
+	slog.Info("prism_session_reset", "project_id", proj.ID, "old_session", sid, "new_session", newSID)
 	return nil
 }
 

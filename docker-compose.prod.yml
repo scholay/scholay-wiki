@@ -257,7 +257,14 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required in prod}
       MINIO_BUCKET_PAPER_PDFS: ${MINIO_BUCKET_PAPER_PDFS:-scholar-paper-pdfs}
+      # agent 输入框上传附件(0112 耐久化)。⚠️ 其余几个桶(feedback/peer-review/prism/
+      # agent-artifacts/skill-bundles)靠 config.go 的默认值,不在这里透传;这一条显式写出来
+      # 是因为它已写进 .env.example —— 文档里有、compose 不透传 = 改了不生效的静默陷阱。
+      MINIO_BUCKET_AGENT_ATTACHMENTS: ${MINIO_BUCKET_AGENT_ATTACHMENTS:-scholar-agent-attachments}
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      # 附件孤儿对象 reaper 是否真删(默认 false = 只报告)。同上一条的理由必须显式透传:
+      # 写进了 .env.example 却不透传 = 运维照文档设了 true 却毫无效果的静默陷阱。
+      AGENT_ATTACHMENT_REAPER_DELETE: ${AGENT_ATTACHMENT_REAPER_DELETE:-false}
       # CORS 白名单 —— 生产必须列具体 origin
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required in prod}
       # Umami HTTP API 接入 —— admin /analytics 走 backend 自渲染图表
@@ -270,7 +277,7 @@ services:
       # journal 是历史唯一真源(老会话回退 agent_session_archive),必须 shadow。
       AGENT_TURN_JOURNAL: ${AGENT_TURN_JOURNAL:-shadow}
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
-      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw,stat_lab}
       # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。
       AGENT_ARCHIVE_FROM_JSONL: ${AGENT_ARCHIVE_FROM_JSONL:-/fork-data}
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
@@ -287,6 +294,8 @@ services:
       BOLT_SLIDES_SKILL_ADDDIR: ${BOLT_SLIDES_SKILL_ADDDIR:-/bolt-slides-add}
       # 科研绘图(sci_draw)会话经 --add-dir 加载绘图 skill 的目录(agent 容器内 <此处>/.claude/skills)。
       SCI_DRAW_SKILL_ADDDIR: ${SCI_DRAW_SKILL_ADDDIR:-/sci-draw-add}
+      # 数据分析 skill 注入点(spec.go 的 statLabSkillAddDir 读它;缺省 /stat-lab-add)。
+      STAT_LAB_SKILL_ADDDIR: ${STAT_LAB_SKILL_ADDDIR:-/stat-lab-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -392,6 +401,8 @@ services:
       - ./agent-skills/bolt-slides-add:/bolt-slides-add/.claude/skills:ro
       # 科研绘图(sci_draw)绘图 skill(charts / figures / molecules / slides)。
       - ./agent-skills/sci-draw-skills:/sci-draw-add/.claude/skills:ro
+      # 数据分析 skill:问诊协议 / verb 编排 / 解读口径 / 红线话术(只在 stat_lab 会话装)
+      - ./agent-skills/stat-lab-skills:/stat-lab-add/.claude/skills:ro
       # 会话工作目录持久化(跨重部署不丢 cwd / 上传文件;产物耐久真源已在 MinIO+DB)。
       - ./data/agent-sessions:/home/bun/sessions
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
@@ -422,7 +433,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G               # LLM 流式 + Bash + PDF 解析; 单会话峰值 ~765MiB, 1.5G 给并发留头
+          # 2026-08-05「数据分析」能力(方案 R)上调 1.5G → 4G。算式:并发槽 2 × 单会话峰值 ~765MiB
+          # ≈ 1.53G,**已经把 1.5G 吃光**;statkit 子进程(pandas 读表 + bootstrap 重采样)再要 ~800MB
+          # ⇒ 在 1.5G 下反算出来的可用余量是**负数**,pandas 根本没有位置。4G = 1.53G + 0.8G + 头。
+          # ⚠️ 抬内存后**不要**顺手调大 EXECUTOR_MAX_CONCURRENT_TURNS(admission.ts:11 那句注释按字面
+          #    读会误导):并发槽维持 2,统计计算另设 **StatRun 信号量 = 1**。理由是两者约束的东西不同 ——
+          #    槽约束的是「同时几条 turn」,信号量约束的是「同时几个吃内存的统计子进程」;把槽提到 4
+          #    等于允许 4 个 statkit 同时跑 = 3.2G 只给统计,又回到 OOM 杀整容器连坐所有会话的老路。
+          memory: 4G
           cpus: "2.0"
           pids: 512                  # 挡 fork 炸弹(Bash 起子进程)
         reservations:

@@ -36,6 +36,28 @@ export const DECLARED_ENGINES: ReadonlyArray<readonly [string, string]> = [
   ["sklearn", "预测建模 / 交叉验证"],
   ["lifelines", "生存分析(Kaplan-Meier / log-rank / Cox)"],
   ["openpyxl", "xlsx 精读(定位 sheet / 区域)"],
+  // ── 2026-08-05「数据分析」能力(方案 R · 方法卡注册表)追加四项 ──
+  // 前两项是方案 R 的地基:方法卡/policy/system 全是 YAML,Results/Methods 段靠模板插值。
+  // 二者在 2026-08-05 之前**都没装**(容器实测 ModuleNotFoundError),属 P0 硬 DOA,已在 Dockerfile 同层补上。
+  ["yaml", "方法卡 / policy / system 注册表读取(方案 R 的声明式真源)"],
+  ["jinja2", "Results / Methods 段模板插值(数字从 bundle 取值,不经模型手)"],
+  // seaborn 不是为画图列的:它是 scikit-posthocs 的包级依赖。显式声明 = 让 apt 标记 manually-installed,
+  // 不随上游漂移(同 scipy 那条的理由);顺带它也是统计图层的实现之一。
+  ["seaborn", "统计图层;并且是 scikit_posthocs 的包级依赖"],
+  // ⚠️ 口径必须精确到函数级,否则又是一次「声明与镜像不符」:
+  //   发布版 0.14.0 **有** compact_letter_display(a/b/c 字母标记,原生 52 字母=大小写双水平)、
+  //   posthoc_dunn / conover / dscf / nemenyi / tamhane / scheffe / tukey / tukey_hsd / dunnett + Friedman 族;
+  //   **没有** posthoc_duncan(农学/食品默认)与 posthoc_games_howell(方差不齐时的默认)——
+  //   这两个只在 GitHub master、从未进发布版,**必须自写**(scipy.stats.studentized_range 提供 q 分布)。
+  //   故 SKILL.md 里谈事后比较时不得笼统说「scikit-posthocs 全包了」。Dockerfile 有构建期断言钉死这条边界。
+  ["scikit_posthocs", "事后多重比较(Dunn/Conover/DSCF/Tamhane/Scheffé/Tukey/Dunnett)+ 字母标记 CLD"],
+  // statkit 是本仓自己的数据分析引擎(方法卡注册表 + 决策表守门 + 交付层),pip 装进 dist-packages,
+  // 由 bwrap 的 `--ro-bind /usr /usr` 覆盖。放进本清单的理由与第三方库完全一样:
+  // **它是我们对模型承诺的能力**,而承诺必须在**真 jail 内**被验证过 ——
+  // `docker exec python3 -m statkit` 全绿不等于 jail 内能跑(2026-07-21 的 libblas 事故就是这么漏的)。
+  // 注:探测只做 `import statkit`,不跑 verb —— 卡片加载的完整性由构建期 `doctor --strict` 负责,
+  // 两道闸分工不同:这里答「jail 内能不能用」,那里答「注册表合不合格」。
+  ["statkit", "数据分析引擎:前提实测 + 决策表分流 + 候选白名单(方案 R)"],
 ];
 
 // engineSupported —— 启动探测的结果真值。probeStatsEngines() 跑完前为空对象。

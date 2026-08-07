@@ -30,8 +30,8 @@ import { MessageTurn } from './MessageTurn';
 import { ClawHero, type HeroSuggestion } from './ClawHero';
 import { ScrollController } from './ScrollController';
 import { type ClawArtifact, type ArtifactBasePath } from '../../api/artifacts';
-import { ClawArtifactPreview } from '../preview/ClawArtifactPreview';
 import { ClawArtifactPanel } from '../preview/ClawArtifactPanel';
+import { artifactToggleAvailable, resolveArtifactSurface } from '../../lib/artifact-surface';
 import type { useClawConversation } from '../../hooks/useClawConversation';
 
 /** claw / boltslides 两个对话 hook 返回同构;用 claw 的作为公共类型。 */
@@ -43,7 +43,7 @@ export interface WorkspaceConfig {
   title: string;
   titleIcon: ComponentType<{ className?: string }>;
   /** 模型能力绑定 key(useUserModels)+「新对话默认模型」偏好(各 feature 独立)。 */
-  modelFeature: 'claw' | 'boltslides' | 'sci_draw';
+  modelFeature: 'claw' | 'boltslides' | 'sci_draw' | 'stat_lab';
   newConvModel: { get: () => string | undefined; set: (id: string | null) => void };
   /** 产物下载/预览端点前缀。 */
   artifactBasePath: ArtifactBasePath;
@@ -57,6 +57,8 @@ export interface WorkspaceConfig {
   autoOpenLatestArtifact?: boolean;
   /** composer 附件/引用/技能入口开关(默认 true;制作PPT 纯文本 → false)+ 占位文案。 */
   enableAttachments?: boolean;
+  /** 「引用文献」入口(默认 true)。与上传分开:数据分析收数据但不引论文,且无 /reference 端点。 */
+  enableLibraryReference?: boolean;
   composerPlaceholder?: string;
   /** ResizablePanelGroup 布局持久化 key(避免两模式互相污染栏宽)。 */
   layoutKey: string;
@@ -217,11 +219,24 @@ export function ConversationWorkspace({
 
   const artifactCount = sessionArtifacts?.length ?? 0;
   const hasArtifacts = artifactCount > 0 || !!previewArtifact;
-  // 内联出图(科研绘图):图在对话流里,永不启用右侧文档扩展区 —— 连顶栏开关也不给。
-  const rightPanelAvailable = !inlineFigures && !isNarrow;
+  // 内联出图(科研绘图):图在对话流里,永不启用扩展区 —— 连顶栏开关也不给。
+  // ⚠️ 这里**不再**把 isNarrow 算进来(2026-08-07):窄屏没有的是「分栏」,不是「扩展区」。
+  //    旧写法 `!inlineFigures && !isNarrow` 让 ≤1024 连开关都不渲染 ⇒ 窄屏用户完全看不到产物。
+  const rightPanelAvailable = artifactToggleAvailable({ inlineFigures });
   // 用户没表态时,沿用旧的「有产物就展开」;表过态就听用户的(空态也能手动打开)。
-  const rightOpen = rightOpenPref ?? hasArtifacts;
-  const showRightPanel = rightPanelAvailable && rightOpen;
+  //
+  // 🔴 窄屏的默认值刻意与桌面不同:桌面 `hasArtifacts` 默认展开是「分栏自动让出 34% 宽度」,
+  //    窄屏同样的默认值会变成「一进有产物的会话就被整屏 Sheet 糊脸、还挡住输入框」。
+  //    所以窄屏未表态 = 关,靠顶栏那颗带计数的按钮主动打开。
+  const rightOpen = rightOpenPref ?? (isNarrow ? false : hasArtifacts);
+  const surface = resolveArtifactSurface({
+    inlineFigures,
+    isNarrow,
+    open: rightOpen,
+    hasPreview: !!previewArtifact,
+  });
+  const showRightPanel = surface === 'panel';
+  const showRightSheet = surface === 'sheet';
   // 直接对当前生效值取反 —— 用 setState(prev => …) 反而要把默认策略再算一遍(prev 可能是 null)。
   // 关闭方向走 collapseRight —— 它同时清掉 previewArtifact。
   // 只翻开合而留着 previewArtifact 会有两个后果:重新展开时直接落在预览页而非列表页;
@@ -297,6 +312,9 @@ export function ConversationWorkspace({
       requireAuth={!token}
       onRequireAuth={() => openAuth('login')}
       enableAttachments={cfg.enableAttachments ?? true}
+      // 上传端点随 feature 走(artifactBasePath 同前缀)—— 写死 claw 会把文件传到别的 feature 的会话里。
+      uploadBasePath={cfg.artifactBasePath ?? '/user/claw'}
+      enableLibraryReference={cfg.enableLibraryReference ?? true}
       placeholder={cfg.composerPlaceholder}
     />
   );
@@ -511,25 +529,29 @@ export function ConversationWorkspace({
           )}
         </ResizablePanelGroup>
 
+        {/* 窄屏(≤1024)的扩展区 —— 桌面分栏放不下,改成整屏 Sheet。
+            🔴 内容是**同一个 `ClawArtifactPanel`**,不是另造的预览壳:
+            旧实现这里只挂 `ClawArtifactPreview`,于是窄屏只有「点某个文件卡 → 看这一个文件」,
+            没有列表、没有入口 —— 用户看不到会话里其它产物。复用面板后列表态/预览态/
+            「← 返回列表」/ 空态全部与桌面同构,加第五个 feature 时也不会漏改这一份。 */}
         <Sheet
-          open={!!previewArtifact && isNarrow}
+          open={showRightSheet}
           onOpenChange={(o) => {
-            if (!o) closePreview();
+            if (!o) collapseRight(); // 同时清 previewArtifact,否则关掉后 surface 仍算 sheet → 关不掉
           }}
         >
           <SheetContent className="w-full p-0 sm:max-w-xl">
-            {previewArtifact && (
-              <ClawArtifactPreview
-                artifact={previewArtifact}
-                onClose={closePreview}
-                hideHeaderClose
-                basePath={cfg.artifactBasePath}
-                onExportDeck={
-                  onExportArtifactDeck ? (fmt) => onExportArtifactDeck(previewArtifact, fmt) : undefined
-                }
-                exportingFormat={exportingFormat}
-              />
-            )}
+            <ClawArtifactPanel
+              sessionId={sessionId ?? ''}
+              artifacts={sessionArtifacts ?? []}
+              previewArtifact={previewArtifact}
+              onPreview={openPreview}
+              onClosePreview={closePreview}
+              basePath={cfg.artifactBasePath}
+              onExportDeck={onExportArtifactDeck}
+              exportingFormat={exportingFormat}
+              emptyHint={cfg.emptyArtifactsHint}
+            />
           </SheetContent>
         </Sheet>
       </div>

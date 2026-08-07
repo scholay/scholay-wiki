@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Loader2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
-import { FEATURE_ICON } from '../../lib/feature-meta';
+import { FEATURE_ICON, type TemplateFeature } from '../../lib/feature-meta';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import { AgentRenameDialog, AgentDeleteDialog } from '@/shared/components/agent-
 import { clawSessions } from '../../api/session';
 import { boltslidesSessions } from '../../api/boltslides-session';
 import { sciDrawSessions } from '../../api/sci-draw-session';
+import { statLabSessions } from '../../api/stat-lab-session';
 
 /**
  * 统一会话历史 —— 把「智能助手(claw)」与「制作PPT(boltslides)」两个 feature 的会话**合并成一份列表**
@@ -25,7 +26,21 @@ import { sciDrawSessions } from '../../api/sci-draw-session';
  *
  * 用户诉求:chat 和 ppt 历史放一起、不分开。
  */
-type Feature = 'claw' | 'boltslides' | 'sci_draw';
+// 🔴 2026-08-06:这里**曾经漏了 `stat_lab`**,后果是数据分析会话在侧栏里完全不存在 ——
+//    用户做完分析、关掉页面(或点「新对话」)之后就再也找不回来(实测账号已积累 245 条,
+//    最新的比所有 claw 会话都新,却一条都看不见)。数据其实没丢:后端接口正常返回、
+//    深链也挂得回去,但用户拿不到那个 URL。
+//    颜色与文案改成**表驱动**(图标本来就走 FEATURE_ICON 单一真源):四个 feature 串三元
+//    已经很难读,加第五个必然再漏一处。现在加 feature = 在下面这张表里加一行。
+type Feature = TemplateFeature;
+
+const FEATURE_BADGE: Record<Feature, { color: string; label: string }> = {
+  // 普通对话刻意用 text-faint 弱化 —— 有图标保持一致,但不与创作模板抢注意力。
+  claw: { color: 'text-faint', label: '对话' },
+  boltslides: { color: 'text-brand-amber', label: '制作PPT' },
+  sci_draw: { color: 'text-brand-green', label: '科研绘图' },
+  stat_lab: { color: 'text-brand-red', label: '数据分析' },
+};
 type UnifiedItem = AgentSessionItem & { feature: Feature };
 
 export function UnifiedSessionList({
@@ -43,9 +58,11 @@ export function UnifiedSessionList({
   const clawQ = clawSessions.useSessions();
   const pptQ = boltslidesSessions.useSessions();
   const drawQ = sciDrawSessions.useSessions();
+  const statQ = statLabSessions.useSessions();
   const activateClaw = clawSessions.useActivateSession();
   const activatePpt = boltslidesSessions.useActivateSession();
   const activateDraw = sciDrawSessions.useActivateSession();
+  const activateStat = statLabSessions.useActivateSession();
   const [renameTarget, setRenameTarget] = useState<UnifiedItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedItem | null>(null);
 
@@ -53,19 +70,31 @@ export function UnifiedSessionList({
     const c = (clawQ.data ?? []).map((s) => ({ ...s, feature: 'claw' as const }));
     const p = (pptQ.data ?? []).map((s) => ({ ...s, feature: 'boltslides' as const }));
     const d = (drawQ.data ?? []).map((s) => ({ ...s, feature: 'sci_draw' as const }));
+    const t = (statQ.data ?? []).map((s) => ({ ...s, feature: 'stat_lab' as const }));
     // last_accessed_at 是 ISO 字符串,字典序即时间序 → DESC。
-    return [...c, ...p, ...d].sort((a, b) => (b.lastAccessedAt || '').localeCompare(a.lastAccessedAt || ''));
-  }, [clawQ.data, pptQ.data, drawQ.data]);
+    return [...c, ...p, ...d, ...t].sort((a, b) =>
+      (b.lastAccessedAt || '').localeCompare(a.lastAccessedAt || ''),
+    );
+  }, [clawQ.data, pptQ.data, drawQ.data, statQ.data]);
 
-  const apiFor = (f: Feature): AgentSessionApi =>
-    f === 'boltslides' ? boltslidesSessions : f === 'sci_draw' ? sciDrawSessions : clawSessions;
-  const isLoading = clawQ.isLoading || pptQ.isLoading || drawQ.isLoading;
+  const API_FOR: Record<Feature, AgentSessionApi> = {
+    claw: clawSessions,
+    boltslides: boltslidesSessions,
+    sci_draw: sciDrawSessions,
+    stat_lab: statLabSessions,
+  };
+  const apiFor = (f: Feature): AgentSessionApi => API_FOR[f];
+  const isLoading = clawQ.isLoading || pptQ.isLoading || drawQ.isLoading || statQ.isLoading;
 
   const handleActivate = async (item: UnifiedItem) => {
     if (item.sessionId === activeSessionId) return;
     try {
-      const act =
-        item.feature === 'boltslides' ? activatePpt : item.feature === 'sci_draw' ? activateDraw : activateClaw;
+      const act = {
+        claw: activateClaw,
+        boltslides: activatePpt,
+        sci_draw: activateDraw,
+        stat_lab: activateStat,
+      }[item.feature];
       await act.mutateAsync(item.sessionId);
       onSelect(item.sessionId, item.feature);
     } catch (err) {
@@ -151,17 +180,8 @@ function SessionRow({
   const BadgeIcon = FEATURE_ICON[session.feature];
   const badge = (
     <BadgeIcon
-      className={cn(
-        'size-3 shrink-0',
-        session.feature === 'boltslides'
-          ? 'text-brand-amber'
-          : session.feature === 'sci_draw'
-            ? 'text-brand-green'
-            : 'text-faint',
-      )}
-      aria-label={
-        session.feature === 'boltslides' ? '制作PPT' : session.feature === 'sci_draw' ? '科研绘图' : '对话'
-      }
+      className={cn('size-3 shrink-0', FEATURE_BADGE[session.feature].color)}
+      aria-label={FEATURE_BADGE[session.feature].label}
     />
   );
 

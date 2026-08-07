@@ -210,6 +210,15 @@ func (s *CleanupService) Start() {
 	// 文献集:MinIO 孤儿 PDF 对账 reaper(05:00)+ 过期/撤销分享的子表清理(05:15)。
 	s.startLibraryCleanupTasks()
 
+	// 智能审稿:稿件桶孤儿对象对账(05:05)。接替被摘掉的 tmp/ 24h ILM —— 这一版认识 DB,
+	// 只删 peer_review_assets 已无引用的对象,不会像 ILM 那样把在用的稿件删成死链。
+	s.startPeerReviewCleanupTasks()
+
+	// 输入框附件:MinIO att/ 前缀的孤儿对象对账(05:45,默认 dry-run)。
+	// 上传时序「PUT → Upsert → 推 cwd」的中间失败必然产生无人可发现的孤儿,
+	// upload.go / store.go 的注释一直在依赖这个 reaper —— 这一行就是它的接线。
+	s.startAgentAttachCleanupTasks()
+
 	// agent 事件日志分区延展(性能审计 P0):把 agent_turn_events 的月度 RANGE 分区持续向后延展,
 	// 防数据堆进 p_future(见迁移 0071)。迁移只在部署时延展一次;这里每天维持领先,即使长期不重部署
 	// 也不会耗尽。启动先跑一次(补上部署间隙),之后每天 05:40。幂等(按分区名跳过已存在)。

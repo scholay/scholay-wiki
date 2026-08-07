@@ -5,7 +5,7 @@
 import { resolve, relative, isAbsolute, dirname, basename, join } from "node:path";
 import { realpath, lstat } from "node:fs/promises";
 
-import { EVIDENCE_DIR } from "../evidence/paths.ts";
+import { RESERVED_DIRS } from "./reserved.ts";
 
 async function realpathOrNull(p: string): Promise<string | null> {
   try {
@@ -63,10 +63,14 @@ async function canonicalize(abs: string): Promise<string> {
   }
 }
 
-/** canonical 路径是否落在会话 cwd 的引擎独占保留区内(见 evidence/paths.ts 的长注释)。 */
+/** canonical 路径是否落在会话 cwd 的**任一**引擎独占保留区内(清单见 sandbox/reserved.ts)。
+ *  2026-08-05 从单个 evidence/ 推广到清单:数据分析的 analysis/(bundle 目录)是第二个 ——
+ *  bundle 是报告里每个数字的唯一真源,模型能写它就等于能伪造报告里的数字。 */
 function inReserved(canonRoot: string, canonAbs: string): boolean {
-  const reservedRoot = join(canonRoot, EVIDENCE_DIR);
-  return canonAbs === reservedRoot || within(reservedRoot, canonAbs);
+  return RESERVED_DIRS.some((d) => {
+    const reservedRoot = join(canonRoot, d);
+    return canonAbs === reservedRoot || within(reservedRoot, canonAbs);
+  });
 }
 
 /**
@@ -92,7 +96,10 @@ export async function confinePath(workDir: string, rel: string, forWrite = false
     // 引擎独占保留区:模型的任何写入面都不得触及。用 canonical 判定,故 `ln -s evidence x` 无效。
     // ⚠️ 这只是**两道闸中的一道**:jail 内的 Bash 不走本函数,由 bwrap 的 ro-bind 覆盖层负责。
     if (inReserved(canonRoot, canonAbs)) {
-      throw new Error("refusing to write into engine-reserved directory: " + EVIDENCE_DIR + "/");
+      throw new Error(
+        "refusing to write into engine-reserved directory (one of: " +
+          RESERVED_DIRS.map((d) => d + "/").join(", ") + ")",
+      );
     }
     // 末段若是符号链接,拒绝(不允许写穿透 symlink)。
     const st = await lstat(abs).catch(() => null);

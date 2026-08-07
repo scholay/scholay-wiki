@@ -1,0 +1,168 @@
+# 两组比较族决策规则 D-01 ~ D-05
+#
+# 出处口径(2026-08-05 OA 改写后):primary 一律是**能打开全文**的开放获取文献,
+# 教科书降 secondary。原因见 docs/research/data-analysis-2026-08/REGISTRY-OA出处.md ——
+# 评审 agent 拿不到纸质书原文,把 Altman 当 primary 会让评审机制在 2/3 的规则上空转。
+#
+# 学派(doctrine):D-01/D-03 存在两派且**都统计学正确**,选哪派是产品立场:
+#   · pretest-classic(本仓 base 默认,2026-08-05 用户拍板)——「先测 Levene/Shapiro 再分流」,
+#     把依据链一起交付。中文核心期刊主流写法;小木虫审稿人原话就是问
+#     「Why did you use the t-test? Were the data normally distributed? How did you test normality?」
+#   · welch-always ——「无条件默认 Welch,根本不测 Levene」(Delacre/Lakens/Leys 2017)。
+#     方法学上更干净(前置检验会扭曲名义 α),但与中文期刊惯例相左。
+#   两派都登记,contested: true 让 report 如实披露另一派,不替用户悄悄选边。
+
+rules:
+  - id: D-01
+    # 🔴 2026-08-05 修:原条件是 `min_group_n >= 30 and levene_equal`,留下一个洞 ——
+    #    **小样本 + 正态 + 方差齐**(每组 n<30)不命中任何规则,引擎回 no_rule_matched 且
+    #    unresolved 为空(事实全求出来了,就是没规则要它)。真实浏览器端到端测试实测撞上:
+    #    陶瓷弯曲强度 n=12/12、SD 均 42、正态 —— 教科书级的 Student t 场景,却分流失败。
+    #    而这正是调研实测的**最常见样本量**(体育每组 8-20、农学 3-6、工科 DOE 9-30)。
+    #
+    #    根因是把「n≥30」当成了 t 检验的前提。它不是:n≥30 的本意是**非正态时靠中心极限定理**兜底;
+    #    数据正态时 t 检验对小样本本来就成立(这正是 t 分布相对 z 的存在理由)。
+    #    故条件改为「方差齐,且(正态 或 大样本)」—— 两条通往 t 检验的合法路径。
+    when: "two_groups and continuous and not paired and levene_equal and (normal_by_group or min_group_n >= 30)"
+    allowed: [student_t, welch_t, mann_whitney]
+    default: student_t
+    # 🔴 文案必须与 `when` 同口径。原文写「样本量充足且方差齐」,是 `min_group_n >= 30`
+    #    时代的遗留;条件改成「方差齐 且(正态 或 大样本)」之后,n=12 的正态数据也会命中,
+    #    这句话就会在 Methods 里写出「样本量充足」——**一句会原样进论文的假话**。
+    #    实测撞上(2026-08-05):n=12/12 的数据,Methods 段照写「样本量充足」。
+    #    规则的 reason 不是注释,是交付物文本,改条件必须同时改它。
+    reason: "两组独立、连续、方差齐(Levene p≥.05),且正态性满足或样本量足以依赖中心极限定理 → 用 Student t 检验"
+    doctrine: pretest-classic
+    contested: true          # welch-always 一派主张此处也直接用 Welch
+    citations:
+      - id: kim2019-ttest
+        role: primary
+        access: oa
+        cite: "Kim HY. Statistical notes for clinical researchers: the independent samples t-test. Restorative Dentistry & Endodontics. 2019;44(3):e26. doi:10.5395/rde.2019.44.e26"
+        url: "https://www.rde.ac/upload/pdf/rde-44-e26.pdf"
+        locator: 'p.4/6, "INDEPENDENT SAMPLES T-TEST → 2. Welch''s t-test" 节末段'
+      - id: delacre2017-welch
+        role: primary
+        access: oa
+        cite: "Delacre M, Lakens D, Leys C. Why psychologists should by default use Welch's t-test instead of Student's t-test. International Review of Social Psychology. 2017;30(1):92-101. doi:10.5334/irsp.82"
+        url: "https://rips-irsp.com/articles/10.5334/irsp.82/"
+        locator: "Abstract + §Conclusion"
+        quote: "We show that Welch's t-test provides a better control of Type 1 error rates when the assumption of homogeneity of variance is not met"
+      - id: altman-ch9
+        role: secondary
+        access: print
+        cite: "Altman DG. Practical Statistics for Medical Research. 1st ed. Chapman & Hall; 1991. Ch.9"
+
+  # 🔴 2026-08-05:D-02 原条件与 D-03 **重叠** —— 「非正态 + 方差不齐 + n<30」同时命中两条,
+  #    而两条的 default 不同(mann_whitney vs welch_t)。谁赢由 when 表达式的 token 数决定,
+  #    是实现细节而非方法学决定。真正的危害在**依据链**:判给 D-02 后,
+  #    evidence_chain 里根本不出现 levene_equal —— 用户的 Methods 会写
+  #    「正态性不满足 → Mann-Whitney」而**只字不提方差也不齐**,审稿人问「方差齐吗」时交付物答不上来。
+  #    修法是把重叠切开成三种互斥情形,各有各的 Methods 说法(见下方 D-06)。
+  - id: D-02
+    when: "two_groups and continuous and not paired and not normal_by_group and levene_equal and min_group_n < 30"
+    allowed: [mann_whitney, welch_t]
+    default: mann_whitney
+    reason: "两组独立、连续、正态性不满足(Shapiro p<.05)且样本量偏小 → 用 Mann-Whitney 秩和检验"
+    doctrine: pretest-classic
+    citations:
+      - id: kim2019-ttest
+        role: primary
+        access: oa
+        cite: "Kim HY. Statistical notes for clinical researchers: the independent samples t-test. Restorative Dentistry & Endodontics. 2019;44(3):e26."
+        url: "https://www.rde.ac/upload/pdf/rde-44-e26.pdf"
+        locator: "正态性假定一节"
+      - id: field5e-ch6
+        role: secondary
+        access: print
+        cite: "Field A. Discovering Statistics Using IBM SPSS Statistics. 5th ed. Sage; 2018. Ch.6"
+
+  - id: D-03
+    # 条件加了「且正态性没问题」—— 与 D-02 / D-06 切开(见 D-02 上方的事故记录)。
+    when: "two_groups and continuous and not paired and not levene_equal and (normal_by_group or min_group_n >= 30)"
+    allowed: [welch_t, mann_whitney]
+    default: welch_t
+    reason: "两组独立、连续、方差不齐(Levene p<.05)→ 改用 Welch t 检验(不假定等方差)"
+    doctrine: pretest-classic
+    # ⚠️ 刻意**不**标 contested —— 首版标了,doctor 的「contested 却只有 1 条 primary」警告把它挑了出来,
+    #    复核后确认是错标:两派在**这一条**上结论一致(welch-always 同样用 Welch),
+    #    分歧在上游「要不要先测 Levene」,那属于 D-01 的领地(那里两派结论真的不同:Student vs Welch)。
+    #    把 contested 挂在结论一致的规则上,会让 report 在 Methods 段披露一个并不存在的分歧。
+    contested: false
+    citations:
+      - id: delacre2017-welch
+        role: primary
+        access: oa
+        cite: "Delacre M, Lakens D, Leys C. Why psychologists should by default use Welch's t-test instead of Student's t-test. International Review of Social Psychology. 2017;30(1):92-101. doi:10.5334/irsp.82"
+        url: "https://rips-irsp.com/articles/10.5334/irsp.82/"
+        locator: "Abstract"
+        quote: "We show that Welch's t-test provides a better control of Type 1 error rates when the assumption of homogeneity of variance is not met"
+      - id: zar5e-ch8
+        role: secondary
+        access: print
+        cite: "Zar JH. Biostatistical Analysis. 5th ed. Pearson; 2010. Ch.8"
+
+  - id: D-04
+    when: "two_groups and continuous and paired and diff_normal"
+    allowed: [paired_t, wilcoxon]
+    default: paired_t
+    reason: "配对设计、差值正态 → 用配对 t 检验"
+    doctrine: pretest-classic
+    citations:
+      - id: whitley2002-means
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 5: Comparison of means. Critical Care. 2002;6(5):424-428. doi:10.1186/cc1548"
+        url: "https://europepmc.org/articles/PMC137324"
+        locator: "Paired t test 节"
+      - id: altman-ch9
+        role: secondary
+        access: print
+        cite: "Altman DG. Practical Statistics for Medical Research. 1st ed. Chapman & Hall; 1991. Ch.9"
+
+  # 2026-08-05 新增:补上 D-02 / D-03 切开后露出的第三种情形 —— **两个前提同时不满足**。
+  # 这不是一个「边角」:非正态往往伴随方差不齐(偏态分布的方差随均值走),真实数据里很常见。
+  # 它必须是独立一条,因为它的 Methods 说法与另外两条都不同 —— 要**同时**交代两个前提都没过。
+  - id: D-06
+    when: "two_groups and continuous and not paired and not normal_by_group and not levene_equal and min_group_n < 30"
+    allowed: [mann_whitney, welch_t]
+    default: mann_whitney
+    reason: "两组独立、连续,正态性与方差齐性**同时**不满足且样本量偏小 → 首选 Mann-Whitney 秩和检验"
+    doctrine: pretest-classic
+    # 🔴 这一条**确有分歧,且分歧是实质性的**:
+    #    方差不齐时 Mann-Whitney 检验的已不再是「中位数是否相等」,而是随机优势
+    #    (P(X>Y)≠0.5);两组分布形状不同,则「中位数差」这个解读本身失效。
+    #    因此有一派主张此处仍用 Welch t(它对偏态的稳健性好于直觉),而非退到非参数。
+    #    两派都登记,由 report 如实披露 —— 引擎不替用户选边。
+    contested: true
+    citations:
+      - id: kim2019-ttest
+        role: primary
+        access: oa
+        cite: "Kim HY. Statistical notes for clinical researchers: the independent samples t-test. Restorative Dentistry & Endodontics. 2019;44(3):e26. doi:10.5395/rde.2019.44.e26"
+        url: "https://www.rde.ac/upload/pdf/rde-44-e26.pdf"
+        locator: "正态性与方差齐性两个假定的讨论"
+      - id: delacre2017-welch
+        role: primary
+        access: oa
+        cite: "Delacre M, Lakens D, Leys C. Why psychologists should by default use Welch's t-test instead of Student's t-test. International Review of Social Psychology. 2017;30(1):92-101. doi:10.5334/irsp.82"
+        url: "https://rips-irsp.com/articles/10.5334/irsp.82/"
+        locator: "Abstract + §Conclusion"
+
+  - id: D-05
+    when: "two_groups and continuous and paired and not diff_normal"
+    allowed: [wilcoxon, paired_t]
+    default: wilcoxon
+    reason: "配对设计、差值非正态 → 用 Wilcoxon 符号秩检验"
+    doctrine: pretest-classic
+    citations:
+      - id: whitley2002-nonparam
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 6: Nonparametric methods. Critical Care. 2002;6(6):509-513. doi:10.1186/cc1820"
+        url: "https://europepmc.org/articles/PMC153434"
+        locator: "Wilcoxon signed rank test 节"
+      - id: field5e-ch6
+        role: secondary
+        access: print
+        cite: "Field A. Discovering Statistics Using IBM SPSS Statistics. 5th ed. Sage; 2018. Ch.6"

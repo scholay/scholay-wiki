@@ -12,7 +12,7 @@ import { runTurn, addUsage, effectiveOutputCap, type CallUsage } from "../turn/t
 import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills, sessionWsOpened, sessionWsClosed, markSessionActive, beginHydration, endHydration, awaitHydration, envNum, persistCumUsage } from "./sessions.ts";
 import { tryAcquireTurn } from "./admission.ts";
 import { buildUserContentWithImages } from "./attachments.ts";
-import { convertFlatToAnthropic, type FlatMessage } from "./shadowTurn.ts";
+import { convertFlatToAnthropic, type FlatMessage } from "./replayHistory.ts";
 import type { EventSink, PermissionDecision, TurnInput } from "../turn/types.ts";
 import type { Tier } from "../config/models.ts";
 import { fallbackTitle, generateTitle } from "../turn/title.ts";

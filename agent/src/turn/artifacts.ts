@@ -7,11 +7,16 @@
 // (2026-07 线上审计扩面:越界写入 slides/index.html 等不再丢失)。越界条目在上抛前会被
 // **复制进 ./out/**(relocateStrays)—— backend 产物链路是 out/ 单一真源,详见该函数注释。
 
-import { readdir, stat, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { readdir, stat, copyFile, mkdir, writeFile, readFile } from "node:fs/promises";
 import { join, extname, basename } from "node:path";
 import { log } from "../obs/log.ts";
 import { resolveFileForDelivery } from "../evidence/deliver.ts";
 import { EVIDENCE_DIR } from "../evidence/paths.ts";
+import { ANALYSIS_DIR, inReservedLexical } from "../sandbox/reserved.ts";
+
+/** 越界交付物的「源路径 → out/ 名」映射表,落在引擎保留区(模型写不进)。见 relocateStrays。 */
+const RELOCATE_MAP = ".relocate-map.json";
+import { runDeliveryGate } from "./deliveryGate.ts";
 import type { EventSink } from "./types.ts";
 
 const OUT_DIR = "out";
@@ -229,16 +234,57 @@ async function relocateStrays(
   //    evidence/INDEX.md 被当成 stray 反复复制成 out/INDEX-3.md、INDEX-4.md……每轮一份,
   //    既污染用户交付面,又让用户看到本该只属于引擎的账本内部文件。
   //    这与保留区拒写是同一条边界的两侧:模型不能写进去,引擎也不该把里面的东西当成用户产物搬出来。
-  const strays = decls.filter(
-    (d) => !d.path.startsWith(`${OUT_DIR}/`) && !d.path.startsWith(`${EVIDENCE_DIR}/`) && d.path !== EVIDENCE_DIR,
-  );
-  if (strays.length === 0) return decls;
+  //
+  // ⚠️ 2026-08-05 修:上一版把保留区排除只写进 `strays`,而 `strays` **只喂了下面那行早退判断** ——
+  //    复制循环遍历的是未过滤的 `decls`、循环体内只跳过 out/。于是两条路径各漏一半:
+  //      ① 早退路径(无其它越界物):不复制,但 `return decls` 仍把 evidence/ 条目发成产物帧;
+  //      ② 非早退路径(还有别的越界物):evidence/ 照旧被复制进 out/,与修复前无异。
+  //    正解是在**入口**就把保留区剔出可交付集,让两条路径共用同一份 `deliverable`。
+  //    (旧回归测试是源码文本断言 —— 只能证明「那行字写了」,证明不了「那行字起作用」,
+  //     故一并换成走 emitArtifacts 的行为断言,见 artifacts.test.ts。)
+  const inReserved = inReservedLexical;
+  const deliverable = decls.filter((d) => !inReserved(d.path));
+  const strays = deliverable.filter((d) => !d.path.startsWith(`${OUT_DIR}/`));
+  if (strays.length === 0) return deliverable;
   const outAbs = join(workDir, OUT_DIR);
   try {
     await mkdir(outAbs, { recursive: true });
-  } catch {
-    return decls.filter((d) => d.path.startsWith(`${OUT_DIR}/`)); // out/ 建不出来 → 只留原生 out/ 产物
+  } catch (e) {
+    // 2026-08-07:这条早退原先完全静默 —— 它会让**本轮所有越界交付物一次性消失**,
+    // 而用户侧只表现为「文件没出来」。会丢东西的路径必须留痕。
+    log.warn("artifact relocate skipped: cannot create out/", {
+      workDir, strays: strays.length, err: String((e as Error)?.message ?? e),
+    });
+    return deliverable.filter((d) => d.path.startsWith(`${OUT_DIR}/`)); // out/ 建不出来 → 只留原生 out/ 产物
   }
+
+  // ── 身份映射:同一个源文件恒定映射到同一个 out/ 名(2026-08-07 修 R1)────────────
+  //
+  // 🔴 病灶(生产实测 14 条,其中 13 条是 .csv):`xxx_long.csv` 这类文件由 StatRun/Bash 里的
+  //    python 每轮重新生成在会话根。第一轮复制成 `out/xxx_long.csv`;第二轮源文件变了、
+  //    进了 diff,而 `occupied("xxx_long.csv")` 因为上一轮的副本**恒为真** ⇒ 改名成
+  //    `xxx_long-2.csv`,第三轮 `-3`。下游 harvest 是 upsert-only 且 dedup_anchor = 路径,
+  //    于是三份并存、用户第一张卡的内容**永远停在第一版**。这就是「编辑了却改不到」。
+  //
+  // 🔴 只把名字改成「源路径确定性派生」**修不好**这个 —— 派生名对同一个源确实恒定,
+  //    但第二轮它照样撞上自己上一轮留下的副本。真正缺的是**「这个 out/ 名归谁所有」**。
+  //    所以这里维护一张 源相对路径 → out 名 的映射:
+  //      · 映射命中 → **覆盖**(这是同一份东西的新版本,正是用户要的「改到了」);
+  //      · 未命中而名字被别人占 → 才加 `-N`(slides/index.html 与 out/index.html 确实是两份东西)。
+  //
+  // 表放 `analysis/`(引擎保留区):模型物理上写不进去(confine + bwrap 两道闸),
+  // 而执行器进程不进 jail、写得进;且保留区被 inReservedLexical 排除在交付面之外,
+  // 用户永远看不到这张簿记。放 out/ 里则要多依赖「所有消费者都跳过点开头文件」这条约定。
+  const mapPath = join(workDir, ANALYSIS_DIR, RELOCATE_MAP);
+  let ownerOf: Record<string, string> = {};
+  try {
+    ownerOf = JSON.parse(await readFile(mapPath, "utf8")) as Record<string, string>;
+    if (typeof ownerOf !== "object" || ownerOf === null || Array.isArray(ownerOf)) ownerOf = {};
+  } catch {
+    ownerOf = {}; // 不存在/损坏 → 当空表。最坏结果是这一轮多排一个 -N,不丢数据
+  }
+  const ownedNames = new Set(Object.values(ownerOf));
+
   // 播种 = out/ 目录当前真实存在的全部条目(含跨轮历史交付物),不是只有本轮 diff 出来的那些。
   const taken = new Set([...current.keys()].filter((k) => k.startsWith(`${OUT_DIR}/`)));
   const occupied = async (name: string): Promise<boolean> => {
@@ -250,32 +296,77 @@ async function relocateStrays(
       return false;
     }
   };
+  let mapDirty = false;
   const out: ArtifactDecl[] = [];
-  for (const d of decls) {
+  for (const d of deliverable) {
     if (d.path.startsWith(`${OUT_DIR}/`)) {
       out.push(d);
       continue;
     }
-    // 同名占位时加数字后缀(slides/index.html 与 out/index.html 是两份东西,不能相互覆盖)。
-    const ext = extname(d.name);
-    const stem = ext ? d.name.slice(0, -ext.length) : d.name;
-    let name = d.name;
-    for (let i = 2; (await occupied(name)) && i < 50; i++) name = `${stem}-${i}${ext}`;
-    if (await occupied(name)) {
-      // 50 个后缀都被占满 —— 极罕见;此处 copyFile 会覆盖,必须留痕。
-      log.warn("artifact relocate overwrites existing out/ file", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
-    } else if (name !== d.name) {
-      log.warn("artifact relocate renamed to avoid overwrite", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
+    let name = ownerOf[d.path];
+    if (name) {
+      // 同源重来 → 覆盖自己上一轮那份。**不再排 -N**,这正是修复点。
+      log.info("artifact relocate updates existing delivery", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
+    } else {
+      // 首次见到这个源:名字由源路径确定性派生(末两级目录 + 文件名),同源永远算出同一个。
+      const base = derivedName(d.path);
+      const ext = extname(base);
+      const stem = ext ? base.slice(0, -ext.length) : base;
+      name = base;
+      for (let i = 2; (ownedNames.has(name) || (await occupied(name))) && i < 50; i++) {
+        name = `${stem}-${i}${ext}`;
+      }
+      if (ownedNames.has(name) || (await occupied(name))) {
+        // 50 个后缀都被占满 —— 极罕见;此处 copyFile 会覆盖,必须留痕。
+        log.warn("artifact relocate overwrites existing out/ file", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
+      } else if (name !== d.name) {
+        log.info("artifact relocate named by source path", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
+      }
     }
     try {
       await copyFile(join(workDir, d.path), join(outAbs, name));
-    } catch {
+    } catch (e) {
+      // 2026-08-07:原先是裸 `catch { continue }` —— 静默丢掉一件用户以为已经交付的东西。
+      log.warn("artifact relocate copy failed (declaration dropped)", {
+        workDir, from: d.path, to: `${OUT_DIR}/${name}`, err: String((e as Error)?.message ?? e),
+      });
       continue; // 复制失败(文件已被删/权限)→ 丢弃该声明,不给用户死链接
+    }
+    if (ownerOf[d.path] !== name) {
+      ownerOf[d.path] = name;
+      ownedNames.add(name);
+      mapDirty = true;
     }
     taken.add(`${OUT_DIR}/${name}`);
     out.push({ ...d, name, path: `${OUT_DIR}/${name}` });
   }
+  if (mapDirty) {
+    try {
+      await mkdir(join(workDir, ANALYSIS_DIR), { recursive: true });
+      await writeFile(mapPath, JSON.stringify(ownerOf, null, 2), "utf8");
+    } catch (e) {
+      // 写不下 → 下一轮回落成「首次见到」,可能排出一个 -N。是退化不是损坏,故只 warn。
+      log.warn("artifact relocate map persist failed", { workDir, err: String((e as Error)?.message ?? e) });
+    }
+  }
   return out;
+}
+
+/**
+ * derivedName —— 由**源相对路径**确定性派生出 out/ 下的名字。
+ *
+ * 规则:取末两级目录 + 文件名,用 `-` 连接(`a/b/c/report.md` → `b-c-report.md`);
+ * 会话根的文件保持原名(`报告.docx` → `报告.docx`)—— 那是绝大多数情况,
+ * 保持原名才能让用户在卡片上看到他预期的名字。
+ *
+ * 为什么带上目录:`slides/index.html` 与 `docs/index.html` 是两份不同的东西,
+ * 只取 basename 会让它们互相排 `-N`,而排出来的 `index-2.html` 对用户毫无意义。
+ * 带上目录后名字自解释,且**两个不同的源几乎不会派生出同名**(真撞了仍有 `-N` 兜底)。
+ */
+export function derivedName(srcRel: string): string {
+  const parts = srcRel.split("/").filter(Boolean);
+  if (parts.length <= 1) return parts[0] ?? srcRel;
+  return parts.slice(-3).join("-");
 }
 
 // ── 引用句柄 resolve 闸(2026-08 证据账本 P1)──────────────────────────────────
@@ -337,9 +428,35 @@ export async function emitArtifacts(workDir: string, baseline: OutSnapshot, sink
     log.warn("artifact frames truncated", { workDir, total: all.length, emitted: capped.length, cap: ARTIFACT_MAX_FRAMES });
   }
   const decls = await relocateStrays(workDir, capped, current);
+
+  // ── 交付闸(D2)—— 必须在 relocateStrays **之后** ────────────────────────────
+  //
+  // 🔴 2026-08-06 修的时序洞:闸原本跑在 `snapshotOut` 之前,理由是「被隔离的文件要在
+  //    diff 看到它之前就离开 out/」。但 numcheck **只扫 `out/`**,而模型最常见的落点是
+  //    会话根(`Write("MBI分析结果.docx")`)—— 那份文件在闸跑的时候还不在 out/ 里,
+  //    随后才被 relocateStrays 搬进去。⇒ **交付当轮 100% 免检**,
+  //    而分析交付通常就发生在最后一轮。
+  //
+  //    现在闸跑在搬运之后(看得见全部待交付文件),用**返回值**过滤 decls 而不是靠时序:
+  //    模块头那条约束(「闸必须动盘上的文件,压帧是假闸」)仍然成立 ——
+  //    enforce 档下文件已被物理移进 `analysis/quarantine/`,backend 的
+  //    `ListWorkspaceFiles(out/)` 收割不到;这里过滤只是让产物卡也别出现。
+  const gate = await runDeliveryGate(workDir).catch((e) => {
+    // 闸自身出错不阻断交付,但**必须大声说** —— 静默失败 = 用户以为有闸而其实没有。
+    log.error("交付闸执行异常(本次未拦截)", { workDir, err: String((e as Error)?.message ?? e) });
+    return null;
+  });
+  const quarantined = new Set((gate?.quarantined ?? []).map((f) => f.replace(/^out\//, "")));
+  const shipped = quarantined.size
+    ? decls.filter((d) => !quarantined.has(d.name) && !quarantined.has(d.path.replace(/^out\//, "")))
+    : decls;
+  if (quarantined.size) {
+    log.warn("交付闸:已隔离的产物不发帧", { workDir, quarantined: [...quarantined] });
+  }
+
   // 2026-08 证据账本 P1:发帧前展开 [[E<n>]] —— 在 relocateStrays 之后,改写的是最终落在 out/ 的那份。
-  await resolveCitations(workDir, decls);
-  for (const d of decls) {
+  await resolveCitations(workDir, shipped);
+  for (const d of shipped) {
     sink.frame({ type: "artifact", name: d.name, path: d.path, kind: d.kind, mime: d.mime, size: d.size });
   }
 }

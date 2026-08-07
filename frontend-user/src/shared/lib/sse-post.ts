@@ -20,6 +20,7 @@
  */
 
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
+import { statusFallbackMessage } from '@/shared/lib/http-status-messages';
 import { notifyQuotaExceeded, isQuotaSignal, type QuotaPayload } from '@/shared/lib/quota-events';
 
 export interface ParsedSseEvent {
@@ -76,8 +77,10 @@ export async function streamSsePost({
   if (!res.ok) {
     // SSE 绕过 axios 拦截器 —— 认证失效 / 额度耗尽 要手动汇入统一出口。
     if (res.status === 401) notifyAuthLost();
-    // 非 SSE 错误 —— 后端走 utils.Error 返回 JSON,尽量取 message + code
-    let msg = `请求失败 (${res.status})`;
+    // 非 SSE 错误 —— 后端走 utils.Error 返回 JSON,尽量取 message + code。
+    // 拿不到 JSON 时(网关层的 413/408/504 返回的是 text/html)按状态码给中文,
+    // 与 axios 侧同一份表,避免用户只看到一个裸状态码。
+    let msg = statusFallbackMessage(res.status) || `请求失败 (${res.status})`;
     try {
       const j = await res.json();
       if (j && typeof j === 'object' && 'message' in j && j.message) {

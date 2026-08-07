@@ -60,6 +60,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentattachstore"
 	"scholar-backend/internal/agentbridge"
 )
 
@@ -127,8 +128,17 @@ func (d featureDeps) client() agent.Executor                { return d.f.AgentCl
 func (d featureDeps) owns(u uint, sid string) (bool, error) { return d.f.OwnsSession(u, sid) }
 func (d featureDeps) key() string                           { return d.f.Spec().Key }
 
-// Relocator —— 跨会话附件物化器。每个带附件的 feature 一个(与 Uploader/Referencer 同装配点)。
-type Relocator struct{ deps relocateDeps }
+// Relocator —— 跨会话附件物化器 + cwd 工作副本自愈器。
+// 每个带附件的 feature 一个(与 Uploader/Referencer 同装配点)。
+//
+// 0112 起它多了第二个职责:**自愈**。cwd 副本被 30 天 workdir GC 清掉之后,老会话里
+// 用户能看见图(取回端点走 MinIO)但模型打不开文件 —— 那是「半边修复」,比不修更糟。
+// 两个职责合并在这里不是偶然:它们要做的事完全一样(把字节放进当前会话 cwd),
+// 只是来源不同(MinIO 对象 vs 另一个会话的 cwd),而且触发点是同一个(转发用户消息之前)。
+type Relocator struct {
+	deps  relocateDeps
+	store Store // 覆盖包级默认 store(单测用)
+}
 
 // NewRelocator 造一个绑定到该 feature 的物化器。
 func NewRelocator(feature *agentbridge.FeatureBridge) *Relocator {
@@ -137,6 +147,14 @@ func NewRelocator(feature *agentbridge.FeatureBridge) *Relocator {
 	}
 	return &Relocator{deps: featureDeps{f: feature}}
 }
+
+// WithStore 覆盖本实例的耐久化 store(单测隔离用;生产走 SetDefaultStore)。
+func (r *Relocator) WithStore(s Store) *Relocator {
+	r.store = s
+	return r
+}
+
+func (r *Relocator) st() Store { return resolveStore(r.store) }
 
 // EnsureLocal 把 paths 里**不属于本会话 cwd**的附件物化进本会话,返回等长、逐项改写后的路径。
 //
@@ -162,18 +180,28 @@ func (r *Relocator) EnsureLocal(ctx context.Context, userID uint, sessionID, ses
 			fmt.Errorf("agentattach: empty sessionID=%q workDir=%q", sessionID, sessionWorkDir))
 	}
 
+	// heal:本地路径但 cwd 副本可能已被 GC 清掉 —— 有 DB 行才谈得上自愈,存量附件查不到行,
+	//       原样走老逻辑(零开销、零行为变化)。
 	type job struct {
 		idx        int
 		srcSession string
 		srcRel     string
+		heal       *agentattachstore.Attachment
 	}
 	var jobs []job
+	foreign := 0
 	for i, p := range paths {
 		kind, srcSession, srcRel := classifyAttachmentPath(p, sessionID, sessionWorkDir)
 		switch kind {
 		case attachLocal:
+			// 常态零开销的边界就在这里:只有「查得到 DB 行 + 有 MinIO 对象」的附件才会
+			// 进入自愈流程(多一次目录清单 HTTP)。存量附件与非附件路径一律 continue。
+			if row := r.healableRow(sessionID, userID, p); row != nil {
+				jobs = append(jobs, job{idx: i, heal: row})
+			}
 			continue
 		case attachForeign:
+			foreign++
 			jobs = append(jobs, job{idx: i, srcSession: srcSession, srcRel: srcRel})
 		default:
 			return nil, newAttachError("附件路径无法识别,请重新上传后再发送",
@@ -184,9 +212,11 @@ func (r *Relocator) EnsureLocal(ctx context.Context, userID uint, sessionID, ses
 	if len(jobs) == 0 {
 		return out, nil // 常态:附件本就在本会话 cwd,零开销
 	}
-	if len(jobs) > maxRelocateBatch {
+	// 批次帽只数**跨会话物化**:自愈是「把本来就该在这的文件放回去」,拒绝它等于拒绝用户
+	// 继续用自己的老对话。用 len(jobs) 会让一条全是自愈的消息撞上一句说的是别的事的文案。
+	if foreign > maxRelocateBatch {
 		return nil, newAttachError(fmt.Sprintf("一次最多复用 %d 个历史对话的附件,请减少后重试", maxRelocateBatch),
-			fmt.Errorf("agentattach: %d foreign attachments exceed batch cap", len(jobs)),
+			fmt.Errorf("agentattach: %d foreign attachments exceed batch cap", foreign),
 			"feature", r.deps.key(), "session_id", sessionID)
 	}
 
@@ -200,6 +230,12 @@ func (r *Relocator) EnsureLocal(ctx context.Context, userID uint, sessionID, ses
 		done:   map[string]string{},
 	}
 	for _, j := range jobs {
+		if j.heal != nil {
+			if err := r.healOne(ctx, st, sessionID, j.heal); err != nil {
+				return nil, err
+			}
+			continue // 自愈不改写路径:文件本来就在它该在的地方,只是字节曾经不在
+		}
 		abs, err := r.relocateOne(ctx, st, userID, sessionID, sessionWorkDir, j.srcSession, j.srcRel)
 		if err != nil {
 			return nil, err
@@ -207,6 +243,88 @@ func (r *Relocator) EnsureLocal(ctx context.Context, userID uint, sessionID, ses
 		out[j.idx] = abs
 	}
 	return out, nil
+}
+
+// healableRow —— 本地附件路径 → 「值得自愈的那一行」。返回 nil 表示按老逻辑处理。
+//
+// 三道门缺一不可:装配了 store、路径 basename 剥得出附件 UUID、该会话确实有对应的行且
+// 有 MinIO 对象。任何一道不满足都意味着「我们没有可靠的字节来源」,此时**不做任何猜测**。
+func (r *Relocator) healableRow(sessionID string, userID uint, p string) *agentattachstore.Attachment {
+	st := r.st()
+	if st == nil || !objects.Enabled() {
+		return nil
+	}
+	attUUID := UUIDFromStoredName(p)
+	if attUUID == "" {
+		return nil
+	}
+	row, err := st.GetBySessionUUID(sessionID, attUUID, uint64(userID))
+	if err != nil || row == nil || row.StorageKey == "" || row.DeletedAt != nil {
+		return nil
+	}
+	return row
+}
+
+// healOne —— 确认 cwd 副本还在;不在则从 MinIO 重建。
+//
+// 🔴 明确**不做**「GC 之后主动重建」:那等于把 30 天 workdir GC 变成永不生效,
+// ./data/agent-sessions(prod 已 2.4G / 883 目录)会无上界增长。自愈必须是**惰性**的
+// —— 用户真的回来发消息、真的引用了这个附件,才把它拉回来,而且只拉本轮引用到的那几个。
+func (r *Relocator) healOne(ctx context.Context, st *relocateState, sessionID string, row *agentattachstore.Attachment) error {
+	relDir, name := path.Split(row.RelPath)
+	relDir = strings.Trim(relDir, "/")
+	size, found, err := st.sizeOf(ctx, sessionID, relDir, name)
+	if err != nil {
+		// 探测本身失败(agent 抖动)→ **降级成改造前的行为**,不阻断这一轮。
+		// 附件可能其实还在;为一次探测失败就拒绝用户发消息是明显的过度反应。
+		slog.Warn("agentattach heal: cwd 副本探测失败,按原样放行",
+			"session_id", sessionID, "rel_path", row.RelPath, "err", err)
+		return nil
+	}
+	if found {
+		// 🔴 判据是**在不在**,不是「字节数对不对得上」。
+		// 用「size != row.SizeBytes 就重建」听起来更严谨,实际是一条数据破坏路径:附件落在
+		// 会话 cwd 里,模型完全可以就地改它(stat_lab 清洗数据、prism 改 .bib 都是正常用法),
+		// 改完大小必然不同 ⇒ 用户下一条引用该附件的消息会把模型这一轮的工作**静默覆盖回原始版本**。
+		// 自愈要治的病只有一个:文件**没了**(30 天 workdir GC / 换盘 / 被驱逐)。文件在就别碰。
+		if size != row.SizeBytes {
+			slog.Info("agentattach heal: cwd 副本大小与上传时不同,按「已被就地修改」处理,不覆盖",
+				"session_id", sessionID, "rel_path", row.RelPath, "cwd_size", size, "orig_size", row.SizeBytes)
+		}
+		return nil
+	}
+
+	body, gerr := readAttachmentObject(ctx, row.StorageKey, row.SizeBytes)
+	if gerr != nil {
+		return newAttachError(
+			fmt.Sprintf("附件「%s」暂时无法读取,请稍后重试或重新上传", displayAttachmentName(row.StoredName)),
+			gerr, "session_id", sessionID, "storage_key", row.StorageKey)
+	}
+	// 完整性:key 本身就是内容哈希,对不上说明对象被换过/损坏 —— 宁可报错也不往 cwd 写坏文件。
+	if row.ContentSHA256 != "" && sha256Hex(body) != row.ContentSHA256 {
+		return newAttachError(
+			fmt.Sprintf("附件「%s」校验失败,请重新上传", displayAttachmentName(row.StoredName)),
+			errors.New("agentattach: attachment sha mismatch"),
+			"session_id", sessionID, "storage_key", row.StorageKey)
+	}
+	if perr := st.client.PutWorkspaceFile(ctx, sessionID, row.RelPath, body); perr != nil {
+		if errors.Is(perr, agent.ErrSessionQuotaExceeded) {
+			return newAttachError("当前会话的文件空间已满, 请新开一个对话后再上传(已上传的文件不会丢失)", perr)
+		}
+		return newAttachError("附件写入当前对话失败,请稍后重试", perr,
+			"session_id", sessionID, "rel_path", row.RelPath)
+	}
+	st.remember(sessionID, relDir, name, int64(len(body)))
+	now := time.Now()
+	_ = r.st().MarkMaterialized(row.ID, &now)
+	slog.Info("agentattach heal: cwd 副本已从对象存储重建",
+		"session_id", sessionID, "rel_path", row.RelPath, "bytes", len(body))
+	return nil
+}
+
+// readAttachmentObject 从耐久层读整份附件字节(hint = DB 记的大小,给读取一个上界)。
+func readAttachmentObject(ctx context.Context, key string, hint int64) ([]byte, error) {
+	return objects.Get(ctx, key, hint)
 }
 
 // relocateState —— 一批物化过程内的缓存:会话归属判定、目录清单、已物化项。
@@ -220,6 +338,17 @@ type relocateState struct {
 func (r *Relocator) relocateOne(ctx context.Context, st *relocateState, userID uint, sessionID, sessionWorkDir, srcSession, srcRel string) (string, error) {
 	if abs, ok := st.done[srcSession+"/"+srcRel]; ok {
 		return abs, nil // 同一附件在一条消息里被引用多次 → 只拷一次
+	}
+
+	// ⓪ 耐久路径优先:能在 agent_attachments 里按 UUID 查到这个附件,就从 MinIO 取字节,
+	//    完全不碰源会话。三处实打实的改善(01-uploads.md §六 / MAP H-8):
+	//      · 源会话被 GC / 被删 → 以前必然回「所在的历史对话已被清理,请重新上传」,现在照常复用;
+	//      · 归属判据从 OwnsSession(srcSession) 换成 row.user_id —— **更强**,且不依赖会话存活;
+	//      · 20MB 死区消失(那个上限来自 executor 读源文件的 RAW_CAP,MinIO 没这个限制),
+	//        20~30MB 的附件以前传得上去却跨不了对话。
+	//    查不到行(存量附件)→ 落到下面的老路径,一字未改。
+	if abs, ok, err := r.relocateFromObject(ctx, st, userID, sessionID, sessionWorkDir, srcSession, srcRel); ok {
+		return abs, err
 	}
 
 	// ① 归属:srcSession 来自用户可控路径,必须属于同一 (user, feature)。
@@ -299,7 +428,9 @@ func (r *Relocator) relocateOne(ctx context.Context, st *relocateState, userID u
 	if err := st.client.PutWorkspaceFile(ctx, sessionID, dstRel, raw.Bytes); err != nil {
 		if errors.Is(err, agent.ErrSessionQuotaExceeded) {
 			// 与 upload.go 同款文案口径:配额是用户可自救的稳定状态,不走 infra 脱敏。
-			return "", newAttachError("当前会话的文件空间已满, 请删除部分历史文件、新开会话后再上传", err)
+			// 「删掉不用的附件」这条出路在删除入口落地(输入框「+」→「我的附件」)之后
+			// 才真的走得通 —— 旧文案那句「请删除部分历史文件」当时无处可删,是空话。
+			return "", newAttachError("当前会话的文件空间已满, 请新开一个对话, 或在输入框「+」→「我的附件」里删掉不再需要的文件后重试", err)
 		}
 		return "", newAttachError("附件写入当前对话失败,请稍后重试", err,
 			"feature", r.deps.key(), "session_id", sessionID, "dst_rel", dstRel)
@@ -311,6 +442,94 @@ func (r *Relocator) relocateOne(ctx context.Context, st *relocateState, userID u
 		"feature", r.deps.key(), "user_id", userID, "session_id", sessionID,
 		"src_session", srcSession, "src_rel", srcRel, "dst_rel", dstRel, "bytes", len(raw.Bytes))
 	return dstAbs, nil
+}
+
+// relocateFromObject —— 从 MinIO 把外来附件物化进本会话 cwd。
+// ok=false 表示「这条路走不通」(未装配 / 无 MinIO / 查不到行),调用方回落老路径。
+func (r *Relocator) relocateFromObject(ctx context.Context, st *relocateState, userID uint, sessionID, sessionWorkDir, srcSession, srcRel string) (string, bool, error) {
+	store := r.st()
+	if store == nil || !objects.Enabled() {
+		return "", false, nil
+	}
+	attUUID := UUIDFromStoredName(srcRel)
+	if attUUID == "" {
+		return "", false, nil
+	}
+	// 归属收窄在这一次查询里:查不到「属于本用户的这个 uuid」就当不存在,不给任何提示差异。
+	src, err := store.GetByUUID(attUUID, uint64(userID))
+	if err != nil || src == nil || src.StorageKey == "" {
+		return "", false, nil
+	}
+	if src.DeletedAt != nil {
+		return "", true, newAttachError(
+			fmt.Sprintf("附件「%s」已被删除,请重新上传", displayAttachmentName(src.StoredName)), nil)
+	}
+
+	name := src.StoredName
+	dstRel := relocateDir + "/" + name
+	dstAbs := path.Join(path.Clean(sessionWorkDir), dstRel)
+
+	// 幂等:本会话已有同名同大小 → 只补 DB 行,不重复传字节。
+	if dstSize, dstFound, derr := st.sizeOf(ctx, sessionID, relocateDir, name); derr == nil && dstFound && dstSize == src.SizeBytes {
+		r.upsertRelocated(sessionID, dstRel, src, true)
+		st.done[srcSession+"/"+srcRel] = dstAbs
+		return dstAbs, true, nil
+	}
+
+	body, gerr := readAttachmentObject(ctx, src.StorageKey, src.SizeBytes)
+	if gerr != nil {
+		return "", true, newAttachError(
+			fmt.Sprintf("附件「%s」暂时无法读取,请稍后重试", displayAttachmentName(name)), gerr,
+			"feature", r.deps.key(), "session_id", sessionID, "storage_key", src.StorageKey)
+	}
+	if src.ContentSHA256 != "" && sha256Hex(body) != src.ContentSHA256 {
+		return "", true, newAttachError(
+			fmt.Sprintf("附件「%s」校验失败,请重新上传", displayAttachmentName(name)),
+			errors.New("agentattach: attachment sha mismatch"))
+	}
+	if perr := st.client.PutWorkspaceFile(ctx, sessionID, dstRel, body); perr != nil {
+		if errors.Is(perr, agent.ErrSessionQuotaExceeded) {
+			return "", true, newAttachError("当前会话的文件空间已满, 请新开一个对话后再上传(已上传的文件不会丢失)", perr)
+		}
+		return "", true, newAttachError("附件写入当前对话失败,请稍后重试", perr,
+			"feature", r.deps.key(), "session_id", sessionID, "dst_rel", dstRel)
+	}
+	st.remember(sessionID, relocateDir, name, int64(len(body)))
+	r.upsertRelocated(sessionID, dstRel, src, true)
+	st.done[srcSession+"/"+srcRel] = dstAbs
+	slog.Info("agentattach relocate: 跨会话附件已从对象存储物化进当前对话",
+		"feature", r.deps.key(), "user_id", userID, "session_id", sessionID,
+		"src_session", srcSession, "dst_rel", dstRel, "bytes", len(body))
+	return dstAbs, true, nil
+}
+
+// upsertRelocated 在目标会话补一行(uk_session_uuid 保证幂等)。origin_id 指回源行,
+// 便于日后审计「这份字节最早是谁在哪传的」。失败只 warn:cwd 里的文件已经写好了,
+// 本轮对话不受影响;缺的只是这份副本的耐久登记,下次物化会补上。
+func (r *Relocator) upsertRelocated(sessionID, dstRel string, src *agentattachstore.Attachment, materialized bool) {
+	store := r.st()
+	if store == nil {
+		return
+	}
+	row := *src
+	row.ID = 0
+	// 时间戳归零让 DB 默认值/GORM autoCreateTime 接管:直接抄源行的 created_at 会让
+	// 「我的文件」里这份副本按**原上传时刻**排序,而它在本会话里其实是刚出现的。
+	row.CreatedAt = time.Time{}
+	row.UpdatedAt = time.Time{}
+	row.SessionID = sessionID
+	row.RelPath = dstRel
+	row.FeatureKey = r.deps.key()
+	row.OriginID = src.ID
+	row.MaterializedAt = nil
+	if materialized {
+		now := time.Now()
+		row.MaterializedAt = &now
+	}
+	if err := store.Upsert(&row); err != nil {
+		slog.Warn("agentattach relocate: 目标会话附件登记失败(cwd 副本已就绪)",
+			"session_id", sessionID, "rel_path", dstRel, "err", err)
+	}
 }
 
 // sizeOf 取 <sessionID>/<relDir>/<name> 的字节数(目录清单缓存,每个目录只列一次)。

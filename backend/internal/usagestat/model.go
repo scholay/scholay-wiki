@@ -28,6 +28,7 @@ const (
 	FeaturePrism         = "prism"          // 智能写作
 	FeatureBoltSlides    = "boltslides"     // 制作PPT(bolt-slides 演示稿)
 	FeatureSciDraw       = "sci_draw"       // 科研绘图(原创矢量科研图)
+	FeatureStatLab       = "stat_lab"       // 数据分析(statkit 引擎:前提实测 + 决策表守门 + 合规交付物)
 )
 
 // FeatureNames 功能中文名 —— admin 展示用。新增功能时在这里登记。
@@ -44,6 +45,7 @@ var FeatureNames = map[string]string{
 	FeaturePrism:         "智能写作",
 	FeatureBoltSlides:    "制作PPT",
 	FeatureSciDraw:       "科研绘图",
+	FeatureStatLab:       "数据分析",
 }
 
 // FeatureName 取功能中文名, 未登记则回退原 code。

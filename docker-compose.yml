@@ -259,7 +259,14 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-scholarminiopass}
       MINIO_BUCKET_PAPER_PDFS: ${MINIO_BUCKET_PAPER_PDFS:-scholar-paper-pdfs}
+      # agent 输入框上传附件(0112 耐久化)。⚠️ 其余几个桶(feedback/peer-review/prism/
+      # agent-artifacts/skill-bundles)靠 config.go 的默认值,不在这里透传;这一条显式写出来
+      # 是因为它已写进 .env.example —— 文档里有、compose 不透传 = 改了不生效的静默陷阱。
+      MINIO_BUCKET_AGENT_ATTACHMENTS: ${MINIO_BUCKET_AGENT_ATTACHMENTS:-scholar-agent-attachments}
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      # 附件孤儿对象 reaper 是否真删(默认 false = 只报告)。同上一条的理由必须显式透传:
+      # 写进了 .env.example 却不透传 = 运维照文档设了 true 却毫无效果的静默陷阱。
+      AGENT_ATTACHMENT_REAPER_DELETE: ${AGENT_ATTACHMENT_REAPER_DELETE:-false}
       # CORS —— fan-out 自 .env(默认 * 允许任意 origin,生产请改具体域名列表)
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       # ─── Umami HTTP API 接入 ───
@@ -281,7 +288,7 @@ services:
       # executor 路由:P6 后所有 feature 都走 executor(fork 已删)。默认即指向 executor + 全 feature,
       # 与 AGENT_BASE_URL 同一 executor;开箱即用,无需手动 env。
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
-      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw,stat_lab}
       # P6 一次性归档(已执行完毕):仅在带 fork 的迁移那次部署设为 1。fork 已删,保持空。
       AGENT_ARCHIVE_FROM_FORK: ${AGENT_ARCHIVE_FROM_FORK:-}
       # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。
@@ -305,6 +312,8 @@ services:
       BOLT_SLIDES_SKILL_ADDDIR: ${BOLT_SLIDES_SKILL_ADDDIR:-/bolt-slides-add}
       # 科研绘图(sci_draw)会话经 --add-dir 加载绘图 skill 的目录(agent 容器内 <此处>/.claude/skills)。
       SCI_DRAW_SKILL_ADDDIR: ${SCI_DRAW_SKILL_ADDDIR:-/sci-draw-add}
+      # 数据分析 skill 注入点(spec.go 的 statLabSkillAddDir 读它;缺省 /stat-lab-add)。
+      STAT_LAB_SKILL_ADDDIR: ${STAT_LAB_SKILL_ADDDIR:-/stat-lab-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷;后端写任务、watcher 编译回写)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -427,6 +436,28 @@ services:
       - ./agent-skills/bolt-slides-add:/bolt-slides-add/.claude/skills:ro
       # 科研绘图(sci_draw)手写 SVG 绘图 skill。
       - ./agent-skills/sci-draw-skills:/sci-draw-add/.claude/skills:ro
+      # 数据分析 skill:问诊协议 / verb 编排 / 解读口径 / 红线话术(只在 stat_lab 会话装)
+      - ./agent-skills/stat-lab-skills:/stat-lab-add/.claude/skills:ro
+      # 会话工作目录(cwd + 上传文件 + analysis/ 的 bundle + out/ 的交付物)持久化。
+      # 不挂 = 只活在容器可写层,任何 `up -d --build` 都清空;旧会话续聊报
+      # "Working directory does not exist"。属主由镜像 entrypoint chown 自愈。
+      #
+      # 🔴 2026-08-06 补回。这一行**曾经有过**(250cad3a2,2026-06-04),在 a30add8d2
+      #    「优化 agent架构」(2026-06-30)把整个 volumes 块从 ./agent/data/claude/* 重写成
+      #    ./agent-skills/* 时**被顺带删掉** —— prod 同 commit 里保住了(prod.yml 至今在挂),
+      #    于是 dev 与 prod 悄悄漂移了两个月。
+      #    代价是实的:`analysis/*.bundle.json` 是「交付物里每个数字可溯源」的**唯一**源
+      #    (numcheck 的 sources 全部来自它),而交付物本身在 MinIO 里是 upsert-only 永久留存 ⇒
+      #    源随容器重建即灭。实测 209 个 stat_lab 会话里 **203 个的 bundle 已不可复核**,
+      #    report 生成的 analysis.py 引用的数据文件也一并没了,「审稿人可原样重跑」当场作废。
+      #    (BUILD-P0开工方案.md:2174 把这个风险登记为「第 31 天数字出处消失」;实测是第 1 天。)
+      #    顺带一提 backup-all.sh 备的就是这个宿主目录 —— 没有挂载时它备的是一份陈旧快照,**假绿**。
+      #
+      # ⚠️ 同一次重写还删掉了 `/etc/localtime`,那条在 2026-07 被单独补回(见下一条)——
+      #    也就是说当时**已经发现整块重写有漏项并排查过一轮,却只补了一条**。
+      #    所以真正的防线不是这行注释,是 src/server/composeVolumeParity.test.ts:
+      #    它把两份 compose 的 agent volumes 集合钉在一起,下次整块重写会当场红。
+      - ./data/agent-sessions:/home/bun/sessions
       # 时区跟随宿主(2026-07 补):oven/bun:1-slim 无 tzdata,TZ=":/etc/localtime" 此前指向
       # 不存在的文件 → 容器实际跑 UTC(北京时间每天 0:00-8:00 日期差一天,claw 跑 `date` 也是 UTC)。
       # JS 侧 src/tools/clock.ts 另有固定 +8 实现,不依赖此挂载;这里是给 Bash `date` / 日志对齐。

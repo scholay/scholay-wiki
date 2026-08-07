@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, PanelLeft, SquarePen } from 'lucide-react';
+import { FolderArchive, Loader2, PanelLeft, SquarePen } from 'lucide-react';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { ResourceError } from '@/shared/components/ResourceError';
@@ -17,7 +17,8 @@ import { ChatComposer, type ChatComposerHandle } from '../../components/chat/Cha
 import { useUserSkillsByGuide } from '@/shared/api/skills';
 import { MessageTurn } from '../../components/chat/MessageTurn';
 import { type ClawArtifact } from '../../api/artifacts';
-import { ClawArtifactPreview } from '../../components/preview/ClawArtifactPreview';
+import { ClawArtifactPanel } from '../../components/preview/ClawArtifactPanel';
+import { resolveArtifactSurface } from '../../lib/artifact-surface';
 import { ScrollController } from '../../components/chat/ScrollController';
 import { ClawEmptyState } from '../../components/chat/ClawEmptyState';
 import { MobileClawDrawer } from '../../components/chat/MobileClawDrawer';
@@ -86,7 +87,8 @@ export function MobileClawPage() {
  *
  * 交互对齐主流聊天助手(ChatGPT / DeepSeek / Claude):**不设独立顶栏**,改成对话区上方两枚
  * 悬浮按钮 —— 左「历史对话」(开左侧抽屉:新对话 + 按日期分组的历史 + 重命名/删除)、右「新对话」;
- * 连接状态做成中间的自隐小徽章。成果预览仍走底部整屏 Sheet。
+ * 连接状态做成中间的自隐小徽章。会话有产物时右侧再多一颗带计数的「扩展区」——
+ * 开整屏 Sheet,内容是与桌面同一个 ClawArtifactPanel(产物列表 + 预览)。
  */
 function MobileClawWorkspace({
   seed,
@@ -164,6 +166,29 @@ function MobileClawWorkspace({
       />
     ) : null;
   const [previewArtifact, setPreviewArtifact] = useState<ClawArtifact | null>(null);
+  /**
+   * 扩展区(会话产物)入口 —— 2026-08-07 补。此前移动端**只有**「对话流里的文件卡 → 单文件预览」
+   * 一条路:会话一长文件卡被渲染窗口裁掉、或刷新后卡片滚出视野,agent 产出的文件就再也找不到了。
+   * 现在悬浮条上多一颗带计数的按钮,开同一个 `ClawArtifactPanel`(列表 + 预览,与桌面同构)。
+   */
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
+  const artifactCount = sessionArtifacts?.length ?? 0;
+  const artifactSurface = resolveArtifactSurface({
+    isNarrow: true, // 移动端路由恒窄屏
+    open: artifactsOpen,
+    hasPreview: !!previewArtifact,
+  });
+  const closeArtifacts = useCallback(() => {
+    setArtifactsOpen(false);
+    setPreviewArtifact(null);
+  }, []);
+  /** 从对话流的文件卡进预览:必须**同时**把扩展区标记为打开。
+   *  否则面板内点「← 返回列表」时 open=false && hasPreview=false → Sheet 整个关掉,
+   *  用户以为自己按的是「返回」,结果是「退出」。 */
+  const openArtifactPreview = useCallback((a: ClawArtifact) => {
+    setPreviewArtifact(a);
+    setArtifactsOpen(true);
+  }, []);
   // 空白态点示例卡片 → 调 composer.prefill 把提示词填进底部输入框(可改后再发)。
   const composerRef = useRef<ChatComposerHandle>(null);
 
@@ -207,17 +232,34 @@ function MobileClawWorkspace({
             <PanelLeft className="size-5" />
           </button>
           {/* 连接状态徽章已移除:连接/重连过程对用户无意义,不展示。 */}
-          <button
-            type="button"
-            aria-label="新对话"
-            onClick={onNewConversation}
-            disabled={sessionId === null}
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-pill text-foreground active:bg-surface-2 disabled:opacity-40"
-          >
-            {/* 摘掉 busy 门控(线上卡死修复):这是移动端唯一的新对话入口,busy 卡死时不能把
-                用户唯一逃生口也锁死;回答会在后台(hub grace)继续,开新对话与之零冲突。 */}
-            <SquarePen className="size-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* 扩展区入口 —— **只在真有产物时出现**,与桌面「空态也能手动打开」刻意不同:
+                桌面那颗坐在一条常驻工具栏里,多一颗按钮几乎无成本;移动端这条是浮在对话内容
+                之上的两枚图标,常驻一颗「点开是空的」按钮是纯噪音,还挤掉本就紧张的横向空间。
+                产物只会在 AI 产出后出现,计数 >0 即入口出现,发现成本已经足够低。 */}
+            {artifactCount > 0 && (
+              <button
+                type="button"
+                aria-label={`扩展区,${artifactCount} 个文件`}
+                onClick={() => setArtifactsOpen(true)}
+                className="pointer-events-auto flex h-9 items-center gap-1 rounded-pill px-2.5 text-foreground active:bg-surface-2"
+              >
+                <FolderArchive className="size-5 text-brand-green" />
+                <span className="text-12 tabular-nums text-subtle">{artifactCount}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="新对话"
+              onClick={onNewConversation}
+              disabled={sessionId === null}
+              className="pointer-events-auto flex size-9 items-center justify-center rounded-pill text-foreground active:bg-surface-2 disabled:opacity-40"
+            >
+              {/* 摘掉 busy 门控(线上卡死修复):这是移动端唯一的新对话入口,busy 卡死时不能把
+                  用户唯一逃生口也锁死;回答会在后台(hub grace)继续,开新对话与之零冲突。 */}
+              <SquarePen className="size-5" />
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -264,7 +306,7 @@ function MobileClawWorkspace({
                   artifacts={sessionArtifacts}
                   sessionId={sessionId}
                   userSkillsByGuide={userSkillsByGuide}
-                  onPreview={setPreviewArtifact}
+                  onPreview={openArtifactPreview}
                   onResendBlocked={conv.resendBlocked}
                   onDismissBlocked={conv.dismissBlocked}
                   // 失败轮「重试」只对最后一轮成立(与桌面同构;hook 内守卫 !busy)。
@@ -323,21 +365,23 @@ function MobileClawWorkspace({
         }}
       />
 
-      {/* 成果预览(桌面分栏的移动版:整屏 Sheet) */}
+      {/* 扩展区(桌面右侧分栏的移动版:整屏 Sheet)——
+          内容复用 `ClawArtifactPanel`,列表态 / 预览态 /「← 返回列表」/ 空态全部与桌面同构。
+          此前这里只挂 `ClawArtifactPreview`(单文件),所以移动端根本没有产物**列表**。 */}
       <Sheet
-        open={!!previewArtifact}
+        open={artifactSurface === 'sheet'}
         onOpenChange={(o) => {
-          if (!o) setPreviewArtifact(null);
+          if (!o) closeArtifacts();
         }}
       >
         <SheetContent className="w-full p-0 sm:max-w-xl">
-          {previewArtifact && (
-            <ClawArtifactPreview
-              artifact={previewArtifact}
-              onClose={() => setPreviewArtifact(null)}
-              hideHeaderClose
-            />
-          )}
+          <ClawArtifactPanel
+            sessionId={sessionId ?? ''}
+            artifacts={sessionArtifacts ?? []}
+            previewArtifact={previewArtifact}
+            onPreview={openArtifactPreview}
+            onClosePreview={() => setPreviewArtifact(null)}
+          />
         </SheetContent>
       </Sheet>
     </div>

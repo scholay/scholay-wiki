@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react';
-import { ChartSpline, MessageSquare, Presentation } from 'lucide-react';
+import { ChartSpline, Sigma, MessageSquare, Presentation } from 'lucide-react';
 
 /** 智能助手页承载的三个 feature:claw 基础对话 + 两个创作模板(制作PPT / 科研绘图)。 */
-export type TemplateFeature = 'claw' | 'boltslides' | 'sci_draw';
+export type TemplateFeature = 'claw' | 'boltslides' | 'sci_draw' | 'stat_lab';
 
 /**
  * feature → 图标(**单一真源**)。凡是露出 feature 图标的地方 —— 模板卡(TemplateCards)、会话历史徽标
@@ -10,9 +10,11 @@ export type TemplateFeature = 'claw' | 'boltslides' | 'sci_draw';
  *   - claw       普通对话      MessageSquare(视觉强度最弱,渲染方用更淡的颜色)
  *   - boltslides 制作PPT       Presentation
  *   - sci_draw   科研绘图      ChartSpline
+ *   - stat_lab   数据分析      Sigma(统计符号;与绘图的 ChartSpline 区分开 —— 那是「画图」,这是「算数」)
  */
 export const FEATURE_ICON: Record<TemplateFeature, ComponentType<{ className?: string }>> = {
   claw: MessageSquare,
   boltslides: Presentation,
   sci_draw: ChartSpline,
+  stat_lab: Sigma,
 };

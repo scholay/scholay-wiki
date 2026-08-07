@@ -318,12 +318,20 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	// 故放行 Skill 本身不放大权限面。
 	// ⚠️ Task/Agent (子 agent) 不在此列, 仍全禁: 子 agent 的工具调用**旁路本裁决**, 必须等生产
 	// L2 沙箱 (bubblewrap/gVisor) 就位再放 (见 agent conversationService.ts 注释)。
-	if toolName == "WebFetch" || toolName == "WebSearch" || toolName == "Skill" {
+	// 🔴 2026-08-08:WebFetch / WebSearch 从这条放行里摘掉 —— 它们**在 agent registry 里不存在**
+	//    (registry.ts 的 all[] 从来没有过 Web 工具)。上面这段「配合 egress 代理放行」描述的是
+	//    一个从未落地的能力。留在这里的唯一效果是把幻想的工具名判成 known=true,让模型拿不到
+	//    「不存在该工具」的自愈回执,而是在执行器里炸成 unknown tool。真要上 Web 工具,
+	//    先在 registry 里实现它,parity 守卫会提醒回来放行。
+	if toolName == "Skill" {
 		return true, true
 	}
 	// Bash 三件套: 走到这里 = 该 feature AllowBash=true (否则已在顶部 denylist 被拒)。
 	// shell 无法做路径限制, 对 AllowBash feature (claw) 放行 (风险见上方注释 / 生产靠 sandbox)。
-	if toolName == "Bash" || toolName == "BashOutput" || toolName == "KillShell" {
+	// ⚠️ 只判 Bash:BashOutput / KillShell 是 Claude Code 的后台 shell 配套工具,本执行器
+	//    **没有实现**(registry.ts 只有 bashTool)。它们仍留在各 feature 的 denylist 里(防御性),
+	//    但不能在这里判 known=true —— 那会旁路掉「工具不存在」的自愈提示。
+	if toolName == "Bash" {
 		return true, true
 	}
 	// TodayDate (2026-07): agent 内建的只读时钟工具 (查当前日期/时间, 治时间线幻觉)。
@@ -369,6 +377,37 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	if toolName == "SubmitAnswer" || toolName == "DeclareInsufficient" {
 		return true, true
 	}
+	// StatRun (2026-08 数据分析/statkit): 统计分析引擎的**唯一** bundle 写入通道。
+	// input 是 { data, dv, group?, paired?, subject?, requested? } —— data 是会话内相对路径,
+	// 由执行器侧工具在 jail 内解析并受 cwd 约束; 无网络。
+	//
+	// 🔴 它承担一条架构约束, 值得在此写清楚:
+	//    `analysis/` 是**引擎独占保留区**(与 evidence/ 同族, 见 agent/src/sandbox/reserved.ts) ——
+	//    模型的 Write/Edit 被 confinePath 拒, jail 内 Bash 被 bwrap 的只读覆盖层拒。
+	//    本工具是全仓唯一构造 `writableReserved: [analysis]` profile 的地方,
+	//    也就是说: 模型可以**调用**它, 但没有任何路径能**绕过**它去伪造 bundle 里的数字。
+	//    放行它 = 放行这条唯一合法通道; 不放行 = 整个数据分析能力 DOA。
+	//
+	// 🔴 这是本仓库第五次接同类线。前四次(ReadDocument / ExportDocument / BuildDeck / EvidenceGet)
+	//    都漏加过, 症状一致: 命中下面 default 被判「不存在该工具」, 模型静默回落。
+	//    现已有机械防线: agent/src/tools/permissionParity.test.ts 会对每个 builtin 工具
+	//    核对本函数是否显式提到它 —— 本次正是被它当场拦下才补上这一段。
+	if toolName == "StatRun" {
+		return true, true
+	}
+	// StatReport (2026-08-05): 把 bundle 渲染成交付物 —— 三线表 docx + Methods/Results 段 +
+	// 可复现脚本 analysis.py。input 是 { bundle, system },bundle 是会话内相对路径,无网络。
+	//
+	// 🔴 补这一条的由来值得记:StatReport **在 2026-08-05 之前根本不存在**,
+	//    而 StatRun 的工具描述里写着「report step reads it」、skill 里写着「调引擎的报告功能」
+	//    「再定 --system」—— 指的都是模型调不到的东西。43 条用例批跑时查 transcript 才发现:
+	//    模型做不到,于是**自己手写** markdown 再 ExportDocument 转 docx,
+	//    整个 statkit/report/ 层从未被产品调用过。随之失效的是一整排确定性保证
+	//    (p 绝不写成 .000、APA 不带前导零、Welch 分数自由度不取整、非参报中位数…)。
+	//    ⇒ 「工具没接线」与「工具不存在」在用户侧是同一种症状:模型静默换一条更差的路。
+	if toolName == "StatReport" {
+		return true, true
+	}
 	// ReadDocument/ExportDocument(2026-07-15):安全受限的文档抽取/导出工具(内部固定 argv 调
 	// pandoc/pdftotext,路径 confine 在会话 cwd)。二道防线仍校验 input 路径在会话目录内 —— 否则
 	// 命中下面 default: return false 被拒(评审确认:漏加这两个 case → 两工具在生产被权限墙一律
@@ -376,7 +415,14 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	// ExportDocument 的 source_path 已并入 fileToolPathKeys;输出被工具强制落 ./out/ 无需在此校验。
 	// 文件工具: 校验路径在会话目录内
 	switch toolName {
-	case "Read", "ReadDocument", "ExportDocument", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "Ls":
+	// 🔴 2026-08-08:摘掉 MultiEdit / NotebookEdit / LS / Ls —— 它们**在 agent registry 里根本不存在**
+	//    (registry.ts 的 all[] 只有 StatRun/StatReport/Read/ReadDocument/ExportDocument/BuildDeck/
+	//     Write/Edit/Glob/Grep/Bash/TodayDate/Skill/AskUserQuestion/EvidenceGet/SubmitAnswer/
+	//     DeclareInsufficient)。列在这里的后果是:模型幻想出 MultiEdit → 这里 return (allowed, known=true)
+	//     → 执行器 runTools 落空报 `unknown tool: MultiEdit`,同时**旁路掉**下面 default 分支准备好的
+	//     「工具不存在」中文自愈提示。线上 4 次全是这条路径。让它们落 default 才拿得到自愈回执。
+	//     (各 feature denylist 里仍留着这三个名字是防御性的,无害,不用动。)
+	case "Read", "ReadDocument", "ExportDocument", "Write", "Edit", "Glob", "Grep":
 		p := extractPathFromInput(input)
 		if p == "" {
 			// Glob/Grep 不带 path 默认搜 cwd → 安全放行; 其它没路径视为异常 → 拒。

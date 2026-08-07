@@ -30,6 +30,7 @@ const (
 	// 没有对应 label 时看板的「功能」维度会直接显示英文 code。
 	FeatureBoltSlides = "boltslides"
 	FeatureSciDraw    = "sci_draw"
+	FeatureStatLab    = "stat_lab"
 	// FeatureMemory —— per-user 长期记忆的后台抽取(每轮对话后用便宜模型从对话里提画像)。
 	// 2026-07-30 owner 拍板「凡消耗 token 一律扣用户额度」:此前的 SkipQuota 豁免已取消,
 	// 记忆抽取与上下文压缩同标题生成一样正常计费(抽取有 90s 冷却,量级为便宜模型的小调用)。

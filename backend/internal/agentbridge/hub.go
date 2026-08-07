@@ -823,6 +823,10 @@ func (h *sessionHub) tryProviderFailover(rawErr []byte) bool {
 	return true
 }
 
+// seedHistoryTurns —— 冷重播回灌的历史轮数上限。此前是 ReadRecentTurns(..., 30) 的裸字面量。
+// ⚠️ 它同时决定「模型能记得多远」与「seed 帧多大」,是个真实的产品参数,不该藏在参数表里。
+const seedHistoryTurns = 30
+
 // seedHistoryFromJournal 在(切到 executor 的)hub 建连后,把 journal 折叠的会话历史作为 seed_history
 // 控制帧喂给 executor —— executor 无状态、不自持久化历史(H1)。fork 路径不调用(fork 有 jsonl)。
 func (h *sessionHub) seedHistoryFromJournal() {
@@ -831,9 +835,26 @@ func (h *sessionHub) seedHistoryFromJournal() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	evs, _, _, err := h.f.bridge.log.ReadRecentTurns(ctx, h.sessionID, 30)
+	// 🔴 2026-08-08:读侧失败此前是**静默 return** —— 不发帧、不置 seedFailed、无日志。
+	//    fail-closed 闸(下面那段 + handleUserMessage)只覆盖**写**失败,读失败时会话会在
+	//    「无历史 / 无 skills / 无系统提示 / 无 MCP 白名单」的状态裸跑:executor 侧
+	//    getOrCreateEphemeral 造全空 meta,allowBashFor 因 denylist 为空返回 true(Bash 被打开),
+	//    awaitHydration 因「无在途 seed」立即放行。一次 5s DB 超时就能让一整轮跑在这个状态上。
+	//    读失败与写失败的后果完全一样,凭什么只挡一个。
+	evs, _, hasMore, err := h.f.bridge.log.ReadRecentTurns(ctx, h.sessionID, seedHistoryTurns)
 	if err != nil {
+		slog.Error("agentbridge hub: seed history read failed (fail-closed: first message will be gated)",
+			"feature", h.f.spec.Key, "session_id", h.sessionID, "err", err)
+		h.seedFailed.Store(true)
 		return
+	}
+	// hasMore 此前被 `_` 吞掉:超过 seedHistoryTurns 轮的历史被**静默**硬截断,既不告知 executor
+	// 也不给用户任何提示。对照热路径的等价裁剪会发 system_notification{kind:"context_compacted"}
+	// 并留一份滚动摘要(compact.ts)。线上 9 个 >30 轮的会话全都反复走这条路(单个会话最多 14 次
+	// 冷重播)。这里至少留痕 —— 用户可见的提示是独立一项(需要前端配合),别在这儿假装做完了。
+	if hasMore {
+		slog.Info("agentbridge hub: seed history truncated (older turns dropped, no summary)",
+			"feature", h.f.spec.Key, "session_id", h.sessionID, "kept_turns", seedHistoryTurns)
 	}
 	msgs := h.f.bridge.log.FoldToMessages(evs)
 	// 老会话(切流前)无事件日志 → 历史在归档表(P6:fork 退役前归档)。journal 空 → 先读归档,
@@ -841,7 +862,7 @@ func (h *sessionHub) seedHistoryFromJournal() {
 	if len(msgs) == 0 {
 		if ar, ok := h.f.bridge.readArchive(h.sessionID); ok {
 			msgs = ar.Messages
-		} else if resp, derr := h.f.bridge.client.GetSessionMessages(ctx, h.sessionID, 30); derr == nil && resp != nil && len(resp.Messages) > 0 {
+		} else if resp, derr := h.f.bridge.client.GetSessionMessages(ctx, h.sessionID, seedHistoryTurns); derr == nil && resp != nil && len(resp.Messages) > 0 {
 			msgs = resp.Messages
 		}
 	}
@@ -1233,6 +1254,24 @@ func (h *sessionHub) endTurn() {
 				slog.Warn("agentbridge hub: FailTurn write failed (journal reaper will reconcile)",
 					"feature", key, "turn_id", tid, "err", err)
 			}
+		})
+	}
+
+	// ── 轮末产物收割(2026-08-07 · B1)────────────────────────────────────────
+	//
+	// 挂在 endTurn 而不是 message_complete 的 case 里,是**刻意的**:endTurn 是所有
+	// 轮结束路径的唯一汇合口(正常完成 / 轮内 error / 空轮改判 / 硬超时 / 上游断开 /
+	// 用户 stop 都经它),而产物是否该留存与这一轮结得漂不漂亮无关 —— 文件已经在盘上了。
+	// 挂在 complete 分支会精确漏掉「长任务撞轮上限」这类最需要留住成果的轮。
+	//
+	// 派发是非阻塞的(有界队列 + 独立 worker 池),不会拖慢本会话的帧扇出;
+	// hook 为 nil 的 feature(smart_search / prism 等无交付面的)在这里直接返回。
+	if hook := h.f.spec.OnTurnArtifacts; hook != nil {
+		h.f.bridge.enqueueArtifactHarvest(harvestJob{
+			hook:      hook,
+			feature:   h.f.spec.Key,
+			userID:    h.userID,
+			sessionID: h.sessionID,
 		})
 	}
 }
@@ -1865,8 +1904,10 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 			ClientTurnID: shadowTurnID, RoleUserText: content,
 		})
 		if terr != nil {
-			slog.Warn("agentbridge hub: shadow BeginTurn failed (live unaffected)",
-				"feature", f.spec.Key, "session_id", h.sessionID, "err", terr)
+			// 留痕与计数在 TurnCoordinator.BeginTurn 里(JOURNAL_TURN_LOST + journalTurnLossCnt)——
+			// 那里有完整 TurnInput 上下文,这里不重复打一条。此处唯一要保证的是 live 照常:
+			// currentTurnID 保持 0,后续 tee 全部跳过,用户侧的这一轮完全正常地跑完。
+			_ = terr
 		} else if res.AlreadySeen {
 			h.endTurn() // 浏览器重发同 clientTurnId → 释放刚开的内存轮、丢帧、不转 agent
 			// 先前那条其实已送达(幂等命中)→ 当成功回 ack,撤掉发送端的未送达看门狗;不重转 agent。

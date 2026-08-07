@@ -95,7 +95,14 @@ func (r *Repository) CompileObjectKeys(projectID uint) ([]string, error) {
 	return keys, nil
 }
 
-// DeleteProjectCascade 事务删项目 + 全部子表(版本/文件/编译/编辑/对话);DB 真源一次清干净。
+// DeleteProjectCascade 事务删项目 + 全部子表;DB 真源一次清干净。
+//
+// 🔴 这些表没有一个建了外键(见 0012 / 0053 / 0059 迁移),所以「级联」完全是这个函数的手工活:
+// 漏一张表 = 用户点了删除、正文却还留在库里。2026-08 查到就漏了两张,而且漏的恰好是当前**唯一
+// 在用**的正文轨(prism_struct_versions):legacy 的 prism_files/prism_file_versions 删得干干净净,
+// struct 轨的整份文档快照链一行没删。新增 project 级子表时必须回来加一行 —— 不加不会有任何报错。
+//
+// 顺序:先子后父。目前无外键约束,但保持这个顺序,将来补上 FK 时不必回来重排。
 func (r *Repository) DeleteProjectCascade(projectID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var fileIDs []uint
@@ -108,6 +115,15 @@ func (r *Repository) DeleteProjectCascade(projectID uint) error {
 			}
 		}
 		if err := tx.Where("project_id = ?", projectID).Delete(&File{}).Error; err != nil {
+			return err
+		}
+		// struct 轨正文版本链(0053)。**用户论文正文的真身就在这张表的 doc_struct 列里** ——
+		// prism_projects.doc_struct 只是当前快照的副本,版本链才是全量历史。
+		if err := tx.Where("project_id = ?", projectID).Delete(&StructVersion{}).Error; err != nil {
+			return err
+		}
+		// 修改意见逐条追踪(0059)。含 quote 逐字引用的审稿意见原文 —— 属于用户提交的原始材料。
+		if err := tx.Where("project_id = ?", projectID).Delete(&RevisionItem{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("project_id = ?", projectID).Delete(&Compile{}).Error; err != nil {

@@ -249,6 +249,13 @@ export interface AttachmentDTO {
   size: number;
   /** agent 容器内绝对路径(会话隔离 cwd 下), 发送时透传到 attachments[].path */
   path: string;
+  /** 附件持久身份(落盘名 <uuid>-<原名> 的前缀,0112 起同时是 agent_attachments 的身份键)。
+   *  取回 `GET /user/attachment/:uuid`、删除 `DELETE /user/attachment/:uuid` 都按它。
+   *  后端**总会返回**它(哪怕降级路径没落库);缺省只可能是老后端(0112 之前)。 */
+  uuid?: string;
+  /** agent_attachments 行 id。**有 = 真的落了耐久层**(降级路径只有 uuid 没有 id)。
+   *  删除一律按 uuid,这个字段目前只用于诊断。 */
+  id?: number;
   /** 仅前端本地: 图片预览用的 object URL(不来自后端, 提交后释放) */
   previewUrl?: string;
 }

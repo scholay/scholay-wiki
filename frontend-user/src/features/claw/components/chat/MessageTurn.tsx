@@ -288,7 +288,7 @@ export const MessageTurn = memo(function MessageTurn({
                     <AssistantBubble
                       key={item.block.id}
                       // 出口清洗:兜住偶发泄漏的容器内部路径(主机制是提示词铁律 + 产物卡)。
-                      text={stripContainerPaths(item.block.text)}
+                      text={stripContainerPaths(item.block.text, 'deliver')}
                       streaming={streamingText}
                       variant="plain"
                     />
@@ -318,7 +318,7 @@ export const MessageTurn = memo(function MessageTurn({
           {layout.answerBlocks.map((b) => (
             <AssistantBubble
               key={b.id}
-              text={stripContainerPaths(b.text)}
+              text={stripContainerPaths(b.text, 'deliver')}
               streaming={
                 !turn.complete && b === lastBlock && turn.placeholder?.state === 'streaming'
               }

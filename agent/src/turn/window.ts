@@ -6,7 +6,10 @@
 // tool_use 的 assistant 消息。故只在「回合起点」切:回合起点 = user 消息且**不含 tool_result 块**
 // (runTurn 回填的 tool_result 消息 content 是含 tool_result 块的数组 → 非起点)。对两种历史形状都成立:
 //   - 活会话:user 起点是 string content;tool_result 回合是 [tool_result...] 数组;
-//   - seed 回来的历史(convertFlatToAnthropic 只留 text、丢工具块):每条 user 都是 [text...] 无 tool_result → 都是起点。
+//   - seed 回来的历史(server/replayHistory.convertFlatToAnthropic):**结构还原**,tool_result
+//     回合同样是 [tool_result...] 数组 → 与活会话同口径,不是起点。
+// ⚠️ 2026-08-08 更正:这里原先写着「seed 回来的历史只留 text、丢工具块 ⇒ 每条 user 都是起点」——
+//   那描述的是已被删除的折叠实现(它正是幻影工具链的根因)。冷/热两条路径现在形状一致。
 // 在起点切 → 首条恒为 user、且 tool 配对完整落在两个相邻起点之间、绝不被切断。
 
 import type Anthropic from "@anthropic-ai/sdk";

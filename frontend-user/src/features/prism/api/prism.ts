@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import { retryDetailQuery } from '@/shared/lib/query-config';
 import { getAuthToken } from '@/shared/lib/auth-token';
+import { attachmentUrl } from '@/shared/lib/agent-attachment';
 import type { PdfSource } from '@/shared/components/PdfViewer';
 
 export interface PrismProject {
@@ -791,6 +792,8 @@ export async function fetchWSHistory(
 /** prism 历史回放/已发送气泡里图片取图代理 URL(cookie 鉴权,<img src> 直接用)。
  *  端点 per-project(会话由 :id 解析);path 取 basename。 */
 export function prismSessionFileUrl(projectId: number, absPath: string): string {
+  // 0112 起优先走统一附件端点(见 shared/lib/agent-attachment.ts);老代理 URL 随 ?fb=
+  // 一起送,由后端在查不到行(0112 之前的存量附件)时 302 交还 —— 前端分辨不了新旧。
   const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
   // prism 附件落会话 cwd 的 uploads/ 子目录 —— 取「相对会话 cwd」的路径(而非 basename),
   // 否则后端按根目录找不到。绝对路径形如 /home/bun/sessions/<uuid>/uploads/<file>。
@@ -798,5 +801,6 @@ export function prismSessionFileUrl(projectId: number, absPath: string): string 
   const i = parts.indexOf('sessions');
   const rel = i >= 0 && parts.length > i + 2 ? parts.slice(i + 2).join('/') : parts.pop() || absPath;
   const qs = new URLSearchParams({ path: rel });
-  return `${apiBase}/user/prism/projects/${projectId}/session/file?${qs.toString()}`;
+  const legacy = `${apiBase}/user/prism/projects/${projectId}/session/file?${qs.toString()}`;
+  return attachmentUrl(absPath, legacy) ?? legacy;
 }

@@ -44,6 +44,7 @@ export {
 export { JournalCover } from './JournalCover';
 export { FavoriteBurst } from './FavoriteBurst';
 export { RouteSEO } from './RouteSEO';
+export { ToastHost } from './ToastHost';
 
 export {
   Sidebar,

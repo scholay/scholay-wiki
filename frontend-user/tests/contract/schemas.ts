@@ -260,6 +260,7 @@ export const CANONICAL_BIZ_CODES = {
   UploadTooLarge: 7001,
   UploadInvalidType: 7002,
   UploadStorageFailed: 7003,
+  AttachmentQuotaExceeded: 7010,
 } as const;
 
 /** 额度信号的 WS 字符串形态(HTTP 是数字 6010 = AgentQuotaExceeded)。 */

@@ -18,8 +18,20 @@ import type { UserLibraryPaper } from '@/shared/api/types';
  * 立即可见(不需手动 setQueryData)。
  */
 
-/** 与后端 maxPDFSize 保持一致 —— 前端先拦一道,避免无意义的 50MB+ 上传 */
+/** 与后端 maxPDFSize 保持一致(handler_pdf.go 的 maxPDFSize / middleware.UploadMaxBodySize) */
 export const MAX_PDF_SIZE = 50 * 1024 * 1024;
+
+/**
+ * 前端实际用的上传上限 —— 比 MAX_PDF_SIZE 少 4KB。
+ *
+ * 🔴 别把这 4KB 当"保守"删掉。nginx 的 client_max_body_size 卡的是**整个 multipart 请求体**
+ * (boundary + 每个 part 的 Content-Disposition 头 + 文件名 + 文件本体),而这里能拿到的
+ * `file.size` 是**裸文件字节数**。两者口径不同 ⇒ 文件体积落在
+ * (MAX_PDF_SIZE − overhead, MAX_PDF_SIZE] 这条约 200 字节宽的缝里时,
+ * 前端判"没超"放行 → nginx 判"超了"拒绝,而且返回的是 **text/html 错误页**,
+ * 前端解不出 message,只能显示裸状态码。留出余量让这类文件在本地就被友好拦下。
+ */
+export const MAX_PDF_UPLOAD_BYTES = MAX_PDF_SIZE - 4096;
 
 export interface UploadPdfVars {
   paperId: number;
@@ -46,13 +58,15 @@ export function useUploadPaperPdf() {
       onProgress,
       signal,
     }: UploadPdfVars): Promise<UserLibraryPaper> => {
-      // 前置校验 —— 后端会再做 magic bytes 校验,这里只是减少无效请求
-      if (file.size > MAX_PDF_SIZE) {
+      // 二道兜底 —— 正经的预检在 components/shared/validate-pdf.ts 的 checkPdfFile
+      // (含 magic bytes),这里只防"绕过 UI 直接调 hook"。判据必须与那边同一个常量,
+      // 两处阈值不一致会造出"预检说行、发出去被拒"的假象。
+      if (file.size > MAX_PDF_UPLOAD_BYTES) {
         throw new Error(
-          `文件过大(${formatSize(file.size)}),上限 ${MAX_PDF_SIZE / 1024 / 1024} MB`
+          `文件过大(${formatSize(file.size)}),上限 ${formatSize(MAX_PDF_UPLOAD_BYTES)}`
         );
       }
-      const lower = file.name.toLowerCase();
+      const lower = file.name.trim().toLowerCase();
       if (!lower.endsWith('.pdf')) {
         throw new Error('只支持 .pdf 文件');
       }
@@ -67,7 +81,13 @@ export function useUploadPaperPdf() {
           {
             // 让 axios 自动带 boundary,不要手动设 Content-Type:multipart/form-data
             headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 60_000,
+            // 🔴 这是**整个请求**的总超时(含上传耗时),不是"无响应超时"。
+            // 原值 60s ⇒ 上行 3 Mbps 时天花板只有 ~22MB、1 Mbps 时只有 ~7.5MB,
+            // 远低于我们对外宣称的 50MB —— 合法文件在慢网下确定性失败,且失败后
+            // 前端只显示"上传失败"(排查 2026-08-07)。改为与后端对齐的 10 分钟:
+            // timeout.go 的 isObjectServePath 给 `/pdf` 结尾的路由就是 10min。
+            // 不设 0(永不超时)是因为真挂死时用户会一直转圈,没有任何反馈。
+            timeout: 600_000,
             signal,
             onUploadProgress: (e: AxiosProgressEvent) => {
               if (!onProgress || !e.total) return;

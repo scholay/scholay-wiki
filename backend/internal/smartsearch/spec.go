@@ -127,6 +127,12 @@ func smartSearchSkillAddDir() string {
 // 空头支票)。安全面不变:Read 在 backend permissionAllowed 按会话 cwd 做路径校验(越界一律拒),
 // 写类/检索类文件工具与联网/子任务仍全禁,MCP-only 检索纪律靠提示词 + 其余 denylist 维持。
 var smartSearchDisallowedTools = []string{
+	// 🔴 2026-08-08:StatRun / StatReport(2026-08 新增的 builtin)必须显式列出。
+	// builtin 工具走 **deny-list** 模式 ⇒ 任何新增 builtin 对**所有老 feature 默认开放**:
+	// 它们发版当天就被本 feature 继承了,而 backend permissionAllowed(ws.go:387/400)对二者
+	// 无条件 return true。线上调用次数目前是 0(stat_lab 未放量),所以这是已成立的**暴露面**
+	// 与每轮 6.7KB 的 tools[] 浪费,不是已发生的事故。统计能力属于 stat_lab,别处不要继承。
+	"StatRun", "StatReport",
 	// ExportDocument 写交付物到 ./out/ 不属只读检索职责,禁用(ReadDocument 保留:读用户上传的稿件)。
 	"Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "ExportDocument",
 	"WebFetch", "WebSearch", "Task", "Agent", "Skill",

@@ -88,6 +88,49 @@ describe("跨包接线守卫 · builtin 工具 ↔ backend permissionAllowed", (
     },
   );
 
+  // ── 反向(2026-08-08 补)────────────────────────────────────────────────────────────
+  // 上面那条只查 builtin → backend。**反向从来没人查**,于是 backend 的文件工具 switch 里
+  // 长期列着 MultiEdit / NotebookEdit / LS / Ls —— 这四个在 agent registry 里根本不存在。
+  // 后果不是「多写了几个名字」:模型幻想出 MultiEdit → backend 判 (allowed=true, known=true)
+  // → 执行器 runTools 落空回 `unknown tool: MultiEdit`,同时**旁路掉**控制面为 known=false
+  // 准备的中文自愈提示(该提示因此在整个观测窗口 0 次生产验证)。线上 4 次全走这条路。
+  test.skipIf(!backendPresent)(
+    "backend permissionAllowed 的 case 列表里不得出现 registry 没有的工具名(否则自愈提示被旁路)",
+    () => {
+      const src = readFileSync(WS_GO, "utf8");
+      const start = src.indexOf("func permissionAllowed(");
+      const after = src.slice(start + 1);
+      const nextFunc = after.indexOf("\nfunc ");
+      const body = nextFunc === -1 ? after : after.slice(0, nextFunc);
+      // 只取 `case "A", "B":` 与 `if toolName == "X"` 这两种**判定**形态的名字;
+      // 注释与散文里出现的名字不算(它们不改变控制流)。
+      const declared = new Set<string>();
+      const codeOnly = body
+        .split("\n")
+        .filter((l) => !l.trimStart().startsWith("//"))
+        .join("\n");
+      for (const m of codeOnly.matchAll(/^\s*case\s+([^:\n]+):/gm)) {
+        for (const q of m[1]!.matchAll(/"([A-Za-z_][A-Za-z0-9_]*)"/g)) declared.add(q[1]!);
+      }
+      for (const m of codeOnly.matchAll(/toolName\s*==\s*"([A-Za-z_][A-Za-z0-9_]*)"/g)) declared.add(m[1]!);
+
+      // MCP 工具走 mcp__ 前缀分支,不在 registry 里,天然豁免。
+      const ghosts = [...declared].filter((n) => !n.startsWith("mcp__") && !builtinRegistry.has(n));
+      expect(
+        ghosts.sort(),
+        ghosts.length === 0
+          ? ""
+          : `\nbackend permissionAllowed 判定了这些**不存在的工具**:\n` +
+              ghosts.map((g) => `  · ${g}`).join("\n") +
+              `\n\n它们会被判 known=true → 模型拿不到「工具不存在」的自愈提示,` +
+              `而是在执行器里炸成 unknown tool。删掉它们,让其落 default 分支。\n`,
+      ).toEqual([]);
+      // 判据自证:至少得抓到几个真名字,否则正则失效会变成永远绿的规则。
+      expect(declared.has("Read")).toBe(true);
+      expect(declared.has("EvidenceGet")).toBe(true);
+    },
+  );
+
   test("backend 源码缺席时必须吵闹地 skip,而不是静默绿灯", () => {
     if (backendPresent) {
       expect(backendPresent).toBe(true);

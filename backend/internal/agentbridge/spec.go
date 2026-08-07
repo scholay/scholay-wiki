@@ -81,6 +81,17 @@ type OnTitleResultFn func(ctx context.Context, userID uint, sessionID, title str
 // 典型用途: 把 usage 写到日志或账单表, 做事后审计。失败仅打 warn, 不影响业务。
 type OnMessageCompleteFn func(ctx context.Context, userID uint, usage AgentUsage)
 
+// OnTurnArtifactsFn 在**每一轮结束后**异步调用,把该会话交付目录里的产物收割进耐久存储。
+//
+// 刻意**不传「本轮声明了哪些产物」的路径列表**,只传会话 —— 实现方自己去列交付目录。
+// 理由:artifact 帧与 on-list 收割在本仓库历来是两条覆盖面不同的链路(帧会被轮末异常吞掉、
+// 会被 20 帧上限截断;收割会漏掉 out/ 之外的东西)。让钩子按「会话当前的交付目录全量」
+// 收割,而不是按「本轮帧说了什么」,能让这条耐久链路**独立于帧是否发全**而正确。
+// 代价是每轮一次全量列目录 —— 收割自带 size:mtime 签名比对,未变的文件不会重读字节。
+//
+// 契约见 FeatureSpec.OnTurnArtifacts 上的注释(幂等 / 自带容错 / 2min 上限)。
+type OnTurnArtifactsFn func(ctx context.Context, userID uint, sessionID string)
+
 // PermissionMode 是权限模型的「何时问人」轴 (C14, 2026-06)。
 //
 // 设计动机: 旧的单 bool AutoApprovePermission 语义分裂 —— 对 smart_search 表示「approve
@@ -204,6 +215,24 @@ type FeatureSpec struct {
 	// OnMessageComplete 在每轮 agent 回答完 (拿到 message_complete) 后异步调用。
 	// nil → 不记账 (usage 仅在 agent 端 transcript 留底)。
 	OnMessageComplete OnMessageCompleteFn
+
+	// OnTurnArtifacts 在**每一轮结束后**(complete / error / 硬超时 / 上游断开都算)异步调用,
+	// 让 feature 把该会话交付目录里的产物收割进耐久存储(MinIO + agent_artifacts)。
+	// nil → 不收割(该 feature 退回「用户点开产物面板才落库」的旧行为)。
+	//
+	// 🔴 为什么这个钩子必须存在,而不能继续只靠 on-list 收割:
+	//    产物的耐久化原本只在 GET /<feature>/session/artifacts 里发生,而会话工作区是
+	//    临时的(容器重启即清、30 天 GC)。用户没在窗口期点过面板 → 产物永久丢失且零日志。
+	//    2026-08-07 生产实测:claw 13 个「写过文件」的会话里只有 7 个留下了产物行。
+	//    详见 artifact_dispatch.go 顶部的取证记录。
+	//
+	// 语义要求(实现方必须满足):
+	//   · **幂等**。同一会话会被重复调用(每轮一次,且并发重复是允许的),实现必须是
+	//     按 dedup_anchor 的 upsert,不能 append。
+	//   · **自带容错**。会话已删 / 工作区已清 / agent 暂时不可达都属正常,吞掉即可,
+	//     不要往上抛(调用方只会记一条日志,没有重试)。
+	//   · 不要阻塞很久。调用方给的 ctx 有 2min 上限。
+	OnTurnArtifacts OnTurnArtifactsFn
 
 	// OnTitleResult 在 agent 回 session_title_updated 帧(且 aiGenerated=true)时异步调用,
 	// 供「标题真源在 backend DB」的 feature 落库。claw/smart_search 的标题存 agent jsonl 自管 →

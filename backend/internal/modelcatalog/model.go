@@ -67,6 +67,7 @@ var AllPurposes = []string{
 var purposeAlias = map[string]string{
 	"chat_default.boltslides":  PurposeChatDefaultClaw,       // 制作PPT → 智能助手默认
 	"chat_default.sci_draw":    PurposeChatDefaultClaw,       // 科研绘图 → 智能助手默认(注:从 vision 模型降级到 flash)
+	"chat_default.stat_lab":    PurposeChatDefaultClaw,       // 数据分析 → 智能助手默认(统计计算在引擎侧,模型只问诊与解读,不需要更强档)
 	PurposePeerreviewLetter:    PurposePeerreviewMeta,        // 信件起草 → 预填识别(合并)
 	PurposePeerreviewScoring:   PurposePeerreviewMethodology, // 审稿人盲评 → 审稿环节(合并)
 	PurposePeerreviewChief:     PurposePeerreviewMethodology, // 主审裁决 → 审稿环节(合并)

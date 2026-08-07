@@ -57,9 +57,23 @@ AGENT="$ROOT/agent"
 #   · permissionParity   agent 的 builtin 工具 ←→ backend permissionAllowed(放行面)
 #     2026-08 加入。它挡的是本仓库**咬过五次**的同一个坑:工具在 agent 造好、backend 忘了放行 →
 #     命中 default-deny → 模型静默回落,零红灯。见该文件头。
+#   · composeVolumeParity  docker-compose.yml ←→ docker-compose.prod.yml(agent 的 volumes)
+#     2026-08 加入。它挡的是**已经发生过**的一次漂移:`./data/agent-sessions:/home/bun/sessions`
+#     在 a30add8d2「优化 agent架构」把 dev 的 volumes 整块重写时被顺带删掉,prod 保住 ⇒
+#     dev 与 prod 漂移两个月,而丢的正是数据持久化 —— 209 个 stat_lab 会话里 203 个的 bundle
+#     (「交付物里每个数字可溯源」的唯一源)已不可复核。同批还丢了 /etc/localtime,那条
+#     在 2026-07 被单独补回 = **当时已排查过一轮却只补了两条里的一条**,证明人工复查挡不住这类漏项。
+#   · skillSize          agent/src/skills/loader.ts 的 CAP ←→ agent-skills/**/SKILL.md 的体积
+#     2026-08 加入。它挡的是**已经发生过两个月**的一次静默截断:stat_lab 的 workbench/SKILL.md
+#     长期 8886 字而 cap 是 8000 ⇒ 末尾 886 字被切掉,丢的正好是三条法律禁语
+#     (不许说「符合 GDPR/HIPAA」等)与隐私三句话原文。E2E 的「隐私三句话一句都没说」
+#     因此被长期误诊成「模型不听话」,真因是那段文字从来没进过 system prompt。
+#     跨包性质:cap 在 agent/,SKILL.md 在 agent-skills/,单包构建两边都看不全。
 TESTS_REL=(
   "src/evidence/parse.mirror.test.ts"
   "src/tools/permissionParity.test.ts"
+  "src/server/composeVolumeParity.test.ts"
+  "src/skills/skillSize.test.ts"
 )
 
 banner() {
@@ -128,11 +142,16 @@ if [ "$rc" -ne 0 ]; then
   # 两族规则的失败原因与修法完全不同 —— 横幅必须说对是哪一族挂了。
   # 两族同时挂时两条都打(只打一条会让人修完一个以为完事)。
   bad="$(failed_files)"
-  hit_perm=0; hit_parse=0
-  case "$bad" in *permissionParity*) hit_perm=1 ;; esac
-  case "$bad" in *parse.mirror*)     hit_parse=1 ;; esac
-  # 一条都没识别出来(junit 格式变了 / 崩在测试之外)→ 两条都打,宁可多说也别指错方向。
-  if [ "$hit_perm" -eq 0 ] && [ "$hit_parse" -eq 0 ]; then hit_perm=1; hit_parse=1; fi
+  hit_perm=0; hit_parse=0; hit_vol=0
+  case "$bad" in *permissionParity*)    hit_perm=1 ;; esac
+  case "$bad" in *parse.mirror*)        hit_parse=1 ;; esac
+  case "$bad" in *composeVolumeParity*) hit_vol=1 ;; esac
+  hit_skill=0
+  case "$bad" in *skillSize*) hit_skill=1 ;; esac
+  # 一条都没识别出来(junit 格式变了 / 崩在测试之外)→ 全打,宁可多说也别指错方向。
+  if [ "$hit_perm" -eq 0 ] && [ "$hit_parse" -eq 0 ] && [ "$hit_vol" -eq 0 ] && [ "$hit_skill" -eq 0 ]; then
+    hit_perm=1; hit_parse=1; hit_vol=1; hit_skill=1
+  fi
 
   if [ "$hit_perm" -eq 1 ]; then
     banner "✗ 跨包接线护栏失败 —— builtin 工具没在 backend 登记(上线即 DOA)。" \
@@ -153,6 +172,30 @@ if [ "$rc" -ne 0 ]; then
            "" \
            "   ⚠️ 漂移的后果不是样式不一致,是「前端认得的论文,账本认不得」= 检索了但没入账。" \
            "      先判断是哪一侧错,别为了绿灯改 fixture。"
+  fi
+  if [ "$hit_vol" -eq 1 ]; then
+    banner "✗ compose 挂载漂移 —— docker-compose.yml 与 docker-compose.prod.yml 的 agent volumes 不一致。" \
+           "   具体是哪一条只在哪一侧,见上面测试输出。" \
+           "" \
+           "   修法: 补齐缺的那一侧;若确实**只该**出现在一侧,把它加进" \
+           "        agent/src/server/composeVolumeParity.test.ts 的 ALLOWED_DIFF 并写清理由。" \
+           "" \
+           "   ⚠️ 这条已经真的发生过一次: ./data/agent-sessions:/home/bun/sessions 在 dev 被顺带删掉," \
+           "      漂移两个月无人知 —— 会话工作目录不落盘 ⇒ analysis/ 里的 bundle 随容器重建即灭," \
+           "      而它是「交付物里每个数字可溯源」的唯一源。实测 209 个会话里 203 个已不可复核。"
+  fi
+  if [ "$hit_skill" -eq 1 ]; then
+    banner "✗ SKILL 超长 —— 末尾内容会被静默截掉,**从未送达模型**。" \
+           "   具体是哪份、超了多少,见上面测试输出。" \
+           "" \
+           "   ⚠️ 先别急着调大 agent/src/skills/loader.ts 的 PER_SKILL_CAP。" \
+           "      SKILL.md 的写作惯例是**越重要的约束越往后写**(红线、禁语都在末尾)," \
+           "      所以「从尾部截断」本身就与内容组织方式正面冲突 —— 调大只能治这一次。" \
+           "      先问这份 SKILL 是不是可以更短(能查的东西不必枚举:引擎的 30 种情况" \
+           "      已经可以 \`statkit situations\` 查)。确要调大,照 loader.ts 里那段注释重算一次账。" \
+           "" \
+           "   这条已经真的发生过:stat_lab 的 workbench/SKILL.md 超限 886 字两个月," \
+           "   丢的正好是三条法律禁语与隐私三句话原文。"
   fi
   exit 1
 fi
@@ -206,3 +249,5 @@ echo ""
 echo "✓ 跨包接线护栏通过,无规则被跳过:"
 echo "    · 解析器镜像   parse.ts 与 minicod-papers.ts 行为一致"
 echo "    · 工具放行面   每个 builtin 工具都已在 backend permissionAllowed 登记(无 DOA)"
+echo "    · compose 挂载 dev 与 prod 的 agent volumes 一致(会话工作目录两侧都在)"
+echo "    · SKILL 体积   每份 SKILL.md 都在 PER_SKILL_CAP 内(末尾的红线不会被静默截掉)"

@@ -27,7 +27,7 @@ import {
   adminLegacyRedirectRoutes,
   legacyRedirectRoutes,
 } from '@/features/legacy-redirects/routes';
-import { authRoutes, authMobileRoutes } from '@/features/auth/routes';
+import { authRoutes, authMobileRoutes, wechatCallbackRoutes } from '@/features/auth/routes';
 import { settingsRoutes, settingsMobileRoutes } from '@/features/settings/routes';
 
 /**
@@ -84,6 +84,17 @@ export const router = createBrowserRouter([
   })),
   // 小程序 web-view 内嵌页 /mp/* —— 公开、免登录、不挂 Shell(小程序导航栏承担壳)。
   ...clawEmbedRoutes.map((r) => ({
+    ...r,
+    path: `/${r.path}`,
+    errorElement: <RouteErrorBoundary />,
+  })),
+  // 微信扫码 callback —— **不挂 AppShell**,裸渲染(自带整屏居中状态页)。
+  // wxLogin `self_redirect` 让 /wechat/callback 在**登录弹窗里那个 220×240 的 iframe 内**加载:
+  // 挂 AppShell 就等于把整套 TopNav / 首页 chrome 渲进登录弹窗(用户实测「扫完码弹窗里闪过首页」),
+  // 还会在 iframe 里白连一条通知 WS、跑一遍暂存区同步。附带收益:不再经 '/' 的移动重定向 loader。
+  // ⚠️ 其余 OAuth 回调**故意留在 AppShell 下**,理由见 features/auth/routes.tsx 的注释(挪出去会
+  // 让 useStagingSync 错过 token 跃迁)。errorElement 同 admin/landing —— 顶层路由必须自带。
+  ...wechatCallbackRoutes.map((r) => ({
     ...r,
     path: `/${r.path}`,
     errorElement: <RouteErrorBoundary />,

@@ -94,7 +94,7 @@ func (h *Handler) ListBindings(c *gin.Context) {
 func (h *Handler) ListUserModels(c *gin.Context) {
 	feature := c.Query("feature")
 	switch feature {
-	case "smart_search", "claw", "prism", "boltslides", "sci_draw":
+	case "smart_search", "claw", "prism", "boltslides", "sci_draw", "stat_lab":
 	default:
 		feature = "claw" // 未知/缺省按 claw(选择器目前挂对话 feature)
 	}

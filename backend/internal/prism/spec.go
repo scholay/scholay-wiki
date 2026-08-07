@@ -45,7 +45,10 @@ const PromptName = "Scholay 智能写作 · 默认 prompt"
 // (agent 要能读用户上传的 PDF/docx)。
 // 注:AskUserQuestion(交互提问)P1 起对 prism 放开(写作场景澄清需求很自然,前端已接 usePrismChat +
 // QuestionPrompt),故**不**列入禁用。见 docs/research/ask-mode-2026-07。
-var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent", "ExportDocument"}
+// 🔴 2026-08-08 加 StatRun/StatReport:builtin 走 deny-list ⇒ 新增 builtin 默认被所有老 feature
+// 继承。统计计算属于 stat_lab,prism 是写作 feature,不该顺手拿到整个 statkit 面
+// (backend permissionAllowed 对二者是无条件放行,没有第二道闸)。
+var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent", "ExportDocument", "StatRun", "StatReport"}
 
 // prismAllowedMcpTools —— prism(智能写作)对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
 // prism 用检索做「引用接地」(真实 BibTeX / DOI 解析 / 片段引用)与「投稿目标期刊 + 模板」,不做泛检索。
@@ -206,9 +209,18 @@ func BuildSpec() agentbridge.FeatureSpec {
 		InjectPromptOnFirstMsg: true, // agent 默认带全工具,首条注入 agent-native 系统提示强约束
 		// 默认模型走 chat_default.prism 能力绑定(admin 模型目录页可改;迁移初值=主档)。
 
-		// C14: 审批轴 = auto。经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界/Bash 等拒。
+		// C14: 审批轴 = auto。经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界拒。
 		// ⚠️ prism 的越界文件防护只在 decidePermission 里,绝不能改 passthrough(会让前端能批越界)。
 		PermissionMode: agentbridge.PermissionAuto,
+		// 🔴 2026-08-08 补:能力轴 Bash 此前是**半边接线** —— prismSessionOptions 里
+		//    SessionDisallowedTools(prismDisallowedTools, /*allowBash=*/true) 把 Bash 从 agent 侧
+		//    denylist 拿掉了(2026-08-01),模型每轮都在 tools[] 里看得见 Bash;但这里的
+		//    AllowBash 取零值 false ⇒ specDeny() 又把 bashTools 塞回 backend 权限门的 denyTools
+		//    ⇒ decidePermission 顶部命中 denylist 直接拒。线上 48/48 次 prism Bash 调用 100% 失败
+		//    (43 次 "permission denied: Bash"、5 次改动前的 "tool not permitted: Bash"),
+		//    2026-08-07 16:54 仍在发生,且只打 INFO 日志、没有任何红灯。
+		//    AllowBash 是这条能力的**单一真源**(spec.go:258),两个消费者必须同时改。
+		AllowBash: true,
 		PreUserMessage:         pre,
 		OnMessageComplete:      onComplete,
 		// SS#2:单轮预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。

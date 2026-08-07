@@ -11,8 +11,24 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "../obs/log.ts";
 
-const PER_SKILL_CAP = 8000; // 单个 SKILL.md 截断上限(防超长)
-const TOTAL_CAP = 40000; // 总后缀上限
+// 单个 SKILL.md 截断上限。
+//
+// 🔴 2026-08-06 从 8000 提到 12000。提的理由与「先算账再提」的过程都记在这里,
+//    因为下一个想提它的人需要同一份判断依据:
+//
+//    · **代价**:stat_lab 的 workbench/SKILL.md 是 8886 字 —— 超限 886 字被**静默截掉**,
+//      丢的正好是文件末尾那三条法律禁语(不许说「符合 GDPR/HIPAA」、不许不加限定说
+//      「你的数据不会被用于训练」)与隐私三句话。E2E 的 AD-05「隐私三句话一句都没说」
+//      长期被误诊成「模型不听话」,真因是**它从来没收到过那段文字**。
+//    · **账**:按 dev 库真实用量(3078 次调用 / ¥12.94 / 平均 42013 tokens 每次)算,
+//      多出的 4000 字 ≈ 2353 tokens,占单次调用 5.6%,且落在**缓存前缀**里
+//      (stat_lab 的 cache_read/input = 25.4,命中率极高,按 0.1x 计价)——
+//      折算总额约 +¥0.07。可忽略。
+//
+//    ⚠️ 但真正的修法不是这个数字,而是让**超限不再静默**:见下方 assertSkillsFitTheCap
+//    与 skills/skillSize.test.ts。一个会悄悄截掉安全文案的上限,定多少都会再咬一次。
+export const PER_SKILL_CAP = 12000;
+export const TOTAL_CAP = 40000; // 总后缀上限
 
 function safeRead(path: string): string {
   try {
@@ -124,6 +140,15 @@ function buildSkillMenu(addDirs: string[]): string {
   );
 }
 
+// stripFrontmatter —— 剥掉 SKILL.md / CLAUDE.md 顶部的 YAML frontmatter。
+// 判据与 tools/registry.ts 的同名函数逐字一致(按需 guides 路径用的那一份);
+// 刻意**不** import:skills/ → tools/ 是反向依赖,而这段是 4 行纯字符串处理。
+// ⚠️ 两处一起改 —— 一处剥一处不剥,正是 2026-08-08 这个 bug 的形状。
+function stripFrontmatter(md: string): string {
+  const m = md.match(/^\ufeff?\s*---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  return (m ? md.slice(m[0].length) : md).trim();
+}
+
 // addDirs 挂载是 :ro、容器内永不变 → 首轮读一次后按 addDirs 组合缓存,省掉每轮 ~8 次阻塞 readFileSync(评审 low)。
 // 容器重启即清空,天然拿到重新部署后的新内容。
 //
@@ -150,7 +175,16 @@ export function loadAddDirContext(addDirs: string[]): string {
   let total = 0;
   let cappedWarned = false;
   const push = (label: string, body: string) => {
-    const trimmed = body.trim();
+    // 🔴 2026-08-08:必须剥 YAML frontmatter。常驻路径此前**不剥**(按需 guides 路径在
+    //    registry.ts:1077 一直是剥的),于是 `allowed-tools: Read, Grep, MultiEdit`、
+    //    `name: figures`、`disable-model-invocation: false` 原样进 system。后果不是多几十字节:
+    //    ① allowed-tools 在本仓**不生效**(真源是 AllowedMcpTools + DisallowedTools/AllowBash),
+    //       模型却会当真 —— 容器内实测 prism system 含 4 条 allowed-tools 行、3 条写着 MultiEdit,
+    //       而 MultiEdit 在 registry 里根本不存在,线上 4 次调用全回 `unknown tool: MultiEdit`;
+    //    ② `name:` 让模型以为可以 Skill(name) 调它,但常驻 skill 不在 guides/ 目录下,
+    //       Skill 工具只查 <dir>/guides/<name>/SKILL.md —— sci_draw 的 figures 3 次调用全失败。
+    //    也就是说:泄漏的 frontmatter 是**平台亲手写进 system 的假约束与假工具名**。
+    const trimmed = stripFrontmatter(body);
     if (!trimmed) return;
     if (total >= TOTAL_CAP) {
       // 触总量帽 → 静默丢弃会让「system 里少了半份指南」无从察觉;至少 warn 一次点名被丢的段。
@@ -161,7 +195,14 @@ export function loadAddDirContext(addDirs: string[]): string {
       return;
     }
     if (trimmed.length > PER_SKILL_CAP) {
-      log.warn("addDir skill truncated to per-skill cap", { per_skill_cap: PER_SKILL_CAP, label, orig_len: trimmed.length });
+      // 🔴 从 warn 升到 error:被截掉的是**文件末尾**,而 SKILL.md 的末尾按惯例放红线与禁语
+      //    (越重要的约束越往后写)。一条 warn 在 docker logs 里与几百行 INFO 混在一起,
+      //    实测没有人看见 —— 那 886 字丢了两个月。
+      log.error("SKILL 超长被截断:文件末尾的内容将**从未送达模型**", {
+        per_skill_cap: PER_SKILL_CAP, label, orig_len: trimmed.length,
+        lost_chars: trimmed.length - PER_SKILL_CAP,
+        lost_tail: trimmed.slice(PER_SKILL_CAP, PER_SKILL_CAP + 120),
+      });
     }
     const chunk = `## ${label}\n${trimmed.slice(0, PER_SKILL_CAP)}`;
     parts.push(chunk);

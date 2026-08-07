@@ -1,0 +1,120 @@
+# 多组比较族(P1 族①)。
+#
+# 🔴 事后比较是 omnibus 的**一部分**,不是另一次调用 —— 一次算完、一起交付。
+#    拆成两步会让「先看 F 显不显著再决定要不要做事后」落到调用方头上,
+#    而那正是多重比较失控最常见的入口(挑显著的做事后)。
+methods:
+  - id: oneway_anova
+    name_zh: 单因素方差分析(Tukey HSD 事后比较)
+    name_short_zh: 单因素方差分析
+    name_en: One-way ANOVA with Tukey HSD
+    group_levels: {min: 3, max: null}
+    units: independent
+    family: multi_group
+    engine: "lib:scipy.stats.f_oneway"
+    statistic_symbol: "F"
+    requires: [shapiro_by_group, levene_center_median]
+    effects: [eta_squared]
+    reports_required:
+      - n.by_group
+      - statistic
+      - df
+      - df2
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - posthoc[].a
+      - posthoc[].b
+      - posthoc[].p_adj
+      - cld
+      - descriptives
+      - assumptions
+      - software
+    golden: ["R:stats::aov + TukeyHSD", "fixture:multi_group_normal_equalvar"]
+    citations:
+      - id: kim2017-anova
+        role: primary
+        access: oa
+        cite: "Kim HY. Statistical notes for clinical researchers: analysis of variance (ANOVA) comparing means of more than two groups. Restorative Dentistry & Endodontics. 2014;39(1):74-77. doi:10.5395/rde.2014.39.1.74"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3916511/"
+
+  - id: welch_anova
+    name_zh: Welch 方差分析(Games-Howell 事后比较)
+    name_short_zh: Welch 方差分析
+    name_en: Welch's ANOVA with Games-Howell
+    group_levels: {min: 3, max: null}
+    units: independent
+    family: multi_group
+    engine: "own:tests.welch_anova"
+    statistic_symbol: "F"
+    requires: [shapiro_by_group, levene_center_median]
+    effects: [eta_squared]
+    reports_required:
+      - n.by_group
+      - statistic
+      - df
+      - df2
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - posthoc[].a
+      - posthoc[].b
+      - posthoc[].p_adj
+      - cld
+      - descriptives
+      - assumptions
+      - software
+    golden: ["R:rstatix::welch_anova_test + games_howell_test", "fixture:multi_group_unequalvar"]
+    notes_zh: >-
+      方差不齐时的多组比较。事后走 Games-Howell —— 发布版 scikit-posthocs 没有该函数
+      (只在 GitHub master),故本仓自写;k=2 时它与 Welch t 检验精确退化一致,该恒等式已作金标钉死。
+    citations:
+      - id: delacre2021-welch-anova
+        role: primary
+        access: oa
+        cite: "Delacre M, Leys C, Mora YL, Lakens D. Taking parametric assumptions seriously: arguments for the use of Welch's F-test instead of the classical F-test in one-way ANOVA. International Review of Social Psychology. 2019;32(1):13. doi:10.5334/irsp.198"
+        url: "https://www.rips-irsp.com/articles/10.5334/irsp.198"
+
+  - id: kruskal_wallis
+    name_zh: Kruskal-Wallis 检验(Dunn 事后比较)
+    name_short_zh: Kruskal-Wallis 检验
+    name_en: Kruskal-Wallis test with Dunn's post hoc
+    group_levels: {min: 3, max: null}
+    units: independent
+    family: multi_group
+    engine: "lib:scipy.stats.kruskal"
+    nonparametric: true
+    statistic_symbol: "H"
+    comparison_noun_zh: "分布位置差异"
+    requires: [shapiro_by_group]
+    effects: [epsilon_squared]
+    reports_required:
+      - n.by_group
+      - statistic
+      - df
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - posthoc[].a
+      - posthoc[].b
+      - posthoc[].p_adj
+      - cld
+      - descriptives
+      - assumptions
+      - software
+    golden: ["R:stats::kruskal.test + FSA::dunnTest", "fixture:multi_group_skewed"]
+    citations:
+      - id: whitley2002-nonparam
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 6: Nonparametric methods. Critical Care. 2002;6(6):509-513. doi:10.1186/cc1820"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC153434/"

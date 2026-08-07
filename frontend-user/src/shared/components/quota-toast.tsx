@@ -56,7 +56,13 @@ export function showQuotaToast(kind: Kind) {
   const c = COLOR[p.color];
   const action = p.action; // const 提出来:闭包内保住 narrowing,不用非空断言
   toast.custom((id) => (
-    <div className="flex w-80 overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay">
+    // 点整条即关 —— 与其它 toast 一致(见 ToastHost)。custom toast 拿不到 sonner 自绘的关闭键
+    // (它对 jsx 一律不渲染),所以这条自己挂 onClick;里面的动作键/关闭键本来就会 dismiss,
+    // 冒泡上来再 dismiss 一次是幂等的,不用拦。
+    <div
+      onClick={() => toast.dismiss(id)}
+      className="flex w-80 overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay"
+    >
       <span className={cn('w-1 shrink-0', c.bar)} />
       <div className="flex flex-1 gap-2 p-3">
         <span className={cn('mt-1.5 size-2 shrink-0 rounded-pill', c.dot)} />

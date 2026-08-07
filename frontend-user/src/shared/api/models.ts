@@ -35,7 +35,7 @@ export function modelSupportsVision(
   return !!target?.vision;
 }
 
-export type ModelFeatureKey = 'smart_search' | 'claw' | 'prism' | 'boltslides' | 'sci_draw';
+export type ModelFeatureKey = 'smart_search' | 'claw' | 'prism' | 'boltslides' | 'sci_draw' | 'stat_lab';
 
 export function useUserModels(feature: ModelFeatureKey) {
   return useQuery({

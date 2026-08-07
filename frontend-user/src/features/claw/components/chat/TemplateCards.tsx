@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useId, useState, type ReactElement } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/shared/lib/utils';
@@ -57,6 +57,19 @@ const CARDS: CardMeta[] = [
       focusRing: 'ring-brand-green/35 border-brand-green/50',
       modeBar: 'border-brand-green/40 bg-brand-green/10',
       modeText: 'text-brand-green',
+    },
+  },
+  {
+    key: 'statlab',
+    feature: 'stat_lab',
+    title: '数据分析',
+    subtitle: '传数据 → 自动选对检验 → 三线表与结果段',
+    Illustration: StatsIllustration,
+    accent: {
+      chip: 'bg-brand-red/10 text-brand-red',
+      focusRing: 'ring-brand-red/35 border-brand-red/50',
+      modeBar: 'border-brand-red/40 bg-brand-red/10',
+      modeText: 'text-brand-red',
     },
   },
 ];
@@ -421,6 +434,163 @@ function FigureIllustration({ reduce }: { reduce: boolean }) {
             transition={reduce ? { duration: 0 } : { duration: 0.28, delay: 0.5 + i * 0.13, ease: 'easeOut' }}
           />
         ))}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * 正态密度的小提琴轮廓(闭合路径)。**只在 ±2.6σ 内取样**:取满会在两端拖出一条宽度≈0 的
+ * 「发丝垂尾」—— 左右两侧路径几乎重合、描边叠成一根竖线,在 216px 卡上非常显眼(实测)。
+ * 72 个采样点是「曲线够顺」与「路径字符串够短」的折中,再少两端会露出多边形折角。
+ */
+function violinPath(cx: number, mu: number, sd: number, maxW: number): string {
+  const Z = 2.6;
+  const N = 72;
+  const lo = mu - Z * sd;
+  const hi = mu + Z * sd;
+  const right: string[] = [];
+  const left: string[] = [];
+  for (let i = 0; i <= N; i++) {
+    const y = lo + ((hi - lo) * i) / N;
+    const z = (y - mu) / sd;
+    const w = maxW * Math.exp(-0.5 * z * z);
+    right.push(`${(cx + w).toFixed(2)} ${y.toFixed(2)}`);
+    left.push(`${(cx - w).toFixed(2)} ${y.toFixed(2)}`);
+  }
+  left.reverse();
+  return `M ${right.concat(left).join(' L ')} Z`;
+}
+
+/**
+ * 数据分析封面(2026-08-08 重绘)—— 画的是**这张卡真正在卖的东西**:不是「能画箱线图」
+ * (那是科研绘图那张卡),而是「两组比较 → 检验 → 显著性结论」。
+ *
+ * 构图:两把 **小提琴 + 内嵌箱线 + 白色中位点**(对照组玄墨 / 实验组朱砂),上方一条显著性
+ * 标线穿过 `P<.001` 胶囊,基线下两条组别标签条。满铺 16:9。
+ *
+ * 为什么换掉上一版(两个细箱线 + 裸星号):① 内容全挤在上半区、下 1/4 与左右两侧大片空白;
+ * ② 箱线**只有上须没有下须**、直角细描边,像两个小窗框而不像统计图;③ 星号 `y=4.2` 顶到画布
+ * 边缘,几乎被裁掉,且「一个星号」在缩略图里等于没有;④ 两组同为朱砂 → 看不出「对照 vs 实验」。
+ *
+ * 为什么是小提琴而不是继续用箱线:同排的科研绘图卡是**面积图**,箱线太细弱压不住场,而面积图
+ * 语言又与它撞车;小提琴的密度轮廓既是统计学独有的图形语言,又有足够的体量与曲线感,在
+ * 216px 卡与 80px 缩略图(模式条)上都能一眼认出来。
+ *
+ * 动效:入场**画一次即定格**(绝不循环淡出到空白 —— 那是之前「图不见了」的根因);唯一持续的
+ * 「活着」信号是实验组中位点的白色光晕脉冲(底下的实心点恒在)。honors reduced-motion。
+ */
+function StatsIllustration({ reduce }: { reduce: boolean }) {
+  // 同一页会同时挂多个实例(扇形里的卡 + 模式条里的缩略图),渐变 id 必须实例唯一,
+  // 否则 url(#id) 一律解析到文档里第一个同名节点。useId() 带冒号,不能直接进 url()。
+  const uid = useId().replace(/:/g, '');
+  const BASE = 74; // 基线(x 轴)
+  const BOX_W = 10; // 内嵌箱体宽
+  const groups = [
+    // 对照组:玄墨中性 —— 与实验组的朱砂形成「基准 vs 处理」的对照关系
+    { key: 'ctrl', cx: 46, mu: 58, sd: 5.7, maxW: 21, q3: 54, q1: 62, med: 58, wLo: 48, wHi: 68, accent: false },
+    // 实验组:朱砂 —— 位置更高(效应),是整张图的视觉主角
+    { key: 'exp', cx: 114, mu: 40, sd: 5.7, maxW: 23, q3: 36, q1: 44, med: 40, wLo: 30, wHi: 50, accent: true },
+  ];
+
+  return (
+    <div className="absolute inset-0 bg-gradient-to-b from-surface-1 to-background">
+      {/* viewBox 160×90 = 精确 16:9,与容器同比,故 preserveAspectRatio="none" 不产生形变 */}
+      <svg viewBox="0 0 160 90" preserveAspectRatio="none" className="h-full w-full">
+        <defs>
+          {/* stopColor="currentColor" + 类名给 color:两个渐变都走设计 token,不落任何字面色值 */}
+          <linearGradient id={`${uid}-accent`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.36" className="text-brand-red" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.08" className="text-brand-red" />
+          </linearGradient>
+          <linearGradient id={`${uid}-ink`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.13" className="text-foreground" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" className="text-foreground" />
+          </linearGradient>
+        </defs>
+
+        {/* 淡网格 + 基线(满宽贴边,与科研绘图卡同一套坐标语言) */}
+        {[34, 48, 62].map((gy) => (
+          <line key={gy} x1="0" y1={gy} x2="160" y2={gy} className="stroke-current text-border" strokeWidth="0.7" />
+        ))}
+        <line x1="0" y1={BASE} x2="160" y2={BASE} className="stroke-current text-border-strong" strokeWidth="1.1" />
+
+        {groups.map((g, i) => {
+          const tone = g.accent ? 'text-brand-red' : 'text-subtle';
+          return (
+            <motion.g
+              key={g.key}
+              // 从基线「长出来」:transform-origin 定在该组基线中点(动态计算值,不是设计 token 能表达的东西)
+              style={{ transformBox: 'view-box', transformOrigin: `${g.cx}px ${BASE}px` }}
+              initial={reduce ? { opacity: 1, scaleY: 1 } : { opacity: 0, scaleY: 0.2 }}
+              animate={{ opacity: 1, scaleY: 1 }}
+              transition={reduce ? { duration: 0 } : { duration: 0.42, delay: 0.18 + i * 0.16, ease: 'easeOut' }}
+            >
+              {/* 密度轮廓 */}
+              <path
+                d={violinPath(g.cx, g.mu, g.sd, g.maxW)}
+                fill={`url(#${uid}-${g.accent ? 'accent' : 'ink'})`}
+                className={cn('stroke-current', tone)}
+                strokeWidth="1.2"
+                strokeOpacity={g.accent ? 0.9 : 0.45}
+                strokeLinejoin="round"
+              />
+              {/* 须(1.5 IQR) */}
+              <line x1={g.cx} y1={g.wLo} x2={g.cx} y2={g.wHi}
+                className={cn('stroke-current', tone)} strokeWidth="1.1" opacity={g.accent ? 0.85 : 0.45} />
+              {/* 四分位箱体 */}
+              <rect x={g.cx - BOX_W / 2} y={g.q3} width={BOX_W} height={g.q1 - g.q3} rx="2"
+                className={cn('fill-current', tone)} opacity={g.accent ? 0.92 : 0.5} />
+              {/* 中位点脉冲光晕(唯一持续动画;放大淡出的是光晕,底下实心点恒在,绝不致空白) */}
+              {!reduce && g.accent && (
+                <motion.circle
+                  cx={g.cx}
+                  cy={g.med}
+                  className="fill-current text-surface-card"
+                  initial={{ r: 2.2, opacity: 0 }}
+                  animate={{ r: [2.2, 7], opacity: [0.45, 0] }}
+                  // duration 走 token 四档(--duration-deliberate=0.7),节奏靠 repeatDelay 拉开 ——
+                  // 护栏「framer duration 字面量只减不增」只认 {0,.16,.28,.42,.7}
+                  transition={{ duration: 0.7, repeat: Infinity, ease: 'easeOut', delay: 1.6, repeatDelay: 1.8 }}
+                />
+              )}
+              {/* 中位数 */}
+              <circle cx={g.cx} cy={g.med} r="2.2" className="fill-current text-surface-card" />
+              {/* 基线下的组别标签条(占位式,不写真文字 —— 216px 卡上任何真标签都是糊的) */}
+              <rect x={g.cx - 12} y="79" width="24" height="3.2" rx="1.6"
+                className={cn('fill-current', g.accent ? 'text-brand-red' : 'text-foreground')}
+                opacity={g.accent ? 0.72 : 0.26} />
+            </motion.g>
+          );
+        })}
+
+        {/* 显著性标线 —— 这一笔才是「数据分析」区别于「画图」的地方 */}
+        <motion.path
+          d="M 46 21 L 46 10.5 L 114 10.5 L 114 21"
+          fill="none"
+          className="stroke-current text-brand-red"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          opacity="0.8"
+          initial={{ pathLength: reduce ? 1 : 0 }}
+          animate={{ pathLength: 1 }}
+          transition={reduce ? { duration: 0 } : { duration: 0.42, delay: 0.9, ease: 'easeInOut' }}
+        />
+        {/* P 值胶囊 —— 用 SVG 表现属性而非 inline style:viewBox 单位不是像素,设计 token 在这里
+            没有意义,且本文件既有的 strokeWidth/opacity 也都走属性(护栏的「inline style 魔法数字」
+            规则针对的是真像素值)。字体刻意不指定,继承全站 sans。 */}
+        <motion.g
+          style={{ transformBox: 'view-box', transformOrigin: '80px 10.5px' }}
+          initial={reduce ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.82 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 340, damping: 20, delay: 1.15 }}
+        >
+          <rect x="58" y="3" width="44" height="15" rx="7.5" className="fill-current text-brand-red-soft" />
+          <rect x="58" y="3" width="44" height="15" rx="7.5" fill="none"
+            className="stroke-current text-brand-red" strokeWidth="1" opacity="0.45" />
+          <text x="80" y="13.6" textAnchor="middle" fontSize="9" fontWeight="600"
+            className="fill-current text-brand-red">P&lt;.001</text>
+        </motion.g>
       </svg>
     </div>
   );

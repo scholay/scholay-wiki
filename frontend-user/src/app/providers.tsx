@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
-import { ConfirmDialogRoot } from '@/shared/components';
+import { ConfirmDialogRoot, ToastHost } from '@/shared/components';
 import { BodyPointerLockGuard } from '@/shared/components/BodyPointerLockGuard';
 import { QuotaNotifier } from '@/shared/components/QuotaNotifier';
+import { AttachmentManagerDialog } from '@/shared/components/AttachmentManagerDialog';
 import { PromoModal } from '@/shared/components/PromoModal';
 // 全局 feed 预取/水合:任意入口进入即准备好移动端论文/期刊流数据(仅手机生效)。
 // 需全站唯一挂载点而无根布局,故在此引入 mobile feature 的预取器(刻意的全局编排例外)。
@@ -74,13 +74,17 @@ export function Providers({ children }: { children: ReactNode }) {
         <BodyPointerLockGuard />
         {!isEmbedPage && <FeedPrefetcher />}
         {children}
-        <Toaster position="top-right" richColors closeButton />
+        {/* 右上角 toast —— sonner 的 Toaster + 「点整条即关闭」,见组件注释 */}
+        <ToastHost />
         {/* 全局命令式确认 dialog 渲染槽 —— 任意位置 useConfirm() 都能弹 */}
         <ConfirmDialogRoot />
         {/* 全局额度通知器:6010 → 重置弹窗;用量过半/将尽 → toastr */}
         {!isEmbedPage && <QuotaNotifier />}
         {/* 限时领取会员推广弹窗:首屏自动 / 额度用尽 / 导航按钮触发(开关关闭时不渲染) */}
         {!isEmbedPage && <PromoModal />}
+        {/* 「我的附件」弹窗:附件额度满(7010)自动弹 / 输入框「+」主动打开。
+            全站唯一挂载点 —— 四个 feature 的上传口共用一条自救路径,不做 per-feature 镜像。 */}
+        {!isEmbedPage && <AttachmentManagerDialog />}
         {/* 全局「收藏到文件夹」选择器(任意收藏按钮 openCollect 触发)——
             懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。 */}
         <CollectFolderPickerGate />

@@ -40,8 +40,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/common/ctxutil"
@@ -956,8 +954,7 @@ func (s *Service) UploadAsset(
 		return nil, errors.New("peerreview: storage not configured")
 	}
 
-	ext := strings.ToLower(filepath.Ext(fh.Filename))
-	key := fmt.Sprintf("tmp/%d/%s%s", submissionID, uuid.New().String(), ext)
+	key := assetObjectKey(submissionID, fh.Filename)
 
 	if _, err := storage.PutObject(ctx, bucket, key, bytes.NewReader(body),
 		int64(len(body)), storage.PutOptions{
@@ -2027,7 +2024,10 @@ const peerReviewJSONRetries = 2
 // 否则模型发问会导致本轮无 JSON 输出、审稿降级/失败(见 docs/research/ask-mode-2026-07)。
 // Bash 三件套(2026-07 文件上传调研):审稿只读,prompt 本就严禁 Bash;此前 denylist 漏掉它导致
 // 「spec 注释说 peerreview 无 Bash、事实上却可用」的漂移,现对齐设计意图(附件 xlsx/pptx 走 ReadDocument)。
-var scoringSessionDeny = []string{"Skill", "Agent", "Task", "AskUserQuestion", "Bash", "BashOutput", "KillShell"}
+// 🔴 2026-08-08 加 StatRun/StatReport:builtin 走 deny-list ⇒ 新增 builtin 默认被所有老 feature 继承。
+// peerreview 是**无人值守**的 server-side 会话,继承一个能跑统计引擎、能写 analysis/ 保留区的工具面
+// 完全没有理由(backend permissionAllowed 对二者无条件放行)。
+var scoringSessionDeny = []string{"Skill", "Agent", "Task", "AskUserQuestion", "Bash", "BashOutput", "KillShell", "StatRun", "StatReport"}
 
 // reviewerAllowedMcpTools —— peerreview 会话对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
 // 审稿只读地做「新颖性 / 先行工作 / 可复现文献」核查,不做泛检索。收敛 minicod 0.4.1 的 76 工具到论文

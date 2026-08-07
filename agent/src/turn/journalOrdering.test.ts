@@ -95,3 +95,51 @@ describe("journal 留痕不变式", () => {
     expect(seg).toContain("paper_ids");
   });
 });
+
+// ── 2026-08-07 追加:round_discarded 必须能自证「为什么被作废」 ──────────────────────
+//
+// 线上 39 条 round_discarded 的 payload 是 `{"type":"round_discarded"}` —— 只有 type,零原因。
+// 归因只能靠「同轮碰巧还有一个 error 帧」去 join;而作废后**重打成功**的那 8 轮连 error 帧都没有,
+// 于是「这一轮为什么闪了一下重来」在库里永久无解。这跟必补 B/C 是同一类问题:
+// 破坏它不会有红灯(前端照常渲染、用户照常拿到答案),只有跑指标 SQL 的人几周后发现数据答不上话。
+//
+// 两个发射点原因完全不同(传输层瞬态 vs 内容层协议泄漏),必须各自可辨。
+describe("round_discarded 归因不变式", () => {
+  test("两个发射点都带 reason,且取值互不相同", () => {
+    // 判据刻意保持粗粒度(不解析 AST):细粒度解析器会随代码结构演进而坏掉,坏掉的守卫最后
+    // 都会被注释掉 —— 那比没有守卫更糟(与本文件顶部同一条纪律)。
+    const emits = [...SRC.matchAll(/type:\s*"round_discarded"/g)].length;
+    expect(emits, "\nround_discarded 发射点数量变了,请同步本断言并确认每个发射点都带 reason。\n").toBe(2);
+
+    expect(
+      SRC.includes('reason: "protocol_leak"'),
+      "\nDSML 熔断路的 round_discarded 丢了 reason。\n" +
+        "后果:journal 里这一轮与「瞬态流错误重放」长得一模一样,协议泄漏的真实发生率不可测。\n",
+    ).toBe(true);
+    expect(
+      SRC.includes('reason: "transient_stream_error"'),
+      "\n瞬态重放路的 round_discarded 丢了 reason。\n",
+    ).toBe(true);
+  });
+
+  test("协议泄漏路必须带变体族与码位(新变体出现时唯一的读数)", () => {
+    const i = SRC.indexOf('reason: "protocol_leak"');
+    expect(i).toBeGreaterThan(-1);
+    const seg = SRC.slice(i, i + 400);
+    expect(
+      seg.includes("markerFamily") && seg.includes("markerHex"),
+      "\n协议泄漏的 round_discarded 不再带 markerFamily / markerHex。\n" +
+        "判据已从字面量名单换成**形状族**,这两个字段是「哪一族在动 / 标记的真实码位是什么」的唯一读数。\n" +
+        "没有它们,下一次变体漂移只能靠再做一次线上全量取证才能发现。\n",
+    ).toBe(true);
+  });
+
+  test("熔断日志必须带 marker_family / marker_hex / will_retry", () => {
+    const i = SRC.indexOf('log.warn("DSML protocol leak intercepted"');
+    expect(i).toBeGreaterThan(-1);
+    const seg = SRC.slice(i, i + 700);
+    for (const k of ["marker_family", "marker_hex", "will_retry", "has_tool_use"]) {
+      expect(seg.includes(k), `\n熔断日志少了 ${k} —— docker logs 上就归不了因。\n`).toBe(true);
+    }
+  });
+});

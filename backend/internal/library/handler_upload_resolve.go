@@ -37,6 +37,7 @@ import (
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/pdfparse"
 	"scholar-backend/internal/storage"
@@ -120,23 +121,35 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 		return
 	}
 
-	// 读 file —— 受 Gin 全局 multipart memory 限制 + 这里再守 50MB
+	// 读 file —— 受 Gin 全局 multipart memory 限制 + 这里再守 50MB。
+	// ⚠️ 这两条 413 目前不可达(nginx client_max_body_size 50m 与后端等值,外层恒先命中),
+	// 详见 handler_pdf.go 文件头的阈值说明。
 	if c.Request.ContentLength > maxPDFSize+1<<20 {
-		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge,
-			fmt.Sprintf("文件过大,上限 %d MiB", maxPDFSize/1024/1024))
+		utils.ErrorWithStatus(c, http.StatusRequestEntityTooLarge, errcode.UploadTooLarge,
+			fmt.Sprintf("文件过大,单文件上限 %d MB,请压缩后再试", maxPDFSize/1024/1024))
 		return
 	}
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "缺少 file 字段: "+err.Error())
+		// 用户中途取消 / 断网的高频路径 —— 原始 err 是 Go 内部串,不回显。
+		slog.Warn("library: 读取 multipart file 字段失败", "err", err, "user_id", uid)
+		utils.Error(c, http.StatusBadRequest, "上传中断,请重试")
 		return
 	}
 	if fileHeader.Size > maxPDFSize {
-		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "文件过大")
+		utils.ErrorWithStatus(c, http.StatusRequestEntityTooLarge, errcode.UploadTooLarge,
+			fmt.Sprintf("文件过大(%.1f MB),单文件上限 %d MB,请压缩后再试",
+				float64(fileHeader.Size)/1024/1024, maxPDFSize/1024/1024))
 		return
 	}
-	if !strings.HasSuffix(strings.ToLower(fileHeader.Filename), ".pdf") {
-		utils.Error(c, http.StatusBadRequest, "只支持 .pdf 文件")
+	if fileHeader.Size == 0 {
+		utils.ErrorWithStatus(c, http.StatusBadRequest, errcode.UploadInvalidType,
+			"文件为空,可能是云盘同步中的占位文件,请先下载到本地再上传")
+		return
+	}
+	if !strings.HasSuffix(strings.ToLower(strings.TrimSpace(fileHeader.Filename)), ".pdf") {
+		utils.ErrorWithStatus(c, http.StatusBadRequest, errcode.UploadInvalidType,
+			"只支持 .pdf 文件,请确认文件扩展名")
 		return
 	}
 	src, err := fileHeader.Open()
@@ -152,7 +165,8 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 		return
 	}
 	if len(buf) < len(pdfMagicPrefix) || string(buf[:len(pdfMagicPrefix)]) != pdfMagicPrefix {
-		utils.Error(c, http.StatusBadRequest, "不是合法的 PDF 文件")
+		utils.ErrorWithStatus(c, http.StatusBadRequest, errcode.UploadInvalidType,
+			"这个文件不是 PDF(可能只是改了扩展名,或文件已损坏),请用阅读器打开确认后重试")
 		return
 	}
 
@@ -178,6 +192,13 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 	}
 	emitError := func(msg string) {
 		writeEvent("error", map[string]string{"message": msg})
+	}
+	// emitWarn —— "流程继续,但有事要告诉用户"。
+	// 与 error 的区别是**前端不打回第一步**:识别不出题录并不妨碍用户直接保存这份 PDF,
+	// 把它做成 error 会让用户以为上传失败了。此前这类降级 100% 静默(只进 slog),
+	// 用户传完扫描件只看到一个空候选列表,不知道发生了什么(2026-08-07 排查)。
+	emitWarn := func(msg string) {
+		writeEvent("warn", map[string]string{"message": msg})
 	}
 
 	jobID := uuid.NewString()
@@ -213,8 +234,10 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 	})
 	parseCancel()
 	if err != nil {
-		// 解析失败不算 fatal —— title 留空,自由保存路径仍可用
+		// 解析失败不算 fatal —— title 留空,自由保存路径仍可用。
+		// 但**必须告诉用户**:否则他只看到一个空候选列表,不知道是"没搜到"还是"没读懂"。
 		slog.Warn("library: pdfparse failed", "err", err, "job_id", jobID)
+		emitWarn("没能读取这份 PDF 里的文字(常见于扫描件或加密文件),无法自动识别题录 —— 仍可直接保存,之后手动补充信息")
 		parsed = &pdfparse.Result{}
 	}
 
@@ -258,6 +281,11 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 		searchCancel()
 		job.SearchResults = hits
 		writeEvent("searched", map[string]any{"papers": hits})
+	} else if err == nil {
+		// 解析本身成功、但 DOI / arXiv / 标题一个都没抽到 —— 整个检索步被跳过,
+		// 前端连 `searched` 帧都收不到。不说一声的话,用户看到的是一个没有任何解释的空列表。
+		// (err != nil 的情况上面已经发过 warn 了,不重复。)
+		emitWarn("没能从这份 PDF 里识别出标题或 DOI,已跳过在线匹配 —— 仍可直接保存,之后手动补充信息")
 	}
 
 	// (AI 兜底识别已下线 —— 防止滥用大模型 token。三源搜索没命中时,confirmFree
@@ -351,7 +379,7 @@ func (h *Handler) ConfirmUploadJob(c *gin.Context) {
 	db := database.GetDB()
 
 	// 文件夹兜底
-	folderID, err := h.resolveFolderID(db, uid, req.FolderID)
+	folderID, folderExplicit, err := h.resolveFolderID(db, uid, req.FolderID)
 	if err != nil {
 		utils.InternalError(c, 500, "文件夹初始化失败", err)
 		return
@@ -361,7 +389,7 @@ func (h *Handler) ConfirmUploadJob(c *gin.Context) {
 
 	if req.Decision == "link" {
 		// 关联到上游论文
-		paper, merged, err := h.confirmLinked(ctx, db, uid, folderID, bucket, job, req.Link, &now)
+		paper, merged, err := h.confirmLinked(ctx, db, uid, folderID, folderExplicit, bucket, job, req.Link, &now)
 		if err != nil {
 			writeConfirmError(c, err)
 			return
@@ -372,7 +400,7 @@ func (h *Handler) ConfirmUploadJob(c *gin.Context) {
 	}
 
 	// decision == "free"
-	paper, merged, err := h.confirmFree(ctx, db, uid, folderID, bucket, job, &now)
+	paper, merged, err := h.confirmFree(ctx, db, uid, folderID, folderExplicit, bucket, job, &now)
 	if err != nil {
 		writeConfirmError(c, err)
 		return
@@ -396,26 +424,31 @@ func writeConfirmError(c *gin.Context, err error) {
 }
 
 // resolveFolderID —— 用户没传 folder_id 时,lazy 取默认文件夹(没有就建)
-func (h *Handler) resolveFolderID(db *gorm.DB, uid uint64, given *uint64) (*uint64, error) {
+//
+// 第二个返回值 explicit = "这个文件夹是用户明确指定的" (而非兜底默认)。
+// 合并到既有论文行时**必须**看这个:前端在「root」视图下不传 folder_id,
+// 若把兜底出来的默认文件夹也当成用户意图去改既有行的 folder_id,
+// 用户只是重复传了一份 PDF,那篇论文就被从它原来的文件夹里拽走了。
+func (h *Handler) resolveFolderID(db *gorm.DB, uid uint64, given *uint64) (id *uint64, explicit bool, err error) {
 	if given != nil {
 		var f UserLibraryFolder
-		if err := db.Where("id = ? AND user_id = ?", *given, uid).First(&f).Error; err == nil {
-			return given, nil
+		if e := db.Where("id = ? AND user_id = ?", *given, uid).First(&f).Error; e == nil {
+			return given, true, nil
 		}
-		// 给的不存在 —— 走默认
+		// 给的不存在 / 不属于该用户 —— 走默认,且不算 explicit
 	}
 	def, err := ensureDefaultFolder(db, uid)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	id := def.ID
-	return &id, nil
+	defID := def.ID
+	return &defID, false, nil
 }
 
 // confirmLinked decision=link 路径 —— 把 PDF 从 tmp 挪到正主 key,落正常字段
 // 若 (user_id, source, source_paper_id) 已存在 → 合并到既有行
 func (h *Handler) confirmLinked(
-	ctx context.Context, db *gorm.DB, uid uint64, folderID *uint64,
+	ctx context.Context, db *gorm.DB, uid uint64, folderID *uint64, folderExplicit bool,
 	bucket string, job *JobState, choice *LinkChoice, now *time.Time,
 ) (*UserLibraryPaper, bool, error) {
 	if !IsValidUpstreamSource(choice.Source) {
@@ -521,6 +554,13 @@ func (h *Handler) confirmLinked(
 		"pdf_uploaded_at":       now,
 		"link_state":            LinkStateLinked,
 	}
+	// 用户是站在某个文件夹里传的 → 把合并到的既有行也移过去。
+	// 不加这一条时,用户在文件夹 B 里传一份库里已有的 PDF,接口回 200 + merged=true,
+	// 但那一行仍留在原文件夹 A —— 用户视角就是"我在这个文件夹里传了,它没出现"。
+	// folderExplicit 为假(root 视图,folder 是兜底出来的)时不动,否则会把论文拽出原文件夹。
+	if folderExplicit && folderID != nil {
+		updates["folder_id"] = *folderID
+	}
 	applyParsedFillEmptyOG(updates, &existing, job)
 	if err := db.Model(&UserLibraryPaper{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
 		return nil, false, fmt.Errorf("update existing: %w", err)
@@ -536,7 +576,7 @@ func (h *Handler) confirmLinked(
 // source='local', source_paper_id=sha256(PDF 内容)。
 // 重复上传同 PDF → 唯一键冲突 → 合并到既有自由文件行(返回 merged=true)。
 func (h *Handler) confirmFree(
-	ctx context.Context, db *gorm.DB, uid uint64, folderID *uint64,
+	ctx context.Context, db *gorm.DB, uid uint64, folderID *uint64, folderExplicit bool,
 	bucket string, job *JobState, now *time.Time,
 ) (*UserLibraryPaper, bool, error) {
 	// 2026-07 线上审计:同 confirmLinked —— 静音 GORM SQL Trace,防用户内容随错误日志泄漏。
@@ -566,6 +606,11 @@ func (h *Handler) confirmFree(
 			"pdf_sha256":            job.SHA256,
 			"pdf_mime":              pdfContentType,
 			"pdf_uploaded_at":       now,
+		}
+		// 同 confirmLinked 合并分支:秒传(同 sha256)也要跟着用户当前所在的文件夹走,
+		// 否则"在文件夹 B 里重传同一份 PDF"会静默留在原文件夹。
+		if folderExplicit && folderID != nil {
+			updates["folder_id"] = *folderID
 		}
 		applyParsedFillEmptyOG(updates, &existing, job)
 		if err := db.Model(&UserLibraryPaper{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {

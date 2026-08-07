@@ -10,17 +10,30 @@ import type { RouteObject } from 'react-router-dom';
  */
 const providers = ['github', 'google', 'apple', 'orcid', 'microsoft', 'discourse'] as const;
 
-export const authRoutes: RouteObject[] = [
-  ...providers.map((p) => ({
-    path: `${p}/callback`,
-    lazy: () =>
-      import('./pages/OAuthCallbackPage').then((m) => ({
-        Component: m.OAuthCallbackPage,
-      })),
-  })),
-  // 微信扫码 callback —— 跟其他 OAuth 不同,wxLogin self_redirect 把目标页加载在
-  // iframe 里。本页检测 iframe 上下文,postMessage 给父窗口 (WeChatQRDialog) 让它
-  // 按 mode (login / bind) 分发。独立打开本页也兜底了。
+export const authRoutes: RouteObject[] = providers.map((p) => ({
+  path: `${p}/callback`,
+  lazy: () =>
+    import('./pages/OAuthCallbackPage').then((m) => ({
+      Component: m.OAuthCallbackPage,
+    })),
+}));
+
+/**
+ * 微信扫码 callback —— 跟其他 OAuth 不同,wxLogin `self_redirect` 把目标页加载在
+ * **登录弹窗里那个 220×240 的 iframe** 中。本页检测 iframe 上下文,postMessage 给父窗口
+ * (WeChatQRPanel)让它按 mode(login / bind)分发。独立打开本页也兜底了。
+ *
+ * 🔴 **必须挂在顶层裸渲染,不能进 AppShell**(app/router.tsx 单独 spread 这一条):
+ * 挂进去就等于把整套 TopNav / 首页 chrome 渲进那个小 iframe —— 用户实测「扫完码弹窗里
+ * 闪过首页」正是这么来的,还会在 iframe 里白连一条通知 WS、跑一遍暂存区同步。
+ *
+ * ⚠️ 同理**别顺手把上面那组 OAuth 回调也一起挪出去**(看着更"干净",但会踩雷):
+ * 它们是整页跳转,回来时是**全新文档**,登录后重放/暂存区同步靠的是「AppShell 在场时
+ * 见到 token 空→非空」这一跃迁 —— 挪出去后 AppShell 变成登录**之后**才挂载,
+ * `useStagingSync`(localStorage 里的本地暂存区推云端)会被静默跳过。
+ * 微信这条没有这个问题:它的 token 跃迁发生在**父窗口**,那边 AppShell 一直在。
+ */
+export const wechatCallbackRoutes: RouteObject[] = [
   {
     path: 'wechat/callback',
     lazy: () =>

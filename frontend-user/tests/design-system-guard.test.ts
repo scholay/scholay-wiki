@@ -2785,3 +2785,36 @@ describe('动效 token 跨语言对齐(globals.css ↔ shared/lib/motion.ts)', (
     expect(ezBad, `motion.ts 的注释表与 globals.css 对不上:\n${ezBad.join('\n')}`).toEqual([]);
   });
 });
+
+/**
+ * 🔴 `text-brand-*` / `bg-brand-*` / `border-brand-*` 只能用 globals.css 里**真实声明过**的品牌色。
+ *
+ * 实测事故(2026-08-06):给会话侧栏的「数据分析」徽标写了 `text-brand-vermilion` ——
+ * 这个 token **不存在**(只有 red / green / amber),Tailwind 生成不出规则,徽标**静默无色**。
+ * tsc 管不着(是字符串)、设计护栏当时也管不着(它查的是硬编码色值,不查「不存在但看起来合理的 token 名」)。
+ *
+ * 拼错 token 名与硬编码色值是同一类问题的两面:前者悄悄没样式,后者悄悄绕开体系。
+ * 这条把前者补上。
+ */
+describe('设计系统护栏 · 品牌色 token 必须真实存在', () => {
+  it('src 里用到的每个 brand-* 工具类都能在 globals.css 找到对应变量', () => {
+    const css = readFileSync(join(SRC, 'styles/globals.css'), 'utf8');
+    const declared = new Set(
+      [...css.matchAll(/--brand-([a-z0-9-]+)\s*:/g)].map((m) => m[1]),
+    );
+    expect(declared.size).toBeGreaterThan(0);
+
+    const used = new Map<string, string[]>();
+    for (const file of walk(SRC)) {
+      const text = readFileSync(file, 'utf8');
+      for (const m of text.matchAll(/(?:text|bg|border|fill|stroke|ring|from|to|via)-brand-([a-z0-9-]+)/g)) {
+        if (!declared.has(m[1])) {
+          used.set(m[1], [...(used.get(m[1]) ?? []), file.replace(SRC, 'src')]);
+        }
+      }
+    }
+    expect(
+      [...used].map(([name, files]) => `brand-${name} ← ${files[0]}`),
+    ).toEqual([]);
+  });
+});

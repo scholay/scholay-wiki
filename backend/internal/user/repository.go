@@ -480,12 +480,17 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 //     无人可撤销(owner 已无 RevokeShare 通道),快照表还存着论文全量元数据,属隐私/合规缺口
 //     (删除权要求删号连带撤销对外分享)。
 //
-// MinIO 对象(papers/<uid>/ 前缀的用户上传 PDF)在事务提交后异步 best-effort 清理
-// (失败只 warn,残余对象由孤儿对账 reaper 兜底)。
+// MinIO 对象在事务提交后异步 best-effort 清理(失败只 warn,残余对象由孤儿对账 reaper 兜底):
+//   - papers/<uid>/  —— 用户上传的论文 PDF(文献集)
+//   - att/<uid>/     —— agent 输入框上传附件(0112;行本身由 fk_agent_att_user 的
+//     ON DELETE CASCADE 带走,对象没有外键,必须在这里清)。
+//     key 按 user 分片正是为了让这一步能一条前缀搞定 —— 全局内容寻址下,
+//     A 的字节可能被 B 引用着,删号时既删不掉也不该留(见 agentattach/store.go)。
 //
 // ⚠️ 仍未清理(留作后续决策):peer_review_* / prism_* / user_staging_* 及其对象键、
 //
-//	agent_sessions 映射与 agent 容器内 jsonl。
+//	agent_sessions 映射与 agent 容器内 jsonl(附件的 **cwd 工作副本**随会话工作区最长再留
+//	30 天,由 executor 的 workdir GC 收走;耐久副本这里已经清了)。
 func (r *Repository) DeleteUser(userID uint) error {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		// 先清无 FK 的计费孤儿表(顺序无关,均无相互 FK)。用表名直删,避免跨包导入 vip 模型。
@@ -533,7 +538,7 @@ func (r *Repository) DeleteUser(userID uint) error {
 		return err
 	}
 
-	// 事务提交成功后,异步清该用户的 MinIO PDF 对象(papers/<uid>/ 前缀,lifecycle 只盖 tmp/)。
+	// 事务提交成功后,异步清该用户的 MinIO 对象(两个桶都只按 <前缀>/<uid>/ 扫,lifecycle 只盖 tmp/)。
 	// best-effort:失败只 warn,不影响删号结果;残余由孤儿 reaper 下一轮兜底。
 	safego.Go("user-delete-minio-cleanup", func() {
 		if !storage.IsEnabled() {
@@ -541,18 +546,30 @@ func (r *Repository) DeleteUser(userID uint) error {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		bucket := storage.PaperPDFBucket()
-		prefix := fmt.Sprintf("papers/%d/", userID)
-		keys, err := storage.ListObjectKeys(ctx, bucket, prefix, 0)
-		if err != nil {
-			slog.Warn("user: 删号清理 MinIO 列举失败", "user_id", userID, "err", err)
+		for _, target := range []struct {
+			bucket string
+			prefix string
+			what   string
+		}{
+			{storage.PaperPDFBucket(), fmt.Sprintf("papers/%d/", userID), "论文 PDF"},
+			{storage.AgentAttachmentsBucket(), fmt.Sprintf("att/%d/", userID), "agent 附件"},
+		} {
+			if target.bucket == "" {
+				continue
+			}
+			keys, err := storage.ListObjectKeys(ctx, target.bucket, target.prefix, 0)
+			if err != nil {
+				slog.Warn("user: 删号清理 MinIO 列举失败",
+					"user_id", userID, "what", target.what, "err", err)
+			}
+			if len(keys) == 0 {
+				continue
+			}
+			_ = storage.DeleteObjects(ctx, target.bucket, keys, func(key string, err error) {
+				slog.Warn("user: 删号清理 MinIO 对象失败",
+					"user_id", userID, "what", target.what, "key", key, "err", err)
+			})
 		}
-		if len(keys) == 0 {
-			return
-		}
-		_ = storage.DeleteObjects(ctx, bucket, keys, func(key string, err error) {
-			slog.Warn("user: 删号清理 MinIO 对象失败", "user_id", userID, "key", key, "err", err)
-		})
 	})
 
 	return nil

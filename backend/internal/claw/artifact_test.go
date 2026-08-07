@@ -4,16 +4,13 @@
 // 覆盖两块纯逻辑(不依赖 agent/DB,确定性可重复):
 //   1. artifactRelPath —— 安全命门: 只放行 out/<basename>, 拦截 ../ 穿越 / 绝对路径 /
 //      读 cwd 根 / 读别的目录 / 嵌套子目录。回归一旦失守 = 任意文件读取漏洞。
-//   2. parseArtifactManifest —— agent 写的 out/manifest.json 解析 + basename 净化 + 容错。
+//   (manifest 解析的测试已随实现提升到 internal/agentartifact —— 四个 feature 共用一份,
+//    见 agentartifact/manifest_test.go。留在这里等于给每个镜像各写一遍。)
 // ============================================================================
 
 package claw
 
-import (
-	"fmt"
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestArtifactRelPath(t *testing.T) {
 	cases := []struct {
@@ -50,46 +47,6 @@ func TestArtifactRelPath(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestParseArtifactManifest(t *testing.T) {
-	t.Run("valid multi", func(t *testing.T) {
-		m := parseArtifactManifest([]byte(`{"artifacts":[
-			{"file":"review.md","title":"锂电池综述","description":"近三年对比"},
-			{"file":"data.csv","title":"清洗后数据"}
-		]}`))
-		if m == nil {
-			t.Fatal("expected non-nil map")
-		}
-		if got := m["review.md"]; got.Title != "锂电池综述" || got.Description != "近三年对比" {
-			t.Errorf("review.md meta wrong: %+v", got)
-		}
-		if got := m["data.csv"]; got.Title != "清洗后数据" || got.Description != "" {
-			t.Errorf("data.csv meta wrong: %+v", got)
-		}
-	})
-
-	t.Run("basename sanitized", func(t *testing.T) {
-		m := parseArtifactManifest([]byte(`{"artifacts":[{"file":"../secret/x.md","title":"X"}]}`))
-		if _, ok := m["x.md"]; !ok {
-			t.Errorf("manifest file should be reduced to basename x.md, got %+v", m)
-		}
-	})
-
-	t.Run("empty-file entry skipped", func(t *testing.T) {
-		m := parseArtifactManifest([]byte(`{"artifacts":[{"file":"","title":"x"},{"file":"a.md"}]}`))
-		if len(m) != 1 {
-			t.Errorf("entry with empty file must be skipped, got %+v", m)
-		}
-	})
-
-	t.Run("nil cases", func(t *testing.T) {
-		for _, in := range []string{"", "   ", "not json", `{"artifacts":[]}`, `{}`, `{"artifacts":null}`} {
-			if got := parseArtifactManifest([]byte(in)); got != nil {
-				t.Errorf("parseArtifactManifest(%q) = %+v; want nil", in, got)
-			}
-		}
-	})
 }
 
 func TestArtifactRelPathExtra(t *testing.T) {
@@ -130,31 +87,5 @@ func TestShouldListArtifact(t *testing.T) {
 		if got := shouldListArtifact(c.name, c.isDir); got != c.want {
 			t.Errorf("shouldListArtifact(%q, dir=%v) = %v; want %v", c.name, c.isDir, got, c.want)
 		}
-	}
-}
-
-func TestParseArtifactManifestExtra(t *testing.T) {
-	// 重复 file: map 后写者胜 (last-wins)
-	m := parseArtifactManifest([]byte(`{"artifacts":[{"file":"a.md","title":"first"},{"file":"a.md","title":"second"}]}`))
-	if m["a.md"].Title != "second" {
-		t.Errorf("duplicate file should be last-wins, got %+v", m["a.md"])
-	}
-	// 子目录 file → basename
-	m2 := parseArtifactManifest([]byte(`{"artifacts":[{"file":"sub/dir/report.md","title":"T"}]}`))
-	if _, ok := m2["report.md"]; !ok {
-		t.Errorf("subdir file should reduce to basename, got %+v", m2)
-	}
-	// 大数组不截断
-	var b strings.Builder
-	b.WriteString(`{"artifacts":[`)
-	for i := 0; i < 500; i++ {
-		if i > 0 {
-			b.WriteString(",")
-		}
-		fmt.Fprintf(&b, `{"file":"f%d.md","title":"t%d"}`, i, i)
-	}
-	b.WriteString(`]}`)
-	if got := parseArtifactManifest([]byte(b.String())); len(got) != 500 {
-		t.Errorf("large manifest should keep all entries, got %d", len(got))
 	}
 }

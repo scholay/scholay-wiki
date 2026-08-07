@@ -1,0 +1,229 @@
+# 分类资料族(P1 族②,2026-08-07)。
+#
+# 🔴 本族的 `input_shape` 全是 `table` —— 引擎吃的是**列联表**而不是各组的数值向量。
+#    这是 C1 形状路由存在的唯一理由:此前 DISPATCH 签名写死 (groups, ctx),
+#    分类方法根本没有能被调用的形状,只能靠调用方在外面把表拍扁成两个 0/1 向量,
+#    而那样一来 n、期望频数、格子占比全部丢失。
+#
+# ⚠️ 统计量与自由度**不是所有方法都有**:Fisher 精确检验与 McNemar 精确检验没有 χ²
+#    (scipy 在那里的 `.statistic` 分别是**优势比**与 **min(b,c)**,当成 χ² 报出去是错的),
+#    因此这两张卡的 reports_required 里**没有** statistic / df —— 交付层据此不再裸下标(C5)。
+methods:
+  - id: chi2_pearson
+    name_zh: 卡方检验(Pearson)
+    name_short_zh: 卡方检验
+    name_en: Pearson's chi-square test
+    group_levels: {min: 2, max: 2}
+    units: independent
+    input_shape: table
+    family: categorical
+    engine: "lib:scipy.stats.chi2_contingency(correction=False)"
+    statistic_symbol: "χ²"
+    requires: [expected_frequencies]
+    effects: [risk_difference]
+    reports_required:
+      - n.by_group
+      - statistic
+      - df
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - table
+      - descriptives
+      - assumptions
+      - software
+    golden: ["identity:2x2 chi2(correction=False) == pooled two-proportion z^2", "R:stats::chisq.test(correct=FALSE)"]
+    notes_zh: >-
+      `correction=False` 是**刻意**的:scipy 的默认值是 True(Yates 连续性校正),
+      而 Yates 在 2×2 上一律偏保守(实测同一份数据 p=0.0321 vs 0.0608 —— 跨过 0.05)。
+      两个口径都提供、由决策规则显式选,而不是继承一个库默认值。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53. doi:10.1186/cc2428"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+
+  - id: chi2_yates
+    name_zh: 卡方检验(Yates 连续性校正)
+    name_short_zh: 校正卡方检验
+    name_en: Chi-square test with Yates' continuity correction
+    group_levels: {min: 2, max: 2}
+    units: independent
+    input_shape: table
+    family: categorical
+    engine: "lib:scipy.stats.chi2_contingency(correction=True)"
+    statistic_symbol: "χ²"
+    requires: [expected_frequencies]
+    effects: [risk_difference]
+    reports_required:
+      - n.by_group
+      - statistic
+      - df
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - table
+      - descriptives
+      - assumptions
+      - software
+    golden: ["R:stats::chisq.test(correct=TRUE)"]
+    notes_zh: >-
+      中文期刊惯例:2×2 且 1≤E<5 时用校正卡方。方法学上有争议(Yates 过度保守,
+      同样场景 Fisher 精确检验更可取),故规则标 contested 并如实披露另一派。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+
+  - id: fisher_exact
+    name_zh: Fisher 精确检验
+    name_short_zh: Fisher 精确检验
+    name_en: Fisher's exact test
+    group_levels: {min: 2, max: 2}
+    units: independent
+    input_shape: table
+    family: categorical
+    engine: "lib:scipy.stats.fisher_exact"
+    # 🔴 没有 statistic_symbol:精确检验直接给 p,没有检验统计量。
+    #    scipy 那里的 `.statistic` 是**优势比**,当 χ² 报会写出一句彻底错误的 Methods。
+    statistic_symbol: null
+    requires: []       # 精确检验本身就是期望频数不达标时的出路,不能再要求期望频数达标
+    effects: [risk_difference]
+    reports_required:
+      - n.by_group
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - table
+      - descriptives
+      - assumptions
+      - software
+    golden: ["R:stats::fisher.test", "fixture:categorical_sparse_2x2"]
+    notes_zh: >-
+      小样本 / 稀疏表的首选。效应量仍给率差(Newcombe)——
+      零格表的 OR 是 inf,进不了有限性闸(会把整份分析判 non_finite_result)。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+
+  - id: chi2_rxc
+    name_zh: 行×列卡方检验
+    name_short_zh: 卡方检验
+    name_en: R×C chi-square test
+    group_levels: {min: 2, max: null}
+    units: independent
+    input_shape: table
+    family: categorical
+    engine: "lib:scipy.stats.chi2_contingency(correction=False)"
+    statistic_symbol: "χ²"
+    requires: [expected_frequencies]
+    effects: [cramers_v]
+    reports_required:
+      - n.by_group
+      - statistic
+      - df
+      - p_exact
+      - effect.name
+      - effect.value
+      - table
+      - descriptives
+      - assumptions
+      - software
+    golden: ["R:stats::chisq.test"]
+    notes_zh: >-
+      R×C 表(多分组或多水平结局)。⚠️ 显著只说明「行与列不独立」,
+      **不指出是哪一格** —— 需要哪两组不同时得另做两两比较并校正,本轮不自动做,
+      交付层会在 Results 里明说这一点(不做 = 必须说出来,否则读者会自行脑补)。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+
+  - id: mcnemar_exact
+    name_zh: McNemar 检验(精确法)
+    name_short_zh: McNemar 检验
+    name_en: McNemar's test (exact)
+    group_levels: {min: 2, max: 2}
+    units: paired
+    input_shape: table
+    family: categorical
+    engine: "own:categorical.mcnemar_exact"
+    statistic_symbol: null
+    requires: []
+    effects: [paired_risk_difference]
+    reports_required:
+      - n.total
+      - p_exact
+      - effect.name
+      - effect.value
+      - table
+      - descriptives
+      - assumptions
+      - software
+    golden: ["identity:exact McNemar == binomial test on discordant pairs", "R:exact2x2::mcnemar.exact"]
+    notes_zh: >-
+      配对二分类(同一批对象前后两次、或配对设计)。
+      🔴 只看**失配对格** b、c —— 一致的那两格不携带变化信息,这正是它区别于 χ² 的地方;
+      把配对数据丢进 χ² 是最常见的分类资料误用。
+      本实现**一律走精确二项检验**,不用 χ² 近似:近似只在 b+c 较大时成立,
+      而 b+c 恰恰常常很小(那才是配对设计的常见规模)。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+
+  - id: cochran_armitage
+    name_zh: Cochran-Armitage 趋势检验
+    name_short_zh: 趋势卡方检验
+    name_en: Cochran-Armitage test for trend
+    group_levels: {min: 3, max: null}
+    units: independent
+    input_shape: table
+    family: categorical
+    engine: "own:categorical.cochran_armitage"
+    statistic_symbol: "χ²趋势"
+    requires: []
+    effects: [trend_r]
+    reports_required:
+      - n.by_group
+      - statistic
+      - df
+      - p_exact
+      - effect.name
+      - effect.value
+      - table
+      - descriptives
+      - assumptions
+      - software
+    golden: ["identity:CA chi2 == N*r^2 (statsmodels gives (N-1)*r^2)"]
+    notes_zh: >-
+      有序分组 + 二分类结局(剂量-反应)。比 R×C 卡方**更有把握**,
+      因为它把「组有顺序」这个信息用上了(1 个自由度而不是 k−1 个)。
+      🔴 顺序由调用方声明(`ordinal_group`),引擎判不出来:
+      「轻/中/重」与「A/B/C」在数据里长得一模一样,而顺序错了 χ² 会差好几倍
+      (实测同一份数据:正确顺序 10.13,把中度当基线 4.50 —— 两个结果都跑得通、都不报错)。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"

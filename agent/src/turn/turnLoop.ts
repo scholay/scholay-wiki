@@ -15,7 +15,9 @@ import { limitLiveImages, stripImageBlocks } from "../server/attachments.ts";
 import { buildDateLine } from "../tools/clock.ts";
 import { reduceForWindow } from "./compact.ts";
 import { snapshotOut, emitArtifacts, diffOut, type OutSnapshot, type ArtifactDecl } from "./artifacts.ts";
-import { ProtocolLeakGuard, stripProtocolMarkers } from "./leakGuard.ts";
+import { runDeliveryGate } from "./deliveryGate.ts";
+import { ProtocolLeakGuard, stripProtocolMarkers, describeLeak } from "./leakGuard.ts";
+import { detectPhantomToolNarration, toolRecordLine } from "./toolRecord.ts";
 import {
   auditClaims,
   hasFindings,
@@ -97,6 +99,15 @@ const budgetWindDownDirective =
 // ask 收尾指令:模型本轮调用过 AskUserQuestion(问题卡片已呈现给用户)后,下一轮去掉全部工具 +
 // 注入本指令 —— 模型只能出文本,写一句简短收尾就自然 end_turn,不阻塞等待。答案作为下一条 user
 // 消息开新轮回来(方案 B:优雅终轮,不占并发槽、天然耐断连/多端)。与预算 wind-down 同机制。
+// protocolRetryDirective —— DSML 熔断后重打那一轮追加的系统指令。
+// 旧行为是**原样重放**同一份请求:线上日志里 `round 9 → round 10`、`round 8 → round 9` 这种
+// 「熔断 → 重打 → 又熔断 → 判死」的相邻对反复出现,因为重放没有携带任何「上次错在哪」的信息。
+// 这句话不解释协议细节(模型不需要知道 DSML 是什么),只把唯一正确的动作说死:走工具通道。
+const protocolRetryDirective =
+  "【内部指令 · 协议纠正】你上一次的输出把工具调用写进了正文,导致这次调用没有被执行、本轮已作废。" +
+  "现在重做这一轮:需要调用工具时**只能**通过工具通道发起(function call)," +
+  "绝不要在正文里书写任何形如 <…tool_calls>、<…invoke name=…>、<…parameter…> 的标记或它们的闭合标签," +
+  "也不要用文字描述「我调用了某工具、返回了什么」。不要向用户提及本次纠正。";
 const askWindDownDirective =
   "【等待用户选择】你刚刚通过 AskUserQuestion 把问题以选项卡片的形式呈现给了用户。现在不要再调用任何工具、不要重复罗列这些选项,用一句自然的话简短收尾(例如「选好之后告诉我,我接着做」)并结束本轮,等待用户在卡片上作答。用户的选择会作为下一条消息发给你,届时你再继续。";
 
@@ -203,7 +214,7 @@ export async function runTurn(
   // langLine 同理放这里(owner 反馈:思考过程时中时英):静态串不破缓存,四个 feature 全覆盖。
   const skillCtx = loadAddDirContext(input.addDirs ?? []);
   const baseSystem =
-    [buildDateLine(), langLine, attachLine, toolFailLine, input.appendSystemPrompt, skillCtx]
+    [buildDateLine(), langLine, attachLine, toolFailLine, toolRecordLine, input.appendSystemPrompt, skillCtx]
       .filter((s) => s && s.trim())
       .join("\n\n");
   // 动态语言锁定(P1-7):对本轮 user 消息**原文**(append 任何指令之前)判语言,生成按轮语言行
@@ -361,6 +372,8 @@ export async function runTurn(
   let asciiFixFired = false;
   let maxTokRecovered = false;
   let dsmlRetries = 0;
+  let dsmlRetryDirectiveApplied = false; // protocolRetryDirective 只并进 system 一次
+  let phantomFired = false; // 伪造工具调用(fold 模板回声)纠偏轮:每 turn 最多一次
   // 2026-07 线上审计:瞬态流错误当轮重放计数(传输层,与 dsmlRetries 内容层各自独立)。
   let transientRetries = 0;
   let claimAudit: ClaimFindings | null = null;
@@ -671,7 +684,14 @@ export async function runTurn(
           transientRetries++;
           if (partialUsage) calls.push(normUsage(partialUsage, model));
           // 撤回已流出的残缺前缀(实时 fold 与 journal 回放同步清掉),否则重放的完整答案会拼在其后。
-          sink.frame({ type: "round_discarded" });
+          // 2026-08-07:帧带上**原因**(旧版 payload 只有 type,线上 39 条 round_discarded
+          // 全靠「同轮碰巧还有 error 帧」才归得了因)。消费方只 switch type,加字段是纯增量。
+          sink.frame({
+            type: "round_discarded",
+            reason: "transient_stream_error",
+            attempt: transientRetries,
+            detail: errMsg.slice(0, 200),
+          });
           log.warn("transient upstream stream error, retrying round", {
             err: errMsg, session_id: input.sessionId, model, round, attempt: transientRetries,
           });
@@ -705,13 +725,24 @@ export async function runTurn(
       // 干净正文几乎为零且无工具 → 整 round 作废重打一次(deepseek 该故障非确定性,重试通常即恢复);
       // 重试额度用尽仍全空 → 如实报协议异常;已有可观正文 → 保留净化后内容正常收轮。
       if (textGuard.tripped || thinkGuard.tripped) {
+        const hasToolUse = msg.content.some((b) => b.type === "tool_use");
+        // 归因字段(2026-08-07):family/marker/marker_hex 回答「漏的是哪一族变体」——
+        // 判据已从字面量名单换成形状族,新变体出现时这三个字段是唯一能指出「哪一族在动」的读数。
+        // marker_hex 报字节而非字形:线上 `｜` 是 U+FF5C,截图里与 ASCII `|` 肉眼无差,
+        // 上一轮排查正是因此得出过错误结论。
+        const leak = describeLeak(textGuard, thinkGuard);
         log.warn("DSML protocol leak intercepted", {
           session_id: input.sessionId,
           model,
           round,
           passed_chars: textGuard.passedChars,
+          channel: leak?.channel,
+          marker_family: leak?.family,
+          marker: leak?.marker,
+          marker_hex: leak?.markerHex,
+          has_tool_use: hasToolUse,
+          will_retry: !hasToolUse && textGuard.passedChars < 200 && dsmlRetries < MAX_DSML_RETRIES,
         });
-        const hasToolUse = msg.content.some((b) => b.type === "tool_use");
         msg = {
           ...msg,
           content: msg.content.map((b) =>
@@ -727,10 +758,36 @@ export async function runTurn(
           // 作废本轮:已流式发出的干净前缀(<200 字符)必须从客户端撤回,否则重打的完整答案会
           // 追加成第二个文本块,用户看到「残缺前缀 + 正式答案」两段(审计 [10])。round_discarded
           // 帧让实时 fold 与 journal 回放都清掉本轮在途的 in-progress 文本块。
-          sink.frame({ type: "round_discarded" });
+          sink.frame({
+            type: "round_discarded",
+            reason: "protocol_leak",
+            attempt: dsmlRetries,
+            markerFamily: leak?.family,
+            marker: leak?.marker,
+            markerHex: leak?.markerHex,
+            passedChars: textGuard.passedChars,
+          });
+          // 重打不再是**原样重放**:线上日志里 round N 熔断、round N+1 紧接着又熔断的相邻对反复出现
+          //(MAX_DSML_RETRIES=1 ⇒ 第二次踩就整轮判死)。原样重发等于赌同一个非确定性故障不再发生。
+          // 这里改 system(只改一次,后续轮沿用)显式要求走工具通道 —— 不动 messages:
+          // 追加 user 消息会在「上一条就是 user」时形成 user-after-user 非法序列。
+          if (!dsmlRetryDirectiveApplied) {
+            dsmlRetryDirectiveApplied = true;
+            system = [system, protocolRetryDirective].filter((s) => s && s.trim()).join("\n\n") || undefined;
+          }
           continue; // usage 已入账(真实上游消耗);污染内容不进 history
         }
         if (!hasToolUse && msg.content.every((b) => b.type !== "text" || !b.text.trim())) {
+          // 判死也要留下「为什么」:这一条是全站第二大错误码(线上 26 条),而在此之前
+          // 它的日志里没有任何能区分变体族的字段。
+          log.error("protocol leak unrecoverable, turn failed", {
+            session_id: input.sessionId,
+            model,
+            round,
+            retries: dsmlRetries,
+            marker_family: leak?.family,
+            marker_hex: leak?.markerHex,
+          });
           sendError("模型输出出现协议异常,本轮已终止,请重试或更换模型。", "model_protocol_error");
           break;
         }
@@ -833,6 +890,37 @@ export async function runTurn(
           }
         }
 
+        // ②' 伪造工具调用(2026-08-07 生产回归)——「读了文件、改了文件,然后什么都没发生」的**第二个**成因。
+        //    判据是两个确定性事实的合取,不含任何语义判断:
+        //      (a) 本轮可见正文里出现了平台的历史工具记录行(〔平台记录·历史工具调用〕/ 旧模板【已调用 X】);
+        //      (b) 本 turn **一个工具都没有执行过**(ranTool=false)。
+        //    模型只有在模仿冷重播折叠格式时才会同时满足两者 —— 生产 17 轮 17/17 命中、零误报。
+        //    与 DSML 熔断的区别:那条路轮是 failed、用户至少看得到「协议异常」;这条路轮是 **complete**、
+        //    零 error、零 discard,任何现有指标都看不见,用户拿到的是一份完全没发生过的操作记录。
+        //    处理用既有纠偏机制(占共享预算),让模型带着「必须走工具通道」的指令重做一轮。
+        if (guardsEligible && !phantomFired && !ranTool && correctiveRounds < MAX_CORRECTIVE_ROUNDS) {
+          const phantom = detectPhantomToolNarration(finalText);
+          if (phantom.count > 0) {
+            phantomFired = true;
+            correctiveRounds++;
+            log.warn("guard:phantom tool narration corrective round", {
+              session_id: input.sessionId,
+              model,
+              hits: phantom.count,
+              samples: phantom.samples.join(" | "),
+            });
+            messages.push({
+              role: "user",
+              content:
+                CORRECTIVE_PREFIX +
+                "你刚才在正文里书写了工具调用记录,但本轮实际上一个工具都没有执行 —— 那些「读取/修改/导出」都没有发生。" +
+                "请立即重做:需要操作文件或检索时,通过工具通道真正调用工具;" +
+                "在工具真正返回结果之前,不要陈述任何操作已完成。不要向用户提及本次纠正。",
+            });
+            continue;
+          }
+        }
+
         // ③ 语言纠偏(P1-7):期望中文而可见正文 CJK≈0(整份外语交付,如老挝语案例)→ 中文重发。
         //    第一期只对 expectedLang=zh 启用(误报面最小);用户明确要求其它语言时豁免。
         if (
@@ -893,7 +981,7 @@ export async function runTurn(
       sink.frame({ type: "status", state: "tool_executing" });
       ranTool = true; // 空轮裁决判据:工具批已开始执行(界面上有工具卡片,不算空轮)
       if (windingDown) windDownToolRounds++; // 收尾期的账本读回轮计数(到点强制转纯文本)
-      const results = await runTools(toolUses, input, sink, signal);
+      const results = await runTools(toolUses, input, sink, signal, model);
       // 交互提问(方案 B):本轮调用过 AskUserQuestion → 置位 askFired,下一轮开头触发 ask 收尾
       // (去工具 + 收尾指令),让模型简短收尾结束本轮,等用户在卡片上作答。
       if (toolUses.some((t) => t.name === ASK_USER_QUESTION_TOOL)) askFired = true;
@@ -955,6 +1043,24 @@ export async function runTurn(
         await emitArtifacts(input.workDir, outBaseline, sink);
       } catch (e) {
         log.warn("emit artifacts failed", { session_id: input.sessionId, err: String((e as Error)?.message ?? e) });
+      }
+    } else if (outBaseline) {
+      // 🔴 异常终止轮**也要过交付闸**(2026-08-06 补)。
+      //
+      //    交付闸此前只挂在 `emitArtifacts` 里,而它被 `!terminalSent` 守着 ⇒
+      //    六个 sendError 调用点(round_cap / budget / upstream / empty_turn …)整轮跳过闸。
+      //    而 backend 的产物收割是 on-list 的 `ListWorkspaceFiles(out/)`,**与帧无关** ——
+      //    文件照样被收割、照样能下载。于是闸恰好在「模型最可能乱写」的那类轮上全面失效:
+      //    模型第 20 轮手写一份含自编 p 值的 docx、第 24 轮触 round_cap,闸一次都没跑。
+      //
+      //    这里只跑闸、不发帧:帧是「本轮产物」的呈现,异常轮不该有;
+      //    而闸的职责是**把不该交付的文件挪出 out/**,那与本轮结不结得成无关。
+      try {
+        await runDeliveryGate(input.workDir);
+      } catch (e) {
+        log.error("交付闸执行异常(异常终止轮,本次未拦截)", {
+          session_id: input.sessionId, err: String((e as Error)?.message ?? e),
+        });
       }
     }
     // 2026-08 证据账本 P0-c:带外过程计数。**必须在 message_complete 之前**(同 artifact 帧:

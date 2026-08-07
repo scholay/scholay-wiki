@@ -1,0 +1,20 @@
+checks:
+  - id: expected_frequencies
+    name_zh: 期望频数(Cochran 准则)
+    engine: "own:checks.expected_frequencies"
+    # 只在分类资料路径上跑 —— 连续量没有列联表。
+    applies_when: "not continuous"
+    target: table
+    produces: [expected_ok]
+    notes_zh: >-
+      判据是 Cochran 准则:没有格子的期望频数 <1,且期望频数 <5 的格子不超过 20%。
+      一条判据同时管住 2×2 与 R×C。
+      ⚠️ 本检验**没有 p 值** —— 它不是假设检验,是一条计数规则。
+      🔴 刻意不加「N>40」那一档:该门槛在英文同行评议文献里找不到出处(REGISTRY-OA出处 §七 R7),
+      是中文教科书的教学约定;留着它等于把一个没有出处的门槛写进用户的 Methods 段。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53. doi:10.1186/cc2428"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"

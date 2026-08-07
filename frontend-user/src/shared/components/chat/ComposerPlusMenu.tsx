@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from 'react';
-import { FileUp, Library, Plus } from 'lucide-react';
+import { FileUp, FolderOpen, Library, Plus } from 'lucide-react';
+import { openAttachmentManager } from '@/shared/lib/attachment-events';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +62,17 @@ export function ComposerPlusMenu({
             <div className="flex flex-col">
               <span className="text-12">上传图片 / 文件</span>
               <span className="text-12 text-faint">也可直接粘贴或拖入输入框</span>
+            </div>
+          </DropdownMenuItem>
+          {/* 「我的附件」—— 附件删除的**主动入口**。
+              没有它,后端两条配额文案里那句「或在『我的附件』里删掉不再需要的文件」
+              就又是一条用户走不到的路(撞额度时的被动弹窗只覆盖 per-user 那一种)。
+              放在共用的 + 菜单里 = 四个 feature 一次到位,不做 per-feature 镜像。 */}
+          <DropdownMenuItem onSelect={() => openAttachmentManager()} className="gap-2">
+            <FolderOpen className="size-4 text-muted-foreground" />
+            <div className="flex flex-col">
+              <span className="text-12">我的附件</span>
+              <span className="text-12 text-faint">查看占用、删掉不再需要的文件</span>
             </div>
           </DropdownMenuItem>
           {onPickLibrary && (

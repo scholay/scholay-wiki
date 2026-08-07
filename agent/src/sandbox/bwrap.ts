@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { egressEnv } from "./egress.ts";
 import { log } from "../obs/log.ts";
 import { EVIDENCE_DIR } from "../evidence/paths.ts";
+import { RESERVED_DIRS } from "./reserved.ts";
 import type { SandboxProfile } from "./profile.ts";
 
 export type SandboxMode = "none" | "bwrap";
@@ -66,7 +67,7 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
   // 与三个调用点里任何一个漏掉,都会变成"这个会话所有 Bash 全挂"。
   // 在**用它的这一点**上自己保证,是本仓库反复吃亏后的定式:别把不变式托付给远处的调用方。
   // mkdirSync 幂等、一次 syscall;失败不吞 —— 建不出来说明 cwd 有更严重的问题,应当当场炸。
-  mkdirSync(join(profile.cwd, EVIDENCE_DIR), { recursive: true });
+  for (const d of RESERVED_DIRS) mkdirSync(join(profile.cwd, d), { recursive: true });
   const args: string[] = [
     "bwrap",
     "--unshare-all", // 全 namespace 隔离(含 net;net:open 下方再 --share-net)
@@ -119,7 +120,11 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
     //    那正好是最危险的一档 —— 新会话首轮 evidence/ 还没建,覆盖层被跳过、jail 可写,
     //    而我们会以为闸在生效(又一条"永远绿的规则")。用非 -try 版则源缺失时 bwrap 直接失败,
     //    因此调用方**必须**保证目录先在(见 sandbox/profile 的 ensureReservedDir)。
-    "--ro-bind", join(profile.cwd, EVIDENCE_DIR), "/work/" + EVIDENCE_DIR,
+    // 保留区只读覆盖层。`writableReserved` 里的目录**跳过**这一层 ——
+    // 那是 executor 侧 StatRun 工具的专用通道(引擎写 bundle),模型的 Bash 永远拿不到它。
+    ...RESERVED_DIRS.filter((d) => !(profile.writableReserved ?? []).includes(d)).flatMap(
+      (d) => ["--ro-bind", join(profile.cwd, d), "/work/" + d],
+    ),
     "--chdir", "/work",
   ];
 
@@ -173,7 +178,8 @@ export function wrapBash(profile: SandboxProfile, command: string): string[] {
 export async function smokeTestEvidenceReadonly(): Promise<void> {
   if (sandboxMode() !== "bwrap") {
     log.warn(
-      "证据保留区 jail 自检【已跳过】—— 未运行在 bwrap 模式,jail 内 Bash 可写 evidence/(已知敞口)。" +
+      "引擎保留区 jail 自检【已跳过】—— 未运行在 bwrap 模式,jail 内 Bash 可写 " +
+      RESERVED_DIRS.join(" / ") + "(已知敞口)。" +
         "生产必须是 bwrap;若生产日志出现这一条,说明沙箱没起来,E 编号不可伪造这条立论当前不成立。",
     );
     return;
@@ -183,31 +189,43 @@ export async function smokeTestEvidenceReadonly(): Promise<void> {
     dir = await mkdtemp(join(tmpdir(), "evi-smoke-"));
     const profile: SandboxProfile = { cwd: dir, net: "none", allowBash: true, roBinds: [] };
     // 三种写法都试:重定向追加 / 新建文件 / 建子目录。任一成功即视为闸失效。
+    // 逐个保留区各探三种写法(重定向追加 / 新建文件 / 建子目录),任一成功即闸失效。
+    // 逐个探而不是只探第一个:2026-08-05 从单目录推广到清单时,若只探 evidence/,
+    // 新加的 analysis/ 漏挂 ro-bind 也照样全绿 —— 那正是「一条永远绿的规则」。
     const code =
-      "(echo x >> /work/" + EVIDENCE_DIR + "/ledger.jsonl) 2>/dev/null && echo LEAK_APPEND; " +
-      "(touch /work/" + EVIDENCE_DIR + "/forged.jsonl) 2>/dev/null && echo LEAK_CREATE; " +
-      "(mkdir -p /work/" + EVIDENCE_DIR + "/sub) 2>/dev/null && echo LEAK_MKDIR; " +
-      "echo EVI_SMOKE_DONE";
+      RESERVED_DIRS.map(
+        (d) =>
+          "(echo x >> /work/" + d + "/probe.jsonl) 2>/dev/null && echo LEAK_APPEND:" + d + "; " +
+          "(touch /work/" + d + "/forged.json) 2>/dev/null && echo LEAK_CREATE:" + d + "; " +
+          "(mkdir -p /work/" + d + "/sub) 2>/dev/null && echo LEAK_MKDIR:" + d + "; ",
+      ).join("") + "echo EVI_SMOKE_DONE";
     const argv = buildBwrapArgv(profile, ["/bin/sh", "-c", code]);
     const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe" });
     const out = await new Response(proc.stdout).text();
     await proc.exited;
     if (!out.includes("EVI_SMOKE_DONE")) {
-      log.warn("证据保留区 jail 自检**未能完成**(jail 未按预期启动),本次无法判定闸是否生效", { out: out.slice(0, 200) });
+      log.warn("引擎保留区 jail 自检**未能完成**(jail 未按预期启动),本次无法判定闸是否生效", { out: out.slice(0, 200) });
       return;
     }
-    const leaks = ["LEAK_APPEND", "LEAK_CREATE", "LEAK_MKDIR"].filter((k) => out.includes(k));
+    const leaks = RESERVED_DIRS.flatMap((d) =>
+      ["LEAK_APPEND:" + d, "LEAK_CREATE:" + d, "LEAK_MKDIR:" + d].filter((k) => out.includes(k)),
+    );
     if (leaks.length > 0) {
       log.error(
-        "🔴 证据保留区 jail 自检**失败**:jail 内仍可写 evidence/ —— E 编号可被模型伪造," +
+        "🔴 引擎保留区 jail 自检**失败**:jail 内仍可写保留区 —— " +
+        "evidence/ 失守 = E 编号可被模型伪造;analysis/ 失守 = 报告里的数字可被模型伪造。" +
           "交付闸与 [[E]] 句柄展开当前**均不可信**。请检查 bwrap 版本与 --ro-bind 参数顺序。",
         { leaks },
       );
       return;
     }
-    log.info("证据保留区 jail 自检通过(真实 bwrap jail 内 evidence/ 只读,三种写法全部被拒)");
+    // 日志如实列出**被验证过的每一个**目录:此前文案写死 "evidence/",
+    // 推广成清单后它就在少报 —— 「日志说得比验证的少」与「说得比验证的多」同样有害。
+    log.info("引擎保留区 jail 自检通过(真实 bwrap jail 内只读,三种写法全部被拒)", {
+      dirs: RESERVED_DIRS.join(","),
+    });
   } catch (e) {
-    log.warn("证据保留区 jail 自检异常(不阻断启动)", { err: String((e as Error)?.message ?? e) });
+    log.warn("引擎保留区 jail 自检异常(不阻断启动)", { err: String((e as Error)?.message ?? e) });
   } finally {
     if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
   }

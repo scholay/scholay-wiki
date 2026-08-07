@@ -62,8 +62,16 @@ type MinIOConfig struct {
 	BucketPrism               string // 存 Prism 智能写作编译产物 (PDF/log) + 二进制 asset 的 bucket
 	BucketFeatureTools        string // 存功能广场工具 logo (真 logo + 生成的 SVG) 的 bucket
 	BucketAgentArtifacts      string // 存 agent (claw 等) 成果交付物字节的 bucket
+	BucketAgentAttachments    string // 存 agent 输入框**上传附件**字节的 bucket (0112;与产出物分桶,生命周期完全不同)
 	BucketSkillBundles        string // 存 skill 市场用户上传的 skill 原始 bundle (tarball) 的 bucket
 	UseSSL                    bool
+
+	// AttachmentReaperDelete —— 输入框附件孤儿对象 reaper 是否**真删**(默认 false = dry-run)。
+	//
+	// 默认关不是犹豫:这个任务删的是用户上传的原始数据,误删不可逆,而生产至今没有任何备份。
+	// 先跑 dry-run 看几天日志(orphans 计数 + 样本 key),核对判据无误再开。
+	// env: AGENT_ATTACHMENT_REAPER_DELETE=true
+	AttachmentReaperDelete bool
 }
 
 // RateLimitConfig 控制限流策略。
@@ -235,8 +243,10 @@ func Load() *Config {
 		BucketPrism:               getEnv("MINIO_BUCKET_PRISM", "scholar-prism"),
 		BucketFeatureTools:        getEnv("MINIO_BUCKET_FEATURE_TOOLS", "scholar-feature-tools"),
 		BucketAgentArtifacts:      getEnv("MINIO_BUCKET_AGENT_ARTIFACTS", "scholar-agent-artifacts"),
+		BucketAgentAttachments:    getEnv("MINIO_BUCKET_AGENT_ATTACHMENTS", "scholar-agent-attachments"),
 		BucketSkillBundles:        getEnv("MINIO_BUCKET_SKILL_BUNDLES", "scholar-skill-bundles"),
 		UseSSL:                    getEnvAsBool("MINIO_USE_SSL", false),
+		AttachmentReaperDelete:    getEnvAsBool("AGENT_ATTACHMENT_REAPER_DELETE", false),
 	}
 
 	// Umami —— backend 用内网 umami:3000 + 默认 admin/umami 拿 token 调统计 API

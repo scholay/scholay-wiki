@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/admin"
+	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/agentrun"
@@ -45,6 +46,7 @@ import (
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promo"
 	"scholar-backend/internal/scidraw"
+	"scholar-backend/internal/statlab"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
@@ -98,6 +100,7 @@ type allHandlers struct {
 	agentRun       *agentrun.Handler      // 科研内核 Run 引擎 (Phase 1: 创建/查询/取消长任务)
 	boltSlides     *boltslides.Handler    // 制作PPT (bolt-slides 演示稿创作;智能助手页选项卡切入)
 	sciDraw        *scidraw.Handler       // 科研绘图 (原创矢量科研图;智能助手页模板卡切入)
+	statLab        *statlab.Handler       // 数据分析 (statkit 引擎守门 + 合规交付物;智能助手页模板卡切入)
 	skillMarket    *skillmarket.Handler   // Skills 市场 (用户上传/分享 skill + claw 动态加载)
 	prism          *prism.Handler         // 智能写作 (LaTeX IDE: 项目/文件/编译沙箱; Phase 1 接 agent)
 	featureTool    *featuretool.Handler   // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
@@ -108,6 +111,10 @@ type allHandlers struct {
 	memory         *usermemory.Handler    // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
 	openAccess     *openaccess.Handler    // 合法 OA 全文查找 (DOI → Unpaywall 免费链接; 论文详情页兜底)
 	invite         *invite.Handler        // 邀请注册 (一人一码 + 落地页打开计数 + 新用户归因)
+	// attachment: agent 输入框附件的**统一**取回/删除端点 (0112 耐久化)。
+	// 全仓一条路由服务全部 feature —— 刻意不做成 per-feature 镜像:老的 session/file
+	// 就是四份镜像,结果 stat_lab/sci_draw/boltslides 三个 feature 的那条从没被注册过。
+	attachment *agentattach.ServeHandler
 }
 
 // registerRoutes 注册所有 API 路由

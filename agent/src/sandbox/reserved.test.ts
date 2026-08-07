@@ -14,6 +14,7 @@
 //    confinePath);只堵 B,Write 工具根本不进 jail,直接写文件系统。**两道都在,才叫边界。**
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { RESERVED_DIRS, ANALYSIS_DIR } from "./reserved.ts";
 import { mkdtemp, rm, mkdir, writeFile, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,7 +28,12 @@ beforeEach(async () => {
   // realpath 一次:macOS 的 /var 是指向 /private/var 的符号链接,mkdtemp 给的是未解析形态。
   // 断言基准必须与 confinePath 的返回口径(canonical)一致,否则测的是平台差异不是行为。
   workDir = await realpath(await mkdtemp(join(tmpdir(), "reserved-")));
-  await mkdir(join(workDir, EVIDENCE_DIR), { recursive: true });
+  // 建**清单里的每一个**保留区,而不是只建 evidence/ ——
+  // 2026-08-05 推广成清单时这里漏了 analysis/,`analysis` 的 symlink 用例当场红:
+  // symlink 指向不存在的目标 → realpath 解不出来 → canonical 判定看不到它在保留区里。
+  // (这条红得好:它说明 confinePath 的保留区判定依赖目标真实存在,而 buildBwrapArgv
+  //  正是为此在**用它的那一点**上自己 mkdir,不把不变式托付给远处的调用方。)
+  for (const d of RESERVED_DIRS) await mkdir(join(workDir, d), { recursive: true });
 });
 afterEach(async () => {
   await rm(workDir, { recursive: true, force: true });
@@ -81,6 +87,37 @@ describe("闸A · confinePath 保留区拒写", () => {
     await symlink(join(workDir, "real"), join(workDir, "link"));
     const p = await confinePath(workDir, "link/f.txt", false);
     expect(p).toBe(join(workDir, "real", "f.txt"));
+  });
+});
+
+// 2026-08-05:保留区从「单个 evidence/」推广成清单(evidence + analysis)。
+// 🔴 推广时最容易的失败模式是**只测第一个** —— 新加的目录漏挂 ro-bind / 漏进 inReserved,
+//    而既有测试照样全绿(「一条永远绿的规则」的又一种形态)。故本族对**清单里每一个目录**参数化。
+describe("闸A · 保留区清单逐个覆盖(防「只测第一个」)", () => {
+  for (const dir of RESERVED_DIRS) {
+    test(`直写 ${dir}/x.json 必须被拒`, async () => {
+      await expect(confinePath(workDir, `${dir}/x.json`, true)).rejects.toThrow(/engine-reserved/);
+    });
+    test(`${dir} 目录本身也不得写`, async () => {
+      await expect(confinePath(workDir, dir, true)).rejects.toThrow(/engine-reserved/);
+    });
+    test(`经符号链接绕行 ${dir} 必须被拒(词法判定会放行)`, async () => {
+      await symlink(join(workDir, dir), join(workDir, `alias-${dir}`)).catch(() => {});
+      await expect(confinePath(workDir, `alias-${dir}/x.json`, true)).rejects.toThrow(/engine-reserved/);
+    });
+    test(`读 ${dir} 仍然允许 —— 拒的是写不是读`, async () => {
+      await expect(confinePath(workDir, `${dir}/x.json`, false)).resolves.toBeTruthy();
+    });
+    test(`名字相近的目录不得误伤(${dir}-notes / my-${dir})`, async () => {
+      await expect(confinePath(workDir, `${dir}-notes/x.md`, true)).resolves.toBeTruthy();
+      await expect(confinePath(workDir, `my-${dir}/x.md`, true)).resolves.toBeTruthy();
+    });
+  }
+
+  test("清单本身非空,且含数据分析的 bundle 目录", () => {
+    // 若哪天有人把 analysis/ 从清单里摘掉,「数字不经模型手」立刻退回一句话 —— 这里当场红。
+    expect(RESERVED_DIRS.length).toBeGreaterThanOrEqual(2);
+    expect(RESERVED_DIRS).toContain(ANALYSIS_DIR);
   });
 });
 

@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
+import { statusFallbackMessage } from '@/shared/lib/http-status-messages';
 import { getAnonId } from '@/shared/lib/anon-id';
 import { readInviteCode } from '@/shared/lib/invite-code';
 import {
@@ -8,6 +9,11 @@ import {
   AGENT_QUOTA_HTTP_CODE,
   type QuotaPayload,
 } from '@/shared/lib/quota-events';
+import {
+  openAttachmentManager,
+  isAttachmentQuotaSignal,
+  ATTACHMENT_QUOTA_HTTP_CODE,
+} from '@/shared/lib/attachment-events';
 
 /**
  * HTTP 客户端 — 走 nginx 反代,生产同源相对路径,开发走 vite proxy。
@@ -55,6 +61,13 @@ http.interceptors.response.use(
     // AI 额度耗尽 → 汇入全局额度通知器(弹重置弹窗)。统一谓词,与 SSE/WS 同一判断(Theme 2)。
     // 结构化载荷(冻结契约):6010 信封 data.quota = {reset_at, window_days,
     // credit_balance_positive, credit_autopay};旧后端不带 quota 时传 undefined,弹窗走 overview 兜底。
+    // 附件存储额度满(7010):**必须**把用户直接送到能删附件的地方。
+    // 这条错误的旧形态是「空间已满,请删除不再需要的文件」+ 全站没有任何删除入口 ——
+    // 一句用户做不到的指引。收在拦截器而不是各 feature 的上传回调里:上传口有四个
+    // (claw / smart_search / stat_lab / prism),四份镜像漏一份就是那个 feature 的用户被卡死。
+    if (isAttachmentQuotaSignal(apiErr)) {
+      openAttachmentManager({ message: apiErr.message, quotaExceeded: true });
+    }
     if (isQuotaSignal(apiErr)) {
       const quota = (err instanceof AxiosError
         ? (err.response?.data as { data?: { quota?: QuotaPayload } } | undefined)?.data?.quota
@@ -73,6 +86,7 @@ http.interceptors.response.use(
  * **已接线(真正驱动 UI 分支)**:
  *   - TokenRevoked / TokenExpired / 裸 401(且本地有 token)→ notifyAuthLost(清 token + 弹登录)
  *   - AgentQuotaExceeded(含 WS 字符串 'quota_exceeded')→ notifyQuotaExceeded(弹额度重置弹窗)
+ *   - AttachmentQuotaExceeded(7010)→ openAttachmentManager(弹「我的附件」,用户删旧附件腾空间)
  *
  * **保留位(已定义但前端尚未据其分支,后端也未必下发)**:SessionTakenByOtherLogin /
  *   TurnstileFailed / PaymentRequired / AgentUnreachable / AgentSessionExpired / Upload* ——
@@ -108,6 +122,8 @@ export const BizCode = {
   UploadTooLarge: 7001,
   UploadInvalidType: 7002,
   UploadStorageFailed: 7003,
+  /** per-user **附件存储额度**(2GB)已满 → openAttachmentManager(弹「我的附件」让用户删)。 */
+  AttachmentQuotaExceeded: ATTACHMENT_QUOTA_HTTP_CODE,
 } as const;
 
 export type BizCodeValue = (typeof BizCode)[keyof typeof BizCode];
@@ -159,17 +175,12 @@ export function toApiError(err: unknown): ApiError {
       err.code === 'ERR_NETWORK' ||
       err.code === 'ENOTFOUND';
 
-    // 优先级: backend.message > axios 自带 message > 兜底文案
-    let message = err.response?.data?.message;
-    if (!message) {
-      if (isNetworkError) {
-        message = '网络连接失败,请检查网络后重试';
-      } else if (status >= 500) {
-        message = '服务器繁忙,请稍后重试';
-      } else {
-        message = err.message || '请求失败,请重试';
-      }
-    }
+    // 优先级: backend.message > 按状态码的中文兜底 > axios 自带 message > 通用兜底
+    let message =
+      err.response?.data?.message ||
+      (isNetworkError ? '网络连接失败,请检查网络后重试' : statusFallbackMessage(status)) ||
+      err.message ||
+      '请求失败,请重试';
 
     // backend code 可能是 number 也可能是 string (历史遗留), 统一成 number
     const rawCode = err.response?.data?.code;

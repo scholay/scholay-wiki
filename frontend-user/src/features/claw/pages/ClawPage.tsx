@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FileBarChart, Layout, Loader2, PenTool, Presentation, Sparkles } from 'lucide-react';
+import { FileBarChart, FileText, HelpCircle, Layout, Loader2, PenTool, Presentation, Sparkles, Upload } from 'lucide-react';
 import { resolveAgentSessionQuery } from '@/shared/api/agent-sessions';
 import { ResourceError } from '@/shared/components/ResourceError';
 import { UnifiedSidebar } from '../components/sidebar/UnifiedSidebar';
@@ -24,6 +24,8 @@ import {
   type DeckExportFormat,
 } from '../api/boltslides-session';
 import { useSciDrawConversation } from '../hooks/useSciDrawConversation';
+import { useStatLabConversation } from '../hooks/useStatLabConversation';
+import { getStatLabNewConversationModel, setStatLabNewConversationModel } from '../api/stat-lab-session';
 import {
   getSciDrawNewConversationModel,
   setSciDrawNewConversationModel,
@@ -108,6 +110,32 @@ const SCI_DRAW_CFG: WorkspaceConfig = {
   enableAttachments: false, // P0 纯文本描述 → 生成矢量图;无上传/引用端点(见 sci-draw skill)
   composerPlaceholder: '描述你要画的图(类型 / 要素 / 关系 / 风格)· Enter 发送 / Shift+Enter 换行',
   layoutKey: 'sci_draw',
+  railSectionId: 'unified-sessions',
+  railLabel: '会话历史',
+};
+
+const STAT_LAB_CFG: WorkspaceConfig = {
+  title: '数据分析',
+  titleIcon: FEATURE_ICON.stat_lab, // 与模板卡 / 会话历史徽标同步(单一真源)
+  modelFeature: 'stat_lab',
+  newConvModel: { get: getStatLabNewConversationModel, set: setStatLabNewConversationModel },
+  artifactBasePath: '/user/stat_lab',
+  hero: {
+    title: '数据分析 · 从数据到论文',
+    subtitle: '上传你的数据,我先做数据体检、问清研究设计,再由统计引擎实测前提并选对检验 —— 产出可直接投稿的三线表与 Methods/Results 段',
+    suggestions: [
+      { icon: Upload, label: '两组比较', prompt: '我有一份两组对照的数据,想比较两组在某个指标上有没有差异。请先看看数据情况,再告诉我该用什么检验。' },
+      { icon: FileText, label: '出三线表', prompt: '帮我把分析结果做成投中文核心期刊用的三线表,连 Methods 里的统计方法段一起给我。' },
+      { icon: HelpCircle, label: '结果解读', prompt: '我已经跑出结果了,但不知道怎么写讨论。帮我解释这个效应量在我的领域里意味着什么,以及审稿人可能会问什么。' },
+    ],
+  },
+  // 🔴 与前两张卡最大的差异:**必须能传文件**。数据分析没有数据就不成立。
+  //    上传走 /stat_lab/upload(agentattach),扩展名白名单与解析器同一次上线(csv/xlsx)。
+  enableAttachments: true,
+  // 但**不开**「引用文献」:分析数据用不上文献集,且后端无 /stat_lab/reference 端点(点了必 404)。
+  enableLibraryReference: false,
+  composerPlaceholder: '上传数据文件,或说说你的研究问题 · Enter 发送 / Shift+Enter 换行',
+  layoutKey: 'stat_lab',
   railSectionId: 'unified-sessions',
   railLabel: '会话历史',
 };
@@ -222,7 +250,28 @@ function SciDrawModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewCo
 }
 
 /** 智能助手页只承载这三个 feature;resolve 出别的(smart_search/prism…)当不可见 → 回新对话。 */
-const PAGE_FEATURES: readonly TemplateFeature[] = ['claw', 'boltslides', 'sci_draw'];
+function StatLabModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
+  const conv = useStatLabConversation({ initialSessionId: seed, onSessionCreated });
+  const sidebar = (
+    <UnifiedSidebar
+      activeSessionId={conv.activeSessionId}
+      onSelect={(sid) => onSelectSession(sid)}
+      onNewConversation={onNewConversation}
+    />
+  );
+  const heroExtra = <TemplateCards activeFeature="stat_lab" onPick={onPickTemplate} />;
+  return (
+    <ConversationWorkspace
+      conv={conv}
+      cfg={STAT_LAB_CFG}
+      sidebar={sidebar}
+      heroExtra={heroExtra}
+      onNewConversation={onNewConversation}
+    />
+  );
+}
+
+const PAGE_FEATURES: readonly TemplateFeature[] = ['claw', 'boltslides', 'sci_draw', 'stat_lab'];
 
 type Mode =
   | { kind: 'new' } // 新对话:feature 由 newFeature 决定
@@ -356,5 +405,6 @@ export function ClawPage() {
   };
   if (feature === 'boltslides') return <PptModeWorkspace key={key} {...pageProps} />;
   if (feature === 'sci_draw') return <SciDrawModeWorkspace key={key} {...pageProps} />;
+  if (feature === 'stat_lab') return <StatLabModeWorkspace key={key} {...pageProps} />;
   return <ClawModeWorkspace key={key} {...pageProps} />;
 }

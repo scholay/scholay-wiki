@@ -81,6 +81,16 @@ export interface UseAgentSocket<TServer, TClient> {
   close: () => void;
   /** 重连尝试序号;0 = 首次或刚连上 */
   reconnectAttempt: number;
+  /**
+   * 内容帧活动计数(单调递增,按 rAF 批次)。
+   *
+   * 给「轮内无进展看门狗」当判据用 —— **不要用 `messages.length` 代替**:
+   * appendStreamMessage 会把连续的 content_delta / thinking / toolInput 合并进数组
+   * 最后一个元素,长度在整段流式输出期间不变,于是长回答会被误判成「没有进展」
+   * (2026-08-07 线上症状:字还在刷,顶部弹「这一轮已较长时间没有新进展」)。
+   * 控制帧(pong/connected)不进 messages,故本计数也不会被心跳喂活。
+   */
+  activitySeq: number;
   /** 清空累积 messages —— 「新对话」拿到新 sessionId 后老事件不再展示 */
   clearMessages: () => void;
   /** 被另一窗口/tab 接管时后端下发 displaced 帧的提示文;null = 当前未被接管 */
@@ -167,6 +177,18 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   const token = useAuthStore((s) => s.token);
   const [state, setState] = useState<AgentWSState>('idle');
   const [messages, setMessages] = useState<TServer[]>([]);
+  // 🔴 内容帧活动计数(2026-08-07 修「长回答被误判为无进展」)。
+  //
+  //    上层的轮内无进展看门狗(makeAgentConversationHook 的 STALL_WARN_MS)原本盯
+  //    `socket.messages.length`,注释写的是「任何新内容帧都会复位」。但 appendStreamMessage
+  //    为修 O(N²) 卡顿把**连续的 content_delta / thinking / toolInput 合并进数组最后一个元素**
+  //    —— 数组长度在整段流式输出期间纹丝不动。于是:正文连续流 90 秒(agent 写长报告很常见),
+  //    屏幕上字还在刷,顶部却弹出「这一轮已较长时间没有新进展」。
+  //    两个各自正确的改动撞在一起,而看门狗那侧完全不知情。
+  //
+  //    修法:看门狗改盯这个**单调递增的计数**,它按 rAF 批次递增,与「有没有帧到达」严格对应,
+  //    不受合并优化影响。控制帧(pong/connected)本就不进 messages,故不会把连接心跳算成进展。
+  const [activitySeq, setActivitySeq] = useState(0);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [displacedReason, setDisplacedReason] = useState<string | null>(null);
   const [resyncUserText, setResyncUserText] = useState<string | null>(null);
@@ -234,6 +256,7 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     setDisplacedReason(null);
     setResyncUserText(null);
     setMessages([]);
+    setActivitySeq(0);
     setSessionModel(null); // 换会话清空;新连接由 hub 迟到补帧(runtime_config_updated)恢复
 
     // ── 流式批处理 (rAF coalesce) ──────────────────────────────────────────
@@ -246,6 +269,8 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
       if (pendingEvents.length === 0) return;
       const batch = pendingEvents.splice(0, pendingEvents.length);
       setMessages((prev) => batch.reduce<TServer[]>((acc, evt) => appendStreamMessage(acc, evt), prev));
+      // 与 setMessages 同一批次递增:有帧到达就算有进展,不管它是新数组元素还是被并进上一条。
+      setActivitySeq((n) => n + 1);
     };
     const scheduleFlush = () => {
       if (rafId === null) rafId = window.requestAnimationFrame(flushPending);
@@ -614,11 +639,13 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
       // 确认 idle,缓冲几乎必空,这里是 belt-and-suspenders)。
       flushNowRef.current?.();
       setMessages((prev) => [...prev, m]);
+      setActivitySeq((n) => n + 1);
     },
     close: () => {
       cancelledRef.current = true;
       wsRef.current?.close();
     },
+    activitySeq,
     clearMessages: () => setMessages([]),
     takeOver: () => reconnectNowRef.current?.(),
     resyncUserText,
