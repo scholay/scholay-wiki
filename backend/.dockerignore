@@ -1,6 +1,9 @@
 # Build artifacts
 tmp/
 bin/
+# backend/pdf-extract 等 Node.js 辅助包的本地依赖由镜像内 npm install 重建。
+node_modules
+**/node_modules
 *.exe
 *.exe~
 *.dll

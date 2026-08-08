@@ -36,6 +36,8 @@ backend/.gocache-verify/
 *.tsbuildinfo
 
 # Frontend
+# 所有 Node.js 包的本地依赖目录（根目录及任意子项目）都由 lockfile 重建，严禁入库。
+node_modules/
 frontend-admin/node_modules/
 frontend-admin/build/
 frontend-admin/.pnp
