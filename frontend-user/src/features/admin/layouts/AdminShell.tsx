@@ -10,7 +10,11 @@ import { useHotkey } from '@/shared/hooks';
 import { useSidebar } from '@/stores/sidebar.store';
 import { useIsAuthenticated, useAuthStore } from '@/stores/auth.store';
 import { AdminSidebar } from '../components/AdminSidebar';
-import { AdminCommandPalette, CMDK_HOTKEY } from '../components/AdminCommandPalette';
+import {
+  AdminCommandPalette,
+  CMDK_HOTKEY,
+} from '../components/AdminCommandPalette';
+import { AdminUserDetailProvider } from '../components/AdminUserDetailProvider';
 import { ROLE_LABEL } from '../permissions';
 
 /**
@@ -79,7 +83,11 @@ export function AdminShell() {
         >
           <PanelLeft />
         </IconButton>
-        <Link to="/admin" className="inline-flex items-center" aria-label="返回后台首页">
+        <Link
+          to="/admin"
+          className="inline-flex items-center"
+          aria-label="返回后台首页"
+        >
           <BrandLogo size="sm" />
         </Link>
 
@@ -87,7 +95,9 @@ export function AdminShell() {
         {routeTitle && (
           <>
             <span className="hidden sm:block h-4 w-px bg-border" aria-hidden />
-            <span className="hidden sm:block text-14 text-subtle truncate">{routeTitle}</span>
+            <span className="hidden sm:block text-14 text-subtle truncate">
+              {routeTitle}
+            </span>
           </>
         )}
 
@@ -105,7 +115,10 @@ export function AdminShell() {
         </button>
 
         {role && (
-          <span className="hidden md:inline text-12 text-faint" title="当前登录角色 —— 侧栏菜单按角色过滤">
+          <span
+            className="hidden md:inline text-12 text-faint"
+            title="当前登录角色 —— 侧栏菜单按角色过滤"
+          >
             {ROLE_LABEL[role] ?? role}
           </span>
         )}
@@ -116,7 +129,9 @@ export function AdminShell() {
       <div className="flex-1 min-h-0">
         <SidebarLayout sidebar={<AdminSidebar />}>
           <ErrorBoundary>
-            <Outlet />
+            <AdminUserDetailProvider>
+              <Outlet />
+            </AdminUserDetailProvider>
           </ErrorBoundary>
         </SidebarLayout>
       </div>

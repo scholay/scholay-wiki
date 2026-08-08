@@ -343,6 +343,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 会员兑换码: 批量生成(等于凭空发会员/经费)+ 列表 + 停用/恢复 + 续期 + 加次数 + 改会员天数
 		adminOnly.POST("/vip-codes", h.vip.GenerateCodes)
 		adminOnly.GET("/vip-codes", h.vip.ListCodes)
+		adminOnly.GET("/vip-code-batches", h.vip.ListCodeBatches)
+		adminOnly.GET("/vip-code-batches/:batchID/codes", h.vip.GetCodeBatch)
 		adminOnly.PUT("/vip-codes/:id/status", h.vip.SetCodeStatus)
 		adminOnly.PUT("/vip-codes/:id/extend", h.vip.ExtendCode)           // 续期(顺延有效期)
 		adminOnly.PUT("/vip-codes/:id/max-uses", h.vip.IncreaseCodeUses)   // 加可兑换次数

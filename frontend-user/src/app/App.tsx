@@ -3,6 +3,7 @@ import { RouterProvider } from 'react-router-dom';
 import { Providers } from './providers';
 import { router } from './router';
 import { AuthBootstrap } from './AuthBootstrap';
+import { UserActivityReporter } from './UserActivityReporter';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePromoStore } from '@/stores/promo.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
@@ -87,6 +88,7 @@ function ShellRoot() {
   return (
     <>
       <AuthBootstrap />
+      <UserActivityReporter />
       {/*
         useTransitions={false} —— 根因修复:RR v7 默认把导航的 state 提交包在 React 19 低优
         `startTransition` 里(react-router 源码 chunk RouterProvider:`useTransitions===false ?

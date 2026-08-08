@@ -5,6 +5,7 @@ import { getProfile, UserProfile, bindMiniProgramPhone } from '../../services/ap
 import { getBillingOverview, BillingOverview, previewRedeemCode, redeemCode, resetQuota } from '../../services/api/membership'
 import { ensureLogin } from '../../services/auth'
 import { ICONS } from '../../lib/icons'
+import { reportActivity } from '../../services/activity'
 
 const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' }
 
@@ -52,7 +53,12 @@ Page({
     creditTotal: '', // 经费余额展示串(整数直显 / 小数保留 2 位)
   },
 
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShow() {
+    reportActivity()
     syncTabBar(3)
     this.refresh()
   },

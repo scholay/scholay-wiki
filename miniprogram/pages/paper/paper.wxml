@@ -1,7 +1,7 @@
-<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
-<view wx:elif="{{error}}" class="state error">{{error}}</view>
+<view wx:if="{{loading}}" class="sk-detail" capture-bind:touchstart="onUserActivity"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error" capture-bind:touchstart="onUserActivity">{{error}}</view>
 
-<scroll-view wx:else scroll-y class="page detail">
+<scroll-view wx:else scroll-y class="page detail" capture-bind:touchstart="onUserActivity">
   <text class="meta">{{metaLine}}</text>
   <text class="h1">{{paper.title}}</text>
   <text class="authors">{{authorsLine}}</text>
@@ -47,7 +47,7 @@
   <view wx:elif="{{refsLoading}}" class="section"><text class="body">参考文献加载中…</text></view>
 </scroll-view>
 
-<view wx:if="{{showCite}}" class="mask bottom mask-anim {{closingCite?'closing':''}}" bindtap="closeCite">
+<view wx:if="{{showCite}}" class="mask bottom mask-anim {{closingCite?'closing':''}}" bindtap="closeCite" capture-bind:touchstart="onUserActivity">
   <view class="sheet sheet-anim {{closingCite?'closing':''}}" catchtap="stopProp">
     <view class="sheet-title">引用格式</view>
     <view class="fmt-tabs">

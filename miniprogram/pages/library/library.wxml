@@ -1,4 +1,4 @@
-<view class="page lib">
+<view class="page lib" capture-bind:touchstart="onUserActivity">
   <view wx:if="{{!loggedIn}}" class="state">请先登录后查看文献集</view>
   <view wx:elif="{{loading}}" class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
   <view wx:elif="{{error}}" class="state err">

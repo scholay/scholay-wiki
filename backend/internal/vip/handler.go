@@ -123,7 +123,7 @@ func (h *Handler) GenerateCodes(c *gin.Context) {
 		u := adminID
 		createdBy = &u
 	}
-	codes, err := h.svc.GenerateCodes(GenerateCodesInput{
+	batch, err := h.svc.GenerateCodeBatch(GenerateCodesInput{
 		Count: req.Count, GrantKind: req.GrantKind, Tier: req.Tier,
 		GrantDays: req.GrantDays, GrantUnit: req.GrantUnit,
 		GrantCredits: req.GrantCredits, CreditKind: req.CreditKind, CreditValidityDays: req.CreditValidityDays,
@@ -133,7 +133,7 @@ func (h *Handler) GenerateCodes(c *gin.Context) {
 		utils.InternalError(c, 500, "生成兑换码失败", err)
 		return
 	}
-	utils.SuccessWithMessage(c, "已生成", gin.H{"codes": codes, "count": len(codes)})
+	utils.SuccessWithMessage(c, "已生成", batch)
 }
 
 // AdminUserVIPStatus GET /admin/users/:id/vip —— 某用户的等级/到期 + 今日各功能额度(给用户详情抽屉)。

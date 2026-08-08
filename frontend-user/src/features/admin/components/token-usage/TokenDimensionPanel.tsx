@@ -2,7 +2,13 @@ import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { ListSkeleton } from '@/shared/components/LoadingState';
 import { ResourceError } from '@/shared/components/ResourceError';
-import { compactTokens, exactPoints, formatPoints, formatYuan } from '../../api/token-usage';
+import {
+  compactTokens,
+  exactPoints,
+  formatPoints,
+  formatYuan,
+} from '../../api/token-usage';
+import { UserCell, type UserCellProps } from '../UserCell';
 
 /**
  * 维度拆分面板 —— 一张卡 + Tab 切维度(模型/功能/来源/Provider/用户)。
@@ -19,12 +25,10 @@ import { compactTokens, exactPoints, formatPoints, formatYuan } from '../../api/
 export interface DimRow {
   key: string;
   label: string;
-  /**
-   * 该行实体的详情深链(如 Top 用户 → `/admin/users?q=<id>`)。
-   * 传了就把 label 渲染成链接 —— 「谁烧掉了几万算力点」之后必然要点进去看,
-   * 纯文本会逼人手抄 ID 再去别的页面搜。
-   */
+  /** 非用户实体的详情深链；用户维度必须使用下面的 user，直接打开统一详情推屏。 */
   href?: string;
+  /** 用户维度统一走 UserCell，点击打开全局只读详情推屏。 */
+  user?: UserCellProps;
   sub?: string;
   input: number;
   output: number;
@@ -119,29 +123,42 @@ function DimRows({
   }
   // loading 时 rows 也是空数组 —— 若直接走 map,切筛选那一两秒整张卡是空白且高度塌陷,
   // 会带动下方明细表上下跳。骨架把高度撑住。
-  if (loading && rows.length === 0) return <ListSkeleton rows={5} withTrailing={false} />;
+  if (loading && rows.length === 0)
+    return <ListSkeleton rows={5} withTrailing={false} />;
 
   return (
     <div className="flex flex-col gap-3">
       {rows.map((r) => (
         <div key={r.key} className="flex flex-col">
           <div className="flex items-baseline justify-between gap-2 text-12">
-            <span className="min-w-0 truncate font-medium text-subtle" title={r.label}>
-              {r.href ? (
-                <Link to={r.href} className="hover:text-brand-red hover:underline underline-offset-2">
+            <span
+              className="min-w-0 truncate font-medium text-subtle"
+              title={r.label}
+            >
+              {r.user ? (
+                <UserCell {...r.user} />
+              ) : r.href ? (
+                <Link
+                  to={r.href}
+                  className="hover:text-brand-red hover:underline underline-offset-2"
+                >
                   {r.label}
                 </Link>
               ) : (
                 r.label
               )}
-              {r.sub && <span className="ml-1 font-normal text-faint">{r.sub}</span>}
+              {r.sub && (
+                <span className="ml-1 font-normal text-faint">{r.sub}</span>
+              )}
             </span>
             <span
               className="shrink-0 tabular-nums text-faint"
               title={`${exactPoints(r.costMicro)} 算力点 ≈ ${formatYuan(r.costMicro)}`}
             >
-              <span className="font-medium text-foreground">{formatPoints(r.costMicro)}</span> 算力点 ·{' '}
-              {r.calls.toLocaleString()} 次
+              <span className="font-medium text-foreground">
+                {formatPoints(r.costMicro)}
+              </span>{' '}
+              算力点 · {r.calls.toLocaleString()} 次
             </span>
           </div>
           <div className="mt-1 h-2.5 w-full overflow-hidden rounded-pill bg-surface-2">
@@ -153,17 +170,23 @@ function DimRows({
           </div>
           <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-12 tabular-nums text-faint">
             <span>
-              {formatYuan(r.costMicro)} · 输入 {compactTokens(r.input)} · 输出 {compactTokens(r.output)} · 命中{' '}
-              {compactTokens(r.cacheRead)}
-              {r.cacheCreation > 0 && <> · 创建 {compactTokens(r.cacheCreation)}</>}
+              {formatYuan(r.costMicro)} · 输入 {compactTokens(r.input)} · 输出{' '}
+              {compactTokens(r.output)} · 命中 {compactTokens(r.cacheRead)}
+              {r.cacheCreation > 0 && (
+                <> · 创建 {compactTokens(r.cacheCreation)}</>
+              )}
             </span>
             {!!r.unpricedCalls && (
-              <span className="text-brand-amber">其中 {r.unpricedCalls.toLocaleString()} 次未计价</span>
+              <span className="text-brand-amber">
+                其中 {r.unpricedCalls.toLocaleString()} 次未计价
+              </span>
             )}
           </div>
         </div>
       ))}
-      {rows.length === 0 && <p className="py-6 text-center text-12 text-faint">{emptyText}</p>}
+      {rows.length === 0 && (
+        <p className="py-6 text-center text-12 text-faint">{emptyText}</p>
+      )}
     </div>
   );
 }

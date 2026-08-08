@@ -18,7 +18,7 @@ export interface AdminUser {
   phone_verified: boolean;
   last_login_at?: string | null;
   last_login_ip?: string | null;
-  /** 最后活跃(真实使用)时间:每次鉴权请求节流更新,反映最后实际使用而非仅登录动作。 */
+  /** 最后活跃(真实使用)时间:可见页面上的真人输入节流更新;后台轮询、WS 重连和挂机不计入。 */
   last_active_at?: string | null;
   /** 会员(VIP):vip_tier 为 'pro'/'max' 且 vip_expires_at>now 才算生效;否则当 free。
    *  **必须含 'max'** —— 漏了它,列表把 max 用户当 free 显示(与详情页 /vip 不一致)。 */
@@ -41,7 +41,11 @@ export interface UserListParams {
   email_verified?: '0' | '1';
   created_from?: string; // YYYY-MM-DD
   created_to?: string;
-  sort_by?: 'last_active_at' | 'last_login_at' | 'created_at' | 'vip_expires_at';
+  sort_by?:
+    | 'last_active_at'
+    | 'last_login_at'
+    | 'created_at'
+    | 'vip_expires_at';
   sort_order?: 'asc' | 'desc';
 }
 
@@ -50,18 +54,14 @@ export interface UserAuthProviderView {
   created_at: string;
 }
 
-/** /admin/users/:id/detail —— 身份 + 登录方式(供「用户单元」展开)。 */
-export interface UserLoginMethods {
-  id: number;
-  username: string;
-  email: string;
-  email_verified: boolean;
-  phone: string;
-  phone_verified: boolean;
+/**
+ * /admin/users/:id/detail —— 完整、安全的后台只读用户详情。
+ *
+ * 除 AdminUser 的展示字段外只附带脱敏后的登录渠道；不会下发密码哈希、OAuth openID、
+ * unionID 或 provider_data。这样订单、反馈、邀请等只有 user_id 的页面也能打开同一详情推屏。
+ */
+export interface UserLoginMethods extends AdminUser {
   auth_providers: UserAuthProviderView[];
-  /** 注册来源(迁移 0060):'wechat'=网页扫码 / 'wechat_miniprogram'=小程序 / ''=按 provider 推断。
-   *  微信小程序与网页扫码都记 provider='wechat'(unionid 同号),靠本字段区分渠道。 */
-  register_source?: string;
 }
 
 // 对齐 backend vip.TokenStatus(quota.go)——7 天锚定窗口口径:used/percent 是窗口内(重置/升级换锚后归零),
@@ -114,7 +114,9 @@ export function useUserList(params: UserListParams) {
   return useQuery({
     queryKey: ['admin', 'users', 'list', params],
     queryFn: async () => {
-      const r = await http.get<{ data: UserListResponse }>('/admin/users', { params });
+      const r = await http.get<{ data: UserListResponse }>('/admin/users', {
+        params,
+      });
       return r.data.data;
     },
   });
@@ -124,7 +126,9 @@ export function useUserStats() {
   return useQuery({
     queryKey: ['admin', 'users', 'stats'],
     queryFn: async () => {
-      const r = await http.get<{ data: Record<string, number> }>('/admin/users/stats');
+      const r = await http.get<{ data: Record<string, number> }>(
+        '/admin/users/stats',
+      );
       return r.data.data;
     },
   });
@@ -166,7 +170,8 @@ export function useDeleteUser() {
 export function useBatchDeleteUsers() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (ids: number[]) => http.post('/admin/users/batch-delete', { ids }),
+    mutationFn: (ids: number[]) =>
+      http.post('/admin/users/batch-delete', { ids }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 }
@@ -182,13 +187,14 @@ export function useUpdateUserRole() {
 
 // ─── 用户详情抽屉 ───────────────────────────────────────────────────────────
 
-/** 登录方式(账号/第三方绑定)。enabled 控制抽屉打开时才拉。 */
+/** 完整只读详情 + 登录方式。enabled 控制抽屉打开时才拉。 */
 export function useUserDetail(id?: number) {
   return useQuery({
     queryKey: ['admin', 'users', 'detail', id],
     enabled: !!id,
     queryFn: async () =>
-      (await http.get<{ data: UserLoginMethods }>(`/admin/users/${id}/detail`)).data.data,
+      (await http.get<{ data: UserLoginMethods }>(`/admin/users/${id}/detail`))
+        .data.data,
     staleTime: 60_000,
   });
 }
@@ -198,7 +204,9 @@ export function useUserVipStatus(id?: number) {
   return useQuery({
     queryKey: ['admin', 'users', 'vip', id],
     enabled: !!id,
-    queryFn: async () => (await http.get<{ data: UserVipStatus }>(`/admin/users/${id}/vip`)).data.data,
+    queryFn: async () =>
+      (await http.get<{ data: UserVipStatus }>(`/admin/users/${id}/vip`)).data
+        .data,
   });
 }
 
@@ -254,7 +262,13 @@ export function useRevokeVip() {
 export function useAdjustWallet() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: number; amount: number; kind: 'perm' | 'temp'; days?: number; note?: string }) =>
+    mutationFn: (vars: {
+      id: number;
+      amount: number;
+      kind: 'perm' | 'temp';
+      days?: number;
+      note?: string;
+    }) =>
       http.post(`/admin/users/${vars.id}/wallet/adjust`, {
         amount: vars.amount,
         kind: vars.kind,
@@ -269,7 +283,12 @@ export function useAdjustWallet() {
 export function useGrantResetPasses() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: number; count: number; days?: number; note?: string }) =>
+    mutationFn: (vars: {
+      id: number;
+      count: number;
+      days?: number;
+      note?: string;
+    }) =>
       http.post(`/admin/users/${vars.id}/reset-passes`, {
         count: vars.count,
         days: vars.days ?? 0,
@@ -362,7 +381,12 @@ export function useAdminUserOrders(
     queryKey: ['admin', 'users', id, 'orders', params],
     enabled: !!id && enabled,
     queryFn: async () =>
-      (await http.get<{ data: Paged<AdminOrder> }>(`/admin/users/${id}/orders`, { params })).data.data,
+      (
+        await http.get<{ data: Paged<AdminOrder> }>(
+          `/admin/users/${id}/orders`,
+          { params },
+        )
+      ).data.data,
     staleTime: 60_000,
   });
 }
@@ -376,7 +400,12 @@ export function useAdminUserTransactions(
     queryKey: ['admin', 'users', id, 'transactions', params],
     enabled: !!id && enabled,
     queryFn: async () =>
-      (await http.get<{ data: Paged<AdminCreditTransaction> }>(`/admin/users/${id}/transactions`, { params })).data.data,
+      (
+        await http.get<{ data: Paged<AdminCreditTransaction> }>(
+          `/admin/users/${id}/transactions`,
+          { params },
+        )
+      ).data.data,
     staleTime: 60_000,
   });
 }
@@ -390,7 +419,12 @@ export function useAdminUserRedemptions(
     queryKey: ['admin', 'users', id, 'redemptions', params],
     enabled: !!id && enabled,
     queryFn: async () =>
-      (await http.get<{ data: Paged<AdminRedemption> }>(`/admin/users/${id}/redemptions`, { params })).data.data,
+      (
+        await http.get<{ data: Paged<AdminRedemption> }>(
+          `/admin/users/${id}/redemptions`,
+          { params },
+        )
+      ).data.data,
     staleTime: 60_000,
   });
 }

@@ -25,6 +25,7 @@ import { isLoggedIn, onAuthChange } from '../../store/auth'
 import { ensureLogin } from '../../services/auth'
 import { appendPatch } from '../../lib/setdata'
 import { ICONS } from '../../lib/icons'
+import { reportActivity } from '../../services/activity'
 
 type Mode = 'papers' | 'journals' | 'news'
 
@@ -208,7 +209,12 @@ Page({
     news: [] as NewsVM[],
   },
 
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShow() {
+    reportActivity()
     syncTabBar(0)
     if (feedDirty) {
       // 账号变过 → 清屏重载,避免带上一个账号的收藏/已读态。
@@ -219,6 +225,7 @@ Page({
   },
 
   onShareAppMessage() {
+    reportActivity()
     return { title: 'Scholay 学术 · 论文 / 期刊 / 情报检索', path: '/pages/feed/feed' }
   },
 

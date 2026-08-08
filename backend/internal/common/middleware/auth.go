@@ -38,6 +38,7 @@ const SessionCookieName = "scholay_token"
 //   - Logout 单端 → utils.RevokeToken(ctx, claims)
 //   - 改密 / 管理员封号 → utils.RevokeUserAllTokens(ctx, userID)
 //   - 全量失效 → 切 JWT secret (config)
+//
 // extractToken 统一从请求里取 JWT —— 全站鉴权(AuthMiddleware / OptionalUserAuthMiddleware 等)
 // 都走这一处, 保证取 token 的口径一致(历史上两处各写一份, OptionalAuth 还漏了 cookie 分支)。
 // 优先级: Authorization: Bearer header  >  scholay_token cookie(iframe / 跨页签共享会话)。
@@ -57,14 +58,6 @@ func extractToken(c *gin.Context) string {
 	}
 	return ""
 }
-
-// activityHook 由 bootstrap 注入(user 服务):在每次通过鉴权的 user 请求上记录「最后活跃时间」。
-// 放包级 var 是为了让 middleware 不反向依赖 user 包(分层)。nil = 不记。
-// 实现侧(user.Service.RecordActivity)自带「全异步 + Redis 节流」,本中间件调用零开销。
-var activityHook func(userID uint)
-
-// SetActivityHook 注入「最后活跃」记录器。bootstrap 调一次。
-func SetActivityHook(fn func(userID uint)) { activityHook = fn }
 
 func AuthMiddleware(requiredType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -131,12 +124,6 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 		c.Set("user_role", role)
 		c.Set("token", token) // 保存 token 供后续使用
 
-		// 记「最后活跃时间」: 反映用户最后实际使用(而非仅登录动作)。只对 user 类型 token;
-		// 实现侧全异步 + Redis 节流(≤每用户每 5min 一次 DB 写),不阻塞请求。
-		if activityHook != nil && claims.Type == "user" && claims.UserID != 0 {
-			activityHook(claims.UserID)
-		}
-
 		c.Next()
 	}
 }
@@ -191,10 +178,6 @@ func RequirePermission(perm string) gin.HandlerFunc {
 		c.Set("user_type", claims.Type)
 		c.Set("user_role", role)
 		c.Set("token", token)
-
-		if activityHook != nil && claims.Type == "user" && claims.UserID != 0 {
-			activityHook(claims.UserID)
-		}
 
 		c.Next()
 	}

@@ -1,4 +1,4 @@
-<view class="search-header">
+<view class="search-header" capture-bind:touchstart="onUserActivity">
   <view class="search-box">
     <input class="search-input" placeholder="{{mode==='journals' ? '搜索期刊名 / 出版社' : '搜索论文 / 关键词 / 作者'}}" value="{{q}}" focus confirm-type="search" bindinput="onInput" bindconfirm="onSearch" />
     <view class="search-go" bindtap="onSearch">搜索</view>
@@ -8,7 +8,7 @@
   </view>
 </view>
 
-<view wx:if="{{showFilter}}" class="mask mask-anim {{closingFilter?'closing':''}}" bindtap="closeFilter">
+<view wx:if="{{showFilter}}" class="mask mask-anim {{closingFilter?'closing':''}}" bindtap="closeFilter" capture-bind:touchstart="onUserActivity">
   <view class="fsheet sheet-anim {{closingFilter?'closing':''}}" catchtap="noop">
     <scroll-view scroll-y class="fsheet-body">
       <view class="fgroup">
@@ -62,7 +62,7 @@
   </view>
 </view>
 
-<view class="search-body">
+<view class="search-body" capture-bind:touchstart="onUserActivity">
   <view wx:if="{{!submitted}}" class="state">输入关键词开始搜索</view>
   <view wx:elif="{{loading}}" class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
   <view wx:elif="{{error}}" class="state error">{{error}}</view>

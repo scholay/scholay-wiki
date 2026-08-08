@@ -1,6 +1,7 @@
 import { listTransactions, listOrders, CreditTxn, Order } from '../../services/api/membership'
 import { errMsg } from '../../lib/feedback'
 import { relativeTime } from '../../lib/format'
+import { reportActivity } from '../../services/activity'
 
 interface TxnVM {
   id: number
@@ -56,6 +57,14 @@ Page({
     orders: [] as OrderVM[],
     loading: true,
     error: '',
+  },
+
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
   },
 
   onLoad() {

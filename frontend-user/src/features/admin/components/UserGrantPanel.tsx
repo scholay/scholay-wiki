@@ -50,7 +50,7 @@ const UNIT_APPROX_DAYS: Record<GrantUnit, number> = { day: 1, month: 30, year: 3
 const FALLBACK_RECHARGE_RATE = 100;
 
 /**
- * 管理员对单个用户「发放会员 / 调整经费 / 发放重置次数」的操作面板(用户详情抽屉底部)。
+ * 管理员对单个用户「发放会员 / 调整经费 / 发放重置次数」的操作面板(独立用户操作抽屉)。
  *   - 会员:选档(Pro / Max)+ 天数 → 授予 / 续期;已是会员可取消(回 Free)。
  *   - 经费:金额(单位=分,0090 起不再分临时/永久)→ 发放 / 扣减。
  * 分别打到后端 POST /admin/users/:id/vip 与 POST /admin/users/:id/wallet/adjust。
@@ -58,7 +58,7 @@ const FALLBACK_RECHARGE_RATE = 100;
  * 🔴 **写钱的三个动作全部走二次确认**(发放经费 / 扣减经费 / 发放重置次数)。
  * 理由不是"防手抖"这么轻:写的是 credit_transactions 这种**只增不删**的账本,
  * 扣错只能再发一笔反向流水对冲,账面上永远留着两笔。两个放大因素让误操作概率并不低:
- *   ① 抽屉是复用的,`UserDetailDrawer` 已给本组件挂 `key={user.id}` 强制重挂,
+ *   ① 抽屉是复用的,`UserActionsDrawer` 已给本组件挂 `key={user.id}` 强制重挂,
  *      切用户时金额会回到默认 100 —— 但同一用户内连续两次操作仍会沿用上次数值;
  *   ② 单位是**分**(100 经费 = ¥1),把 10000 当成 ¥100 发出去就是 100 倍。
  * 所以确认文案里必须同时出现「原始数值」和「折合人民币」,让量级错误在读的时候就暴露。
@@ -84,7 +84,9 @@ export function UserGrantPanel({
   const rate = billing.data?.recharge_rate || FALLBACK_RECHARGE_RATE;
   const toYuan = (credits: number) => (credits / rate).toFixed(2);
 
-  const [tier, setTier] = useState<'pro' | 'max'>('pro');
+  // 编辑已有会员时默认保持当前档位。Max 用户若默认回到 Pro，
+  // 管理员只是想续期却会意外降档。本组件在 VIP 真值到达后才挂载。
+  const [tier, setTier] = useState<'pro' | 'max'>(vip?.tier === 'max' ? 'max' : 'pro');
   // 授予时长 = 数量 + 单位(0110)。默认「1 个月」——运营最常发的就是一个月,
   // 让默认值等于最常用值可以少一次修改、少一次手滑。
   const [grantUnit, setGrantUnit] = useState<GrantUnit>('month');
@@ -193,6 +195,13 @@ export function UserGrantPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-8 border border-border bg-surface-1 px-3 py-2 text-12">
+        <span className="text-faint">当前会员</span>
+        <span className="font-medium text-foreground">
+          {vip?.tier === 'max' ? 'Max' : vip?.tier === 'pro' ? 'Pro' : 'Free'}
+          {vip?.expires_at ? ` · 至 ${vip.expires_at.slice(0, 10)}` : ''}
+        </span>
+      </div>
       {/* 会员 */}
       <div className="flex flex-col gap-2">
         <Label className="text-12 text-faint">发放 / 续期会员</Label>

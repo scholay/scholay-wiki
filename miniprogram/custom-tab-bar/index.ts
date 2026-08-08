@@ -4,6 +4,8 @@
 //    手工镜像(其真源是 frontend-user/src/styles/globals.css),改真源须一并同步。
 //    未激活取 --text-disabled #757580 而非 --text-faint:tab 项是"非活跃控件"语义,
 //    WCAG 1.4.3 对禁用/非活跃控件有对比度豁免,需要"看起来就是没选中"的弱对比。
+import { reportActivity } from '../services/activity'
+
 const ACTIVE = '#1F1F23'
 const INACTIVE = '#757580'
 
@@ -48,6 +50,8 @@ Component({
   },
   methods: {
     onTap(e: WechatMiniprogram.TouchEvent) {
+      // 自定义 tab bar 在页面节点外；重复点当前 tab 也是真实操作。
+      reportActivity()
       const idx = Number(e.currentTarget.dataset.index)
       if (idx === this.data.selected) return
       wx.switchTab({ url: LIST[idx].pagePath })

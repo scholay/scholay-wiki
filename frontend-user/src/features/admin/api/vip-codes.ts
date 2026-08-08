@@ -4,6 +4,8 @@ import { http } from '@/shared/lib/http';
 
 export interface VipCode {
   id: number;
+  /** 每次批量生成的稳定批次 ID；存量码迁移后一码一批次。 */
+  batch_id: string;
   code: string;
   grant_kind: string; // tier | credit
   grant_tier: string; // free | pro | max —— 展示一律走 Free/Pro/Max 大写标签,不直出裸小写
@@ -25,11 +27,50 @@ export interface VipCode {
   created_at: string;
 }
 
+/**
+ * 兑换码批次摘要 —— 镜像 backend/internal/vip 的 VipCodeBatch。
+ * 四个状态数互斥，且始终满足 available + exhausted + expired + revoked = code_count。
+ */
+export interface VipCodeBatch {
+  batch_id: string;
+  code_count: number;
+  available_count: number;
+  exhausted_count: number;
+  expired_count: number;
+  revoked_count: number;
+  total_used_count: number;
+  total_max_uses: number;
+  grant_kind: string;
+  grant_tier: string;
+  grant_days: number;
+  grant_unit: string;
+  grant_credits: number;
+  credit_kind: string;
+  credit_validity_days: number;
+  max_uses: number;
+  valid_until: string | null;
+  note: string;
+  created_by: number | null;
+  created_at: string;
+  /** 批次内实际存在的配置组合数。历史单码操作可使同批次配置分化。 */
+  config_variant_count: number;
+  /** true 时上面的发放配置仅是代表值，不得宣称整批统一。 */
+  mixed: boolean;
+}
+
 export interface VipCodeParams {
   status?: string; // ''|'unredeemed'|'redeemed'
   /** 后端 ListCodes 是 `grant_tier = ?` 精确匹配。实际只会生成 pro / max 两种会员码 —— 不要给 free 选项(恒 0 条)。 */
   tier?: string;
   redeemer?: string; // 兑换人:ID/用户名/邮箱/手机号
+  page?: number;
+  page_size?: number;
+}
+
+export interface VipCodeBatchParams {
+  keyword?: string; // batch_id / 备注
+  grant_kind?: string; // tier | credit
+  tier?: string; // pro | max
   page?: number;
   page_size?: number;
 }
@@ -52,9 +93,49 @@ export function useVipCodes(params: VipCodeParams) {
   return useQuery({
     queryKey: ['admin', 'vip-codes', params],
     queryFn: async () => {
-      const r = await http.get<{ data: { codes: VipCode[]; total: number } }>('/admin/vip-codes', { params });
+      const r = await http.get<{ data: { codes: VipCode[]; total: number } }>(
+        '/admin/vip-codes',
+        { params },
+      );
       return { codes: r.data.data.codes ?? [], total: r.data.data.total ?? 0 };
     },
+  });
+}
+
+/** 批次主列表；不再把每一张码摊平到首屏。 */
+export function useVipCodeBatches(params: VipCodeBatchParams) {
+  return useQuery({
+    queryKey: ['admin', 'vip-codes', 'batches', params],
+    queryFn: async () => {
+      const r = await http.get<{
+        data: { batches: VipCodeBatch[]; total: number };
+      }>('/admin/vip-code-batches', { params });
+      return {
+        batches: r.data.data.batches ?? [],
+        total: r.data.data.total ?? 0,
+      };
+    },
+  });
+}
+
+/**
+ * 批次详情一次返回全批码（单批上限 1000），供客户端分页、复制全部和导出共用。
+ * Sheet 关闭时禁用查询，但保留上次数据以完成退场动画。
+ */
+export function useVipCodeBatch(batchId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['admin', 'vip-codes', 'batches', batchId],
+    queryFn: async () => {
+      const r = await http.get<{
+        data: { batch: VipCodeBatch; codes: VipCode[]; total: number };
+      }>(`/admin/vip-code-batches/${encodeURIComponent(batchId!)}/codes`);
+      return {
+        batch: r.data.data.batch,
+        codes: r.data.data.codes ?? [],
+        total: r.data.data.total ?? 0,
+      };
+    },
+    enabled: enabled && !!batchId,
   });
 }
 
@@ -62,7 +143,11 @@ export function useGenerateVipCodes() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: GenerateCodesReq) =>
-      (await http.post<{ data: { codes: string[]; count: number } }>('/admin/vip-codes', data)).data.data,
+      (
+        await http.post<{
+          data: { batch_id: string; codes: string[]; count: number };
+        }>('/admin/vip-codes', data)
+      ).data.data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
   });
 }
@@ -82,7 +167,11 @@ export function useExtendVipCode() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, days }: { id: number; days: number }) =>
-      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/extend`, { days })).data.data,
+      (
+        await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/extend`, {
+          days,
+        })
+      ).data.data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
   });
 }
@@ -92,7 +181,11 @@ export function useIncreaseVipCodeUses() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, add }: { id: number; add: number }) =>
-      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/max-uses`, { add })).data.data,
+      (
+        await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/max-uses`, {
+          add,
+        })
+      ).data.data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
   });
 }
@@ -108,8 +201,21 @@ export function useIncreaseVipCodeUses() {
 export function useSetVipCodeGrantDays() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, days, unit }: { id: number; days: number; unit: string }) =>
-      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/grant-days`, { days, unit })).data.data,
+    mutationFn: async ({
+      id,
+      days,
+      unit,
+    }: {
+      id: number;
+      days: number;
+      unit: string;
+    }) =>
+      (
+        await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/grant-days`, {
+          days,
+          unit,
+        })
+      ).data.data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
   });
 }

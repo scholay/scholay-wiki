@@ -1,7 +1,7 @@
-<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
-<view wx:elif="{{error}}" class="state error">{{error}}</view>
+<view wx:if="{{loading}}" class="sk-detail" capture-bind:touchstart="onUserActivity"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error" capture-bind:touchstart="onUserActivity">{{error}}</view>
 
-<scroll-view wx:else scroll-y class="page detail">
+<scroll-view wx:else scroll-y class="page detail" capture-bind:touchstart="onUserActivity">
   <text class="h1">{{name}}</text>
   <text wx:if="{{affiliation}}" class="authors">{{affiliation}}</text>
   <view wx:if="{{orcid}}" class="badges">

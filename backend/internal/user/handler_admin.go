@@ -7,15 +7,15 @@ package user
 
 import (
 	"strconv"
-	"time"
 
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
-// GetUserDetail 用户详情(admin):返回该用户的登录方式(账号/第三方绑定)。基础资料已在列表行,
-// VIP 今日额度走 /admin/users/:id/vip(vip handler)。供用户管理的「详情抽屉」用。
+// GetUserDetail 用户详情(admin):返回可安全展示的完整账号资料 + 登录方式。
+// 返回值必须经过显式 DTO 白名单，不能裸返 User/UserAuthProvider GORM model；
+// VIP 额度与财务下钻仍走各自的权限接口。
 func (h *Handler) GetUserDetail(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -28,32 +28,7 @@ func (h *Handler) GetUserDetail(c *gin.Context) {
 		return
 	}
 	providers, _ := h.service.GetUserAuthProviders(uint(id))
-	// 精简视图:只回登录方式 + 绑定时间, 不泄露 openID/union/provider_data 等敏感原始数据。
-	type providerView struct {
-		Provider  string    `json:"provider"`
-		CreatedAt time.Time `json:"created_at"`
-	}
-	views := make([]providerView, 0, len(providers))
-	for _, p := range providers {
-		views = append(views, providerView{Provider: p.Provider, CreatedAt: p.CreatedAt})
-	}
-	deref := func(p *string) string {
-		if p == nil {
-			return ""
-		}
-		return *p
-	}
-	// 身份 + 登录方式(供 admin「用户单元」展开:邮箱/手机号 + 验证态 + OAuth 绑定)。
-	utils.Success(c, gin.H{
-		"id":             u.ID,
-		"username":       deref(u.Username),
-		"email":          deref(u.Email),
-		"email_verified":  u.EmailVerified,
-		"phone":           deref(u.Phone),
-		"phone_verified":  u.PhoneVerified,
-		"auth_providers":  views,
-		"register_source": u.RegisterSource, // 注册来源:微信小程序 vs 网页扫码(前端据此区分微信徽章)
-	})
+	utils.Success(c, toAdminUserDetailView(*u, providers))
 }
 
 // GetUserStatistics handles getting user statistics (admin only)

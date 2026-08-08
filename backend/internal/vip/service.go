@@ -15,18 +15,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type Service struct {
-	repo     *Repository
-	cfg      *ConfigService
-	wallet   *WalletService
-	order    *OrderService
-	msg      MessageSender       // 站内信(bootstrap 注入, 可 nil)
-	emailCfg EmailConfigProvider // 邮件配置(bootstrap 注入, 可 nil)
-	payNotify func(*Order)       // 付费成功外部通知(飞书等;bootstrap 注入, 可 nil)
+	repo      *Repository
+	cfg       *ConfigService
+	wallet    *WalletService
+	order     *OrderService
+	msg       MessageSender       // 站内信(bootstrap 注入, 可 nil)
+	emailCfg  EmailConfigProvider // 邮件配置(bootstrap 注入, 可 nil)
+	payNotify func(*Order)        // 付费成功外部通知(飞书等;bootstrap 注入, 可 nil)
 
 	// usedFlush 额度窗口 used 快照的节流刷盘器(quota_persist.go)。构造即可用(纯内存标脏),
 	// 后台 ticker 由 StartQuotaPersistence 启动 —— 不在 NewService 里起 goroutine:
@@ -105,13 +106,13 @@ func (s *Service) PaymentMethods() (alipay bool, wechat bool) {
 
 // SubQuote 订阅报价(给前端弹窗显示动作 + 应付金额 + 经费)。
 type SubQuote struct {
-	Action        string     `json:"action"` // new | renew | upgrade
-	Tier          string     `json:"tier"`
-	Cycle         string     `json:"cycle"`        // 实际计费周期:new/renew=请求周期;upgrade=用户当前订阅周期
-	AmountCents   int        `json:"amount_cents"` // 本次应付(分)
+	Action      string `json:"action"` // new | renew | upgrade
+	Tier        string `json:"tier"`
+	Cycle       string `json:"cycle"`        // 实际计费周期:new/renew=请求周期;upgrade=用户当前订阅周期
+	AmountCents int    `json:"amount_cents"` // 本次应付(分)
 	// (Credits 已删除 —— 0090 起订阅不再赠送经费;前端购买弹窗的「赠送 N 经费」一并移除)
-	Deferred      bool       `json:"deferred"`     // 续期=true(本单权益从当前到期日起算,而非立即)
-	CurrentTier   string     `json:"current_tier"` // 用户当前生效档
+	Deferred      bool       `json:"deferred"`                // 续期=true(本单权益从当前到期日起算,而非立即)
+	CurrentTier   string     `json:"current_tier"`            // 用户当前生效档
 	CurrentCycle  string     `json:"current_cycle,omitempty"` // 用户当前订阅周期(付费在期时)
 	RemainingDays int        `json:"remaining_days"`
 	NewExpiresAt  *time.Time `json:"new_expires_at"` // 履约后会员到期日(弹窗「有效期至」)
@@ -201,6 +202,7 @@ func applyMembershipGrant(cur UserVIP, grantTier string, amount int, unit string
 //     都写 E+30d → 用户少拿 30 天,而两条兑换流水已落库、两张码 used_count 都 +1(不可回兑);
 //   - 续费回调正在 fulfill(持 users 行 FOR UPDATE 写 E+1 月)时用户兑码 → 兑码用旧快照覆盖
 //     → **那笔 ¥59 的续费月份被吃掉:订单 paid、钱收了、权益没给**。
+//
 // 现在三条路共用同一把 users 行锁,MySQL 会把它们排成队。
 //
 // cycleOverride 非空即写;为空时只在「用户当前不是在期付费会员」才回落 monthly ——
@@ -254,11 +256,11 @@ func grantMembershipInTx(tx *gorm.DB, userID uint, grantTier string, amount int,
 
 // RedeemResult 兑换成功返回(tier 码:返回等级 + 到期;credit 码:返回到账经费)。
 type RedeemResult struct {
-	Kind      string     `json:"kind"`                 // tier | credit
-	Tier      string     `json:"tier,omitempty"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	Credits   int        `json:"credits,omitempty"`
-	CreditKind string    `json:"credit_kind,omitempty"` // temp | perm
+	Kind       string     `json:"kind"` // tier | credit
+	Tier       string     `json:"tier,omitempty"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	Credits    int        `json:"credits,omitempty"`
+	CreditKind string     `json:"credit_kind,omitempty"` // temp | perm
 	// refillEligible 本次兑换是否有资格触发「额度窗口满血」。不外发(小写),由 repo 在事务内算出:
 	// 需要同时满足「档位真的抬升了」与「授予时长 ≥ 一个计费周期」。见 Redeem 的红字。
 	refillEligible bool
@@ -298,9 +300,9 @@ func (s *Service) Redeem(ctx context.Context, userID uint, rawCode string) (*Red
 // CodePreview 兑换前预览(给确认弹窗):码有效时返回将授予的内容;无效则方法返回 error
 // (handler 翻成「无效/过期/已用完/已兑换过」等失败态)。
 type CodePreview struct {
-	GrantKind    string     `json:"grant_kind"` // tier | credit
-	GrantTier    string     `json:"grant_tier,omitempty"`
-	GrantDays    int        `json:"grant_days,omitempty"`
+	GrantKind string `json:"grant_kind"` // tier | credit
+	GrantTier string `json:"grant_tier,omitempty"`
+	GrantDays int    `json:"grant_days,omitempty"`
 	// GrantUnit day|month|year —— 用户端兑换确认弹窗据此渲染「N 天 / N 个月 / N 年」。
 	// 🔴 漏了它就会把「1 个月」的码显示成「1 天」,那是用户点确认前看到的唯一时长承诺。
 	GrantUnit    string     `json:"grant_unit,omitempty"`
@@ -349,8 +351,29 @@ func (s *Service) PreviewCode(ctx context.Context, userID uint, rawCode string) 
 	}, nil
 }
 
-// GenerateCodes 管理员批量生成兑换码(tier 码:发会员;credit 码:发经费), 返回生成的码字符串。
+// GeneratedCodeBatch 是一次发码的结果。BatchID 会持久化到本次所有码，
+// 因此页面刷新后仍可重新打开、复制或导出这一批。
+type GeneratedCodeBatch struct {
+	BatchID string   `json:"batch_id"`
+	Codes   []string `json:"codes"`
+	Count   int      `json:"count"`
+}
+
+// GenerateCodes 保留原有内部契约，供已有调用点/集成测试继续只取码列表。
+// HTTP 生成接口调 GenerateCodeBatch，额外返回可持久访问的 batch_id。
 func (s *Service) GenerateCodes(in GenerateCodesInput, createdBy *uint) ([]string, error) {
+	batch, err := s.GenerateCodeBatch(in, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	return batch.Codes, nil
+}
+
+// GenerateCodeBatch 管理员批量生成兑换码(tier 码:发会员;credit 码:发经费)。
+// 一次调用只 mint 一个 UUID，并写入全部码行。CreateCodes 仍是单条多行 INSERT，
+// 不会出现「批次存在、码只落了一部分」的中间态。
+func (s *Service) GenerateCodeBatch(in GenerateCodesInput, createdBy *uint) (*GeneratedCodeBatch, error) {
+	batchID := uuid.NewString()
 	count := in.Count
 	if count < 1 {
 		count = 1
@@ -428,7 +451,7 @@ func (s *Service) GenerateCodes(in GenerateCodesInput, createdBy *uint) ([]strin
 		out = append(out, c)
 		vu := validUntil
 		codes = append(codes, RedemptionCode{
-			Code: c, GrantKind: kind, GrantTier: tier, GrantDays: grantDays, GrantUnit: grantUnit,
+			BatchID: batchID, Code: c, GrantKind: kind, GrantTier: tier, GrantDays: grantDays, GrantUnit: grantUnit,
 			GrantCredits: in.GrantCredits, CreditKind: creditKind, CreditValidityDays: creditValidity,
 			MaxUses: maxUses, ValidUntil: &vu, Note: in.Note, CreatedBy: createdBy,
 		})
@@ -436,8 +459,8 @@ func (s *Service) GenerateCodes(in GenerateCodesInput, createdBy *uint) ([]strin
 	if err := s.repo.CreateCodes(codes); err != nil {
 		return nil, err
 	}
-	slog.Info("vip: generated redemption codes", "count", len(out), "kind", kind, "tier", tier)
-	return out, nil
+	slog.Info("vip: generated redemption codes", "batch_id", batchID, "count", len(out), "kind", kind, "tier", tier)
+	return &GeneratedCodeBatch{BatchID: batchID, Codes: out, Count: len(out)}, nil
 }
 
 // GenerateCodesInput admin 发码入参。

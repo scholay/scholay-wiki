@@ -1,4 +1,4 @@
-<view class="page bill">
+<view class="page bill" capture-bind:touchstart="onUserActivity">
   <view class="tabs">
     <view class="tab {{tab==='txn' ? 'on' : ''}}" data-tab="txn" bindtap="switchTab">经费流水</view>
     <view class="tab {{tab==='orders' ? 'on' : ''}}" data-tab="orders" bindtap="switchTab">订单记录</view>

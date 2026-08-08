@@ -171,19 +171,33 @@ func (r *Repository) UpdateLastLoginWithIP(id uint, ip string) error {
 	}).Error
 }
 
-// UpdateLastActive 更新「最后活跃时间」(真实使用时间, 0036)。
-// 由 service.RecordActivity 在每次鉴权请求节流后异步调用 —— 反映用户最后实际使用,
-// 而非仅登录动作(last_login_at)。单列点查 UPDATE, 极轻。
-func (r *Repository) UpdateLastActive(id uint) error {
-	return r.db.Model(&User{}).Where("id = ?", id).Update("last_active_at", time.Now()).Error
+const lastActiveWriteInterval = time.Minute
+
+// UpdateLastActive 更新「最后活跃时间」(真实交互时间,0036)。
+// activeAt 必须是服务端接收活跃事件的时间,绝不接受客户端上传时间。
+// WHERE 条件与 SET 在同一条 SQL 中原子执行:
+//   - 每个用户最多约每分钟写一次,避免高频操作放大 DB 写入;
+//   - 只有库内时间早于本次时间窗口才更新,并发/时钟回拨都不会使时间倒退。
+//
+// users.updated_at 在 MySQL 层带 ON UPDATE CURRENT_TIMESTAMP,仅用 GORM UpdateColumn
+// 仍会被数据库自动推进。因此原生 SQL 必须显式 updated_at = updated_at 自赋值冻结:
+// 活跃事件不是账号资料变更。
+func (r *Repository) UpdateLastActive(ctx context.Context, id uint, activeAt time.Time) error {
+	cutoff := activeAt.Add(-lastActiveWriteInterval)
+	return r.db.WithContext(ctx).Exec(`
+		UPDATE users
+		SET last_active_at = ?, updated_at = updated_at
+		WHERE id = ?
+		  AND (last_active_at IS NULL OR last_active_at <= ?)
+	`, activeAt, id, cutoff).Error
 }
 
 // RecordDailyActive 每日活跃台账落行(0069):每(用户,本地日)至多一行,INSERT IGNORE 幂等。
-// 由 service.RecordActivity 在每日节流后异步调用 —— 台账 append-only,可重建历史每日活跃序列
+// 由 service.RecordActivity 在显式真人交互事件上同步调用 —— 台账 append-only,可重建历史每日活跃序列
 // (last_active_at 是单列覆盖做不到)。date 为本地(北京)日 'YYYY-MM-DD',由调用方用 Go 侧
 // time.Now() 计算,不用 MySQL CURDATE() 以免会话时区歧义(见 time-handling-no-utc 约定)。
-func (r *Repository) RecordDailyActive(id uint, date string) error {
-	return r.db.Exec(
+func (r *Repository) RecordDailyActive(ctx context.Context, id uint, date string) error {
+	return r.db.WithContext(ctx).Exec(
 		"INSERT IGNORE INTO user_daily_active (user_id, active_date) VALUES (?, ?)",
 		id, date,
 	).Error

@@ -1,4 +1,4 @@
-<view class="tools-header">
+<view class="tools-header" capture-bind:touchstart="onUserActivity">
   <view class="search-box">
     <input class="search-input" placeholder="搜索工具 / 网站" value="{{q}}" bindinput="onInput" confirm-type="search" bindconfirm="onSearch" />
     <view class="search-go" bindtap="onSearch">搜索</view>
@@ -9,7 +9,7 @@
   </scroll-view>
 </view>
 
-<view class="tools-body">
+<view class="tools-body" capture-bind:touchstart="onUserActivity">
   <view wx:if="{{loading}}" class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
   <view wx:elif="{{error}}" class="state error">
     <text>{{error}}</text>

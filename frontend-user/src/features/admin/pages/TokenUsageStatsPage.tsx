@@ -7,7 +7,11 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { TokenUsageFilterBar } from '../components/token-usage/TokenUsageFilterBar';
 import { TokenDailyChart } from '../components/token-usage/TokenDailyChart';
-import { TokenDimensionPanel, type DimRow, type DimTab } from '../components/token-usage/TokenDimensionPanel';
+import {
+  TokenDimensionPanel,
+  type DimRow,
+  type DimTab,
+} from '../components/token-usage/TokenDimensionPanel';
 import { TokenUsageLogTable } from '../components/token-usage/TokenUsageLogTable';
 import {
   useTokenUsageSummary,
@@ -55,10 +59,15 @@ function userRows(items: TokenUserItem[]): DimRow[] {
   return items.map((u) => ({
     key: u.user_id == null ? 'anon' : String(u.user_id),
     // 统一:始终带 #ID。匿名(公众号/系统)无 user_id。
-    label: u.user_id == null ? '公众号/匿名' : `${u.username || u.email || '用户'} #${u.user_id}`,
-    // 「谁一天烧掉几万算力点」之后必然要去看这个人是谁 —— 深链到用户管理的关键词搜索
-    // (UsersPage 读的就是 `q`),否则只能手抄 ID 再去搜。匿名行没有实体可跳。
-    href: u.user_id == null ? undefined : `/admin/users?q=${u.user_id}`,
+    label:
+      u.user_id == null
+        ? '公众号/匿名'
+        : `${u.username || u.email || '用户'} #${u.user_id}`,
+    // 与管理台所有用户列一致：点击直接打开全局只读详情推屏；匿名行没有实体可打开。
+    user:
+      u.user_id == null
+        ? undefined
+        : { id: u.user_id, name: u.username, email: u.email },
     sub: u.user_id != null && u.username && u.email ? u.email : undefined,
     input: u.input_tokens,
     output: u.output_tokens,
@@ -72,31 +81,45 @@ function userRows(items: TokenUserItem[]): DimRow[] {
 
 export function TokenUsageStatsPage() {
   const [filters, setFilters] = useState<TokenUsageFilters>({ days: 30 });
-  const { data, isLoading, isError, error, refetch } = useTokenUsageSummary(filters);
+  const { data, isLoading, isError, error, refetch } =
+    useTokenUsageSummary(filters);
   const qc = useQueryClient();
   // 刷新整页(概览 + 明细 + facets 三条 query 共前缀);isFetching 单看这一族,
   // 本页没有轮询 query,所以不会出现"按钮常年 disabled"。
   const fetching = useIsFetching({ queryKey: ['admin', 'token-usage'] }) > 0;
 
   const t = data?.totals;
-  const cacheTotal = (t?.cache_read_tokens ?? 0) + (t?.cache_creation_tokens ?? 0);
+  const cacheTotal =
+    (t?.cache_read_tokens ?? 0) + (t?.cache_creation_tokens ?? 0);
   const cacheBase = (t?.input_tokens ?? 0) + (t?.cache_read_tokens ?? 0);
-  const cacheHitRate = cacheBase > 0 ? ((t?.cache_read_tokens ?? 0) / cacheBase) * 100 : 0;
+  const cacheHitRate =
+    cacheBase > 0 ? ((t?.cache_read_tokens ?? 0) / cacheBase) * 100 : 0;
   const unpricedCalls = t?.unpriced_calls ?? 0;
 
   const tabs: DimTab[] = [
     { value: 'model', title: '模型', rows: dimRows(data?.by_model ?? []) },
     { value: 'feature', title: '功能', rows: dimRows(data?.by_feature ?? []) },
     { value: 'source', title: '来源', rows: dimRows(data?.by_source ?? []) },
-    { value: 'provider', title: 'Provider', rows: dimRows(data?.by_provider ?? []) },
-    { value: 'users', title: 'Top 用户', rows: userRows(data?.top_users ?? []), emptyText: '暂无用户用量' },
+    {
+      value: 'provider',
+      title: 'Provider',
+      rows: dimRows(data?.by_provider ?? []),
+    },
+    {
+      value: 'users',
+      title: 'Top 用户',
+      rows: userRows(data?.top_users ?? []),
+      emptyText: '暂无用户用量',
+    },
   ];
 
   return (
     <AdminPageLayout
       title="算力用量统计"
       description="统一 LLM 账本 · 按各模型自己的单价精算 · 1 算力点 = ¥0.001,与用户额度同单位"
-      onRefresh={() => qc.invalidateQueries({ queryKey: ['admin', 'token-usage'] })}
+      onRefresh={() =>
+        qc.invalidateQueries({ queryKey: ['admin', 'token-usage'] })
+      }
       refreshing={fetching}
     >
       <TokenUsageFilterBar onChange={setFilters} />
@@ -112,7 +135,9 @@ export function TokenUsageStatsPage() {
             用量数据加载失败
           </span>
           <span className="text-subtle">{toApiError(error).message}</span>
-          <span className="text-faint">下方 KPI / 图表 / 拆分为空,不代表这段时间没有调用。</span>
+          <span className="text-faint">
+            下方 KPI / 图表 / 拆分为空,不代表这段时间没有调用。
+          </span>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             重试
           </Button>
@@ -128,7 +153,9 @@ export function TokenUsageStatsPage() {
           loading={isLoading}
           error={error}
           value={
-            <span title={`精确值 ${exactPoints(t?.cost_micro_yuan ?? 0)} 算力点`}>
+            <span
+              title={`精确值 ${exactPoints(t?.cost_micro_yuan ?? 0)} 算力点`}
+            >
               {compactPoints(t?.cost_micro_yuan ?? 0)}
             </span>
           }
@@ -148,7 +175,9 @@ export function TokenUsageStatsPage() {
           loading={isLoading}
           error={error}
           value={
-            <span title={`精确值 ${(t?.total_tokens ?? 0).toLocaleString()} tokens`}>
+            <span
+              title={`精确值 ${(t?.total_tokens ?? 0).toLocaleString()} tokens`}
+            >
               {compactTokens(t?.total_tokens ?? 0)}
             </span>
           }
@@ -175,11 +204,19 @@ export function TokenUsageStatsPage() {
             {unpricedCalls.toLocaleString()} 次调用未计价
           </span>
           <span>
-            共 {compactTokens(t?.unpriced_tokens ?? 0)} tokens 未折算成算力点,已从上方总数中排除
-            {(t?.total_calls ?? 0) > 0 && <>(占 {(((unpricedCalls / (t?.total_calls || 1)) * 100)).toFixed(1)}% 调用)</>}。
+            共 {compactTokens(t?.unpriced_tokens ?? 0)} tokens
+            未折算成算力点,已从上方总数中排除
+            {(t?.total_calls ?? 0) > 0 && (
+              <>
+                (占 {((unpricedCalls / (t?.total_calls || 1)) * 100).toFixed(1)}
+                % 调用)
+              </>
+            )}
+            。
           </span>
           <span className="text-faint">
-            成因:成本制改造前的历史行,或该模型未在「模型目录」配置单价 —— 后者可在模型维度里定位后补价。
+            成因:成本制改造前的历史行,或该模型未在「模型目录」配置单价 ——
+            后者可在模型维度里定位后补价。
           </span>
         </div>
       )}
@@ -195,7 +232,12 @@ export function TokenUsageStatsPage() {
       />
 
       {/* 维度拆分(Tab 切换 + 算力点横条) */}
-      <TokenDimensionPanel tabs={tabs} loading={isLoading} error={error} onRetry={() => refetch()} />
+      <TokenDimensionPanel
+        tabs={tabs}
+        loading={isLoading}
+        error={error}
+        onRetry={() => refetch()}
+      />
 
       {/* 明细 */}
       <TokenUsageLogTable filters={filters} />

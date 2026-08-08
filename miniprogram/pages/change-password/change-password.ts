@@ -1,5 +1,6 @@
 import { changePassword } from '../../services/api/user'
 import { toastError } from '../../lib/feedback'
+import { reportActivity } from '../../services/activity'
 
 Page({
   data: {
@@ -8,13 +9,22 @@ Page({
     confirm: '',
     saving: false,
   },
+  onShow() {
+    reportActivity()
+  },
+  onUserActivity() {
+    reportActivity()
+  },
   onCur(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ current: e.detail.value })
   },
   onNext(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ next: e.detail.value })
   },
   onConfirm(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ confirm: e.detail.value })
   },
   async onSave() {

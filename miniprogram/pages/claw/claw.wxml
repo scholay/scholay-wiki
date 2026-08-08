@@ -1,4 +1,4 @@
-<view class="claw">
+<view class="claw" capture-bind:touchstart="onUserActivity">
   <!-- 未登录:对齐空白态 hero 视觉 -->
   <view wx:if="{{ready && !loggedIn}}" class="guest">
     <view class="hero">

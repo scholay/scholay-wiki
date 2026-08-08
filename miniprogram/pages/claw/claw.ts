@@ -45,6 +45,7 @@ import { hasMath, setMath, mathVersion, MathImg } from '../../lib/math-cache'
 import { hasDiagram, setDiagram, diagramVersion } from '../../lib/diagram-cache'
 import { renderMath, renderMermaid } from '../../services/api/render'
 import { ICONS } from '../../lib/icons'
+import { reportActivity } from '../../services/activity'
 
 // 非响应式实例态(claw 单例 tab 页,模块级安全)。
 const S = {
@@ -435,7 +436,12 @@ Page({
     artTextHtml: '',
   },
 
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShow() {
+    reportActivity()
     syncTabBar(1)
     if (!S.inited) {
       this.init()
@@ -750,6 +756,7 @@ Page({
   },
 
   onInput(e: WechatMiniprogram.Input) {
+    reportActivity()
     const v = e.detail.value
     const patch: Record<string, unknown> = { input: v, canSend: this.computeCanSend(v) }
     // 删到比封顶时刻短 → 解除固定高度回到 auto-height(若仍超行,linechange 会立刻重新封顶)。
@@ -785,6 +792,7 @@ Page({
   },
 
   async onSend() {
+    reportActivity()
     const text = this.data.input.trim()
     const hasExtras = S.pendingAttachments.length > 0 || S.pendingRefs.length > 0
     // uploading 守卫:附件还在传时发送会把消息不带附件发出去,传完的 chip 会挂错到下一条。

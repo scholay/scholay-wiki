@@ -31,13 +31,14 @@ type User struct {
 	// RegisterSource 注册来源(与 auth_providers.provider 正交,迁移 0060):
 	// 'wechat'=微信网页扫码 / 'wechat_miniprogram'=微信小程序 / ''=未标注(按 provider 推断)。
 	// 小程序与网页扫码都写 provider='wechat'(靠 unionid 同号),靠本列在后台区分注册渠道。
-	RegisterSource string `gorm:"column:register_source;size:32;not null;default:''" json:"register_source"`
-	LastLoginAt   *time.Time `json:"last_login_at"`                // 最后一次「登录动作」时间(+IP);不反映持续使用
-	LastLoginIP   *string    `gorm:"size:45" json:"last_login_ip"` // 最后登录IP
-	// LastActiveAt 最后活跃(真实使用)时间: 每次通过鉴权的 user 请求异步节流更新(0036),
-	// 反映用户最后实际使用时间(而非仅登录动作)。可空(DEFAULT NULL),注册时 nil → 插 NULL 即可,
-	// 故不需要 vip 列那种 `->` 守卫;由 repo.UpdateLastActive 专门更新。
-	LastActiveAt *time.Time `gorm:"column:last_active_at" json:"last_active_at"`
+	RegisterSource string     `gorm:"column:register_source;size:32;not null;default:''" json:"register_source"`
+	LastLoginAt    *time.Time `json:"last_login_at"`                // 最后一次「登录动作」时间(+IP);不反映持续使用
+	LastLoginIP    *string    `gorm:"size:45" json:"last_login_ip"` // 最后登录IP
+	// LastActiveAt 最后活跃(真实使用)时间:只由显式的真人交互事件更新(0036),
+	// 轮询、WS 心跳/重连和普通鉴权请求都不会变更。可空(DEFAULT NULL),注册时 nil → 插 NULL 即可,
+	// 设为 GORM 只读(`->`):注册 Create 省略该列自然走 DEFAULT NULL;资料/OAuth 的 Save
+	// 也不会用持有的旧模型并发覆盖新活跃时间。只由 repo.UpdateLastActive 的原生 SQL 写入。
+	LastActiveAt *time.Time `gorm:"column:last_active_at;->" json:"last_active_at"`
 	// 会员(VIP)—— 列由迁移 0008 加在 users 表;internal/vip 是写侧真源, 这里只读出来给 admin 列表展示。
 	// 关键:加 GORM `->`(只读权限),让本模型的 Create/Update **永不写** 这两列。否则注册时
 	// nil 指针会被当成显式 NULL 插入(vip_tier NOT NULL DEFAULT 'free' → 报 1048 Column 'vip_tier'
@@ -57,9 +58,9 @@ func (User) TableName() string {
 type UserAuthProvider struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
 	UserID          uint      `gorm:"not null" json:"user_id"`
-	Provider        string    `gorm:"not null;size:20" json:"provider"` // email, phone, wechat, google, etc.
+	Provider        string    `gorm:"not null;size:20" json:"provider"`          // email, phone, wechat, google, etc.
 	ProviderUserID  string    `gorm:"not null;size:255" json:"provider_user_id"` // 微信为 openID
-	ProviderUnionID *string   `gorm:"size:255" json:"provider_union_id"` // 微信 UnionID，用于跨应用识别
+	ProviderUnionID *string   `gorm:"size:255" json:"provider_union_id"`         // 微信 UnionID，用于跨应用识别
 	ProviderData    *string   `gorm:"type:json" json:"provider_data"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`

@@ -148,9 +148,10 @@ export interface TokenLogParams extends TokenUsageFilters {
 }
 
 /** 总览: KPI + 每日趋势 + 多维拆分 + top 用户(一次拉全)。 */
-export function useTokenUsageSummary(params: TokenUsageFilters) {
+export function useTokenUsageSummary(params: TokenUsageFilters, enabled = true) {
   return useQuery({
     queryKey: ['admin', 'token-usage', 'summary', params],
+    enabled,
     queryFn: async () =>
       (await http.get<{ data: TokenUsageOverview }>('/admin/llm-token-usage/summary', { params })).data.data,
     staleTime: 60_000,
@@ -212,6 +213,7 @@ export const FEATURE_OPTIONS: Array<{ value: string; label: string }> = [
   // claw 内的两个 mode,落账本时写自己的 feature key(账本里实际存在这两个值)。
   { value: 'boltslides', label: '制作PPT' },
   { value: 'sci_draw', label: '科研绘图' },
+  { value: 'stat_lab', label: '数据分析' },
   // memory = per-user 长期记忆的后台抽取。它走 SkipQuota(不扣用户额度)但**照常记账本**,
   // 所以在成本视角里是可见的平台开销 —— 必须能筛、能显示中文名。漏掉它会让同一页出现
   // 两个叫法:「按功能」拆分走后端 FeatureLabel 显示「记忆抽取」,明细表却回落显示裸 code。

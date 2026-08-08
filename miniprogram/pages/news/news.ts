@@ -3,6 +3,7 @@ import { errMsg } from '../../lib/feedback'
 import { copyText } from '../../lib/clipboard'
 import { relativeTime } from '../../lib/format'
 import { currentPagePath } from '../../lib/share'
+import { reportActivity } from '../../services/activity'
 
 Page({
   data: {
@@ -16,7 +17,16 @@ Page({
     sources: [] as NewsSource[],
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShareAppMessage() {
+    reportActivity()
     return { title: this.data.title || 'Scholay 学术情报', path: currentPagePath() }
   },
 

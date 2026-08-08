@@ -85,6 +85,8 @@ var (
 	ErrCodeAlreadyRedeemed = errors.New("vip: redemption code already redeemed by this user")
 	// ErrCodeRevoked 管理员已停用此码。
 	ErrCodeRevoked = errors.New("vip: redemption code revoked")
+	// ErrCodeBatchNotFound 管理端请求的兑换码批次不存在。
+	ErrCodeBatchNotFound = errors.New("vip: redemption code batch not found")
 	// ErrCodeNotTier 该码不是会员(tier)码,没有会员天数可改(经费码用 credit_validity_days)。
 	ErrCodeNotTier = errors.New("vip: redemption code is not a tier code")
 )

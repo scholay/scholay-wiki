@@ -156,6 +156,7 @@ var featureLabels = map[string]string{
 	FeatureMemory:      "记忆抽取",
 	FeatureBoltSlides:  "制作PPT",
 	FeatureSciDraw:     "科研绘图",
+	FeatureStatLab:     "数据分析",
 }
 
 // FeatureLabel 返回 feature 的中文名;无映射时回退原值。

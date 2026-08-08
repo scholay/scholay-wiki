@@ -34,7 +34,6 @@ import (
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
-	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/emaillog"
@@ -49,13 +48,13 @@ import (
 	"scholar-backend/internal/promo"
 	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/scidraw"
-	"scholar-backend/internal/statlab"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seoenrich"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
+	"scholar-backend/internal/statlab"
 	"scholar-backend/internal/storage"
 	"scholar-backend/internal/supportcenter"
 	"scholar-backend/internal/thirdparty"
@@ -419,10 +418,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// core 域：config → user/feedback（邮件发送依赖 config）
 	core.userService.SetConfigService(core.configService)
 	core.feedbackService.SetConfigService(core.configService)
-	// 「最后活跃时间」记录器: 每次通过鉴权的 user 请求节流更新 users.last_active_at,
-	// 让后台看到的是用户最后实际使用时间, 而非仅登录动作(last_login_at)。
-	middleware.SetActivityHook(core.userService.RecordActivity)
-
 	// core 域：user → feedback（工单里展示用户信息）
 	core.feedbackService.SetUserRepository(&feedbackUserRepoAdapter{userRepo: core.userRepo})
 

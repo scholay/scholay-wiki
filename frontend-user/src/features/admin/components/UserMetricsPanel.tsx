@@ -67,7 +67,7 @@ export function UserMetricsPanel() {
           loading={isLoading}
           error={error}
           onRetry={retry}
-          hint="面积=当日新注册;折线=当日去重活跃用户(打开即活跃,不含注册当天)。两者共用同一纵轴,可勾选下方开关单看某条"
+          hint="面积=当日新注册;折线=当日去重活跃用户(不含注册当天)。口径切换前的历史沿用旧「任意请求」统计;切换后才只计可见真人交互,排除轮询、WS 重连和挂机。两者共用同一纵轴,可勾选下方开关单看某条"
           stat={
             data ? (
               <WindowTotals

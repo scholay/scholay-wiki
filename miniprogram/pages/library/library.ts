@@ -4,6 +4,7 @@ import { listLibrary, removeFavorite, LibraryItem } from '../../services/api/lib
 import { formatMetric, authorsLine as fmtAuthors } from '../../lib/format'
 import { appendPatch } from '../../lib/setdata'
 import { ICONS } from '../../lib/icons'
+import { reportActivity } from '../../services/activity'
 
 interface LibVM {
   id: number
@@ -44,6 +45,14 @@ Page({
     hasMore: true,
     error: '',
     page: 1,
+  },
+
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
   },
 
   onLoad() {

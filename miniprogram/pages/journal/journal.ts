@@ -2,6 +2,7 @@ import { getJournal } from '../../services/api/journals'
 import { errMsg } from '../../lib/feedback'
 import { formatIF, formatCount, parseQuartile } from '../../lib/format'
 import { currentPagePath } from '../../lib/share'
+import { reportActivity } from '../../services/activity'
 
 interface Badge { text: string; kind: string }
 interface Metric { label: string; value: string }
@@ -19,7 +20,16 @@ Page({
     submission: '',
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShareAppMessage() {
+    reportActivity()
     return { title: this.data.name || '期刊 · Scholay 学术', path: currentPagePath() }
   },
 

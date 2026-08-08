@@ -45,6 +45,11 @@ http.interceptors.request.use((config) => {
     if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 0;
   }
   return config;
+}, undefined, {
+  // 必须同步冻结调用时会话：Axios 默认用 microtask 跑 request interceptor。
+  // 若 http.post(A 的操作)后紧接着换成 B，异步 interceptor 会误读 B token。
+  // 此 interceptor 内部全是同步逻辑，可安全启用 synchronous。
+  synchronous: true,
 });
 
 // 全局认证失效拦截 —— 任何 endpoint 返回 401 / TokenRevoked / TokenExpired 时, 统一走

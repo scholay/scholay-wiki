@@ -1,4 +1,4 @@
-<view class="me">
+<view class="me" capture-bind:touchstart="onUserActivity">
   <!-- 未登录 -->
   <view wx:if="{{!loggedIn}}" class="guest">
     <text class="logo">Scholay</text>

@@ -36,16 +36,17 @@ func isPaidTier(tier string) bool { return tier == TierPro || tier == TierMax }
 
 // RedemptionCode 兑换码一行(表 vip_redemption_codes)。grant_kind=tier 发会员 / credit 发经费。
 type RedemptionCode struct {
-	ID                 uint64     `gorm:"primaryKey" json:"id"`
-	Code               string     `gorm:"column:code" json:"code"`
-	GrantKind          string     `gorm:"column:grant_kind" json:"grant_kind"` // tier | credit
-	GrantTier          string     `gorm:"column:grant_tier" json:"grant_tier"`
+	ID        uint64 `gorm:"primaryKey" json:"id"`
+	BatchID   string `gorm:"column:batch_id" json:"batch_id"`
+	Code      string `gorm:"column:code" json:"code"`
+	GrantKind string `gorm:"column:grant_kind" json:"grant_kind"` // tier | credit
+	GrantTier string `gorm:"column:grant_tier" json:"grant_tier"`
 	// GrantDays 授予**数量**;它的单位由 GrantUnit 决定(0110 起)。
 	// 名字保留 grant_days 是为了不动存量列与既有 API 契约 —— 存量码全部是「天」。
-	GrantDays int    `gorm:"column:grant_days" json:"grant_days"`
-	GrantUnit string `gorm:"column:grant_unit" json:"grant_unit"` // day | month | year
-	GrantCredits       int        `gorm:"column:grant_credits" json:"grant_credits"`         // credit 码:经费数
-	CreditKind         string     `gorm:"column:credit_kind" json:"credit_kind"`             // temp | perm
+	GrantDays          int        `gorm:"column:grant_days" json:"grant_days"`
+	GrantUnit          string     `gorm:"column:grant_unit" json:"grant_unit"`       // day | month | year
+	GrantCredits       int        `gorm:"column:grant_credits" json:"grant_credits"` // credit 码:经费数
+	CreditKind         string     `gorm:"column:credit_kind" json:"credit_kind"`     // temp | perm
 	CreditValidityDays int        `gorm:"column:credit_validity_days" json:"credit_validity_days"`
 	MaxUses            int        `gorm:"column:max_uses" json:"max_uses"`     // 可兑换总次数(1..100)
 	UsedCount          int        `gorm:"column:used_count" json:"used_count"` // 已兑换次数

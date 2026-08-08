@@ -1,6 +1,10 @@
 import { relativeTimeZh } from '@/shared/lib/relative-time';
 import { cn } from '@/shared/lib/utils';
 
+/** last_active_at 存量值无法回溯清洗；列表与详情共用同一条解释。 */
+export const LAST_ACTIVE_LEGACY_HINT =
+  '口径切换前的存量时间可能包含后台轮询；用户下一次真人交互后会按新口径覆盖。';
+
 /**
  * 后台统一时间单元格 —— **相对时间主显 + 绝对时刻挂 title**。
  *

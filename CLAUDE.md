@@ -698,9 +698,9 @@ The platform supports GitHub OAuth for user authentication:
    - GitHub OAuth config stored in `github_oauth_config` (admin-configurable)
 
 **Session Management**:
-- `user_sessions` table tracks online users
-- Heartbeat endpoint updates last_active_at
-- Background task records snapshots every 5 minutes
+- `user_sessions` table tracks authenticated sessions; it is not the activity-time source
+- `POST /api/v1/user/activity` 只由前端的可信真人交互触发, 更新 `last_active_at`
+- 普通鉴权请求、轮询与 WebSocket 心跳/重连不计活跃
 - Redis caches session data and API keys for performance
 
 ### HTTP Proxy Service  ⚠️ 已下线(历史记录,勿据此找代码)

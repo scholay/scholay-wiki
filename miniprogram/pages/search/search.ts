@@ -4,6 +4,7 @@ import { searchJournals, JournalUnified } from '../../services/api/journals'
 import { formatMetric, formatIF, parseQuartile, coverColor, initial, authorsLine as fmtAuthors } from '../../lib/format'
 import { closeAnimated } from '../../lib/anim'
 import { appendPatch } from '../../lib/setdata'
+import { reportActivity } from '../../services/activity'
 import {
   SearchFilters,
   SearchSource,
@@ -71,6 +72,14 @@ Page({
     typeOptions: typesForSource('auto').map((o) => ({ value: o.value, label: o.label, sel: false })),
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onLoad(query: Record<string, string | undefined>) {
     const mode: Mode = query.mode === 'journals' ? 'journals' : 'papers'
     this.setData({ mode })
@@ -78,10 +87,12 @@ Page({
   },
 
   onInput(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ q: e.detail.value })
   },
 
   onSearch() {
+    reportActivity()
     if (!this.data.q.trim()) return
     this.setData({
       papers: [],

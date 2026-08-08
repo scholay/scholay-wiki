@@ -1,5 +1,6 @@
 import { login, loginPassword, sendEmailCode, loginWithCode } from '../../services/auth'
 import { toastError } from '../../lib/feedback'
+import { reportActivity } from '../../services/activity'
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 let codeTimer: ReturnType<typeof setInterval> | null = null
@@ -16,6 +17,14 @@ Page({
     countdown: 0,
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onWxLogin() {
     if (this.data.loading || this.data.submitting) return
     this.setData({ loading: true })
@@ -29,12 +38,15 @@ Page({
     this.setData({ mode: e.currentTarget.dataset.mode as 'password' | 'code' })
   },
   onEmail(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ email: e.detail.value.trim() })
   },
   onPassword(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ password: e.detail.value })
   },
   onCode(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ code: e.detail.value.trim() })
   },
 

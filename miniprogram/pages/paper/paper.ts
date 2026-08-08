@@ -9,6 +9,7 @@ import { QUOTA_CODE, showQuotaModal } from '../../services/request'
 import { isLoggedIn } from '../../store/auth'
 import { ensureLogin } from '../../services/auth'
 import { closeAnimated } from '../../lib/anim'
+import { reportActivity } from '../../services/activity'
 
 interface RefVM {
   paperId?: string
@@ -42,7 +43,16 @@ Page({
     translatePreview: '',
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShareAppMessage() {
+    reportActivity()
     return { title: (this.data.paper && this.data.paper.title) || 'Scholay 学术', path: currentPagePath() }
   },
 

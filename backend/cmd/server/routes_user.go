@@ -107,6 +107,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	userProtected := api.Group("/user")
 	userProtected.Use(middleware.UserAuthMiddleware(), tieredRL)
 	{
+		// 只由前端检测到的可信真人交互调用;通用鉴权请求、轮询和 WS 重连不记活跃。
+		userProtected.POST("/activity", h.user.RecordActivity)
 		userProtected.GET("/profile", h.user.GetProfile)
 		userProtected.PUT("/profile", h.user.UpdateProfile)
 		// 「设置 → 已连接账号」一站拉全:邮箱/手机 + 8 个第三方 provider 的状态

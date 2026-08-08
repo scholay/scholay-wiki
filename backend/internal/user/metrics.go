@@ -4,11 +4,14 @@
 //   - registrations:  注册量时间序列 (按天 / 周 / 月,可配 days 参数)
 //   - sources:        注册来源分布 (来自 user_auth_providers,首个 provider 即注册渠道)
 //   - hourly_activity:24h 活跃分布 (基于 users.last_login_at 的小时桶)
-//   - mau_trend:      MAU 月度趋势 (每月「30 天窗口内活跃」的不重复用户数,口径「打开即活跃」)
-//   - daily_active:   每日活跃 DAU (口径「打开即活跃」,排除注册当天)
+//   - mau_trend:      MAU 月度趋势 (每月「30 天窗口内活跃」的不重复用户数,口径「明确交互活跃」)
+//   - daily_active:   每日活跃 DAU (口径「明确交互活跃」,排除注册当天)
 //
 // 数据源都在业务库本身:registrations/sources/hourly 走 users / user_auth_providers;
 // daily_active + mau_trend 走 user_daily_active 台账 (0069)。均不依赖 user_sessions。
+// 口径切换注意:last_active_at / user_daily_active 在显式事件链路部署前已包含
+// generic/passive 存量数据。来源无法无损区分,故不清库;切换后增量才是明确真人交互,
+// last_active_at 随用户的新事件覆盖收敛,DAU/MAU 随查询窗口滚动逐步收敛。
 
 package user
 
@@ -20,7 +23,7 @@ import (
 
 // MetricsPoint 通用时间序列点 (折线/柱状)
 type MetricsPoint struct {
-	Date  string `json:"date"`  // YYYY-MM-DD / YYYY-Wxx / YYYY-MM 视 granularity
+	Date  string `json:"date"` // YYYY-MM-DD / YYYY-Wxx / YYYY-MM 视 granularity
 	Value int64  `json:"value"`
 }
 
@@ -43,13 +46,13 @@ type UserMetrics struct {
 	Registrations  []MetricsPoint  `json:"registrations"`
 	Sources        []CategoryCount `json:"sources"`
 	HourlyActivity []HourlyPoint   `json:"hourly_activity"`
-	MAUTrend       []MetricsPoint  `json:"mau_trend"`     // 最近 12 个月
-	DailyActive    []MetricsPoint  `json:"daily_active"`  // 每日活跃(去重)用户数,按天 —— 见下注释口径
+	MAUTrend       []MetricsPoint  `json:"mau_trend"`    // 最近 12 个月
+	DailyActive    []MetricsPoint  `json:"daily_active"` // 每日活跃(去重)用户数,按天 —— 见下注释口径
 
 	// 窗口总计(供图表标题旁展示「这个时间段的总量」):
 	//   RegistrationsTotal = 窗口内新注册总数(= registrations 各桶之和,精确)。
 	//   ActiveTotal        = 窗口内**去重**活跃用户数(≠ daily_active 逐日相加那种人次;
-	//                        一个用户窗口内活跃多天只计一次),与 daily_active 同口径(打开即活跃 + 排除注册当天)。
+	//                        一个用户窗口内活跃多天只计一次),与 daily_active 同口径(明确交互 + 排除注册当天)。
 	RegistrationsTotal int64 `json:"registrations_total"`
 	ActiveTotal        int64 `json:"active_total"`
 }
@@ -57,8 +60,9 @@ type UserMetrics struct {
 // GetUserMetrics 聚合返回 4 维数据 —— 给 admin /users 顶部图表区。
 //
 // 参数:
-//   days        registrations + hourly_activity 的查询窗口 (默认 30,clamp [7,365])
-//   granularity registrations 的时间粒度 (day / week / month,默认 day)
+//
+//	days        registrations + hourly_activity 的查询窗口 (默认 30,clamp [7,365])
+//	granularity registrations 的时间粒度 (day / week / month,默认 day)
 func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, error) {
 	if days < 7 {
 		days = 30
@@ -159,6 +163,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	// 基于「时间窗口 days 内最后活跃时间」的 0..23 桶 —— 反映用户活跃时段。
 	// 用 COALESCE(last_active_at, last_login_at): 优先真实使用时间, 老数据(还没产生活跃记录)
 	// 回落到 last_login_at, 避免迁移后指标一夜归零。不区分时区(服务时区即业务时区 UTC+8)。
+	// 切换前的 last_active_at 可能来自被动请求;不删存量,由真人新事件覆盖或随 days 窗口滚出。
 	var hourRows []struct {
 		Hour  int
 		Total int64
@@ -184,12 +189,13 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	// --- 4. mau_trend 最近 12 个月 ---
 	// 每个月格子 = 该月最后一天往前 30 天内的活跃(去重)用户数(滚动 MAU 在各月末的快照)。
 	//
-	// 数据源 = user_daily_active 台账(0069,append-only,一行=某用户某本地日有过任意鉴权请求)。
-	// 口径「打开即活跃」,与 daily_active 完全同源同规则(见第 5 块):RecordActivity 在每个登录后
-	// 请求上落行,不再只数埋点功能(usage_events)—— 后者会漏掉所有非埋点的真实使用。台账 append-only
+	// 数据源 = user_daily_active 台账(0069,append-only;切换后一行=某用户某本地日有过明确交互)。
+	// 口径「明确交互活跃」,与 daily_active 完全同源同规则(见第 5 块):RecordActivity
+	// 只由前端可信真人交互事件触发,轮询、WS 心跳/重连不落行。台账 append-only
 	// 才能按任意历史窗口 COUNT(DISTINCT user_id) 还原真实 MAU(last_active_at 单列覆盖做不到)。
 	// JOIN users 排除 admin/super_admin;active_date > DATE(created_at) 排除注册当天(与 daily_active 一致)。
-	// 注:台账由 usage_events 回填播种,故上线前的历史月份仍是 engaged 口径,上线后才是完整「打开即活跃」。
+	// 注:回填天是 engaged 口径,其后到切换前含 generic/passive 存量;只有切换后增量
+	// 是「明确交互活跃」。不清理无法区分的历史行,30 天滚动窗口会自然收敛。
 	for i := 11; i >= 0; i-- {
 		anchor := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, now.Location())
 		// 取本月最后一天 (= 次月 1 号 - 1 秒);当前月直接用 now
@@ -216,9 +222,10 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	}
 
 	// --- 5. daily_active 每日活跃用户折线 ---
-	// 口径「打开即活跃」:当天有过**任意鉴权请求**的去重用户数(user_daily_active 台账,0069)。
-	// RecordActivity 在每个登录后请求上落一行/人/本地日 —— 不再只数埋点功能(usage_events 会漏掉
-	// 所有非埋点的真实使用)。台账 append-only,是唯一能产出**真实历史每日序列**的源(last_active_at
+	// 切换后口径「明确交互活跃」:当天有过可信真人交互事件的去重用户数。
+	// 切换前日期保留 generic/passive 旧口径行,不能解读为纯真人交互。
+	// RecordActivity 在显式活跃事件上落一行/人/本地日,普通鉴权请求不计入。台账 append-only,
+	// 是唯一能产出**真实历史每日序列**的源(last_active_at
 	// 单列覆盖做不到)。DATE_FORMAT 保证与 Go 侧 'YYYY-MM-DD' 桶键一致(active_date 是 DATE,本无时区坑)。
 	// JOIN users 排除 admin/super_admin(与 registrations/hourly/mau_trend 同口径);join 隐含 user_id 非空。
 	// active_date > DATE(u.created_at):注册当天不算当天活跃(保证活跃真实性,不影响其他天/其他用户)。
@@ -250,7 +257,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		WHERE created_at >= ? AND role NOT IN ('admin','super_admin','operations')
 	`, since).Scan(&out.RegistrationsTotal)
 	// 活跃总数:窗口内**去重**活跃用户(COUNT(DISTINCT user_id),非逐日相加的人次),
-	// 与 daily_active 折线同口径(打开即活跃 + JOIN users 排 admin + 排除注册当天)。
+	// 与 daily_active 折线同口径(明确交互 + JOIN users 排 admin + 排除注册当天)。
 	db.Raw(`
 		SELECT COUNT(DISTINCT uda.user_id)
 		FROM user_daily_active uda

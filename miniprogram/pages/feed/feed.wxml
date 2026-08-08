@@ -1,4 +1,4 @@
-<view class="feed">
+<view class="feed" capture-bind:touchstart="onUserActivity">
   <!-- 顶栏(对标 Web FeedTopTabs):筛选 | 论文/期刊/情报 | 搜索 -->
   <view class="topbar">
     <view class="top-ic left" bindtap="onFilterSoon"><image class="svg-ic" src="{{ic.slidersWeak}}" /></view>

@@ -3,6 +3,7 @@ import { errMsg } from '../../lib/feedback'
 import { copyText } from '../../lib/clipboard'
 import { PRICE_TYPE_LABEL, ACCESS_TYPE_LABEL, coverColor, initial } from '../../lib/format'
 import { currentPagePath } from '../../lib/share'
+import { reportActivity } from '../../services/activity'
 
 Page({
   data: {
@@ -17,7 +18,16 @@ Page({
     extractCode: '',
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShareAppMessage() {
+    reportActivity()
     return { title: (this.data.tool && this.data.tool.name) || '学术工具 · Scholay', path: currentPagePath() }
   },
 

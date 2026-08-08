@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// 最后活跃必须只由显式 /user/activity 事件写入。锁定鉴权层不再提供
+// 全局 hook,避免后续重构时把轮询、WS ticket 等任意鉴权请求重新计为活跃。
+func TestAuthMiddlewareDoesNotContainActivitySideEffect(t *testing.T) {
+	raw, err := os.ReadFile("auth.go")
+	if err != nil {
+		t.Fatalf("read auth.go: %v", err)
+	}
+	source := string(raw)
+	for _, forbidden := range []string{"activityHook", "SetActivityHook", "RecordActivity"} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("auth middleware must remain side-effect free; found %q", forbidden)
+		}
+	}
+}
 
 func init() {
 	gin.SetMode(gin.TestMode)
