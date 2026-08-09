@@ -101,6 +101,7 @@ describe('mobileEquivalentPath — PC 路由 → 移动对等页(正向)', () =>
     expect(mobileEquivalentPath('/settings/profile')).toBe('/m/me/profile');
     expect(mobileEquivalentPath('/settings/security')).toBe('/m/me/security');
     expect(mobileEquivalentPath('/settings/connections')).toBe('/m/me/connections');
+    expect(mobileEquivalentPath('/settings/invite')).toBe('/m/me/invite');
   });
 
   it('tools / library 前缀映射保留子路径(详情 / 文件夹深链不丢)', () => {
@@ -142,6 +143,7 @@ describe('desktopEquivalentPath — 移动路由 → PC 对等页(反向)', () =
     expect(desktopEquivalentPath('/m/me')).toBe('/settings');
     expect(desktopEquivalentPath('/m/me/profile')).toBe('/settings/profile');
     expect(desktopEquivalentPath('/m/me/billing')).toBe('/settings/membership');
+    expect(desktopEquivalentPath('/m/me/invite')).toBe('/settings/invite');
   });
 
   it('文件夹深链:/m/library/:id → /library?folder=:id(桌面文件夹是 query)', () => {

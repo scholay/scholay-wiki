@@ -36,16 +36,20 @@ const (
 
 // 流水类型。
 const (
-	TxGrantSubscription = "grant_subscription" // [DEPRECATED 0090] 订阅赠送(已下线);仅存量流水
-	TxRecharge          = "recharge"           // 充值入账永久经费
-	TxGift              = "gift"                // 礼品码入账
-	TxTask              = "task"                // 任务领取
-	TxResetConsume      = "reset_consume"       // 重置额度消耗
-	TxExpire            = "expire"              // [DEPRECATED 0090] 临时经费到期;仅存量流水
-	TxRefund            = "refund"             // 退款
-	TxAdminAdjust       = "admin_adjust"        // 管理员调账
-	TxPaygDaily         = "payg_daily"          // 按量付费当日累计(0098:每用户每天一行,upsert 累加)
-	TxInviteReward      = "invite_reward"       // 邀请好友注册奖励入账(0100;ref_id=被邀者 user_id)
+	TxGrantSubscription         = "grant_subscription"           // [DEPRECATED 0090] 订阅赠送(已下线);仅存量流水
+	TxRecharge                  = "recharge"                     // 充值入账永久经费
+	TxGift                      = "gift"                         // 礼品码入账
+	TxTask                      = "task"                         // 任务领取
+	TxResetConsume              = "reset_consume"                // 重置额度消耗
+	TxExpire                    = "expire"                       // [DEPRECATED 0090] 临时经费到期;仅存量流水
+	TxRefund                    = "refund"                       // 退款
+	TxAdminAdjust               = "admin_adjust"                 // 管理员调账
+	TxPaygDaily                 = "payg_daily"                   // 按量付费当日累计(0098:每用户每天一行,upsert 累加)
+	TxInviteReward              = "invite_reward"                // 邀请好友注册奖励入账(0100;ref_id=被邀者 user_id)
+	TxInviteRegistrationInviter = "invite_registration_inviter"  // 0118 邀请人注册奖励
+	TxInviteRegistrationInvitee = "invite_registration_invitee"  // 0118 被邀请人注册奖励
+	TxInviteFirstPurchaseRebate = "invite_first_purchase_rebate" // 0118 邀请人首单返利
+	TxInviteRewardReversal      = "invite_reward_reversal"       // 0118 首单退款回收邀请返利
 )
 
 // 兑换码授予类型。
@@ -81,13 +85,13 @@ type BillingConfig struct {
 	// WindowDays 周期长度(天),默认 7。改动只影响新开的窗口(anchor 判定读当时配置)。
 	WindowDays int `gorm:"column:window_days" json:"window_days"`
 	// BasePricePerM 旧加权计费的倍率换算锚点(元/1M token);P5 成本制起不再参与计费(成本直接来自模型 4 类单价)。
-	BasePricePerM float64 `gorm:"column:base_price_per_m;type:decimal(12,4)" json:"base_price_per_m"`
-	ProMultiplier          float64   `gorm:"column:pro_multiplier" json:"pro_multiplier"`
-	MaxMultiplier          float64   `gorm:"column:max_multiplier" json:"max_multiplier"`
-	ProPriceCents          int       `gorm:"column:pro_price_cents" json:"pro_price_cents"`
-	ProOriginalCents       int       `gorm:"column:pro_original_cents" json:"pro_original_cents"`
-	MaxPriceCents          int       `gorm:"column:max_price_cents" json:"max_price_cents"`
-	MaxOriginalCents       int       `gorm:"column:max_original_cents" json:"max_original_cents"`
+	BasePricePerM    float64 `gorm:"column:base_price_per_m;type:decimal(12,4)" json:"base_price_per_m"`
+	ProMultiplier    float64 `gorm:"column:pro_multiplier" json:"pro_multiplier"`
+	MaxMultiplier    float64 `gorm:"column:max_multiplier" json:"max_multiplier"`
+	ProPriceCents    int     `gorm:"column:pro_price_cents" json:"pro_price_cents"`
+	ProOriginalCents int     `gorm:"column:pro_original_cents" json:"pro_original_cents"`
+	MaxPriceCents    int     `gorm:"column:max_price_cents" json:"max_price_cents"`
+	MaxOriginalCents int     `gorm:"column:max_original_cents" json:"max_original_cents"`
 	// 0090 退休:ProGrantCredits / MaxGrantCredits(订阅不再赠送经费)。DB 列非破坏保留。
 	// ── 年度订阅(0079)。价格/赠送 <=0 = 该档年付未开放(前端隐藏年付、后端拒建年付单);
 	// 建列初值 -1 = 未配置哨兵(迁移一次性回填 年价=月价×10 / 划线=月划线×12 / 赠送=月赠×12)。
@@ -97,26 +101,26 @@ type BillingConfig struct {
 	MaxYearOriginalCents int `gorm:"column:max_year_original_cents" json:"max_year_original_cents"`
 	// 0090 退休:ProYearGrantCredits / MaxYearGrantCredits + SubscriptionYearDays。
 	// (年度时长改「+1 个自然年」,不再有天数概念。)
-	RechargeRate           float64   `gorm:"column:recharge_rate" json:"recharge_rate"`
+	RechargeRate float64 `gorm:"column:recharge_rate" json:"recharge_rate"`
 	// CreditToPoints 1 经费可兑换的算力点数(0094,按量付费)。与 RechargeRate 共同决定按量单价:
 	// ¥1 = RechargeRate 经费 = RechargeRate × CreditToPoints 算力点。
 	// 现网 100 × 3 = ¥1 买 300 点(0095 重锚:经费=分),而最贵的套餐档(Pro 月付)是 ¥1 买 442 点 ——
 	// **这个差价就是「买套餐比直充便宜」的全部来源**,调它等于调整两条产品线的相对定价。
-	CreditToPoints int `gorm:"column:credit_to_points" json:"credit_to_points"`
-	MinRechargeCents       int       `gorm:"column:min_recharge_cents" json:"min_recharge_cents"`
-	// InviteRewardCredits 每成功邀请 1 人赠给邀请人的经费(0100;经费=分)。0=邀请奖励活动关闭。
-	InviteRewardCredits int `gorm:"column:invite_reward_credits" json:"invite_reward_credits"`
-	// InviteRewardDailyCap 每邀请人每日最多计奖励的邀请数(0100)。0=不限;
-	// 超出上限的邀请照常归因,只是当天不再发奖励(按「今天 rewarded_credits>0 的行数」算)。
-	InviteRewardDailyCap int `gorm:"column:invite_reward_daily_cap" json:"invite_reward_daily_cap"`
+	CreditToPoints   int `gorm:"column:credit_to_points" json:"credit_to_points"`
+	MinRechargeCents int `gorm:"column:min_recharge_cents" json:"min_recharge_cents"`
+	// [DEPRECATED 0117] 仅保留列/管理端字段兼容;运行时邀请活动不得读取此值。
+	// invite_campaign_config 是唯一真源。
+	InviteRewardCredits int `gorm:"column:invite_reward_credits" json:"-"`
+	// [DEPRECATED 0117] 仅保留列/管理端字段兼容;运行时不得用作邀请活动上限。
+	InviteRewardDailyCap int `gorm:"column:invite_reward_daily_cap" json:"-"`
 	// ResetCostCredits 运行时**已不读**(0090:重置改扣「重置次数」),但字段与列必须保留:
 	// 迁移 0092 拿它当「N 经费 = 1 次」的换算除数,且 admin PUT 是全列覆盖 —— 删字段会让它被写成 0。
 	ResetCostCredits int `gorm:"column:reset_cost_credits" json:"reset_cost_credits"`
 	// 0090 退休:SubscriptionPeriodDays(月度改「+1 个自然月」,不再有天数概念)。
-	PopularPlan            string    `gorm:"column:popular_plan" json:"popular_plan"`
-	Enabled                bool      `gorm:"column:enabled" json:"enabled"`
-	CreatedAt              time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt              time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	PopularPlan string    `gorm:"column:popular_plan" json:"popular_plan"`
+	Enabled     bool      `gorm:"column:enabled" json:"enabled"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 }
 
 func (BillingConfig) TableName() string { return "billing_config" }
@@ -238,6 +242,7 @@ func NormGrantUnit(u string) string {
 // 循环会把「月末钳位」的一次性偏移放大成逐月漂移:从 1/31 出发发放 12 个月,
 //   - 循环 12 次:1/31→2/28→3/28→…→次年 1/28  (少 3 天)
 //   - 一次性 +12 月:time.Date 把 month+12 归一化,day=31 在 1 月不需要钳 → 次年 1/31 (0 天误差)
+//
 // 实测两者相差 72 小时。发 3 个月、6 个月这类多周期时,循环写法会系统性少给用户天数。
 //
 // carbon 的 AddMonthsNoOverflow(n)/AddYearsNoOverflow(n) 本身就接受任意 n 并只在**最终**
@@ -289,11 +294,13 @@ func GrantUnitLabel(unit string) string {
 //
 // 周期长度改自然月之后,这里有过一个看似更"精确"的选项:分母用这一次周期的真实天数(28~31)。
 // 拒绝它的理由:
-//   ① 那会让**同一笔升级的实付金额随月份跳变**(2 月比 1 月贵约 7%),用户无法理解;
-//   ② 它同时是「余期是否已超过一个月」的档位阈值(order.go 里 basisCycle 的选择),
-//      分母一浮动,余期 29~30 天的用户会在月价日率与年价日率之间来回跳档,补差金额阶跃式突变 ——
-//      正是 order.go 那段注释与 TestUpgradeCrossPeriodNoOvercharge 想防的「定价倒挂」那类缺陷;
-//   ③ 固定分母让本次改造对用户实付**零影响**,现有定价断言全部继续成立。
+//
+//	① 那会让**同一笔升级的实付金额随月份跳变**(2 月比 1 月贵约 7%),用户无法理解;
+//	② 它同时是「余期是否已超过一个月」的档位阈值(order.go 里 basisCycle 的选择),
+//	   分母一浮动,余期 29~30 天的用户会在月价日率与年价日率之间来回跳档,补差金额阶跃式突变 ——
+//	   正是 order.go 那段注释与 TestUpgradeCrossPeriodNoOvercharge 想防的「定价倒挂」那类缺陷;
+//	③ 固定分母让本次改造对用户实付**零影响**,现有定价断言全部继续成立。
+//
 // 「1 个月 ≈ 30 天」作为计价日率基准是行业通行做法(Stripe 同此)。
 //
 // ⚠️ 它与 AddPeriod 是**两个不同的东西**,不要"统一"成一个:AddPeriod 定的是权益到期日
@@ -368,13 +375,13 @@ type UserWallet struct {
 	// 双真源会让「余额」分裂成两个字段,任何漏改的读写点都静默丢钱。保留仅作审计/回滚。
 	PermBalance int `gorm:"column:perm_balance" json:"-"`
 	// CreditAutopayEnabled 周期额度用完后是否自动用经费续(0094)。默认 false,须用户显式开启。
-	CreditAutopayEnabled bool      `gorm:"column:credit_autopay_enabled" json:"credit_autopay_enabled"`
-	AutoResetEnabled     bool      `gorm:"column:auto_reset_enabled" json:"auto_reset_enabled"`
+	CreditAutopayEnabled bool `gorm:"column:credit_autopay_enabled" json:"credit_autopay_enabled"`
+	AutoResetEnabled     bool `gorm:"column:auto_reset_enabled" json:"auto_reset_enabled"`
 	// RefillPendingAt 「升级满血待兑现」标记(R6 持久化补偿):ResetBaselineOnUpgrade 删锚遇 Redis
 	// 抖动/不可用时落此时刻;ReconcilePendingRefills(cleanup)在 Redis 恢复后补删锚并清此列。NULL=无待办。
-	RefillPendingAt  *time.Time `gorm:"column:refill_pending_at" json:"-"`
-	CreatedAt        time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt        time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	RefillPendingAt *time.Time `gorm:"column:refill_pending_at" json:"-"`
+	CreatedAt       time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 }
 
 func (UserWallet) TableName() string { return "user_wallets" }

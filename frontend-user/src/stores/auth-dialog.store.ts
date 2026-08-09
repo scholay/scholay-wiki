@@ -14,7 +14,12 @@ interface AuthDialogState {
   mode: AuthMode;
   /** 调用方可以预设 email/phone tab,默认 email */
   initialAccountType: AccountType;
-  openDialog: (mode?: AuthMode, opts?: { accountType?: AccountType }) => void;
+  /** OAuth 合并中的目标账号登录只用于完成身份校验，不能打断 callback 页。 */
+  suppressInviteFlow: boolean;
+  openDialog: (
+    mode?: AuthMode,
+    opts?: { accountType?: AccountType; suppressInviteFlow?: boolean },
+  ) => void;
   setMode: (mode: AuthMode) => void;
   close: () => void;
 }
@@ -27,12 +32,16 @@ export const useAuthDialog = create<AuthDialogState>((set) => ({
   open: false,
   mode: 'login',
   initialAccountType: 'email',
+  suppressInviteFlow: false,
   openDialog: (mode = 'login', opts) =>
     set({
       open: true,
       mode,
       initialAccountType: opts?.accountType ?? 'email',
+      suppressInviteFlow: opts?.suppressInviteFlow ?? false,
     }),
   setMode: (mode) => set({ mode }),
-  close: () => set({ open: false }),
+  // suppression 是一次性的：目标账号登录成功后立即复位，
+  // 后续 confirm-merge 自己的 auth success 仍要进入正常邀请流。
+  close: () => set({ open: false, suppressInviteFlow: false }),
 }));

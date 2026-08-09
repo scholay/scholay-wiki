@@ -14,18 +14,10 @@ import { cn } from'@/shared/lib/utils';
  * ⚠️ 本改动影响全部 <Button> 调用点(约 306 处),是刻意单独成批的,
  * 便于单独视觉回归与单独回滚。
  *
- * 字号策略 —— 🔴【对 Figma 的刻意偏离,产品已拍板,不要"修正"回去】
- * Figma §4.1 明写按钮文字 `Google Sans 500 / 14px`,但本项目**全线控件基座保持 text-12**。
- *
- * 2026-07-28 曾按 Figma 把基座升到 14 并合入,产品评估后**明确撤销**:
- * Figma 只给了一个 120×42 的按钮规格,是「展示级」尺寸;本产品是高信息密度的科研工具,
- * 同屏控件数量远多于设计稿场景,14px 会让工具条/表格行/侧栏成片撑开。
- * 「控件字比正文(14)小一档」在本产品是**有意的层级**,不是倒挂。
- *
- * 同族保持 12 的还有 input / textarea / select / tabs / dropdown 项 —— 它们是一个整体,
- * 要改必须一起改,单独升任何一个都会在同一横排里出现两种字号。
+ * 字号策略 —— 当前 dev.pen 按钮标签为 14px / 500。
+ * Button、Input、Textarea、Select 同步使用 14px,避免同一控件排出现两套字号。
  */
-const buttonVariants = cva('inline-flex items-center justify-center gap-2 whitespace-nowrap text-12 font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+const buttonVariants = cva('inline-flex items-center justify-center gap-2 whitespace-nowrap text-14 font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -39,9 +31,9 @@ const buttonVariants = cva('inline-flex items-center justify-center gap-2 whites
         link: 'rounded-8 text-foreground underline-offset-4 hover:underline',
       },
       size: {
-        sm: 'h-7 px-2.5 text-12',
+        sm: 'h-7 px-2.5',
         default: 'h-8 px-3',
-        lg: 'h-10 px-4 text-12',
+        lg: 'h-10 px-4',
         icon: 'h-8 w-8',
       },
     },

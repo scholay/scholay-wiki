@@ -1,6 +1,4 @@
-import { Gift, UserPlus, ChevronRight } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Gift, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import {
   DropdownMenu,
@@ -8,39 +6,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
-import { http } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
 import { usePromoEligible } from '@/shared/api/promo';
 import { usePromoStore } from '@/stores/promo.store';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * 顶部导航「限时活动」统一入口 —— 所有限时活动收进一个菜单(owner 拍板 2026-07-31:
- * 「限时领取会员」与「邀请有奖」同属限时活动,不做并排双按钮)。
- *
- * 当前收纳两个活动,各自独立开关:
- *   - 限时领取会员:promo_config 后台开关(usePromoEligible),点击开 PromoModal;
- *   - 邀请有奖:billing_config.invite_reward_credits > 0(公开 /billing/plans 下发)
- *     且已登录(落点 /settings/invite 有登录闸),点击进邀请页。
- * 全部关闭 → 按钮整个消失。以后加新活动往 items 里加一行即可。
+ * 顶部导航「限时活动」只承接会员推广。邀请活动已按 Pen
+ * 规范拆为独立的 InviteNavButton，两者开关与落点互不干扰。
  *
  * 视觉沿用原 PromoNavButton:品牌红描边 + 礼物图标 + 脉冲点(活动期适度吸睛)。
  * `className` 供调用方控显隐(< 1200px 由 CompactNavMenu 承接同款入口)。
- * app/layouts 不 import features(方向铁律),plans 走 inline useQuery
- * (与 usePlans 同 queryKey ['billing','plans'],共享缓存)。
  */
 export function ActivityNavMenu({ className }: { className?: string }) {
-  const navigate = useNavigate();
   const { visible: promoVisible } = usePromoEligible();
   const openPromo = usePromoStore((s) => s.openPromo);
-  const { data } = useQuery({
-    queryKey: ['billing', 'plans'],
-    queryFn: async () =>
-      (await http.get<{ data: { invite_reward_credits: number } }>('/billing/plans')).data.data,
-    staleTime: 60_000,
-  });
-  const inviteReward = data?.invite_reward_credits ?? 0;
-  const inviteVisible = inviteReward > 0 && !!getAuthToken();
 
   const items: { key: string; icon: typeof Gift; title: string; sub: string; onSelect: () => void }[] = [];
   if (promoVisible) {
@@ -50,15 +29,6 @@ export function ActivityNavMenu({ className }: { className?: string }) {
       title: '限时领取会员',
       sub: '扫码添加客服,免费领取会员权益',
       onSelect: () => openPromo('manual'),
-    });
-  }
-  if (inviteVisible) {
-    items.push({
-      key: 'invite',
-      icon: UserPlus,
-      title: '邀请有奖',
-      sub: `每成功邀请 1 位好友注册,得 ${inviteReward} 经费`,
-      onSelect: () => navigate('/settings/invite'),
     });
   }
   if (items.length === 0) return null;

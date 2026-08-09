@@ -22,10 +22,9 @@ export function AuthorHero({ author }: { author: Author }) {
         className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-pill flex items-center justify-center"
         style={{ backgroundColor: color }}
       >
-        {/* 首字母字形 —— 尺寸由 avatar 直径按比例导出(≈0.46 × 直径:140→64、88→40),
-            不是排印阶梯上的档位,因此不归六档也不用 display token:
-            64px 在 Figma §2.2 里正是「字体展示样本、非 UI 档位」的那一档。 */}
-        <span className="font-display font-bold text-[40px] sm:text-[64px] text-on-brand leading-none">
+        {/* 首字母字形 —— 移动端用 32px 正式档;桌面大头像用 dev.pen
+            Headline / Display 样张的独立 64px 档,不混入正文阶梯。 */}
+        <span className="font-display font-bold text-32 sm:text-display-64 text-on-brand leading-none">
           {initial}
         </span>
       </div>
@@ -42,9 +41,8 @@ export function AuthorHero({ author }: { author: Author }) {
           </span>
         </div>
 
-        {/* 详情页 h1 —— 36px 有等值 token `text-display-36`(globals.css:631,
-            专为「超出 Figma 六档的展示档」而设),不再写 arbitrary */}
-        <h1 className="font-display font-bold text-24 sm:text-display-36 leading-display-tight text-foreground">
+        {/* 详情页 h1 —— 当前 dev.pen 的正式 24/32px 响应式阶梯。 */}
+        <h1 className="font-display font-bold text-24 sm:text-32 leading-display-tight text-foreground">
           {author.name}
         </h1>
 

@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import { primeMobileKeyboard } from '@/shared/lib/ios-keyboard';
 import { computeSessionTitle } from '@/shared/lib/agent-session-title';
+import { relativeTimeZh } from '@/shared/lib/relative-time';
 import { useClawSessions, type ClawSessionItem } from '../../api/session';
 import { ClawRenameDialog, ClawDeleteDialog } from '../sidebar/ClawSessionDialogs';
 
@@ -145,6 +146,12 @@ function SessionRow({
     session.messageCount,
     active,
   );
+  const lastAccessed = relativeTimeZh(session.lastAccessedAt);
+  const meta = [
+    `${session.messageCount} 条消息`,
+    lastAccessed ? `最近访问 ${lastAccessed}` : '',
+  ].filter(Boolean).join(' · ');
+
   return (
     <div
       className={cn(
@@ -153,15 +160,18 @@ function SessionRow({
       )}
       onClick={onActivate}
     >
-      <span
-        className={cn(
-          'flex min-w-0 flex-1 items-center gap-1.5 truncate text-14',
-          active ? 'font-medium text-foreground' : 'text-subtle',
-          loading && 'italic text-faint'
-        )}
-      >
-        {loading && <Loader2 className="size-3 shrink-0 animate-spin" />}
-        <span className="truncate">{text}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span
+          className={cn(
+            'flex min-w-0 items-center gap-1.5 truncate text-14',
+            active ? 'font-medium text-foreground' : 'text-subtle',
+            loading && 'italic text-faint'
+          )}
+        >
+          {loading && <Loader2 className="size-3 shrink-0 animate-spin" />}
+          <span className="truncate">{text}</span>
+        </span>
+        <span className="truncate text-12 font-normal text-faint">{meta}</span>
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

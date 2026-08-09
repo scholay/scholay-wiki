@@ -30,7 +30,7 @@ func CORSMiddleware() gin.HandlerFunc {
 		AllowHeaders: []string{
 			"Content-Type", "Content-Length", "Accept-Encoding",
 			"X-CSRF-Token", "Authorization", "Accept", "Origin",
-			"Cache-Control", "X-Requested-With",
+			"Cache-Control", "X-Requested-With", InviteCodeHeader, "X-Anon-Id",
 		},
 		MaxAge: 12 * time.Hour,
 	}

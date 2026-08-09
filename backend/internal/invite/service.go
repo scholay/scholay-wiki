@@ -1,11 +1,13 @@
 // ============================================================================
-// invite.Service —— 邀请码 get-or-create / 打开计数 / 注册归因 / 管理端统计。
+// invite.Service —— 邀请码、活动规则、注册归因、首单返利与管理端观测。
 //
 // 归因链路(方案 A,ctx 贯穿):
 //   前端在请求头带 X-Invite-Code → middleware.InviteCodeMiddleware 写进 request ctx
-//   → user 各注册成功路径(事务提交后)经包级钩子调 AttributeFromContext
-//   → 这里取码、校验、INSERT IGNORE 落流水。全程 best-effort:任何失败只 slog,
-//     绝不影响注册返回。
+//   → user 各新建账号路径(主注册事务提交后)经包级钩子调 AttributeFromContext
+//   → 这里进入 Bind，把关系、里程碑、奖励审计与钱包流水放在一个新事务。
+//
+// 归因仍是注册主链路的 best-effort 后置动作：失败记录 slog，不撤销已成功创建的账号；
+// 但 Bind 内部的奖励链路是强事务、可并发幂等的，不是旧版的分步发放。
 // ============================================================================
 
 package invite
@@ -14,33 +16,114 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/url"
 	"os"
 	"strings"
 
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
 	repo *Repository
 
-	// 邀请奖励(0100)的两个注入 seam(bootstrap 接 vip;均 nil 安全 —— 不接线 = 奖励整体关闭,
-	// invite 包刻意不 import vip,依赖方向保持 bootstrap 单向组装)。
-	rewardCfg     func() (amount, dailyCap int)                              // 读 billing_config 两旋钮
-	rewardGranter func(inviterID uint, amount int, invitedUserID uint) error // 入账(vip.GrantInviteReward)
+	// txRewardGranter 由 bootstrap 接到 vip.WalletService.GrantPermInTx。关系、里程碑、
+	// grant 审计、钱包和 credit_transactions 共用调用方事务，不再存在「先抢标记再单独发钱」的裂缝。
+	txRewardGranter func(tx *gorm.DB, userID uint, amount int, txType, refID, note string) (uint64, error)
+	// txRewardReclaimer 由 bootstrap 接到 vip.WalletService，用于首单退款时幂等回收返利。
+	txRewardReclaimer func(tx *gorm.DB, userID uint, expected int, refID, note string) (uint64, int, int, error)
+	// 事务提交后的邀请奖励通知；kind 与钱包流水 type 一致。
+	// 通知不参与账务事务，失败不得回滚已入账奖励。
+	rewardNotifier func(userID uint, amount int, kind string)
 }
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
 
-// SetRewardConfigProvider 注入「邀请奖励配置」读取 seam(amount=每邀请奖励经费,0=关闭;
-// dailyCap=每邀请人每日计奖上限,0=不限)。nil 安全:不注入即视为活动关闭。
-func (s *Service) SetRewardConfigProvider(fn func() (amount, dailyCap int)) { s.rewardCfg = fn }
+func (s *Service) SetTxRewardGranter(fn func(tx *gorm.DB, userID uint, amount int, txType, refID, note string) (uint64, error)) {
+	s.txRewardGranter = fn
+}
 
-// SetRewardGranter 注入奖励发放 seam(bootstrap 接 vip.Service.GrantInviteReward)。
-// nil 安全:不注入即视为活动关闭。
-func (s *Service) SetRewardGranter(fn func(inviterID uint, amount int, invitedUserID uint) error) {
-	s.rewardGranter = fn
+func (s *Service) SetTxRewardReclaimer(fn func(tx *gorm.DB, userID uint, expected int,
+	refID, note string) (uint64, int, int, error)) {
+	s.txRewardReclaimer = fn
+}
+
+func (s *Service) SetRewardNotifier(fn func(userID uint, amount int, kind string)) {
+	s.rewardNotifier = fn
+}
+
+const (
+	sourceLink   = "link"
+	sourceManual = "manual"
+
+	milestoneRegistration  = "registration"
+	milestoneFirstPurchase = "first_purchase"
+	roleInviter            = "inviter"
+	roleInvitee            = "invitee"
+
+	txRegistrationInviter = "invite_registration_inviter"
+	txRegistrationInvitee = "invite_registration_invitee"
+	txFirstPurchaseRebate = "invite_first_purchase_rebate"
+)
+
+var (
+	ErrCampaignDisabled  = errors.New("invite: campaign disabled")
+	ErrInvalidInviteCode = errors.New("invite: invalid code")
+	ErrSelfInvite        = errors.New("invite: self invite")
+	ErrAlreadyBound      = errors.New("invite: user already bound")
+	ErrBindWindowExpired = errors.New("invite: bind window expired")
+	ErrInviterNotEarlier = errors.New("invite: inviter must predate invitee")
+	ErrUserUnavailable   = errors.New("invite: user unavailable")
+	ErrRewardPortUnwired = errors.New("invite: transactional reward port unavailable")
+)
+
+type CampaignConfigError struct{ msg string }
+
+func (e *CampaignConfigError) Error() string { return e.msg }
+
+func AsCampaignConfigError(err error) (*CampaignConfigError, bool) {
+	var target *CampaignConfigError
+	ok := errors.As(err, &target)
+	return target, ok
+}
+
+func validateCampaignConfig(cfg *CampaignConfig) error {
+	if cfg == nil {
+		return &CampaignConfigError{msg: "邀请活动配置不能为空"}
+	}
+	if cfg.InviterRegistrationCredits < 0 || cfg.InviteeRegistrationCredits < 0 || cfg.RegistrationDailyCap < 0 {
+		return &CampaignConfigError{msg: "注册奖励和每日上限不能为负数"}
+	}
+	if cfg.InviterRegistrationCredits > 1_000_000_000 || cfg.InviteeRegistrationCredits > 1_000_000_000 {
+		return &CampaignConfigError{msg: "单个注册奖励不能超过 10 亿经费"}
+	}
+	if cfg.RegistrationDailyCap > 1_000_000 {
+		return &CampaignConfigError{msg: "每日计奖上限不能超过 100 万人"}
+	}
+	if cfg.FirstPurchaseRebateBPS < 0 || cfg.FirstPurchaseRebateBPS > 10000 {
+		return &CampaignConfigError{msg: "首单返利必须在 0–10000 基点之间"}
+	}
+	if cfg.BindWindowDays <= 0 || cfg.FirstPurchaseWindowDays <= 0 ||
+		cfg.BindWindowDays > 3650 || cfg.FirstPurchaseWindowDays > 3650 {
+		return &CampaignConfigError{msg: "绑定时窗和首单时窗必须在 1–3650 天之间"}
+	}
+	if cfg.Enabled && cfg.InviterRegistrationCredits == 0 && cfg.InviteeRegistrationCredits == 0 && cfg.FirstPurchaseRebateBPS == 0 {
+		return &CampaignConfigError{msg: "活动开启时至少需要配置一种注册奖励或首单返利"}
+	}
+	cfg.CodeHelpURL = strings.TrimSpace(cfg.CodeHelpURL)
+	if len(cfg.CodeHelpURL) > 500 {
+		return &CampaignConfigError{msg: "帮助链接不能超过 500 个字符"}
+	}
+	if cfg.CodeHelpURL != "" {
+		u, err := url.ParseRequestURI(cfg.CodeHelpURL)
+		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+			return &CampaignConfigError{msg: "帮助链接只能为空或完整的 http(s) 地址"}
+		}
+	}
+	return nil
 }
 
 // ─── 码生成(纯函数,见 code_test.go)──────────────────────────────────────
@@ -62,9 +145,20 @@ func normalizeCode(s string) string {
 	return strings.ToUpper(strings.TrimSpace(s))
 }
 
-// isValidCodeFormat 码格式预检:定长 + 字符集内。公开端点先过这道再碰 DB,
-// 无效格式零成本拒绝(防探测/刷库噪音)。
+// isValidCodeFormat 兼容两代码：
+//   - stranded 历史码：6 位完整 [A-Z0-9]，确实存在 0/O/L；
+//   - 新码：8 位 codeAlphabet，继续排除易混字符。
+//
+// 其他长度零成本拒绝；通过格式也仍必须 DB + active user 复核。
 func isValidCodeFormat(s string) bool {
+	if len(s) == 6 {
+		for i := 0; i < len(s); i++ {
+			if !((s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= '0' && s[i] <= '9')) {
+				return false
+			}
+		}
+		return true
+	}
 	if len(s) != codeLen {
 		return false
 	}
@@ -81,9 +175,11 @@ func isValidCodeFormat(s string) bool {
 // GetOrCreate 取该用户的邀请码,没有则生成(created_at 即「生成邀请」时刻)。
 //
 // 并发安全靠 INSERT IGNORE + 两个唯一键,而非显式事务:
-//   · 撞 uk_invite_codes_user(并发双开同一用户)→ IGNORE 吞掉,查回复用既有码;
-//   · 撞 uk_invite_codes_code(与别人撞码,8 位 31 字符集概率 ~1e-12,理论保留)→
-//     查回发现该 user 仍无码,换码重试,最多 3 次。
+//
+//	· 撞 uk_invite_codes_user(并发双开同一用户)→ IGNORE 吞掉,查回复用既有码;
+//	· 撞 uk_invite_codes_code(与别人撞码,8 位 31 字符集概率 ~1e-12,理论保留)→
+//	  查回发现该 user 仍无码,换码重试,最多 3 次。
+//
 // 单条 INSERT 本身原子,显式事务反而引入 REPEATABLE READ 快照可见性的坑,不用。
 func (s *Service) GetOrCreate(userID uint) (*InviteCode, error) {
 	row, err := s.repo.FindByUserID(userID)
@@ -94,7 +190,7 @@ func (s *Service) GetOrCreate(userID uint) (*InviteCode, error) {
 		return row, nil
 	}
 	for attempt := 0; attempt < 3; attempt++ {
-		fresh := &InviteCode{UserID: userID, Code: generateCode()}
+		fresh := &InviteCode{UserID: userID, Code: generateCode(), IsActive: true}
 		affected, err := s.repo.InsertCodeIgnore(fresh)
 		if err != nil {
 			return nil, err
@@ -121,7 +217,17 @@ func (s *Service) GetOrCreate(userID uint) (*InviteCode, error) {
 
 // Stats 用户端「我的邀请」:get-or-create + 归因注册数 + 完整落地 URL。
 func (s *Service) Stats(userID uint) (*UserInviteView, error) {
-	row, err := s.GetOrCreate(userID)
+	cfg, err := s.campaignConfig()
+	if err != nil {
+		return nil, err
+	}
+	var row *InviteCode
+	if cfg.Enabled {
+		row, err = s.GetOrCreate(userID)
+	} else {
+		// 关闭态只读已有码，绝不 get-or-create，也不激活历史停用码。
+		row, err = s.repo.FindByUserID(userID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -129,27 +235,29 @@ func (s *Service) Stats(userID uint) (*UserInviteView, error) {
 	if err != nil {
 		return nil, err
 	}
-	// 邀请奖励(0100):reward_per_invite = 当前配置(0=活动未开;seam 未接线同样是 0),
-	// reward_total = 累计已获(与配置无关的历史事实,活动关了也照常展示)。
+	// 当前注册奖励只读独立活动真源；活动关闭对外展示 0。
 	rewardPer := 0
-	if s.rewardCfg != nil {
-		if amount, _ := s.rewardCfg(); amount > 0 {
-			rewardPer = amount
-		}
+	if cfg.Enabled {
+		rewardPer = cfg.InviterRegistrationCredits
 	}
 	rewardTotal, err := s.repo.RewardTotalOf(userID)
 	if err != nil {
 		return nil, err
 	}
-	return &UserInviteView{
-		Code:            row.Code,
-		URL:             s.InviteURL(row.Code),
-		OpenCount:       row.OpenCount,
+	view := &UserInviteView{
 		RegisteredCount: registered,
 		RewardPerInvite: rewardPer,
 		RewardTotal:     rewardTotal,
-		CreatedAt:       row.CreatedAt,
-	}, nil
+	}
+	if row != nil {
+		view.OpenCount = row.OpenCount
+		view.CreatedAt = row.CreatedAt
+		if row.IsActive && cfg.Enabled {
+			view.Code = row.Code
+			view.URL = s.InviteURL(row.Code)
+		}
+	}
+	return view, nil
 }
 
 // InviteURL 拼落地页完整 URL:公网 origin + "/i/" + code。
@@ -173,11 +281,95 @@ func (s *Service) InviteURL(code string) string {
 // 返回 valid=false 而不报错(契约:不存在不报 4xx,防探测噪音);
 // 格式不合法的码零成本拒绝,不碰 DB。
 func (s *Service) RecordOpen(code string) (bool, error) {
+	cfg, err := s.campaignConfig()
+	if err != nil {
+		return false, err
+	}
+	if !cfg.Enabled {
+		return false, nil
+	}
 	norm := normalizeCode(code)
 	if !isValidCodeFormat(norm) {
 		return false, nil
 	}
 	return s.repo.IncrementOpen(norm)
+}
+
+func defaultCampaignConfig() *CampaignConfig {
+	return &CampaignConfig{ID: 1, BindWindowDays: 30, FirstPurchaseWindowDays: 30}
+}
+
+func (s *Service) campaignConfig() (*CampaignConfig, error) {
+	cfg, err := s.repo.GetCampaignConfig()
+	if err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		return defaultCampaignConfig(), nil
+	}
+	return cfg, nil
+}
+
+func publicCampaign(cfg *CampaignConfig) PublicCampaign {
+	if cfg == nil {
+		cfg = defaultCampaignConfig()
+	}
+	out := PublicCampaign{
+		Enabled: cfg.Enabled, BindWindowDays: cfg.BindWindowDays,
+		FirstPurchaseWindowDays: cfg.FirstPurchaseWindowDays, CodeHelpURL: cfg.CodeHelpURL,
+	}
+	if cfg.Enabled {
+		out.InviterRegistrationCredits = cfg.InviterRegistrationCredits
+		out.InviteeRegistrationCredits = cfg.InviteeRegistrationCredits
+		out.RegistrationDailyCap = cfg.RegistrationDailyCap
+		out.FirstPurchaseRebateBPS = cfg.FirstPurchaseRebateBPS
+	}
+	return out
+}
+
+func (s *Service) Campaign() (PublicCampaign, error) {
+	cfg, err := s.campaignConfig()
+	if err != nil {
+		return PublicCampaign{}, err
+	}
+	return publicCampaign(cfg), nil
+}
+
+func (s *Service) AdminCampaign() (*CampaignConfig, error) { return s.campaignConfig() }
+
+func (s *Service) UpdateCampaign(cfg *CampaignConfig) error {
+	if err := validateCampaignConfig(cfg); err != nil {
+		return err
+	}
+	return s.repo.UpdateCampaignConfig(cfg)
+}
+
+// Preview 只在活动开启且码属于存在的 active 用户时返回 valid=true。
+// 所有无效/孤儿/冻结码对外同一 false，不泄漏内部状态。
+func (s *Service) Preview(code string) (*InvitePreview, error) {
+	cfg, err := s.campaignConfig()
+	if err != nil {
+		return nil, err
+	}
+	out := &InvitePreview{Campaign: publicCampaign(cfg)}
+	if !cfg.Enabled {
+		return out, nil
+	}
+	norm := normalizeCode(code)
+	if !isValidCodeFormat(norm) {
+		return out, nil
+	}
+	ic, err := s.repo.FindActiveCode(norm)
+	if err != nil {
+		return nil, err
+	}
+	if ic == nil {
+		return out, nil
+	}
+	out.Valid = true
+	out.Code = norm
+	out.InviterName = maskIdentity(ic.InviterEmail, ic.InviterName)
+	return out, nil
 }
 
 // ─── 归因(best-effort 旁路)────────────────────────────────────────────
@@ -196,101 +388,17 @@ func (s *Service) AttributeFromContext(ctx context.Context, invitedUserID uint, 
 	}
 }
 
-// AttributeRegistration 把 code 归因到 invitedUserID。best-effort 语义:
-//   · 码格式不对 / 码不存在 → 静默忽略(header 可被任意伪造,不值得报错);
-//   · inviter == invited → 忽略(自邀理论不可能 —— 新号注册前拿不到自己的码,纯防御);
-//   · invited_user_id 撞唯一键 = 已归因过 → INSERT IGNORE 静默幂等;
-//   · 仅 DB 故障返回 error(由调用方 slog)。
+// AttributeRegistration 把 code 归因到 invitedUserID。调用者采用 best-effort 语义:
+//
+//	· 无效/自邀/已绑定/超时/活动关闭等确定性结果静默忽略；
+//	· DB 或账务故障返回 error，由调用方 slog；
+//	· 一旦进入奖励事务，关系/里程碑/grant/钱包要么全成功，要么全回滚。
 func (s *Service) AttributeRegistration(code string, invitedUserID uint, method string) error {
-	norm := normalizeCode(code)
-	if invitedUserID == 0 || !isValidCodeFormat(norm) {
+	_, err := s.Bind(code, invitedUserID, sourceLink, method)
+	if err == nil || isExpectedBindError(err) {
 		return nil
 	}
-	ic, err := s.repo.FindByCode(norm)
-	if err != nil {
-		return err
-	}
-	if ic == nil {
-		return nil
-	}
-	if ic.UserID == invitedUserID {
-		return nil
-	}
-	if len(method) > 32 {
-		method = method[:32] // 列宽 varchar(32),截断防插入报错
-	}
-	row := &InviteRegistration{
-		InviterUserID: ic.UserID,
-		CodeID:        ic.ID,
-		InvitedUserID: invitedUserID,
-		Method:        method,
-	}
-	affected, err := s.repo.InsertRegistrationIgnore(row)
-	if err != nil {
-		return err
-	}
-	// 奖励只挂在「新归因成功」上(RowsAffected=1):被唯一键吞掉的重放/并发归因绝不触发,
-	// 与 rewarded_credits=0 条件更新构成双保险。maybeReward 全程 best-effort,不影响归因结果。
-	if affected > 0 {
-		s.maybeReward(row)
-	}
-	return nil
-}
-
-// maybeReward 新归因成功后尝试给邀请人发奖励(0100)。全程 best-effort:任何失败只 slog,
-// 永不上抛 —— 奖励是归因的旁路,归因又是注册的旁路,双层旁路都不许反噬注册主流程。
-func (s *Service) maybeReward(reg *InviteRegistration) {
-	if s.rewardCfg == nil || s.rewardGranter == nil {
-		return // seam 未接线 = 活动关闭
-	}
-	amount, dailyCap := s.rewardCfg()
-	if amount <= 0 {
-		return // 活动未开(invite_reward_credits=0)
-	}
-	// id 兜底:gorm 对 INSERT IGNORE 成功插入(RowsAffected=1)会回填自增 id;
-	// 万一没回填(id=0 会让条件更新恒 miss、奖励静默丢失),按唯一键 invited_user_id 查回。
-	if reg.ID == 0 {
-		got, err := s.repo.FindRegistrationByInvitedUser(reg.InvitedUserID)
-		if err != nil || got == nil {
-			slog.Error("invite: 邀请奖励发放失败(查回归因行失败)",
-				"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "err", err)
-			return
-		}
-		reg = got
-	}
-	// 🔴 顺序:**先抢标记,再入账,失败回滚标记**。
-	//   · 先标记(WHERE rewarded_credits=0 条件更新)——并发/重放下只有一个执行流抢得到,
-	//     防双发;顺序反过来(先发后标)失败窗口会变成「已入账、没标记」→ 重放再发一次,
-	//     多发的钱不可回收,比标记错更糟。
-	//   · granter 失败把标记回滚成 0 —— 防「标了没发」把用户应得的奖励永久吞掉。
-	//
-	// 日上限与抢标记合并进**同一个事务 + 邀请人 users 行锁**(审计 P1-11):两者分开时,
-	// N 个并发注册会各自读到 n<cap、各自抢到自己那一行,日上限完全不起作用。
-	won, cappedOut, err := s.repo.MarkRewardedWithinDailyCap(reg.InviterUserID, reg.ID, amount, dailyCap)
-	if err != nil {
-		slog.Error("invite: 邀请奖励发放失败(抢标记失败)",
-			"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "err", err)
-		return
-	}
-	if cappedOut {
-		slog.Info("invite: 邀请奖励达当日上限,未发放(归因照常)",
-			"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "daily_cap", dailyCap)
-		return
-	}
-	if !won {
-		return // 已被标过(并发/重放)= 已发放,静默幂等
-	}
-	if err := s.rewardGranter(reg.InviterUserID, amount, reg.InvitedUserID); err != nil {
-		slog.Error("invite: 邀请奖励入账失败,回滚标记",
-			"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "amount", amount, "err", err)
-		if uerr := s.repo.UnmarkRewarded(reg.ID); uerr != nil {
-			slog.Error("invite: 邀请奖励标记回滚失败(需人工对账:rewarded_credits>0 但无对应流水)",
-				"registration_id", reg.ID, "inviter", reg.InviterUserID, "err", uerr)
-		}
-		return
-	}
-	slog.Info("invite: 邀请奖励已发放",
-		"inviter", reg.InviterUserID, "invited", reg.InvitedUserID, "amount", amount)
+	return err
 }
 
 // ─── 管理端 ──────────────────────────────────────────────────────────────
@@ -321,11 +429,21 @@ func (s *Service) UserRegistrations(inviterUserID uint, page, pageSize int) ([]U
 	}
 	out := make([]UserRegistrationRow, 0, len(rows)) // 显式 [],防 nil→null
 	for _, r := range rows {
+		netFirstPurchaseRebate := r.FirstPurchaseRebateCredits - r.FirstPurchaseReversedCredits
+		if netFirstPurchaseRebate < 0 {
+			netFirstPurchaseRebate = 0
+		}
 		out = append(out, UserRegistrationRow{
-			Name:            maskIdentity(r.Email, r.Name),
-			Method:          r.Method,
-			RewardedCredits: r.RewardedCredits,
-			CreatedAt:       r.CreatedAt,
+			Name:                       maskIdentity(r.Email, r.Name),
+			Method:                     r.Method,
+			Source:                     r.Source,
+			RewardedCredits:            r.InviterRegistrationCredits,
+			InviterRegistrationCredits: r.InviterRegistrationCredits,
+			// 用户端展示实际保留的净返利；shortfall 未从钱包扣到，仍算用户已得。
+			FirstPurchaseRebateCredits: netFirstPurchaseRebate,
+			FirstPurchasePaidAt:        r.FirstPurchasePaidAt,
+			BoundAt:                    r.BoundAt,
+			CreatedAt:                  r.CreatedAt,
 		})
 	}
 	return out, total, nil

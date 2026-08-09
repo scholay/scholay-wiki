@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { Crown, Gem, Plus, RotateCcw, Ticket, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -17,7 +16,6 @@ import {
   useBillingOverview,
   useResetQuota,
   useSetCreditAutopay,
-  usePlans,
   type Tier,
 } from '../../api/membership';
 import { monthDay, resetInfo } from '../../lib/quota-display';
@@ -58,9 +56,6 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
     setRechargeOpen(false);
     setWxOrder({ orderNo, subject });
   };
-  // 邀请奖励活动信号(0100;与 usePlans 同 queryKey 共享缓存)
-  const { data: plansData } = usePlans();
-  const inviteReward = plansData?.invite_reward_credits ?? 0;
 
   // ?upgrade=1 承接:signal 递增 → 打开开通会员弹层(数据未回时先置 open,弹层随 data 渲染)。
   useEffect(() => {
@@ -184,15 +179,6 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
           <Plus className="size-3" />
           充值
         </button>
-        {/* 邀请奖励活动(0100):余额位内嵌入口,活动开启才显示(Gamma 范式) */}
-        {inviteReward > 0 && (
-          <Link
-            to="/m/me/invite"
-            className="flex shrink-0 items-center gap-1 rounded-pill border border-brand-red px-2.5 py-1 text-12 text-brand-red"
-          >
-            邀请有奖
-          </Link>
-        )}
         {/* 0090:经费不再分临时/永久,只有一种 —— 拆分行删掉。 */}
         <div className="ml-auto flex shrink-0 flex-col items-end text-12 text-faint">
           <span>剩余重置次数 {data.reset_passes}</span>

@@ -86,6 +86,12 @@ const GROUPS: Group[] = [
   },
 ];
 
+function billingFieldInputValue(form: BillingConfig, field: NumField): number | '' {
+  const stored = Number(form[field.key]);
+  if (!Number.isFinite(stored)) return '';
+  return field.scale ? Math.round(stored / field.scale) : stored;
+}
+
 /** 字段中文名 —— 保存前的改动清单要念得出是哪一项,不能给用户看 `pro_year_price_cents`。 */
 const FIELD_LABEL: Record<string, string> = {
   ...Object.fromEntries(GROUPS.flatMap((g) => g.fields.map((f) => [String(f.key), f.label]))),
@@ -126,10 +132,20 @@ function BillingConfigForm({ initial, blocked }: { initial: BillingConfig; block
     setForm(initial);
   }, [initial]);
 
-  const setNum = (key: keyof BillingConfig, raw: string) =>
-    setForm((f) => ({ ...f, [key]: Number(raw) }));
+  const setNum = (key: keyof BillingConfig, raw: string, scale = 1) => {
+    const parsed = raw === '' ? Number.NaN : Number(raw);
+    setForm((f) => ({ ...f, [key]: parsed * scale }));
+  };
+
+  const hasInvalidNumbers = GROUPS.some((group) =>
+    group.fields.some((field) => !Number.isFinite(Number(form[field.key])))
+  );
 
   const onSave = async () => {
+    if (hasInvalidNumbers) {
+      toast.error('请先完整填写所有数值字段');
+      return;
+    }
     // 🔴 保存前做 diff 并二次确认:这个 PUT 是全列覆盖,而其中一项(总开关)关掉
     // 等于全站 AI 功能不限额 —— 同项目里「停用一个兑换码」这种小得多的操作都有 confirm。
     const changed = (Object.keys(form) as (keyof BillingConfig)[]).filter((k) => form[k] !== initial[k]);
@@ -207,10 +223,10 @@ function BillingConfigForm({ initial, blocked }: { initial: BillingConfig; block
                   id={String(f.key)}
                   type="number"
                   step={f.step ?? 1}
-                  value={String(f.scale ? Math.round((Number(form[f.key] ?? 0)) / f.scale) : (form[f.key] ?? 0))}
+                  value={billingFieldInputValue(form, f)}
                   onChange={(e) => {
                     if (f.readOnly) return; // 只读字段(如 reset_cost_credits)不接受编辑
-                    setNum(f.key, f.scale ? String(Number(e.target.value) * f.scale) : e.target.value);
+                    setNum(f.key, e.target.value, f.scale);
                   }}
                   // 只读字段 disabled 置灰(Input 自带 disabled:opacity-50)。onSave 提交的是 form
                   // state 而非原生表单序列化,disabled 不影响该字段随保存整体提交。
@@ -221,7 +237,9 @@ function BillingConfigForm({ initial, blocked }: { initial: BillingConfig; block
                 {/* 分 → 元 实时回显:输错一个 0 在这里当场看得见 */}
                 {f.unit === 'cents' && (
                   <span className="text-12 tabular-nums text-subtle">
-                    = ¥{(Number(form[f.key] ?? 0) / 100).toFixed(2)}
+                    = {Number.isFinite(Number(form[f.key]))
+                      ? `¥${(Number(form[f.key]) / 100).toFixed(2)}`
+                      : '—'}
                   </span>
                 )}
                 {f.hint && <span className="text-12 text-faint">{f.hint}</span>}
@@ -236,7 +254,7 @@ function BillingConfigForm({ initial, blocked }: { initial: BillingConfig; block
       <div>
         {/* 第二道闸:GET 失败(blocked)时按钮也不可点 —— 后端 PUT 是整行覆盖,
             误点一次就把线上计费配置写空。Guard 之外再挡一层,免得后续重构挪走 Guard 时静默失守。 */}
-        <Button onClick={onSave} disabled={update.isPending || blocked}>
+        <Button onClick={onSave} disabled={update.isPending || blocked || hasInvalidNumbers}>
           {update.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           保存配置
         </Button>
@@ -251,21 +269,31 @@ function BillingConfigForm({ initial, blocked }: { initial: BillingConfig; block
  * 倍率 <=0 是「不限」(语义翻转),这里显式显示成「不限」而不是一个负数/零。
  */
 function QuotaDerivedSummary({ form }: { form: BillingConfig }) {
-  const freePts = Math.round(Number(form.free_window_tokens ?? 0) / 1000);
-  const proUnlimited = Number(form.pro_multiplier ?? 0) <= 0;
-  const proPts = proUnlimited ? null : Math.round(freePts * Number(form.pro_multiplier));
+  const freeRaw = Number(form.free_window_tokens);
+  const windowDays = Number(form.window_days);
+  const proMultiplier = Number(form.pro_multiplier);
+  const maxMultiplier = Number(form.max_multiplier);
+  const complete = [freeRaw, windowDays, proMultiplier, maxMultiplier].every(Number.isFinite);
+
+  const freePts = complete ? Math.round(freeRaw / 1000) : null;
+  const proUnlimited = complete && proMultiplier <= 0;
+  const proPts = !complete || proUnlimited || freePts == null
+    ? null
+    : Math.round(freePts * proMultiplier);
   // Pro 不限 → Max(= Pro × 倍率)自然也不限
-  const maxUnlimited = proUnlimited || Number(form.max_multiplier ?? 0) <= 0;
-  const maxPts = maxUnlimited || proPts == null ? null : Math.round(proPts * Number(form.max_multiplier));
+  const maxUnlimited = complete && (proUnlimited || maxMultiplier <= 0);
+  const maxPts = !complete || maxUnlimited || proPts == null
+    ? null
+    : Math.round(proPts * maxMultiplier);
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-12 border border-border-soft bg-surface-1 px-4 py-3">
       <span className="text-12 text-faint">
-        按当前取值派生 · 每 {Number(form.window_days) || 7} 天
+        按当前取值派生 · 每 {complete ? windowDays : '—'} 天
       </span>
-      <DerivedItem label="Free" value={`${freePts.toLocaleString()} 算力点`} />
-      <DerivedItem label="Pro" value={proPts == null ? '不限' : `${proPts.toLocaleString()} 算力点`} />
-      <DerivedItem label="Max" value={maxPts == null ? '不限' : `${maxPts.toLocaleString()} 算力点`} />
+      <DerivedItem label="Free" value={freePts == null ? '—' : `${freePts.toLocaleString()} 算力点`} />
+      <DerivedItem label="Pro" value={!complete ? '—' : proUnlimited ? '不限' : `${proPts!.toLocaleString()} 算力点`} />
+      <DerivedItem label="Max" value={!complete ? '—' : maxUnlimited ? '不限' : `${maxPts!.toLocaleString()} 算力点`} />
     </div>
   );
 }

@@ -34,6 +34,10 @@ const TX_LABEL: Record<string, string> = {
   task: '任务奖励',
   payg_daily: '按量付费(日累计)', // 0098:每用户每天一行,upsert 累加
   invite_reward: '邀请奖励', // 邀请好友注册奖励(ref_id=被邀者 user_id)
+  invite_registration_inviter: '邀请注册礼（邀请人）',
+  invite_registration_invitee: '邀请注册礼（受邀用户）',
+  invite_first_purchase_rebate: '邀请首单返利',
+  invite_reward_reversal: '邀请首单返利退款追回',
 };
 
 // 0098 起金额可带小数(payg 日聚合行)。整数原样;小数最多 4 位去尾零。

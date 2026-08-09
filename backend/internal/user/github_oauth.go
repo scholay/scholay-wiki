@@ -275,7 +275,7 @@ func (h *Handler) getGithubUserEmail(ctx context.Context, accessToken string) (s
 // findOrCreateGithubUser GitHub OAuth identity → 走通用 findOrCreateOAuthUser 三态流程。
 // 仅负责把 *GithubUser 转成 oauthIdentity,其余分发逻辑见 oauth_helpers.go。
 func (h *Handler) findOrCreateGithubUser(ctx context.Context, githubUser *GithubUser, invitationCode string, ip string) (oauthOutcome, error) {
-	_ = invitationCode // 邀请业务已移除,参数保留以兼容回调 URL
+	_ = invitationCode // 旧 query 字段仅兼容；归因真源是 OAuth state 恢复的 X-Invite-Code ctx。
 	_ = ip
 
 	displayName := githubUser.Name

@@ -40,6 +40,10 @@ export {
   type AssistantBubbleProps,
 } from './Bubbles';
 export {
+  SearchUserBubble,
+  type SearchUserBubbleProps,
+} from './SearchUserBubble';
+export {
   ToolCallBlock,
   type ToolCallBlockProps,
 } from './ToolCallBlock';
@@ -94,3 +98,10 @@ export { PaperListReadonly } from './PaperListReadonly';
 export { MinicodJournalCards } from './MinicodJournalCards';
 export { MinicodAuthorCards } from './MinicodAuthorCards';
 export { MinicodSnippetCards } from './MinicodSnippetCards';
+export {
+  ClawTurnView,
+  type ClawTurnViewProps,
+  type ClawSkillPresentation,
+} from './turns/ClawTurnView';
+export { SearchTurnView, type SearchTurnViewProps } from './turns/SearchTurnView';
+export { PrismTurnView, type PrismTurnViewProps } from './turns/PrismTurnView';

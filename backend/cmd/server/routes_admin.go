@@ -52,9 +52,12 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		opsRead.GET("/billing/orders/stats", h.vip.AdminOrderStats)
 
 		// 用户会话监控(内测期定位用户问题)—— 列某 feature 下用户的 agent 会话 + 拉 transcript(只读)。
-		// 覆盖 smart_search/claw/prism;审稿走 peer_review 报告另算。
+		// 覆盖 smart_search/claw/prism/boltslides/sci_draw/stat_lab;审稿走 peer_review 报告另算。
 		opsRead.GET("/agent-sessions", h.agentBridge.AdminListSessions)
 		opsRead.GET("/agent-sessions/:sessionId/messages", h.agentBridge.AdminGetSessionMessages)
+		// 产物列表以 agent_artifacts+MinIO 为耐久真源，workspace 只做未收割回退。
+		opsRead.GET("/agent-sessions/:sessionId/artifacts", h.agentBridge.AdminListSessionArtifacts)
+		opsRead.GET("/agent-sessions/:sessionId/artifact/:artifactId", h.agentBridge.AdminGetSessionArtifact)
 		// 会话内用户上传文件 / 引用文档:从 agent 会话 cwd 取原始字节,内联预览 / 下载(只读)。
 		opsRead.GET("/agent-sessions/:sessionId/file", h.agentBridge.AdminGetSessionFile)
 		// 审稿监控:投稿列表 + 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。
@@ -263,6 +266,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 计费体系配置(基准额度/倍率/价格/赠送/汇率/重置花费…)
 		adminOnly.GET("/billing/config", h.vip.AdminGetBillingConfig)
 		adminOnly.PUT("/billing/config", h.vip.AdminUpdateBillingConfig)
+		adminOnly.GET("/invites/campaign", h.invite.AdminGetCampaign)
+		adminOnly.PUT("/invites/campaign", h.invite.AdminUpdateCampaign)
 
 		// 客服中心凭证配置:联系方式展示 / IMAP / SMTP / 飞书(含各测试按钮)。收发信本身在 opsContent 组。
 		adminOnly.GET("/support-center/config", h.supportCenter.GetConfig)

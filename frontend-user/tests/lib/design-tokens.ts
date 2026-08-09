@@ -25,7 +25,7 @@ export function stripCssComments(src: string): string {
 /**
  * globals.css 主 `:root` 块的 token 表(**已剥注释**)。
  *
- * ⚠️ 只取第一个 `:root { … }`,不含 `:root[data-paper='on']` 与两个 `@theme inline` ——
+ * ⚠️ 只取第一个 `:root { … }`,不含两个 `@theme inline` ——
  *    后者是「注册成 Tailwind 命名空间」的桥接层,值一律是 `var(--x)` 转发,
  *    把它们混进来会让同名 key 互相覆盖(`--ease-out: var(--ease-out)` 自指成环)。
  */

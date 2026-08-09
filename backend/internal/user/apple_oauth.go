@@ -40,9 +40,9 @@ const (
 // AppleIDTokenClaims represents claims in Apple's ID token
 type AppleIDTokenClaims struct {
 	jwt.RegisteredClaims
-	Email         string `json:"email"`
-	EmailVerified any    `json:"email_verified"` // can be bool or string
-	IsPrivateEmail any   `json:"is_private_email"` // can be bool or string
+	Email          string `json:"email"`
+	EmailVerified  any    `json:"email_verified"`   // can be bool or string
+	IsPrivateEmail any    `json:"is_private_email"` // can be bool or string
 }
 
 // AppleUserInfo represents the user info Apple sends on first authorization
@@ -244,9 +244,15 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 		return
 	}
 
-	resultURL := fmt.Sprintf("%s/apple/callback?token=%s&is_new_user=%v&state=%s",
-		baseURL, url.QueryEscape(token), outcome.IsNewUser, url.QueryEscape(state))
+	// Apple form_post 由后端直接 302 回前端，没有 JSON AuthResponse。显式携带 user_id，
+	// 避免前端用 id=0 占位时与稍后 AuthBootstrap 拿到的真实用户发生身份竞争。
+	resultURL := appleLoginResultURL(baseURL, token, outcome.User.ID, outcome.IsNewUser, state)
 	c.Redirect(http.StatusFound, resultURL)
+}
+
+func appleLoginResultURL(baseURL, token string, userID uint, isNewUser bool, state string) string {
+	return fmt.Sprintf("%s/apple/callback?token=%s&user_id=%d&is_new_user=%v&state=%s",
+		baseURL, url.QueryEscape(token), userID, isNewUser, url.QueryEscape(state))
 }
 
 // AppleTokenResponse represents Apple's token endpoint response
@@ -506,9 +512,9 @@ func (h *Handler) BindAppleAccount(c *gin.Context) {
 	}
 
 	var req struct {
-		Code  string `json:"code" binding:"required"`
+		Code    string `json:"code" binding:"required"`
 		IDToken string `json:"id_token"`
-		User  string `json:"user"`
+		User    string `json:"user"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "Invalid request")
@@ -605,4 +611,3 @@ func (s *Service) UnbindApple(userID uint) error {
 	}
 	return s.repo.UnbindProviderInTx(userID, "apple")
 }
-

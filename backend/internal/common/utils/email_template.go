@@ -2,9 +2,9 @@
 // 统一品牌邮件模板 —— 全站所有邮件(验证码 / 反馈回复 / 会员计费通知 / 兑换 等)
 // 都走 RenderBrandedEmail,保证品牌名(Scholay)、配色、版式与前端项目一致。
 //
-// 配色是 frontend-user/src/styles/globals.css 的**人工镜像** —— 真源在那边(Figma
-// `JIv8fxQthMS37JLGHNOEbB` / `Scholay设计系统`)。邮件走内联样式、拿不到 CSS 变量,
-// 只能把 token 解析后的字面值抄过来,所以**改前端品牌色必须同步改这里**。
+// UI 配色是 frontend-user/src/styles/globals.css 的**人工镜像**。邮件走内联样式、
+// 拿不到 CSS 变量,只能把 token 解析后的字面值抄过来。但多色 Scholay 字标
+// 是独立冻结资产,不随 UI `--brand-*` 调色联动。
 // 上次同步:2026-07-28(此前停留在两代前的 #CC2222/#2A7A2A/#D4A017,
 // 而用户收到的每一封验证码/通知邮件都是站外的品牌露出 —— 前端护栏扫不到 backend/)。
 //
@@ -27,7 +27,7 @@ const EmailBrandName = "Scholay"
 const (
 	emailRed    = "#882828" // --brand-red 朱砂  · CTA 底 / 顶部色条 / 字标 S·a
 	emailGreen  = "#2F4D29" // --brand-green 松青 · 字标 ch·y
-	emailAmber  = "#E5A800" // --brand-amber 琥珀 · 字标 o
+	emailAmber  = "#E5A800" // 冻结的历史邮件字标色 · Scholay 的 o（非 UI --brand-amber）
 	emailInk    = "#1F1F23" // --foreground      · 标题 / 验证码   16.43:1 on 白卡
 	emailSubtle = "#505059" // --subtle          · 正文段落        7.98:1 on 白卡
 	emailMuted  = "#686873" // --muted-foreground· 引用块          4.69:1 on surface-1

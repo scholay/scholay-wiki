@@ -135,7 +135,7 @@ export function HelpLayout({
               </p>
             </div>
           )}
-          <h1 className="text-28 md:text-display-36 font-medium text-foreground">
+          <h1 className="text-28 md:text-32 font-medium text-foreground">
             {title}
           </h1>
           {lead && (

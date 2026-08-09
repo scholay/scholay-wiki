@@ -39,6 +39,11 @@ import { SubscribeDialog, subscribePayMethods, type SubQuote } from './subscribe
 import { WechatPayDialog } from './wechat-pay-dialog';
 import type { BillingCycle, MembershipPlanData } from './membership-plan-card';
 import { showQuotaToast } from './quota-toast';
+import {
+  invitePurchaseSummary,
+  inviteRegistrationSummary,
+  useInviteCampaign,
+} from '@/shared/api/invite-campaign';
 
 interface Overview {
   tier: 'free' | 'pro' | 'max';
@@ -66,8 +71,6 @@ interface PublicPlans {
   test_payment: boolean;
   payment_methods: { alipay: boolean; wechat: boolean };
   plans: MembershipPlanData[];
-  /** 邀请奖励活动(0100):>0=活动开启,描述区渲染「邀请好友赚经费」次选路。 */
-  invite_reward_credits: number;
 }
 
 /** 支付宝收银台回程锚点(跨文件契约:App.tsx 启动时读到则 navigate 回来并清除)。 */
@@ -104,6 +107,12 @@ export function QuotaNotifier() {
   const [subOpen, setSubOpen] = useState(false);
   // 微信支付:订单建好后交给 WechatPayDialog 扫码(null = 关着)。
   const [wechatOrder, setWechatOrder] = useState<{ orderNo: string; subject: string } | null>(null);
+  const { data: inviteCampaign } = useInviteCampaign();
+  const inviteBenefit = inviteCampaign
+    ? [inviteRegistrationSummary(inviteCampaign), invitePurchaseSummary(inviteCampaign)]
+        .filter(Boolean)
+        .join('；')
+    : '';
 
   const { data } = useQuery({
     queryKey: KEY,
@@ -318,9 +327,9 @@ export function QuotaNotifier() {
             {autopayOn && !creditPositive && (
               <span className="mt-1 block">「用经费继续」已经开着了,只是经费不够。充值到账后就能直接接着用,不用再改任何设置。</span>
             )}
-            {/* 邀请奖励次选路(0100)。🔴 铁律:业界(Gamma/Dropbox)把邀请与升级**并列为次选项**,
+            {/* 邀请活动次选路。🔴 铁律:业界(Gamma/Dropbox)把邀请与升级**并列为次选项**,
                 绝不做限额弹窗的主 CTA —— 这里只是一条文字链,主按钮仍是 重置/升级/payg。 */}
-            {(plansData?.invite_reward_credits ?? 0) > 0 && (
+            {inviteCampaign?.enabled && (
               <button
                 type="button"
                 onClick={() => {
@@ -329,7 +338,7 @@ export function QuotaNotifier() {
                 }}
                 className="mt-1 block text-left text-brand-red hover:underline"
               >
-                也可邀请好友注册:每成功 1 位得 {plansData?.invite_reward_credits} 经费 →
+                也可参加邀请有礼{inviteBenefit ? `：${inviteBenefit}` : ''} →
               </button>
             )}
           </DialogDescription>

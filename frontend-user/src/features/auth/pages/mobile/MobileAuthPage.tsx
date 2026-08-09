@@ -9,6 +9,7 @@ import { LoginForm } from '../../components/LoginForm';
 import { RegisterForm } from '../../components/RegisterForm';
 import { ForgotPasswordForm } from '../../components/ForgotPasswordForm';
 import { OAuthRow } from '../../components/OAuthRow';
+import { InviteAuthNotice } from '../../components/InviteAuthNotice';
 
 type PageMode = 'login' | 'register' | 'forgot';
 
@@ -82,6 +83,7 @@ export function MobileAuthPage() {
         )}
       </div>
 
+      {mode === 'register' && <InviteAuthNotice className="mx-0 mt-5" />}
       {/* 第三方登录 */}
       <div className="mt-8">
         <div className="relative flex items-center">

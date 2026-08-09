@@ -1,5 +1,5 @@
 /**
- * 设计系统护栏 —— 防止 2026-07 Figma 换真源的成果回潮。
+ * 设计系统护栏 —— 防止当前 Pencil dev.pen 设计真源的落地结果回潮。
  *
  * 这些规则在 CLAUDE.md §5「禁止」里都有文字说明,但文字管不住人(和 AI)。
  * 本文件把它们变成构建期硬失败 —— `npm run build` 的 prebuild 钩子会跑本文件
@@ -44,12 +44,12 @@
  *      `--red` 改成 #993333 规则照样绿,因为三行后的 `--brand: #882828` 兜着。
  *      现在按 **globals token → 该镜像里的具体变量名**逐个绑定、逐个比值,
  *      一对多必须列全(`--brand-red` → `--red` + `--brand`)。顺带把覆盖面从
- *      5 个 token 扩到表面/文字/边框/品牌/状态软底/logo 全套(值逐条实测对齐)。
+ *      5 个 token 扩到表面/文字/边框/品牌/状态软底全套(值逐条实测对齐)。
  *   2. 动效对齐 —— 旧的两条只查**集合归属**(「0.42 是四档之一吗」),
  *      而 motion.ts 每个预设的 JSDoc 都声明了绑哪一档。实测:把 FADE 的 0.16
  *      换成 0.42(另一个合法档)两条规则全绿,蒙层淡入却从 160ms 变 420ms。
  *   新增两条:CSS 镜像的「同值却未登记」自维护检查(补上 pptxNative 早就有、
- *   两份 CSS 镜像一直没有的「新变量必须登记」防线)、预设绑定核对。
+ *   CSS 镜像一直没有的「新变量必须登记」防线)、预设绑定核对。
  *   BRAND 字段快照也从手写名单改成**由矩阵算出**(手写的第二份名单迟早分叉)。
  * ────────────────────────────────────────────────────────────────────────────
  * 2026-07-28 第四轮。对抗验证的结论是「正面打不穿,侧面有洞」—— 本轮只堵侧面,
@@ -79,8 +79,8 @@
  *      断言照样绿。现在下限 = MIN_BOUND_VARS,「矩阵被精简」这件事本身即报警。
  *
  * ⚠️ 本轮**已知未动**的:跨包矩阵的覆盖范围(同包里 app.json / icons.ts / wxml /
- *    _shared/convert.js / favicon.svg / email_template.go 等约 23 个持有品牌字面值的
- *    文件仍无人看管)、长度族(圆角 / 字号)的三单位换算。那是下一棒的事,
+ *    favicon.svg / email_template.go 等持有品牌字面值的文件仍无人看管)、
+ *    圆角长度族的跨端单位换算。那是下一棒的事,
  *    本轮只改判定机制,不改覆盖范围 —— 两件事混在一次改动里会让「哪条规则在保护什么」
  *    重新变得说不清。
  * ────────────────────────────────────────────────────────────────────────────
@@ -88,25 +88,23 @@
  * (漏洞 E)。它是所有洞里**危害最大**的一个,因为它不需要任何技巧就能绕过 ——
  * 不是绕过规则,而是**站在规则的射程之外**:实测把 miniprogram/lib/icons.ts 的
  * 红/绿/文字色全改坏,41 条用例全绿;哪怕改成的 #111111 就在退休名单上,
- * 「退休色残留」也不响,因为它只扫 frontend-user/src + 矩阵里那三份文件。
+ * 「退休色残留」也不响,因为它只扫 frontend-user/src + 当时矩阵里的镜像文件。
  *
- * 新增一族「全仓资产」规则(见文件末尾同名 describe),四条:
- *   1. **退休品牌色零容忍 —— 全仓口径**。射程从「src + 三份镜像」扩到整个仓库
+ * 新增一族「全仓资产」规则(见文件末尾同名 describe),三条:
+ *   1. **退休品牌色零容忍 —— 全仓口径**。射程从「src + 镜像」扩到整个仓库
  *      (排除 node_modules / 构建产物 / docs 与 .md / .pen 旧真源 / 采集素材,
  *       每条排除都写了理由)。这是最自维护的一条:靶子是 8 个具体的值,
  *      不需要任何人登记任何东西,任何包里写下退休色都会红。
  *   2. **反向扫描**:拿 globals.css 的**当前值**去全仓反查,持有品牌真值却不在
  *      矩阵里的文件一律报「无人看管」。判据自维护 —— token 改值,靶子跟着改。
- *   3. **字面值镜像的值断言**:上一条登记进来的 26 个文件,逐个要求
+ *   3. **字面值镜像的值断言**:上一条登记进来的文件,逐个要求
  *      「文件里每一个颜色都能追溯到 globals 的当前值,否则具名豁免并写理由」。
- *   4. **副本必须与源逐字节一致**:scholay-minitools 的 build.sh 把 _shared/ cp 进
- *      7 个工具目录,那 14 份副本此前也无人看管。
  *
- * 顺带补了两个**退休的蓝**(#1A56DB / #1E5FA8)—— 两份 CSS 镜像的文件头自己
+ * 顺带补了两个**退休的蓝**(#1A56DB / #1E5FA8)—— CSS 镜像的文件头自己
  * 把 #1a56db 列在「落后两代」的清单里,而没有任何规则拦它。
  *
- * ⚠️ 本轮**已知且刻意不做**的:长度族(圆角 / 字号 / 间距)的跨包对齐。
- *    globals 用 rem、brand.css 用 px、app.wxss 用 rpx,三种单位;而 `--radius-pill`
+ * ⚠️ 本轮**已知且刻意不做**的:圆角 / 间距的跨包对齐。
+ *    globals 用 rem/px、app.wxss 用 rpx;而 `--radius-pill`
  *    是 `9999px` ↔ `9999rpx`,**不服从**任何换算系数。硬套一个系数造出来的是一条
  *    注定误报的规则,而误报的下场从来是规则被放宽 —— 宁可把缺口明说。
  *    要补请单独立一条**带单位换算表**的规则,别混进颜色族。(已写进 blockers。)
@@ -119,7 +117,7 @@ import { ROOT_TOKENS, stripCssComments, tokenValue } from './lib/design-tokens';
 
 const SRC = join(__dirname, '..', 'src');
 const GLOBALS = join(SRC, 'styles', 'globals.css');
-/** 仓库根 —— 「跨包镜像」那条规则要读 frontend-user/ 之外的三个兄弟包。 */
+/** 仓库根 —— 「跨包镜像」那条规则要读 frontend-user/ 之外的两个兄弟包。 */
 const REPO = join(__dirname, '..', '..');
 
 /**
@@ -142,7 +140,7 @@ export function walk(dir: string, out: string[] = []): string[] {
  * 把注释内容抹成空格(保留换行与列位置,行号不变)。
  *
  * 为什么必须做: 本文件的规则全是「找类名字面量」,而注释里【必然】会出现这些词 ——
- * 解释「为什么这里的 outline-none 是合法的」「白字在 #E5A800 上只有 2.11:1」的注释,
+ * 解释「为什么这里的 outline-none 是合法的」「白字在 #B4880E 上只有 3.25:1」的注释,
  * 会被原样计成违规。上一版没做这件事,直接后果是**写解释性注释会让 CI 变红**,
  * 而这恰恰惩罚了唯一能让后人看懂决策的行为。
  *
@@ -249,18 +247,18 @@ export { stripCssComments, tokenValue };
  * 2026-07-28 第五轮新增的**全仓**零容忍)。
  *
  * 提成模块级常量是有意的:这份名单一旦分叉,「src 里禁了、镜像里没禁」就会重演
- * 2026-07-28 之前的实况(三个镜像同时落后两代,而 51 条护栏全绿)。
+ * 2026-07-28 之前的实况(跨包镜像落后两代,而 51 条护栏全绿)。
  */
 const RETIRED_BRAND: [string, string][] = [
   ['CC2222', '一代品牌红(现 --brand-red #882828)'],
   ['CD2323', '海报里漂移出来的第二个红'],
   ['2A7A2A', '两代前的品牌绿(现 --brand-green #2F4D29)'],
-  ['D4A017', '一代品牌琥珀(现 --brand-amber #E5A800)'],
+  ['D4A017', '一代品牌琥珀(现 --brand-amber #B4880E)'],
   ['DD9D13', '琥珀的另一个变体'],
   ['111111', '旧「纯黑」(现玄墨 --foreground #1F1F23)'],
   // ── 2026-07-28 第五轮补两个**蓝**。它们此前不在名单里,而蓝系早已整族退休
   //    (Figma 四色阶完全没有蓝,期刊线改用琥珀 —— 见 docs/design-migration-ledger)。
-  //    证据不是推测:两份 CSS 镜像的文件头**自己**把 #1a56db 列在「落后两代」的清单里,
+  //    证据不是推测:CSS 镜像的文件头**自己**把 #1a56db 列在「落后两代」的清单里,
   //    却没有任何一条规则拦它。实测新增后全仓只多出 1 处命中(见 RETIRED_DEBT)。
   ['1A56DB', '退休的品牌蓝(期刊线已改琥珀;现存的蓝只有 --cat-blue / --status-info #2E5AA8)'],
   ['1E5FA8', '海报/分享者头像里漂移出来的第二个蓝(与 CD2323 同一类:体系里从来没有过这个值)'],
@@ -420,7 +418,7 @@ describe('颜色', () => {
     //
     // 2026-07-28: 名单与形态构造提到模块级 RETIRED_BRAND / retiredForms() ——
     //   「跨包镜像」那条规则用的必须是**同一份**。名单一旦分叉,就会重演
-    //   「src 里禁了、三个镜像里没禁」的实况。
+    //   「src 里禁了、跨包镜像里没禁」的实况。
     const { forms, triples } = retiredForms();
     // 科研绘图素材区(bioicons CC0 + 自绘)里的 #d4a017 / #111 是**配色巧合**:
     // 它们表达的是分子/细胞器的科研语义,不是品牌色,与本规则要防的换代残留无关。
@@ -479,7 +477,7 @@ describe('颜色', () => {
     // 在 NotificationBell 与 MobileSearchOverlay 里是两种不同的白。
     //
     // 深底上的前景色: text-on-dark(玄墨底) / text-on-brand(朱砂·松青实底) /
-    //                text-foreground(**琥珀实底** —— 白字在 #E5A800 上只有 2.11:1)
+    //                text-foreground(**琥珀实底** —— 白字在 #B4880E 上只有 3.25:1)
     expect(hits(/\btext-background(?:\/\d+)?\b/)).toEqual([]);
   });
 
@@ -571,7 +569,7 @@ describe('颜色', () => {
 
 describe('排印', () => {
   it('arbitrary 字号只减不增', () => {
-    // 为什么: Figma 规定 6 档 12/14/16/20/24/28,新代码用 text-12 这类数值名。
+    // 为什么:dev.pen 规定 8 档 12/14/16/18/20/24/28/32,新代码用 text-12 这类数值名。
     // ⚠️ 上一版把 share/ 计入同一个基线,26/46 的额度被海报占用,
     //    等于给正常代码留了 2 格免费额度。现在拆开:海报单独豁免,主基线收紧。
     //
@@ -579,7 +577,7 @@ describe('排印', () => {
     //    「纯数字 + px/rem/em」,而 landing 的 6 处展示级字号全是 `text-[clamp(40px,6vw,72px)]`
     //    ——**对护栏完全隐身**。同一轮审计里「读数系统性失真 16%」说的就是它:
     //    报出来的 6 处是实际 12 处的一半,而报告把 6 当成了全部。
-    //    响应式字号本身可以是合规决策(landing 6 处都补了 Figma 依据注释),
+    //    响应式字号本身可以是合规决策(landing 6 处都补了设计依据注释),
     //    但「合规」必须先经过计数,不能靠正则看不见来实现。
     const POSTER = ['shared/components/share/']; // 固定 390px 导出画布,构图参数非 UI 档位
     //
@@ -623,17 +621,18 @@ describe('排印', () => {
     expect(hits(/\bleading-\[[0-9.]+\]/).filter(notIn(ALLOW))).toEqual([]);
   });
 
-  it('font-bold 只允许出现在衬线/等宽字族上(只减不增)', () => {
-    // 为什么: Figma §2.3 —— Google Sans 只有 400/500,**无衬线 UI 上不存在 600/700**。
-    // Noto Serif SC(300/500/700)与 Playfair(400/500/700)才有 700。
-    // 上一版只禁了 font-semibold,font-bold 完全没管。
+  it('font-bold 只允许出现在展示/品牌/衬线/等宽角色上(只减不增)', () => {
+    // Google Sans 资产覆盖 400–700，但 Pen 的正文控件仍以 400/500 为主。
+    // 700 只在显式 display / serif / mono 或冻结 brand 角色中放行，
+    // 避免普通 sans 控件重新长出随意粗体。
     const bad = hits(/\bfont-bold\b/).filter((h) => {
       const [loc] = h.split('  «');
       const [path, ln] = loc.split(':');
       const f = FILES.find((x) => x.path === path);
       const line = f?.text.split('\n')[Number(ln) - 1] ?? '';
-      // 同行出现衬线/展示/等宽字族 → 合规(粗略但够用;跨行的父级字族由 review 兜)
-      return !/\bfont-(?:serif|display|mono)\b/.test(line);
+      // 同行出现展示/品牌/衬线/等宽字族 → 合规
+      // (粗略但够用;跨行的父级字族由 review 兜)
+      return !/\bfont-(?:serif|display|brand|mono)\b/.test(line);
     });
     ratchet('sans 上的 font-bold', bad, 13);
   });
@@ -942,21 +941,20 @@ describe('样式系统逃逸', () => {
 /* ────────────────────────────────────────────────────────── 跨包镜像 ── */
 
 /**
- * globals.css 在 **frontend-user 之外**还有三份人工镜像。
+ * globals.css 在 **frontend-user 之外**还有两份人工镜像。
  *
  * 🔴 这是「资产统一管理」最后一个纯靠人自觉的缺口:上面 50+ 条规则全部只 walk
- *    `frontend-user/src`,三个镜像**物理上在护栏射程之外**。代价已经付过 ——
- *    它们曾**同时**停在两代前的品牌色(#CC2222 / #2A7A2A / #D4A017),
- *    而当时 51 条护栏全绿,三个文件的文件头还都写着「对齐 globals.css」。
+ *    `frontend-user/src`,镜像**物理上在护栏射程之外**。代价已经付过 ——
+ *    它们曾停在两代前的品牌色(#CC2222 / #2A7A2A / #D4A017),
+ *    而当时 51 条护栏全绿,镜像文件的文件头还都写着「对齐 globals.css」。
  *    契约注释拦不住漂移,只有断言能。
  *
  * 为什么必须是人工镜像(不能 import 真源):
  *   - `miniprogram/app.wxss`            wxss 既不能 @import Web CSS,也没有构建期注入
- *   - `scholay-minitools/_shared/brand.css`  小红书离线 H5,禁外链 → 必须自带样式
  *   - `agent/src/render/pptxNative.ts`  pptxgenjs 只认**不带 `#` 的六位十六进制**
  *
- * ⚠️ 三份镜像的 token 集合**不一样,而且这是对的**:
- *    前两份是完整设计系统的镜像(表面/文字/边框/品牌全套);
+ * ⚠️ 两份镜像的 token 集合**不一样,而且这是对的**:
+ *    app.wxss 是完整设计系统的镜像(表面/文字/边框/品牌全套);
  *    pptxNative 只是一张导出用调色板,`BRAND` 里**只有渲染器真正画得出来的那几个色**
  *    —— 没有 amber / foreground,页底还刻意是纯白 `FFFFFF` 而非米白
  *    (投影与打印场景不用米白,这是有意决策,写在该文件的注释里)。
@@ -977,7 +975,7 @@ describe('样式系统逃逸', () => {
  * 逐个解析、逐个比值。一对多必须**全部**列出 —— 少列一个就是给它留一个后门。
  *
  * 顺带扩了覆盖面(值已逐条实测对齐,不是猜的):从「品牌三色 + 前景 + 页底」5 个
- * 扩到表面/文字/边框/品牌/状态软底/logo 全套。理由很简单:漏登记的变量与
+ * 扩到表面/文字/边框/品牌/状态软底。理由很简单:漏登记的变量与
  * 「登记了但不检查」在漂移面前是同一件事。
  *
  * ⚠️ 不能 bind 的颜色**不等于可以不管** —— 它们现在全部落在各镜像的 `derived` 里,
@@ -993,11 +991,11 @@ describe('样式系统逃逸', () => {
  *        逐位相等口径,升级前得先拍板「差 1/255 的舍入算不算漂移」。留给下一棒。
  *
  * ⚠️ 本 describe **已知的剩余缺口**(不是遗漏,是明说的边界):
- *   · 长度族(圆角 / 字号)—— 三种单位并存(globals 用 rem、brand.css 用 px、
+ *   · 长度族(圆角)—— 两种单位并存(globals 用 rem/px、
  *     app.wxss 用 rpx),且 `--radius-pill` 是 `9999px` ↔ `9999rpx`,**不服从**
  *     任何统一换算系数。硬套系数会造出一条注定误报的规则,而误报的下场是被放宽。
  *     要补请单独立一条带单位换算的规则,别混进本条。
- *   · 本 describe 的射程**只有这三份文件**,这是有意的分工:它做的是**变量级绑定**
+ *   · 本 describe 的射程**只有这两份文件**,这是有意的分工:它做的是**变量级绑定**
  *     (「globals 的 X 绑在该镜像的哪几个变量上」),而那要求镜像本身是一份
  *     结构化的 token 表。同包里另外那二十来个持有品牌字面值的文件
  *     (app.json / .wxml / favicon.svg / Go 邮件模板 …)结构上给不出变量名,
@@ -1091,52 +1089,6 @@ const MIRRORS: {
     },
   },
   {
-    path: 'scholay-minitools/_shared/brand.css',
-    kind: 'css',
-    bind: [
-      // —— 表面层 ——
-      { token: '--background', vars: ['--background'] },
-      { token: '--surface-card', vars: ['--card'] },
-      { token: '--surface-1', vars: ['--surface-1'] },
-      { token: '--surface-2', vars: ['--surface-2'] },
-      // —— 文字层 ——
-      { token: '--foreground', vars: ['--ink'] },
-      { token: '--subtle-foreground', vars: ['--ink-dim'] },
-      { token: '--muted-foreground', vars: ['--ink-mut'] },
-      { token: '--on-brand', vars: ['--on-brand'] },
-      // —— 边框层 ——
-      { token: '--border-hairline', vars: ['--line-soft'] },
-      { token: '--border', vars: ['--line'] },
-      { token: '--border-strong', vars: ['--line-strong'] },
-      // —— 品牌 ——(`--danger` / `--line-btn` 是纯 var() 别名,跟着被指向的变量走,不单列)
-      { token: '--brand-red', vars: ['--brand'] },
-      { token: '--red-4', vars: ['--brand-2'] },
-      { token: '--brand-green', vars: ['--brand-3'] },
-      { token: '--brand-amber', vars: ['--amber'] },
-      { token: '--cat-blue', vars: ['--cat-blue'] },
-      // —— 状态软底 ——
-      { token: '--status-success-soft', vars: ['--green-soft'] },
-      { token: '--status-warning-soft', vars: ['--amber-soft'] },
-      { token: '--status-warning', vars: ['--amber-ink'] },
-      // —— Logo 专用配色 —— globals §五 明确「与语义品牌色分开,不要合并」,
-      //    所以它们的真源是 --logo-*,**不是** --brand-*(--logo-red 恰好等于 --brand-red
-      //    是巧合;绑错真源会让「为可读性调品牌色」连带把标志判成漂移)。
-      { token: '--logo-red', vars: ['--logo-red'] },
-      { token: '--logo-amber', vars: ['--logo-amber'] },
-      { token: '--logo-green', vars: ['--logo-green'] },
-      { token: '--logo-ink', vars: ['--logo-ink'] },
-      // 唯一一个非颜色绑定 —— 走 sameValue 的「数值 + 单位」归一(`-.03em` = `-0.03em`)。
-      { token: '--tracking-brand', vars: ['--tracking-brand'] },
-    ],
-    derived: {
-      '--danger-soft':
-        '文件自陈「= globals --brand-red-soft」,但真源那边是 color-mix(in srgb, …) 不是可比的字面色 —— 与 app.wxss 的 --red-soft 同一件事(见 blockers)',
-      '--danger-line': '镜像自派生:品牌红 25% 叠白的软描边,globals 里没有对应 token',
-      '--green-line': '同上,松青 25% 叠白',
-      '--amber-line': '同上,琥珀 25% 叠白',
-    },
-  },
-  {
     // ⚠️ hair=D6D6D8 自称「--border-strong 玄墨 22% 叠白」,而 --border-strong 现值
     //    rgb(31 31 35 / 0.22) 叠白实算是 **CECECF**(D6D6D8 反解只有 ~18.3% alpha)。
     //    这是一处**待人拍板的偏差**,故意不绑定 —— 规则不迁就现状,但改它会让
@@ -1171,7 +1123,7 @@ const MIRRORS: {
 ];
 
 /**
- * 颜色值归一成 `r,g,b,a` —— 三份镜像与真源的**写法不一样**,只有归一后才能比:
+ * 颜色值归一成 `r,g,b,a` —— 镜像与真源的**写法不一样**,只有归一后才能比:
  *   globals `rgb(31 31 35 / 0.12)` ↔ 镜像 `rgba(31, 31, 35, 0.12)` ↔ pptx `882828`(无 #)。
  * 🔴 不能退化成「文本相等」:那会把「写法不同但同色」判成漂移,而误报的下场从来都是规则被放宽。
  *
@@ -1405,8 +1357,8 @@ function mirrorLiterals(text: string, kind: 'css' | 'ts'): Literal[] {
  * 镜像文件在不在。
  *
  * ⚠️ frontend-user 的 Docker 构建 `context: ./frontend-user`,而 `prebuild` 会跑
- *    `npm run test:design` —— 那个环境里三个兄弟包**物理上不存在**。所以:
- *      · 三个都不在 且 仓库根标志物(docker-compose.yml)也不在 → 判定为「构建上下文」,
+ *    `npm run test:design` —— 那个环境里两个兄弟包**物理上不存在**。所以:
+ *      · 两个都不在 且 仓库根标志物(docker-compose.yml)也不在 → 判定为「构建上下文」,
  *        整条规则跳过并打印原因(**不是静默 skip**);
  *      · 其余任何组合(哪怕只少一个)→ 硬失败。少一个通常意味着有人移动/删除了镜像,
  *        那正是最需要报警的时刻。
@@ -1420,20 +1372,20 @@ const ALL_MIRRORS_PRESENT = MIRROR_PRESENT.length === MIRRORS.length;
  *
  * 🔴 上一版的空转下限是 `checked >= MIRROR_PRESENT.length * 2`(实际下限 6),
  *    而矩阵有 51 条 bind / 52 个绑定变量 —— **删掉 88% 的矩阵仍然全绿**。
- *    空转防线的作用是「规则还活着吗」,下限贴着 6 就等于只证明了「三个文件都能打开」。
+ *    空转防线的作用是「规则还活着吗」,下限贴着 6 只能证明「镜像文件能打开」。
  *    现在下限直接挂在矩阵规模上:少一个绑定就红,要真的下线某个绑定必须同时压这个数,
  *    而压它是一个显式动作 —— 这正是「删规则」应有的成本。
- * 只在三份镜像齐全时校验(缺文件另有断言负责,不连坐)。
+ * 只在两份镜像齐全时校验(缺文件另有断言负责,不连坐)。
  */
-const MIN_BOUND_VARS = 52; // 2026-07-28 实测:24(app.wxss)+ 24(brand.css)+ 4(pptxNative)
-/** 两份 CSS 镜像里颜色声明的总数下限 —— 同上,防「解析器坏了 / 文件被掏空」时静默全绿。 */
-const MIN_CSS_COLOR_DECLS = 55; // 2026-07-28 实测:28(app.wxss)+ 27(brand.css)
+const MIN_BOUND_VARS = 28; // 2026-08-08 实测:24(app.wxss)+ 4(pptxNative)
+/** CSS 镜像里颜色声明的总数下限 —— 同上,防「解析器坏了 / 文件被掏空」时静默全绿。 */
+const MIN_CSS_COLOR_DECLS = 28; // 2026-08-08 实测:28(app.wxss)
 
 let warnedOnce = false;
 /**
  * 不在完整仓库里时把用例标成 **skipped**,而不是 `return` 假装通过。
  * 「跳过」和「通过」在报告里必须长得不一样 —— 一条永远绿的规则和一条不存在的规则等价,
- * 而本文件的历史教训正是「51 条护栏全绿」掩盖了三个镜像同时落后两代。
+ * 而本文件的历史教训正是「51 条护栏全绿」掩盖了跨包镜像落后两代。
  */
 function skipOutsideRepo(ctx: { skip: () => void }) {
   if (MIRROR_PRESENT.length > 0 || IN_FULL_REPO) return;
@@ -1441,13 +1393,13 @@ function skipOutsideRepo(ctx: { skip: () => void }) {
     warnedOnce = true;
     console.warn(
       '[design-guard] 跨包镜像规则已跳过:当前不在完整仓库里(frontend-user 的 Docker ' +
-        '构建 context 只有 ./frontend-user,三个兄弟包物理上不在)。全仓跑时它会执行。'
+        '构建 context 只有 ./frontend-user,两个兄弟包物理上不在)。全仓跑时它会执行。'
     );
   }
   ctx.skip();
 }
 
-describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', () => {
+describe('跨包镜像(globals.css → 小程序 / pptx 导出)', () => {
   it('镜像里的**每一个**登记变量都必须绑住 globals.css 的当前真值', (ctx) => {
     skipOutsideRepo(ctx);
     expect(
@@ -1469,7 +1421,7 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
     let checked = 0;
     for (const m of MIRROR_PRESENT) {
       const raw = readFileSync(join(REPO, m.path), 'utf8');
-      // 🔴 必须剥注释再查。三份镜像的注释里都写着「(旧 #cc2222)」这类沿革说明,
+      // 🔴 必须剥注释再查。镜像的注释里都写着「(旧 #cc2222)」这类沿革说明,
       //    也都复述过当前值 —— 不剥注释的话,「注释里提到过」就能冒充「值已同步」。
       const text = m.kind === 'css' ? stripCssComments(raw) : stripComments(raw);
       const decls = mirrorDecls(text, m.kind);
@@ -1526,7 +1478,7 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
     }
     expect(
       drift,
-      '镜像与 globals.css 对不上。改真源就必须同步这三份人工镜像(每份文件头都有「上次同步」一行,一并更新):\n' +
+      '镜像与 globals.css 对不上。改真源就必须同步这两份人工镜像(镜像文件头的同步日期一并更新):\n' +
         drift.join('\n')
     ).toEqual([]);
     // 规则空转防线(与「动效对齐」那几条同款):矩阵被清空 / 解析全 miss 时,
@@ -1543,10 +1495,56 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
     expect(checked, '一个变量都没真的比对到 —— 规则空转了,先修解析或矩阵').toBeGreaterThanOrEqual(boundVars);
   });
 
+  it('小程序字号阶梯与字体栈必须镜像 Web 真源', (ctx) => {
+    skipOutsideRepo(ctx);
+    const path = join(REPO, 'miniprogram/app.wxss');
+    if (!existsSync(path)) return; // 缺文件由本 describe 第一条负责报警
+    const decls = mirrorDecls(stripCssComments(readFileSync(path, 'utf8')), 'css');
+    const sizes = [12, 14, 16, 18, 20, 24, 28, 32];
+    const cssPx = (raw: string): number | null => {
+      const m = /^(\d+(?:\.\d+)?)(rem|px)$/.exec(raw.trim());
+      if (!m) return null;
+      return Number(m[1]) * (m[2] === 'rem' ? 16 : 1);
+    };
+
+    for (const size of sizes) {
+      const web = tokenValue(`--text-${size}`);
+      expect(cssPx(web), `globals --text-${size} 必须等于 ${size}px,实际 ${web}`).toBe(size);
+      expect(
+        decls.get(`--fs-${size}`),
+        `app.wxss --fs-${size} 必须按 1px = 2rpx 镜像 globals --text-${size}`
+      ).toEqual([`${size * 2}rpx`]);
+    }
+
+    const normalizeStack = (raw: string) =>
+      raw.replace(/["']/g, '').replace(/\s+/g, ' ').replace(/\s*,\s*/g, ',').trim();
+    for (const token of ['--font-sans', '--font-serif', '--font-display']) {
+      const mini = decls.get(token);
+      expect(mini, `app.wxss 缺少字体镜像 ${token}`).toHaveLength(1);
+      expect(normalizeStack(mini![0]), `app.wxss ${token} 字族顺序与 globals 不一致`).toBe(
+        normalizeStack(tokenValue(token))
+      );
+    }
+  });
+
+  it('小程序琥珀软描边必须由品牌琥珀 25% 叠白得到', (ctx) => {
+    skipOutsideRepo(ctx);
+    const path = join(REPO, 'miniprogram/app.wxss');
+    if (!existsSync(path)) return;
+    const decls = mirrorDecls(stripCssComments(readFileSync(path, 'utf8')), 'css');
+    const amber = canonicalColor(tokenValue('--brand-amber'))?.split(',').map(Number);
+    expect(amber, 'globals --brand-amber 必须是可解析的不透明颜色').toHaveLength(4);
+    const line = amber!.slice(0, 3).map((channel) => Math.round(channel * 0.25 + 255 * 0.75));
+    const expected = `${line.join(',')},1`;
+    const actual = decls.get('--amber-line');
+    expect(actual, 'app.wxss 缺少 --amber-line').toHaveLength(1);
+    expect(canonicalColor(actual![0]), '--amber-line 必须按品牌琥珀 25% 叠白重算').toBe(expected);
+  });
+
   it('CSS 镜像里的**每一个**颜色声明都必须有交代:绑真源 token,或登记成自派生并写理由', (ctx) => {
     skipOutsideRepo(ctx);
     // 为什么单独一条: 上面那条只保证「**登记过的**变量是对的」,管不住镜像**长出新变量**。
-    // pptxNative 有「BRAND 字段对账」兜这件事(下面那条),两份 CSS 镜像此前没有对应物。
+    // pptxNative 有「BRAND 字段对账」兜这件事(下面那条),CSS 镜像此前没有对应物。
     //
     // 🔴 2026-07-28 第四轮换判据。上一版问的是「这个未登记变量的值**恰好等于**某个
     //    globals token 吗」—— 于是它只在「值写对了」时才追究,**把值写错反而安静**:
@@ -1623,11 +1621,11 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
     if (ALL_MIRRORS_PRESENT)
       expect(
         colorDecls,
-        `两份 CSS 镜像里只解析出 ${colorDecls} 个颜色声明(基线 ${MIN_CSS_COLOR_DECLS})—— 先确认是真删了变量还是解析器坏了`
+        `CSS 镜像里只解析出 ${colorDecls} 个颜色声明(基线 ${MIN_CSS_COLOR_DECLS})—— 先确认是真删了变量还是解析器坏了`
       ).toBeGreaterThanOrEqual(MIN_CSS_COLOR_DECLS);
   });
 
-  it('三份镜像里「非声明位置」的颜色字面量必须等于某个真源 token(或具名豁免)', (ctx) => {
+  it('两份镜像里「非声明位置」的颜色字面量必须等于某个真源 token(或具名豁免)', (ctx) => {
     skipOutsideRepo(ctx);
     // 🔴 为什么必须单独一条: 上面两条问的都是「**变量 X 的值**对不对」,
     //    而颜色可以根本不经过变量 —— 直接写进 background / border / box-shadow /
@@ -1649,7 +1647,7 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
     const deadEntries: string[] = [];
     for (const m of MIRROR_PRESENT) {
       const raw = readFileSync(join(REPO, m.path), 'utf8');
-      // 剥注释:三份镜像的注释里都复述过颜色值、还写着「(旧 #cc2222)」这类沿革。
+      // 剥注释:镜像的注释里都复述过颜色值、还写着「(旧 #cc2222)」这类沿革。
       // pptxNative 的注释里另有 `#1449` / `#285`(GitHub issue 号)—— 4 位/3 位都是合法
       // hex 形态,不剥注释就是两处纯误报。
       const text = m.kind === 'css' ? stripCssComments(raw) : stripComments(raw);
@@ -1685,8 +1683,7 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
         bad.join('\n')
     ).toEqual([]);
     // 空转防线:literals 全部命中即证明 CSS 与 TS 两条扫描链路都真的在跑
-    //(app.wxss 有 CSS 侧的活体、pptxNative 有 TS 侧的活体)。brand.css 当前 0 处字面量,
-    // 它的解析器由下面这条声明数下限兜。
+    //(app.wxss 有 CSS 侧的活体、pptxNative 有 TS 侧的活体)。
     if (ALL_MIRRORS_PRESENT)
       for (const m of MIRROR_PRESENT.filter((x) => x.kind === 'css'))
         expect(
@@ -1695,7 +1692,7 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
         ).toBeGreaterThan(20);
   });
 
-  it('三份镜像里不得残留退休品牌色(与 src 用同一份名单)', (ctx) => {
+  it('两份镜像里不得残留退休品牌色(与 src 用同一份名单)', (ctx) => {
     skipOutsideRepo(ctx);
     // 为什么单独一条: 上一条查的是「新值在不在」,这条查「旧值还在不在」。
     // 两者不等价 —— 同一个文件完全可以既有新声明、又在别处留着一个旧值
@@ -1721,7 +1718,7 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
     }
     expect(
       found,
-      '镜像里出现了退休品牌色。历史实况:三份镜像曾同时停在两代前的 #CC2222 / #2A7A2A / #D4A017,\n' +
+      '镜像里出现了退休品牌色。历史实况:跨包镜像曾停在两代前的 #CC2222 / #2A7A2A / #D4A017,\n' +
         '而当时全部护栏绿灯 —— 就是因为没有这条断言:\n' +
         found.join('\n')
     ).toEqual([]);
@@ -1729,7 +1726,7 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
 
   it('pptxNative 的 BRAND 字段必须逐个「有登记 或 有具名豁免」', (ctx) => {
     skipOutsideRepo(ctx);
-    // 为什么: 上面第一条只管**登记过的**字段,如果有人往 BRAND 里加了 `amber: 'E5A800'`
+    // 为什么: 上面第一条只管**登记过的**字段,如果有人往 BRAND 里加了 `amber: 'B4880E'`
     // 却没同步矩阵,那个新字段就回到「无人看管」状态 —— 这条把「加字段」强制变成「必须表态」。
     //
     // 2026-07-28: 期望值从**手写快照**改成**由矩阵算出来**(bind 的字段 + unbound 的字段)。
@@ -1765,23 +1762,21 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
 /**
  * 🔴 漏洞 E ——「矩阵是手工名单,名单之外的文件谁也没在看」。
  *
- * 上面每一条规则的射程都是 `frontend-user/src` 或矩阵里那三份镜像。而设计资产
- * **不止在这两个地方**:小程序的 app.json / .wxml / lib/icons.ts、小工具的
- * `_shared/convert.js` 与各 app.js、`frontend-user/public/favicon.svg`(在 src 之外)、
+ * 上面每一条规则的射程都是 `frontend-user/src` 或矩阵里的两份镜像。而设计资产
+ * **不止在这两个地方**:小程序的 app.json / .wxml / lib/icons.ts、
+ * `frontend-user/public/favicon.svg`(在 src 之外)、
  * 后端的对外邮件模板与 SSR 首屏内联样式、`design/remotion` 的宣传片素材 ……
  * 实测:把 `miniprogram/lib/icons.ts` 的红/绿/文字色全改坏 —— **41 条用例全绿**,
  * 而那个文件的文件头自己写着「改 globals → 改 app.wxss → 也要改这里,三处必须一起动」;
  * 它改坏后的文字色 #111111 就在退休名单上,「退休色残留」那条也没响 ——
- * 因为它只扫 src + 矩阵里那三份文件。**契约注释拦不住漂移,断言只能拦它够得着的地方。**
+ * 因为它只扫 src + 矩阵里的镜像文件。**契约注释拦不住漂移,断言只能拦它够得着的地方。**
  *
- * 本族四条规则,按「越靠前越自维护」排:
+ * 本族三条规则,按「越靠前越自维护」排:
  *   ① 退休色零容忍(**全仓**)—— 靶子是 RETIRED_BRAND 里 8 个具体的值,零登记成本。
  *      任何人在任何包里写下退休色都会红,不需要谁先把那个文件登记进来。
  *   ② 反向扫描 —— 靶子是 globals.css 的**当前值**,同样零登记成本;
  *      它只回答一个问题:「这个文件持有品牌真值,它登记过吗?」
  *   ③ 字面值镜像的值断言 —— ② 登记进来的文件,逐个颜色对账。
- *   ④ 副本逐字节一致 —— minitools 的 build.sh 把 `_shared/` cp 进 7 个工具目录。
- *
  * ⚠️ **三条刻意的口径差**(写在这儿,免得下一个人当成漏洞去「修」):
  *   1. ③ 的判据是「能追溯到某个 token 的当前值」,**不是**「绑到某个 token 名上」。
  *      字面值镜像里没有名字可绑(`navigationBarBackgroundColor` 是微信的 JSON 键,
@@ -1795,7 +1790,8 @@ describe('跨包镜像(globals.css → 小程序 / 小工具 / pptx 导出)', ()
  *        app.wxss 写 `#F3E9E9`(截断)· design/remotion 写 `#F3EAEA`(进位)—— 两个都对。
  *      所以每个通道接受 floor / ceil 两个值。窗口是 8 种颜色 / 1677 万,可以忽略;
  *      而不做这件事会制造一整批必然误报,那才是真正的代价(误报 → 规则被放宽)。
- *   3. ②/③ 只管**颜色**。长度族(圆角 / 字号 / 间距)本轮完全不做 —— 见文件头的理由。
+ *   3. ②/③ 只管**颜色**。小程序字号/字体由上面跨包镜像的专用断言负责;
+ *      圆角 / 间距仍是已知边界。
  *
  * ⚠️ 关于 `readFileSync`:它读全字节,含非 UTF-8 字节的文件会得到 U+FFFD 而不是被跳过。
  *    这是刻意用它而不是 `grep` 的原因 —— BSD grep 默认**静默跳过**非 UTF-8 文件,
@@ -1813,7 +1809,7 @@ const FRONTEND_ROOT = join(__dirname, '..');
 const WALK_SKIP_DIRS: Record<string, string> = {
   node_modules: '第三方依赖,不是我们的设计资产',
   '.git': '版本库内部对象',
-  dist: '构建产物(minitools 打包出的 zip 目录)',
+  dist: '构建产物',
   build: '构建产物',
   out: '构建产物(remotion 导出的 gif)',
   coverage: '测试覆盖率产物',
@@ -1897,7 +1893,7 @@ function stripHashComments(src: string): string {
     .join('\n');
 }
 /**
- * 按语言剥注释。**剥注释是本族规则成立的前提**:三份镜像、globals.css、
+ * 按语言剥注释。**剥注释是本族规则成立的前提**:镜像、globals.css、
  * nginx.conf、markdown.ts …… 到处都有「(旧 #cc2222)」这类沿革注释,
  * 不剥的话「注释里提到过」就会被判成「代码里还留着」。
  */
@@ -2017,7 +2013,7 @@ const repoScan: () => RepoScan = (() => {
  *   derived : alpha token 叠在两种页底(纯白 / 米白)上的合成值,以及 color-mix() 的解析值。
  *             每通道接受 floor / ceil 两个整数(8 位舍入两种实现在本仓库同时存在)。
  *   alpha   : RGB 与某个 token 相同、只是叠了 alpha(`rgba(136, 40, 40, .12)` = 品牌红 12%)。
- *             小程序 wxss / 小工具 CSS 里这是常态写法,拦它等于要求它们先有一套 -alpha token。
+ *             小程序 WXSS 里这是常态写法,拦它等于要求它先有一套 -alpha token。
  *
  * 🔴 **刻意不做**的:任意百分比的「token 叠白」。做了的话几乎任何浅色都能被解释成
  *    「某个 token 的 x% 叠白」,这条规则就废了 —— 镜像里真正手工派生的那几个
@@ -2172,7 +2168,7 @@ const RETIRED_DEBT: { path: string; why: string; hits: Record<string, number> }[
  * **字面值镜像** —— 结构上给不出「变量名 → 值」的镜像,只能按值对账。
  *
  * 与上面 MIRRORS(变量级绑定)的分工:
- *   · MIRRORS      : 文件本身就是一张 token 表(app.wxss / brand.css / pptxNative 的 BRAND),
+ *   · MIRRORS      : 文件本身就是一张 token 表(app.wxss / pptxNative 的 BRAND),
  *                    能登记「globals 的 X 绑在这里的哪几个变量上」,逐值比对。
  *   · LITERAL_MIRRORS: 结构上没有变量位(微信 app.json 的导航栏色、.wxml 属性、
  *                    favicon.svg 的 fill、Go 里拼 HTML 的常量、Python 画 GIF 的字典),
@@ -2232,61 +2228,13 @@ const LITERAL_MIRRORS: { path: string; why: string; allow?: Record<string, strin
   },
   { path: 'miniprogram/pages/search/search.wxml', why: '<icon color="…"> 属性:wxml 属性值不能写 var(),只能字面色' },
   { path: 'miniprogram/pages/claw/claw.wxss', why: '页面 wxss:大量「品牌色叠 alpha」的阴影/描边,小程序没有 color-mix,只能写 rgba() 字面值' },
-  // ── 小工具(小红书离线 H5,禁外链 → 每个包必须自带样式)──
-  {
-    path: 'scholay-minitools/_shared/convert.js',
-    why: '底部转化卡的内联样式 + 内联二维码 SVG(离线包禁外链,连图片都得内联)',
-    allow: { '#0b1220': '内联二维码 SVG 的像素色 —— QR 码要的是最大对比度的深色,不是 UI 颜色' },
-  },
-  { path: 'scholay-minitools/checkrate/app.js', why: '查重红线仪表盘的档位配色,JS 里按分数算出来直接塞 style' },
-  { path: 'scholay-minitools/diff/app.js', why: '文本 diff 的增/删/改高亮色,同上' },
-  { path: 'scholay-minitools/predatory/app.js', why: '风险计的五级配色,同上' },
-  { path: 'scholay-minitools/stats/app.js', why: 'Canvas 图表的序列色 —— canvas 上下文只吃字面色,拿不到 CSS 变量' },
-  { path: 'scholay-minitools/formula/style.css', why: '公式编辑器的局部样式(mathlive 的 shadow DOM 部分变量透不进去)' },
-  {
-    path: 'scholay-minitools/sandbox/style.css',
-    why: '「落沙实验室」的深色舞台样式',
-    allow: {
-      'rgba(64,84,150,.18)': '舞台顶部的冷光晕(深色实验视窗的氛围光,不是 UI 色)',
-      '#171b26': '舞台底:深空渐变起点',
-      '#0d0f16': '舞台底:深空渐变终点',
-      'rgba(5,6,10,.5)': '舞台内侧晕影',
-      '#d9dee9': '舞台内提示文字(深底上的浅灰,体系里最接近的 --on-dark #E6E6F2 在深空底上偏亮)',
-    },
-  },
-  {
-    path: 'scholay-minitools/sandbox/sim.js',
-    why: '元胞自动机内核的**材料色板**(沙/水/石/植物/油/岩浆/酸/冰/火/炸药)—— 游戏美术,与品牌体系无关,与 src 侧 figure/ 科研绘图素材同一条理由',
-    allow: {
-      '#e3c078': '材料色:沙',
-      '#3f7fe0': '材料色:水',
-      '#7b8494': '材料色:石',
-      '#3fa65e': '材料色:植物',
-      '#5a4a33': '材料色:油',
-      '#ff7a1a': '材料色:岩浆',
-      '#a3e635': '材料色:酸',
-      '#a5e8ff': '材料色:冰',
-      '#ff8a2a': '材料色:火',
-      '#e0564b': '材料色:炸药',
-    },
-  },
-  {
-    path: 'scholay-minitools/icons/sandbox.html',
-    why: '沙盒工具的 1024×1024 图标源(HTML → 截图导出 PNG),里面同时有品牌色和游戏美术色',
-    allow: {
-      'rgba(90,110,200,.30)': '图标底的冷光晕(深空氛围)',
-      '#18203a': '图标底:深空渐变起点',
-      '#0b0e18': '图标底:深空渐变终点',
-      '#5aa0f0': '「水」像素块渐变亮端(游戏美术)',
-      '#2f6fd0': '「水」像素块渐变暗端',
-      '#e6c26a': '「沙」像素块渐变亮端',
-      '#c99a17': '「沙」像素块渐变暗端',
-    },
-  },
   // ── 后端:值是**解析后的字面量**,不是 token 原文(换算关系写在各条 allow / 下面注释)──
   {
     path: 'backend/internal/common/utils/email_template.go',
     why: '对外邮件的 HTML 模板:邮件客户端(尤其 Outlook)不吃 CSS 变量,只能内联字面色。⚠️ 其中 #E4E4E5 是 `--border`(玄墨 12%)**叠白之后**的实色,不是 token 原文',
+    allow: {
+      '#e5a800': '用户明确要求暂不改 Logo / Scholay 字标;此处是邮件字标的冻结历史色,不得当作 UI 琥珀镜像',
+    },
   },
   {
     path: 'backend/internal/config/handler_ssr.go',
@@ -2343,18 +2291,6 @@ const LITERAL_MIRRORS: { path: string; why: string; allow?: Record<string, strin
 ];
 
 /**
- * `_shared/` 的副本 —— `scholay-minitools/build.sh` 打包时 `cp` 进每个工具目录。
- * 断言**逐字节一致**而不是逐值比对:副本的正确性判据本来就是「与源相同」,
- * 而且这样能顺带覆盖注释、字体、结构的漂移(源改了没重跑 build.sh = 副本落后)。
- */
-const MIRROR_COPIES: { copy: string; source: string }[] = ['checkrate', 'diff', 'formula', 'predatory', 'sandbox', 'stats', 'status'].flatMap(
-  (tool) => [
-    { copy: `scholay-minitools/${tool}/shared/brand.css`, source: 'scholay-minitools/_shared/brand.css' },
-    { copy: `scholay-minitools/${tool}/shared/convert.js`, source: 'scholay-minitools/_shared/convert.js' },
-  ]
-);
-
-/**
  * 退休色零容忍(规则 ①)的豁免 —— **只有两条,而且都必须是「值撞上了,但它不是品牌色」**。
  * 「这个目录太乱了懒得管」不是理由;那种情况正确的做法是进 RETIRED_DEBT 具名待修。
  */
@@ -2373,7 +2309,6 @@ const RETIRED_SCAN_EXEMPT: [string, string][] = [
 const UNMANAGED_EXEMPT: [string, string][] = [
   ['frontend-user/src/', 'src 侧另有一整套规则在管(硬编码 hex 棘轮 + 两条色板类名规则 + 退休色零容忍 + JS 字符串里的裸 CSS),再登记一遍就是第二份名单,而两份名单必然分叉'],
   ['frontend-user/tests/', '护栏自身:它的工作**就是**持有真源值做断言(RETIRED_BRAND / 期望值 / 错误信息里的示例色)'],
-  ['scholay-minitools/formula/mathlive.min.mjs', '第三方 vendored 库(mathlive 压缩产物,内置 400+ 个色板色);它命中信号纯粹是那 400 个里撞上了一个,不是镜像'],
 ];
 
 /**
@@ -2388,9 +2323,9 @@ const UNMANAGED_EXEMPT: [string, string][] = [
  *     RATCHET_REPORT=1 npx vitest run tests/design-system-guard.test.ts
  */
 const MIN_REPO_FILES = 1600; // 2026-07-28 实测 1765(排除 .md / .bcmap / 锁文件 / 二进制之后)
-const MIN_COLOR_FILES = 128; // 实测 142:预筛判定「可能含颜色」的文件
-const MIN_SIGNAL_FILES = 46; // 实测 52:持有 globals **当前值**的文件(白/黑不算信号)
-const MIN_LITERAL_CHECKS = 320; // 实测 357:字面值镜像里被成功追溯的颜色总数
+const MIN_COLOR_FILES = 103; // 2026-08-08 实测 115,正式移除已删除包后按约 90% 重算
+const MIN_SIGNAL_FILES = 27; // 实测 30:持有 globals **当前值**的文件(白/黑不算信号)
+const MIN_LITERAL_CHECKS = 276; // 新琥珀全部同步后预期 307,按约 90% 重算
 
 describe('全仓资产(矩阵之外的品牌字面值)', () => {
   it('退休品牌色零容忍 —— 全仓口径,不止 frontend-user/src', () => {
@@ -2501,10 +2436,9 @@ describe('全仓资产(矩阵之外的品牌字面值)', () => {
     const scan = repoScan();
     expect(SIGNAL_COLORS.size, 'globals.css 一个不透明颜色 token 都没解析到 —— 规则空转').toBeGreaterThan(20);
 
-    const registered = new Map<string, 'matrix' | 'literal' | 'copy'>();
+    const registered = new Map<string, 'matrix' | 'literal'>();
     for (const m of MIRRORS) registered.set(m.path, 'matrix');
     for (const m of LITERAL_MIRRORS) registered.set(m.path, 'literal');
-    for (const c of MIRROR_COPIES) registered.set(c.copy, 'copy');
 
     const unmanaged: string[] = [];
     const signalOf = new Map<string, string[]>();
@@ -2623,33 +2557,6 @@ describe('全仓资产(矩阵之外的品牌字面值)', () => {
       ).toBeGreaterThanOrEqual(MIN_LITERAL_CHECKS);
   });
 
-  it('scholay-minitools 的 _shared 副本必须与源逐字节一致', () => {
-    // 为什么是逐字节: 副本的正确性判据本来就是「与源相同」——
-    // build.sh 是 `cp` 而不是「同步几个颜色」。逐值比对反而会放过
-    // 「源改了注释/结构、副本没重跑 build.sh」这类漂移,而那正是最常见的形态
-    //(有人手改了 _shared/brand.css 就交差,7 份副本还停在旧内容)。
-    const drift: string[] = [];
-    for (const { copy, source } of MIRROR_COPIES) {
-      const cp = join(REPO, copy);
-      const sp = join(REPO, source);
-      if (!existsSync(sp) || !existsSync(cp)) {
-        if (IN_FULL_REPO) drift.push(`${copy}  或它的源 ${source} 不存在 —— 删/改名工具目录时必须同步本表`);
-        continue;
-      }
-      const a = readFileSync(sp);
-      const b = readFileSync(cp);
-      if (!a.equals(b)) drift.push(`${copy}  与 ${source} 不一致(${a.length} vs ${b.length} 字节)`);
-    }
-    expect(
-      drift,
-      '小工具的 shared/ 副本与 _shared/ 对不上。它们由 `scholay-minitools/build.sh` 生成:\n' +
-        '  cd scholay-minitools && bash build.sh   # 会重新 cp 并重打 zip\n' +
-        '⚠️ 不要手改副本 —— 改了下次 build.sh 就冲掉;真源是 _shared/。\n' +
-        drift.join('\n')
-    ).toEqual([]);
-    if (IN_FULL_REPO)
-      expect(MIRROR_COPIES.length, '副本清单被清空了 —— 删登记必须在 PR 里说明').toBeGreaterThanOrEqual(14);
-  });
 });
 
 /* ───────────────────────────────────────────── 动效 token 的跨语言对齐 ── */

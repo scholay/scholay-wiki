@@ -10,6 +10,10 @@ export interface InviteOpenResult {
   valid: boolean;
 }
 
+export async function recordInviteOpen(code: string): Promise<InviteOpenResult> {
+  return (await http.post<{ data: InviteOpenResult }>('/invite/open', { code })).data.data;
+}
+
 /**
  * 打开邀请链接计一次数(后端 open_count 原子 +1)。
  *
@@ -21,8 +25,7 @@ export interface InviteOpenResult {
  */
 export function useInviteOpen() {
   return useMutation({
-    mutationFn: async (code: string) =>
-      (await http.post<{ data: InviteOpenResult }>('/invite/open', { code })).data.data,
+    mutationFn: recordInviteOpen,
     onSuccess: (data) => {
       if (data.valid) {
         toast.success('邀请已生效,注册后自动关联');

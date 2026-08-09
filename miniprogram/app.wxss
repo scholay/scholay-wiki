@@ -5,14 +5,14 @@
  *    wxss 既不能 @import Web 端 CSS、也没有构建期注入 —— 只能人工同步。
  *
  *    · 唯一真源:frontend-user/src/styles/globals.css
- *      (其上游是 Figma,提取产物见 docs/figma-design-spec-2026-07.md)
+ *      (其上游是 Pencil 设计源文件 dev.pen)
  *    · 改真源 = 必须同步改本文件。否则小程序会静默漂移:本文件在 2026-07-28
  *      之前就整整落后两代(#cc2222 / #2a7a2a / #d4a017 / #1a56db / #111111),
  *      而文件头却一直声称"对齐 globals.css"。
- *    · 上次同步:2026-07-28   ← 每次同步务必更新这一行
+ *    · 上次同步:2026-08-08   ← 每次同步务必更新这一行
  *
  * 语义色:朱砂=CTA/danger/论文 · 松青=AI/成功 · 琥珀=期刊线/会员/警告 · 玄墨=文字。
- * ⚠️ 体系内【没有蓝系】(Figma 四色阶完全不含蓝)。旧 --blue(#1a56db)承担的
+ * ⚠️ 体系内【没有蓝系】(Pencil 四色阶完全不含蓝)。旧 --blue(#1a56db)承担的
  *    "期刊检索线"已改由琥珀承担;只有"必须多色相区分"的数据可视化场景保留
  *    --cat-blue(对应 globals 的同名 token,它自己也标注为"规范外的第五色相")。
  * ============================================================================= */
@@ -46,7 +46,7 @@ page {
   /* ── 品牌色(globals §五)────────────────────────────────────────────── */
   --red:      #882828;  /* brand-red   朱砂 · CTA / danger / 论文  (旧 #cc2222) */
   --green:    #2F4D29;  /* brand-green 松青 · AI / 成功            (旧 #2a7a2a) */
-  --amber:    #E5A800;  /* brand-amber 琥珀 · 期刊线 / 会员 / 警告  (旧 #d4a017) */
+  --amber:    #B4880E;  /* brand-amber 琥珀 · 期刊线 / 会员 / 警告  (旧 #e5a800) */
   --brand:    #882828;  /* 主 CTA = 朱砂(= --red) */
   --red-deep: #661E1E;  /* = red-4,按压态/渐变深端 */
   /* 🟡 规范外的第五色相,【不是品牌色】—— 只给"必须多色相区分"的图表/公式块用,
@@ -57,9 +57,9 @@ page {
   /* 品牌软底 + 软描边 —— 软底取 globals 的现成值,描边 = 品牌色 25% 叠白(比软底深一档) */
   --red-soft:   #F3E9E9;  --red-line:   #E1C9C9;  /* = globals --brand-red-soft   (旧 #fff5f5) */
   --green-soft: #E9F0E6;  --green-line: #CBD3CA;  /* = globals --status-success-soft (旧 #eaf7ee) */
-  --amber-soft: #F7EFDC;  --amber-line: #F9E9BF;  /* = globals --status-warning-soft (旧 #fbf3e0) */
+  --amber-soft: #F7EFDC;  --amber-line: #ECE1C3;  /* = globals --status-warning-soft;line = #B4880E 25% 叠白 */
   --amber-ink:  #805E00;  /* 琥珀软底上的文字 = globals --status-warning,on -soft 实测 5.21:1 AA。
-                           * ⚠️ 琥珀【绝不能】直接当文字色:#E5A800 落在任何浅底上都只有 ~1.9:1。 */
+                           * ⚠️ 品牌琥珀不得直接承载小号正文;浅底上请用 --amber-ink。 */
   /* 琥珀"软底高亮块" = globals --amber-soft-bg / --amber-soft-fg。
    * ⚠️ 与 --amber-soft 不是一回事:#F7EFDC 落在米白页底 #F6F4EE 上几乎看不见,只适合
    *    待在纯白卡里;需要直接落在米白底上还能"跳出来"的提示块用下面这一对。 */
@@ -75,31 +75,38 @@ page {
   --r-20:   40rpx;   /* 20px  最外层大区块(应极克制) */
   --r-pill: 9999rpx; /* 胶囊:实心按钮 / Badge / 进度条 / 头像 */
 
-  /* ── 字号(globals §十 六档 12/14/16/20/24/28px;小程序 1px = 2rpx)──── */
+  /* ── 字号(globals §十 八档 12/14/16/18/20/24/28/32px;小程序 1px = 2rpx)── */
   --fs-12: 24rpx;
   --fs-14: 28rpx;   /* ★ 正文基准 */
   --fs-16: 32rpx;
+  --fs-18: 36rpx;
   --fs-20: 40rpx;
   --fs-24: 48rpx;
   --fs-28: 56rpx;
-  /* 语义别名 —— 只是给上面六档起个说人话的名字,不得引入第七个值 */
+  --fs-32: 64rpx;
+  /* 语义别名 —— 只是给上面八档起个说人话的名字,不得引入第九个值 */
   --fs-hero:  var(--fs-24);   /* 移动端 hero / 详情页 h1 */
-  --fs-title: var(--fs-20);   /* 页面主标题       (旧 36rpx=18px,不在六档内) */
+  --fs-title: var(--fs-20);   /* 页面主标题       (旧 18px 已纳入阶梯,标题语义统一用 20px) */
   --fs-card:  var(--fs-16);   /* 区块 · 卡片标题 */
-  --fs-body:  var(--fs-14);   /* 正文             (旧 30rpx=15px,不在六档内) */
-  --fs-sub:   var(--fs-12);   /* 次要             (旧 26rpx=13px,不在六档内) */
+  --fs-body:  var(--fs-14);   /* 正文             (旧 30rpx=15px,不在八档内) */
+  --fs-sub:   var(--fs-12);   /* 次要             (旧 26rpx=13px,不在八档内) */
   --fs-meta:  var(--fs-12);   /* meta / 时间戳 */
-  --fs-tag:   var(--fs-12);   /* 标签             (旧 22rpx=11px,不在六档内) */
+  --fs-tag:   var(--fs-12);   /* 标签             (旧 22rpx=11px,不在八档内) */
   --lh-body: 1.6;
   background: var(--bg);
   color: var(--text);
   font-size: var(--fs-body);
   line-height: 1.6;
-  /* 字族镜像 globals 的 --font-sans:'Google Sans' 是 Figma 规范的 UI 主力字体,
-   * Google 专有、不可自托管 —— 只写字族名匹配设备已装的同名字体,未装自然降级。
-   * 零下载、零 FOUT,对小程序包体没有任何代价。 */
-  font-family: "Google Sans", "Google Sans Text", -apple-system, "PingFang SC",
-    "Helvetica Neue", "Segoe UI", sans-serif;
+  /* 字族意图镜像 Web/Pencil：英文 Google Sans，中文 Noto Serif SC。
+   * 两者之间不得插入替代字体，避免英文或中文被提前截获。
+   * 注：WXSS 不会复用 Web @font-face；未做 wx.loadFontFace 前，真机仍可能落到栈尾保底。 */
+  --font-sans: "Google Sans", "Noto Serif SC", "Source Han Serif SC",
+    "Songti SC", "SimSun", system-ui, sans-serif;
+  --font-serif: "Google Sans", "Noto Serif SC", "Source Han Serif SC",
+    "Songti SC", "SimSun", serif;
+  --font-display: "Google Sans", "Noto Serif SC", "Source Han Serif SC",
+    "Songti SC", "SimSun", serif;
+  font-family: var(--font-sans);
 }
 
 .page {

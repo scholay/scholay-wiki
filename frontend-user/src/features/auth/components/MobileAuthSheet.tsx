@@ -10,6 +10,7 @@ import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
+import { InviteAuthNotice } from './InviteAuthNotice';
 
 /**
  * 移动端登录/注册 **底部弹窗**(MobileShell 挂一份,全局 useAuthDialog 驱动)。
@@ -72,6 +73,7 @@ export function MobileAuthSheet() {
           <ForgotPasswordForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
         )}
 
+        {mode === 'register' && <InviteAuthNotice className="mx-0 mt-5" />}
         <div className="mt-6">
           <div className="relative flex items-center">
             <Separator className="flex-1" />

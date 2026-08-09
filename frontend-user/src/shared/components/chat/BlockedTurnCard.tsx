@@ -26,9 +26,17 @@ export interface BlockedTurnCardProps {
   onDismiss?: () => void;
   /** 覆盖默认副文(默认 = 重置次数 / 用经费继续 / 升级会员 三条出路的完整文案)。 */
   message?: string;
+  /** 管理端会话回放：保留用户当时看到的状态卡，但不提供任何操作。 */
+  readOnly?: boolean;
 }
 
-export function BlockedTurnCard({ onResend, onOpenReset, onDismiss, message }: BlockedTurnCardProps) {
+export function BlockedTurnCard({
+  onResend,
+  onOpenReset,
+  onDismiss,
+  message,
+  readOnly = false,
+}: BlockedTurnCardProps) {
   return (
     <div className="flex flex-col gap-2 rounded-16 border border-brand-amber/30 bg-warning-soft px-3 py-2.5">
       <div className="flex items-start gap-2">
@@ -38,18 +46,20 @@ export function BlockedTurnCard({ onResend, onOpenReset, onDismiss, message }: B
           <p className="text-12 text-muted-foreground">{message ?? DEFAULT_SUBTEXT}</p>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => onResend?.()}>
-          <RefreshCw className="h-3.5 w-3.5" />
-          重新发送
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => onOpenReset?.()}>
-          去恢复额度
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => onDismiss?.()}>
-          不发了
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => onResend?.()}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            重新发送
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onOpenReset?.()}>
+            去恢复额度
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onDismiss?.()}>
+            不发了
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

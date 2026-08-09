@@ -75,7 +75,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'orders', label: '订单与营收', icon: ShoppingCart, href: '/admin/orders', requires: PERM.analyticsView },
       { id: 'vip-codes', label: '会员兑换码', icon: Gift, href: '/admin/vip-codes', requires: PERM.configManage },
-      // 限时活动统一管理(限时领取会员 + 邀请有奖;2026-07-31 合并,原 promo-config 重定向至此)
+      // 同页分 tab 管理“邀请有礼”与“限时领取会员”，两者独立真源。
       { id: 'activities', label: '活动管理', icon: Sparkles, href: '/admin/activities', requires: PERM.contentManage },
       { id: 'billing-config', label: '计费配置', icon: Coins, href: '/admin/billing-config', requires: PERM.configManage },
     ],

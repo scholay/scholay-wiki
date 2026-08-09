@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================================
-# 设计系统护栏 —— 全仓执行点(三份**设计 token** 镜像唯一真的会跑的地方)。
+# 设计系统护栏 —— 全仓执行点(两份**设计 token** 镜像唯一真的会跑的地方)。
 #
-# ⚠️ 本仓库的跨包镜像不止这三份。第四份是**证据账本解析器**
+# ⚠️ 证据账本解析器另有一套独立的跨包镜像
 #    (agent/src/evidence/parse.ts ←→ frontend-user/src/shared/lib/minicod-papers.ts),
 #    它由 scripts/check-evidence-mirror.sh 单独把关(bun,与本脚本各自独立出判决,
 #    同挂 pre-push)。刻意不并进来:那边要 bun、这边要 frontend-user/node_modules,
@@ -13,13 +13,13 @@
 # 它有两个执行点,覆盖面**不一样**:
 #
 #   ① Docker 构建(`prebuild` → `npm run test:design`)
-#      构建 context 是 ./frontend-user,miniprogram / scholay-minitools / agent
-#      三个兄弟包物理上不在 → 「跨包镜像」一族规则整条 skip。
-#      **那里的绿灯不代表三份镜像与 globals.css 同步。** 跳过会打横幅但不阻断构建
+#      构建 context 是 ./frontend-user,miniprogram / agent
+#      两个兄弟包物理上不在 → 「跨包镜像」一族规则整条 skip。
+#      **那里的绿灯不代表两份镜像与 globals.css 同步。** 跳过会打横幅但不阻断构建
 #      (堵死部署换不来任何校验)。
 #
 #   ② 本脚本(git pre-push 钩子调用,也可手跑)
-#      从仓库根出发,三个兄弟包在场 → 跨包镜像规则**真的执行**;
+#      从仓库根出发,两个兄弟包在场 → 跨包镜像规则**真的执行**;
 #      并且带 DESIGN_GUARD_STRICT=1:此时还有规则被跳过 = 判失败(在完整仓库里跳过
 #      只可能是镜像被移走或在场判定被改坏,那正是最该报警的时刻)。
 #
@@ -36,8 +36,8 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND="$ROOT/frontend-user"
 
-# 跨包镜像规则要读的三个兄弟包。少任何一个,那族规则就会退化成 skip。
-SIBLINGS=(miniprogram scholay-minitools agent)
+# 跨包镜像规则要读的两个兄弟包。少任何一个,那族规则就会退化成 skip。
+SIBLINGS=(miniprogram agent)
 
 echo "设计系统护栏(全仓口径)"
 echo "  仓库根: $ROOT"
@@ -88,4 +88,4 @@ if [ "$rc" -ne 0 ]; then
   echo "  ⚠️ 放宽一条规则 = 放弃一块阵地。先判断是「现状错」还是「规则错」,别为了绿灯改规则。"
   exit 1
 fi
-echo "✓ 设计系统护栏通过(含跨包镜像:小程序 / 小工具 / pptx 导出)。"
+echo "✓ 设计系统护栏通过(含跨包镜像:小程序 / pptx 导出)。"

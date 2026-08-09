@@ -127,6 +127,12 @@ export interface Turn {
   /** 该轮使用的 model (history transcript 回放时填; 实时流不一定填) */
   model?: string;
 
+  /** 该轮用户消息的时间(history transcript 的 user entry timestamp)。 */
+  startedAt?: string;
+
+  /** 该轮最后一条已知 entry 的时间；结构化会话元数据可覆盖成精确终态时间。 */
+  completedAt?: string;
+
   /** message_complete.usage 的 token 统计; UI 可在 indicator 末尾展示 */
   usage?: TurnTokenUsage;
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-paper="on">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <!-- 标签页图标 —— 用 Figma 品牌标本体(ScholayMark,六芒星犀牛头)。
@@ -42,17 +42,24 @@
         3) CSS link 是 render-blocking 串行 → preconnect+link 仍然慢
 
       改成:
-        - Inter 走系统字体后备栈(macOS 用 SF,Windows 用 Segoe UI,
-          与 Inter 设计同源,视觉差异极小且无网络代价)
-        - Playfair Display 自托【可变字体】woff2(wght 400–700 一个文件全覆盖,
-          latin 子集 ~37KB),preload + font-display: block,
-          短暂不可见 → 直接显示真字体,绝无切换感
+        - Google Sans 官方可变字体版本化自托管(wght 400–700),
+          只 preload 首屏 normal latin;italic / latin-ext 按需加载
+        - Noto Serif SC 的 CJK unicode-range 分片按字符需求加载
+        - Playfair Display 只供冻结的 Scholay 品牌字样使用,
+          latin 子集 preload + font-display: swap
 
       ⚠️ 2026-07-27:原先只自托了 700 一个静态字重,导致 font-medium(500)/
          font-normal(400) 全在跑浏览器合成假粗体 —— BrandName 的三个 tone
          渲染出来一模一样。换可变字体后三档才真正生效。
          只 preload latin;latin-ext(带变音符的欧洲语言)走 swap 按需加载。
     -->
+    <link
+      rel="preload"
+      href="/fonts/google-sans/v70/google-sans-normal-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link
       rel="preload"
       href="/fonts/playfair-display-var-latin.woff2"

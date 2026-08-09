@@ -100,7 +100,10 @@ export function OAuthMergeConfirmDialog({
   // 登录成功后 AuthDialog 自关,本页重渲染进入 isTargetAccount 态。
   const handleLoginToTarget = () => {
     if (isAuthenticated && !isTargetAccount) clearSession();
-    openAuthDialog('login', { accountType: 'email' });
+    openAuthDialog('login', {
+      accountType: 'email',
+      suppressInviteFlow: true,
+    });
   };
 
   return (

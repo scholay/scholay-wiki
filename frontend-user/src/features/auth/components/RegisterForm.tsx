@@ -143,7 +143,7 @@ export function RegisterForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>验证码</FormLabel>
-                <div className="flex gap-2">
+                <div className="flex min-w-0 gap-2">
                   <FormControl>
                     <Input
                       {...field}
@@ -151,7 +151,7 @@ export function RegisterForm({
                       maxLength={6}
                       autoComplete="one-time-code"
                       placeholder="6 位数字"
-                      className="h-10 text-12 tracking-code"
+                      className="h-10 min-w-0 flex-1 text-12 tracking-code"
                     />
                   </FormControl>
                   <SendCodeButton

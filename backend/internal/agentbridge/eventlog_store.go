@@ -129,10 +129,10 @@ func (s *eventlogStore) BumpAttempt(ctx context.Context, turnID uint64, n int) e
 		Update("attempt", gorm.Expr("GREATEST(attempt, ?)", n)).Error
 }
 
-// RecordBlockedTurn 落一条被门禁拦下的轮(契约见 EventLog 接口注释)。一个事务两行:
-// agent_turns(status=blocked/kind=quota/completed_at=now) + 一条 EvQuotaBlocked 事件。
+// RecordBlockedTurn 落一条被门禁拦下的轮(契约见 EventLog 接口注释)。一个事务三行:
+// agent_turns(status=blocked/kind=quota/completed_at=now) + EvUserMessage + EvQuotaBlocked。
 // 不走 batcher —— blocked 轮没有后续的 FlushTurn/CompleteTurn 来触发落盘,直接同步 INSERT 更简单也更准。
-func (s *eventlogStore) RecordBlockedTurn(ctx context.Context, in TurnInput, payload []byte) error {
+func (s *eventlogStore) RecordBlockedTurn(ctx context.Context, in TurnInput, userPayload, payload []byte) error {
 	if in.AgentSessionID == "" {
 		return nil
 	}
@@ -170,8 +170,18 @@ func (s *eventlogStore) RecordBlockedTurn(ctx context.Context, in TurnInput, pay
 		if cerr := tx.Create(t).Error; cerr != nil {
 			return cerr
 		}
+		evSeq := uint(1)
+		if len(userPayload) > 0 {
+			if cerr := tx.Create(&TurnEventRow{
+				TurnID: t.ID, AgentSessionID: in.AgentSessionID, EvSeq: evSeq,
+				EvType: string(EvUserMessage), Payload: userPayload,
+			}).Error; cerr != nil {
+				return cerr
+			}
+			evSeq++
+		}
 		return tx.Create(&TurnEventRow{
-			TurnID: t.ID, AgentSessionID: in.AgentSessionID, EvSeq: 1,
+			TurnID: t.ID, AgentSessionID: in.AgentSessionID, EvSeq: evSeq,
 			EvType: string(EvQuotaBlocked), Payload: payload,
 		}).Error
 	}
@@ -289,14 +299,16 @@ func (s *eventlogStore) ReadRecentTurns(ctx context.Context, sid string, limitTu
 //     被 cancel,不能借用),写库失败只 slog.Warn —— 拦截照常生效,用户照常收到 error 帧;
 //  ② **绝不进前端回放**:读侧按 status 过滤(ReadRecentTurns)+ EvQuotaBlocked 在 FoldToMessages
 //     无 case,两道都保证它不会被误渲染成对话轮。
-func (tc *TurnCoordinator) RecordBlocked(in TurnInput, payload []byte) {
+func (tc *TurnCoordinator) RecordBlocked(in TurnInput, userPayload, payload []byte) {
 	if tc == nil || tc.log == nil {
 		return
 	}
+	userPayload = append([]byte(nil), userPayload...)
+	payload = append([]byte(nil), payload...)
 	safego.Go("agentbridge-record-blocked-turn", func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		if err := tc.log.RecordBlockedTurn(ctx, in, payload); err != nil {
+		if err := tc.log.RecordBlockedTurn(ctx, in, userPayload, payload); err != nil {
 			slog.Warn("agentbridge: record blocked turn failed (interception unaffected)",
 				"feature", in.FeatureKey, "session_id", in.AgentSessionID, "user_id", in.UserID, "err", err)
 		}

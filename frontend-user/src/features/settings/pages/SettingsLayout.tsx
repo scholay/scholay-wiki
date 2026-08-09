@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { User, Shield, Link2, Crown, UserPlus } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { useInviteCampaign } from '@/shared/api/invite-campaign';
 
 /**
  * Settings 页壳:左侧 tab,右侧 Outlet。
@@ -15,6 +16,11 @@ const TABS = [
 ];
 
 export function SettingsLayout() {
+  const campaignQ = useInviteCampaign();
+  const tabs = TABS.filter(
+    (tab) => tab.to !== '/settings/invite' || campaignQ.data?.enabled === true,
+  );
+
   return (
     <div className="flex flex-col gap-6 h-full max-w-6xl mx-auto px-6 lg:px-12 py-10">
       <div>
@@ -24,13 +30,13 @@ export function SettingsLayout() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-10">
         <nav className="flex flex-col gap-1">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <NavLink
               key={t.to}
               to={t.to}
               className={({ isActive }) =>
                 cn(
-                  'inline-flex items-center gap-2.5 px-3 h-9 rounded-8 text-12 transition-colors',
+                  'inline-flex h-8 items-center gap-2.5 rounded-8 px-3 text-14 transition-colors',
                   isActive
                     ? 'bg-surface-2 font-medium text-foreground'
                     : 'text-subtle hover:bg-surface-1 hover:text-foreground'

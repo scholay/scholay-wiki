@@ -1,6 +1,6 @@
 import { useNavigate } from'react-router-dom';
 import { useQuery } from'@tanstack/react-query';
-import { Gift, Headphones } from 'lucide-react';
+import { Headphones } from 'lucide-react';
 import { canAccessAdmin, useAuthStatus } from'@/stores/auth.store';
 import { useAuthDialog } from'@/stores/auth-dialog.store';
 import { Button } from'@/shared/ui/button';
@@ -17,6 +17,7 @@ import {
 } from'@/shared/ui/dropdown-menu';
 import { IconButton } from'@/shared/components/IconButton';
 import { NotificationBell } from'@/shared/components/NotificationBell';
+import { InviteNavButton } from '@/shared/components/InviteNavButton';
 import { ActivityNavMenu } from './ActivityNavMenu';
 import { UserMenuContent } from'@/shared/components/UserMenuContent';
 import { http } from'@/shared/lib/http';
@@ -48,7 +49,8 @@ export function UserSection() {
     <div className="flex items-center gap-2">
       {/* 限时领取会员推广入口 —— 仅推广开启且非付费会员时显示(组件内部自判),点击弹二维码。
           < 1200 收进 CompactNavMenu(它是右段最宽的一颗,也是 P0 叠印的主要来源) */}
-      {/* 限时活动统一入口(推广领取 + 邀请有奖收进一个菜单;全关则整个消失) */}
+      {/* Pen 独立“邀请有礼”按钮；与右侧的会员限时活动互不收纳。 */}
+      <InviteNavButton className="hidden min-[1200px]:inline-flex" />
       <ActivityNavMenu className="hidden min-[1200px]:inline-flex" />
 
       {/* 反馈 / 客服入口 —— /feedback 是 public 路由,登录与否都给入口。
@@ -97,7 +99,6 @@ export function UserSection() {
           <DropdownMenuContent align="end" sideOffset={8} className="p-0 w-auto">
             {/* 常驻额度余量 —— 管理员不查额度(与 UserMenuContent 同款豁免) */}
             {!canAccessAdmin(user.role) && <MenuQuotaSummary />}
-            {<MenuInviteReward />}
             <UserMenuContent />
           </DropdownMenuContent>
         </DropdownMenu>
@@ -126,32 +127,6 @@ interface QuotaOverviewLite {
     window_reset_at: string | null;
     window_days: number;
   };
-}
-
-/** 邀请奖励活动入口(0100)—— 账户域常驻项(业界主流:设置/账户域,而非顶栏 gift 图标)。
- *  活动开启(plans.invite_reward_credits>0)才渲染;app/layouts 不 import features,inline useQuery
- *  与 usePlans 同 queryKey(['billing','plans'])共享缓存。 */
-function MenuInviteReward() {
-  const navigate = useNavigate();
-  const { data } = useQuery({
-    queryKey: ['billing', 'plans'],
-    queryFn: async () =>
-      (await http.get<{ data: { invite_reward_credits: number } }>('/billing/plans')).data.data,
-    staleTime: 60_000,
-  });
-  const reward = data?.invite_reward_credits ?? 0;
-  if (reward <= 0) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => navigate('/settings/invite')}
-      className="flex w-full items-center gap-2 border-b border-border-hairline px-3 py-2 text-left transition-colors hover:bg-surface-2"
-    >
-      <Gift className="size-4 shrink-0 text-brand-red" />
-      <span className="min-w-0 flex-1 truncate text-12 text-foreground">邀请有奖</span>
-      <span className="shrink-0 text-12 font-medium text-brand-red">+{reward} 经费/人</span>
-    </button>
-  );
 }
 
 /**

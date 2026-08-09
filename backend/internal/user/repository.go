@@ -507,6 +507,34 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 //	30 天,由 executor 的 workdir GC 收走;耐久副本这里已经清了)。
 func (r *Repository) DeleteUser(userID uint) error {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// 邀请新旧表均无 FK：必须按 reversals→grants→milestones→registrations→codes
+		// 的引用顺序清理。
+		// 无论用户是邀请人还是被邀请人，关系与审计子行都一起移除；否则残码仍可被 preview。
+		if err := tx.Exec(`DELETE rv FROM invite_reward_reversals rv
+			JOIN invite_reward_grants g ON g.id = rv.grant_id
+			JOIN invite_milestones m ON m.id = g.milestone_id
+			JOIN invite_registrations ir ON ir.id = m.registration_id
+			WHERE ir.inviter_user_id = ? OR ir.invited_user_id = ?`, userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_reward_reversals: %w", err)
+		}
+		if err := tx.Exec(`DELETE g FROM invite_reward_grants g
+			JOIN invite_milestones m ON m.id = g.milestone_id
+			JOIN invite_registrations ir ON ir.id = m.registration_id
+			WHERE ir.inviter_user_id = ? OR ir.invited_user_id = ?`, userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_reward_grants: %w", err)
+		}
+		if err := tx.Exec(`DELETE m FROM invite_milestones m
+			JOIN invite_registrations ir ON ir.id = m.registration_id
+			WHERE ir.inviter_user_id = ? OR ir.invited_user_id = ?`, userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_milestones: %w", err)
+		}
+		if err := tx.Exec("DELETE FROM invite_registrations WHERE inviter_user_id = ? OR invited_user_id = ?", userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_registrations: %w", err)
+		}
+		if err := tx.Exec("DELETE FROM invite_codes WHERE user_id = ?", userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_codes: %w", err)
+		}
+
 		// 先清无 FK 的计费孤儿表(顺序无关,均无相互 FK)。用表名直删,避免跨包导入 vip 模型。
 		for _, table := range []string{
 			"credit_transactions",

@@ -1,5 +1,11 @@
 # Scholay 设计规范（Figma 提取）— 2026-07
 
+> ⚠️ **历史文档 / 已被取代**：本文保留 2026-07 Figma 基线和当时的实测结论，
+> 不再是当前设计 token 的规范侧真源。2026-08 起以 Pencil MCP 读取的
+> [`dev.pen` 规范](pen-design-spec-2026-08.md) 为上游设计证据，以
+> [`frontend-user/src/styles/globals.css`](../frontend-user/src/styles/globals.css)
+> 为运行时 SSOT。下文是历史快照，故不机械替换其中的 Figma 节点、旧色值与当时决策。
+
 **真源**: Figma `JIv8fxQthMS37JLGHNOEbB` / Page 1 / `Scholay设计系统` (node `1:38`)
 **提取方式**: Figma REST API `/v1/files/:key` 全量节点属性反推
 **文件状态**: `lastModified 2026-07-26T05:52:29Z` · owner: Isaac Land (landisaac1@gmail.com)

@@ -81,7 +81,7 @@ export function mermaidTheme(): Record<string, string> {
   const s2 = tokenValue('--surface-2', '#E8E5DC');
   const line = tokenValue('--ink-6', '#686873');
   const green = tokenValue('--brand-green', '#2F4D29');
-  const amber = tokenValue('--brand-amber', '#E5A800');
+  const amber = tokenValue('--brand-amber', '#B4880E');
   const red = tokenValue('--brand-red', '#882828');
 
   return {
@@ -129,7 +129,7 @@ export function mermaidTheme(): Record<string, string> {
     // 饼图序列 —— 走 --chart-1..8,与 recharts 同一套序列色
     pie1: tokenValue('--chart-1', '#882828'),
     pie2: tokenValue('--chart-2', '#2F4D29'),
-    pie3: tokenValue('--chart-3', '#E5A800'),
+    pie3: tokenValue('--chart-3', '#B4880E'),
     pie4: tokenValue('--chart-4', '#B23434'),
     pie5: tokenValue('--chart-5', '#5E9952'),
     pie6: tokenValue('--chart-6', '#E5BA45'),

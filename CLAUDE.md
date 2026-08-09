@@ -134,9 +134,9 @@ npm run test:contract  # 后端响应契约（zod × 录制 fixture）
 | `scripts/check-design-system.sh` | git `pre-push` 钩子（**要装一次**）/ 手跑 | 全部规则 | ✅ 真的校验 | push 被拦 |
 
 🔴 **Docker 构建里的绿灯 ≠ 跨包镜像已校验。** frontend-user 的构建
-`context: ./frontend-user`（见 docker-compose.yml），`miniprogram/` `scholay-minitools/` `agent/`
-三个兄弟包在那个环境里**物理上不存在** → 「跨包镜像」一族规则走 `ctx.skip()`。
-小程序 / 小工具 / pptx 导出三份镜像是否与 `globals.css` 同步，**构建管不了**。
+`context: ./frontend-user`（见 docker-compose.yml），`miniprogram/` 和 `agent/`
+两个兄弟包在那个环境里**物理上不存在** → 「跨包镜像」一族规则走 `ctx.skip()`。
+小程序 / pptx 导出两份镜像是否与 `globals.css` 同步，**构建管不了**。
 跳过时 `frontend-user/scripts/design-guard.mjs` 会在构建日志里打一条横幅、逐条列出被跳过的规则名
 ——刻意做得很吵（「一条永远绿的规则」和「一条不存在的规则」等价，本仓库被这个模式坑过）；
 但**刻意不让构建失败**：那个 context 里客观上无法校验，红灯只会堵死部署。
@@ -793,18 +793,28 @@ The backend runs several background tasks for performance and maintenance:
 - 路由 = `react-router-dom` **v7**，每个 feature 在自己的 `routes.tsx` 暴露 `RouteObject[]`，
   页面级 lazy 是默认；登录态校验用 `loader` 而非组件内 useEffect
 
-**Design system（2026-07 换真源到 Figma）**：
-- token 唯一真源 = `frontend-user/src/styles/globals.css`（对应 Figma 提取产物
-  [docs/figma-design-spec-2026-07.md](docs/figma-design-spec-2026-07.md)）；**旧的 `.pen` 口径已作废**
-- 四色阶：朱砂 `#882828` / 松青 `#2F4D29` / 琥珀 `#E5A800` / 玄墨 `#1F1F23`；
+**Design system（2026-08 以 Pen 设计资产为上游证据）**：
+- 规范侧真源 = `/Users/youngp/Downloads/scholay设计源文件/dev.pen`，通过 Pencil MCP 读取；
+  提取快照见 [docs/pen-design-spec-2026-08.md](docs/pen-design-spec-2026-08.md)
+- 运行时 token 唯一真源（SSOT）= `frontend-user/src/styles/globals.css`；外部 `dev.pen`
+  不能被构建直接消费，修改设计资产后必须同步这里及受护栏校验的跨包镜像
+- 四色阶：朱砂 `#882828` / 松青 `#2F4D29` / 琥珀 `#B4880E` / 玄墨 `#1F1F23`；
   页面底米白 `#F6F4EE`、卡片底纯白 `#FFFFFF`（分层全靠这 3.5% 明度差）
-- 字号 6 档 `text-12/14/16/20/24/28`（正文基准 14）、圆角 6 档 `rounded-4/8/12/16/20/pill`
+- 主 UI 字号 8 档 `text-12/14/16/18/20/24/28/32`（正文基准 14），64px
+  独立作 Headline / Display；圆角 6 档 `rounded-4/8/12/16/20/pill`
+- 字体：非品牌英文统一使用 `Google Sans`，中文统一使用
+  `Noto Serif SC`。`Google Sans` 已于 2026-08-08 通过官方 Google Fonts
+  specimen / CSS 核验；项目自托管官方 v70 Latin / Latin-ext variable
+  WOFF2（wght 400–700，SIL OFL），不使用替代英文字体抢占 Latin glyph
+- 用户明确指令覆盖 Pen 中普通英文的 Playfair Display 样张；
+  `Playfair Display` 只保留给冻结的 Scholay / 品牌文字。Logo 节点
+  `D5gC67` 与 wordmark 节点 `V2IJR` 的字体、字距、颜色和形状均不变
 - **暗色态已于 2026-07 移除**：无 `.dark` 块、无 theme store、`dark:` 前缀 0 处
 - 护栏两个执行点（详见上文「设计系统护栏：两个执行点」）：
   ① `prebuild` → `npm run test:design`，挂在 `npm run build` / Docker 构建上，构建期硬失败，
   但**跨包镜像那族规则在 Docker 里会整族 skip**（构建 context 只有 `./frontend-user`）；
   ② `scripts/check-design-system.sh`，git `pre-push` 钩子调用（需先跑一次
-  `./scripts/install-git-hooks.sh`），三个兄弟包在场，是**唯一真的校验跨包镜像**的口径
+  `./scripts/install-git-hooks.sh`），两个兄弟包在场，是**唯一真的校验跨包镜像**的口径
 - 落地实况与已知坑见 [docs/design-audit-2026-07.md](docs/design-audit-2026-07.md)
 
 **用户端主要能力**：论文检索（普通 / 智能）· PDF 预览（react-pdf + pdfjs-dist）·
@@ -1165,7 +1175,10 @@ For Alipay payment issues:
 This CLAUDE.md file consolidates all essential development information. Additional documentation:
 - **README.md** — User-facing project overview and getting started guide
 - **[frontend-user/CLAUDE.md](frontend-user/CLAUDE.md)** — 前端强制约束（第三方优先 / 分层 / 网络层 / 样式 token / 组件分层）。**在 `frontend-user/` 下工作时以它为准**
-- **[docs/figma-design-spec-2026-07.md](docs/figma-design-spec-2026-07.md)** — Figma 设计稿提取产物（设计 token 的规范侧真源）
+- **[docs/pen-design-spec-2026-08.md](docs/pen-design-spec-2026-08.md)** — Pencil MCP
+  从 `dev.pen` 提取的当前规范侧真源快照
+- **[docs/figma-design-spec-2026-07.md](docs/figma-design-spec-2026-07.md)** — 2026-07
+  Figma 提取历史基线（已被 Pen 规范取代，不再决定当前 token）
 - **[docs/design-audit-2026-07.md](docs/design-audit-2026-07.md)** — 设计系统**落地实况**审计（token 层 vs 渲染层的差距、已知坑、计数口径分歧）
 - **[docs/design-migration-ledger-2026-07.md](docs/design-migration-ledger-2026-07.md)** — 改造台账。🔴 **是「改造前的计划」不是结果**，顶部列了它会主动误导的地方，读前先看那段警示
 - **[docs/interaction-spec/](docs/interaction-spec/)** — 交互规格

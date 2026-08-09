@@ -95,7 +95,7 @@ func (s *Service) SendPhoneVerificationCode(ctx context.Context, phone, purpose 
 // RegisterWithPhone registers a new user with phone and password
 // Enhanced with transaction support for concurrency safety
 func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, invitationCode, ip string) (*User, string, error) {
-	_ = invitationCode // 邀请业务已移除，参数保留以兼容 API
+	_ = invitationCode // 旧 body 字段仅兼容；归因真源是 middleware/OAuth state 恢复的 X-Invite-Code ctx。
 
 	// Verify the phone code using Redis
 	valid, err := cache.VerifyCode(ctx, phone, code, "register")
@@ -266,20 +266,20 @@ func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPasswo
 }
 
 // LoginWithPhoneCode logs in a user with phone and verification code
-func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string) (*User, string, error) {
+func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string) (*User, string, bool, error) {
 	// Verify the code
 	valid, err := cache.VerifyCode(ctx, phone, code, "login")
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to verify code: %w", err)
+		return nil, "", false, fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return nil, "", errors.New("验证码无效或已过期")
+		return nil, "", false, errors.New("验证码无效或已过期")
 	}
 
 	// Find user by phone
 	user, err := s.repo.FindByPhone(phone)
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 	// 未注册 → 自动注册并直接登录:验证码已证明掌控该手机号,门槛与独立注册流等同
 	// (Turnstile + 验证码 + 限流均已在上游通过),免去「先注册再登录」两步。
@@ -289,7 +289,7 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 
 	// Check if user is active
 	if user.Status != 1 {
-		return nil, "", errors.New("账号已被停用")
+		return nil, "", false, errors.New("账号已被停用")
 	}
 
 	// Update last login time and IP
@@ -298,17 +298,17 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 	// Generate JWT token
 	token, err := s.generateTokenForUser(user, "")
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 
-	return user, token, nil
+	return user, token, false, nil
 }
 
 // autoRegisterPhone 在「验证码登录时手机号尚未注册」时自动建号并登录。
 // 调用方已校验验证码(证明掌控该号)+ Turnstile,故此处不再二次校验码;创建的是**无密码**账号
 // (与 OAuth 账号一致,后续可经改密设置),手机号置为已验证、账号 active。
 // 并发下若被同号请求抢先建号,事务内回退为复用既有账号(不报错、不重复发欢迎)。
-func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*User, string, error) {
+func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*User, string, bool, error) {
 	var user *User
 	var created bool
 	err := s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
@@ -345,11 +345,16 @@ func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*Use
 		created = true
 		return nil
 	})
+	if err != nil && isDuplicateUserIdentity(err) {
+		if winner, lookupErr := s.repo.FindByPhone(phone); lookupErr == nil && winner != nil {
+			user, created, err = winner, false, nil
+		}
+	}
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 	if user.Status != 1 {
-		return nil, "", errors.New("账号已被停用")
+		return nil, "", false, errors.New("账号已被停用")
 	}
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 	tokenUsername := phone
@@ -358,14 +363,14 @@ func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*Use
 	}
 	token, err := s.generateTokenForUser(user, tokenUsername)
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 	if created {
 		s.SendWelcomeMessage(user.ID)
 		// 邀请归因(best-effort):仅本次真的新建号才归因;并发复用既有账号(created=false)不算。
 		notifyInviteRegistered(ctx, user.ID, "phone")
 	}
-	return user, token, nil
+	return user, token, created, nil
 }
 
 // BindPhone binds a phone number to an existing user account.
@@ -373,8 +378,8 @@ func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*Use
 // 安全设计(与 BindEmail 对称):
 //   - 首次绑定(user.Phone == nil):只需新手机的 bind 验证码
 //   - 换绑场景(user.Phone 已存在 且 新号 != 旧号):需要 *两份* 验证码 ——
-//       1. 新手机的 bind code,证明用户控制新号码
-//       2. 旧手机的 change_phone code,证明用户掌控旧号码(防 session 被偷夺号)
+//     1. 新手机的 bind code,证明用户控制新号码
+//     2. 旧手机的 change_phone code,证明用户掌控旧号码(防 session 被偷夺号)
 //
 // oldPhoneCode 在首次绑定场景下可以为空;换绑时必填。
 // BindVerifiedPhone 绑定一个「已被外部验证过」的手机号(小程序 getPhoneNumber:微信已验证,

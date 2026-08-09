@@ -1,11 +1,12 @@
 // 账户资产汇总卡 —— 严格对齐设计稿 scholay-money.pen「账户资产长条组件」:
-// 当前档一行(铭牌 + ? + 剩余额度条 + 剩余% + 方形重置 | 竖分隔 | 经费内联含失效日),
+// 当前额度一行(进度条 + 剩余% / 下方重置信息 | 竖分隔 | 经费数字),
 // 横分隔后是 Pro/Max 升级诱导行(套餐徽标图标 + 灰轨 + 🔒升级解锁),底部说明轮播。
 import { useState } from 'react';
-import { RefreshCw, Lock, Loader2, ChevronLeft, ChevronRight, Coins, Gem, Crown, Sparkles, Gauge, type LucideIcon } from 'lucide-react';
+import { Lock, Loader2, ChevronLeft, ChevronRight, Coins, Gem, Crown, Sparkles, Gauge, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
+import { Switch } from '@/shared/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,7 @@ import {
 import { SubscribeDialog, subscribePayMethods, WechatPayDialog } from '@/shared/components';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
-import { useResetQuota, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
+import { useResetQuota, useSetCreditAutopay, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
 import { monthDay, resetInfo } from '../lib/quota-display';
 import { useSubscribeFlow } from './billing-panels';
 
@@ -31,10 +32,10 @@ const TIER_BADGE: Record<Tier, string> = {
   pro: 'bg-brand-amber/10 text-brand-amber',
   max: 'bg-brand-red/10 text-brand-red',
 };
-const NAMEPLATE: Record<Tier, string> = {
-  free: 'bg-surface-2 text-subtle border border-border',
-  pro: 'bg-surface-card text-foreground border border-foreground',
-  max: 'bg-foreground text-on-dark',
+const TIER_TAG: Record<Tier, string> = {
+  free: 'border-border bg-surface-2 text-faint',
+  pro: 'border-brand-amber/25 bg-brand-amber/10 text-brand-amber',
+  max: 'border-foreground bg-foreground text-on-dark',
 };
 const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 
@@ -89,6 +90,8 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
 
       <ActiveRow data={data} />
 
+      <CreditAutopayRow data={data} />
+
       {locked.length > 0 && (
         <>
           <div className="my-3 h-px bg-border-soft" />
@@ -127,74 +130,132 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
   );
 }
 
+/**
+ * 经费按量续用开关属于账户资产状态，而不是“充值”动作。
+ * 放在资产卡中让用户在看到余额与额度时即可感知、开关。
+ */
+function CreditAutopayRow({ data }: { data: Overview }) {
+  const setAutopay = useSetCreditAutopay();
+
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-12 border border-border-soft bg-surface-1 px-3 py-2.5">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-faint">
+        <Coins className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-14 font-medium text-foreground">用经费继续</p>
+        <p className="text-12 text-faint">额度用完后，仅对超出部分按量扣除经费</p>
+      </div>
+      <Switch
+        checked={data.credit.credit_autopay}
+        disabled={setAutopay.isPending}
+        aria-label="用经费继续"
+        onCheckedChange={(enabled) => {
+          setAutopay.mutate(enabled, {
+            onSuccess: () =>
+              toast.success(
+                enabled
+                  ? '已开启：额度用完后将按实际超出用量扣除经费'
+                  : '已关闭：额度用完后不会自动扣除经费',
+              ),
+            onError: (error) =>
+              toast.error(toApiError(error).message || '保存失败'),
+          });
+        }}
+      />
+    </div>
+  );
+}
+
 function ActiveRow({ data }: { data: Overview }) {
-  // 邀请奖励活动信号(与卡顶 usePlans 同 queryKey,命中缓存零额外请求)
-  const { data: plans } = usePlans();
   const t = data.token;
-  const remaining = t.unlimited || !t.window_started_at ? 100 : Math.max(0, 100 - t.percent); // 剩余百分比(未开窗=满额)
+  const remaining =
+    t.unlimited || !t.window_started_at
+      ? 100
+      : Math.max(0, 100 - t.percent); // 剩余百分比(未开窗=满额)
   const exhausted = !t.unlimited && remaining <= 0;
   // 0090:临时经费批次(lots)已下线,经费只剩一种、不过期 —— 没有「最近到期批次」可提示。
   const ri = resetInfo(t);
+
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex flex-1 items-center gap-2">
-        <span className={cn('inline-flex h-6 shrink-0 items-center rounded-4 px-2 text-12 font-medium', NAMEPLATE[data.tier])}>
-          {data.tier.toUpperCase()}
-        </span>
-        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-12 text-faint" title={`这条杠是你这一轮还剩多少 AI 额度。从第一次用 AI 起算 ${t.window_days} 天,到点自动回满;不想等可以用 1 次重置次数当场回满。`}>?</span>
-        <span className="shrink-0 text-12 font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
-        <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
-          {!t.unlimited && (
+    <div className="flex items-stretch gap-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-4">
+          <span
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center rounded-6 border px-2.5 text-12 font-medium',
+              TIER_TAG[data.tier],
+            )}
+          >
+            {data.tier === 'free'
+              ? 'FREE'
+              : `${data.tier.toUpperCase()} 会员`}
+          </span>
+          <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
             <div
-              className={cn('h-full rounded-pill', exhausted ? 'bg-brand-red' : remaining <= 20 ? 'bg-brand-amber' : 'bg-brand-green')}
+              className={cn(
+                'h-full rounded-pill',
+                exhausted
+                  ? 'bg-brand-red'
+                  : remaining <= 20
+                    ? 'bg-brand-amber'
+                    : 'bg-brand-green',
+              )}
               style={{ width: `${remaining}%` }}
             />
-          )}
-        </div>
-        <span className={cn('w-9 shrink-0 text-right text-12 tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
-          {t.unlimited ? '不限' : `${remaining}%`}
-        </span>
-        {/* 重置时间(业界做法:相对为主、绝对做 tooltip)—— 未开窗=「满额·用后计时」,窗口内=「N 天后重置」 */}
-        {!t.unlimited && (
+          </div>
           <span
-            className={cn('flex shrink-0 items-center gap-1 whitespace-nowrap text-12', exhausted ? 'text-brand-red' : 'text-faint')}
+            className={cn(
+              'w-20 shrink-0 text-right text-14 font-medium tabular-nums',
+              exhausted ? 'text-brand-red' : 'text-muted-foreground',
+            )}
+          >
+            {t.unlimited ? '额度不限' : `剩余 ${remaining}%`}
+          </span>
+        </div>
+
+        <div className="mt-2 flex min-w-0 items-center justify-between gap-3">
+          <span
+            className={cn(
+              'min-w-0 truncate text-12',
+              exhausted ? 'text-brand-red' : 'text-faint',
+            )}
             title={ri.hint}
           >
-            <RefreshCw className="size-3 shrink-0" />
-            {ri.notStarted ? '满额 · 用后计时' : ri.rel}
+            {t.unlimited
+              ? '当前额度不限'
+              : ri.notStarted
+                ? `满额 · 首次使用后开始 ${t.window_days} 天周期`
+                : ri.rel}
           </span>
-        )}
-        <ResetDialog data={data} exhausted={exhausted} />
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-12 text-faint">
+              {data.reset_passes > 0
+                ? `可用 ${data.reset_passes} 次${
+                    data.reset_pass_next_expiry
+                      ? ` · ${monthDay(data.reset_pass_next_expiry)}前有效`
+                      : ''
+                  }`
+                : '暂无重置次数'}
+            </span>
+            <ResetDialog data={data} exhausted={exhausted} />
+          </div>
+        </div>
       </div>
 
       <div className="h-10 w-px shrink-0 bg-border" />
 
-      <div className="flex w-36 shrink-0 flex-col gap-0.5">
-        <div className="flex items-center gap-1.5">
-          <Coins className="size-3.5 shrink-0 text-faint" />
-          {/* 0094:经费是小数(单次调用常只花零点几),固定两位;整数时不显示无意义的 .00 */}
-          <span className="text-20 font-medium leading-none tabular-nums text-foreground">
-            {Number.isInteger(data.credit.total) ? data.credit.total : data.credit.total.toFixed(2)}
-          </span>
-          <span className="text-12 text-faint">经费</span>
-        </div>
+      <div className="flex w-36 shrink-0 items-center justify-center gap-1.5">
+        <Coins className="size-3.5 shrink-0 text-faint" />
+        {/* 0094:经费是小数(单次调用常只花零点几),固定两位;整数时不显示无意义的 .00 */}
+        <span className="text-20 font-medium leading-none tabular-nums text-foreground">
+          {Number.isInteger(data.credit.total)
+            ? data.credit.total
+            : data.credit.total.toFixed(2)}
+        </span>
+        <span className="text-12 text-faint">经费</span>
         {/* 🔴 2026-07-31 拍板:「算力点」是内部计量单位,用户端一律不展示(推翻旧「必须同屏」口径)。
             经费=分(0095 起 ¥1=100 经费),数字本身即可读出价值,无需换算展示。 */}
-        {data.reset_passes > 0 && (
-          <span className="text-12 text-faint">可重置 {data.reset_passes} 次</span>
-        )}
-        {/* 最近一批重置次数的到期时刻(null = 无可用次数);批内计数后端不下发,N 用总次数。 */}
-        {data.reset_passes > 0 && data.reset_pass_next_expiry && (
-          <span className="text-12 text-faint">
-            {data.reset_passes} 次将于 {monthDay(data.reset_pass_next_expiry)} 前有效
-          </span>
-        )}
-        {/* 邀请奖励活动(0100):余额位内嵌入口 —— Gamma「点余额见邀请」范式,活动开启才显示。 */}
-        {(plans?.invite_reward_credits ?? 0) > 0 && (
-          <Link to="/settings/invite" className="text-12 text-brand-red hover:underline">
-            邀请有奖 · 每邀 1 人 +{plans?.invite_reward_credits} 经费 →
-          </Link>
-        )}
       </div>
     </div>
   );
@@ -266,14 +327,17 @@ function ResetDialog({ data, exhausted }: { data: Overview; exhausted: boolean }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <button
+        type="button"
         onClick={() => setOpen(true)}
         title="使用重置次数重置额度"
         className={cn(
-          'flex size-7 shrink-0 items-center justify-center rounded-8 border transition-colors',
-          exhausted ? 'border-brand-red text-brand-red hover:bg-danger-soft' : 'border-border text-faint hover:bg-surface-2'
+          'flex h-7 shrink-0 items-center justify-center rounded-8 border px-3 text-12 font-medium transition-colors',
+          exhausted
+            ? 'border-brand-red text-brand-red hover:bg-danger-soft'
+            : 'border-border text-faint hover:bg-surface-2',
         )}
       >
-        <RefreshCw className="size-3.5" />
+        重置
       </button>
       <DialogContent>
         {enough ? (

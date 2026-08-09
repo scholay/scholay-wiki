@@ -84,6 +84,11 @@ func TestIsValidCodeFormat(t *testing.T) {
 	if !isValidCodeFormat("ABCD2345") {
 		t.Error(`isValidCodeFormat("ABCD2345") 应为 true`)
 	}
+	for _, legacy := range []string{"AB0OL2", "000000", "OIL123"} {
+		if !isValidCodeFormat(legacy) {
+			t.Errorf("6 位历史码 %q 应允许完整 [A-Z0-9]", legacy)
+		}
+	}
 }
 
 // TestMaskIdentity 守住「被邀请人身份必须后端脱敏」的口径:
@@ -99,7 +104,7 @@ func TestMaskIdentity(t *testing.T) {
 		{"", "bob", "b**"},
 		{"", "", "用户***"},
 		{"  ", "  ", "用户***"},
-		{"noatsign", "李四", "李**"}, // 无 @ 的脏邮箱回落用户名
+		{"noatsign", "李四", "李**"},        // 无 @ 的脏邮箱回落用户名
 		{"张三@qq.com", "", "张***@qq.com"}, // 中文 local part 按 rune 截
 	}
 	for _, c := range cases {

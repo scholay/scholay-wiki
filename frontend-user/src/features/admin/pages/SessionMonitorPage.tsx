@@ -11,11 +11,22 @@ type Tab = MonitorFeature | 'peerreview';
 const TABS: { value: Tab; label: string }[] = [
   { value: 'smart_search', label: '智能搜索' },
   { value: 'claw', label: '智能助手' },
+  { value: 'boltslides', label: '制作 PPT' },
+  { value: 'sci_draw', label: '科研绘图' },
+  { value: 'stat_lab', label: '数据分析' },
   { value: 'prism', label: '智能写作' },
   { value: 'peerreview', label: '智能审稿' },
 ];
 
-const VALID: Tab[] = ['smart_search', 'claw', 'prism', 'peerreview'];
+const VALID: Tab[] = [
+  'smart_search',
+  'claw',
+  'boltslides',
+  'sci_draw',
+  'stat_lab',
+  'prism',
+  'peerreview',
+];
 
 export function SessionMonitorPage() {
   const [tab, setTab] = useUrlState<Tab>('tab', 'smart_search', (raw) =>

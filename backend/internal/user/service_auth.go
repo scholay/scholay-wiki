@@ -16,6 +16,8 @@ import (
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"time"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
 )
 
 // 注:历史上这里有个 isPrivilegedRole 闸门,把 admin/super_admin 挡在用户端登录/改密之外
@@ -28,6 +30,11 @@ import (
 // 到与「账号存在但密码错」一致,堵住「响应快 = 该邮箱/手机号未注册」的时间侧信道枚举。
 // 包加载时算一次;万一算失败(返回 ""),CheckPassword 仍安全返回 false,只是少了恒定耗时保护。
 var dummyBcryptHash, _ = utils.HashPassword("scholay-constant-time-dummy")
+
+func isDuplicateUserIdentity(err error) bool {
+	var mysqlErr *mysqldriver.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
+}
 
 // SendWelcomeMessage 发送新用户欢迎站内信
 func (s *Service) SendWelcomeMessage(userID uint) {
@@ -53,7 +60,7 @@ func (s *Service) RegisterWithEmail(ctx context.Context, email, password, code, 
 
 // RegisterWithEmailAndInvitation registers a new user with email, password and optional invitation code
 func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, password, code, invitationCode, ip string) (*User, string, error) {
-	_ = invitationCode // 邀请业务已移除，参数保留以兼容 API
+	_ = invitationCode // 旧 body 字段仅兼容；归因真源是 middleware/OAuth state 恢复的 X-Invite-Code ctx。
 
 	// Verify the email code using Redis (only if code is provided)
 	if code != "" {
@@ -231,20 +238,20 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 }
 
 // LoginWithEmailCode logs in a user with email and verification code
-func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string) (*User, string, error) {
+func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string) (*User, string, bool, error) {
 	// Verify the code
 	valid, err := cache.VerifyCode(ctx, email, code, "login")
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to verify code: %w", err)
+		return nil, "", false, fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return nil, "", errors.New("验证码无效或已过期")
+		return nil, "", false, errors.New("验证码无效或已过期")
 	}
 
 	// Find user by email
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 	// 未注册 → 自动注册并直接登录:验证码已证明掌控该邮箱,门槛与独立注册流等同
 	// (Turnstile + 验证码 + 限流均已在上游通过),免去「先注册再登录」两步。
@@ -253,7 +260,7 @@ func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string
 	}
 
 	if user.Status != 1 {
-		return nil, "", errors.New("账号已被停用")
+		return nil, "", false, errors.New("账号已被停用")
 	}
 
 	// Update last login time and IP
@@ -266,17 +273,17 @@ func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string
 	}
 	token, err := s.generateTokenForUser(user, username)
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 
-	return user, token, nil
+	return user, token, false, nil
 }
 
 // autoRegisterEmail 在「验证码登录时邮箱尚未注册」时自动建号并登录。
 // 调用方已校验验证码(证明掌控该邮箱)+ Turnstile,故此处不再二次校验码;创建的是**无密码**账号
 // (与 OAuth 账号一致,后续可经改密设置),邮箱置为已验证、账号 active。
 // 并发下若被同邮箱请求抢先建号,事务内回退为复用既有账号(不报错、不重复发欢迎)。
-func (s *Service) autoRegisterEmail(ctx context.Context, email, ip string) (*User, string, error) {
+func (s *Service) autoRegisterEmail(ctx context.Context, email, ip string) (*User, string, bool, error) {
 	var user *User
 	var created bool
 	err := s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
@@ -313,11 +320,18 @@ func (s *Service) autoRegisterEmail(ctx context.Context, email, ip string) (*Use
 		created = true
 		return nil
 	})
+	if err != nil && isDuplicateUserIdentity(err) {
+		// 两个验证码登录并发首次建号：唯一键败者回读胜者已提交的账号，
+		// created=false，不重复欢迎/邀请归因，也不把正常竞争暴露成登录失败。
+		if winner, lookupErr := s.repo.FindByEmail(email); lookupErr == nil && winner != nil {
+			user, created, err = winner, false, nil
+		}
+	}
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 	if user.Status != 1 {
-		return nil, "", errors.New("账号已被停用")
+		return nil, "", false, errors.New("账号已被停用")
 	}
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 	username := email
@@ -326,14 +340,14 @@ func (s *Service) autoRegisterEmail(ctx context.Context, email, ip string) (*Use
 	}
 	token, err := s.generateTokenForUser(user, username)
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 	if created {
 		s.SendWelcomeMessage(user.ID)
 		// 邀请归因(best-effort):仅本次真的新建号才归因;并发复用既有账号(created=false)不算。
 		notifyInviteRegistered(ctx, user.ID, "email")
 	}
-	return user, token, nil
+	return user, token, created, nil
 }
 
 // SendVerificationCode sends a verification code to an email

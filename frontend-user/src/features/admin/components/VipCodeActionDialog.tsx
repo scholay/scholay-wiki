@@ -69,6 +69,7 @@ export function VipCodeActionDialog({
 
   const submit = async () => {
     if (!action) return;
+    if (!Number.isFinite(action.value) || action.value < 1) return;
     const amount = Math.max(1, Number(action.value) || 1);
     const call =
       action.op === 'extend'
@@ -137,9 +138,15 @@ export function VipCodeActionDialog({
                     ? maxGrantAmount(action.unit)
                     : undefined
                 }
-                value={action.value}
+                value={Number.isFinite(action.value) ? action.value : ''}
                 onChange={(event) => {
-                  const amount = Math.max(1, Number(event.target.value) || 1);
+                  const parsed =
+                    event.target.value === ''
+                      ? Number.NaN
+                      : Number(event.target.value);
+                  const amount = Number.isFinite(parsed)
+                    ? Math.max(1, parsed)
+                    : parsed;
                   update({
                     value:
                       action.op === 'grant_days'
@@ -177,7 +184,10 @@ export function VipCodeActionDialog({
             <Button variant="outline" onClick={() => onActionChange(null)}>
               取消
             </Button>
-            <Button onClick={submit} disabled={pending}>
+            <Button
+              onClick={submit}
+              disabled={pending || !Number.isFinite(action.value) || action.value < 1}
+            >
               {pending && <Loader2 className="size-4 animate-spin" />}
               确定
             </Button>

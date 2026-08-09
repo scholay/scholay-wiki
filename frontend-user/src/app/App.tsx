@@ -8,6 +8,8 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePromoStore } from '@/stores/promo.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import { useShareSheet } from '@/stores/share.store';
+import { useInviteEntry } from '@/stores/invite-entry.store';
+import { InviteFlowController } from './InviteFlowController';
 
 // 诊断:把 data router 挂到 window,卡住时可在控制台读 `__appRouter.state.location.pathname`
 // (RR 已提交的路由)/ `.state.navigation.state`(idle/loading)与地址栏对比。配合 RouteCommitWatchdog。
@@ -51,6 +53,8 @@ function useCloseGlobalModalsOnNavigate() {
         if (cp.request) cp.closeCollect();
         const ss = useShareSheet.getState();
         if (ss.target) ss.closeShare();
+        const invite = useInviteEntry.getState();
+        if (invite.open) invite.closeInvite();
       });
     });
   }, []);
@@ -89,6 +93,7 @@ function ShellRoot() {
     <>
       <AuthBootstrap />
       <UserActivityReporter />
+      <InviteFlowController />
       {/*
         useTransitions={false} —— 根因修复:RR v7 默认把导航的 state 提交包在 React 19 低优
         `startTransition` 里(react-router 源码 chunk RouterProvider:`useTransitions===false ?
@@ -105,11 +110,17 @@ function ShellRoot() {
           (zod+react-hook-form+turnstile+微信扫码 ~105KB)此前 eager 常驻入口 chunk。改成首次打开才拉,
           之后保持挂载(内部本靠 store.open 控制 Radix Dialog 开合,常驻无副作用)。 */}
       <AuthDialogGate />
+      <InviteEntryDialogGate />
     </>
   );
 }
 
 const AuthDialog = lazy(() => import('@/features/auth').then((m) => ({ default: m.AuthDialog })));
+const InviteEntryDialog = lazy(() =>
+  import('./InviteEntryDialog').then((module) => ({
+    default: module.InviteEntryDialog,
+  })),
+);
 
 function AuthDialogGate() {
   const open = useAuthDialog((s) => s.open);
@@ -119,6 +130,18 @@ function AuthDialogGate() {
   return (
     <Suspense fallback={null}>
       <AuthDialog />
+    </Suspense>
+  );
+}
+
+function InviteEntryDialogGate() {
+  const open = useInviteEntry((state) => state.open);
+  const everOpened = useRef(false);
+  if (open) everOpened.current = true;
+  if (!everOpened.current) return null;
+  return (
+    <Suspense fallback={null}>
+      <InviteEntryDialog />
     </Suspense>
   );
 }

@@ -29,7 +29,7 @@ interface SidebarUserProps {
  * 底部用户条 —— 对齐 .pen`R4QJ9`h-56,左 32 圆形头像 + 名/邮箱 + ⌄。
  * 顶部 1px #EEEEEE 描边。点击展开 DropdownMenu。
  *
- * 字号:name 13 (.pen 推断,与 folder 行同档),email 11 #999。
+ * 排印:name 14/500，email 12/400；与侧栏主文/辅助文案层级一致。
  */
 export function SidebarUser({
   name,

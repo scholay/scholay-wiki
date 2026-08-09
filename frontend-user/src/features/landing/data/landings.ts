@@ -16,7 +16,7 @@ export type LandingKey =
   | 'submit'
   | 'peer-review';
 
-/** 大标题分行 —— italic=true 用 Playfair Display 斜体(.pen 模式) */
+/** 大标题分行 —— italic=true 用 Google Sans 真斜体 */
 export interface TitleLine {
   text: string;
   italic?: boolean;

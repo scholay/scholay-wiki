@@ -177,6 +177,7 @@ function DimensionEditDialog({
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
+            if (!Number.isFinite(sortOrder)) return;
             onSave(dimension.id, { name, description, sortOrder, isActive });
           }}
         >
@@ -213,8 +214,10 @@ function DimensionEditDialog({
               <Input
                 id="dim-sort"
                 type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+                value={Number.isFinite(sortOrder) ? sortOrder : ''}
+                onChange={(e) =>
+                  setSortOrder(e.target.value === '' ? Number.NaN : Number(e.target.value))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -232,7 +235,7 @@ function DimensionEditDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               取消
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || !Number.isFinite(sortOrder)}>
               {saving ? '保存中…' : '保存'}
             </Button>
           </DialogFooter>

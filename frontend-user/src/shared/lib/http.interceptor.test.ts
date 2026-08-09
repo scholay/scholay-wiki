@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   token: null as string | null,
+  inviteCode: null as string | null,
 }));
 
 vi.mock('@/shared/lib/auth-token', () => ({
@@ -10,7 +11,7 @@ vi.mock('@/shared/lib/auth-token', () => ({
 }));
 
 vi.mock('@/shared/lib/anon-id', () => ({ getAnonId: () => 'anon-test' }));
-vi.mock('@/shared/lib/invite-code', () => ({ readInviteCode: () => null }));
+vi.mock('@/shared/lib/invite-code', () => ({ readInviteCode: () => mocks.inviteCode }));
 vi.mock('@/shared/lib/http-status-messages', () => ({
   statusFallbackMessage: () => '',
 }));
@@ -29,6 +30,7 @@ import { http } from './http';
 
 beforeEach(() => {
   mocks.token = null;
+  mocks.inviteCode = null;
 });
 
 describe('http request interceptor session binding', () => {
@@ -54,5 +56,21 @@ describe('http request interceptor session binding', () => {
     await request;
 
     expect(authorization).toBe('Bearer token-a');
+  });
+
+  it('草稿为空时不发送 X-Invite-Code；已持久化候选才进入请求头', async () => {
+    const headers: Array<string | undefined> = [];
+    const request = () => http.post('/invite-header-probe', undefined, {
+      adapter: async (config) => {
+        headers.push(config.headers.get('X-Invite-Code')?.toString());
+        return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+      },
+    });
+
+    await request();
+    mocks.inviteCode = 'ABCD2345';
+    await request();
+
+    expect(headers).toEqual([undefined, 'ABCD2345']);
   });
 });

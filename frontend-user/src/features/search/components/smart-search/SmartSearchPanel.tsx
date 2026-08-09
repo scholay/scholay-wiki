@@ -22,12 +22,12 @@ import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { Upload } from 'lucide-react';
 import {
-  AttachmentChipList,
   ComposerAttachmentRow,
   ComposerPlusMenu,
   LibraryReferencePicker,
   QuestionPrompt,
   ReferenceChipList,
+  SearchUserBubble,
   findPendingQuestionBlock,
   type ReferenceSelection,
 } from '@/shared/components/chat';
@@ -1023,7 +1023,7 @@ export function SmartSearchPanel() {
                 )}
                 {visibleTurns.map((turn) => (
                   <div key={turn.id} className="space-y-3.5 min-w-0">
-                    <UserBubble
+                    <SearchUserBubble
                       text={turn.userText}
                       attachments={turn.userAttachments}
                       references={turn.userReferences}
@@ -1208,27 +1208,5 @@ function ScrollToBottomFab() {
     >
       <ArrowDown className="size-4" strokeWidth={2.4} />
     </button>
-  );
-}
-
-function UserBubble({
-  text,
-  attachments,
-  references,
-}: {
-  text: string;
-  attachments?: TurnAttachment[];
-  references?: TurnReference[];
-}) {
-  return (
-    <div className="flex flex-col items-end gap-1.5">
-      {attachments && attachments.length > 0 && <AttachmentChipList attachments={attachments} />}
-      {references && references.length > 0 && <ReferenceChipList references={references} />}
-      {text && (
-        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-12 bg-foreground text-on-dark text-12 leading-paragraph">
-          {text}
-        </div>
-      )}
-    </div>
   );
 }

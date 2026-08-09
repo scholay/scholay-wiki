@@ -114,10 +114,6 @@ export interface Plans {
   /** 1 经费可兑换的算力点(0094)。¥1 = recharge_rate × credit_to_points 算力点。 */
   credit_to_points: number;
   min_recharge_cents: number;
-  /** 邀请奖励活动(0100):>0=活动开启(「邀请有奖」入口点亮),0=关闭。 */
-  invite_reward_credits: number;
-  /** 每邀请人每日最多计奖励的邀请数(0=不限)。 */
-  invite_reward_daily_cap: number;
   popular_plan: string;
   enabled: boolean;
   test_payment: boolean; // 测试支付开关(PAYMENT_TEST_ENABLED)

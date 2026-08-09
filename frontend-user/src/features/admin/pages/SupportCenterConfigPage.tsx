@@ -72,6 +72,12 @@ const EMPTY: FormState = {
 
 const FORM_KEYS = Object.keys(EMPTY) as (keyof FormState)[];
 
+const numberInputValue = (value: number): number | '' =>
+  Number.isFinite(value) ? value : '';
+
+const parseNumberDraft = (raw: string): number =>
+  raw === '' ? Number.NaN : Number(raw);
+
 /** 切「小眼睛」时会随新请求回填的四个字段 —— 其余字段一律保留用户正在编辑的值。 */
 const SECRET_KEYS = [
   'imap_password',
@@ -124,8 +130,17 @@ export function SupportCenterConfigPage() {
   // 「屏幕上的参数」与「已保存的配置」是否一致 —— 三个测试按钮打的都是后者。
   const dirty = cfg ? FORM_KEYS.some((k) => form[k] !== cfg[k]) : false;
   const blocked = q.isError || !cfg;
+  const numericDraftValid = [
+    form.imap_port,
+    form.imap_poll_minutes,
+    form.smtp_port,
+  ].every(Number.isFinite);
 
   const handleSave = async () => {
+    if (!numericDraftValid) {
+      toast.error('请先完整填写端口和轮询间隔');
+      return;
+    }
     await apiToast(update.mutateAsync(form), { success: '已保存', failure: '保存失败' });
   };
 
@@ -182,7 +197,7 @@ export function SupportCenterConfigPage() {
       onRefresh={handleRefresh}
       refreshing={q.isFetching}
       actions={
-        <Button size="sm" onClick={handleSave} disabled={update.isPending || q.isLoading || blocked}>
+        <Button size="sm" onClick={handleSave} disabled={update.isPending || q.isLoading || blocked || !numericDraftValid}>
           {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           保存全部
         </Button>
@@ -231,8 +246,8 @@ export function SupportCenterConfigPage() {
                 <Field label="端口">
                   <Input
                     type="number"
-                    value={form.imap_port}
-                    onChange={(e) => set('imap_port', Number(e.target.value) || 993)}
+                    value={numberInputValue(form.imap_port)}
+                    onChange={(e) => set('imap_port', parseNumberDraft(e.target.value))}
                   />
                 </Field>
                 <Field label="邮箱账号">
@@ -251,8 +266,8 @@ export function SupportCenterConfigPage() {
                   <Input
                     type="number"
                     min={1}
-                    value={form.imap_poll_minutes}
-                    onChange={(e) => set('imap_poll_minutes', Number(e.target.value) || 5)}
+                    value={numberInputValue(form.imap_poll_minutes)}
+                    onChange={(e) => set('imap_poll_minutes', parseNumberDraft(e.target.value))}
                   />
                 </Field>
                 <Field label="TLS(993 端口必开)">
@@ -279,8 +294,8 @@ export function SupportCenterConfigPage() {
                 <Field label="端口(465=SSL / 587=TLS)">
                   <Input
                     type="number"
-                    value={form.smtp_port}
-                    onChange={(e) => set('smtp_port', Number(e.target.value) || 465)}
+                    value={numberInputValue(form.smtp_port)}
+                    onChange={(e) => set('smtp_port', parseNumberDraft(e.target.value))}
                   />
                 </Field>
                 <Field label="发信账号">

@@ -147,8 +147,8 @@ export function PricingPage() {
             取样的 9 家大厂定价页也全部是「卡片直接坐在页面底上」,没有一家套外壳。 */}
         <div className="text-center">
           <p className="text-12 font-medium text-brand-red">SCHOLAY 学者订阅</p>
-          {/* 标题上展示档:全站有 text-display-36 而这页原来只用 text-24,首屏没有分量 */}
-          <h1 className="mt-2 font-display text-28 font-bold leading-display-tight text-foreground md:text-display-36">
+          {/* 标题使用 dev.pen 的 28/32px 正式阶梯。 */}
+          <h1 className="mt-2 font-display text-28 font-bold leading-display-tight text-foreground md:text-32">
             选择适合你的科研节奏
           </h1>
           <p className="mx-auto mt-3 max-w-reading text-14 leading-paragraph text-muted-foreground">

@@ -6,9 +6,9 @@ import { useQueryClient } from'@tanstack/react-query';
 import { Loader2, Ticket, Zap, Coins } from'lucide-react';
 import { toast } from'sonner';
 import { Button } from'@/shared/ui/button';
-import { Switch } from'@/shared/ui/switch';
 import { Input } from'@/shared/ui/input';
 import { cn } from'@/shared/lib/utils';
+import { normalizeMoneyDraft } from '@/shared/lib/numeric-input';
 import { toApiError } from'@/shared/lib/http';
 import { notifyBillingChanged } from'@/shared/lib/quota-events';
 import { showQuotaToast } from'@/shared/components/quota-toast';
@@ -21,8 +21,6 @@ import {
   useStartAlipay,
   useTestPay,
   useTransactions,
-  useBillingOverview,
-  useSetCreditAutopay,
   usePlans,
   type BillingCycle,
 } from'../api/membership';
@@ -41,52 +39,6 @@ function rememberPayReturnPath() {
   }
 }
 
-/**
- * 「用经费继续」开关(0094 按量付费)—— 周期额度用完后自动按真实成本从经费扣。
- *
- * 🔴 **默认关**,必须由用户在这里显式开。历史上的「自动消耗经费重置额度」就是因为
- * 不知情扣费被整个下线的(auto-reset-removed-2026-06),这是同一类风险 ——
- * 所以开关要显眼、文案要把「会花钱」讲明白,而不是藏在设置深处默默生效。
- */
-function CreditAutopayCard() {
-  const { data } = useBillingOverview();
-  const setAutopay = useSetCreditAutopay();
-  const on = data?.credit.credit_autopay ?? false;
-
-  return (
-    // p-4 而非邻居卡片的 p-5:护栏的「半档间距」棘轮把 -5 也算在内(Figma 集合无 20px),
-    // 基线是零余量,新代码只能用 {1,2,2.5,3,4,6,8,10}。视觉上 16 vs 20 的差别可忽略。
-    <section className="rounded-16 border border-border bg-surface-card p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-14 font-medium text-foreground">用经费继续</h3>
-          <p className="max-w-xl text-12 leading-paragraph text-muted-foreground">
-            {/* ⚠️ 这里原文写的是 markdown 的 `**加粗**` —— JSX 里星号会被原样渲染成字面量,
-                用户看到的是「时**自动按实际用量从经费扣费**,不」。加粗要用 <b>。 */}
-            打开后:额度用完时不会中断,<b className="font-medium text-foreground">超出的那部分按你实际用掉的量从经费扣</b>,
-            手上的任务能接着跑。不打开:额度用完就停下来,等它自动重置。套餐额度永远先用完,才会动经费 —— 随时可以关。
-          </p>
-          {data && (
-            <p className="text-12 text-faint">
-              当前经费 {Number.isInteger(data.credit.total) ? data.credit.total : data.credit.total.toFixed(2)}
-            </p>
-          )}
-        </div>
-        <Switch
-          checked={on}
-          disabled={setAutopay.isPending}
-          onCheckedChange={(v) => {
-            setAutopay.mutate(v, {
-              onSuccess: () => toast.success(v ? '已开启。额度用完后会按实际用量从经费扣,只扣超出的那部分,随时可以关' : '已关闭。额度用完后会停下来,不会动你的经费'),
-              onError: (e) => toast.error(toApiError(e).message || '保存失败'),
-            });
-          }}
-        />
-      </div>
-    </section>
-  );
-}
-
 /** 经费充值 —— 两栏:左(金额 + 支付方式)/ 右(订单详情)。对齐设计稿。 */
 export function RechargePanel() {
   const { data: plans } = usePlans();
@@ -95,6 +47,7 @@ export function RechargePanel() {
   const startAlipay = useStartAlipay();
   const testPay = useTestPay();
   const [yuan, setYuan] = useState('20');
+  const [customSelected, setCustomSelected] = useState(false);
   const [method, setMethod] = useState('');
   // 微信支付:建单成功后把单号交给扫码弹窗(null = 弹窗关着)。
   const [wxOrder, setWxOrder] = useState<string | null>(null);
@@ -144,9 +97,6 @@ export function RechargePanel() {
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start">
       <div className="flex flex-1 flex-col gap-4">
-        {/* 用经费继续(按量付费开关)—— 放在充值之上:先讲清经费能干什么,再谈买多少 */}
-        <CreditAutopayCard />
-
         {/* 金额 */}
         <section className="rounded-16 border border-border bg-surface-card p-5">
           <div className="mb-3 flex items-center justify-between">
@@ -154,12 +104,16 @@ export function RechargePanel() {
             <span className="text-12 text-faint">1 元 = {rate} 经费</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {[30, 50, 20, 200, 500, 1000].map((v) => {
-              const active = Number(yuan) === v;
+            {[20, 50, 100, 500, 1000].map((v) => {
+              const active = !customSelected && Number(yuan) === v;
               return (
                 <button
+                  type="button"
                   key={v}
-                  onClick={() => setYuan(String(v))}
+                  onClick={() => {
+                    setCustomSelected(false);
+                    setYuan(String(v));
+                  }}
                   className={cn('flex flex-col gap-0.5 rounded-12 border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
                 >
                   <span className={cn('text-14 font-medium', active ? 'text-brand-red' : 'text-foreground')}>¥{v}</span>
@@ -167,15 +121,43 @@ export function RechargePanel() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => {
+                setCustomSelected(true);
+                setYuan('');
+              }}
+              className={cn(
+                'flex flex-col gap-0.5 rounded-12 border p-3 text-left transition-colors',
+                customSelected ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2',
+              )}
+            >
+              <span className={cn('text-14 font-medium', customSelected ? 'text-brand-red' : 'text-foreground')}>自定义金额</span>
+              <span className="text-12 text-faint">输入充值金额</span>
+            </button>
           </div>
-          <div className="mt-2 flex items-center gap-2 rounded-8 border border-border bg-surface-1 px-3">
-            <Coins className="size-4 shrink-0 text-faint"/>
-            <Input
-              value={yuan}
-              onChange={(e) => setYuan(e.target.value.replace(/[^0-9.]/g, ''))}
-              className="h-10 flex-1 border-0 bg-transparent px-0" inputMode="decimal" placeholder="输入其他金额"/>
-            <span className="shrink-0 text-12 text-faint">最低 {minYuan} 元</span>
-          </div>
+          {customSelected && (
+            <div className={cn(
+              'mt-2 flex items-center gap-2 rounded-8 border bg-surface-1 px-3',
+              yuan && !valid ? 'border-brand-red' : 'border-border',
+            )}>
+              <Coins className="size-4 shrink-0 text-faint"/>
+              <Input
+                autoFocus
+                value={yuan}
+                onChange={(event) => {
+                  const next = normalizeMoneyDraft(event.target.value);
+                  if (next !== null) setYuan(next);
+                }}
+                className="h-10 flex-1 border-0 bg-transparent px-0"
+                inputMode="decimal"
+                placeholder={`最低充值 ${minYuan} 元`}
+              />
+              {yuan && !valid && (
+                <span className="shrink-0 text-12 text-brand-red">最低 {minYuan} 元</span>
+              )}
+            </div>
+          )}
         </section>
 
         {/* 支付方式 */}

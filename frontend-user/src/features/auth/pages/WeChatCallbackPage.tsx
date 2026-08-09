@@ -5,6 +5,7 @@ import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { handleAuthSuccess } from '../api/auth';
+import { authSuccessLandingPath } from '@/shared/lib/auth-events';
 import type { AuthResponse } from '../types';
 
 /**
@@ -57,10 +58,11 @@ export function WeChatCallbackPage() {
           '/user/wechat/callback',
           { code, state }
         );
+        const landingPath = authSuccessLandingPath(data.data.is_new_user);
         handleAuthSuccess(qc, data.data);
         setPhase('success');
         toast.success('登录成功');
-        setTimeout(() => navigate('/', { replace: true }), 400);
+        setTimeout(() => navigate(landingPath, { replace: true }), 400);
       } catch (e) {
         setPhase('error');
         setErrMsg(toApiError(e).message || '微信登录失败');

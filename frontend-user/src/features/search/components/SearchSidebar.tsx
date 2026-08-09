@@ -153,7 +153,7 @@ export function SearchSidebar({
         {/* 1. 文件夹 — 真实数据 / 登录引导 */}
         <LibrarySection />
 
-        {/* 2. 筛选器(prominent:11px/700 #111,与 "清空" 操作配套强调)——
+        {/* 2. 筛选器(prominent:12px/500 foreground,与「清空」操作配套强调)——
             只在 classic 模式渲染;智能模式由 agent 理解意图,前端筛选无效。 */}
         {mode === 'classic' && (
         <SidebarSection
@@ -209,7 +209,7 @@ export function SearchSidebar({
                     <TooltipTrigger asChild>
                       <label
                         className={cn(
-                          'flex items-center gap-2.5 px-4 py-1.5 cursor-pointer hover:bg-surface-1 transition-colors',
+                          'flex h-7 cursor-pointer items-center gap-2.5 px-4 transition-colors hover:bg-surface-1',
                           filters.source === opt.value && 'bg-surface-1'
                         )}
                       >
@@ -255,7 +255,7 @@ export function SearchSidebar({
               {sortOptionsForSource(filters.source).map((opt) => (
                 <label
                   key={opt.value}
-                  className="flex items-center gap-2.5 h-6 px-4 cursor-pointer hover:bg-surface-1 transition-colors"
+                  className="flex h-7 cursor-pointer items-center gap-2.5 px-4 transition-colors hover:bg-surface-1"
                 >
                   <input
                     type="radio"
@@ -284,7 +284,7 @@ export function SearchSidebar({
             {TIME_OPTIONS.map((opt) => (
               <label
                 key={opt.value}
-                className="flex items-center gap-2.5 h-6 px-4 cursor-pointer hover:bg-surface-1 transition-colors"
+                className="flex h-7 cursor-pointer items-center gap-2.5 px-4 transition-colors hover:bg-surface-1"
               >
                 <input
                   type="radio"
@@ -318,7 +318,7 @@ export function SearchSidebar({
                 return subjectsSingle ? (
                   <label
                     key={opt.value}
-                    className="flex items-center gap-2.5 h-6 px-4 cursor-pointer hover:bg-surface-1 transition-colors"
+                    className="flex h-7 cursor-pointer items-center gap-2.5 px-4 transition-colors hover:bg-surface-1"
                   >
                     <input
                       type="radio"
@@ -369,7 +369,7 @@ export function SearchSidebar({
 
           {showOpenAccess && (
             <FilterGroup label="开放获取">
-              <label className="flex items-center gap-2.5 h-6 px-4 cursor-pointer hover:bg-surface-1 transition-colors">
+              <label className="flex h-7 cursor-pointer items-center gap-2.5 px-4 transition-colors hover:bg-surface-1">
                 <Checkbox
                   checked={filters.openAccess}
                   onCheckedChange={(v) => patch('openAccess', !!v)}

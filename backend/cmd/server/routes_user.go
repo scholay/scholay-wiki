@@ -90,6 +90,14 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		middleware.RateLimitMiddleware(20, time.Minute),
 		h.invite.RecordOpen,
 	)
+	api.GET("/invite/campaign",
+		middleware.RateLimitMiddleware(60, time.Minute),
+		h.invite.Campaign,
+	)
+	api.POST("/invite/preview",
+		middleware.RateLimitMiddleware(30, time.Minute),
+		h.invite.Preview,
+	)
 
 	// ── Skills 市场公开端点(免登录;只服务 public+approved+active)——
 	// 跨 agent 分发:install.md 安装说明 / marketplace.json 目录 / :slug/download tar.gz /
@@ -133,6 +141,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 
 		// 我的邀请(get-or-create):首次调用即生成该用户唯一邀请码,返回码/落地 URL/统计。
 		userProtected.GET("/invite", h.invite.GetMyInvite)
+		userProtected.GET("/invite/status", h.invite.GetStatus)
+		userProtected.POST("/invite/bind", h.invite.Bind)
 		// 我邀请的用户列表(name 已在服务层脱敏,原始邮箱/用户名/ID 不下发)
 		userProtected.GET("/invite/registrations", h.invite.GetMyRegistrations)
 

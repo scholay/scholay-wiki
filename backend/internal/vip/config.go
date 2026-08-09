@@ -115,17 +115,17 @@ func cycleLabelZh(cycle string) string {
 // 历史上「与迁移 0015 列默认值一致」的说法已过时(0015 后多轮迁移改过种子)。
 func DefaultBillingConfig() *BillingConfig {
 	return &BillingConfig{
-		ID:                     1,
-		FreeDailyTokens:        200000, // 旧日额度基准(P4 起判定不读,回滚兜底)
+		ID:              1,
+		FreeDailyTokens: 200000, // 旧日额度基准(P4 起判定不读,回滚兜底)
 		// P5 成本制:单位=微元真实成本(显示 ÷1000=算力点)。Free 300000 微元 = ¥0.3 = 300 算力点。
-		FreeWindowTokens:       300_000, // Free 300 算力点 / 7 天
-		WindowDays:             7,
-		ProMultiplier:          20, // Pro = 20× Free = 6000 算力点
-		MaxMultiplier:          5,  // Max = 5× Pro = 30000 算力点
-		ProPriceCents:          5900,
-		ProOriginalCents:       19900,
-		MaxPriceCents:          26900,
-		MaxOriginalCents:       99900,
+		FreeWindowTokens: 300_000, // Free 300 算力点 / 7 天
+		WindowDays:       7,
+		ProMultiplier:    20, // Pro = 20× Free = 6000 算力点
+		MaxMultiplier:    5,  // Max = 5× Pro = 30000 算力点
+		ProPriceCents:    5900,
+		ProOriginalCents: 19900,
+		MaxPriceCents:    26900,
+		MaxOriginalCents: 99900,
 		// 年度订阅(0079 种子同口径):年价=月价×10(送 2 个月),划线=月划线×12。
 		// 0090:四个 grant 默认值与两个「周期天数」默认值已删(订阅不赠送经费;周期改真自然月/年)。
 		ProYearPriceCents:    59000,
@@ -141,14 +141,12 @@ func DefaultBillingConfig() *BillingConfig {
 		CreditToPoints:   3,
 		MinRechargeCents: 1000,
 		// 邀请奖励(0100)默认关闭:发钱的活动必须由 admin 显式开启,兜底配置绝不能自带发钱。
-		InviteRewardCredits:  0,
-		InviteRewardDailyCap: 0,
 		// ResetCostCredits 运行时已不读(重置改扣次数),但**必须保留取值**:
 		// 迁移 0092 拿它当「N 经费 = 1 次」的换算除数,每次容器启动都重放。被写成 0 会让
 		// GREATEST(0,1)=1 → 未换算批次按 1:1 换,相对拍板值 120 超发 120 倍。
 		ResetCostCredits: 60,
-		PopularPlan:            TierPro,
-		Enabled:                true,
+		PopularPlan:      TierPro,
+		Enabled:          true,
 	}
 }
 
@@ -204,8 +202,6 @@ func (s *ConfigService) Update(in *BillingConfig) error {
 	clampNeg(&in.MaxYearPriceCents)
 	clampNeg(&in.MaxYearOriginalCents)
 	// 邀请奖励(0100)两旋钮:负数无意义,一律归 0(0=关闭/不限)。
-	clampNeg(&in.InviteRewardCredits)
-	clampNeg(&in.InviteRewardDailyCap)
 	// (两个 year_grant_credits 的 clamp 已删 —— 字段本身退休。
 	//  上面四个年度**价格**的 clamp 一行都不能删:0079 的 -1 哨兵回填每次启动都重放,
 	//  价格被存成负数后会被静默复活成「月价×10」,直接改掉用户被收的价。)

@@ -38,32 +38,30 @@ func (r *Repository) UpdateBillingConfig(c *BillingConfig) error {
 		return err
 	}
 	return r.db.Model(&existing).Updates(map[string]any{
-		"free_daily_tokens":        c.FreeDailyTokens,
-		"free_window_tokens":       c.FreeWindowTokens,
-		"window_days":              c.WindowDays,
-		"base_price_per_m":         c.BasePricePerM,
-		"pro_multiplier":           c.ProMultiplier,
-		"max_multiplier":           c.MaxMultiplier,
-		"pro_price_cents":          c.ProPriceCents,
-		"pro_original_cents":       c.ProOriginalCents,
-		"max_price_cents":          c.MaxPriceCents,
-		"max_original_cents":       c.MaxOriginalCents,
-		"pro_year_price_cents":     c.ProYearPriceCents,
-		"pro_year_original_cents":  c.ProYearOriginalCents,
-		"max_year_price_cents":     c.MaxYearPriceCents,
-		"max_year_original_cents":  c.MaxYearOriginalCents,
+		"free_daily_tokens":       c.FreeDailyTokens,
+		"free_window_tokens":      c.FreeWindowTokens,
+		"window_days":             c.WindowDays,
+		"base_price_per_m":        c.BasePricePerM,
+		"pro_multiplier":          c.ProMultiplier,
+		"max_multiplier":          c.MaxMultiplier,
+		"pro_price_cents":         c.ProPriceCents,
+		"pro_original_cents":      c.ProOriginalCents,
+		"max_price_cents":         c.MaxPriceCents,
+		"max_original_cents":      c.MaxOriginalCents,
+		"pro_year_price_cents":    c.ProYearPriceCents,
+		"pro_year_original_cents": c.ProYearOriginalCents,
+		"max_year_price_cents":    c.MaxYearPriceCents,
+		"max_year_original_cents": c.MaxYearOriginalCents,
 		// 0090 退休:pro/max × 月/年 四个 grant 列 + 两个 subscription_*_days 列不再写回。
 		// 这个 map 刻意显式列举(为了不跳零值),所以「struct 删字段」与「map 删 key」必须同批 ——
 		// 只删一边:留 key = 编译错(好);留字段不删 key = 前端 PUT 缺 key 时零值刷掉
 		// 0090 声明要保留的回滚兜底值(坏)。
-		"recharge_rate":            c.RechargeRate,
-		"credit_to_points":         c.CreditToPoints, // 0094 按量付费兑换率
-		"min_recharge_cents":       c.MinRechargeCents,
-		"invite_reward_credits":    c.InviteRewardCredits,  // 0100 邀请奖励(0=关闭)
-		"invite_reward_daily_cap":  c.InviteRewardDailyCap, // 0100 每日上限(0=不限)
-		"reset_cost_credits":       c.ResetCostCredits, // 运行时不读,但 0092 换算要用,必须继续写回
-		"popular_plan":             c.PopularPlan,
-		"enabled":                  c.Enabled,
+		"recharge_rate":      c.RechargeRate,
+		"credit_to_points":   c.CreditToPoints, // 0094 按量付费兑换率
+		"min_recharge_cents": c.MinRechargeCents,
+		"reset_cost_credits": c.ResetCostCredits, // 运行时不读,但 0092 换算要用,必须继续写回
+		"popular_plan":       c.PopularPlan,
+		"enabled":            c.Enabled,
 	}).Error
 }
 

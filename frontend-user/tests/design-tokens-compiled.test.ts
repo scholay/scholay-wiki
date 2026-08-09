@@ -72,19 +72,12 @@ function rulesFor(cls: string): string[] {
 const emits = (cls: string) => rulesFor(cls).length > 0;
 
 describe('命名空间封闭 —— 声明为「封闭集合」的必须真的编译不出', () => {
-  it('字号 = Figma 六档 + 10/11 密集档 + 2 个展示档', () => {
-    // Figma §2.2 严格 12/14/16/20/24/28,点名要干掉 13/15。
-    // 10 / 11 是 2026-07-29 产品拍板新增的**密集导航档**(首页主菜单双行条目),
-    // 属对 Figma 的刻意偏离,设计师后续补齐规范 —— 见 globals.css 该段红字。
-    for (const ok of ['text-10', 'text-11', 'text-12', 'text-14', 'text-16', 'text-20', 'text-24', 'text-28']) {
+  it('字号 = dev.pen 八档 UI 阶梯 + 64px 展示档', () => {
+    for (const ok of ['text-12', 'text-14', 'text-16', 'text-18', 'text-20', 'text-24', 'text-28', 'text-32', 'text-display-64']) {
       expect(emits(ok), `${ok} 应该编译得出`).toBe(true);
     }
-    // 10/11 立档的意义之一是取代 arbitrary:确认它们真的产出 font-size 而不是空规则。
-    for (const t of ['text-10', 'text-11']) {
-      expect(rulesFor(t).join(''), `${t} 必须真的输出 font-size`).toMatch(/font-size/);
-    }
     // Tailwind 默认档必须被 --text-*: initial 关掉 —— 否则是「编译得出 + CI 放行」的双重后门
-    for (const bad of ['text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-5xl', 'text-9xl']) {
+    for (const bad of ['text-10', 'text-11', 'text-display-36', 'text-display-56', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-5xl', 'text-9xl']) {
       expect(emits(bad), `${bad} 不该编译得出(命名空间未封闭)`).toBe(false);
     }
   });
@@ -119,7 +112,7 @@ describe('排印实现陷阱', () => {
     // globals.css 自己的警告:「一旦定义 --text-14--line-height,text-14 会同时输出
     // font-size 和 line-height,字号档会盖掉字族层行高,整套设计当场作废」。
     // 行高是按【字族】绑定的(sans 1.25 / display 1.333 / serif 1.437)。
-    for (const t of ['text-10', 'text-11', 'text-12', 'text-14', 'text-16', 'text-20', 'text-24', 'text-28']) {
+    for (const t of ['text-12', 'text-14', 'text-16', 'text-18', 'text-20', 'text-24', 'text-28', 'text-32', 'text-display-64']) {
       for (const decl of rulesFor(t)) {
         expect(decl, `${t} 输出了 line-height,会盖掉字族层行高`).not.toMatch(/line-height/);
         expect(decl).toMatch(/font-size/);
@@ -169,7 +162,7 @@ describe('声称「已注册」的 token 必须真的产出工具类', () => {
     ['层级', ['z-raised', 'z-sticky', 'z-nav', 'z-chrome', 'z-scrim', 'z-overlay', 'z-modal', 'z-popover', 'z-tooltip', 'z-toast', 'z-fx']],
     ['阴影', ['shadow-overlay', 'shadow-raised']],
     ['字间距', ['tracking-code', 'tracking-brand']],
-    ['字族', ['font-sans', 'font-serif', 'font-display', 'font-mono']],
+    ['字族', ['font-sans', 'font-serif', 'font-display', 'font-brand', 'font-mono']],
   ])('%s', (_label, classes) => {
     const dead = (classes as string[]).filter((c) => !emits(c));
     expect(dead, `这些 token 写进了文档但编译不出类:\n${dead.join(', ')}`).toEqual([]);
@@ -240,11 +233,11 @@ describe('关键 token 的取值', () => {
     expect(rootValue('surface-card')).toMatch(/#FFFFFF/i);
   });
 
-  it('品牌三色 = Figma 四色阶基准色', () => {
+  it('品牌三色 = dev.pen 色板基准色', () => {
     expect(rulesFor('bg-brand-red').join()).toMatch(/var\(--brand-red\)/);
     expect(rootValue('brand-red')).toMatch(/#882828/i);
     expect(rootValue('brand-green')).toMatch(/#2F4D29/i);
-    expect(rootValue('brand-amber')).toMatch(/#E5A800/i);
+    expect(rootValue('brand-amber')).toMatch(/#B4880E/i);
   });
 
   it('品牌三色是**接在色阶原语上**的,不是又抄了一份字面 hex', () => {
@@ -254,11 +247,29 @@ describe('关键 token 的取值', () => {
     // ⚠️ 断言的是**未解引用的原始声明**,所以这里直接读 ROOT_TOKENS 而不是 tokenValue()。
     expect(ROOT_TOKENS.get('--brand-red'), '--brand-red 应当接 --red-5').toBe('var(--red-5)');
     expect(ROOT_TOKENS.get('--brand-green'), '--brand-green 应当接 --green-3').toBe('var(--green-3)');
-    expect(ROOT_TOKENS.get('--brand-amber'), '--brand-amber 应当接 --amber-6').toBe('var(--amber-6)');
+    expect(ROOT_TOKENS.get('--brand-amber'), '--brand-amber 应当接 --amber-4').toBe('var(--amber-4)');
     // 并且原语那一端的值必须仍是基准色 —— 否则「接线」只是把漂移挪了个位置
     expect(ROOT_TOKENS.get('--red-5')).toMatch(/#882828/i);
     expect(ROOT_TOKENS.get('--green-3')).toMatch(/#2F4D29/i);
-    expect(ROOT_TOKENS.get('--amber-6')).toMatch(/#E5A800/i);
+    expect(ROOT_TOKENS.get('--amber-4')).toMatch(/#B4880E/i);
+  });
+
+  it('Neutral 使用实际色块 #1F1F23，Primary 映射到朱砂', () => {
+    // dev.pen 的 Neutral 标题文本写 #141414，但基准色块与组件实际填充均为 #1F1F23。
+    expect(rootValue('foreground')).toMatch(/#1F1F23/i);
+    expect(ROOT_TOKENS.get('--primary')).toBe('var(--brand-red)');
+    expect(rootValue('primary')).toMatch(/#882828/i);
+  });
+
+  it('Logo / Scholay 字标专用色冻结，不跟随主题琥珀变色', () => {
+    // 用原始声明断言，保证四色仍是独立字面量，不会被改成 var(--brand-*) 联动。
+    expect(ROOT_TOKENS.get('--logo-red')).toBe('#882828');
+    expect(ROOT_TOKENS.get('--logo-amber')).toBe('#F1BF45');
+    expect(ROOT_TOKENS.get('--logo-green')).toBe('#427935');
+    expect(ROOT_TOKENS.get('--logo-ink')).toBe('#000000');
+
+    expect(rootValue('brand-amber')).toBe('#B4880E');
+    expect(rootValue('brand-amber').toUpperCase()).not.toBe(rootValue('logo-amber').toUpperCase());
   });
 
   it('正文基准 = 14px(Figma 点名要干掉 13)', () => {

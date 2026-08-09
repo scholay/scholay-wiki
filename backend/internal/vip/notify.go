@@ -78,6 +78,55 @@ func tierDisplayName(tier string) string {
 
 func yuanStr(f float64) string { return fmt.Sprintf("¥%.2f", f) }
 
+// NotifyInviteCampaignReward 在邀请奖励事务提交后发明确通知。
+// kind 沿用 credit_transactions.type，避免“发了钱但用户不知道是哪条规则”。
+func (s *Service) NotifyInviteCampaignReward(userID uint, credits int, kind string) {
+	if userID == 0 || credits <= 0 {
+		return
+	}
+	var title, intro, inApp string
+	switch kind {
+	case TxInviteRegistrationInvitee:
+		title = "受邀注册奖励到账"
+		intro = "您通过好友邀请完成注册，受邀奖励已到账。"
+		inApp = fmt.Sprintf("受邀注册奖励 %d 科研经费已到账。", credits)
+	case TxInviteFirstPurchaseRebate:
+		title = "邀请首单返利到账"
+		intro = "您邀请的好友完成了首笔有效付费，返利已到账。"
+		inApp = fmt.Sprintf("好友首单返利 %d 科研经费已到账。", credits)
+	default:
+		title = "邀请注册奖励到账"
+		intro = "您邀请的好友已完成注册，邀请奖励已到账。"
+		inApp = fmt.Sprintf("邀请注册奖励 %d 科研经费已到账。", credits)
+	}
+	s.notify(userID, title, inApp, utils.EmailContent{
+		Title:   title,
+		Intro:   intro,
+		Rows:    [][2]string{{"到账经费", fmt.Sprintf("%d 经费", credits)}},
+		CTAText: "查看账户资产", CTAURL: membershipURL(),
+	})
+}
+
+// NotifyInviteRewardReversal 告知邀请人：好友的首单退款已对原返利做相同口径回收。
+func (s *Service) NotifyInviteRewardReversal(userID uint, reclaimed, shortfall int, refundNo string) {
+	if userID == 0 || (reclaimed <= 0 && shortfall <= 0) {
+		return
+	}
+	title := "邀请首单返利已调整"
+	inApp := fmt.Sprintf("因好友首单退款，已回收 %d 科研经费返利。", reclaimed)
+	rows := [][2]string{{"已回收经费", fmt.Sprintf("%d 经费", reclaimed)}, {"退款单号", refundNo}}
+	if shortfall > 0 {
+		rows = append(rows, [2]string{"未回收差额", fmt.Sprintf("%d 经费", shortfall)})
+		inApp += fmt.Sprintf("余额不足的 %d 经费未形成负余额。", shortfall)
+	}
+	s.notify(userID, title, inApp, utils.EmailContent{
+		Title:   title,
+		Intro:   "邀请返利会随对应首单的有效净实付调整。",
+		Rows:    rows,
+		CTAText: "查看账户资产", CTAURL: membershipURL(),
+	})
+}
+
 // notifyOrderFulfilled 支付成功(充值 / 订阅 / 续期 / 升级)后通知。
 func (s *Service) notifyOrderFulfilled(ord *Order) {
 	// 付费成功外部通知(飞书客服消息等)—— best-effort 异步,不阻塞站内信/邮件与主流程。
@@ -161,9 +210,9 @@ func (s *Service) notifyInviteReward(userID uint, credits int) {
 		title := "邀请奖励到账"
 		inApp := fmt.Sprintf("好友已成功注册,%d 经费邀请奖励已到账。", credits)
 		s.notify(userID, title, inApp, utils.EmailContent{
-			Title: title,
-			Intro: "您邀请的好友已成功注册,邀请奖励已发放到您的账户。",
-			Rows:  [][2]string{{"到账经费", fmt.Sprintf("%d 经费", credits)}},
+			Title:   title,
+			Intro:   "您邀请的好友已成功注册,邀请奖励已发放到您的账户。",
+			Rows:    [][2]string{{"到账经费", fmt.Sprintf("%d 经费", credits)}},
 			CTAText: "查看账户资产", CTAURL: membershipURL(),
 		})
 	})
@@ -235,9 +284,9 @@ func (s *Service) notifyOrderRefunded(ord *Order, amount float64, membershipRevo
 	}
 
 	s.notify(ord.UserID, title, inApp, utils.EmailContent{
-		Title: title,
-		Intro: "您的订单退款已处理完成。退款到账时间以支付渠道为准(通常 1–7 个工作日)。",
-		Rows:  rows,
+		Title:   title,
+		Intro:   "您的订单退款已处理完成。退款到账时间以支付渠道为准(通常 1–7 个工作日)。",
+		Rows:    rows,
 		CTAText: "查看账户", CTAURL: membershipURL(),
 		Note: "如对本次退款有疑问,请通过站内客服联系我们。",
 	})

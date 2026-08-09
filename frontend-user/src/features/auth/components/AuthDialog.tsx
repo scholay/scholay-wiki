@@ -15,6 +15,7 @@ import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
 import { WeChatQRPanel } from './WeChatQRPanel';
+import { InviteAuthNotice } from './InviteAuthNotice';
 
 // 移动整页版(MobileAuthPage)共用同一份标题文案 —— 双端措辞永远一致
 export const TITLES = {
@@ -62,7 +63,7 @@ export function AuthDialog() {
 
   return (
     <Dialog open={open && !suppressOnMobile} onOpenChange={(v) => (v ? null : handleClose())}>
-      <DialogContent className="max-w-md p-0 gap-0 border-border">
+      <DialogContent className="max-w-md min-w-0 grid-cols-[minmax(0,1fr)] overflow-x-hidden p-0 gap-0 border-border">
         <div className="relative flex flex-col items-center gap-1 pt-7 pb-4 px-6 border-b border-border-soft">
           {/* 微信扫码模式:左上角返回箭头,回到 login;其他模式无返回(可关弹窗) */}
           {isWeChatQR && (
@@ -90,7 +91,7 @@ export function AuthDialog() {
           </div>
         ) : (
           <>
-            <div className="px-6 py-5">
+            <div className="min-w-0 px-6 py-5">
               {mode === 'login' && (
                 <LoginForm
                   initialAccountType={initialAccountType}
@@ -111,7 +112,8 @@ export function AuthDialog() {
               )}
             </div>
 
-            <div className="px-6 pb-6">
+            <div className="min-w-0 px-6 pb-6">
+              {mode === 'register' && <InviteAuthNotice className="mx-0 mt-0" />}
               <div className="relative flex items-center my-3">
                 <Separator className="flex-1" />
                 <span className="px-3 text-12 text-faint uppercase">

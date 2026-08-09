@@ -19,10 +19,11 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { isWeChatBrowser } from '@/shared/lib/device';
+import { normalizeMoneyDraft } from '@/shared/lib/numeric-input';
 import { useCreateRecharge, usePlans, useStartAlipay } from '../../api/membership';
 
 /** 快捷金额(元)。到账经费按后端 recharge_rate 动态换算展示(汇率可调,不写死)。 */
-const QUICK_YUAN = [20, 50, 100, 200];
+const QUICK_YUAN = [20, 50, 100, 500, 1000];
 
 export interface MobileRechargeDialogProps {
   open: boolean;
@@ -36,6 +37,7 @@ export function MobileRechargeDialog({ open, onOpenChange, onWechatOrder }: Mobi
   const recharge = useCreateRecharge();
   const startAlipay = useStartAlipay();
   const [yuan, setYuan] = useState('20');
+  const [customSelected, setCustomSelected] = useState(false);
   // 支付方式:null = 用户没手选过 → 跟随派生默认值(可用项里的第一个)。
   const [methodPick, setMethodPick] = useState<'wechat' | 'alipay' | null>(null);
   const inWeChat = isWeChatBrowser();
@@ -130,12 +132,15 @@ export function MobileRechargeDialog({ open, onOpenChange, onWechatOrder }: Mobi
             {/* 快捷金额 */}
             <div className="grid grid-cols-2 gap-2">
               {QUICK_YUAN.map((v) => {
-                const active = Number(yuan) === v;
+                const active = !customSelected && Number(yuan) === v;
                 return (
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setYuan(String(v))}
+                    onClick={() => {
+                      setCustomSelected(false);
+                      setYuan(String(v));
+                    }}
                     className={cn(
                       'flex flex-col gap-1 rounded-8 border p-2.5 text-left transition-colors',
                       active ? 'border-brand-red bg-danger-soft' : 'border-border active:bg-surface-2'
@@ -148,20 +153,47 @@ export function MobileRechargeDialog({ open, onOpenChange, onWechatOrder }: Mobi
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomSelected(true);
+                  setYuan('');
+                }}
+                className={cn(
+                  'flex flex-col gap-1 rounded-8 border p-2.5 text-left transition-colors',
+                  customSelected ? 'border-brand-red bg-danger-soft' : 'border-border active:bg-surface-2',
+                )}
+              >
+                <span className={cn('text-14 font-medium', customSelected ? 'text-brand-red' : 'text-foreground')}>
+                  自定义金额
+                </span>
+                <span className="text-12 text-faint">输入充值金额</span>
+              </button>
             </div>
 
             {/* 自定义金额 */}
-            <div className="flex items-center gap-2 rounded-8 border border-border bg-surface-1 px-3">
-              <Coins className="size-4 shrink-0 text-faint" />
-              <Input
-                value={yuan}
-                onChange={(e) => setYuan(e.target.value.replace(/[^0-9.]/g, ''))}
-                className="h-10 flex-1 border-0 bg-transparent px-0"
-                inputMode="decimal"
-                placeholder="输入其他金额"
-              />
-              <span className="shrink-0 text-12 text-faint">最低 {minCents / 100} 元</span>
-            </div>
+            {customSelected && (
+              <div className={cn(
+                'flex items-center gap-2 rounded-8 border bg-surface-1 px-3',
+                yuan && !valid ? 'border-brand-red' : 'border-border',
+              )}>
+                <Coins className="size-4 shrink-0 text-faint" />
+                <Input
+                  autoFocus
+                  value={yuan}
+                  onChange={(event) => {
+                    const next = normalizeMoneyDraft(event.target.value);
+                    if (next !== null) setYuan(next);
+                  }}
+                  className="h-10 flex-1 border-0 bg-transparent px-0"
+                  inputMode="decimal"
+                  placeholder={`最低充值 ${minCents / 100} 元`}
+                />
+                {yuan && !valid && (
+                  <span className="shrink-0 text-12 text-brand-red">最低 {minCents / 100} 元</span>
+                )}
+              </div>
+            )}
 
             <Button
               onClick={handlePay}

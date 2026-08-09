@@ -252,7 +252,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
           <span className="text-16 text-faint line-through tabular-nums">¥{yuanText(strikeCents)}</span>
         )}
         <span className="whitespace-nowrap">
-          <span className="font-display text-display-36 font-bold leading-display-tight text-foreground tabular-nums">
+          <span className="font-display text-32 font-bold leading-display-tight text-foreground tabular-nums">
             {isFree ? '免费' : `¥${yuanText(headlineCents)}`}
           </span>
           {!isFree && <span className="ml-1 text-14 text-faint">/月</span>}

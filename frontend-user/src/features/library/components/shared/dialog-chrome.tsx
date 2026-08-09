@@ -221,7 +221,7 @@ export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
   return cn(
     'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 text-14 font-medium transition-colors',
     'disabled:opacity-60 disabled:cursor-not-allowed',
-    // 松青实底配白字(Figma §4.1);琥珀实底配墨黑字(Figma §4.2 —— 白字 on #E5A800 仅 2.11:1)
+    // 松青实底配白字;琥珀实底配玄墨字（白字 on #B4880E 仅 3.25:1）
     tone === 'green'
       ? 'bg-brand-green text-on-brand hover:bg-brand-green/90'
       : 'bg-brand-amber text-foreground hover:bg-brand-amber/90'

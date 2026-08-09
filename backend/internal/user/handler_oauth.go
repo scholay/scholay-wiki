@@ -127,7 +127,7 @@ func (h *Handler) MiniProgramLogin(c *gin.Context) {
 		"", // nickname —— 小程序 jscode2session 不返回,占位
 		"", // avatarURL —— 同上
 		ip,
-		"",                   // invitationCode —— 邀请业务已移除
+		"",                   // 旧 invitationCode 参数仅兼容；归因从 X-Invite-Code ctx 取
 		"wechat_miniprogram", // 注册来源:微信小程序(区别于网页扫码)
 	)
 	if err != nil {

@@ -128,7 +128,7 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
         {/* 大字结果 */}
         <div className="flex items-end gap-3.5 py-2.5">
           <p className="w-24 shrink-0 text-12 font-medium text-faint">结果</p>
-          <p className={cn('font-serif text-display-36 font-bold leading-none', decisionTheme)}>
+          <p className={cn('font-serif text-32 font-bold leading-none', decisionTheme)}>
             {decision === '——' ? '已决议' : recLabel(decision)}
           </p>
           {eff.score != null && (
@@ -475,7 +475,7 @@ function StreamingChiefView({
           </header>
           <div className="flex items-end gap-3.5 py-2.5">
             <p className="w-24 shrink-0 text-12 font-medium text-faint">结果</p>
-            <p className={cn('font-serif text-display-36 font-bold leading-none', dTheme)}>{recLabel(decision)}</p>
+            <p className={cn('font-serif text-32 font-bold leading-none', dTheme)}>{recLabel(decision)}</p>
             {p.score != null && (
               <p className="text-14 font-medium text-muted-foreground">综合 {p.score} / 100</p>
             )}

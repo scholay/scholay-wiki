@@ -203,11 +203,11 @@ function LibrarySection() {
               <LeaveToLibraryLink
                 key={f.id}
                 to={`/library?folder=${f.id}`}
-                className="group flex items-center gap-1.5 px-4 h-8 hover:bg-surface-1 transition-colors"
+                className="group flex h-8 items-center gap-2.5 px-4 transition-colors hover:bg-surface-1"
                 title={f.name}
               >
                 <Folder className="size-3.5 text-muted-foreground shrink-0" />
-                <span className="flex-1 min-w-0 truncate text-12 text-subtle group-hover:text-foreground">
+                <span className="min-w-0 flex-1 truncate text-14 text-subtle group-hover:text-foreground">
                   {f.name}
                 </span>
                 <span className="text-12 text-faint tabular-nums shrink-0">
@@ -316,7 +316,7 @@ function RadioRow({
   onSelect: () => void;
 }) {
   return (
-    <label className="flex items-center gap-2.5 h-6 px-4 cursor-pointer hover:bg-surface-1 transition-colors">
+    <label className="flex h-7 cursor-pointer items-center gap-2.5 px-4 transition-colors hover:bg-surface-1">
       <input
         type="radio"
         name={name}

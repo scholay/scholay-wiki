@@ -51,8 +51,7 @@ export function SidebarCollapseButton({
  *   2. 底色用 `bg-background`(页面米白)而不是 `bg-surface-card`(白卡)。
  *      设计稿该组件【无填充】—— 而它落脚的地方正是页面底,所以「透明」在这里的
  *      视觉结果就等于页面米白,给显式底色是同一效果且浮到内容上时不透字。
- *      ⚠️ 若将来开启纸张质感(`<html data-paper="on">`),实底会盖掉这一小块噪点;
- *         那时应改回 `bg-transparent` 或给它补 `paper-grain`。
+ *      纸张噪点已从全站移除，此处实底只负责遮住下方内容。
  *   3. hover 态实测约 70px 而非 76 —— 差值来自图标用 size-4(16)而非设计稿的 18 框。
  *      lucide 的 24 视图框下 size-4 的可见图形约 14px,恰好对上设计稿的 13.5,
  *      为 6px 宽度去引入一个 arbitrary 尺寸不划算。

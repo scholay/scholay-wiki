@@ -91,6 +91,60 @@ describe('replayHistoryAsTurns — error entry(失败轮终态)', () => {
   });
 });
 
+
+describe('replayHistoryAsTurns — turn 模型与时间元数据', () => {
+  it('用 user entry 时间作为 startedAt，用末条 entry 时间作为 completedAt', () => {
+    const turns = replayHistoryAsTurns([
+      {
+        ...userEntry('你好'),
+        timestamp: '2026-08-09T01:00:00.000Z',
+        model: 'user-model-candidate',
+      },
+      {
+        type: 'assistant',
+        content: [{ type: 'text', text: '你好' }],
+        timestamp: '2026-08-09T01:00:03.000Z',
+        model: 'claude-sonnet-4-5',
+      },
+      {
+        type: 'research_state',
+        content: [{ queries: 0, ledger_total: 0 }],
+        timestamp: '2026-08-09T01:00:04.000Z',
+      },
+    ]);
+
+    expect(turns[0].startedAt).toBe('2026-08-09T01:00:00.000Z');
+    expect(turns[0].completedAt).toBe('2026-08-09T01:00:04.000Z');
+    expect(turns[0].model).toBe('claude-sonnet-4-5');
+  });
+
+  it('新一轮的 user entry 不会覆盖上一轮的 completedAt', () => {
+    const turns = replayHistoryAsTurns([
+      { ...userEntry('第一问'), timestamp: '2026-08-09T01:00:00.000Z' },
+      {
+        type: 'assistant',
+        content: [{ type: 'text', text: '第一答' }],
+        timestamp: '2026-08-09T01:00:02.000Z',
+      },
+      { ...userEntry('第二问'), timestamp: '2026-08-09T01:01:00.000Z' },
+    ]);
+
+    expect(turns[0].completedAt).toBe('2026-08-09T01:00:02.000Z');
+    expect(turns[1].startedAt).toBe('2026-08-09T01:01:00.000Z');
+  });
+
+  it('孤儿 tool entry 即使带时间也不会凭空产生空轮', () => {
+    const turns = replayHistoryAsTurns([
+      {
+        type: 'tool_result',
+        content: [{ type: 'tool_result', tool_use_id: 'missing', content: { ok: true } }],
+        timestamp: '2026-08-09T01:00:00.000Z',
+      },
+    ]);
+    expect(turns).toEqual([]);
+  });
+});
+
 // ─── 取证过程计数回放(2026-08 证据账本 P0-c)──────────────────────────────
 //
 // 冻结契约:GET history 的 entries 中,发过 research_state 的轮出现顶级 entry

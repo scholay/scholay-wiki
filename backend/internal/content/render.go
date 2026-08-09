@@ -48,7 +48,7 @@ func RenderNoscriptHTML(a *Article, baseStyle, headingStyle, textStyle string) s
 				title = "提示"
 			}
 			fmt.Fprintf(&b,
-				`<aside style="margin:16px 0;padding:12px 16px;border-left:3px solid #E5A800;background:#E5DFCE;">`+
+				`<aside style="margin:16px 0;padding:12px 16px;border-left:3px solid #B4880E;background:#E5DFCE;">`+
 					`<strong style="color:#664B00;">%s</strong> <span %s>%s</span></aside>`,
 				title, textStyle, html.EscapeString(s.Text))
 		case "list":

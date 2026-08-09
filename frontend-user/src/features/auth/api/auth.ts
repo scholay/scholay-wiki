@@ -2,6 +2,8 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { notifyAuthSuccess } from '@/shared/lib/auth-events';
 import type { AuthResponse, CodePurpose, User } from '../types';
 
 /**
@@ -16,9 +18,18 @@ import type { AuthResponse, CodePurpose, User } from '../types';
 
 export function handleAuthSuccess(qc: QueryClient, data: AuthResponse) {
   useAuthStore.getState().setSession(data.token, normalizeUser(data.user));
+  // Google GIS 等就地 OAuth 不会发生整页跳转，在统一成功点收起鉴权壳。
+  const authDialog = useAuthDialog.getState();
+  const suppressInviteFlow = authDialog.suppressInviteFlow === true;
+  authDialog.close();
   // 全量失效 —— 比逐个枚举 queryKey 简单且不漏。代价是触发一次 refetch 风暴,
   // 但登录是低频事件,可以接受。
   qc.invalidateQueries();
+  notifyAuthSuccess({
+    isNewUser: data.is_new_user === true,
+    userId: data.user.id,
+    ...(suppressInviteFlow ? { suppressInviteFlow: true } : {}),
+  });
 }
 
 function normalizeUser(raw: User): import('@/stores/auth.store').StoredUser {
@@ -157,7 +168,7 @@ export function useRegisterEmail() {
           '/user/register',
           input
         );
-        return data.data;
+        return { ...data.data, is_new_user: data.data.is_new_user ?? true };
       } catch (err) {
         throw toApiError(err);
       }
@@ -180,7 +191,7 @@ export function useRegisterPhone() {
           '/user/register-phone',
           input
         );
-        return data.data;
+        return { ...data.data, is_new_user: data.data.is_new_user ?? true };
       } catch (err) {
         throw toApiError(err);
       }

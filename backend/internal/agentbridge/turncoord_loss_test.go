@@ -2,6 +2,7 @@ package agentbridge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -13,19 +14,39 @@ type failingEventLog struct {
 	err        error
 	appendCnt  int
 	beginCalls int
+	lastStatus string
+	lastModel  string
+	lastLedger *BillingLedgerRow
+	lastEv     EvType
+	lastAppend []byte
 }
 
 func (f *failingEventLog) BeginTurn(context.Context, TurnInput) (*Turn, bool, error) {
 	f.beginCalls++
 	return nil, false, f.err
 }
-func (f *failingEventLog) Append(uint64, string, EvType, []byte)               { f.appendCnt++ }
-func (f *failingEventLog) FlushTurn(context.Context, uint64) error             { return nil }
-func (f *failingEventLog) BumpAttempt(context.Context, uint64, int) error      { return nil }
+func (f *failingEventLog) Append(_ uint64, _ string, ev EvType, payload []byte) {
+	f.appendCnt++
+	f.lastEv = ev
+	f.lastAppend = append([]byte(nil), payload...)
+}
+func (f *failingEventLog) FlushTurn(context.Context, uint64) error        { return nil }
+func (f *failingEventLog) BumpAttempt(context.Context, uint64, int) error { return nil }
 func (f *failingEventLog) CompleteTurn(context.Context, uint64, string, string, *BillingLedgerRow) error {
 	return nil
 }
-func (f *failingEventLog) RecordBlockedTurn(context.Context, TurnInput, []byte) error { return nil }
+
+type finalizingEventLog struct{ failingEventLog }
+
+func (f *finalizingEventLog) CompleteTurn(_ context.Context, _ uint64, status, model string, ledger *BillingLedgerRow) error {
+	f.lastStatus = status
+	f.lastModel = model
+	f.lastLedger = ledger
+	return nil
+}
+func (f *failingEventLog) RecordBlockedTurn(context.Context, TurnInput, []byte, []byte) error {
+	return nil
+}
 func (f *failingEventLog) ReadInFlightEvents(context.Context, string) (*Turn, []Event, error) {
 	return nil, nil, nil
 }
@@ -89,6 +110,20 @@ func TestBeginTurnSuccessDoesNotCountLoss(t *testing.T) {
 	}
 }
 
+func TestBeginTurnPersistsAcceptedStructuredUserFrame(t *testing.T) {
+	log := &okEventLog{}
+	tc := NewTurnCoordinator(log)
+	raw := json.RawMessage(`{"type":"user_message","content":"@\"/home/bun/sessions/s/uploads/a.pdf\" 请分析","attachments":[{"type":"file","name":"a.pdf","mimeType":"application/pdf","path":"/home/bun/sessions/s/uploads/a.pdf"}],"clientTurnId":"ct"}`)
+	if _, err := tc.BeginTurn(context.Background(), TurnInput{
+		AgentSessionID: "s", ClientTurnID: "ct", RoleUserText: "fallback", UserPayload: raw,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if log.lastEv != EvUserMessage || string(log.lastAppend) != string(raw) {
+		t.Fatalf("structured user frame lost: ev=%q payload=%s", log.lastEv, log.lastAppend)
+	}
+}
+
 // TestBeginTurnUnwiredIsNotALoss —— 未接线(测试/AGENT_TURN_JOURNAL=off)时是 no-op,不是丢失。
 // 把它算成丢失会让计数器在任何没接 journal 的环境里恒定报警,人就会开始忽略它。
 func TestBeginTurnUnwiredIsNotALoss(t *testing.T) {
@@ -102,5 +137,25 @@ func TestBeginTurnUnwiredIsNotALoss(t *testing.T) {
 	}
 	if got := JournalTurnLosses() - before; got != 0 {
 		t.Fatalf("未接线不得计入丢失,实际 +%d", got)
+	}
+}
+
+func TestFinalizeTurnAbortedPreservesAuthoritativeUsage(t *testing.T) {
+	log := &finalizingEventLog{}
+	tc := NewTurnCoordinator(log)
+	ledger := &BillingLedgerRow{InputTokens: 12, OutputTokens: 3}
+	if err := tc.FinalizeTurn(context.Background(), 8, "aborted", "provider/model", ledger); err != nil {
+		t.Fatal(err)
+	}
+	if log.lastStatus != "aborted" || log.lastModel != "provider/model" || log.lastLedger != ledger {
+		t.Fatalf("aborted finalization drifted: status=%q model=%q ledger=%#v", log.lastStatus, log.lastModel, log.lastLedger)
+	}
+	frame := stampAbortedFrame([]byte(`{"type":"message_complete","usage":{"input_tokens":12},"future":"kept"}`))
+	var decoded map[string]any
+	if err := json.Unmarshal(frame, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded["aborted"] != true || decoded["future"] != "kept" {
+		t.Fatalf("aborted complete frame must preserve extensions: %s", frame)
 	}
 }

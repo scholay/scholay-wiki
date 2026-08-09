@@ -12,7 +12,7 @@ const COLORS = {
   faint: '#6E6E78',
   red: '#882828',
   green: '#2F4D29',
-  amber: '#E5A800',
+  amber: '#B4880E',
   amberSoft: '#E5DFCE',
   dangerSoft: '#F3EAEA',
   greenSoft: '#EAEDEA',

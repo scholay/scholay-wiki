@@ -11,7 +11,7 @@
 #
 # 当前装的钩子:
 #   pre-push —— 依次跑两个闸(清单在 .githooks/pre-push 的 GATES):
-#     · scripts/check-design-system.sh   设计系统护栏(含三份设计 token 跨包镜像)
+#     · scripts/check-design-system.sh   设计系统护栏(含两份设计 token 跨包镜像)
 #     · scripts/check-evidence-mirror.sh 证据账本跨包镜像(agent parse.ts ←→ 前端 minicod-papers.ts)
 #
 # 卸载:git config --unset core.hooksPath

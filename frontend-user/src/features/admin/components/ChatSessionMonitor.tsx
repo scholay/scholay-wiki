@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Eye, RefreshCw } from 'lucide-react';
+import {
+  Bot,
+  Clock3,
+  Eye,
+  History,
+  Pin,
+  RefreshCw,
+  RotateCcw,
+} from 'lucide-react';
+import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/shared/ui/sheet';
 import { useDebounce } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import { ResourceError } from '@/shared/components/ResourceError';
@@ -16,26 +26,29 @@ import { Pagination } from './Pagination';
 import { TimeCell } from './TimeCell';
 import { CopyableId } from './CopyableId';
 import { AdminTranscriptView } from './AdminTranscriptView';
-import { AdminFilePreviewDialog, type AdminPreviewFile } from './AdminFilePreviewDialog';
+import {
+  AdminFilePreviewDialog,
+  type AdminPreviewFile,
+} from './AdminFilePreviewDialog';
+import { SessionStatusBadge } from './SessionTurnMeta';
 import { UserCell } from './UserCell';
 import {
   useAdminSessions,
+  useAdminSessionArtifacts,
   useAdminTranscript,
   type AdminSession,
   type MonitorFeature,
 } from '../api/session-monitor';
 
-const FEATURE_LABEL: Record<string, string> = {
+export const FEATURE_LABEL: Record<MonitorFeature, string> = {
   smart_search: '智能搜索',
   claw: '智能助手',
   prism: '智能写作',
+  boltslides: '制作 PPT',
+  sci_draw: '科研绘图',
+  stat_lab: '数据分析',
 };
 
-/**
- * 会话归属实体的中文名 —— 后端 `agent_sessions.owner_kind`
- * (mirrors backend/internal/agentbridge/repository.go:UpsertByOwnerEntity 的调用点)。
- * 未识别值原样回显,原始英文一律留在 title 里(排查时要跟 DB 里的值对齐)。
- */
 const OWNER_LABEL: Record<string, string> = {
   project: '项目',
   submission: '投稿',
@@ -43,94 +56,137 @@ const OWNER_LABEL: Record<string, string> = {
   document: '文档',
 };
 
-/** 对话型 feature(智能搜索/助手/写作)的会话监控:列会话 → 看完整 transcript(渲染同用户端)。 */
+/** 对话型 feature 的只读会话监控：会话列表 → 用户端同源回放推屏。 */
 export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
   const [page, setPage] = useState(1);
-  const [kwInput, setKwInput] = useState('');
-  const keyword = useDebounce(kwInput, 300);
+  const [keywordInput, setKeywordInput] = useState('');
+  const keyword = useDebounce(keywordInput, 300);
   const [viewing, setViewing] = useState<AdminSession | null>(null);
   const [preview, setPreview] = useState<AdminPreviewFile | null>(null);
 
-  // feature 切换时**就地复位**(页码/关键字/正在看的会话),不再靠父级 `key={tab}` 重挂。
-  // 父级重挂会把还 open 的 transcript Dialog 连根撕掉(浏览器前进/后退切 ?tab= 时尤其会),
-  // → Radix body pointer-events 锁泄漏、全站点击失灵(见 BodyPointerLockGuard)。
-  // 用 effect 复位让 viewing→null,Dialog 走正常 open→closed 收尾,锁被有序还原。
   useEffect(() => {
     setPage(1);
-    setKwInput('');
+    setKeywordInput('');
     setViewing(null);
     setPreview(null);
   }, [feature]);
 
-  const listQ = useAdminSessions({
+  const listQuery = useAdminSessions({
     feature,
     keyword: keyword.trim() || undefined,
     page,
     pageSize: 20,
   });
-  const transcriptQ = useAdminTranscript(viewing?.agentSessionId ?? null);
+  const transcriptQuery = useAdminTranscript(viewing?.agentSessionId ?? null);
+  const artifactsQuery = useAdminSessionArtifacts(
+    viewing?.agentSessionId ?? null,
+  );
+
+  // 推屏不能永远停在“点开那一刻”的列表快照。列表每 30 秒更新时，
+  // 同步更新标题、实际模型、状态、轮数与活跃时间。
+  useEffect(() => {
+    if (!viewing) return;
+    const fresh = listQuery.data?.list.find(
+      (session) => session.agentSessionId === viewing.agentSessionId,
+    );
+    if (fresh) setViewing(fresh);
+  }, [listQuery.data?.list, viewing?.agentSessionId]);
 
   const columns: Column<AdminSession>[] = [
     {
-      header: '用户',
-      width: 200,
-      cell: (r) => <UserCell id={r.userId} name={r.username} email={r.userEmail} />,
+      header: '会话',
+      width: 270,
+      cell: (session) => (
+        <div className="min-w-0 py-1">
+          <button
+            type="button"
+            onClick={() => setViewing(session)}
+            className="block max-w-full truncate text-left text-14 font-medium text-foreground hover:text-brand-red"
+            title={session.title || `${FEATURE_LABEL[feature]}会话`}
+          >
+            {session.title || `${FEATURE_LABEL[feature]}会话`}
+          </button>
+          <div className="mt-0.5 flex min-w-0 items-center gap-2 text-12 text-faint">
+            <CopyableId
+              value={session.agentSessionId}
+              display={`${session.agentSessionId.slice(0, 10)}…`}
+              label="会话 ID"
+              className="min-w-0"
+            />
+            {session.ownerKind && (
+              <span
+                className="shrink-0"
+                title={`${session.ownerKind} #${session.ownerId ?? '—'}`}
+              >
+                {OWNER_LABEL[session.ownerKind] ?? session.ownerKind} #
+                {session.ownerId}
+              </span>
+            )}
+          </div>
+        </div>
+      ),
     },
     {
-      header: '会话 ID',
-      cell: (r) => (
-        // 完整 ID 是 `docker logs scholar_backend | grep <id>`、进 agent 容器翻 jsonl、
-        // 贴工单时唯一的关联键 —— 只显示前 12 位且不可复制等于把排查的第一步掐断。
-        <CopyableId
-          value={r.agentSessionId}
-          display={`${r.agentSessionId.slice(0, 12)}…`}
-          label="会话 ID"
-          className="text-12 text-muted-foreground"
+      header: '用户',
+      width: 190,
+      cell: (session) => (
+        <UserCell
+          id={session.userId}
+          name={session.username}
+          email={session.userEmail}
         />
       ),
     },
     {
-      header: '归属',
-      width: 110,
-      cell: (r) =>
-        r.ownerKind ? (
-          <span className="text-12 text-faint" title={`${r.ownerKind} #${r.ownerId}`}>
-            {(OWNER_LABEL[r.ownerKind] ?? r.ownerKind)} #{r.ownerId}
-          </span>
-        ) : (
-          <span className="text-12 text-faint">—</span>
-        ),
+      header: '模型',
+      width: 190,
+      cell: (session) => <SessionModel session={session} />,
     },
     {
-      header: '重置',
-      width: 70,
-      align: 'right',
-      // 「用户反复重置会话」是出问题的直接信号 —— 被重置 7 次的那条通常就是要查的那条。
-      cell: (r) => (
-        <span
-          className={cn('text-12 tabular-nums', r.resetCount > 0 ? 'text-brand-amber' : 'text-faint')}
-          title={r.resetCount > 0 ? `用户已重置该会话 ${r.resetCount} 次` : '未重置过'}
-        >
-          {r.resetCount > 0 ? `${r.resetCount} 次` : '—'}
-        </span>
+      header: '轮次 / 状态',
+      width: 135,
+      cell: (session) => (
+        <div className="flex flex-col items-start gap-1 py-1">
+          <div className="flex items-center gap-1.5 text-12 text-subtle">
+            <History className="size-3.5 text-faint" />
+            <span className="tabular-nums">
+              {session.turnCount.toLocaleString('zh-CN')} 轮
+            </span>
+            <SessionStatusBadge status={session.latestTurnStatus} />
+          </div>
+          {session.resetCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-12 text-brand-amber">
+              <RotateCcw className="size-3" />
+              已重置 {session.resetCount} 次
+            </span>
+          )}
+        </div>
       ),
     },
     {
-      header: '创建',
-      width: 120,
-      cell: (r) => <TimeCell value={r.createdAt} className="text-12" />,
-    },
-    {
-      header: '最近活跃',
-      width: 120,
-      cell: (r) => <TimeCell value={r.lastAccessedAt} className="text-12" />,
+      header: '时间',
+      width: 145,
+      cell: (session) => (
+        <div className="flex flex-col gap-1 py-1">
+          <TimeCell
+            value={session.lastAccessedAt}
+            prefix="活跃 "
+            className="text-12"
+          />
+          <TimeCell
+            value={session.createdAt}
+            prefix="创建 "
+            className="text-12"
+          />
+        </div>
+      ),
     },
     {
       header: '',
       width: 110,
       align: 'right',
-      cell: (r) => (
-        <Button size="sm" variant="outline" onClick={() => setViewing(r)}>
+      cell: (session) => (
+        <Button size="sm" variant="outline" onClick={() => setViewing(session)}>
           <Eye className="size-3.5" />
           查看会话
         </Button>
@@ -139,40 +195,45 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
   ];
 
   const hasKeyword = !!keyword.trim();
-  const featureName = FEATURE_LABEL[feature] ?? feature;
+  const featureName = FEATURE_LABEL[feature];
+  const loadingEarlier = transcriptQuery.isFetchingNextPage;
 
   return (
     <>
-      <div className="mb-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <Input
-          value={kwInput}
-          onChange={(e) => {
-            setKwInput(e.target.value);
+          value={keywordInput}
+          onChange={(event) => {
+            setKeywordInput(event.target.value);
             setPage(1);
           }}
-          placeholder="ID / 用户名 / 邮箱 / 手机号"
-          className="h-9 w-full sm:w-64"
+          placeholder="会话 ID / 标题 / 用户 / 邮箱 / 手机号"
+          className="h-9 w-full sm:w-80"
         />
+        <p className="text-12 text-faint">列表每 30 秒更新 · 会话内容只读</p>
       </div>
 
       <DataTable
         columns={columns}
-        rows={listQ.data?.list}
-        loading={listQ.isLoading}
-        error={listQ.error}
-        onRetry={() => listQ.refetch()}
-        emptyMessage={hasKeyword ? '没有匹配的会话' : `${featureName}还没有会话`}
+        rows={listQuery.data?.list}
+        loading={listQuery.isLoading}
+        error={listQuery.error}
+        onRetry={() => listQuery.refetch()}
+        rowKey={(session) => session.agentSessionId}
+        emptyMessage={
+          hasKeyword ? '没有匹配的会话' : `${featureName}还没有会话`
+        }
         emptyDescription={
           hasKeyword
             ? `关键字「${keyword.trim()}」在${featureName}下没有命中任何会话。`
-            : '用户发起对话后,会话会出现在这里。'
+            : '用户发起对话后，会话会出现在这里。'
         }
         emptyAction={
           hasKeyword ? (
             <Button
               variant="outline"
               onClick={() => {
-                setKwInput('');
+                setKeywordInput('');
                 setPage(1);
               }}
             >
@@ -181,75 +242,190 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
           ) : undefined
         }
       />
-      <Pagination total={listQ.data?.total ?? 0} page={page} pageSize={20} onPageChange={setPage} />
+      <Pagination
+        total={listQuery.data?.total ?? 0}
+        page={page}
+        pageSize={20}
+        onPageChange={setPage}
+      />
 
-      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-3xl max-h-[85dvh] overflow-y-auto">
-          <DialogHeader>
-            {/* pr-8:给 DialogContent 右上角的关闭按钮让位 */}
-            <DialogTitle className="pr-8">
-              {/* 微信 / GitHub 注册用户 username 与 userEmail 可能同时为空 —— 不兜底会渲染成
-                  「会话记录 · 」一个悬空的间隔号。 */}
-              会话记录 · {viewing?.username || viewing?.userEmail || `用户 #${viewing?.userId ?? '—'}`}
-            </DialogTitle>
-          </DialogHeader>
-
-          {/* 元信息行 —— 弹窗一打开就要能回答「我在看谁的哪条会话、什么时候的」。 */}
+      <Sheet
+        open={!!viewing}
+        onOpenChange={(open) => !open && setViewing(null)}
+      >
+        <SheetContent className="min-w-0 gap-0 sm:max-w-[min(92vw,960px)]">
           {viewing && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-faint">
-              <span>{FEATURE_LABEL[viewing.featureKey] ?? viewing.featureKey}</span>
-              <span>用户 #{viewing.userId}</span>
-              <CopyableId
-                value={viewing.agentSessionId}
-                label="会话 ID"
-                className="max-w-full text-12 text-muted-foreground"
-              />
-              <TimeCell value={viewing.createdAt} prefix="创建 " className="text-12" />
-              <TimeCell value={viewing.lastAccessedAt} prefix="最近活跃 " className="text-12" />
-              {viewing.resetCount > 0 && (
-                <span className="text-brand-amber">已重置 {viewing.resetCount} 次</span>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="ml-auto h-7"
-                onClick={() => transcriptQ.refetch()}
-                disabled={transcriptQ.isFetching}
-                title="重新拉取该会话的最新内容"
-              >
-                <RefreshCw className={cn('size-3.5', transcriptQ.isFetching && 'animate-spin')} />
-                刷新
-              </Button>
-            </div>
-          )}
+            <>
+              <SheetHeader className="shrink-0 px-5 py-4 sm:px-6">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-12 bg-brand-green/10 text-brand-green">
+                    <Bot className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 pr-8">
+                      <SheetTitle className="max-w-full truncate">
+                        {viewing.title || `${featureName}会话`}
+                      </SheetTitle>
+                      <Badge variant="outline">只读回放</Badge>
+                      <SessionStatusBadge status={viewing.latestTurnStatus} />
+                    </div>
+                    <SheetDescription className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>
+                        {viewing.username ||
+                          viewing.userEmail ||
+                          `用户 #${viewing.userId}`}
+                      </span>
+                      <span>·</span>
+                      <CopyableId
+                        value={viewing.agentSessionId}
+                        label="会话 ID"
+                        className="max-w-full"
+                      />
+                    </SheetDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mr-7 h-8 shrink-0"
+                    onClick={() => {
+                      void Promise.all([
+                        transcriptQuery.refetch(),
+                        listQuery.refetch(),
+                        artifactsQuery.refetch(),
+                      ]);
+                    }}
+                    disabled={transcriptQuery.isFetching}
+                    title="重新拉取该会话的最新内容"
+                  >
+                    <RefreshCw
+                      className={cn(
+                        'size-3.5',
+                        transcriptQuery.isFetching && 'animate-spin',
+                      )}
+                    />
+                    刷新
+                  </Button>
+                </div>
+              </SheetHeader>
 
-          {/* 三分支,**error 必须先判**:失败时 data 是 undefined,若直接 `?? []` 交给
-              AdminTranscriptView,它会渲染「无会话内容(用户尚未对话,或会话已被清理)」——
-              后端 500 / agent 容器挂 / jsonl 读不到时,管理员看到的是一句肯定的业务结论。
-              那不是少了个提示,是给了假信息,排查会被直接带沟里。 */}
-          {transcriptQ.isError ? (
-            <ResourceError
-              error={transcriptQ.error}
-              resourceName="会话记录"
-              onRetry={() => transcriptQ.refetch()}
-              autoRedirect={false}
-              className="h-auto bg-surface-card"
-            />
-          ) : transcriptQ.isPending ? (
-            <div className="py-8 text-center text-12 text-faint">加载中…</div>
-          ) : (
-            <AdminTranscriptView
-              messages={transcriptQ.data ?? []}
-              featureKey={viewing?.featureKey ?? feature}
-              sessionId={viewing?.agentSessionId}
-              onPreview={setPreview}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+              <div className="grid shrink-0 grid-cols-2 gap-px border-b border-border-soft bg-border-soft sm:grid-cols-4">
+                <SessionFact
+                  label="最近实际模型"
+                  value={viewing.latestModel || '未记录'}
+                  icon={<Bot className="size-3.5" />}
+                />
+                <SessionFact
+                  label="对话轮数"
+                  value={`${viewing.turnCount.toLocaleString('zh-CN')} 轮`}
+                  icon={<History className="size-3.5" />}
+                />
+                <SessionFact
+                  label="创建时间"
+                  value={
+                    <TimeCell
+                      value={viewing.createdAt}
+                      absolute
+                      className="text-12"
+                    />
+                  }
+                  icon={<Clock3 className="size-3.5" />}
+                />
+                <SessionFact
+                  label="最近活跃"
+                  value={
+                    <TimeCell
+                      value={viewing.lastAccessedAt}
+                      absolute
+                      className="text-12"
+                    />
+                  }
+                  icon={<Clock3 className="size-3.5" />}
+                />
+              </div>
 
-      {/* 会话内文件预览(叠在 transcript 弹窗之上;常驻挂载 + 内容守卫,遵守 Radix 铁律) */}
+              <div className="min-h-0 flex-1 overflow-y-auto bg-background">
+                {transcriptQuery.isError && !transcriptQuery.data ? (
+                  <ResourceError
+                    error={transcriptQuery.error}
+                    resourceName="会话记录"
+                    onRetry={() => transcriptQuery.refetch()}
+                    autoRedirect={false}
+                    className="h-full bg-background"
+                  />
+                ) : transcriptQuery.isPending || !transcriptQuery.data ? (
+                  <div className="flex h-48 items-center justify-center text-12 text-faint">
+                    加载会话中…
+                  </div>
+                ) : (
+                  <AdminTranscriptView
+                    transcript={transcriptQuery.data}
+                    featureKey={viewing.featureKey as MonitorFeature}
+                    sessionId={viewing.agentSessionId}
+                    artifacts={artifactsQuery.data?.items}
+                    onPreview={setPreview}
+                    onLoadEarlier={() => void transcriptQuery.fetchNextPage()}
+                    loadingEarlier={loadingEarlier}
+                  />
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
       <AdminFilePreviewDialog file={preview} onClose={() => setPreview(null)} />
     </>
+  );
+}
+
+function SessionModel({ session }: { session: AdminSession }) {
+  const model = session.latestModel;
+  if (!model && !session.pinnedModel) {
+    return <span className="text-12 text-faint">未记录</span>;
+  }
+  return (
+    <div className="min-w-0 py-1">
+      <span
+        className="flex min-w-0 items-center gap-1 text-12 text-subtle"
+        title={model || '历史轮次没有记录实际模型'}
+      >
+        <Bot className="size-3.5 shrink-0 text-faint" />
+        <span className="truncate">{model || '实际模型未记录'}</span>
+      </span>
+      {session.pinnedModel && (
+        <span
+          className="mt-0.5 inline-flex max-w-full items-center gap-1 text-12 text-faint"
+          title={`会话锁定模型：${session.pinnedModel}`}
+        >
+          <Pin className="size-3" />
+          <span className="truncate">锁定：{session.pinnedModel}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SessionFact({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: React.ReactNode;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 bg-surface-card px-4 py-3">
+      <div className="flex items-center gap-1.5 text-12 text-faint">
+        {icon}
+        {label}
+      </div>
+      <div
+        className="mt-1 truncate text-12 font-medium text-foreground"
+        title={typeof value === 'string' ? value : undefined}
+      >
+        {value}
+      </div>
+    </div>
   );
 }

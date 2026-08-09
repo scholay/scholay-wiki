@@ -16,7 +16,7 @@ const HERO_MOCK: Record<HeroMockKey, () => ReactNode> = {
 
 /**
  * Hero —— .pen `Hero` 通用结构:
- *   左侧:eyebrow → 大标题(Playfair Display 64px,混排 regular + italic)→ 描述 → 双 CTA → ✓ checklist
+ *   左侧:eyebrow → 大标题(Google Sans 64px,混排 regular + italic)→ 描述 → 双 CTA → ✓ checklist
  *   右侧:可选 mock(浏览器 chrome 风格的产品截图占位)
  *
  * 如果不传 mock,布局自动 fallback 为单列居中,适合「智能投稿 / 同行评审」这类

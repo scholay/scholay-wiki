@@ -49,6 +49,12 @@ const UNIT_APPROX_DAYS: Record<GrantUnit, number> = { day: 1, month: 30, year: 3
 /** recharge_rate 兜底(0095 起为 100,即经费=分);真值从 /admin/billing/config 拿。 */
 const FALLBACK_RECHARGE_RATE = 100;
 
+const numberInputValue = (value: number): number | '' =>
+  Number.isFinite(value) ? value : '';
+
+const parseNumberDraft = (raw: string): number =>
+  raw === '' ? Number.NaN : Number(raw);
+
 /**
  * 管理员对单个用户「发放会员 / 调整经费 / 发放重置次数」的操作面板(独立用户操作抽屉)。
  *   - 会员:选档(Pro / Max)+ 天数 → 授予 / 续期;已是会员可取消(回 Free)。
@@ -104,10 +110,17 @@ export function UserGrantPanel({
 
   const unitLabel = UNIT_LABEL[grantUnit];
   const unitMax = UNIT_MAX[grantUnit];
+  const grantAmountValid = Number.isFinite(grantAmount) && grantAmount >= 1;
+  const creditAmountValid = Number.isFinite(amount) && amount >= 1;
+  const passesValid =
+    Number.isFinite(passCount) && passCount >= 1 &&
+    Number.isFinite(passDays) && passDays >= 1;
   // 后端超上界会静默夹取 —— 按钮/确认框/toast 一律显示**实际会发出去的那个数**,
   // 不显示输入框里那个会被丢弃的数,否则 toast 说「发了 999 年」而实际只发了 10 年。
-  const grantEff = Math.min(Math.max(grantAmount, 1), unitMax);
-  const overMax = grantAmount > unitMax;
+  const grantEff = grantAmountValid
+    ? Math.min(Math.max(grantAmount, 1), unitMax)
+    : 0;
+  const overMax = grantAmountValid && grantAmount > unitMax;
 
   /** 换单位 = 换量纲,数量必须回到新单位的默认值(否则 30 天一键变 30 个月)。 */
   const pickUnit = (u: GrantUnit) => {
@@ -117,7 +130,7 @@ export function UserGrantPanel({
   };
 
   const handleGrant = async () => {
-    if (grantAmount < 1) return;
+    if (!grantAmountValid) return;
     // 超长授予多确认一次:把 1 打成 10 在这个输入框里只差一个键,而会员时长直接是钱。
     // 阈值按单位取(见 UNIT_CONFIRM_OVER 的红字:写死天数会让这道闸门在月/年单位下整族失效)。
     if (grantEff > UNIT_CONFIRM_OVER[grantUnit]) {
@@ -160,7 +173,7 @@ export function UserGrantPanel({
   };
 
   const handleAdjust = async (sign: 1 | -1) => {
-    if (amount < 1) return;
+    if (!creditAmountValid) return;
     const label = sign > 0 ? '发放' : '扣减';
     const kindLabel = ''; // 0090:经费不再分类型,toast 不再报「临时/永久」
     const confirmed = await confirm({
@@ -227,8 +240,8 @@ export function UserGrantPanel({
             type="number"
             min={1}
             max={unitMax}
-            value={grantAmount}
-            onChange={(e) => setGrantAmount(Number(e.target.value))}
+            value={numberInputValue(grantAmount)}
+            onChange={(e) => setGrantAmount(parseNumberDraft(e.target.value))}
             className="h-8 w-16"
           />
           {(['day', 'month', 'year'] as const).map((u) => (
@@ -291,9 +304,11 @@ export function UserGrantPanel({
           月度会员」,<strong className="font-medium text-subtle">不影响时长</strong>,与上面的发放时长无关。
         </span>
         <div className="flex items-center gap-2">
-          <Button onClick={handleGrant} disabled={grant.isPending || grantAmount < 1} className="flex-1">
+          <Button onClick={handleGrant} disabled={grant.isPending || !grantAmountValid} className="flex-1">
             {grant.isPending && <Loader2 className="size-3.5 animate-spin" />}
-            {isPro ? '续期' : '授予'} {grantEff} {unitLabel} {TIER_LABEL[tier]}
+            {grantAmountValid
+              ? `${isPro ? '续期' : '授予'} ${grantEff} ${unitLabel} ${TIER_LABEL[tier]}`
+              : '请输入发放时长'}
           </Button>
           {isPro && (
             <Button variant="outline" onClick={handleRevoke} disabled={revoke.isPending}>
@@ -312,8 +327,8 @@ export function UserGrantPanel({
           <Input
             type="number"
             min={1}
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
+            value={numberInputValue(amount)}
+            onChange={(e) => setAmount(parseNumberDraft(e.target.value))}
             className="h-8 w-24"
             placeholder="金额"
           />
@@ -330,11 +345,11 @@ export function UserGrantPanel({
           placeholder="备注(计入经费流水,便于对账;可空)"
         />
         <div className="flex items-center gap-2">
-          <Button onClick={() => handleAdjust(1)} disabled={adjust.isPending || amount < 1} className="flex-1">
+          <Button onClick={() => handleAdjust(1)} disabled={adjust.isPending || !creditAmountValid} className="flex-1">
             {adjust.isPending && <Loader2 className="size-3.5 animate-spin" />}
-            发放 {amount}
+            发放 {Number.isFinite(amount) ? amount : '—'}
           </Button>
-          <Button variant="outline" onClick={() => handleAdjust(-1)} disabled={adjust.isPending || amount < 1}>
+          <Button variant="outline" onClick={() => handleAdjust(-1)} disabled={adjust.isPending || !creditAmountValid}>
             扣减
           </Button>
         </div>
@@ -351,8 +366,8 @@ export function UserGrantPanel({
             type="number"
             min={1}
             max={1000}
-            value={passCount}
-            onChange={(e) => setPassCount(Number(e.target.value))}
+            value={numberInputValue(passCount)}
+            onChange={(e) => setPassCount(parseNumberDraft(e.target.value))}
             className="h-8 w-20"
             placeholder="次数"
           />
@@ -360,8 +375,8 @@ export function UserGrantPanel({
           <Input
             type="number"
             min={1}
-            value={passDays}
-            onChange={(e) => setPassDays(Number(e.target.value))}
+            value={numberInputValue(passDays)}
+            onChange={(e) => setPassDays(parseNumberDraft(e.target.value))}
             className="h-8 w-20"
             placeholder="天数"
           />
@@ -369,7 +384,7 @@ export function UserGrantPanel({
           <Button
             size="sm"
             onClick={async () => {
-              if (passCount < 1) return;
+              if (!passesValid) return;
               // 0090 起「重置次数」是重置周期额度的**唯一凭证**(经费买不到),等同于直接发额度 —— 同样二次确认。
               const ok = await confirm({
                 title: `给 ${displayName} 发放 ${passCount} 次重置次数?`,
@@ -382,7 +397,7 @@ export function UserGrantPanel({
                 { success: `已发放 ${passCount} 次重置次数`, failure: '发放重置次数失败' }
               );
             }}
-            disabled={grantPasses.isPending || passCount < 1}
+            disabled={grantPasses.isPending || !passesValid}
           >
             {grantPasses.isPending && <Loader2 className="size-3.5 animate-spin" />}
             发放

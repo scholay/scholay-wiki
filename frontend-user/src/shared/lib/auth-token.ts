@@ -28,6 +28,40 @@ export function getAuthToken(): string | null {
   }
 }
 
+/**
+ * React Query 私有数据的非敏感会话分区键。
+ *
+ * 正常 JWT 只提取 user_id，不把原 token 放进 query key / DevTools；
+ * 异常或旧 token 用不可逆的 32 位快速指纹隔离，宁可多发一次请求也不跨账号复用私有缓存。
+ */
+export function authSessionKey(token: string | null): string {
+  if (!token) return 'anonymous';
+  try {
+    const payload = token.split('.')[1];
+    if (payload) {
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(
+        normalized.length + ((4 - (normalized.length % 4)) % 4),
+        '=',
+      );
+      const decoded = JSON.parse(globalThis.atob(padded)) as {
+        user_id?: number | string;
+      };
+      const userId = Number(decoded.user_id);
+      if (Number.isSafeInteger(userId) && userId > 0) return `user:${userId}`;
+    }
+  } catch {
+    // 交给后端做真正的 JWT 校验；此处只需生成隔离键。
+  }
+
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < token.length; index += 1) {
+    hash ^= token.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `token:${(hash >>> 0).toString(36)}:${token.length}`;
+}
+
 /** 写 token —— localStorage + cookie 一起更新。登录成功后调(经 auth.store.setSession)。 */
 export function setAuthToken(token: string): void {
   try {

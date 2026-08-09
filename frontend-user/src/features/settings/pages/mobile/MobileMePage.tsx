@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   BookMarked,
   ChevronRight,
@@ -21,6 +21,7 @@ import { useAuthStore, useAuthStatus, canAccessAdmin } from '@/stores/auth.store
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useProfile } from '@/shared/api/profile';
 import { MobileAssetsCard } from '../../components/mobile/MobileAssetsCard';
+import { useInviteCampaign } from '@/shared/api/invite-campaign';
 
 /**
  * 移动端「我的」(/m/me):
@@ -61,14 +62,7 @@ function LoggedOutView() {
 }
 
 function LoggedInView() {
-  // 邀请奖励活动信号(0100;['billing','plans'] 共享缓存,免登录端点)
-  const { data: plansLite } = useQuery({
-    queryKey: ['billing', 'plans'],
-    queryFn: async () =>
-      (await http.get<{ data: { invite_reward_credits: number } }>('/billing/plans')).data.data,
-    staleTime: 60_000,
-  });
-  const inviteReward = plansLite?.invite_reward_credits ?? 0;
+  const campaignQ = useInviteCampaign();
 
   const profileQ = useProfile();
   const storedUser = useAuthStore((s) => s.user);
@@ -170,14 +164,21 @@ function LoggedInView() {
           to="/m/me/billing"
           icon={<ReceiptText className="size-4.5" />}
           label="资产明细"
+          last={campaignQ.data?.enabled !== true}
         />
-        <MenuRow
-          to="/m/me/invite"
-          icon={<UserPlus className="size-4.5" />}
-          label="邀请好友"
-          badge={inviteReward > 0 ? `邀请有奖 +${inviteReward} 经费` : undefined}
-          last
-        />
+        {campaignQ.data?.enabled === true && (
+          <MenuRow
+            to="/m/me/invite"
+            icon={<UserPlus className="size-4.5" />}
+            label="邀请好友"
+            badge={
+              campaignQ.data.inviter_registration_credits > 0
+                ? `邀请有礼 +${campaignQ.data.inviter_registration_credits} 经费`
+                : '邀请有礼'
+            }
+            last
+          />
+        )}
       </nav>
 
       <button

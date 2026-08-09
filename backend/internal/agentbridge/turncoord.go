@@ -76,7 +76,10 @@ func (tc *TurnCoordinator) BeginTurn(ctx context.Context, in TurnInput) (BeginTu
 	if existed {
 		return BeginTurnResult{TurnID: turn.ID, AlreadySeen: true}, nil
 	}
-	payload, _ := json.Marshal(map[string]string{"type": string(EvUserMessage), "content": in.RoleUserText})
+	payload := append([]byte(nil), in.UserPayload...)
+	if frameType(payload) != string(EvUserMessage) {
+		payload, _ = json.Marshal(map[string]string{"type": string(EvUserMessage), "content": in.RoleUserText})
+	}
 	tc.log.Append(turn.ID, in.AgentSessionID, EvUserMessage, payload)
 	return BeginTurnResult{TurnID: turn.ID}, nil
 }
@@ -92,10 +95,19 @@ func (tc *TurnCoordinator) Append(turnID uint64, sid string, evType EvType, fram
 // CompleteTurn — message_complete 时调用。翻 status=complete + model_main + shadow ledger。
 // P1 仅审计影子;真权威计费仍是 hub.go accrueTurnUsage→recordAgentTokens(完全不动)。
 func (tc *TurnCoordinator) CompleteTurn(ctx context.Context, turnID uint64, modelMain string, ledger *BillingLedgerRow) error {
+	return tc.FinalizeTurn(ctx, turnID, "complete", modelMain, ledger)
+}
+
+// FinalizeTurn 是终态的单一写入口。用户 stop 后 executor 仍会发
+// message_complete，该轮必须记 aborted 而非 complete，但已发生的模型/用量仍照实落账。
+func (tc *TurnCoordinator) FinalizeTurn(ctx context.Context, turnID uint64, status, modelMain string, ledger *BillingLedgerRow) error {
 	if tc == nil || tc.log == nil || turnID == 0 {
 		return nil
 	}
-	return tc.log.CompleteTurn(ctx, turnID, "complete", modelMain, ledger)
+	if status != "complete" && status != "aborted" && status != "failed" {
+		status = "failed"
+	}
+	return tc.log.CompleteTurn(ctx, turnID, status, modelMain, ledger)
 }
 
 // FailTurn / AbortTurn — turn 内错误 / 上游 drop / 前端 stop / hub shutdown 含在途轮时调。

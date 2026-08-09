@@ -81,9 +81,12 @@ type TurnInput struct {
 	FeatureKey     string
 	ClientTurnID   string
 	RoleUserText   string
-	ModelMain      string
-	Kind           string
-	UserID         uint
+	// UserPayload 是已通过注入面清理、附件物化与 fold 的完整 user_message 帧。
+	// 新写入保留 attachments 结构；旧/服务端调用方为空时仍回退 RoleUserText。
+	UserPayload json.RawMessage
+	ModelMain   string
+	Kind        string
+	UserID      uint
 }
 
 // EventLog 是 append-only 会话日志的读写契约。实现见 eventlogStore(eventlog_store.go)。
@@ -112,13 +115,13 @@ type EventLog interface {
 	CompleteTurn(ctx context.Context, turnID uint64, status string, modelMain string, ledger *BillingLedgerRow) error
 
 	// RecordBlockedTurn 落一条「被门禁(配额)在转发给 agent 之前拦下、从未执行」的轮:
-	// agent_turns(status=blocked, kind=quota, completed_at=now) + 一条 EvQuotaBlocked 事件
-	// (payload = 已发给用户的 error 帧,含冻结契约的结构化 quota 对象)。
+	// agent_turns(status=blocked, kind=quota, completed_at=now) + EvUserMessage(保留附件/引用)
+	// + EvQuotaBlocked(payload = 已发给用户的 error 帧,含冻结契约的结构化 quota 对象)。
 	// 2026-07-31 线上审计 §五:配额墙是最强付费触发器(9 个被拦用户 5 人付费、贡献 97% 订单额),
 	// 而拦截此前只有一条 INFO 日志 —— docker json-file 轮转即失,转化漏斗无法复盘。
 	// 幂等键用 "blocked:"+clientTurnID(**绝不**与真实轮的 (sid, client_turn_id) 撞:撞了会让用户
 	// 充值后原样重发被 BeginTurn 判成「已送达」直接丢帧)。
-	RecordBlockedTurn(ctx context.Context, in TurnInput, payload []byte) error
+	RecordBlockedTurn(ctx context.Context, in TurnInput, userPayload, payload []byte) error
 
 	// ── 读侧(P1)──
 	// ReadInFlightEvents 返回某 session 当前 running turn 的事件(ORDER BY ev_seq)+ 该 turn。

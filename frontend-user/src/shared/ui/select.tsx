@@ -15,7 +15,7 @@ import { cn } from'@/shared/lib/utils';
  * 若将来出现需要搜索/多选的场景,再单独引入 Radix Select,不要改造这个。
  *
  * 与 input.tsx 同构: 同样的描边、圆角、焦点环、禁用态、高度、字号。
- * 字号 = text-12。Figma §4.5 表单控件标的是 14px,本项目不采纳 —— 本项目控件基座统一 text-12(对 Figma §4.1/§4.5 的刻意偏离,见 button.tsx 文件头)。
+ * 字号 = text-14,与 dev.pen 的输入控件及 input.tsx 保持一致。
  */
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   /** 是否占满宽度 —— 默认 true。筛选器这类内联场景传 false 让它按内容收缩 */
@@ -29,7 +29,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         ref={ref}
         className={cn(
           // appearance-none + 自绘箭头 —— 原生箭头在各平台长得完全不一样,不可控
-          'appearance-none flex h-8 rounded-8 border border-border bg-surface-card pl-3 pr-8 text-12 text-foreground',
+          'appearance-none flex h-8 rounded-8 border border-border bg-surface-card pl-3 pr-8 text-14 text-foreground',
           'transition-colors cursor-pointer',
           'focus-visible:border-foreground',
           'disabled:cursor-not-allowed disabled:opacity-50',

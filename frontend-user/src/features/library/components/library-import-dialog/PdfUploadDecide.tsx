@@ -463,7 +463,7 @@ function JournalBadges({ enrichment }: { enrichment: NonNullable<JournalEnrichme
           className={cn(
             'inline-flex items-center px-1.5 py-0.5 rounded-4 text-12 font-medium leading-none whitespace-nowrap',
             b.tone === 'solid-green' && 'bg-brand-green text-on-brand',
-            // 琥珀实底配墨黑字(Figma §4.2):白字 on #E5A800 仅 2.11:1
+            // 琥珀实底配玄墨字:白字 on #B4880E 仅 3.25:1
             b.tone === 'solid-amber' && 'bg-brand-amber text-foreground',
             b.tone === 'solid-red' && 'bg-brand-red text-on-brand',
             b.tone === 'neutral' && 'bg-surface-2 text-subtle'

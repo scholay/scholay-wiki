@@ -93,16 +93,11 @@ export function PaperHeader({
         </div>
       )}
 
-      {/* Title —— 详情页 h1。
-          原先是 `sm:text-[42px]`,依据写的是 .pen `J6zGLj` —— 该真源已于 2026-07 作废,
-          且 Figma §2.2 的字号观测集合里【没有 42】。改用展示档 token `text-display-36`:
-          它正是 globals.css 为「超出六档(12/14/16/20/24/28)的 hero 标题」准备的档位,
-          与 AuthorHero / JournalDetailPane 两个同级详情页 h1 及 HelpLayout 的
-          `text-28 md:text-display-36` 惯例对齐。
-          移动端保持 text-28(六档最大档,globals.css 标注即「详情页 h1 桌面/Hero 主标题」)——
-          36px 在 ~390px 屏一行放不下几个字。
+      {/* Title —— 详情页 h1。当前 dev.pen 的正式阶梯包含 28/32px,
+          与 AuthorHero / JournalDetailPane / HelpLayout 的详情页标题统一。
+          移动端保持 28px,桌面升到 32px。
           展示用 displayedTitle,翻译切换时这里跟着变 */}
-      <h1 className="font-display font-bold leading-display-tight sm:leading-display-tight text-28 sm:text-display-36 text-foreground">
+      <h1 className="font-display font-bold leading-display-tight sm:leading-display-tight text-28 sm:text-32 text-foreground">
         {displayedTitle}
       </h1>
 

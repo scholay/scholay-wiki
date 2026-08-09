@@ -378,6 +378,7 @@ function ThirdPartyDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!Number.isFinite(priority)) return;
     // 只挑当前 type 声明的 key 落到提交里 —— 其它残留字段保留在 state 但不写库
     const submitted: AccountConfig = {};
     for (const f of fieldsByType) {
@@ -434,8 +435,10 @@ function ThirdPartyDialog({
               <Input
                 id="priority"
                 type="number"
-                value={priority}
-                onChange={(e) => setPriority(Number(e.target.value) || 0)}
+                value={Number.isFinite(priority) ? priority : ''}
+                onChange={(e) =>
+                  setPriority(e.target.value === '' ? Number.NaN : Number(e.target.value))
+                }
               />
             </div>
             <div className="flex items-center gap-2 h-9 sm:mt-5">
@@ -467,7 +470,7 @@ function ThirdPartyDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>取消</Button>
-            <Button type="submit">{isEdit ? '保存' : '添加'}</Button>
+            <Button type="submit" disabled={!Number.isFinite(priority)}>{isEdit ? '保存' : '添加'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

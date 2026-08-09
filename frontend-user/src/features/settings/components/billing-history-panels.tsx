@@ -21,6 +21,10 @@ const TXN_LABEL: Record<string, string> = {
   admin_adjust: '人工调整',
   payg_daily: '用经费继续(当天合计)', // 0098:每天一行,当天内随消耗累加
   invite_reward: '邀请奖励', // 邀请好友注册奖励(ref_id=被邀者 user_id)
+  invite_registration_inviter: '邀请注册礼（邀请人）',
+  invite_registration_invitee: '邀请注册礼（受邀用户）',
+  invite_first_purchase_rebate: '邀请首单返利',
+  invite_reward_reversal: '邀请首单返利退款追回',
 };
 
 // 0098 起流水金额可带小数(payg 日聚合行;经费=分,一天可能只有零点几经费)。

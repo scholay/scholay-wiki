@@ -20,6 +20,81 @@ type Repository struct {
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 
+func (r *Repository) DB() *gorm.DB { return r.db }
+
+// GetCampaignConfig 读邀请活动单行真源(id=1)。迁移保证该行存在。
+func (r *Repository) GetCampaignConfig() (*CampaignConfig, error) {
+	var cfg CampaignConfig
+	err := r.db.Where("id = 1").First(&cfg).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+// UpdateCampaignConfig 显式列更新，使 false/0 也能被正确保存。
+func (r *Repository) UpdateCampaignConfig(cfg *CampaignConfig) error {
+	if cfg == nil {
+		return errors.New("invite: nil campaign config")
+	}
+	cfg.ID = 1
+	updates := map[string]any{
+		"enabled":                      cfg.Enabled,
+		"inviter_registration_credits": cfg.InviterRegistrationCredits,
+		"invitee_registration_credits": cfg.InviteeRegistrationCredits,
+		"registration_daily_cap":       cfg.RegistrationDailyCap,
+		"bind_window_days":             cfg.BindWindowDays,
+		"first_purchase_window_days":   cfg.FirstPurchaseWindowDays,
+		"first_purchase_rebate_bps":    cfg.FirstPurchaseRebateBPS,
+		"code_help_url":                cfg.CodeHelpURL,
+		"updated_at":                   time.Now(),
+	}
+	res := r.db.Model(&CampaignConfig{}).Where("id = 1").Updates(updates)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		return nil
+	}
+	var n int64
+	if err := r.db.Model(&CampaignConfig{}).Where("id = 1").Count(&n).Error; err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil // 新值与库内完全相同，clientFoundRows=false 下 RowsAffected=0。
+	}
+	return r.db.Create(cfg).Error
+}
+
+type activeInviteCode struct {
+	InviteCode
+	InviterStatus    int8      `gorm:"column:inviter_status"`
+	InviterCreatedAt time.Time `gorm:"column:inviter_created_at"`
+	InviterEmail     string    `gorm:"column:inviter_email"`
+	InviterName      string    `gorm:"column:inviter_name"`
+}
+
+// FindActiveCode 只把「码在 + 邀请人账号在 + status=1」当成可用码。
+// 不信任 invite_codes 中的孤儿行，preview/bind 的失效回答也不区分原因。
+func (r *Repository) FindActiveCode(code string) (*activeInviteCode, error) {
+	var row activeInviteCode
+	err := r.db.Table("invite_codes AS ic").
+		Joins("JOIN users u ON u.id = ic.user_id AND u.status = 1").
+		Select(`ic.*, u.status AS inviter_status, u.created_at AS inviter_created_at,
+			COALESCE(u.email, '') AS inviter_email, COALESCE(u.username, '') AS inviter_name`).
+		Where("ic.code = ? AND ic.is_active = 1", code).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
 // FindByUserID 按邀请人查邀请码;不存在返回 (nil, nil)。
 func (r *Repository) FindByUserID(userID uint) (*InviteCode, error) {
 	var row InviteCode
@@ -57,118 +132,47 @@ func (r *Repository) InsertCodeIgnore(row *InviteCode) (int64, error) {
 // IncrementOpen 原子 +1 打开计数并刷新 last_opened_at;返回码是否存在。
 // 单条 UPDATE,无读-改-写窗口,并发安全。
 func (r *Repository) IncrementOpen(code string) (bool, error) {
-	res := r.db.Model(&InviteCode{}).Where("code = ?", code).
-		Updates(map[string]any{
-			"open_count":     gorm.Expr("open_count + 1"),
-			"last_opened_at": time.Now(),
-		})
+	res := r.db.Exec(`UPDATE invite_codes ic
+		JOIN users u ON u.id = ic.user_id AND u.status = 1
+		SET ic.open_count = ic.open_count + 1, ic.last_opened_at = ?
+		WHERE ic.code = ? AND ic.is_active = 1`, time.Now(), code)
 	if res.Error != nil {
 		return false, res.Error
 	}
 	return res.RowsAffected > 0, nil
-}
-
-// InsertRegistrationIgnore 用 INSERT IGNORE 落归因流水,返回受影响行数。
-// 0 行 = invited_user_id 已归因过(uk_invreg_invited),静默幂等。
-func (r *Repository) InsertRegistrationIgnore(row *InviteRegistration) (int64, error) {
-	res := r.db.Clauses(clause.Insert{Modifier: "IGNORE"}).Create(row)
-	return res.RowsAffected, res.Error
-}
-
-// FindRegistrationByInvitedUser 按被邀者查归因行(uk_invreg_invited 唯一);不存在返回 (nil, nil)。
-// 供奖励链路兜底:gorm 对 INSERT IGNORE 成功插入会回填自增 id,万一没回填,按唯一键查回。
-func (r *Repository) FindRegistrationByInvitedUser(invitedUserID uint) (*InviteRegistration, error) {
-	var row InviteRegistration
-	err := r.db.Where("invited_user_id = ?", invitedUserID).First(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &row, nil
 }
 
 // ─── 邀请奖励(0100)──────────────────────────────────────────────────────
 
-// (CountRewardedToday 已删除:锁外单独取数会诱导「先查后发」的写法,而那正是审计 P1-11 的缺陷。
-//  日上限判据现在只存在于 MarkRewardedWithinDailyCap 的事务内部,没有第二个入口。
-//  「今天」仍按本地时区起算,口径用行的 created_at —— 发放紧跟归因发生,归因时刻即发放时刻。)
+// 0118 起幂等真源是 milestone/grant/reversal，旧 rewarded_credits 只供列表兼容。
 
-// MarkRewardedWithinDailyCap 在**同一个事务**里做「查当日已奖数 → 抢标记」,并用邀请人的
-// users 行锁把同一邀请人的并发发放串行化。返回 (抢到=可发放, 是否因日上限被拒, err)。
-//
-// 🔴 2026-08-02 计费审计 P1-11:此前是 CountRewardedToday 与 MarkRewarded 两次独立调用,
-// 中间没有任何锁 —— 每张邀请注册是**不同的行**,MarkRewarded 的 `rewarded_credits=0` 条件更新
-// 只防「同一行被发两次」,完全不防「N 个不同的人同时注册,各自读到 n<cap 后各自抢到自己那一行」。
-// cap=5 时并发 5 个注册可以全部发出,日上限形同虚设(默认 invite_reward_credits=0 关着活动,
-// 所以今天不可触发;一旦运营开启,单 IP 单机脚本即可复现,authLimit burst=30 远高于所需并发)。
-//
-// 为什么锁 users 行而不是 invite_registrations:并发流各自更新的是**不同的**注册行,
-// 且 `rewarded_credits=0` 的行不会被 `WHERE rewarded_credits>0` 的 SELECT ... FOR UPDATE 命中,
-// 想靠间隙锁挡住是不成立的。真正的共享资源是「这个邀请人今天的额度」,那就锁邀请人本身。
-func (r *Repository) MarkRewardedWithinDailyCap(inviterUserID uint, regID uint64, amount, dailyCap int) (granted, cappedOut bool, err error) {
-	err = r.db.Transaction(func(tx *gorm.DB) error {
-		// 同一邀请人的并发发放在此排队。锁的是邀请人,不是被邀请人。
-		var lockID uint
-		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Table("users").Select("id").Where("id = ?", inviterUserID).Scan(&lockID).Error; e != nil {
-			return e
-		}
-		if dailyCap > 0 {
-			now := time.Now()
-			dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-			var n int64
-			if e := tx.Model(&InviteRegistration{}).
-				Where("inviter_user_id = ? AND rewarded_credits > 0 AND created_at >= ?", inviterUserID, dayStart).
-				Count(&n).Error; e != nil {
-				return e
-			}
-			if n >= int64(dailyCap) {
-				cappedOut = true
-				return nil
-			}
-		}
-		res := tx.Model(&InviteRegistration{}).
-			Where("id = ? AND rewarded_credits = 0", regID).
-			UpdateColumn("rewarded_credits", amount)
-		if res.Error != nil {
-			return res.Error
-		}
-		granted = res.RowsAffected > 0
-		return nil
-	})
-	return granted, cappedOut, err
-}
-
-// MarkRewarded 抢「已发放」标记:WHERE rewarded_credits=0 条件更新,并发/重放下只有一个
-// 执行流的 RowsAffected=1(=抢到,允许继续发放);0 = 已被标过,调用方跳过 —— 防双发的物理根。
-// **不含日上限**;发放路径请用 MarkRewardedWithinDailyCap(见其红字)。
-func (r *Repository) MarkRewarded(id uint64, amount int) (bool, error) {
-	res := r.db.Model(&InviteRegistration{}).
-		Where("id = ? AND rewarded_credits = 0", id).
-		UpdateColumn("rewarded_credits", amount)
-	if res.Error != nil {
-		return false, res.Error
+// RewardTotalOf 某邀请人通过自己邀请关系累计保留的净奖励。
+// 只统计 beneficiary_role=inviter，不把该用户作为别人的 invitee 收到的受邀礼
+// 错算成“我的邀请收益”；并减去退款时真正从钱包收回的返利。
+// shortfall 是平台承担、没有扣到用户的部分，不得从净收益再减一次。
+func (r *Repository) RewardTotalOf(userID uint) (int64, error) {
+	var gross, reclaimed int64
+	if err := r.db.Table("invite_reward_grants AS g").
+		Joins("JOIN invite_milestones m ON m.id = g.milestone_id").
+		Joins("JOIN invite_registrations ir ON ir.id = m.registration_id").
+		Where("ir.inviter_user_id = ? AND g.beneficiary_role = 'inviter'", userID).
+		Select("COALESCE(SUM(g.amount_credits), 0)").
+		Scan(&gross).Error; err != nil {
+		return 0, err
 	}
-	return res.RowsAffected > 0, nil
-}
-
-// UnmarkRewarded 把 rewarded_credits 回滚成 0(granter 失败的补偿)。
-// 不回滚会留下「标了没发」的行:用户奖励被永久吞掉,且统计里多出一笔从未入账的经费。
-func (r *Repository) UnmarkRewarded(id uint64) error {
-	return r.db.Model(&InviteRegistration{}).Where("id = ?", id).
-		UpdateColumn("rewarded_credits", 0).Error
-}
-
-// RewardTotalOf 某邀请人累计已获奖励经费(SUM(rewarded_credits))。
-func (r *Repository) RewardTotalOf(inviterUserID uint) (int64, error) {
-	var total int64
-	err := r.db.Model(&InviteRegistration{}).
-		Where("inviter_user_id = ?", inviterUserID).
-		Select("COALESCE(SUM(rewarded_credits), 0)").
-		Scan(&total).Error
-	return total, err
+	if err := r.db.Table("invite_reward_reversals AS rv").
+		Joins("JOIN invite_reward_grants g ON g.id = rv.grant_id").
+		Joins("JOIN invite_milestones m ON m.id = g.milestone_id").
+		Joins("JOIN invite_registrations ir ON ir.id = m.registration_id").
+		Where("ir.inviter_user_id = ? AND g.beneficiary_role = 'inviter'", userID).
+		Select("COALESCE(SUM(rv.reclaimed_credits), 0)").
+		Scan(&reclaimed).Error; err != nil {
+		return 0, err
+	}
+	if reclaimed >= gross {
+		return 0, nil
+	}
+	return gross - reclaimed, nil
 }
 
 // CountRegistrations 某邀请人名下的归因注册数。
@@ -202,8 +206,8 @@ func (r *Repository) Summary() (*AdminSummary, error) {
 		Where("created_at >= ?", since).Count(&out.Registrations7d).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.Model(&InviteRegistration{}).
-		Select("COALESCE(SUM(rewarded_credits), 0)").Scan(&out.TotalRewardCredits).Error; err != nil {
+	if err := r.db.Model(&InviteRewardGrant{}).
+		Select("COALESCE(SUM(amount_credits), 0)").Scan(&out.TotalRewardCredits).Error; err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -237,8 +241,11 @@ func (r *Repository) List(keyword string, limit, offset int) ([]AdminInviteRow, 
 			ic.code, ic.created_at, ic.open_count,
 			(SELECT COUNT(*) FROM invite_registrations ir
 			  WHERE ir.inviter_user_id = ic.user_id) AS registered_count,
-			(SELECT COALESCE(SUM(irr.rewarded_credits), 0) FROM invite_registrations irr
-			  WHERE irr.inviter_user_id = ic.user_id) AS reward_credits`).
+			(SELECT COALESCE(SUM(irg.amount_credits), 0)
+			   FROM invite_reward_grants irg
+			   JOIN invite_milestones im ON im.id = irg.milestone_id
+			   JOIN invite_registrations irr ON irr.id = im.registration_id
+			  WHERE irr.inviter_user_id = ic.user_id AND irg.beneficiary_role = 'inviter') AS reward_credits`).
 		Order("ic.created_at DESC").
 		Limit(limit).Offset(offset).
 		Scan(&rows).Error
@@ -262,7 +269,35 @@ func (r *Repository) RegistrationsOf(inviterUserID uint, limit, offset int) ([]A
 		Select(`ir.invited_user_id,
 			COALESCE(u.email, '')    AS email,
 			COALESCE(u.username, '') AS name,
-			ir.method, ir.rewarded_credits, ir.created_at`).
+			ir.method, ir.source, ir.bound_at, ir.rewarded_credits, ir.created_at,
+			(SELECT COALESCE(SUM(g.amount_credits), 0)
+			   FROM invite_milestones m JOIN invite_reward_grants g ON g.milestone_id = m.id
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'registration'
+			    AND g.beneficiary_role = 'inviter') AS inviter_registration_credits,
+			(SELECT COALESCE(SUM(g.amount_credits), 0)
+			   FROM invite_milestones m JOIN invite_reward_grants g ON g.milestone_id = m.id
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'registration'
+			    AND g.beneficiary_role = 'invitee') AS invitee_registration_credits,
+			(SELECT COALESCE(m.purchase_amount_cents, 0) FROM invite_milestones m
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'first_purchase' LIMIT 1) AS first_purchase_paid_cents,
+			(SELECT COALESCE(SUM(g.amount_credits), 0)
+			   FROM invite_milestones m JOIN invite_reward_grants g ON g.milestone_id = m.id
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'first_purchase'
+			    AND g.beneficiary_role = 'inviter') AS first_purchase_rebate_credits,
+			(SELECT COALESCE(SUM(rv.reclaimed_credits), 0)
+			   FROM invite_milestones m JOIN invite_reward_grants g ON g.milestone_id = m.id
+			   JOIN invite_reward_reversals rv ON rv.grant_id = g.id
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'first_purchase'
+			    AND g.beneficiary_role = 'inviter') AS first_purchase_reversed_credits,
+			(SELECT COALESCE(SUM(rv.shortfall_credits), 0)
+			   FROM invite_milestones m JOIN invite_reward_grants g ON g.milestone_id = m.id
+			   JOIN invite_reward_reversals rv ON rv.grant_id = g.id
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'first_purchase'
+			    AND g.beneficiary_role = 'inviter') AS first_purchase_reversal_shortfall,
+			(SELECT COALESCE(m.trigger_order_no, '') FROM invite_milestones m
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'first_purchase' LIMIT 1) AS first_purchase_order_no,
+			(SELECT m.occurred_at FROM invite_milestones m
+			  WHERE m.registration_id = ir.id AND m.milestone_type = 'first_purchase' LIMIT 1) AS first_purchase_paid_at`).
 		Where("ir.inviter_user_id = ?", inviterUserID).
 		Order("ir.created_at DESC").
 		Limit(limit).Offset(offset).

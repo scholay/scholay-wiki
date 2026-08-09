@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils';
  * Trust strip —— .pen `TrustStrip / sXx3w`:浅灰底,顶部一行标签 +
  * 大字间距 logos 横排(模拟 wordmark,不真用品牌 logo 图)。
  *
- * 这里 logos 我们用 Playfair Display italic + Inter 700 交错,
+ * 这里 logos 用 Google Sans italic / 700 交错,
  * 模拟出 .pen 里期刊 / 大学 wordmark 那种排版多样性。
  */
 export function TrustStrip({

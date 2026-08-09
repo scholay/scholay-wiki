@@ -97,6 +97,7 @@ export function SidebarLayout({
             expanded ? 'translate-x-0' : '-translate-x-full'
           )}
           aria-hidden={!expanded}
+          inert={!expanded}
         >
           {inner}
         </aside>
@@ -125,6 +126,7 @@ export function SidebarLayout({
         style={{ width: expanded ? width : 0 }}
         className="shrink-0 h-full min-h-0 overflow-hidden transition-[width] duration-200 ease-in-out"
         aria-hidden={!expanded}
+        inert={!expanded}
       >
         {inner}
       </aside>

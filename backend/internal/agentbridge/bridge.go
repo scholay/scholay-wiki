@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentartifact"
+	"scholar-backend/internal/agentattachstore"
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/llmusage"
@@ -37,6 +39,11 @@ const ghostCleanupDelay = 250 * time.Millisecond
 type Bridge struct {
 	client agent.Executor // 接缝:fork *agent.Client 满足;P3 clean-room executor 同样满足(一行 bootstrap 切换)
 	repo   *Repository
+
+	// 管理端会话审计只读接缝：产物以 agent_artifacts+MinIO 为耐久真源；
+	// 附件表仅用于给 workspace file 端点建立“该会话已记录路径”白名单。
+	adminArtifacts   adminArtifactRepository
+	adminAttachments adminAttachmentRepository
 
 	// hubs 跟踪每个 (feature, agent session) 的扇出 Hub(多端实时同步,见 hub.go)。
 	// key 形如 "claw:<agentSessionId>"; value 是 *hubSlot(承载 *sessionHub + ready 信号,per-key
@@ -116,6 +123,23 @@ type Bridge struct {
 	// 四份镜像只会把同一个漂移问题复制到第七处。会话的删除/重置在 agentbridge 里是**两个
 	// 收口点**,挂这里一次覆盖全部 feature。
 	sessionDataCleaner func(ctx context.Context, sessionID string)
+}
+
+type adminArtifactRepository interface {
+	ListBySession(sessionID string) ([]agentartifact.Artifact, error)
+	GetByID(id uint64) (*agentartifact.Artifact, error)
+}
+
+type adminAttachmentRepository interface {
+	ListBySession(sessionID string, userID uint64) ([]agentattachstore.Attachment, error)
+}
+
+func (b *Bridge) SetAdminArtifactRepository(repo *agentartifact.Repository) {
+	b.adminArtifacts = repo
+}
+
+func (b *Bridge) SetAdminAttachmentRepository(repo *agentattachstore.Repository) {
+	b.adminAttachments = repo
 }
 
 // SetSessionDataCleaner 注入会话字节数据清理钩子(bootstrap 调一次;nil = 不清理)。

@@ -136,11 +136,11 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
 
 /**
  * 堆叠封面 —— 对齐 .pen c/StackedCover(iTkFr):三块绝对定位的实色瓦片(74×84,圆角4,白色1px描边),
- * 后→前 琥珀/红/绿,各居中一个白色 Playfair(font-display)大写字母。
+ * 后→前 琥珀/红/绿,各居中一个白色 Google Sans(font-display)大写字母。
  * 后两块用固定品牌字 S/C(装饰性书脊),最前一块(绿)渲染合集首字。容器 90×96。
  */
 function StackedCover({ initial }: { initial: string }) {
-  // ⚠️ 琥珀块配【深色】字母:白字压 --brand-amber(#E5A800)实测仅 2.11:1,
+  // ⚠️ 琥珀块配【深色】字母:白字压 --brand-amber(#B4880E)实测仅 3.25:1,
   //    连 WCAG 大字 3:1 都不到。这与 Figma §4.2 Badge「琥珀底配黑字、其余配白字」一致。
   //    朱砂 9.10:1 / 松青 9.48:1 配白字则没问题。
   const tiles = [

@@ -42,8 +42,8 @@ type OrderRefund struct {
 	// IdempotencyKey 调用方带入的幂等键(前端每次打开退款弹窗生成一次,重试沿用同一个)。
 	// 🔴 这才是幂等的**唯一**依据 —— refund_no 的序号在结构上撞不上(见 Refund 里的说明)。
 	IdempotencyKey string `gorm:"column:idempotency_key" json:"-"`
-	OrderNo  string `gorm:"column:order_no" json:"order_no"`
-	UserID   uint   `gorm:"column:user_id" json:"user_id"`
+	OrderNo        string `gorm:"column:order_no" json:"order_no"`
+	UserID         uint   `gorm:"column:user_id" json:"user_id"`
 
 	Amount          float64 `gorm:"column:amount" json:"amount"`
 	Reason          string  `gorm:"column:reason" json:"reason"`
@@ -145,6 +145,8 @@ func (o *OrderService) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 	var revokedMembership bool
 	var notifyOrder *Order
 	var notifyAmount float64
+	var inviteReversalUserID uint
+	var inviteReclaimed, inviteShortfall int
 
 	// 幂等键缺省时兜一个 —— 老客户端/脚本没传时至少不会与别的记录撞车,
 	// 但**得不到幂等保护**(每次都是新键)。管理台弹窗一定会传。
@@ -217,6 +219,26 @@ func (o *OrderService) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 			return err
 		}
 		refundNo := fmt.Sprintf("RF%s-%d", ord.OrderNo, existing+1)
+		refundAt := time.Now().Truncate(time.Second)
+		newRefundedCents := refundedCents + thisCents
+
+		// 邀请首单返利也是这笔实付派生的权益，退款时按剩余净实付幂等反冲。
+		// 充值单先锁/收邀请人 wallet，再收被邀请人 wallet；邀请人账号在绑定规则上
+		// 恒早（user_id 更小），因而与 bind 的双钱包升序一致。
+		reverseInviteReward := func() error {
+			if o.refundRewardHook == nil {
+				return nil
+			}
+			var hookErr error
+			inviteReversalUserID, inviteReclaimed, inviteShortfall, hookErr = o.refundRewardHook(
+				tx, ord.ID, ord.UserID, refundNo, idemKey, newRefundedCents, refundAt)
+			return hookErr
+		}
+		if ord.OrderType == "recharge" {
+			if err := reverseInviteReward(); err != nil {
+				return err
+			}
+		}
 
 		// ── 4. 权益回收:经费 ────────────────────────────────────────────────
 		// 只有充值单发过经费(订阅单 0090 起不再赠送经费)。
@@ -231,7 +253,7 @@ func (o *OrderService) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 		expectedCredits := 0
 		if ord.OrderType == "recharge" && ord.CreditsGranted > 0 && paidCents > 0 {
 			g := int64(ord.CreditsGranted)
-			before := g * refundedCents / paidCents        // 本次之前累计应收
+			before := g * refundedCents / paidCents              // 本次之前累计应收
 			after := g * (refundedCents + thisCents) / paidCents // 本次之后累计应收
 			expectedCredits = int(after - before)
 		}
@@ -252,6 +274,22 @@ func (o *OrderService) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 			}
 			revoked = true
 		}
+		if ord.OrderType == "subscription" && !revoked {
+			// 即使管理员选择不撤会员，也先锁被邀请人 users 行再动邀请人 wallet，
+			// 保持与 bind 的 users→wallet 顺序一致。
+			var lockedUserID uint
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Table("users").
+				Where("id = ?", ord.UserID).Pluck("id", &lockedUserID).Error; err != nil {
+				return err
+			}
+		}
+		// 订阅退款先锁被邀请人 users 行撤权，再动邀请人 wallet；
+		// bind 会先锁完双方 users 才动 wallet，不会出现 wallet→users 的反向等待。
+		if ord.OrderType == "subscription" {
+			if err := reverseInviteReward(); err != nil {
+				return err
+			}
+		}
 
 		// ── 6. 落退款单 ──────────────────────────────────────────────────────
 		rec := OrderRefund{
@@ -266,7 +304,7 @@ func (o *OrderService) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 			MembershipRevoked: revoked,
 			OperatorID:        req.OperatorID,
 			OperatorName:      req.OperatorName,
-			CreatedAt:         time.Now(),
+			CreatedAt:         refundAt,
 		}
 		if err := tx.Create(&rec).Error; err != nil {
 			// 撞 uk_idempotency_key = 同一笔退款并发重复提交(上面的回放检查与这里之间的窗口)。
@@ -278,7 +316,6 @@ func (o *OrderService) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 		}
 
 		// ── 7. 更新订单累计 ──────────────────────────────────────────────────
-		newRefundedCents := refundedCents + thisCents
 		newStatus := RefundStatusPartial
 		if newRefundedCents >= paidCents {
 			newStatus = RefundStatusFull
@@ -340,6 +377,10 @@ func (o *OrderService) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 	// 通知用户 —— best-effort,失败不影响退款已经生效的事实。
 	if o.svc != nil {
 		o.svc.notifyOrderRefunded(notifyOrder, notifyAmount, revokedMembership, reclaimedCredits)
+		if inviteReversalUserID > 0 && (inviteReclaimed > 0 || inviteShortfall > 0) {
+			o.svc.NotifyInviteRewardReversal(inviteReversalUserID, inviteReclaimed,
+				inviteShortfall, result.Refund.RefundNo)
+		}
 	}
 	return &result, nil
 }
@@ -371,6 +412,9 @@ func reclaimCreditsInTx(tx *gorm.DB, userID uint, expected int, refundNo string)
 	// 向下取整成整数经费:余额刻度是 micro-credit(经费 × 1e6),这里只收「够一整个经费」的部分,
 	// 不制造 0.3 个经费这种扣不干净的尾数(流水 Amount 是 float 但回收口径按整经费走)。
 	balance := int(w.PermBalanceMicro / MicroCreditPerCredit)
+	if balance < 0 {
+		balance = 0 // PAYG 允许小额负余额；shortfall 不得因此超过 expected。
+	}
 	reclaimed = expected
 	if balance < expected {
 		reclaimed = balance

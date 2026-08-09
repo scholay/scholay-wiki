@@ -10,7 +10,7 @@ const C = {
   faint: '#6E6E78', // faint
   red: '#882828', // brand-red
   green: '#2F4D29', // brand-green
-  amberInk: '#805E00', // --amber-ink 琥珀软底上的可读色(裸琥珀 #E5A800 在浅底上仅 ~1.9:1,禁用)
+  amberInk: '#805E00', // --amber-ink 琥珀软底上的可读色（裸琥珀 #B4880E 不承载小字）
   white: '#ffffff', // 深底按钮内图标(发送键等)
 }
 

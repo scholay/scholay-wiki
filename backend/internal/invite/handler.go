@@ -6,6 +6,7 @@
 package invite
 
 import (
+	"log/slog"
 	"strconv"
 
 	"scholar-backend/internal/common/utils"
@@ -18,6 +19,38 @@ type Handler struct {
 }
 
 func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+
+// Campaign GET /invite/campaign(公开，路由限流)。
+func (h *Handler) Campaign(c *gin.Context) {
+	view, err := h.svc.Campaign()
+	if err != nil {
+		utils.InternalError(c, 500, "获取邀请活动失败", err)
+		return
+	}
+	utils.Success(c, view)
+}
+
+// Preview POST /invite/preview {code}(公开，路由限流)。无效请求统一 valid=false。
+func (h *Handler) Preview(c *gin.Context) {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		campaign, cfgErr := h.svc.Campaign()
+		if cfgErr != nil {
+			utils.InternalError(c, 500, "服务暂不可用,请稍后重试", cfgErr)
+			return
+		}
+		utils.Success(c, InvitePreview{Valid: false, Campaign: campaign})
+		return
+	}
+	preview, err := h.svc.Preview(req.Code)
+	if err != nil {
+		utils.InternalError(c, 500, "服务暂不可用,请稍后重试", err)
+		return
+	}
+	utils.Success(c, preview)
+}
 
 // ─── 用户端 ──────────────────────────────────────────────────────────────
 
@@ -50,6 +83,55 @@ func (h *Handler) GetMyRegistrations(c *gin.Context) {
 		return
 	}
 	utils.Success(c, gin.H{"items": items, "total": total})
+}
+
+// GetStatus GET /user/invite/status(登录态)。
+func (h *Handler) GetStatus(c *gin.Context) {
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+	status, err := h.svc.Status(uid)
+	if err != nil {
+		utils.InternalError(c, 500, "获取邀请绑定状态失败", err)
+		return
+	}
+	utils.Success(c, status)
+}
+
+// Bind POST /user/invite/bind {code}(登录态)。source 固定 manual，绝不信任客户端传值。
+// 可预期的业务结果统一 200 + status.reason，只有 DB/账务失败才 5xx。
+func (h *Handler) Bind(c *gin.Context) {
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		Code string `json:"code"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	// method 由服务端根据该用户最早 auth provider/注册资料推导，不把操作来源 manual
+	// 错存成 email/phone/google/wechat 等真实注册方式。
+	result, err := h.svc.Bind(req.Code, uid, sourceManual, "")
+	if err == nil {
+		utils.Success(c, result)
+		return
+	}
+	if isExpectedBindError(err) {
+		status, statusErr := h.svc.Status(uid)
+		if statusErr != nil {
+			utils.InternalError(c, 500, "获取邀请绑定状态失败", statusErr)
+			return
+		}
+		status.Eligible = false
+		status.Reason = bindReason(err)
+		status.Code = ""
+		utils.Success(c, InviteBindResult{Status: *status, Rewards: InviteBindRewards{}})
+		return
+	}
+	utils.InternalError(c, 500, "绑定邀请关系失败,请稍后重试", err)
 }
 
 // RecordOpen POST /invite/open {code}(公开,限流)—— 落地页打开计数。
@@ -112,4 +194,45 @@ func (h *Handler) AdminRegistrations(c *gin.Context) {
 		return
 	}
 	utils.Success(c, gin.H{"items": items, "total": total})
+}
+
+// AdminGetCampaign / AdminUpdateCampaign 挂在 config.manage，与 users.view 的监控看板分开。
+func (h *Handler) AdminGetCampaign(c *gin.Context) {
+	cfg, err := h.svc.AdminCampaign()
+	if err != nil {
+		utils.InternalError(c, 500, "获取邀请活动配置失败", err)
+		return
+	}
+	utils.Success(c, cfg)
+}
+
+func (h *Handler) AdminUpdateCampaign(c *gin.Context) {
+	adminID, _ := utils.GetUserID(c)
+	var req CampaignConfig
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	if err := h.svc.UpdateCampaign(&req); err != nil {
+		if ce, ok := AsCampaignConfigError(err); ok {
+			utils.BadRequest(c, ce.Error())
+			return
+		}
+		utils.InternalError(c, 500, "保存邀请活动配置失败", err)
+		return
+	}
+	slog.Info("audit: admin 更新邀请活动配置",
+		"admin_id", adminID, "enabled", req.Enabled,
+		"inviter_registration_credits", req.InviterRegistrationCredits,
+		"invitee_registration_credits", req.InviteeRegistrationCredits,
+		"registration_daily_cap", req.RegistrationDailyCap,
+		"bind_window_days", req.BindWindowDays,
+		"first_purchase_window_days", req.FirstPurchaseWindowDays,
+		"first_purchase_rebate_bps", req.FirstPurchaseRebateBPS,
+		"code_help_url", req.CodeHelpURL)
+	cfg, err := h.svc.AdminCampaign()
+	if err != nil {
+		utils.InternalError(c, 500, "配置已保存但回读失败", err)
+		return
+	}
+	utils.SuccessWithMessage(c, "已保存", cfg)
 }

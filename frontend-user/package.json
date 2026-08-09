@@ -14,7 +14,7 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest",
     "test:contract": "vitest run --dir tests/contract",
-    "test:design": "node scripts/design-guard.mjs tests/design-system-guard.test.ts tests/design-tokens-compiled.test.ts"
+    "test:design": "node scripts/design-guard.mjs tests/design-system-guard.test.ts tests/design-tokens-compiled.test.ts tests/font-assets.test.ts tests/sidebar-design-contract.test.tsx"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

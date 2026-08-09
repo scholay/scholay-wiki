@@ -186,6 +186,72 @@ func (w *WalletService) GrantPerm(userID uint, amount int, source, ref, txType, 
 	})
 }
 
+// GrantPermInTx 是跨模块的事务内入账端口。调用方拥有 tx，因而可把自己的
+// 关系/幂等键/审计行与钱包 + credit_transactions 原子提交。返回流水 id 供业务审计表关联。
+// 绝不在此开嵌套事务。
+func (w *WalletService) GrantPermInTx(tx *gorm.DB, userID uint, amount int, source, ref, txType, note string) (uint64, error) {
+	if tx == nil {
+		return 0, errors.New("vip: nil transaction")
+	}
+	return grantPermNoteWithIDInTx(tx, userID, amount, source, ref, txType, note)
+}
+
+// ReclaimPermInTx 按整经费回收到 0 为止，返回负数流水 ID / 实收 / 差额。
+// 这是跨域事务端口：不开新事务，让调用方的幂等行与钱包反冲原子提交。
+func (w *WalletService) ReclaimPermInTx(tx *gorm.DB, userID uint, expected int,
+	source, ref, txType, note string) (txID uint64, reclaimed, shortfall int, err error) {
+	if tx == nil {
+		return 0, 0, 0, errors.New("vip: nil transaction")
+	}
+	if expected <= 0 {
+		return 0, 0, 0, nil
+	}
+	if err := ensureWallet(tx, userID); err != nil {
+		return 0, 0, 0, err
+	}
+	var wallet UserWallet
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	balance := int(wallet.PermBalanceMicro / MicroCreditPerCredit)
+	if balance < 0 {
+		balance = 0 // PAYG 允许小额负余额；退款不能把负数当作“超额差额”。
+	}
+	reclaimed = expected
+	if balance < reclaimed {
+		reclaimed = balance
+	}
+	shortfall = expected - reclaimed
+	if reclaimed <= 0 {
+		return 0, 0, shortfall, nil
+	}
+	if err := tx.Model(&UserWallet{}).Where("user_id = ?", userID).
+		UpdateColumn("perm_balance_micro",
+			gorm.Expr("perm_balance_micro - ?", creditsToMicro(reclaimed))).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	temp, perm, err := balancesInTx(tx, userID)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	if note == "" {
+		note = "奖励退款反冲"
+	}
+	if shortfall > 0 {
+		note += ";余额不足，平台承担差额"
+	}
+	row := &CreditTransaction{
+		UserID: userID, Type: txType, Amount: -float64(reclaimed),
+		TempAfter: temp, PermAfter: perm,
+		RefType: refTypeOf(source), RefID: ref, Note: note,
+	}
+	if err := tx.Create(row).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	return row.ID, reclaimed, shortfall, nil
+}
+
 // grantPermInTx —— 事务内发放永久经费(供兑换码原子兑换 + 充值履约复用)。
 // 签名保持不带 note:两个调用点(order.go 充值履约 / repository.go 兑换码)自身无备注语境,
 // 流水靠 ref_type/ref_id 归因即可。
@@ -195,24 +261,33 @@ func grantPermInTx(tx *gorm.DB, userID uint, amount int, source, ref string, txT
 
 // grantPermNoteInTx —— 事务内发放永久经费(带流水备注;所有永久入账的唯一落点)。
 func grantPermNoteInTx(tx *gorm.DB, userID uint, amount int, source, ref, txType, note string) error {
+	_, err := grantPermNoteWithIDInTx(tx, userID, amount, source, ref, txType, note)
+	return err
+}
+
+func grantPermNoteWithIDInTx(tx *gorm.DB, userID uint, amount int, source, ref, txType, note string) (uint64, error) {
 	if amount <= 0 {
-		return nil
+		return 0, nil
 	}
 	if err := ensureWallet(tx, userID); err != nil {
-		return err
+		return 0, err
 	}
 	if err := tx.Model(&UserWallet{}).Where("user_id = ?", userID).
 		UpdateColumn("perm_balance_micro", gorm.Expr("perm_balance_micro + ?", creditsToMicro(amount))).Error; err != nil {
-		return err
+		return 0, err
 	}
 	temp, perm, err := balancesInTx(tx, userID)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return tx.Create(&CreditTransaction{
+	row := &CreditTransaction{
 		UserID: userID, Type: txType, Amount: float64(amount),
 		TempAfter: temp, PermAfter: perm, RefType: refTypeOf(source), RefID: ref, Note: note,
-	}).Error
+	}
+	if err := tx.Create(row).Error; err != nil {
+		return 0, err
+	}
+	return row.ID, nil
 }
 
 // Consume 消耗经费。事务 + 行锁;余额不足返回 ErrInsufficientCredit(不扣分文)。

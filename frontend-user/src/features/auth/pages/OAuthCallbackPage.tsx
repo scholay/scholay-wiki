@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { AuthResponse } from '../types';
 import { OAuthMergeConfirmDialog } from '../components/OAuthMergeConfirmDialog';
 import { handleAuthSuccess } from '../api/auth';
+import { authSuccessLandingPath } from '@/shared/lib/auth-events';
 import {
   OAUTH_MODE_KEY,
   OAUTH_BIND_PROVIDER_KEY,
@@ -89,13 +90,28 @@ export function OAuthCallbackPage() {
     if (directToken) {
       const userJson = params.get('user');
       try {
-        const user = userJson
-          ? JSON.parse(userJson)
-          : { id: 0, email: '', role: 'user' };
-        handleAuthSuccess(qc, { token: directToken, user } as AuthResponse);
+        let user: AuthResponse['user'];
+        if (userJson) {
+          user = JSON.parse(userJson) as AuthResponse['user'];
+        } else {
+          const userId = Number(params.get('user_id'));
+          if (!Number.isSafeInteger(userId) || userId <= 0) {
+            throw new Error('missing user_id');
+          }
+          // Apple redirect 只需先提供真实身份 ID；AuthBootstrap 随后以 /user/profile
+          // 补齐完整资料。禁止用 id:0，否则活动查询迟到时邀请 Flow 会误判账号已切换。
+          user = { id: userId, email: '', role: 'user' } as AuthResponse['user'];
+        }
+        const authResponse = {
+          token: directToken,
+          user,
+          is_new_user: params.get('is_new_user') === 'true',
+        } as AuthResponse;
+        const landingPath = authSuccessLandingPath(authResponse.is_new_user);
+        handleAuthSuccess(qc, authResponse);
         setPhase('success');
         toast.success('登录成功');
-        setTimeout(() => navigate('/', { replace: true }), 400);
+        setTimeout(() => navigate(landingPath, { replace: true }), 400);
       } catch {
         setPhase('error');
         setErrMsg('登录响应解析失败');
@@ -157,10 +173,12 @@ export function OAuthCallbackPage() {
             setPhase('merge_required');
             return;
           }
-          handleAuthSuccess(qc, payload as AuthResponse);
+          const authResponse = payload as AuthResponse;
+          const landingPath = authSuccessLandingPath(authResponse.is_new_user);
+          handleAuthSuccess(qc, authResponse);
           setPhase('success');
           toast.success('登录成功');
-          setTimeout(() => navigate('/', { replace: true }), 400);
+          setTimeout(() => navigate(landingPath, { replace: true }), 400);
         } catch (e) {
           setPhase('error');
           setErrMsg(toApiError(e).message || '登录失败');
@@ -228,10 +246,12 @@ export function OAuthCallbackPage() {
           return;
         }
         // 正常登录
-        handleAuthSuccess(qc, payload as AuthResponse);
+        const authResponse = payload as AuthResponse;
+        const landingPath = authSuccessLandingPath(authResponse.is_new_user);
+        handleAuthSuccess(qc, authResponse);
         setPhase('success');
         toast.success('登录成功');
-        setTimeout(() => navigate('/', { replace: true }), 400);
+        setTimeout(() => navigate(landingPath, { replace: true }), 400);
       } catch (e) {
         setPhase('error');
         setErrMsg(toApiError(e).message || '登录失败');

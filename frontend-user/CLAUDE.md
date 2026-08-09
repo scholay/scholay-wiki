@@ -189,21 +189,33 @@ shared/lib       → 无依赖(纯 TS)
 
 ## 五、样式
 
-### 唯一真源:Figma → `src/styles/globals.css`
+### 上游设计证据:`dev.pen` → 运行时 SSOT:`src/styles/globals.css`
 
-> ⚠️ **2026-07 换真源**:本项目的设计 token 曾以 `.pen` 设计稿(`design/pencil/scholay-global.pen`)
-> 为真源,该口径**已作废**。现在的真源是 Figma:
+> **2026-08 当前口径**:
 >
-> - **设计稿**: `JIv8fxQthMS37JLGHNOEbB` / Page 1 / `Scholay设计系统` (node `1:38`)
-> - **提取产物**: [docs/figma-design-spec-2026-07.md](../docs/figma-design-spec-2026-07.md)
-> - **改造台账**: [docs/design-migration-ledger-2026-07.md](../docs/design-migration-ledger-2026-07.md)
+> - **规范侧真源**:`/Users/youngp/Downloads/scholay设计源文件/dev.pen`，通过 Pencil MCP
+>   读取；设计系统根节点 `rfNKU`（`Scholay设计系统`）
+> - **提取快照**:[docs/pen-design-spec-2026-08.md](../docs/pen-design-spec-2026-08.md)
+> - **运行时 token 唯一真源（SSOT）**:[src/styles/globals.css](src/styles/globals.css)
+> - **历史基线**:[docs/figma-design-spec-2026-07.md](../docs/figma-design-spec-2026-07.md)
+>   已被取代，只用于解释旧决策，不再决定当前 token
 >
-> **改 token = 改设计系统 → 必须同步更新 Figma,不要再改 .pen。**
-> 代码里若见到 `.pen 'XXXXX'` 形式的注释,那是历史遗留,以 Figma 为准。
+> `dev.pen` 在仓库外，是设计证据而不是构建依赖。**改 token = 先用 Pencil MCP 读取
+> 当前节点 → 更新 Pen 规范快照 → 更新 `globals.css` 与受护栏校验的跨包镜像。**
+> 不从截图拾色，也不再把 2026-07 Figma 值覆盖回当前 Pen 值。
 
-所有 token 定义在 [src/styles/globals.css](src/styles/globals.css),分 17 节,每节都标注了
-Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**,便于设计师 review 时
-区分「有意决策」与「实现错误」。
+所有运行时 token 定义在 [src/styles/globals.css](src/styles/globals.css)。每节应标注
+Pen 节点依据或工程推导理由。**偏离 Pen 的地方必须写明偏离原因**，便于设计师 review 时
+区分「有意决策」与「实现错误」。Logo 图形（`D5gC67`）与 Scholay wordmark（`V2IJR`）
+是本轮冻结资产，不随主题色、字体栈或字号迁移。
+
+本次 Pen 提取覆盖颜色、字体、字号和基础 Button / Label / Card / Search。下文仍出现的
+Figma 布局、间距、阴影等引用，是尚未被 Pen 新节点替换的 **2026-07 历史工程约束**；
+它们可以继续约束实现，但不能反向覆盖本文明确列出的 Pen 颜色与排印值。
+
+字体是一项明确的用户级覆盖：非品牌英文使用 `Google Sans`，中文使用
+`Noto Serif SC`。这一指令优先于 Pen `rhCJT` 中的 Playfair Display 普通英文样张；
+但不解冻 Logo `D5gC67` 或 Scholay wordmark `V2IJR`。
 
 ### 护栏在哪跑(**两个执行点,覆盖面不一样**)
 
@@ -218,13 +230,13 @@ Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**
 
 🔴 **Docker 构建里的绿灯 ≠ 跨包镜像已校验。**
 frontend-user 的构建 `context: ./frontend-user`(docker-compose.yml),
-`miniprogram/` `scholay-minitools/` `agent/` 三个兄弟包在那个环境里**物理上不存在** →
-「跨包镜像」一族规则走 `ctx.skip()`。也就是说:小程序 / 小工具 / pptx 导出三份镜像
+`miniprogram/` 和 `agent/` 两个兄弟包在那个环境里**物理上不存在** →
+「跨包镜像」一族规则走 `ctx.skip()`。也就是说:小程序 / pptx 导出两份镜像
 是否与 `globals.css` 同步,**构建管不了**。
 
 跳过时,[scripts/design-guard.mjs](scripts/design-guard.mjs) 会在构建日志里打一条
 横幅,逐条列出被跳过的规则名 —— 刻意做得很吵,因为「一条永远绿的规则」和
-「一条不存在的规则」等价,而本仓库正是被这个模式坑过(「51 条护栏全绿」掩盖三份镜像
+「一条不存在的规则」等价,而本仓库正是被这个模式坑过(「51 条护栏全绿」掩盖两份镜像
 同时落后两代)。⚠️ 但**刻意不让构建失败**:跨包镜像在那个 context 里客观上无法校验,
 为它红灯只会堵死部署,换不来任何校验。
 
@@ -241,7 +253,7 @@ frontend-user 的构建 `context: ./frontend-user`(docker-compose.yml),
 `.git/design-guard-bypass.log`)。`git push --no-verify` 是 git 层面根本不调用钩子,
 **无痕**,别用。
 
-### 迁移状态(2026-07-28 第二轮复核后重写)
+### 迁移状态(2026-07-28 第二轮复核；2026-08 Pen token 行已刷新)
 
 > ⚠️ 更早的版本写着「字重 ❌ 未开始 / 间距 ❌ 未开始 / 圆角字号 🟡 新旧并存」,
 > 全部与实测相反 —— 那时它在**教人写会被护栏拒绝的旧类名**。以下是实测状态。
@@ -257,11 +269,11 @@ frontend-user 的构建 `context: ./frontend-user`(docker-compose.yml),
 | 维度 | 状态 | 说明 |
 |---|---|---|
 | 圆角 | ✅ 已完成 | 旧标度 `rounded-sm/md/lg/xl` 已从 token 层**删除**,写了编译不出类 |
-| 字号 | ✅ 已完成 | 六档封闭(`--text-*: initial`),`text-2xs/xs/sm/base/md/3xl…` 全部编译不出类 |
+| 字号 | ✅ 已完成 | 八档封闭(`--text-*: initial`):`12/14/16/18/20/24/28/32`；语义旧名仍编译不出类，64 独立作 Headline / Display |
 | 字重 | ✅ 已完成 | `font-semibold` 代码内 **0**(仅 globals.css 注释里提到);`font-bold` 只保留在 serif/display/mono 上 |
-| 正文基准 | ✅ 已修正 | `body` 从 13px 改到 **14px**(Figma §2.2 点名要干掉 13) |
-| 控件字号 | ⚪ 刻意偏离 | 控件基座**保持 `text-12`**,不采纳 Figma §4.1/§4.5 的 14px(高信息密度产品的有意层级)。2026-07-28 曾升到 14 后由产品撤销。详见下文「控件字号」小节 |
-| 纸张质感 | ✅ 本轮开启 | `index.html:2` 已落地 `<html lang="zh-CN" data-paper="on">`,noise 层**现在是全站生效的** |
+| 正文基准 | ✅ 已修正 | `body` 从 13px 改到 **14px**；当前 Pen 主 UI 阶梯同样以 14px 为正文基准 |
+| 控件字号 | ⚪ 刻意偏离 | 控件基座**保持 `text-12`**,不采纳 Pen §4.1/§4.4 的 14px(高信息密度产品的有意层级)。2026-07-28 曾升到 14 后由产品撤销。详见下文「控件字号」小节 |
+| 纸张质感 | ⚪ 已移除 | 产品已取消全站 noise；页面只使用主题背景色，不再叠加纸张颗粒。 |
 | 颜色 | 🟡 语义层已切,**收口未完** | 值全部是新的,但 **482 处**(2026-07-28 剥注释实测)仍走过渡兼容层的旧色名(`border-soft` / `danger-soft` / `warning-soft` / `prism-badge-*` / `border-button`)。这些是**合法可用**的别名,新代码优先用右侧新名 |
 | 状态色 | 🔴 阻塞 | `--status-*` 是**待设计师确认的临时值**(Q2)。tsx/ts 侧除 `status-info`(6 处)外**整族零消费**,调用点仍走品牌色;兼容层 `--color-danger-soft` / `--color-warning-soft` 至今仍指 `--brand-*-soft` 而非 `--status-*` |
 | 间距 | 🔴 阻塞 | 阻塞于 Q8(Figma 观测集合里没有 6px,但 `gap-1.5` 已写进三个原子基线)。⚠️ **这个数有三种口径**(2026-07-28 实测):guard 口径(`0.5/1.5/3.5/5/7/9/11`,注释已剥离)**1293**、只数 `.5` 小数档**1401**、不剥注释的裸 `rg` **1423**。guard 的棘轮基线是 **1357**,当前 1293 **未突破**(余量 64)。**引用哪个数就说明是哪个口径** |
@@ -292,10 +304,10 @@ rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --
 实编 `globals.css` 逐类探针**核对过一遍。结论:
 
 - **本节列出的 token 现在全部真能编译出类**
-  (surface / 文字 / 边框 / 品牌 / 状态 / cat / chart / shadcn 别名 / 六档字号 /
+  (surface / 文字 / 边框 / 品牌 / 状态 / cat / chart / shadcn 别名 / 八档主 UI 字号 /
   **六档行高**(含新增 `leading-code`)/ 两档字距 / 六档圆角 / `h-control-*` / `size-*` /
   `max-w-page` / `max-w-reading` / 两档阴影 / **`blur-2` · `backdrop-blur-2`** / 十档 z /
-  `ease-*` / **`duration-*` 四档** / `paper-grain` / 四个字族 —— 逐条验证通过)
+  `ease-*` / **`duration-*` 四档** / 四个字族 —— 逐条验证通过)
   > ⏪ 这一行此前写着「除了 `duration-fast/base/slow/deliberate` 四个」—— 那个缺口
   > 2026-07-28 已修(`@theme` 补 `--transition-duration-*` 别名),详见下文「Motion」小节。
   > ⚠️ `--weight-normal` / `--weight-medium` 是**刻意不注册**的例外,故意没有对应工具类,见下文「字重 token」。
@@ -325,7 +337,7 @@ rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --
 | `bg-surface-3` | `#F1EFE8` | Prism 编译状态条 |
 | `bg-amber-soft` | `#E5DFCE` | 琥珀软底高亮块 |
 
-> 🔴 **`bg-background` 与 `bg-surface-card` 不可混用**。Figma 明确区分外层米白 / 内层纯白,
+> 🔴 **`bg-background` 与 `bg-surface-card` 不可混用**。Pen 明确区分外层米白 / 内层纯白,
 > 视觉分层完全靠这 3.5% 明度差 —— 用错卡片就消失了。
 
 #### 怎么判「这一层该米白还是该白」
@@ -377,17 +389,21 @@ rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --
 | `border-border-control` | `#1F1F23` | **可点击控件**深色实边(搜索框) |
 | `border-border-control-emphasis` | `#0D0C0B` | 幽灵按钮描边 |
 
-> 🔴 控件族是**另一个 token 族**,不是容器族的新值。Figma 卡片根本没有描边 ——
+> 🔴 控件族是**另一个 token 族**,不是容器族的新值。Pen 的 Default Card 没有深色实描边 ——
 > 分层靠白卡落米白底的明度差。把 `border-border` 换成深色会让全站变成线框图。
 
 **品牌** — 三色(蓝色已退休,期刊线改用琥珀):
 | 类 | 值 | 用途 |
 |---|---|---|
-| `text/bg-brand-red` | `#882828` | 朱砂 · CTA / danger / Logo S·a |
-| `text/bg-brand-green` | `#2F4D29` | 松青 · AI 操作 / Logo ch·y |
-| `text/bg-brand-amber` | `#E5A800` | 琥珀 · 期刊线 / 构建中 / Logo o |
+| `text/bg-brand-red` | `#882828` | 朱砂 · CTA / danger |
+| `text/bg-brand-green` | `#2F4D29` | 松青 · AI 操作 |
+| `text/bg-brand-amber` | `#B4880E` | 琥珀 · 期刊线 / 构建中 |
 
 配套软底:`bg-brand-{red,green,amber}-soft`
+
+> Pen 的 Neutral 标签文字写 `#141414`，但色块实际 fill 与色阶使用 `#1F1F23`；
+> 运行时采用后者，不新增第二套玄墨。Logo / Scholay wordmark 使用独立冻结资产，
+> 上表的主题色变化不得驱动品牌图形改色。
 
 **状态色** 🟡 临时值待设计师确认(Q2):`text/bg-status-{success,error,warning,running,neutral,info}(-soft)`
 
@@ -402,32 +418,57 @@ rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --
 **shadcn 语义别名**:`bg-primary` / `bg-secondary` / `bg-muted` / `bg-accent` / `bg-card` /
 `bg-popover` / `bg-destructive` / `border-input` / `ring-ring`
 
-### 字号 — 6 档(数值命名)
+### 字体
 
-`text-12` / `text-14` ★正文基准 / `text-16` / `text-20` / `text-24` / `text-28`
+| token / 用途 | 字体栈策略 |
+|---|---|
+| `font-sans` · 非品牌 UI / Headline / Body | Latin / Latin-ext glyph 使用自托管 `Google Sans`；CJK glyph 由自托管 `Noto Serif SC` 承接 |
+| `font-serif` · 中文展示 / 中文适配 | 中文使用自托管 `Noto Serif SC`；混排的非品牌英文仍使用 `Google Sans` |
+| `font-display` · 非品牌展示标题 | 与全局语言分流一致：英文 `Google Sans`，中文 `Noto Serif SC` |
+| 品牌专用 · Scholay / wordmark | `Playfair Display` 只供冻结品牌文字使用，不得作为普通 display 标题字体 |
+
+`Google Sans` 已于 2026-08-08 通过官方 Google Fonts specimen / CSS 核验。
+项目自托管官方 v70 Latin / Latin-ext variable WOFF2（wght 400–700）及
+SIL OFL 许可文件，生产构建不依赖运行时 Google Fonts CDN。字体的
+`unicode-range` 和家族顺序必须保证 Latin glyph 命中 Google Sans、CJK glyph 命中
+Noto Serif SC，不得在两者之间插入会抢占 Latin glyph 的替代字体。
+
+用户指令覆盖 Pen `rhCJT` 中的 Playfair Display 普通英文样张。Logo
+`D5gC67` 和 Scholay wordmark `V2IJR` 仍是冻结资产；品牌专用
+Playfair Display 的字体、字距、颜色与形状均不随 `font-sans/serif/display`
+迁移而变化。
+
+### 字号 — 8 档主 UI + 1 档 Headline / Display(数值命名)
+
+`text-12` / `text-14` ★正文基准 / `text-16` / `text-18` / `text-20` / `text-24` /
+`text-28` / `text-32`
 语义别名:`text-body`(=14) · `text-caption`(=12)
-展示档(不进正文阶梯):`text-display-36` · `text-display-56`
+Headline / Display:`text-display-64`
+
+旧 `text-display-36` / `text-display-56` 已迁出主 UI 阶梯；64px 仅保留为独立
+Headline / Display 展示档，来自 `GQBuZ` 的中英文样张。
 
 > **为什么用数值名而非 xs/sm/base**:本仓库被 name≠value 咬过四次
-> (`text-base`=13 / `text-md`=14 / `text-15` / `text-badge`=9 且零使用),
-> 且 Tailwind 默认 `lg/xl/2xl`=18/20/24 与 Figma 的 20/24/28 全部错位。
+> (`text-base`=13 / `text-md`=14 / `text-15` / `text-badge`=9 且零使用)。
+> 即使 Tailwind 某个默认档恰好等值，也不允许用不透明的语义名替代数值 token。
 
 #### 控件字号(2026-07-28 产品拍板,写死在这里免得下一轮又当漏改)
 
-> 🔴 **这是对 Figma 的刻意偏离,不是漏改。审计/codemod 看到它请跳过。**
+> 🔴 **这是对 Pen 的刻意偏离,不是漏改。审计/codemod 看到它请跳过。**
 
 | 控件 | 字号 | 依据 |
 |---|---|---|
-| Button(全档)/ Input / Textarea / Select / Tabs / DropdownMenu 项 | **`text-12`** | **对 Figma §4.1(按钮 `500/14px`)、§4.5(输入框 `400/14px`)的刻意偏离** |
-| Badge / Label / 各类描述与快捷键 | `text-12` | Figma §4.2 明写 `Google Sans 400 / 12px`,与控件基座同档 |
+| Button(全档)/ Input / Textarea / Select / Tabs / DropdownMenu 项 | **`text-12`** | **对 Pen §4.1(按钮 `500/14px`)、§4.4(搜索框 `400/14px`)的刻意偏离** |
+| Badge / Label / 各类描述与快捷键 | `text-12` | Pen §4.2 明写 `Google Sans 400 / 12px`,与控件基座同档 |
 | CardTitle / AIOverlay 主文案 | `text-14` | 它们是**标题层**不是控件,不受本条约束 |
 | 聊天正文(`chat/MarkdownRenderer`) | `text-12` | **已知偏离**(台账 Q12):升到 14 会让长会话滚动距离 +16.7%,决策是保持 12 |
 
-**偏离原因**:Figma 只给了一个 `120×42` 的按钮规格,那是**展示级**尺寸;本产品是高信息密度的
-科研工具,同屏控件数量远多于设计稿场景,14px 会让工具条 / 表格行 / 侧栏成片撑开。
+**偏离原因**:Pen 只给了一个 `120px` 宽、`12px 16px` padding 的展示级按钮规格;
+本产品是高信息密度的科研工具,同屏控件数量远多于设计稿场景,14px 会让工具条 /
+表格行 / 侧栏成片撑开。
 「控件字比正文(14)小一档」在本产品里是**有意的层级**,不是倒挂。
 
-> 📌 2026-07-28 曾按 Figma 把 button/input/textarea/select/tabs/dropdown 基座抬到 `text-14`
+> 📌 2026-07-28 曾按旧 Figma 基线把 button/input/textarea/select/tabs/dropdown 基座抬到 `text-14`
 > 并合入,**产品评估后明确撤销**。这一族是一个整体 —— 要改必须一起改,
 > 单独升任何一个都会在同一横排里出现两种字号。
 
@@ -444,12 +485,13 @@ rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --
 > 🔴 **绝不给字号 token 声明配套 line-height**(`--text-14--line-height`)。
 > 一旦声明,`text-14` 会同时输出 font-size 和 line-height,字号档会盖掉字族层行高。
 
-### 字间距 — 只有 2 个
+### 全局字间距 token — 只有 2 个
 
 `tracking-code`(0.25em,验证码/提取码) · `tracking-brand`(-0.03em,Scholay wordmark)
 
-> Figma 中 letterSpacing 几乎全为 0。改造前散落 91 处 / 13 个值的 tracking **已全部删除**。
-> **不要再加 tracking token** —— 历史证明只要留一个「uppercase 专用」档,它会立刻重新裂变。
+> Pen 的 Card / Search 文本样张有 0.24px / 0.28px 字距；这是组件级精确值，不扩展成
+> 全站 tracking 阶梯。改造前散落 91 处 / 13 个通用 tracking **已全部删除**。
+> **不要再加泛用 tracking token** —— 组件需要采用 Pen 精确值时应在组件原子层集中实现。
 
 ### 圆角 — 6 档(数值命名)
 
@@ -584,13 +626,8 @@ Figma 观测集合 `{4, 8, 10, 12, 16, 24, 32, 40}` = Tailwind `{1, 2, 2.5, 3, 4
 
 ### 纸张质感(noise)
 
-✅ **2026-07-28 已开启**:`index.html:2` 是 `<html lang="zh-CN" data-paper="on">`,
-noise 层现在作用在 `body` 与 `.bg-background` 上,**是全站生效的**。
-(此前本节写「默认关闭」,与代码互斥 —— 台账 Q3 已由此落地拍板。)
-
-- 关掉 = 移除 `index.html` 上的 `data-paper` 属性,零渲染开销
-- 单个 surface 想额外加噪点 → `paper-grain` 工具类(能编译出,但 2026-07-28 实测**调用点 0**)
-- ⚠️ 给 `bg-background` 的元素补实底色会**盖掉**那一小块噪点(`SidebarCollapse.tsx` 头注释记过这个坑)
+已于 2026-08-09 按产品要求完全移除。`index.html`、全局 CSS token、
+条件选择器和单元素工具类均不再保留噪点入口，页面只渲染平面主题色。
 
 ### 何时允许 arbitrary value `[...]`
 

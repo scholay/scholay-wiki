@@ -31,6 +31,7 @@ import {
   useInviteList,
   useInviteRegistrations,
   INVITE_METHOD_LABEL,
+  INVITE_SOURCE_LABEL,
   type InviteListItem,
   type InviteRegistration,
 } from '../api/invites';
@@ -122,7 +123,7 @@ export function InvitesPage() {
       ),
     },
     {
-      header: '奖励经费',
+      header: '累计发放',
       width: 110,
       align: 'right',
       cell: (r) => (
@@ -204,12 +205,14 @@ export function InvitesPage() {
             换算规则(经费=分)此前只写在另一个页面的输入框下方 */}
         <StatCard
           icon={<Coins />}
-          label="累计发放奖励"
+          label="累计发放总奖励"
           value={creditsToYuan(summary.data?.total_reward_credits, rate)}
           loading={summary.isLoading}
           error={summary.error}
           hint={
-            summary.data ? `${fmt(summary.data.total_reward_credits)} 经费 · 100 经费 = ¥1` : undefined
+            summary.data
+              ? `${fmt(summary.data.total_reward_credits)} 经费 · 含邀请人注册礼、受邀用户注册礼与首单返利`
+              : undefined
           }
         />
       </section>
@@ -260,7 +263,7 @@ export function InvitesPage() {
       {/* 被邀清单抽屉 —— Sheet 常驻挂载,内容按 inviter 守卫(Radix modal 铁律:open 时不卸载) */}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
         {inviter && (
-          <SheetContent className="max-w-lg">
+          <SheetContent className="max-w-4xl">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <UserPlus className="size-4 shrink-0 text-brand-green" />
@@ -310,18 +313,74 @@ function RegistrationList({
       cell: (r) => <UserCell id={r.invited_user_id} name={r.name} email={r.email} />,
     },
     {
-      header: '注册方式',
-      width: 90,
+      header: '归因来源',
+      width: 140,
       cell: (r) => (
-        <span className="rounded-pill bg-surface-2 px-2 py-1 text-12 text-subtle">
-          {INVITE_METHOD_LABEL[r.method] ?? r.method}
+        <span className="flex flex-col gap-1">
+          <span className="text-12 text-subtle">{INVITE_SOURCE_LABEL[r.source] ?? r.source}</span>
+          <span className="text-12 text-faint">
+            注册方式：{INVITE_METHOD_LABEL[r.method] ?? r.method}
+          </span>
         </span>
       ),
     },
     {
-      header: '注册时间',
-      width: 130,
-      cell: (r) => <TimeCell value={r.created_at} className="text-12" />,
+      header: '注册 / 绑定',
+      width: 145,
+      cell: (r) => (
+        <span className="flex flex-col gap-1">
+          <TimeCell value={r.created_at} prefix="注册 " className="text-12" />
+          <TimeCell value={r.bound_at} prefix="绑定 " className="text-12" />
+        </span>
+      ),
+    },
+    {
+      header: '双向注册礼',
+      width: 135,
+      align: 'right',
+      cell: (r) => (
+        <span className="flex flex-col gap-1 tabular-nums">
+          <span className={r.inviter_registration_credits > 0 ? 'text-brand-green' : 'text-faint'}>
+            邀请人 +{fmt(r.inviter_registration_credits)}
+          </span>
+          <span className={r.invitee_registration_credits > 0 ? 'text-brand-green' : 'text-faint'}>
+            受邀人 +{fmt(r.invitee_registration_credits)}
+          </span>
+        </span>
+      ),
+    },
+    {
+      header: '首单实付 / 返利',
+      width: 170,
+      align: 'right',
+      cell: (r) =>
+        r.first_purchase_paid_cents > 0 || r.first_purchase_rebate_credits > 0 ? (
+          <span className="flex flex-col gap-1 tabular-nums">
+            <span className="text-subtle">实付 {formatCents(r.first_purchase_paid_cents)}</span>
+            <span className={r.first_purchase_rebate_credits > 0 ? 'font-medium text-brand-green' : 'text-faint'}>
+              邀请人返利 +{fmt(r.first_purchase_rebate_credits)} 经费
+            </span>
+            {r.first_purchase_reversed_credits > 0 && (
+              <span className="text-brand-red">
+                退款已追回 -{fmt(r.first_purchase_reversed_credits)} 经费
+              </span>
+            )}
+            {r.first_purchase_reversal_shortfall > 0 && (
+              <span className="font-medium text-brand-red">
+                余额不足未追回，平台承担 {fmt(r.first_purchase_reversal_shortfall)} 经费
+              </span>
+            )}
+            <span
+              className="max-w-40 truncate font-mono text-12 text-faint"
+              title={r.first_purchase_order_no || undefined}
+            >
+              {r.first_purchase_order_no || '—'}
+            </span>
+            <TimeCell value={r.first_purchase_paid_at} className="text-12" />
+          </span>
+        ) : (
+          <span className="text-faint">尚无首单</span>
+        ),
     },
   ];
 
@@ -344,4 +403,11 @@ function RegistrationList({
       />
     </div>
   );
+}
+
+function formatCents(cents: number): string {
+  return `¥${(Math.max(0, cents) / 100).toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }

@@ -29,8 +29,8 @@ git push --dry-run
 
 | 闸 | 脚本 | 覆盖 | 需要 |
 |---|---|---|---|
-| 设计系统护栏 | [`scripts/check-design-system.sh`](../scripts/check-design-system.sh) | 设计 token 全仓口径,**含三份设计镜像**(小程序 / 小工具 / pptx 导出 vs `globals.css`) | `node` + `frontend-user/node_modules` |
-| 证据账本跨包镜像 | [`scripts/check-evidence-mirror.sh`](../scripts/check-evidence-mirror.sh) | **第四份镜像**:`agent/src/evidence/parse.ts` ←→ `frontend-user/src/shared/lib/minicod-papers.ts`(只跑 `parse.mirror.test.ts` 一个文件,实测 43ms) | `bun` |
+| 设计系统护栏 | [`scripts/check-design-system.sh`](../scripts/check-design-system.sh) | 设计 token 全仓口径,**含两份设计镜像**(小程序 / pptx 导出 vs `globals.css`) | `node` + `frontend-user/node_modules` |
+| 证据账本跨包镜像 | [`scripts/check-evidence-mirror.sh`](../scripts/check-evidence-mirror.sh) | **独立解析器镜像**:`agent/src/evidence/parse.ts` ←→ `frontend-user/src/shared/lib/minicod-papers.ts`(只跑 `parse.mirror.test.ts` 一个文件,实测 43ms) | `bun` |
 
 两个闸**刻意分开**:环境前置不同(node/npm vs bun)。合成一个的话,「只改后端、没装
 前端依赖」时前一个 `exit 2` 提前返回,会把后一个一起连坐掉且没人知道 ——

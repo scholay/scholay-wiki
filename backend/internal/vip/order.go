@@ -59,7 +59,7 @@ type Order struct {
 	CreditsGranted int        `gorm:"column:credits_granted" json:"credits_granted"`
 	TransactionNo  string     `gorm:"column:transaction_no" json:"transaction_no"`
 	// 订阅履约参数(续期/升级):动作 + 赠送经费生效/失效 + 会员新到期。fulfill 时照此发放。
-	SubAction      string     `gorm:"column:sub_action" json:"sub_action"`       // new|renew|upgrade
+	SubAction      string     `gorm:"column:sub_action" json:"sub_action"` // new|renew|upgrade
 	GrantStartsAt  *time.Time `gorm:"column:grant_starts_at" json:"grant_starts_at"`
 	GrantExpiresAt *time.Time `gorm:"column:grant_expires_at" json:"grant_expires_at"`
 	NewExpiresAt   *time.Time `gorm:"column:new_expires_at" json:"new_expires_at"`
@@ -80,12 +80,30 @@ type Order struct {
 func (Order) TableName() string { return "orders" }
 
 type OrderService struct {
-	db  *gorm.DB
-	svc *Service
+	db            *gorm.DB
+	svc           *Service
+	paidOrderHook func(tx *gorm.DB, userID uint, orderID uint64, orderNo, orderType string,
+		paidCents int64, paidAt time.Time, paymentMethod string) (uint, int, error)
+	refundRewardHook func(tx *gorm.DB, orderID uint64, userID uint, refundNo, idempotencyKey string,
+		cumulativeRefundedCents int64, refundedAt time.Time) (uint, int, int, error)
 }
 
 func newOrderService(svc *Service) *OrderService {
 	return &OrderService{db: svc.repo.DB(), svc: svc}
+}
+
+// SetPaidOrderHook 注入同事务的付费里程碑处理。hook 失败必须让 paid 标记、邀请奖励
+// 与订单权益整体回滚，网关重推时可安全重试。
+func (o *OrderService) SetPaidOrderHook(fn func(tx *gorm.DB, userID uint, orderID uint64,
+	orderNo, orderType string, paidCents int64, paidAt time.Time, paymentMethod string) (uint, int, error)) {
+	o.paidOrderHook = fn
+}
+
+// SetRefundRewardHook 注入同事务的邀请首单返利反冲。
+func (o *OrderService) SetRefundRewardHook(fn func(tx *gorm.DB, orderID uint64, userID uint,
+	refundNo, idempotencyKey string, cumulativeRefundedCents int64,
+	refundedAt time.Time) (uint, int, int, error)) {
+	o.refundRewardHook = fn
 }
 
 // CreateRecharge 建一个充值订单(金额单位:分)。返回订单(含 order_no + 到账经费预估)。
@@ -171,10 +189,10 @@ func (o *OrderService) CreateSubscription(userID uint, plan, cycle string) (*Ord
 
 // subPlan 订阅动作的计算结果(建单 + 报价共用)。
 type subPlan struct {
-	Action        string    // new | renew | upgrade
-	Tier          string    // 履约后等级
-	Cycle         string    // 计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(见下)
-	AmountCents   int       // 应付(分):new/renew=周期价;upgrade=按剩余天数补差价
+	Action      string // new | renew | upgrade
+	Tier        string // 履约后等级
+	Cycle       string // 计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(见下)
+	AmountCents int    // 应付(分):new/renew=周期价;upgrade=按剩余天数补差价
 	// (Credits 已删除 —— 0090 起订阅不再赠送经费)
 	GrantStarts   time.Time // 保留:履约窗口起(订单表 grant_starts_at 列仍写,供审计/对账)
 	GrantExpires  time.Time // 保留:履约窗口止
@@ -184,13 +202,14 @@ type subPlan struct {
 }
 
 // computeSubscription 纯函数算定订阅动作 + 金额 + 经费发放窗口。cycle = monthly|yearly(空按 monthly)。
-//   new(免费/已过期):周期价,经费即时整周期(年度=总额,履约时分批)。
-//   renew(同档在期):周期价,到期日 + 一个周期;经费预发放(生效日=当前到期日)。可跨周期续
-//     (月度会员按年续 = 到期日 +1 自然年(AddPeriod)并转年费标识,反之亦然;vip_cycle 以最近一单为准)。
-//   upgrade(升高一档在期):差价 = (高价-低价)×剩余天数/周期,**按用户当前订阅周期的价目**折算
-//     (年费用户按年价口径,防用月价日均高估差价);立即升档、到期日不变。请求的 cycle 不参与 ——
-//     「换周期 + 升档」走两步(owner 拍板 2026-07-22):先补差升档,再按意愿续期换周期。
-//   降级:ErrNoDowngrade;年付未配置价格:ErrInvalidOrder。
+//
+//	new(免费/已过期):周期价,经费即时整周期(年度=总额,履约时分批)。
+//	renew(同档在期):周期价,到期日 + 一个周期;经费预发放(生效日=当前到期日)。可跨周期续
+//	  (月度会员按年续 = 到期日 +1 自然年(AddPeriod)并转年费标识,反之亦然;vip_cycle 以最近一单为准)。
+//	upgrade(升高一档在期):差价 = (高价-低价)×剩余天数/周期,**按用户当前订阅周期的价目**折算
+//	  (年费用户按年价口径,防用月价日均高估差价);立即升档、到期日不变。请求的 cycle 不参与 ——
+//	  「换周期 + 升档」走两步(owner 拍板 2026-07-22):先补差升档,再按意愿续期换周期。
+//	降级:ErrNoDowngrade;年付未配置价格:ErrInvalidOrder。
 func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, now time.Time) (*subPlan, error) {
 	if target != TierPro && target != TierMax {
 		return nil, ErrInvalidOrder
@@ -326,6 +345,7 @@ func (o *OrderService) ListUserOrders(userID uint, orderType string) ([]Order, e
 // AdminListUserOrders 管理端列某用户的订单 —— 与用户面 ListUserOrders 的区别:
 //   - 不强制 status='paid'(admin 要看 pending/expired/refunded 等全状态),可选 status 过滤;
 //   - 分页(limit/offset)+ 返回 total。
+//
 // orderType / status 为空则不过滤。
 func (o *OrderService) AdminListUserOrders(userID uint, orderType, status string, limit, offset int) ([]Order, int64, error) {
 	q := o.db.Model(&Order{}).Where("user_id = ?", userID)
@@ -383,6 +403,8 @@ func (o *OrderService) ProcessWeChatPayCallback(orderNo, transactionID string, a
 func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method string) error {
 	now := time.Now()
 	var fulfilled *Order // 仅本次新履约才非空 → 据此通知
+	var inviteRewardUserID uint
+	var inviteRewardCredits int
 	err := o.db.Transaction(func(tx *gorm.DB) error {
 		var ord Order
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -424,6 +446,17 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 		if res.RowsAffected == 0 {
 			return nil // 被并发回调抢先, 视为已履约(不重复通知)
 		}
+		// 邀请首单里程碑在当次 paid 事务内执行。它先锁 users、再动邀请人 wallet；
+		// 必须放在 recharge 自身的被邀请人 wallet 入账之前，否则会与「bind 按 user_id
+		// 锁双方→按 user_id 发双向奖励」形成 invitee-wallet/inviter-user 反向等待。
+		if o.paidOrderHook != nil {
+			var hookErr error
+			inviteRewardUserID, inviteRewardCredits, hookErr = o.paidOrderHook(tx, ord.UserID, ord.ID, ord.OrderNo, ord.OrderType,
+				wantCents, now, method)
+			if hookErr != nil {
+				return hookErr
+			}
+		}
 		// 履约
 		switch ord.OrderType {
 		case "recharge":
@@ -453,6 +486,9 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 	// 事务已提交 → 通知(站内信可靠 + 邮件 best-effort)。失败不影响履约结果。
 	if fulfilled != nil {
 		o.svc.notifyOrderFulfilled(fulfilled)
+		if inviteRewardCredits > 0 {
+			o.svc.NotifyInviteCampaignReward(inviteRewardUserID, inviteRewardCredits, TxInviteFirstPurchaseRebate)
+		}
 		// 订阅履约(新购/续费/升级)→ 升级满血:只抬额度窗口起点,不动 used 统计。
 		// 充值(recharge)只加经费、不动会员档,不触发。best-effort,post-commit,不影响履约。
 		if fulfilled.OrderType == "subscription" {
@@ -469,6 +505,7 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 // 批次(grant_expires < now)、两张同基线续费的第二笔零延长。重算锚点 = max(now, 当前到期):
 //   - 逾期支付(会员已过期)→ 从 now 起算,经费不会born-expired;
 //   - 在期支付 → 叠加到当前到期之后(每笔续费各加一个周期)。
+//
 // 金额 / 赠送经费数额仍按下单时算定(用户已为此付款),只重算「窗口」。
 // FOR UPDATE 锁 users 行:串行化同一用户的并发履约(两张不同订单可同时回调)。
 func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now time.Time) error {
@@ -611,7 +648,6 @@ func voidPendingUpgradeOrders(tx *gorm.DB, userID uint, reason string) error {
 
 // (grantBatchedMonthlyInTx 已删除 —— 0090 起订阅不再赠送经费,「按月分批预发放临时经费」
 //  整条链路随临时经费一并下线。)
-
 
 // CancelStalePending 把超过 ttl 仍 pending 的订单标记 expired。返回作废数。
 //

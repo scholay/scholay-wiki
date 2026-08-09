@@ -169,12 +169,9 @@ export function JournalDetailPane() {
               )}
             </div>
 
-            {/* Title —— 详情页 h1。
-                原先 `sm:text-[32px]`,依据是 .pen `n9lzJB`(真源已作废);Figma §2.2 里 32px
-                只作为「字体展示样本」出现,不是 UI 档位。改用展示档 token `text-display-36`,
-                与同级的 PaperHeader / AuthorHero 两个详情页 h1 统一。移动端保持 text-24
-                (globals.css 标注即「详情页 h1 移动端」)。 */}
-            <h1 className="font-display font-bold leading-display-tight text-24 sm:text-display-36 text-foreground">
+            {/* Title —— 详情页 h1。32px 已是当前 dev.pen 正式档位,
+                与 PaperHeader / AuthorHero 统一；移动端保持 24px。 */}
+            <h1 className="font-display font-bold leading-display-tight text-24 sm:text-32 text-foreground">
               {journal.canonical_name}
             </h1>
 
@@ -415,4 +412,3 @@ function Field({
     </div>
   );
 }
-

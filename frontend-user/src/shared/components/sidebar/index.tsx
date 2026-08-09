@@ -21,6 +21,7 @@ export {
 } from './SidebarHeader';
 export { SidebarSection } from './SidebarSection';
 export { SidebarItem } from './SidebarItem';
+export { SidebarRichItem } from './SidebarRichItem';
 export { SidebarUser } from './SidebarUser';
 export { SidebarAuthFooter } from './SidebarAuthFooter';
 export { SidebarCollapseButton, SidebarExpandButton } from './SidebarCollapse';

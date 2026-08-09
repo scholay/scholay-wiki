@@ -31,13 +31,26 @@ type inviteCodeCtxKey struct{}
 // InviteCodeMiddleware 把 X-Invite-Code 请求头(如有)写进 request context。
 func InviteCodeMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		code := strings.TrimSpace(c.GetHeader(InviteCodeHeader))
-		if code != "" && len(code) <= inviteCodeMaxLen {
-			c.Request = c.Request.WithContext(
-				context.WithValue(c.Request.Context(), inviteCodeCtxKey{}, code))
+		ctx := ContextWithInviteCode(c.Request.Context(), c.GetHeader(InviteCodeHeader))
+		if ctx != c.Request.Context() {
+			c.Request = c.Request.WithContext(ctx)
 		}
 		c.Next()
 	}
+}
+
+// ContextWithInviteCode 把已经由服务端信任的候选码注入 ctx。
+// OAuth form_post 回调是全新请求，需要从一次性 state 恢复初始请求的码；
+// 统一走本函数可以保持与 HTTP 中间件相同的长度/空值边界。
+func ContextWithInviteCode(ctx context.Context, raw string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	code := strings.TrimSpace(raw)
+	if code == "" || len(code) > inviteCodeMaxLen {
+		return ctx
+	}
+	return context.WithValue(ctx, inviteCodeCtxKey{}, code)
 }
 
 // InviteCodeFromContext 取出请求头里带的邀请码;没带则返回空串。

@@ -51,7 +51,7 @@ export function PrismEditorMock() {
       <div className="grid grid-cols-2 h-[320px]">
         {/* 左:LaTeX 代码 */}
         {/* 左栏代码面用 surface-3(内层弱面),与右栏纯白预览页(bg-surface-card)拉开「代码 / 纸张」的分层。
-            不用 bg-background:那是页面米白底,data-paper='on' 时还会带 noise 纹理,
+            不用 bg-background:那是页面米白底，与编辑器背景语义不同，
             而这一栏是浮在 mock 窗口里的内容面,不该有纸纹。 */}
         <div className="overflow-hidden bg-surface-3 border-r border-border-soft">
           <div className="font-mono text-12 leading-paragraph py-3">

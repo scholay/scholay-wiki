@@ -47,6 +47,16 @@ export interface InviteRegistration {
   email: string;
   name: string;
   method: string; // 注册方式(email / phone / github / wechat ...)
+  source: string; // legacy | link | manual
+  bound_at: string;
+  inviter_registration_credits: number;
+  invitee_registration_credits: number;
+  first_purchase_paid_cents: number;
+  first_purchase_rebate_credits: number;
+  first_purchase_reversed_credits: number;
+  first_purchase_reversal_shortfall: number;
+  first_purchase_order_no: string;
+  first_purchase_paid_at: string | null;
   created_at: string;
 }
 
@@ -104,4 +114,10 @@ export const INVITE_METHOD_LABEL: Record<string, string> = {
   orcid: 'ORCID',
   microsoft: 'Microsoft',
   discourse: '论坛',
+};
+
+export const INVITE_SOURCE_LABEL: Record<string, string> = {
+  legacy: '历史自动归因',
+  link: '注册链接归因',
+  manual: '注册后主动确认',
 };

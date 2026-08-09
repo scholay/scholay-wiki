@@ -1,88 +1,134 @@
 // 邀请好友 —— 设置区独立页(SettingsLayout 左侧 nav,与「账户资产」同级入口)。
 // 数据:GET /user/invite(get-or-create,首次进入本页即生成唯一邀请码)
-//     + GET /user/invite/registrations(我邀请的用户,name 已在后端脱敏)。
+//     + GET /user/invite/registrations(邀请记录,name 已在后端脱敏)。
 // 卡片风格对齐 components/account-assets-card.tsx(rounded-16 border bg-surface-card)。
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Coins, Copy, Link2, MousePointerClick, UserPlus, Users, type LucideIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/shared/ui/button';
-import { cn } from '@/shared/lib/utils';
-import { copyToClipboard } from '@/shared/lib/clipboard';
-import { INVITE_METHOD_LABEL, useInvite, useInvitedUsers } from '../api/invite';
-import { usePlans } from '../api/membership';
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, ExternalLink, Users } from "lucide-react";
+import { Button } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/utils";
+import { InviteShareMethods } from "@/shared/components/invite/InviteShareMethods";
+import { InviteRewardPoster } from "@/shared/components/invite/InviteRewardPoster";
+import {
+  INVITE_METHOD_LABEL,
+  INVITE_SOURCE_LABEL,
+  useInvite,
+  useInvitedUsers,
+} from "../api/invite";
+import { useInviteCampaign } from "@/shared/api/invite-campaign";
+import { InviteBindingCard } from "../components/InviteBindingCard";
 
 export function InvitePage() {
-  const { data, isLoading, isError } = useInvite();
-
-  const onCopy = async () => {
-    if (!data) return;
-    // copyToClipboard = navigator.clipboard 优先 + execCommand 兜底,不抛异常
-    const ok = await copyToClipboard(data.url);
-    if (ok) toast.success('邀请链接已复制');
-    else toast.error('复制失败,请手动选中链接复制');
-  };
+  const campaignQ = useInviteCampaign();
+  const campaignOn = campaignQ.data?.enabled === true;
+  const inviterRewardOn =
+    (campaignQ.data?.inviter_registration_credits ?? 0) > 0 ||
+    (campaignQ.data?.first_purchase_rebate_bps ?? 0) > 0;
+  const { data, isLoading } = useInvite(campaignOn);
+  const showRewardStat = inviterRewardOn || (data?.reward_total ?? 0) > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-16 border border-border bg-surface-card p-6">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <h3 className="text-14 font-medium text-foreground">邀请好友</h3>
-          {data && <span className="text-12 text-faint">邀请码 {data.code}</span>}
-        </div>
-
-        {isLoading ? (
-          <p className="text-12 text-faint">加载中…</p>
-        ) : isError || !data ? (
-          <p className="text-12 text-faint">邀请信息加载失败,请刷新重试。</p>
-        ) : (
-          <>
-            {/* 链接行:左侧只读展示(select-all 便于复制兜底失败时手动全选),右侧复制按钮 */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-8 border border-border bg-surface-1 px-3">
-                <Link2 className="size-4 shrink-0 text-faint" />
-                <span className="select-all truncate text-12 text-subtle">{data.url}</span>
-              </div>
-              <Button size="sm" onClick={onCopy} className="h-9 gap-1 px-3">
-                <Copy className="size-4" />
-                复制链接
-              </Button>
-            </div>
-
-            {/* 统计:打开 / 注册(+ 活动开启时的累计奖励)。reward_per_invite=0 = 活动未开,不提奖励 */}
-            <div className={cn('mt-4 grid grid-cols-1 gap-3', data.reward_per_invite > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
-              <StatBlock icon={MousePointerClick} label="链接被打开" value={data.open_count} unit="次" />
-              <StatBlock icon={UserPlus} label="成功注册" value={data.registered_count} unit="人" />
-              {data.reward_per_invite > 0 && (
-                <StatBlock icon={Coins} label="累计奖励" value={data.reward_total} unit="经费" />
+      {campaignQ.isLoading && !campaignQ.data ? (
+        <section className="rounded-16 border border-border bg-surface-card p-6 text-12 text-faint">
+          加载邀请活动…
+        </section>
+      ) : !campaignQ.data ? (
+        <section className="rounded-16 border border-border bg-surface-card p-6">
+          <p className="text-14 font-medium text-foreground">
+            邀请活动加载失败
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            onClick={() => void campaignQ.refetch()}
+          >
+            重试
+          </Button>
+        </section>
+      ) : !campaignOn ? (
+        <section className="rounded-16 border border-border bg-surface-card p-6">
+          <h3 className="text-14 font-medium text-foreground">
+            邀请活动暂未开启
+          </h3>
+          <p className="mt-1 text-12 text-muted-foreground">
+            活动开启后，你可在这里关联邀请人并生成专属邀请链接。
+          </p>
+        </section>
+      ) : (
+        <>
+          <InviteBindingCard />
+          <section className="rounded-16 border border-border bg-surface-card p-6">
+            <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+              <h2 className="text-16 font-medium text-foreground">邀请好友</h2>
+              {campaignQ.data.code_help_url && (
+                <a
+                  href={campaignQ.data.code_help_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center gap-1 text-12 text-faint hover:text-foreground hover:underline"
+                >
+                  了解更多
+                  <ExternalLink className="size-3" />
+                </a>
               )}
             </div>
+            <InviteRewardPoster />
 
-            <p className="mt-4 text-12 leading-paragraph text-muted-foreground">
-              {data.reward_per_invite > 0 ? (
-                <>
-                  每成功邀请 1 位好友注册,你将获得{' '}
-                  <span className="font-medium text-foreground">{data.reward_per_invite}</span> 经费奖励。
-                </>
-              ) : (
-                '好友通过你的链接注册后自动关联。'
-              )}
-            </p>
+            {isLoading ? (
+              <p className="mt-4 text-12 text-faint">加载中…</p>
+            ) : !data ? (
+              <p className="mt-4 text-12 text-faint">
+                邀请信息加载失败,请刷新重试。
+              </p>
+            ) : (
+              <>
+                <InviteShareMethods
+                  code={data.code}
+                  url={data.url}
+                  className="mt-4"
+                />
 
-            <HowItWorks rewardOn={data.reward_per_invite > 0} />
-          </>
-        )}
-      </section>
+                <div
+                  className={cn(
+                    "mt-4 grid grid-cols-1 divide-y divide-border-hairline overflow-hidden rounded-12 border border-border-hairline bg-surface-1 sm:divide-x sm:divide-y-0",
+                    showRewardStat ? "sm:grid-cols-3" : "sm:grid-cols-2",
+                  )}
+                >
+                  <StatBlock
+                    label="邀请链接访问"
+                    value={data.open_count}
+                    unit="次"
+                  />
+                  <StatBlock
+                    label="已关联好友"
+                    value={data.registered_count}
+                    unit="人"
+                  />
+                  {showRewardStat && (
+                    <StatBlock
+                      label="累计邀请奖励"
+                      value={data.reward_total}
+                      unit="经费"
+                    />
+                  )}
+                </div>
+              </>
+            )}
+          </section>
 
-      <InvitedList />
+          <InvitedList enabled={campaignOn} />
+        </>
+      )}
     </div>
   );
 }
 
-/** 我邀请的用户 —— name 已由后端脱敏(al***@gmail.com / 张**),前端无明文。 */
-function InvitedList() {
+/** 邀请记录 —— name 已由后端脱敏(al***@gmail.com / 张**),前端无明文。 */
+function InvitedList({ enabled }: { enabled: boolean }) {
   const [page, setPage] = useState(1);
   const pageSize = 10;
-  const { data, isLoading } = useInvitedUsers(page, pageSize);
+  const { data, isLoading } = useInvitedUsers(page, pageSize, enabled);
   const total = data?.total ?? 0;
   const items = data?.items ?? [];
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -92,7 +138,7 @@ function InvitedList() {
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-14 font-medium text-foreground">
           <Users className="size-4 text-faint" />
-          我邀请的用户
+          邀请记录
         </h3>
         {total > 0 && <span className="text-12 text-faint">共 {total} 人</span>}
       </div>
@@ -101,7 +147,7 @@ function InvitedList() {
         <p className="text-12 text-faint">加载中…</p>
       ) : items.length === 0 ? (
         <p className="text-12 leading-paragraph text-muted-foreground">
-          还没有人通过你的链接注册。把上面的邀请链接分享给好友吧。
+          还没有邀请记录。把链接、邀请码或二维码分享给好友吧。
         </p>
       ) : (
         <>
@@ -111,16 +157,31 @@ function InvitedList() {
                 key={`${u.name}-${u.created_at}-${i}`}
                 className="flex items-center justify-between gap-3 border-b border-border-hairline py-2 last:border-0"
               >
-                <span className="min-w-0 truncate text-14 text-subtle">{u.name}</span>
-                <span className="flex shrink-0 items-center gap-3 text-12 text-faint">
-                  {/* 到账透明化(0100):>0 才渲染「+N 经费」;0 不渲染负面态(活动关闭期/达日上限)。 */}
-                  {u.rewarded_credits > 0 && (
-                    <span className="font-medium tabular-nums text-brand-green">+{u.rewarded_credits} 经费</span>
+                <span className="min-w-0 truncate text-14 text-subtle">
+                  {u.name}
+                </span>
+                <span className="flex max-w-[72%] flex-wrap items-center justify-end gap-2 text-12 text-faint">
+                  {(u.inviter_registration_credits ?? u.rewarded_credits) >
+                    0 && (
+                    <span className="font-medium tabular-nums text-brand-green">
+                      +{u.inviter_registration_credits ?? u.rewarded_credits}{" "}
+                      注册礼
+                    </span>
+                  )}
+                  {(u.first_purchase_rebate_credits ?? 0) > 0 && (
+                    <span className="font-medium tabular-nums text-brand-green">
+                      +{u.first_purchase_rebate_credits} 首单返利
+                    </span>
+                  )}
+                  {u.source && (
+                    <span className="rounded-pill bg-surface-2 px-2 py-1">
+                      {INVITE_SOURCE_LABEL[u.source] ?? u.source}
+                    </span>
                   )}
                   <span className="rounded-pill bg-surface-2 px-2 py-1">
                     {INVITE_METHOD_LABEL[u.method] ?? u.method}
                   </span>
-                  {u.created_at.slice(0, 10)}
+                  {(u.bound_at || u.created_at).slice(0, 10)}
                 </span>
               </li>
             ))}
@@ -156,59 +217,19 @@ function InvitedList() {
   );
 }
 
-/** 活动玩法三步(业界四件套之 How it works;Dropbox/Gamma 标配)。
- *  活动开启时第三步讲奖励;关闭时讲关联。规则行用正向措辞(每日上限「次日继续」)。 */
-function HowItWorks({ rewardOn }: { rewardOn: boolean }) {
-  const { data: plans } = usePlans();
-  const dailyCap = plans?.invite_reward_daily_cap ?? 0;
-  const steps: [string, string][] = [
-    ['复制专属邀请链接', '把链接分享给同门与好友'],
-    ['好友通过链接注册', '打开链接后注册 Scholay,自动与你关联'],
-    rewardOn
-      ? ['经费自动到账', '每成功 1 位,奖励经费自动发放并有站内信提醒']
-      : ['自动关联', '你可以在下方看到通过邀请注册的好友'],
-  ];
-  return (
-    <div className="mt-4 border-t border-border-hairline pt-4">
-      <p className="mb-3 text-12 font-medium text-faint">如何参与</p>
-      <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {steps.map(([t, d], i) => (
-          <li key={t} className="flex items-start gap-2">
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-12 tabular-nums text-subtle">
-              {i + 1}
-            </span>
-            <span className="flex min-w-0 flex-col">
-              <span className="text-12 font-medium text-foreground">{t}</span>
-              <span className="text-12 leading-paragraph text-faint">{d}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      {rewardOn && dailyCap > 0 && (
-        <p className="mt-3 text-12 text-faint">每日最多计入 {dailyCap} 位好友的奖励,次日继续。</p>
-      )}
-    </div>
-  );
-}
-
 function StatBlock({
-  icon: Icon,
   label,
   value,
   unit,
 }: {
-  icon: LucideIcon;
   label: string;
   value: number;
   unit: string;
 }) {
   return (
-    <div className="rounded-12 border border-border-hairline bg-surface-1 p-4">
-      <div className="flex items-center gap-2 text-12 text-faint">
-        <Icon className="size-4" />
-        {label}
-      </div>
-      <p className="mt-2 text-24 font-medium tabular-nums text-foreground">
+    <div className="min-w-0 p-3">
+      <p className="text-12 text-faint">{label}</p>
+      <p className="mt-1 text-20 font-medium tabular-nums text-foreground">
         {value}
         <span className="ml-1 text-12 font-normal text-faint">{unit}</span>
       </p>

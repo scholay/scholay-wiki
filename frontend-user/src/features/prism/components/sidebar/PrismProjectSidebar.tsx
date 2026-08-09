@@ -146,14 +146,17 @@ function ProjectRow({
     >
       <div className="min-w-0 flex-1">
         <div
-          className={cn('truncate text-12', active ? 'font-medium text-foreground' : 'text-subtle')}
+          className={cn(
+            'truncate text-14 font-medium',
+            active ? 'text-foreground' : 'text-subtle'
+          )}
           title={project.title || '未命名项目'}
         >
           {project.title || '未命名项目'}
         </div>
-        {/* mt-1(4px):两行原本零间距、字号又相同,标题和日期粘成一坨。
-            字号不动(text-12 是设计系统最小档),靠间距把两行分开即可。 */}
-        <div className="mt-1 text-12 text-faint">更新于 {project.updated_at?.slice(0, 10)}</div>
+        <div className="mt-px text-12 font-normal text-faint">
+          更新于 {project.updated_at?.slice(0, 10)}
+        </div>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

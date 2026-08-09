@@ -10,11 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
-import { useQuery } from '@tanstack/react-query';
-import { http } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { useInviteCampaign } from '@/shared/api/invite-campaign';
 import { usePromoEligible } from '@/shared/api/promo';
 import { usePromoStore } from '@/stores/promo.store';
+import { useInviteEntry } from '@/stores/invite-entry.store';
 import { browserTabUrl, useBrowserTabs } from '@/stores/browser-tabs.store';
 import { groupMenusByCategory, type Menu } from '@/app/menus';
 import { cn } from '@/shared/lib/utils';
@@ -57,15 +56,9 @@ export function CompactNavMenu() {
 
   const { visible: promoVisible } = usePromoEligible();
   const openPromo = usePromoStore((s) => s.openPromo);
-  // 邀请有奖活动信号(0100;与 usePlans 同 queryKey 共享缓存)—— 与 ActivityNavMenu 同条件
-  const { data: plansLite } = useQuery({
-    queryKey: ['billing', 'plans'],
-    queryFn: async () =>
-      (await http.get<{ data: { invite_reward_credits: number } }>('/billing/plans')).data.data,
-    staleTime: 60_000,
-  });
-  const inviteReward = plansLite?.invite_reward_credits ?? 0;
-  const inviteVisible = inviteReward > 0 && !!getAuthToken();
+  const campaignQ = useInviteCampaign();
+  const inviteVisible = campaignQ.data?.enabled === true;
+  const openInvite = useInviteEntry((state) => state.openInvite);
 
   const browserTabs = useBrowserTabs((s) => s.tabs);
   const browserActiveId = useBrowserTabs((s) => s.activeTabId);
@@ -130,9 +123,9 @@ export function CompactNavMenu() {
         {inviteVisible && (
           <Row
             icon={UserPlus}
-            label={`邀请有奖 · +${inviteReward} 经费/人`}
+            label="邀请有礼"
             tone="brand"
-            onSelect={() => navigate('/settings/invite')}
+            onSelect={openInvite}
           />
         )}
         <Row icon={Headphones} label="反馈与建议" onSelect={() => navigate('/feedback')} />

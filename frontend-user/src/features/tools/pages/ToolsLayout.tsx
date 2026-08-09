@@ -13,7 +13,7 @@ export function ToolsLayout() {
   // 折叠态 Rail 两个冗余入口:功能广场(快捷 section)+ 筛选器(filters section),
   // 点击对应 chip 会展开侧栏并让该 section 闪烁高亮 —— 与文献搜索一致。
   useRegisterSidebarRail([
-    { id: 'tools', label: '功能广场', icon: Compass, sectionId: 'tools' },
+    { id: 'tools', label: '功能广场', icon: Compass, sectionId: 'tools-all' },
     { id: 'filters', label: '筛选器', icon: Filter, sectionId: 'filters' },
   ]);
 

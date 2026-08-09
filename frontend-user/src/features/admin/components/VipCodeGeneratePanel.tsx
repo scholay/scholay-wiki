@@ -21,6 +21,12 @@ const TIER_LABEL: Record<string, string> = { pro: 'Pro', max: 'Max' };
 const clampAmount = (value: number, unit: GrantUnit) =>
   Math.min(maxGrantAmount(unit), Math.max(1, Number(value) || 1));
 
+const numberInputValue = (value: number): number | '' =>
+  Number.isFinite(value) ? value : '';
+
+const parseNumberDraft = (raw: string): number =>
+  raw === '' ? Number.NaN : Number(raw);
+
 export function VipCodeGeneratePanel({
   onGenerated,
 }: {
@@ -38,7 +44,18 @@ export function VipCodeGeneratePanel({
   const generate = useGenerateVipCodes();
   const apiToast = useApiToast();
 
+  const formValid =
+    Number.isFinite(count) && count >= 1 && count <= 1000 &&
+    Number.isFinite(maxUses) && maxUses >= 1 && maxUses <= 100 &&
+    Number.isFinite(validDays) && validDays >= 1 && validDays <= 30 &&
+    (kind === 'credit'
+      ? Number.isFinite(credits) && credits >= 1
+      : Number.isFinite(grantAmount) &&
+        grantAmount >= 1 &&
+        grantAmount <= maxGrantAmount(grantUnit));
+
   const submit = async () => {
+    if (!formValid) return;
     const common = {
       count,
       max_uses: maxUses,
@@ -86,12 +103,11 @@ export function VipCodeGeneratePanel({
             type="number"
             min={1}
             max={1000}
-            value={count}
-            onChange={(event) =>
-              setCount(
-                Math.min(1000, Math.max(1, Number(event.target.value) || 1)),
-              )
-            }
+            value={numberInputValue(count)}
+            onChange={(event) => {
+              const next = parseNumberDraft(event.target.value);
+              setCount(Number.isFinite(next) ? Math.min(1000, Math.max(1, next)) : next);
+            }}
             className="h-8 w-24"
           />
         </Field>
@@ -128,12 +144,11 @@ export function VipCodeGeneratePanel({
                   type="number"
                   min={1}
                   max={maxGrantAmount(grantUnit)}
-                  value={grantAmount}
-                  onChange={(event) =>
-                    setGrantAmount(
-                      clampAmount(Number(event.target.value), grantUnit),
-                    )
-                  }
+                  value={numberInputValue(grantAmount)}
+                  onChange={(event) => {
+                    const next = parseNumberDraft(event.target.value);
+                    setGrantAmount(Number.isFinite(next) ? clampAmount(next, grantUnit) : next);
+                  }}
                   className="h-8 w-20"
                 />
                 <Select
@@ -160,10 +175,11 @@ export function VipCodeGeneratePanel({
             <Input
               type="number"
               min={1}
-              value={credits}
-              onChange={(event) =>
-                setCredits(Math.max(1, Number(event.target.value) || 1))
-              }
+              value={numberInputValue(credits)}
+              onChange={(event) => {
+                const next = parseNumberDraft(event.target.value);
+                setCredits(Number.isFinite(next) ? Math.max(1, next) : next);
+              }}
               className="h-8 w-24"
             />
           </Field>
@@ -174,12 +190,11 @@ export function VipCodeGeneratePanel({
             type="number"
             min={1}
             max={100}
-            value={maxUses}
-            onChange={(event) =>
-              setMaxUses(
-                Math.min(100, Math.max(1, Number(event.target.value) || 1)),
-              )
-            }
+            value={numberInputValue(maxUses)}
+            onChange={(event) => {
+              const next = parseNumberDraft(event.target.value);
+              setMaxUses(Number.isFinite(next) ? Math.min(100, Math.max(1, next)) : next);
+            }}
             className="h-8 w-24"
           />
         </Field>
@@ -188,12 +203,11 @@ export function VipCodeGeneratePanel({
             type="number"
             min={1}
             max={30}
-            value={validDays}
-            onChange={(event) =>
-              setValidDays(
-                Math.min(30, Math.max(1, Number(event.target.value) || 1)),
-              )
-            }
+            value={numberInputValue(validDays)}
+            onChange={(event) => {
+              const next = parseNumberDraft(event.target.value);
+              setValidDays(Number.isFinite(next) ? Math.min(30, Math.max(1, next)) : next);
+            }}
             className="h-8 w-24"
           />
         </Field>
@@ -205,7 +219,7 @@ export function VipCodeGeneratePanel({
             className="h-8 w-40"
           />
         </Field>
-        <Button onClick={submit} disabled={generate.isPending || count < 1}>
+        <Button onClick={submit} disabled={generate.isPending || !formValid}>
           {generate.isPending && <Loader2 className="size-4 animate-spin" />}
           生成批次
         </Button>

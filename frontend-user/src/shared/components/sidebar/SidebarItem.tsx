@@ -22,10 +22,8 @@ interface SidebarItemProps
 
 /**
  * 侧栏行 —— 高度统一到 base=h-8(32)/ sm=h-7(28),字号 text-14 / text-12。
- * 'lg' 与 'base' 字号同为 text-14(旧的 13 档已按 Figma §2.2 取消),两者靠行高 h-10/h-8 区分。
- *
- * (原注释逐条对照 `.pen` 的节点 ID 与 13px/#111/#444/#666 —— 那套真源已于 2026-07
- *  换成 Figma,值也全部作废,留着只会让人照旧值改回去。已删。)
+ * 'lg' 与 'base' 字号同为 text-14，两者靠行高 h-10/h-8 区分；sm 仅供
+ * 树、大纲和筛选项。双行主导航必须用 SidebarRichItem，避免页面自行拼字号。
  */
 export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
   (
@@ -53,7 +51,7 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
         type="button"
         style={{ paddingLeft: indentPx }}
         className={cn(
-          'group flex items-center gap-2 w-full text-left pr-4 transition-colors',
+          'group flex items-center gap-2 w-full text-left pr-4 transition-colors max-sm:min-h-11',
           size === 'lg' && 'h-10 text-14',
           size === 'base' && 'h-8 text-14',
           size === 'sm' && 'h-7 text-12',

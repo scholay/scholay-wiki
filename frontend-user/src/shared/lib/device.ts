@@ -93,6 +93,7 @@ const MOBILE_EQUIVALENTS: RouteMap[] = [
   { exact: '/settings/profile', target: '/m/me/profile' },
   { exact: '/settings/security', target: '/m/me/security' },
   { exact: '/settings/connections', target: '/m/me/connections' },
+  { exact: '/settings/invite', target: '/m/me/invite' },
   // 暂无移动版,先统一送移动首页(后续补齐再换成专页)
   { exact: '/search', target: '/m/feed' },
   { prefix: '/prism', target: '/m/feed', collapse: true },
@@ -133,6 +134,7 @@ const DESKTOP_EQUIVALENTS: RouteMap[] = [
   { exact: '/m/me/profile', target: '/settings/profile' },
   { exact: '/m/me/security', target: '/settings/security' },
   { exact: '/m/me/connections', target: '/settings/connections' },
+  { exact: '/m/me/invite', target: '/settings/invite' },
   { exact: '/m/me/billing', target: '/settings/membership' },
   { exact: '/m/auth', target: '/' }, // PC 无独立登录页(走弹窗),回首页
 ];

@@ -304,6 +304,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	var attachmentHandler *agentattach.ServeHandler
 	if attachmentStore := agentattachstore.NewRepository(db); attachmentStore != nil {
 		agentattach.SetDefaultStore(attachmentStore)
+		agentBridge.SetAdminAttachmentRepository(attachmentStore)
 		// 删会话 / 重置会话 → 清该会话的附件行 + 引用计数归零的对象。挂在 Bridge 上一次覆盖
 		// 全部 feature(交付物那套是四份 handler 镜像,smart_search / prism 至今没有)。
 		agentBridge.SetSessionDataCleaner(agentattach.NewSessionCleaner(attachmentStore))
@@ -622,14 +623,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 取码落归因。nil 安全 + best-effort:归因失败只 slog,绝不影响注册返回。
 	inviteService := invite.NewService(invite.NewRepository(db))
 	user.SetInviteAttributor(inviteService.AttributeFromContext)
-	// 邀请奖励(0100)两个 seam:配置实时读 billing_config 两旋钮(经 ConfigService 带缓存,
-	// admin 改完 ≤30s 生效);发放走 vip 入账唯一落点 GrantInviteReward(GrantPerm + 站内信)。
-	// invite 包不 import vip,依赖方向由 bootstrap 单向组装;不接线 = 奖励整体关闭(nil 安全)。
-	inviteService.SetRewardConfigProvider(func() (int, int) {
-		c := plat.vipService.Config().Get()
-		return c.InviteRewardCredits, c.InviteRewardDailyCap
-	})
-	inviteService.SetRewardGranter(plat.vipService.GrantInviteReward)
+	// 0117/0118:invite 独立单行配置是真源；关系/里程碑/grant/钱包流水共用事务。
+	inviteService.SetTxRewardGranter(plat.vipService.GrantInviteRewardInTx)
+	inviteService.SetTxRewardReclaimer(plat.vipService.ReclaimInviteRewardInTx)
+	inviteService.SetRewardNotifier(plat.vipService.NotifyInviteCampaignReward)
+	// 充值和订阅均经 OrderService.fulfill，在 paid 事务 commit 前调首单 hook。
+	plat.vipService.Order().SetPaidOrderHook(inviteService.HandlePaidOrderInTx)
+	plat.vipService.Order().SetRefundRewardHook(inviteService.HandleRefundInTx)
 	inviteHandler := invite.NewHandler(inviteService)
 
 	// ---- 情报(学术新闻):上游 webhook 接收/落库 + 公开读 + admin 配置 ----
@@ -746,10 +746,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	//
 	// 治的病(生产实测):产物耐久化原本只在用户点开产物面板时发生,而会话工作区是临时的
 	// —— 用户没点过面板,产物就永久丢失且零日志。claw 13 个「写过文件」的会话只有 7 个留下了行。
-	clawHandler := claw.NewHandler(clawFeature, agentartifact.NewRepository(db), libReader)
-	boltSlidesHandler := boltslides.NewHandler(boltSlidesFeature, agentartifact.NewRepository(db))
-	sciDrawHandler := scidraw.NewHandler(sciDrawFeature, agentartifact.NewRepository(db))
-	statLabHandler := statlab.NewHandler(statLabFeature, agentartifact.NewRepository(db))
+	artifactRepo := agentartifact.NewRepository(db)
+	agentBridge.SetAdminArtifactRepository(artifactRepo)
+	clawHandler := claw.NewHandler(clawFeature, artifactRepo, libReader)
+	boltSlidesHandler := boltslides.NewHandler(boltSlidesFeature, artifactRepo)
+	sciDrawHandler := scidraw.NewHandler(sciDrawFeature, artifactRepo)
+	statLabHandler := statlab.NewHandler(statLabFeature, artifactRepo)
 	clawFeature.SetArtifactHarvester(clawHandler.HarvestTurnArtifacts)
 	boltSlidesFeature.SetArtifactHarvester(boltSlidesHandler.HarvestTurnArtifacts)
 	sciDrawFeature.SetArtifactHarvester(sciDrawHandler.HarvestTurnArtifacts)

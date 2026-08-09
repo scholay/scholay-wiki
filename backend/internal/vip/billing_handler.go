@@ -125,6 +125,7 @@ type DayUsagePct struct {
 //   - 限额档 → 日均参考线 = 周期上限 ÷ 周期天数(与旧口径一致,pct 语义不变);
 //   - 不限档 → **该用户本月自己的峰值**。自比不泄漏任何配置,且比旧实现更好:
 //     旧的不限档回落到写死的微元台阶(¥0.2/¥0.05/¥0.01),对重度用户整月糊成满格。
+//
 // pct 上限 999:限额档可能超过 100%(单日爆用),截断防前端拿到离谱值。
 func (h *Handler) UsageCalendar(c *gin.Context) {
 	uid, ok := utils.GetUserID(c)
@@ -318,24 +319,19 @@ func (h *Handler) PublicPlans(c *gin.Context) {
 		// 等于把 StripQuotaAmounts 费力抹掉的数字从正门送出去。用户侧对这两个字段**零渲染**
 		// (只在 TS interface 里声明过),删掉无 UI 影响;真要看基数去 admin 的 /admin/billing/config。
 		// 保留 multiplier:「Pro 是 Free 的 20×」是相对表述,正是产品想讲的故事,不泄漏绝对量。
-		"window_days":            cfg.WindowDays,
+		"window_days": cfg.WindowDays,
 		// reset_cost_credits 已移除:0090 起重置扣「重置次数」不扣经费,这个数对用户没有意义了。
 		// (DB 列与 admin 配置仍保留 —— 迁移 0092 拿它当换算率。)
-		"recharge_rate":          cfg.RechargeRate,
+		"recharge_rate": cfg.RechargeRate,
 		// 0094 按量付费:¥1 = recharge_rate × credit_to_points 算力点。两个数都要下发 ——
 		// 只给「1 元 = 100 经费」用户无从知道经费值多少算力(经费对用户是抽象单位)。
-		"credit_to_points":       cfg.CreditToPoints,
-		"min_recharge_cents":     cfg.MinRechargeCents,
-		"popular_plan":           cfg.PopularPlan,
-		// 邀请奖励活动(0100):>0 = 活动开启,前端据此点亮「邀请有奖」入口与引导。
-		// 公开下发是刻意的 —— 活动本身就是要对外宣传的;0 = 关闭,入口全部隐藏。
-		// daily_cap 用于活动页规则行的正向措辞「每日最多计入 N 位好友的奖励」(0=不限,不显示)。
-		"invite_reward_credits":   clampNonNeg(cfg.InviteRewardCredits),
-		"invite_reward_daily_cap": clampNonNeg(cfg.InviteRewardDailyCap),
-		"enabled":                cfg.Enabled,
-		"test_payment":           testPaymentEnabled(),
+		"credit_to_points":   cfg.CreditToPoints,
+		"min_recharge_cents": cfg.MinRechargeCents,
+		"popular_plan":       cfg.PopularPlan,
+		"enabled":            cfg.Enabled,
+		"test_payment":       testPaymentEnabled(),
 		// subscription_year_days 已移除:0090 起年度 = +1 个自然年,不再有「年度天数」这个概念。
-		"payment_methods":        gin.H{"alipay": alipay, "wechat": wechat},
+		"payment_methods": gin.H{"alipay": alipay, "wechat": wechat},
 		"plans": []gin.H{
 			// grant_credits / year_grant_credits 已移除:0090 起订阅不再赠送经费(四个 DB 列保留作历史)。
 			{"tier": TierFree, "price_cents": 0, "original_cents": 0, "multiplier": 1,

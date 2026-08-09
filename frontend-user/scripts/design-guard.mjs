@@ -2,21 +2,21 @@
 // 把「本次运行有规则被【跳过】」从摘要行里一个不起眼的小数字,变成日志里躲不开的横幅。
 //
 // 【为什么需要它】
-// `tests/design-system-guard.test.ts` 的「跨包镜像」一族规则要读 frontend-user/ 之外的三个
-// 兄弟包(miniprogram / scholay-minitools / agent)。而 frontend-user 的 Docker 构建
-// `context: ./frontend-user`(见 docker-compose.yml)—— 那个环境里三个包**物理上不存在**,
+// `tests/design-system-guard.test.ts` 的「跨包镜像」一族规则要读 frontend-user/ 之外的两个
+// 兄弟包(miniprogram / agent)。而 frontend-user 的 Docker 构建
+// `context: ./frontend-user`(见 docker-compose.yml)—— 那个环境里两个包**物理上不存在**,
 // 于是这几条规则走 `ctx.skip()`,vitest 打印
 //     Tests  36 passed | 4 skipped (40)
 // 和一行 console.warn 就过去了。构建日志里几百行输出中,这行小字没人会看见。
 //
 // 这正是本仓库付过代价的那个模式:**「一条永远绿的规则」和「一条不存在的规则」等价**,
-// 而「51 条护栏全绿」曾掩盖三份镜像同时落后两代。所以:跳过必须吵。
+// 而「51 条护栏全绿」曾掩盖跨包镜像同时落后两代。所以:跳过必须吵。
 //
 // 【刻意不做的事】
 // 在 Docker 构建里跳过**不会**让构建失败 —— 跨包镜像在那个 context 里客观上无法校验,
 // 为此红灯会直接堵死部署。要的是**可见**,不是阻断。
 // 真正的强制在另一个执行点:仓库根的 `scripts/check-design-system.sh`(git pre-push 调用),
-// 那里三个兄弟包在场,且 DESIGN_GUARD_STRICT=1 会把「有规则被跳过」直接判失败。
+// 那里两个兄弟包在场,且 DESIGN_GUARD_STRICT=1 会把「有规则被跳过」直接判失败。
 //
 // 【用法】
 //   node scripts/design-guard.mjs <vitest 文件…>        // 跳过 = 横幅 + 放行
@@ -110,16 +110,16 @@ if (skipped.length > 0) {
     ...skipped.map((s) => `     ↓ ${s}`),
     '',
     '   最常见的原因:frontend-user 的 Docker 构建 context 只有 ./frontend-user,',
-    '   miniprogram / scholay-minitools / agent 三个兄弟包物理上不在 → 跨包镜像规则无从执行。',
+    '   miniprogram / agent 两个兄弟包物理上不在 → 跨包镜像规则无从执行。',
     '',
-    '   ⇒ 本次构建【没有】校验小程序 / 小工具 / pptx 导出三份镜像是否与 globals.css 同步。',
+    '   ⇒ 本次构建【没有】校验小程序 / pptx 导出两份镜像是否与 globals.css 同步。',
     '   ⇒ 要真正校验,在完整仓库里跑:  scripts/check-design-system.sh',
     '      (它是 git pre-push 钩子的执行点;先 `git config core.hooksPath .githooks` 装一次)',
   ]);
   if (STRICT) {
     console.error(
       '[design-guard] DESIGN_GUARD_STRICT=1:在完整仓库里仍有规则被跳过,判失败。\n' +
-        '  三个兄弟包应当都在场 —— 检查是否有人移动/删除了镜像文件,或护栏的在场判定逻辑被改坏。'
+        '  两个兄弟包应当都在场 —— 检查是否有人移动/删除了镜像文件,或护栏的在场判定逻辑被改坏。'
     );
     process.exit(1);
   }

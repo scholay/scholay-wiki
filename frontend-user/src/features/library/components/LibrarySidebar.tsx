@@ -269,7 +269,7 @@ function FolderRow({
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1.5 px-4 h-8">
+      <div className="mx-4 flex h-8 items-center gap-1.5 rounded-8 px-2">
         <Folder className="size-3.5 text-muted-foreground shrink-0" />
         <Input
           ref={inputRef}
@@ -296,7 +296,7 @@ function FolderRow({
 
   if (confirmingDelete) {
     return (
-      <div className="flex items-center gap-1.5 px-4 h-8 bg-danger-soft">
+      <div className="mx-4 flex h-8 items-center gap-1.5 rounded-8 bg-danger-soft px-2">
         <span className="flex-1 text-12 text-brand-red font-medium truncate">
           删除「{folder.name}」?
         </span>
@@ -331,6 +331,16 @@ function FolderRow({
   return (
     <div
       onClick={onActivate}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-current={active ? 'page' : undefined}
       onDoubleClick={
         locked
           ? undefined
@@ -340,21 +350,21 @@ function FolderRow({
             }
       }
       className={cn(
-        'group relative flex items-center gap-2.5 px-4 h-8 cursor-pointer transition-colors',
-        // active 态对照 .pen MZ0Ma:bg-danger-soft + 字加粗;非 active hover 用浅灰
+        'group relative mx-4 flex h-8 items-center gap-2 rounded-8 px-2 cursor-pointer transition-colors focus-visible:bg-surface-2',
+        // 图 2:选中项是内缩圆角浅红块，而不是铺满侧栏的通栏色块。
         active ? 'bg-danger-soft' : 'hover:bg-surface-1'
       )}
     >
       <Folder
         className={cn(
           'size-3.5 shrink-0',
-          active ? 'text-foreground' : 'text-muted-foreground'
+          active ? 'text-brand-red' : 'text-muted-foreground'
         )}
       />
       <span
         className={cn(
           'flex-1 min-w-0 truncate text-14',
-          active ? 'text-foreground font-medium' : 'text-subtle'
+          active ? 'text-brand-red font-medium' : 'text-subtle'
         )}
         title={locked ? '系统默认文件夹(不可改名 / 不可删除)' : folder.name}
       >
@@ -420,7 +430,7 @@ function NewFolderRow({
     inputRef.current?.focus();
   }, []);
   return (
-    <div className="flex items-center gap-1.5 px-4 h-8">
+    <div className="mx-4 flex h-8 items-center gap-1.5 rounded-8 px-2">
       <Folder className="size-3.5 text-muted-foreground shrink-0" />
       <Input
         ref={inputRef}

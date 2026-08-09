@@ -164,7 +164,7 @@ func (h *Handler) DiscourseSSOCallback(c *gin.Context) {
 // findOrCreateDiscourseUser Discourse SSO identity → 共用 helper。
 // Discourse 的 username 已经在 SSO payload 里给到,直接当 UsernameCandidate。
 func (h *Handler) findOrCreateDiscourseUser(ctx context.Context, externalID, email, username, name, avatarURL, invitationCode, ip string) (oauthOutcome, error) {
-	_ = invitationCode
+	_ = invitationCode // 旧 query 字段仅兼容；归因真源是 OAuth state 恢复的 X-Invite-Code ctx。
 	_ = ip
 
 	displayName := name
@@ -188,7 +188,6 @@ func (h *Handler) findOrCreateDiscourseUser(ctx context.Context, externalID, ema
 		},
 	})
 }
-
 
 // BindDiscourseRequest represents Discourse account binding request
 type BindDiscourseRequest struct {

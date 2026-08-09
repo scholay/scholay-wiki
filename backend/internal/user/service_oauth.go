@@ -25,9 +25,9 @@ import (
 // 安全设计:
 //   - 首次绑定(user.Email == nil):只需新邮箱的 bind 验证码,证明用户掌控新邮箱
 //   - 换绑场景(user.Email 已存在):需要 *两份* 验证码 ——
-//       1. 新邮箱的 bind code,证明用户控制新邮箱
-//       2. 旧邮箱的 change_email code,证明用户也控制旧邮箱(防止 session 被偷
-//          后攻击者把邮箱改到自己的然后走「忘记密码」夺号)
+//     1. 新邮箱的 bind code,证明用户控制新邮箱
+//     2. 旧邮箱的 change_email code,证明用户也控制旧邮箱(防止 session 被偷
+//     后攻击者把邮箱改到自己的然后走「忘记密码」夺号)
 //
 // oldEmailCode 在首次绑定场景下可以为空。换绑场景必填。
 func (s *Service) BindEmail(ctx context.Context, userID uint, email, code, oldEmailCode string) error {
@@ -403,7 +403,7 @@ func (s *Service) UnbindDiscourse(userID uint) error {
 // source 为注册来源(仅新建号时写入 register_source):'wechat'=网页扫码 / 'wechat_miniprogram'=小程序。
 // 老用户登录不改动 register_source(注册渠道是历史事实,不随后续登录方式变)。
 func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip, invitationCode, source string) (*User, string, bool, error) {
-	_ = invitationCode // 邀请业务已移除，参数保留以兼容前端传参
+	_ = invitationCode // 旧参数仅兼容；归因真源是 middleware/OAuth state 恢复的 X-Invite-Code ctx。
 
 	// 锁 key 用 unionID(若有,跨 app 同一人)否则 openID。
 	lockKey := "wechat-login:" + unionID
@@ -540,7 +540,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	authProvider = &UserAuthProvider{
 		UserID:          user.ID,
 		Provider:        "wechat",
-		ProviderUserID:  openID, // openID 作为主要标识
+		ProviderUserID:  openID,     // openID 作为主要标识
 		ProviderUnionID: unionIDPtr, // UnionID 作为跨应用标识
 		ProviderData:    &providerDataJSON,
 	}
@@ -649,4 +649,3 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 
 	return nil
 }
-

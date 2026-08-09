@@ -1443,7 +1443,18 @@ func (h *sessionHub) upstreamLoop() {
 						continue // 不广播原 complete 帧、不写 ledger、不走 OnMessageComplete/accrueTurnUsage
 					}
 
-					// P0 影子:终结符入日志 + CompleteTurn(影子计费);live 计费仍走下方 accrueTurnUsage,完全不动。
+					// stop 后 executor 仍发 message_complete。在写 journal/终态之前读 aborted，
+					// 并把同一份已盖章帧用于 journal + live，避免管理端看到 complete。
+					h.mu.Lock()
+					wasAborted := h.abortedTurn
+					h.mu.Unlock()
+					if wasAborted {
+						if stamped := stampAbortedFrame(data); stamped != nil {
+							data = stamped
+						}
+					}
+
+					// P0 影子:终结符入日志 + 权威终态(影子计费);live 计费仍走下方。
 					// 在此同步置 currentTurnID=0 + completedThisTurn=true:使下方 endTurn 不重复 finalize、
 					// 且 broadcastAgent 后的通用 Append tee 不重复 append message_complete。
 					if f.bridge.turns != nil {
@@ -1456,9 +1467,13 @@ func (h *sessionHub) upstreamLoop() {
 							f.bridge.turns.Append(tid, h.sessionID, EvMessageComplete, data)
 							ledger := buildLedgerRow(h.userID, h.sessionID, f.spec.Key, usage)
 							model := usage.Model
+							status := "complete"
+							if wasAborted {
+								status = "aborted"
+							}
 							safego.Go("agentbridge-turn-complete:"+f.spec.Key, func() {
-								if err := f.bridge.turns.CompleteTurn(context.Background(), tid, model, ledger); err != nil {
-									slog.Warn("agentbridge hub: shadow CompleteTurn failed (billing unaffected)",
+								if err := f.bridge.turns.FinalizeTurn(context.Background(), tid, status, model, ledger); err != nil {
+									slog.Warn("agentbridge hub: shadow FinalizeTurn failed (billing unaffected)",
 										"feature", f.spec.Key, "turn_id", tid, "err", err)
 								}
 							})
@@ -1495,16 +1510,6 @@ func (h *sessionHub) upstreamLoop() {
 								}
 							}
 						})
-					}
-				}
-				// V3-4.4-2:本轮被 stop 过 → 给完成帧盖 aborted:true,前端据此走确认门而非 autoApply
-				// (中断的半截稿静默固化是信任级故障)。必须在 endTurn 前读标记(endTurn 不清它,beginTurn 清)。
-				h.mu.Lock()
-				wasAborted := h.abortedTurn
-				h.mu.Unlock()
-				if wasAborted {
-					if stamped := stampAbortedFrame(data); stamped != nil {
-						data = stamped
 					}
 				}
 				// 轮结束:先解锁忙态,再广播完成帧(让所有端解除置灰)。
@@ -1843,7 +1848,7 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 				AgentSessionID: h.sessionID, FeatureKey: f.spec.Key, UserID: h.userID,
 				ClientTurnID: clientTurnID, RoleUserText: content,
 				Kind: blockedTurnKind(err),
-			}, frame)
+			}, data, frame)
 			s.sendSelf(frame)
 			return
 		}
@@ -1901,7 +1906,7 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 		}
 		res, terr := f.bridge.turns.BeginTurn(h.hookCtx, TurnInput{
 			AgentSessionID: h.sessionID, FeatureKey: f.spec.Key, UserID: h.userID,
-			ClientTurnID: shadowTurnID, RoleUserText: content,
+			ClientTurnID: shadowTurnID, RoleUserText: content, UserPayload: append([]byte(nil), data...),
 		})
 		if terr != nil {
 			// 留痕与计数在 TurnCoordinator.BeginTurn 里(JOURNAL_TURN_LOST + journalTurnLossCnt)——

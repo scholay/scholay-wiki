@@ -56,7 +56,7 @@ function ConversationRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-colors',
+        'flex h-8 items-center gap-2 px-4 cursor-pointer transition-colors max-sm:h-11',
         active ? 'bg-surface-2' : 'hover:bg-surface-1',
       )}
       onClick={onClick}
@@ -65,7 +65,7 @@ function ConversationRow({
       <div className="min-w-0 flex-1">
         <div
           className={cn(
-            'truncate text-12 flex items-center gap-1.5',
+            'truncate text-14 flex items-center gap-1.5',
             active ? 'text-foreground font-medium' : 'text-subtle',
             loading && 'italic text-faint',
           )}

@@ -83,6 +83,25 @@ func (s *Service) GrantInviteReward(inviterID uint, amount int, invitedUserID ui
 	return nil
 }
 
+// GrantInviteRewardInTx 是 invite 模块的原子入账端口；不开新事务、不做通知。
+func (s *Service) GrantInviteRewardInTx(tx *gorm.DB, userID uint, amount int,
+	txType, refID, note string) (uint64, error) {
+	return s.wallet.GrantPermInTx(tx, userID, amount, SourceInvite, refID, txType, note)
+}
+
+// ReclaimInviteRewardInTx 是 invite 域的退款反冲端口：与退款单、反冲审计行
+// 共用调用方事务，余额不足时扣到 0 并明确返回 shortfall。
+func (s *Service) ReclaimInviteRewardInTx(tx *gorm.DB, userID uint, expected int,
+	refID, note string) (uint64, int, int, error) {
+	return s.wallet.ReclaimPermInTx(tx, userID, expected, SourceInvite, refID,
+		TxInviteRewardReversal, note)
+}
+
+// NotifyInviteReward 保留给旧调用方的邀请人注册奖励通知。
+func (s *Service) NotifyInviteReward(userID uint, credits int) {
+	s.NotifyInviteCampaignReward(userID, credits, TxInviteRegistrationInviter)
+}
+
 // ListUserRedemptions 透传 repo:列某用户兑换记录(admin 用户详情用)。
 func (s *Service) ListUserRedemptions(userID uint, limit, offset int) ([]UserRedemptionView, int64, error) {
 	return s.repo.ListUserRedemptions(userID, limit, offset)

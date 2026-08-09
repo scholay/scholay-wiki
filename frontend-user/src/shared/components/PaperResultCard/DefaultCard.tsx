@@ -25,6 +25,7 @@ export function DefaultCard({
   onFold,
   highlightQuery,
   hideStage,
+  readOnly = false,
 }: {
   paper: Paper;
   isStaged: boolean;
@@ -34,6 +35,7 @@ export function DefaultCard({
   onFold: () => void;
   highlightQuery?: string;
   hideStage?: boolean;
+  readOnly?: boolean;
 }) {
   const tags = pickTags(paper, journalEnrichment);
   const openPaper = useOpenPaperInBrowser();
@@ -136,13 +138,15 @@ export function DefaultCard({
          - whitespace-nowrap + shrink-0:任何宽度下文案都不换行、按钮不被挤变形。
          - 折叠按钮平时不显,卡片 hover 才出(group / group-hover)。 */}
       <div className="@container mt-2.5 flex items-center gap-1.5">
-        <FavoritePaperButton
-          paper={paper}
-          isFavorited={isFavorited}
-          variant="chip"
-          size="md"
-          collapseLabel
-        />
+        {!readOnly && (
+          <FavoritePaperButton
+            paper={paper}
+            isFavorited={isFavorited}
+            variant="chip"
+            size="md"
+            collapseLabel
+          />
+        )}
 
         {/* 文档 —— 上游 openAccessPdf.url 的直链(开放获取原文)。
             2026-07-27 从标题行右上角搬到这里,夹在「收藏」与「AI 翻译」之间:
@@ -167,7 +171,7 @@ export function DefaultCard({
           </a>
         )}
 
-        {hasTranslatable && (
+        {!readOnly && hasTranslatable && (
           <TranslatePaperButton
             title={paper.title}
             abstract={paper.abstract}

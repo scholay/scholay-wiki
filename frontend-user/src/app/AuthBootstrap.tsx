@@ -4,6 +4,7 @@ import { useProfile } from '@/features/auth/api/profile';
 import { BizCode } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useInviteEntry } from '@/stores/invite-entry.store';
 
 /**
  * App 启动时:
@@ -45,6 +46,10 @@ export function AuthBootstrap() {
   useEffect(() => {
     const handler = (evt: Event) => {
       const detail = (evt as CustomEvent<{ code?: number; message?: string }>).detail;
+      // 邀请弹窗内的私有请求也可能首先发现 401。在打开登录框前同步关掉它，
+      // 避免两个 Radix modal 同时持有 body pointer lock。
+      const inviteEntry = useInviteEntry.getState();
+      if (inviteEntry.open) inviteEntry.closeInvite();
       clear();
       if (detail?.code === BizCode.TokenRevoked) {
         toast.warning(detail.message || '登录已失效,请重新登录');

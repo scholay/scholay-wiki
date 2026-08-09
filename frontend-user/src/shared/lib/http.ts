@@ -32,7 +32,7 @@ http.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // 匿名访客标识 —— 让后端"使用统计"对未登录用户也能按 anon_id 去重计人。
   config.headers['X-Anon-Id'] = getAnonId();
-  // 邀请归因 —— 落地页 /i/:code 存下的邀请码(30 天内有效,readInviteCode 过期自清)。
+  // 邀请归因 —— 落地页 /i/:code 存下的邀请码按 campaign 绑定时窗有效，读取时过期自清。
   // 后端仅在「新用户创建成功」时消费此头(backend/internal/invite),平时携带无副作用。
   const inviteCode = readInviteCode();
   if (inviteCode) config.headers['X-Invite-Code'] = inviteCode;
