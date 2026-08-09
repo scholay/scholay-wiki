@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { UserLoginMethods } from '../api/users';
 
 const mocks = vi.hoisted(() => ({
@@ -109,14 +109,14 @@ afterEach(() => {
 });
 
 describe('UserCell → 全局用户详情推屏', () => {
-  it('有 user id 时点击 UserCell，通过 AdminUserDetailProvider 打开同一份 Sheet', () => {
+  it('有 user id 时点击 UserCell，通过 AdminUserDetailProvider 打开同一份 Sheet', async () => {
     renderCell({ id: 42, name: 'Alice', email: 'alice@example.com' });
 
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Alice\s*#42/ }));
 
-    expect(mocks.useUserDetail).toHaveBeenCalledWith(42);
-    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await waitFor(() => expect(mocks.useUserDetail).toHaveBeenCalledWith(42));
+    expect(await screen.findAllByRole('dialog')).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 2 }).textContent).toContain(
       'Alice',
     );
@@ -134,7 +134,7 @@ describe('UserCell → 全局用户详情推屏', () => {
     ).toBe(true);
   });
 
-  it('详情加载失败时不伪造正常状态或角色，并可手动重试', () => {
+  it('详情加载失败时不伪造正常状态或角色，并可手动重试', async () => {
     const failure = new Error('详情接口故障');
     mocks.useUserDetail.mockReturnValue(
       detailQuery({
@@ -149,7 +149,7 @@ describe('UserCell → 全局用户详情推屏', () => {
     fireEvent.click(screen.getByRole('button', { name: /受影响账号\s*#77/ }));
 
     // 加载失败时标题只能使用列表已知的身份种子；角色/状态必须等服务端事实。
-    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
+    expect((await screen.findByRole('heading', { level: 2 })).textContent).toBe(
       '受影响账号',
     );
     expect(screen.queryByText('正常')).toBeNull();
@@ -163,13 +163,12 @@ describe('UserCell → 全局用户详情推屏', () => {
     expect(mocks.refetchDetail).toHaveBeenCalledTimes(1);
   });
 
-  it('管理员视图中财务区块紧跟固定信息，且位于账号状态之前', () => {
+  it('管理员视图中财务区块紧跟固定信息，且位于账号状态之前', async () => {
     mocks.permissions.add('users.manage');
     renderCell({ id: 42, name: 'Alice' });
     fireEvent.click(screen.getByRole('button', { name: /Alice\s*#42/ }));
 
-    const sectionTitles = screen
-      .getAllByRole('heading', { level: 4 })
+    const sectionTitles = (await screen.findAllByRole('heading', { level: 4 }))
       .map((heading) => heading.textContent);
     expect(sectionTitles.slice(0, 3)).toEqual([
       '固定信息',
@@ -178,12 +177,12 @@ describe('UserCell → 全局用户详情推屏', () => {
     ]);
   });
 
-  it('最后活跃会提示存量时间可能沿用旧口径', () => {
+  it('最后活跃会提示存量时间可能沿用旧口径', async () => {
     mocks.permissions.add('analytics.view');
     renderCell({ id: 42, name: 'Alice' });
     fireEvent.click(screen.getByRole('button', { name: /Alice\s*#42/ }));
 
-    expect(screen.getByText('账号最后活跃').getAttribute('title')).toBe(
+    expect((await screen.findByText('账号最后活跃')).getAttribute('title')).toBe(
       LAST_ACTIVE_LEGACY_HINT,
     );
   });

@@ -10,10 +10,11 @@
  * 同族的两处注释占位值已就地改成中文描述(MobileBottomNav.tsx / dialog.tsx 的红字)。 */
 @source not "../../tests";
 @import 'tw-animate-css';
-/* Google Sans 的 Latin / Latin-ext 与 Noto Serif SC 的 101 个 CJK
-   unicode-range 分片均是版本化自托管资产。浏览器会逐字形选择：
-   英文命中 Google Sans，中文落到 Noto Serif SC。 */
+/* 三组字体均是版本化自托管资产。Noto Serif SC 用一个首屏常用字
+   子集收敛请求，再用 101 个 unicode-range 分片完整兜底；中文始终命中
+   Noto Serif SC，不会因首屏优化改用系统中文字体。 */
 @import './fonts/google-sans.css';
+@import './fonts/playfair-display.css';
 @import './fonts/noto-serif-sc.css';
 
 /* =============================================================================
@@ -31,9 +32,8 @@
  *    **渲染出来完全一样**,三档设计等于不存在。
  *    换可变字体后一个文件覆盖三档,比自托管三个静态字重还省(58KB vs 3×20KB)。
  *
- * 拆 latin / latin-ext 两个子集 + unicode-range:绝大多数页面只会下载 latin(37KB),
- * 带变音符的欧洲语言字符才触发 latin-ext。
- * 两个子集都用 font-display:swap:正文和标题不因字体下载而隐形,加载后再稳定换入。
+ * 实际业务只有 BrandName 的“Scholay”使用 Playfair，现由
+ * scripts/sync-playfair-brand.mjs 生成字形级 WOFF2，不再下载完整 Latin 字库。
  *
  * Google Sans —— dev.pen 与用户确认的英文主力字体。
  * 自托管 Google Fonts 官方 Latin / Latin-ext 可变分片(wght 400–700),
@@ -41,33 +41,12 @@
  * ✅ Noto Serif SC 已自托管(dev.pen 的中文字体,SIL OFL,300–900)。
  *    改造前 38 处 font-serif 的中文全部降级到系统宋体,mac/win/linux 三平台字形不一致,
  *    完全在设计系统之外 —— 台账称之为「本维度最严重的洞」。
- *    实现:镜像 Google 的 101 个 unicode-range 分片(可变字体 wght 300–900),
- *    由 scripts/sync-noto-serif-sc.mjs 生成,@import 在本文件顶部。
- *    ⚠️ 为什么不自己 pyftsubset 成一个「常用 3500 字」大文件:那样约 800KB,
- *       任何用到 font-serif 的页面都要整包下载;分片 + unicode-range 是按【页面实际
- *       出现的字符】按需拉,一个中文页面通常只命中 5~15 片。CJK 上分片是唯一正解。
+ *    实现:首屏全局 UI 常用字合并成一个约 33KB 的子集，剩余字形继续由
+ *    Google 的 101 个 unicode-range 分片完整兜底(可变字体 wght 300–900)。
+ *    这避免“常用 3500 字”大包，也避免全局导航的少量字跨命中 8 个分片。
+ *    两层均由 scripts/sync-noto-serif-sc.mjs 从同一 Google Fonts 版本生成。
  *    ⚠️ font-display: swap(不是 block)—— CJK 分片体积大,阻塞渲染不可接受。
  * ============================================================================= */
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url('/fonts/playfair-display-var-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
-    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
-    U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url('/fonts/playfair-display-var-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
-    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
-    U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
 
 /* =============================================================================
  * Scholay 设计 Token —— 运行时唯一真相源 (single source of truth)

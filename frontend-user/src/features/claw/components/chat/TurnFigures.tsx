@@ -9,7 +9,6 @@
  * 未落库(harvest 有延迟、暂无 id)→ 显示「图像生成中…」占位,轮询到 id 后自动出图。
  */
 import { useEffect, useState } from 'react';
-import { composeFigure } from '../figure/compose';
 import { FigureSvgDisplay } from '../figure/FigureSvgDisplay';
 import { parseFigureSpec } from '../figure/figure-spec';
 import {
@@ -113,7 +112,10 @@ function ComposedFigure({ text, name }: { text: string; name: string }) {
       setSvg('');
       return;
     }
-    composeFigure(spec)
+    // compose.ts 顶层会初始化 elkjs(~1.4 MB raw)。只有已取到且能解析的
+    // *.fig.json 才需要它;TurnFigures 的空数组、位图和直出 SVG 不得连带下载。
+    import('../figure/compose')
+      .then(({ composeFigure }) => composeFigure(spec))
       .then((s) => alive && setSvg(s))
       .catch(() => alive && setSvg(''));
     return () => {

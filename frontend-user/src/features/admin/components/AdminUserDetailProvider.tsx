@@ -1,11 +1,18 @@
 import {
   createContext,
+  lazy,
+  Suspense,
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { UserDetailDrawer, type UserDetailTarget } from './UserDetailDrawer';
+import type { UserDetailTarget } from './UserDetailDrawer';
+
+const UserDetailDrawer = lazy(() =>
+  import('./UserDetailDrawer').then((m) => ({ default: m.UserDetailDrawer })),
+);
 
 interface AdminUserDetailContextValue {
   openUserDetail: (user: UserDetailTarget) => void;
@@ -35,11 +42,17 @@ export function AdminUserDetailProvider({
 
   // Context 只暴露稳定 callback；打开推屏时不会让页面里的所有 UserCell 一起重渲染。
   const value = useMemo(() => ({ openUserDetail }), [openUserDetail]);
+  const everOpened = useRef(false);
+  if (open) everOpened.current = true;
 
   return (
     <AdminUserDetailContext.Provider value={value}>
       {children}
-      <UserDetailDrawer user={target} open={open} onOpenChange={setOpen} />
+      {everOpened.current && (
+        <Suspense fallback={null}>
+          <UserDetailDrawer user={target} open={open} onOpenChange={setOpen} />
+        </Suspense>
+      )}
     </AdminUserDetailContext.Provider>
   );
 }

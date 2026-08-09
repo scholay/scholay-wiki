@@ -181,7 +181,7 @@ export function toApiError(err: unknown): ApiError {
       err.code === 'ENOTFOUND';
 
     // 优先级: backend.message > 按状态码的中文兜底 > axios 自带 message > 通用兜底
-    let message =
+    const message =
       err.response?.data?.message ||
       (isNetworkError ? '网络连接失败,请检查网络后重试' : statusFallbackMessage(status)) ||
       err.message ||

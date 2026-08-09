@@ -14,6 +14,7 @@ import {
 } from '@/shared/api/notifications';
 import { isValidAppPath } from '@/shared/lib/route-validation';
 import { cn } from '@/shared/lib/utils';
+import { useAfterPageLoad } from '@/shared/hooks';
 
 /**
  * 顶栏通知铃铛 + Popover 列表。
@@ -34,7 +35,9 @@ import { cn } from '@/shared/lib/utils';
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'all' | 'unread'>('all');
-  const unreadQ = useUnreadCount();
+  const backgroundReady = useAfterPageLoad();
+  // 默认在 load/idle 后查未读数；用户主动打开通知时立即提升优先级。
+  const unreadQ = useUnreadCount(backgroundReady || open);
   const unread = unreadQ.data ?? 0;
 
   return (

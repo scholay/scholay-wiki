@@ -60,6 +60,17 @@ if [ ! -f "${COMPOSE_FILE}" ]; then
     exit 1
 fi
 
+# `up --wait` 是部署就绪门禁，老版 Compose 不得静默跳过。
+COMPOSE_VERSION=$(docker compose version --short 2>/dev/null | sed 's/^v//' || true)
+COMPOSE_MAJOR=${COMPOSE_VERSION%%.*}
+COMPOSE_REST=${COMPOSE_VERSION#*.}
+COMPOSE_MINOR=${COMPOSE_REST%%.*}
+if ! [[ "${COMPOSE_MAJOR}" =~ ^[0-9]+$ && "${COMPOSE_MINOR}" =~ ^[0-9]+$ ]] ||
+   (( COMPOSE_MAJOR < 2 || (COMPOSE_MAJOR == 2 && COMPOSE_MINOR < 7) )); then
+    echo -e "${RED}错误: 需要 Docker Compose 2.7+，当前为 ${COMPOSE_VERSION:-未安装}${NC}"
+    exit 1
+fi
+
 # 登录阿里云 ACR
 login_acr() {
     echo -e "${YELLOW}=== 登录阿里云 ACR ===${NC}"
@@ -92,12 +103,10 @@ pull_images() {
     echo ""
 }
 
-# 重启服务
+# 更新服务。不先执行 compose down：目录遍历和未变更服务不应
+# 暴露在全站断流窗口里。注意：单副本服务被重建时仍可能有很短的替换缺口；
+# 要保证零中断还需蓝绿双栈与宿主反代切流。
 restart_services() {
-    echo -e "${YELLOW}=== 停止旧服务 ===${NC}"
-    docker compose -f ${COMPOSE_FILE} down
-    echo ""
-
     # agent 以非 root 的 bun(uid 1000)运行 + cap_drop, 不能在容器内自己 chown。
     # bind mount 的数据/会话目录默认是宿主 root 属主 → 容器写不进去 (EACCES) →
     # 建会话/推配置全 500, 旧会话续聊还会丢工作目录。这里在宿主侧幂等修正属主, 一劳永逸。
@@ -115,8 +124,15 @@ restart_services() {
     chown -R 1001:1001 ./data/prism-work
     echo ""
 
-    echo -e "${YELLOW}=== 启动新服务 ===${NC}"
-    docker compose -f ${COMPOSE_FILE} up -d
+    echo -e "${YELLOW}=== 原地收敛服务 (不提前停掉全栈) ===${NC}"
+    # Umami 的健康检查最长合理启动窗口约 210s(start_period 60s + 5×30s),
+    # 部署等待必须覆盖该窗口，否则会把仍在正常迁移的服务误判为失败。
+    if ! docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans --wait --wait-timeout 300; then
+        echo -e "${RED}错误: 服务未在 300 秒内全部就绪${NC}"
+        docker compose -f "${COMPOSE_FILE}" ps || true
+        docker compose -f "${COMPOSE_FILE}" logs --tail=200 nginx backend frontend-user umami schema-sync || true
+        return 1
+    fi
     echo ""
 }
 

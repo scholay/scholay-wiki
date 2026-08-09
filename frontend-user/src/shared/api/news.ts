@@ -107,22 +107,24 @@ export function flattenNewsPages(pages: ListResp[] | undefined): NewsCard[] {
 }
 
 /** PC 首页情报区主信息流(单页 top N)。 */
-export function useNewsList(sort: NewsSort, limit = 8) {
+export function useNewsList(sort: NewsSort, limit = 8, enabled = true) {
   return useQuery({
     queryKey: ['news', 'list', sort, limit],
     queryFn: () => fetchNewsPage(sort, '', 1, limit).then((r) => r.items),
     staleTime: 5 * 60_000,
+    enabled,
   });
 }
 
 /** PC 首页右侧热榜 / 移动热榜。 */
-export function useNewsTrending(days = 7, limit = 10) {
+export function useNewsTrending(days = 7, limit = 10, enabled = true) {
   return useQuery({
     queryKey: ['news', 'trending', days, limit],
     queryFn: async () =>
       (await http.get<{ items: NewsCard[] }>('/news/trending', { params: { days, limit } })).data
         .items ?? [],
     staleTime: 5 * 60_000,
+    enabled,
   });
 }
 

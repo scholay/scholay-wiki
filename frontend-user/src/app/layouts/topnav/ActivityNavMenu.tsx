@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Gift, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import {
@@ -17,9 +18,16 @@ import { cn } from '@/shared/lib/utils';
  * 视觉沿用原 PromoNavButton:品牌红描边 + 礼物图标 + 脉冲点(活动期适度吸睛)。
  * `className` 供调用方控显隐(< 1200px 由 CompactNavMenu 承接同款入口)。
  */
-export function ActivityNavMenu({ className }: { className?: string }) {
+export function ActivityNavMenu({
+  className,
+  active = true,
+}: {
+  className?: string;
+  active?: boolean;
+}) {
   const { visible: promoVisible } = usePromoEligible();
   const openPromo = usePromoStore((s) => s.openPromo);
+  const [open, setOpen] = useState(false);
 
   const items: { key: string; icon: typeof Gift; title: string; sub: string; onSelect: () => void }[] = [];
   if (promoVisible) {
@@ -31,10 +39,16 @@ export function ActivityNavMenu({ className }: { className?: string }) {
       onSelect: () => openPromo('manual'),
     });
   }
-  if (items.length === 0) return null;
+  // 活动开关/会员等级或响应式断点变化时，不能在 open 态
+  // 直接卸载 modal DropdownMenu。先受控关闭，下一帧再返回 null。
+  useEffect(() => {
+    if (!active || items.length === 0) setOpen(false);
+  }, [active, items.length]);
+
+  if (items.length === 0 && !open) return null;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={active && items.length > 0 && open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"

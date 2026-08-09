@@ -59,7 +59,7 @@ afterEach(() => {
 });
 
 describe('invite campaign shared query contracts', () => {
-  it('常驻顶栏与 Flow 每 60 秒跟随活动开关，隐藏标签页不轮询', async () => {
+  it('常驻顶栏不轮询，在重回页面/重连/进入相关页时合理刷新开关', async () => {
     mocks.get.mockResolvedValue({
       data: {
         data: {
@@ -85,13 +85,17 @@ describe('invite campaign shared query contracts', () => {
     });
     const options = query?.options as {
       staleTime?: number;
-      refetchInterval?: number;
-      refetchIntervalInBackground?: boolean;
+      refetchInterval?: number | false;
+      refetchOnWindowFocus?: boolean;
+      refetchOnReconnect?: boolean;
+      refetchOnMount?: boolean | 'always';
       retry?: number;
     };
     expect(options.staleTime).toBe(60_000);
-    expect(options.refetchInterval).toBe(60_000);
-    expect(options.refetchIntervalInBackground).toBe(false);
+    expect(options.refetchInterval).toBeUndefined();
+    expect(options.refetchOnWindowFocus).toBe(true);
+    expect(options.refetchOnReconnect).toBe(true);
+    expect(options.refetchOnMount).toBe(true);
     expect(query?.options.retry).toBe(1);
     expect(mocks.get).toHaveBeenCalledWith('/invite/campaign');
     view.unmount();
@@ -102,7 +106,21 @@ describe('invite campaign shared query contracts', () => {
     mocks.post.mockResolvedValue({
       data: {
         data: {
-          status: { enabled: true, bound: true, eligible: false },
+          status: {
+            enabled: true,
+            bound: true,
+            eligible: false,
+            campaign: {
+              enabled: true,
+              inviter_registration_credits: 100,
+              invitee_registration_credits: 50,
+              registration_daily_cap: 10,
+              bind_window_days: 7,
+              first_purchase_window_days: 30,
+              first_purchase_rebate_bps: 1250,
+              code_help_url: '',
+            },
+          },
           rewards: { invitee_registration_credits: 50 },
         },
       },
@@ -121,6 +139,16 @@ describe('invite campaign shared query contracts', () => {
 
     expect(mocks.post).toHaveBeenCalledWith('/user/invite/bind', {
       code: 'ABCD2345',
+    });
+    expect(
+      queryClient.getQueryData([
+        ...INVITE_STATUS_QUERY_KEY,
+        'session:token-a',
+      ]),
+    ).toMatchObject({ bound: true, eligible: false });
+    expect(queryClient.getQueryData(INVITE_CAMPAIGN_QUERY_KEY)).toMatchObject({
+      enabled: true,
+      bind_window_days: 7,
     });
     expect(invalidate.mock.calls.map(([options]) => options?.queryKey)).toEqual([
       ['invite', 'status'],

@@ -2,13 +2,11 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { ConfirmDialogRoot, ToastHost } from '@/shared/components';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { BodyPointerLockGuard } from '@/shared/components/BodyPointerLockGuard';
-import { QuotaNotifier } from '@/shared/components/QuotaNotifier';
-import { AttachmentManagerDialog } from '@/shared/components/AttachmentManagerDialog';
-import { PromoModal } from '@/shared/components/PromoModal';
-// 全局 feed 预取/水合:任意入口进入即准备好移动端论文/期刊流数据(仅手机生效)。
-// 需全站唯一挂载点而无根布局,故在此引入 mobile feature 的预取器(刻意的全局编排例外)。
-import { FeedPrefetcher } from '@/features/mobile/components/FeedPrefetcher';
+import { QuotaNotifierGate } from '@/shared/components/QuotaNotifierGate';
+import { AttachmentManagerDialogGate } from '@/shared/components/AttachmentManagerDialogGate';
+import { PromoModalGate } from '@/shared/components/PromoModalGate';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import {
   DEFAULT_GC_TIME,
@@ -62,8 +60,8 @@ function CollectFolderPickerGate() {
   );
 }
 
-// 小程序 web-view 内嵌页(/mp/*):纯展示上下文(图表查看等),营销弹窗/额度通知/
-// feed 预取全部豁免 —— 匿名 webview 里弹「限时领会员」会直接盖住内容。
+// 小程序 web-view 内嵌页(/mp/*):纯展示上下文(图表查看等),营销弹窗/额度通知
+// 全部豁免 —— 匿名 webview 里弹「限时领会员」会直接盖住内容。
 const isEmbedPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mp/');
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -72,22 +70,36 @@ export function Providers({ children }: { children: ReactNode }) {
       <TooltipProvider delayDuration={150}>
         {/* 全局兜底:清除 Radix 遗留在 body 上的 pointer-events:none(全站点击失灵元凶,见组件注释) */}
         <BodyPointerLockGuard />
-        {!isEmbedPage && <FeedPrefetcher />}
         {children}
         {/* 右上角 toast —— sonner 的 Toaster + 「点整条即关闭」,见组件注释 */}
         <ToastHost />
         {/* 全局命令式确认 dialog 渲染槽 —— 任意位置 useConfirm() 都能弹 */}
         <ConfirmDialogRoot />
         {/* 全局额度通知器:6010 → 重置弹窗;用量过半/将尽 → toastr */}
-        {!isEmbedPage && <QuotaNotifier />}
+        {!isEmbedPage && (
+          <ErrorBoundary fallback={() => null}>
+            <QuotaNotifierGate />
+          </ErrorBoundary>
+        )}
         {/* 限时领取会员推广弹窗:首屏自动 / 额度用尽 / 导航按钮触发(开关关闭时不渲染) */}
-        {!isEmbedPage && <PromoModal />}
+        {!isEmbedPage && (
+          <ErrorBoundary fallback={() => null}>
+            <PromoModalGate />
+          </ErrorBoundary>
+        )}
         {/* 「我的附件」弹窗:附件额度满(7010)自动弹 / 输入框「+」主动打开。
             全站唯一挂载点 —— 四个 feature 的上传口共用一条自救路径,不做 per-feature 镜像。 */}
-        {!isEmbedPage && <AttachmentManagerDialog />}
+        {!isEmbedPage && (
+          <ErrorBoundary fallback={() => null}>
+            <AttachmentManagerDialogGate />
+          </ErrorBoundary>
+        )}
         {/* 全局「收藏到文件夹」选择器(任意收藏按钮 openCollect 触发)——
-            懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。 */}
-        <CollectFolderPickerGate />
+            懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。
+            独立错误边界确保 chunk 加载失败时只关闭选择器，不拖垮整棵应用。 */}
+        <ErrorBoundary fallback={() => null}>
+          <CollectFolderPickerGate />
+        </ErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );

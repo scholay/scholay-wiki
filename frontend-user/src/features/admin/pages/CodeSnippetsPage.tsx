@@ -150,13 +150,20 @@ export function CodeSnippetsPanel() {
         emptyMessage="还没有任何注入片段"
         columns={columns}
         createLabel="新建片段"
-        emptyOf={() => ({ name: '', code_key: '', category: 'analytics', position: 'head', code_content: '', is_enabled: true, priority: 0 })}
+        emptyOf={() => ({ name: '', code_key: '', category: 'analytics', position: 'head', code_content: '', is_enabled: true, priority: 0, defer_until_idle: false })}
         fields={[
           { name: 'name', label: '名称', type: 'text', required: true },
           { name: 'code_key', label: 'Key(唯一)', type: 'text', required: true, placeholder: 'baidu_analytics' },
           { name: 'category', label: '分类', type: 'select', options: CATEGORY_OPTIONS, required: true },
           { name: 'position', label: '注入位置', type: 'select', options: POSITION_OPTIONS, required: true },
           { name: 'priority', label: '优先级', type: 'number', placeholder: '0' },
+          {
+            name: 'defer_until_idle',
+            label: '首屏后空闲加载',
+            type: 'checkbox',
+            placeholder: '仅用于广告/分析等非关键片段；验证 meta、consent 和 bootstrap 不要开启',
+            span: 2,
+          },
           { name: 'description', label: '描述', type: 'text' },
           { name: 'code_content', label: '代码内容', type: 'textarea', rows: 12, required: true, span: 2 },
           { name: 'is_enabled', label: '启用', type: 'checkbox', placeholder: '保存后立刻对全站所有访客生效', span: 2 },

@@ -20,6 +20,7 @@ import { useAdminPromoConfig, useUpdatePromoConfig, type PromoConfig } from '../
  */
 
 const QR_MAX_BYTES = 300 * 1024;
+const QR_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 // 与前端 PromoModal 的 DEFAULTS 对齐,预览/留空时展示。
 const PLACEHOLDER = {
@@ -50,6 +51,7 @@ export function PromoConfigPanel() {
 
 /** 后端配置行 → 表单态(去掉主键 id;PUT 只提交可编辑字段)。 */
 function toFormState({ id: _id, ...rest }: PromoConfig): FormState {
+  void _id;
   return rest;
 }
 
@@ -205,17 +207,25 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
 
   const handleFile = (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      void apiToast(Promise.reject(new Error('仅支持图片')), { success: '', failure: '仅支持图片文件' });
+    if (!QR_MIME_TYPES.has(file.type.toLowerCase())) {
+      void apiToast(Promise.reject(new Error('不支持的图片格式')), {
+        success: '',
+        failure: '二维码仅支持 PNG、JPEG 或 WebP',
+      });
+      return;
+    }
+    // 限额按真实二进制大小计算。data URL 的 base64 会膨胀约 4/3，
+    // 若拿编码后的字符串与 300KB 比较，会把可上传上限错误收紧到约 225KB。
+    if (file.size > QR_MAX_BYTES) {
+      void apiToast(Promise.reject(new Error('too large')), {
+        success: '',
+        failure: '图片过大,请压缩到 300KB 以内',
+      });
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       const url = String(reader.result ?? '');
-      if (url.length > QR_MAX_BYTES) {
-        void apiToast(Promise.reject(new Error('too large')), { success: '', failure: '图片过大,请压缩到 300KB 以内' });
-        return;
-      }
       onChange(url);
     };
     reader.readAsDataURL(file);
@@ -247,7 +257,7 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp"
           className="hidden"
           onChange={(e) => {
             handleFile(e.target.files?.[0]);

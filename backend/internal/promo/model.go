@@ -36,3 +36,15 @@ type PublicView struct {
 	ButtonText string `json:"button_text,omitempty"`
 	WechatQR   string `json:"wechat_qr,omitempty"`
 }
+
+// PublicSummaryView 是用户端常驻控制器使用的轻量配置。
+// 二维码 data URL 不进入这个响应，只下发真正打开弹窗后才会请求的 URL。
+// 旧 /config/promo 依旧返回 PublicView，保持已部署客户端兼容。
+type PublicSummaryView struct {
+	Enabled     bool   `json:"enabled"`
+	Title       string `json:"title,omitempty"`
+	Subtitle    string `json:"subtitle,omitempty"`
+	Benefits    string `json:"benefits,omitempty"`
+	ButtonText  string `json:"button_text,omitempty"`
+	WechatQRURL string `json:"wechat_qr_url,omitempty"`
+}

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth.store';
 import { http } from '@/shared/lib/http';
+import { useAfterPageLoad } from './useAfterPageLoad';
 
 /**
  * 通知 WebSocket —— 对接后端 `internal/websocket` (路由 `/api/v1/ws?ws_token=...`)。
@@ -81,6 +82,7 @@ async function fetchWsTicket(): Promise<string> {
 export function useNotificationSocket() {
   const token = useAuthStore((s) => s.token);
   const qc = useQueryClient();
+  const backgroundReady = useAfterPageLoad();
   const wsRef = useRef<WebSocket | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,7 +110,7 @@ export function useNotificationSocket() {
       }
     }
 
-    if (!token) {
+    if (!token || !backgroundReady) {
       cleanup();
       return;
     }
@@ -202,5 +204,5 @@ export function useNotificationSocket() {
 
     connect();
     return cleanup;
-  }, [token, qc]);
+  }, [token, qc, backgroundReady]);
 }

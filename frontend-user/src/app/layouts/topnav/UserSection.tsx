@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useNavigate } from'react-router-dom';
 import { useQuery } from'@tanstack/react-query';
 import { Headphones } from 'lucide-react';
@@ -39,28 +40,39 @@ import { cn } from'@/shared/lib/utils';
  * 三项合计让出 ~280px，正是 390 宽下「登录/注册被盖到 0% 可见」的缺口来源。
  * 铃铛与登录/注册**任何宽度都保留** —— 未读通知与转化入口不接受降级。
  */
-export function UserSection() {
+export function UserSection({ wide }: { wide: boolean }) {
   // 登录与否只看 token(authenticated);user 仅用于展示身份,已登录但 profile 未到时为 null。
   const { authenticated, user } = useAuthStatus();
   const openDialog = useAuthDialog((s) => s.openDialog);
   const navigate = useNavigate();
+  // ActivityNavMenu 是 modal DropdownMenu。首次进入宽屏后保留 Root，
+  // 断点切换由 active 先关闭，避免打开态 unmount 遗留 body 点击锁。
+  const activityEverMounted = useRef(wide);
+  if (wide) activityEverMounted.current = true;
 
   return (
     <div className="flex items-center gap-2">
       {/* 限时领取会员推广入口 —— 仅推广开启且非付费会员时显示(组件内部自判),点击弹二维码。
           < 1200 收进 CompactNavMenu(它是右段最宽的一颗,也是 P0 叠印的主要来源) */}
       {/* Pen 独立“邀请有礼”按钮；与右侧的会员限时活动互不收纳。 */}
-      <InviteNavButton className="hidden min-[1200px]:inline-flex" />
-      <ActivityNavMenu className="hidden min-[1200px]:inline-flex" />
+      {wide && <InviteNavButton />}
+      {activityEverMounted.current && (
+        <ActivityNavMenu active={wide} className={wide ? undefined : 'hidden'} />
+      )}
 
       {/* 反馈 / 客服入口 —— /feedback 是 public 路由,登录与否都给入口。
           放在通知铃铛左边、用户区最外侧,与通知一组,视觉一致 (rounded-8 + bg-surface-2)。
           < 1200 收进 CompactNavMenu */}
-      <IconButton
-        tooltip="反馈与建议" aria-label="反馈与建议" onClick={() => navigate('/feedback')}
-        className="rounded-8 bg-surface-2 hidden min-[1200px]:inline-flex">
-        <Headphones strokeWidth={2} />
-      </IconButton>
+      {wide && (
+        <IconButton
+          tooltip="反馈与建议"
+          aria-label="反馈与建议"
+          onClick={() => navigate('/feedback')}
+          className="rounded-8 bg-surface-2"
+        >
+          <Headphones strokeWidth={2} />
+        </IconButton>
+      )}
 
       {/* 通知按钮仅登录态显示 —— 未登录用户没有站内信概念,
           且 /user/messages 是 protected 接口,挂着也是 401 */}

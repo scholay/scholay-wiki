@@ -1,0 +1,13 @@
+/* =============================================================================
+ * Playfair Display —— 自动生成【请勿手改】
+ * 只包含品牌字样 “Scholay” 的字形；由 scripts/sync-playfair-brand.mjs 镜像。
+ * ============================================================================= */
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/playfair-display/v40/playfair-display-brand.woff2') format('woff2');
+  unicode-range: U+53, U+61, U+63, U+68, U+6c, U+6f, U+79;
+}

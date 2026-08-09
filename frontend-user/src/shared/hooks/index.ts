@@ -5,6 +5,7 @@ export { useThrottledValue } from './useThrottledValue';
 export { useHotkey } from './useHotkey';
 export { useLocalStorage } from './useLocalStorage';
 export { useMediaQuery } from './useMediaQuery';
+export { useAfterPageLoad } from './useAfterPageLoad';
 export {
   useOpenAuthorInBrowser,
   useOpenJournalInBrowser,

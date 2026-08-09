@@ -18,6 +18,7 @@ export interface CodeSnippet {
   description?: string;
   is_enabled: boolean;
   priority: number;
+  defer_until_idle: boolean;
   pages?: string[];
   created_at: string;
   updated_at: string;

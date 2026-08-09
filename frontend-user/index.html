@@ -44,9 +44,10 @@
       改成:
         - Google Sans 官方可变字体版本化自托管(wght 400–700),
           只 preload 首屏 normal latin;italic / latin-ext 按需加载
-        - Noto Serif SC 的 CJK unicode-range 分片按字符需求加载
+        - Noto Serif SC 的首屏 UI 常用字收敛为一个小子集,
+          其他中文仍用完整 unicode-range 分片按需兜底
         - Playfair Display 只供冻结的 Scholay 品牌字样使用,
-          latin 子集 preload + font-display: swap
+          preload 仅含该 7 个唯一字形的 2–3KB 子集
 
       ⚠️ 2026-07-27:原先只自托了 700 一个静态字重,导致 font-medium(500)/
          font-normal(400) 全在跑浏览器合成假粗体 —— BrandName 的三个 tone
@@ -62,19 +63,47 @@
     />
     <link
       rel="preload"
-      href="/fonts/playfair-display-var-latin.woff2"
+      href="/fonts/playfair-display/v40/playfair-display-brand.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/noto-serif-sc/noto-serif-sc-ui-239f956f88b7.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
 
+    <!--
+      非关键第三方/运营脚本统一在 page load 后的 idle 期启动。
+      这些任务不参与首屏渲染，不应与 entry/CSS/字体/LCP 图片竞争。
+      timeout 是上限：即使浏览器持续繁忙，也会在 load 后 2s 内执行。
+    -->
+    <script>
+      window.__afterCriticalLoad = function (task) {
+        var schedule = function () {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(task, { timeout: 2000 });
+          } else {
+            window.setTimeout(task, 250);
+          }
+        };
+        if (document.readyState === 'complete') schedule();
+        else window.addEventListener('load', schedule, { once: true });
+      };
+    </script>
+
     <!-- Microsoft Clarity Analytics -->
     <script>
-      (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-      })(window, document, "clarity", "script", "u14c9rnomm");
+      window.__afterCriticalLoad(function () {
+        (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "u14c9rnomm");
+      });
     </script>
     <!--
       Umami tracker —— 运行时加载,website_id 由 backend 接口动态提供。
@@ -87,8 +116,10 @@
         3) backend 不可达 / umami 没起 → 默默跳过,主站功能完全不受影响
     -->
     <script>
-      (function () {
-        fetch('/api/v1/public/umami-config', { cache: 'force-cache' })
+      window.__afterCriticalLoad(function () {
+        // 使用浏览器默认 HTTP 缓存语义：后端 max-age=300 到期后会重新验证。
+        // 不能 force-cache，否则 Umami 重建后旧 website_id 可被长期强制复用。
+        fetch('/api/v1/public/umami-config')
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (resp) {
             var data = resp && resp.data;
@@ -97,10 +128,13 @@
             s.defer = true;
             s.src = data.script_url;
             s.setAttribute('data-website-id', data.website_id);
+            s.onload = function () {
+              if (window.__flushScholayUmamiQueue) window.__flushScholayUmamiQueue();
+            };
             document.head.appendChild(s);
           })
           .catch(function () { /* 静默 —— 监控不可用不应该影响站点 */ });
-      })();
+      });
     </script>
 
     <!--
@@ -110,9 +144,11 @@
       空 / backend 不可达 → 静默跳过,不影响站点。
     -->
     <script>
-      (function () {
-        window.dataLayer = window.dataLayer || [];
-        window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+      // 队列 stub 必须同步就绪：React 在 load/idle 前打的首屏事件
+      // 先进 dataLayer；只把配置请求与第三方网络脚本延后。
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+      window.__afterCriticalLoad(function () {
         fetch('/api/v1/config/system')
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (resp) {
@@ -132,7 +168,7 @@
             }
           })
           .catch(function () { /* 静默 —— 监控不可用不应影响站点 */ });
-      })();
+      });
     </script>
 
     <!--
@@ -180,6 +216,26 @@
           }
           return frag;
         }
+
+        function select(list, deferred) {
+          return (list || []).filter(function (item) {
+            return !!item.defer_until_idle === deferred;
+          });
+        }
+
+        function inject(group) {
+          document.head.appendChild(build(group.head));
+          var doBody = function () {
+            document.body.insertBefore(build(group.body_start), document.body.firstChild);
+            document.body.appendChild(build(group.body_end));
+          };
+          if (document.body) doBody();
+          else document.addEventListener('DOMContentLoaded', doBody, { once: true });
+        }
+
+        // 配置请求立即发起，保留 head/body_start 的时序契约；只将后台明确
+        // 标记 defer_until_idle 的广告/分析片段延后，避免“全部延迟”破坏验证 meta、
+        // consent 或 bootstrap 脚本。
         fetch('/api/v1/config/code-snippets')
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (resp) {
@@ -188,13 +244,21 @@
             // 见上「时序坑」:此刻 head 已解析完,爬虫的 SSR flag 若在就说明原始 HTML 已注入过。
             if (window.__SSR_SNIPPETS_INJECTED__) return;
             window.__SSR_SNIPPETS_INJECTED__ = true;
-            document.head.appendChild(build(d.head || []));
-            var doBody = function () {
-              document.body.insertBefore(build(d.body_start || []), document.body.firstChild);
-              document.body.appendChild(build(d.body_end || []));
+
+            inject({
+              head: select(d.head, false),
+              body_start: select(d.body_start, false),
+              body_end: select(d.body_end, false),
+            });
+
+            var deferred = {
+              head: select(d.head, true),
+              body_start: select(d.body_start, true),
+              body_end: select(d.body_end, true),
             };
-            if (document.body) doBody();
-            else document.addEventListener('DOMContentLoaded', doBody);
+            if (deferred.head.length || deferred.body_start.length || deferred.body_end.length) {
+              window.__afterCriticalLoad(function () { inject(deferred); });
+            }
           })
           .catch(function () { /* 静默 —— 片段拉不到不应影响主站 */ });
       })();

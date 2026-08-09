@@ -21,6 +21,7 @@ interface WelcomeBoardProps {
 }
 
 export function WelcomeBoard(_props: WelcomeBoardProps) {
+  void _props;
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
       {/* 顶栏 —— 与 MatrixColumn 双区结构完全一致,过渡零跳变 */}

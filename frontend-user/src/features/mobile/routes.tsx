@@ -17,19 +17,28 @@ export const mobileRoutes: RouteObject[] = [
   {
     path: 'feed',
     lazy: () =>
-      import('./pages/FeedPage').then((m) => ({ Component: m.FeedPage })),
-  },
-  {
-    path: 'feed/journals',
-    lazy: () =>
-      import('./pages/JournalFeedPage').then((m) => ({
-        Component: m.JournalFeedPage,
+      import('./components/FeedPrefetcher').then((m) => ({
+        Component: m.FeedPrefetchLayout,
       })),
-  },
-  {
-    path: 'feed/news',
-    lazy: () =>
-      import('./pages/NewsPage').then((m) => ({ Component: m.NewsPage })),
+    children: [
+      {
+        index: true,
+        lazy: () =>
+          import('./pages/FeedPage').then((m) => ({ Component: m.FeedPage })),
+      },
+      {
+        path: 'journals',
+        lazy: () =>
+          import('./pages/JournalFeedPage').then((m) => ({
+            Component: m.JournalFeedPage,
+          })),
+      },
+      {
+        path: 'news',
+        lazy: () =>
+          import('./pages/NewsPage').then((m) => ({ Component: m.NewsPage })),
+      },
+    ],
   },
   {
     // 旧的独立搜索页已被「悬浮搜索浮层」(MobileSearchOverlay)取代;保留路径做重定向,

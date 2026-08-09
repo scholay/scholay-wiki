@@ -1,12 +1,9 @@
 import { createBrowserRouter, redirect } from 'react-router-dom';
-import { AppShell } from './layouts/AppShell';
-import { HomePage } from '@/features/home/HomePage';
 import {
   desktopEquivalentPath,
   isPhoneDevice,
   mobileEquivalentPath,
 } from '@/shared/lib/device';
-import { NotFoundPage } from '@/features/home/NotFoundPage';
 import { RouteErrorBoundary } from '@/shared/components/RouteErrorBoundary';
 import { adminRoutes } from '@/features/admin/routes';
 import { searchRoutes } from '@/features/search/routes';
@@ -38,9 +35,9 @@ import { settingsRoutes, settingsMobileRoutes } from '@/features/settings/routes
  *   1. 在 features/<x>/ 加 `routes.tsx`,导出 `<x>Routes`
  *   2. 在本文件 import + spread 一次,不动其他文件
  *
- * **页面级 lazy 是默认** —— 仅 HomePage / NotFoundPage 保留即时加载:
- *   · HomePage:首屏入口,lazy 等于一次额外往返,得不偿失
- *   · NotFoundPage:errorElement 必须同步可用,否则路由初始化报警
+ * **页面级 lazy 是默认** —— AppShell / HomePage / NotFoundPage 也走 route lazy:
+ *   · 让 /m、/admin、landing、help 等独立壳不再静态下载桌面壳与首页闭包;
+ *   · route lazy 在导航提交前解析,仍由 RouteErrorBoundary 承接 stale chunk。
  *
  * Admin 是独立 shell(adminRoutes 已自带 path 前缀 + loader 守卫),
  * 也只是 spread,不掺到 AppShell 里。
@@ -129,7 +126,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: <AppShell />,
+    lazy: () =>
+      import('./layouts/AppShell').then((m) => ({
+        Component: m.AppShell,
+      })),
     errorElement: <RouteErrorBoundary />,
     // 正向闸:手机 UA 落在 PC 路由 → 进移动对等页(映射表 MOBILE_EQUIVALENTS)。
     //   - 有 /m 对等页才跳(/settings/*→/m/me、/tools/*→/m/tools/*、/library/*→/m/library/* 等)
@@ -145,7 +145,13 @@ export const router = createBrowserRouter([
       return target ? redirect(target) : null;
     },
     children: [
-      { index: true, element: <HomePage /> },
+      {
+        index: true,
+        lazy: () =>
+          import('@/features/home/HomePage').then((m) => ({
+            Component: m.HomePage,
+          })),
+      },
       ...searchRoutes,
       ...journalsRoutes,
       ...libraryRoutes,
@@ -159,7 +165,13 @@ export const router = createBrowserRouter([
       ...newsRoutes,
       ...authRoutes,
       ...settingsRoutes,
-      { path: '*', element: <NotFoundPage /> },
+      {
+        path: '*',
+        lazy: () =>
+          import('@/features/home/NotFoundPage').then((m) => ({
+            Component: m.NotFoundPage,
+          })),
+      },
     ],
   },
 ]);

@@ -19,25 +19,27 @@ import (
 
 // CreateCodeSnippetRequest 创建代码片段请求
 type CreateCodeSnippetRequest struct {
-	Name        string   `json:"name" binding:"required"`
-	CodeKey     string   `json:"code_key" binding:"required"`
-	Position    string   `json:"position" binding:"required,oneof=head body_start body_end"`
-	CodeContent string   `json:"code_content" binding:"required"`
-	Description string   `json:"description"`
-	IsEnabled   bool     `json:"is_enabled"`
-	Priority    int      `json:"priority"`
-	Pages       []string `json:"pages"`
+	Name           string   `json:"name" binding:"required"`
+	CodeKey        string   `json:"code_key" binding:"required"`
+	Position       string   `json:"position" binding:"required,oneof=head body_start body_end"`
+	CodeContent    string   `json:"code_content" binding:"required"`
+	Description    string   `json:"description"`
+	IsEnabled      bool     `json:"is_enabled"`
+	Priority       int      `json:"priority"`
+	Pages          []string `json:"pages"`
+	DeferUntilIdle bool     `json:"defer_until_idle"`
 }
 
 // UpdateCodeSnippetRequest 更新代码片段请求
 type UpdateCodeSnippetRequest struct {
-	Name        string   `json:"name"`
-	Position    string   `json:"position" binding:"omitempty,oneof=head body_start body_end"`
-	CodeContent string   `json:"code_content"`
-	Description string   `json:"description"`
-	IsEnabled   *bool    `json:"is_enabled"`
-	Priority    *int     `json:"priority"`
-	Pages       []string `json:"pages"`
+	Name           string   `json:"name"`
+	Position       string   `json:"position" binding:"omitempty,oneof=head body_start body_end"`
+	CodeContent    string   `json:"code_content"`
+	Description    string   `json:"description"`
+	IsEnabled      *bool    `json:"is_enabled"`
+	Priority       *int     `json:"priority"`
+	Pages          []string `json:"pages"`
+	DeferUntilIdle *bool    `json:"defer_until_idle"`
 }
 
 // ListCodeSnippets 获取代码片段列表（管理端）
@@ -59,15 +61,16 @@ func (h *Handler) CreateCodeSnippet(c *gin.Context) {
 	}
 
 	snippet := &model.CodeSnippet{
-		Name:        req.Name,
-		CodeKey:     req.CodeKey,
-		Category:    model.CategoryOther,
-		Position:    model.CodeSnippetPosition(req.Position),
-		CodeContent: req.CodeContent,
-		Description: req.Description,
-		IsEnabled:   req.IsEnabled,
-		Priority:    req.Priority,
-		Pages:       req.Pages,
+		Name:           req.Name,
+		CodeKey:        req.CodeKey,
+		Category:       model.CategoryOther,
+		Position:       model.CodeSnippetPosition(req.Position),
+		CodeContent:    req.CodeContent,
+		Description:    req.Description,
+		IsEnabled:      req.IsEnabled,
+		Priority:       req.Priority,
+		Pages:          req.Pages,
+		DeferUntilIdle: req.DeferUntilIdle,
 	}
 
 	if err := h.service.CreateCodeSnippet(snippet); err != nil {
@@ -127,6 +130,9 @@ func (h *Handler) UpdateCodeSnippet(c *gin.Context) {
 	if req.Pages != nil {
 		snippet.Pages = req.Pages
 	}
+	if req.DeferUntilIdle != nil {
+		snippet.DeferUntilIdle = *req.DeferUntilIdle
+	}
 
 	if err := h.service.UpdateCodeSnippet(snippet); err != nil {
 		utils.Error(c, 3034, "更新代码片段失败")
@@ -165,5 +171,8 @@ func (h *Handler) GetCodeSnippetsForUser(c *gin.Context) {
 		utils.Error(c, 3036, "获取代码片段失败")
 		return
 	}
+	// 可执行运营片段只做很短的浏览器复用；过期必须回源，
+	// 不得 stale-while-revalidate，否则紧急下线的脚本还可继续执行数分钟。
+	c.Header("Cache-Control", "public, max-age=30, must-revalidate")
 	utils.Success(c, result)
 }

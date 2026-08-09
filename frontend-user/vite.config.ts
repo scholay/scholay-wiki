@@ -41,21 +41,33 @@ export default defineConfig(({ command }) => ({
         //    chunk;framer 仍单独成块避免掉进 entry。dead dep @tanstack/react-table 已从 package.json 移除,
         //    其 `table` 命名块一并删除;react-virtual 交给各自 lazy 路由就近切。
         manualChunks(id: string) {
-          if (!id.includes('node_modules')) return;
+          const normalizedId = id.replace(/\\/g, '/');
+          // Rollup 的 CommonJS runtime 是虚拟模块(\0commonjsHelpers.js),不含 node_modules。
+          // 若交给自动分块,它可能被收进任意一个巨型 CJS 消费者;Mammoth 因此曾反向
+          // import figure-spec/ELK 所在块。固定成独立小 runtime,让两条重依赖链彻底解耦。
           if (
-            id.includes('/node_modules/react-dom/') ||
-            id.includes('/node_modules/react/') ||
-            id.includes('/node_modules/react-router') ||
-            id.includes('/node_modules/scheduler/')
+            normalizedId.includes('commonjsHelpers.js') ||
+            normalizedId.includes('commonjs-dynamic-modules')
+          ) return 'commonjs-runtime';
+          if (!normalizedId.includes('node_modules')) return;
+          if (normalizedId.includes('/node_modules/elkjs/')) return 'elk';
+          if (normalizedId.includes('/node_modules/mammoth/')) return 'mammoth';
+          if (
+            normalizedId.includes('/node_modules/react-dom/') ||
+            normalizedId.includes('/node_modules/react/') ||
+            normalizedId.includes('/node_modules/react-router') ||
+            normalizedId.includes('/node_modules/scheduler/')
           ) return 'vendor';
-          if (id.includes('/node_modules/framer-motion/')) return 'motion';
+          if (normalizedId.includes('/node_modules/framer-motion/')) return 'motion';
           if (
-            id.includes('/node_modules/@tanstack/react-query/') ||
-            id.includes('/node_modules/axios/') ||
-            id.includes('/node_modules/zustand/')
+            normalizedId.includes('/node_modules/@tanstack/react-query/') ||
+            normalizedId.includes('/node_modules/axios/') ||
+            normalizedId.includes('/node_modules/zustand/')
           ) return 'query';
-          if (id.includes('/node_modules/katex/')) return 'katex';
-          if (id.includes('/node_modules/highlight.js/') || id.includes('/node_modules/lowlight/')) return 'hljs';
+          if (normalizedId.includes('/node_modules/katex/')) return 'katex';
+          // lowlight 不强制入 hljs:它与 ReactMarkdown 共用 AST 工具。Rollup 默认
+          // 会把手工块的依赖一并收入,连 lowlight 也命名会让基础 Markdown 反向依赖 hljs。
+          if (normalizedId.includes('/node_modules/highlight.js/')) return 'hljs';
           return undefined;
         },
       },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, lazy, Suspense } from 'react';
+import { useEffect, useRef, useSyncExternalStore, lazy, Suspense } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Providers } from './providers';
 import { router } from './router';
@@ -10,6 +10,7 @@ import { useCollectPicker } from '@/stores/collect-picker.store';
 import { useShareSheet } from '@/stores/share.store';
 import { useInviteEntry } from '@/stores/invite-entry.store';
 import { InviteFlowController } from './InviteFlowController';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 
 // 诊断:把 data router 挂到 window,卡住时可在控制台读 `__appRouter.state.location.pathname`
 // (RR 已提交的路由)/ `.state.navigation.state`(idle/loading)与地址栏对比。配合 RouteCommitWatchdog。
@@ -89,11 +90,18 @@ function usePayReturnPath() {
 function ShellRoot() {
   useCloseGlobalModalsOnNavigate();
   usePayReturnPath();
+  const routerInitialized = useSyncExternalStore(
+    (onStoreChange) => router.subscribe(() => onStoreChange()),
+    () => router.state.initialized,
+    () => router.state.initialized,
+  );
   return (
     <>
       <AuthBootstrap />
       <UserActivityReporter />
-      <InviteFlowController />
+      <ErrorBoundary fallback={() => null}>
+        <InviteFlowController />
+      </ErrorBoundary>
       {/*
         useTransitions={false} —— 根因修复:RR v7 默认把导航的 state 提交包在 React 19 低优
         `startTransition` 里(react-router 源码 chunk RouterProvider:`useTransitions===false ?
@@ -105,13 +113,43 @@ function ShellRoot() {
         本项目路由层无 render-suspense(用 RR `lazy:` 在导航阶段加载 + 普通 useQuery,非 Suspense),
         故关掉过渡无副作用。RouteCommitWatchdog 保留作安全网 + 回归探针(理论上此后永不触发)。
       */}
+      {!routerInitialized && <RouteLoadingFallback />}
       <RouterProvider router={router} useTransitions={false} />
       {/* 全局鉴权弹窗 — 任何位置通过 useAuthDialog.openDialog 触发。懒加载(性能审计 #2):AuthDialog 全家桶
           (zod+react-hook-form+turnstile+微信扫码 ~105KB)此前 eager 常驻入口 chunk。改成首次打开才拉,
           之后保持挂载(内部本靠 store.open 控制 Radix Dialog 开合,常驻无副作用)。 */}
-      <AuthDialogGate />
-      <InviteEntryDialogGate />
+      <ErrorBoundary fallback={() => null}>
+        <AuthDialogGate />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={() => null}>
+        <InviteEntryDialogGate />
+      </ErrorBoundary>
     </>
+  );
+}
+
+/**
+ * Data Router 首次解析 route-lazy 时的零依赖占位。不引入图标、动画库
+ * 或任何 feature，避免为消除空白反而抬高入口闭包。
+ */
+function RouteLoadingFallback() {
+  return (
+    <main
+      role="status"
+      aria-label="页面加载中"
+      className="flex min-h-dvh items-center justify-center bg-background px-6"
+    >
+      <div className="flex w-full max-w-sm flex-col items-center gap-5">
+        <span className="font-brand text-24 font-medium tracking-brand text-foreground">
+          Scholay
+        </span>
+        <div aria-hidden className="flex w-full flex-col gap-2.5">
+          <span className="h-3 w-full animate-pulse rounded-pill bg-surface-2" />
+          <span className="h-3 w-4/5 animate-pulse rounded-pill bg-surface-2" />
+          <span className="h-3 w-2/3 animate-pulse rounded-pill bg-surface-2" />
+        </div>
+      </div>
+    </main>
   );
 }
 
@@ -124,8 +162,14 @@ const InviteEntryDialog = lazy(() =>
 
 function AuthDialogGate() {
   const open = useAuthDialog((s) => s.open);
+  const mode = useAuthDialog((s) => s.mode);
   const everOpened = useRef(false);
-  if (open) everOpened.current = true;
+  const onMobileRoute =
+    typeof window !== 'undefined' &&
+    (window.location.pathname === '/m' || window.location.pathname.startsWith('/m/'));
+  // /m 下普通登录由 MobileShell 的 MobileAuthSheet 承接；仅微信扫码仍需 PC Dialog 的 QR 面板。
+  // 否则一次移动登录会同时下载两套鉴权 UI，抵消 MobileAuthSheet 的独立 lazy 边界。
+  if (open && (!onMobileRoute || mode === 'wechat-qr')) everOpened.current = true;
   if (!everOpened.current) return null; // 从未打开过 → 不加载 AuthDialog chunk
   return (
     <Suspense fallback={null}>

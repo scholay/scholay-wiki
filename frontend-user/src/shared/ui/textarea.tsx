@@ -11,7 +11,7 @@ import { cn } from'@/shared/lib/utils';
  * 与 input.tsx 保持同构: 同样的描边、圆角、焦点环、禁用态、字号。
  * 字号 = text-14,与 dev.pen 的输入控件及 input.tsx 保持一致。
  */
-export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, ...props }, ref) => (

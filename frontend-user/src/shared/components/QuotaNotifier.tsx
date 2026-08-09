@@ -5,8 +5,8 @@
 //  · 弹窗要素行由**结构化 6010 载荷**驱动(quota-events.QuotaPayload,缺载荷回落 overview)
 //  · 关闭后 60s 冷却:同类 6010 只轻 toast 不重弹(冷却态在 quota.store)
 //  · 每次 AI 用量结束(billing-changed)→ 刷新额度,过半/将尽时弹 toastr(每级每周期一次,已持久化)
-//  · 四条恢复路成功时统一广播 QUOTA_RECOVERED_EVENT(本组件自身监听并 invalidate overview)
-import { useEffect, useState } from 'react';
+//  · 四条恢复路成功时统一广播 QUOTA_RECOVERED_EVENT(轻量 Gate 监听并刷新 overview)
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Coins, Loader2, RefreshCw, Ticket, Zap } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
@@ -22,19 +22,17 @@ import {
 } from '@/shared/ui/dialog';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
-import { localDateKey } from '@/shared/lib/daily-trend';
 import { isPhoneDevice } from '@/shared/lib/device';
 import {
-  QUOTA_EXCEEDED_EVENT,
-  QUOTA_RECOVERED_EVENT,
-  BILLING_CHANGED_EVENT,
   notifyQuotaRecovered,
   quotaNavigate,
-  type QuotaExceededDetail,
   type QuotaPayload,
 } from '@/shared/lib/quota-events';
-import { useQuotaStore, QUOTA_DIALOG_SNOOZE_MS } from '@/stores/quota.store';
+import {
+  QUOTA_OVERVIEW_QUERY_KEY,
+  type QuotaOverview,
+} from '@/shared/lib/quota-overview';
+import { useQuotaStore } from '@/stores/quota.store';
 import { SubscribeDialog, subscribePayMethods, type SubQuote } from './subscribe-dialog';
 import { WechatPayDialog } from './wechat-pay-dialog';
 import type { BillingCycle, MembershipPlanData } from './membership-plan-card';
@@ -44,24 +42,6 @@ import {
   inviteRegistrationSummary,
   useInviteCampaign,
 } from '@/shared/api/invite-campaign';
-
-interface Overview {
-  tier: 'free' | 'pro' | 'max';
-  /** 当前计费周期(monthly|yearly);免费/过期时后端省略。用于把「续期」在跨周期时说成「转为年付」。
-   *  mirrors backend/internal/vip/quota.go Overview.Cycle */
-  cycle?: 'monthly' | 'yearly';
-  token: {
-    used: number;
-    ceiling: number;
-    percent: number;
-    unlimited: boolean;
-    window_days: number; // P4:7 天周期
-    window_started_at: string | null; // null = 未开窗
-    window_reset_at: string | null; // 窗口自动重置时刻
-  };
-  credit: { perm: number; total: number; perm_micro: number; points: number; credit_autopay: boolean };
-  reset_passes: number;
-}
 
 // mirrors backend /billing/plans(vip/billing_handler.go PublicPlans)的**弹窗消费子集**;
 // 全量 interface 在 features/settings/api/membership.ts —— shared 不可反向 import features,
@@ -84,25 +64,25 @@ export function formatResetAt(iso: string | null | undefined): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-const KEY = ['settings', 'billing'];
-
 /** 订阅报价(SubscribeDialog 用;模块级函数 = 稳定引用,防 effect 重跑)。 */
 const quoteSubscription = async (tier: 'pro' | 'max', cycle: BillingCycle): Promise<SubQuote> =>
   (await http.get<{ data: SubQuote }>('/user/billing/subscribe/quote', { params: { tier, cycle } })).data.data;
 
-export function QuotaNotifier() {
+export function QuotaNotifier({
+  data,
+  exceededMsg,
+  payloadQuota,
+}: {
+  data: QuotaOverview | undefined;
+  exceededMsg: string;
+  payloadQuota: QuotaPayload | null;
+}) {
   const qc = useQueryClient();
   const resetOpen = useQuotaStore((s) => s.resetOpen);
   const openReset = useQuotaStore((s) => s.openReset);
   const closeReset = useQuotaStore((s) => s.closeReset);
 
   const [code, setCode] = useState('');
-  // 后端随 6010/quota_exceeded 下发的说明文案 —— 作为**正文**展示(时刻要素行由结构化载荷
-  // 单独渲染,见下;不再依赖 message 里嵌的时间,避免两行重复)。新事件覆盖旧值。
-  const [exceededMsg, setExceededMsg] = useState('');
-  // 结构化 6010 载荷(冻结契约):reset_at / window_days / credit_balance_positive / credit_autopay。
-  // null = 本次事件未带载荷(旧后端)→ 一律回落 overview 数据。
-  const [payloadQuota, setPayloadQuota] = useState<QuotaPayload | null>(null);
   // 升级会员就地化:PC 在本组件内直接挂 SubscribeDialog(移动 UA 走 /m/me?upgrade=1)。
   const [subOpen, setSubOpen] = useState(false);
   // 微信支付:订单建好后交给 WechatPayDialog 扫码(null = 关着)。
@@ -114,16 +94,6 @@ export function QuotaNotifier() {
         .join('；')
     : '';
 
-  const { data } = useQuery({
-    queryKey: KEY,
-    queryFn: async () => (await http.get<{ data: Overview }>('/user/billing/overview')).data.data,
-    enabled: !!getAuthToken(),
-    staleTime: 15_000,
-    // 跨设备:在别的设备充了会员/重置后,回到本设备(标签页重新聚焦)立即重新核对额度/等级,
-    // 让额度显示及时跟上(发送本身走后端真源不受影响,这里修的是「显示滞后」)。
-    refetchOnWindowFocus: true,
-  });
-
   // 套餐(免登录端点)—— 只在弹窗需要时才拉;与 features/settings usePlans 同 queryKey 共享缓存。
   const { data: plansData } = useQuery({
     queryKey: ['billing', 'plans'],
@@ -132,65 +102,12 @@ export function QuotaNotifier() {
     enabled: resetOpen || subOpen,
   });
 
-  // 6010 / quota_exceeded → 更新载荷 + 按弹窗状态分流;billing-changed / quota-recovered → 刷新额度
-  useEffect(() => {
-    const onExceeded = (e: Event) => {
-      const detail = (e as CustomEvent<QuotaExceededDetail | undefined>).detail;
-      setExceededMsg(detail?.message ?? '');
-      setPayloadQuota(detail?.quota ?? null);
-      qc.invalidateQueries({ queryKey: KEY });
-      const s = useQuotaStore.getState();
-      if (s.resetOpen) return; // 已开着:只更新载荷,不动弹窗(别打断用户正在看的内容)
-      if (Date.now() - s.dismissedAt < QUOTA_DIALOG_SNOOZE_MS) {
-        // 刚关掉 60s 内的同类事件:轻 toast 提示,不重弹弹窗(冷却态在 quota.store.dismissedAt)。
-        showQuotaToast('exhausted');
-        return;
-      }
-      openReset();
-    };
-    const onRefresh = () => qc.invalidateQueries({ queryKey: KEY });
-    window.addEventListener(QUOTA_EXCEEDED_EVENT, onExceeded);
-    window.addEventListener(BILLING_CHANGED_EVENT, onRefresh);
-    window.addEventListener(QUOTA_RECOVERED_EVENT, onRefresh);
-    return () => {
-      window.removeEventListener(QUOTA_EXCEEDED_EVENT, onExceeded);
-      window.removeEventListener(BILLING_CHANGED_EVENT, onRefresh);
-      window.removeEventListener(QUOTA_RECOVERED_EVENT, onRefresh);
-    };
-  }, [openReset, qc]);
-
-  // 弹窗关闭 → 清空本次事件的文案与载荷(修「旧文案在下一次弹出时复现」)。
-  useEffect(() => {
-    if (!resetOpen) {
-      setExceededMsg('');
-      setPayloadQuota(null);
-    }
-  }, [resetOpen]);
-
-  // 阈值 toastr:过半(>=50%)/ 将尽(>=80%),每级每**周期**只弹一次(P4:锚定 7 天窗口,
-  // 去重 key 用 window_started_at —— 换窗即重置;未开窗兜底当日 key。warnDay/warnLevel 已持久化)。
-  useEffect(() => {
-    // P5:用户端不下发额度绝对值(ceiling 被抹为 0),只按 unlimited + percent 判定(百分比是真值)。
-    if (!data || data.token.unlimited) return;
-    const day = data.token.window_started_at ?? localDateKey();
-    const s = useQuotaStore.getState();
-    const level = s.warnDay === day ? s.warnLevel : 0;
-    const pct = data.token.percent;
-    if (pct >= 80 && level < 2) {
-      showQuotaToast('almost');
-      s.markWarn(day, 2);
-    } else if (pct >= 50 && level < 1) {
-      showQuotaToast('half');
-      s.markWarn(day, 1);
-    }
-  }, [data]);
-
   const reset = useMutation({
     mutationFn: async () => (await http.post('/user/billing/reset')).data,
     onSuccess: () => {
       showQuotaToast('reset');
       notifyQuotaRecovered();
-      qc.invalidateQueries({ queryKey: KEY });
+      void qc.invalidateQueries({ queryKey: QUOTA_OVERVIEW_QUERY_KEY });
       closeReset();
     },
     onError: (err) => toast.error(toApiError(err).message || '这次没能重置成功,重置次数没有扣除,请稍后再试'),
@@ -204,7 +121,7 @@ export function QuotaNotifier() {
       toast.success('兑换成功,权益已经到账');
       setCode('');
       notifyQuotaRecovered();
-      qc.invalidateQueries({ queryKey: KEY });
+      void qc.invalidateQueries({ queryKey: QUOTA_OVERVIEW_QUERY_KEY });
       closeReset();
     },
     onError: (err) => toast.error(toApiError(err).message || '这个兑换码没能用上,检查一下有没有输错'),
@@ -217,7 +134,7 @@ export function QuotaNotifier() {
     onSuccess: () => {
       toast.success('已开启。回到对话点「重新发送」就能接着跑,只扣超出额度的那部分');
       notifyQuotaRecovered();
-      qc.invalidateQueries({ queryKey: KEY });
+      void qc.invalidateQueries({ queryKey: QUOTA_OVERVIEW_QUERY_KEY });
       closeReset();
     },
     onError: (err) => toast.error(toApiError(err).message || '没能开启「用经费继续」,你的设置没有变化,请稍后再试'),
@@ -238,7 +155,7 @@ export function QuotaNotifier() {
         await http.post('/user/billing/test-pay', { order_no: order.order_no });
         toast.success('已升级。回到对话点「重新发送」就能接着跑');
         notifyQuotaRecovered();
-        qc.invalidateQueries({ queryKey: KEY });
+        void qc.invalidateQueries({ queryKey: QUOTA_OVERVIEW_QUERY_KEY });
         closeReset();
         return true;
       }
@@ -430,7 +347,7 @@ export function QuotaNotifier() {
       onPaid={() => {
         toast.success('已升级。回到对话点「重新发送」就能接着跑');
         notifyQuotaRecovered();
-        qc.invalidateQueries({ queryKey: KEY });
+        void qc.invalidateQueries({ queryKey: QUOTA_OVERVIEW_QUERY_KEY });
         closeReset();
       }}
     />

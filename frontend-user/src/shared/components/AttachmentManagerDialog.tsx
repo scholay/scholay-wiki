@@ -10,7 +10,7 @@
 //   ② 主动 —— 输入框「+」→「我的附件」(ComposerPlusMenu)。
 // 第二条是必需的:cwd 满的那条文案也写着「或在『我的附件』里删掉不用的文件」,
 // 没有主动入口那句话同样是空话。
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FileText, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
@@ -26,10 +26,7 @@ import {
   useMyAttachments,
   type AttachmentGroup,
 } from '@/shared/api/agent-attach';
-import {
-  ATTACHMENT_MANAGER_EVENT,
-  type AttachmentManagerDetail,
-} from '@/shared/lib/attachment-events';
+import type { AttachmentManagerDetail } from '@/shared/lib/attachment-events';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
@@ -38,19 +35,16 @@ function formatSize(bytes: number): string {
   return `${bytes} B`;
 }
 
-export function AttachmentManagerDialog() {
-  const [open, setOpen] = useState(false);
-  const [detail, setDetail] = useState<AttachmentManagerDetail>({});
+export function AttachmentManagerDialog({
+  open,
+  detail,
+  onOpenChange,
+}: {
+  open: boolean;
+  detail: AttachmentManagerDetail;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [pending, setPending] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onOpen = (e: Event) => {
-      setDetail((e as CustomEvent<AttachmentManagerDetail>).detail ?? {});
-      setOpen(true);
-    };
-    window.addEventListener(ATTACHMENT_MANAGER_EVENT, onOpen);
-    return () => window.removeEventListener(ATTACHMENT_MANAGER_EVENT, onOpen);
-  }, []);
 
   // enabled=open:不打开就不打这个接口(它对匿名访客也没有意义)。
   const { data, isLoading, isError } = useMyAttachments(open);
@@ -77,7 +71,7 @@ export function AttachmentManagerDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 宽度用 Dialog 默认档(max-w-lg);列表区高度限死在视口内并自滚,
           附件多的用户不至于把弹窗顶出屏幕(dvh 而非 vh:iOS 地址栏会盖住底部)。 */}
       <DialogContent>

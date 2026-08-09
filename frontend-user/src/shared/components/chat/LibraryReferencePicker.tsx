@@ -100,13 +100,15 @@ export function LibraryReferencePicker({
   const togglePaper = (id: number) =>
     setSelPapers((s) => {
       const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   const toggleFolder = (id: number) =>
     setSelFolders((s) => {
       const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
 

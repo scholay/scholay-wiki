@@ -76,9 +76,12 @@ export function useInviteCampaign() {
     queryFn: async () =>
       (await http.get<{ data: InviteCampaign }>("/invite/campaign")).data.data,
     staleTime: 60_000,
-    // App Controller / 顶栏常驻，需持续跟随后台总开关；隐藏标签页不轮询。
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
+    // 活动开关是低频配置：不再让每个长开 tab 每 60 秒轮询。
+    // 用户重回标签、网络恢复，或真正进入邀请相关页面(新 observer mount)
+    // 时刷新；本地鲜度窗口与服务端 max-age 同为 60 秒。
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
     retry: 1,
   });
 }
@@ -147,9 +150,19 @@ export async function bindInviteCode(code: string): Promise<InviteBindResult> {
 
 export function useBindInvite() {
   const qc = useQueryClient();
+  const token = useAuthStore((state) => state.token);
   return useMutation({
     mutationFn: bindInviteCode,
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // bind 响应携带事务提交后的 status + campaign，直接作为权威真值；
+      // 避免成功后短暂回显绑定前状态，也不用等公开配置缓存过期。
+      qc.setQueryData(
+        [...INVITE_STATUS_QUERY_KEY, authSessionKey(token)],
+        result.status,
+      );
+      if (result.status.campaign) {
+        qc.setQueryData(INVITE_CAMPAIGN_QUERY_KEY, result.status.campaign);
+      }
       void qc.invalidateQueries({ queryKey: INVITE_STATUS_QUERY_KEY });
       void qc.invalidateQueries({ queryKey: ["settings", "invite"] });
       // 关联可能同步发放受邀用户注册礼，余额与经费流水必须立即刷新。

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
-import { STALE_COOL } from '@/shared/lib/query-config';
+
+export const PUBLIC_CONFIG_STALE_TIME = 60_000;
 
 /**
  * 公开系统配置 —— 跨 feature 资源(登录页、注册页、设置页都要读)。
@@ -16,7 +17,8 @@ import { STALE_COOL } from '@/shared/lib/query-config';
  *   - github_client_id / google_client_id / discourse_site_url: provider 启用 + 公钥
  *   - apple_enabled / microsoft_enabled / orcid_enabled / wechat_enabled: provider 启用
  *
- * queryKey 用 'public-config' 区分 'auth' —— 这个跟谁登录无关,staleTime 5min。
+ * queryKey 用 'public-config' 区分 'auth' —— 这个跟谁登录无关。
+ * Turnstile / OAuth 是认证关键开关，前后端都不超过 60s 就要重验。
  */
 
 export interface PublicSystemConfig {
@@ -42,7 +44,9 @@ export function usePublicConfig() {
       );
       return data.data;
     },
-    staleTime: STALE_COOL,
+    staleTime: PUBLIC_CONFIG_STALE_TIME,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     // 失败兜底:登录页才不至于因为配置挂掉就完全不显示按钮。
     retry: 1,
   });

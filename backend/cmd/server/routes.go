@@ -46,11 +46,11 @@ import (
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promo"
 	"scholar-backend/internal/scidraw"
-	"scholar-backend/internal/statlab"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
+	"scholar-backend/internal/statlab"
 	"scholar-backend/internal/supportcenter"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
@@ -146,6 +146,8 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		api.GET("/config/support-contact", h.supportCenter.GetPublicContact)
 		// 限时领取会员推广配置(免登录;关闭时只回 enabled=false,不泄漏二维码/文案)
 		api.GET("/config/promo", h.promo.GetPublic)
+		api.GET("/config/promo/summary", h.promo.GetPublicSummary)
+		api.GET("/config/promo/qr", h.promo.GetPublicQR)
 
 		// 内容中心(博客 / 学术资源)公开 API —— 正文单一真源 internal/content(go:embed),
 		// 前端文章列表 / 详情页取数;SSR 也读同一份 content 包渲染 noscript 全文。无鉴权、无状态。

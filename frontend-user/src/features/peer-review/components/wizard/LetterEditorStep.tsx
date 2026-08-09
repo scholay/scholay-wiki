@@ -35,8 +35,6 @@ const COPY = {
   },
 };
 
-// submissionId 当前只是给将来"插入引用 / 摘要"等富功能预留,目前未使用
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function LetterEditorStep({
   submissionId: _submissionId,
   variant,
@@ -45,6 +43,8 @@ export function LetterEditorStep({
   computing,
   statusNote,
 }: LetterEditorStepProps) {
+  // submissionId 保留给后续的“插入引用 / 摘要”功能。
+  void _submissionId;
   const copy = COPY[variant];
 
   return (

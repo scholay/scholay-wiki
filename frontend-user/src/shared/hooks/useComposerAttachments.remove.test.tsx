@@ -13,7 +13,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactNode } from 'react';
 
 type DeleteCall = [string, { params?: { scope?: string } }?];
-const del = vi.fn(async (..._args: DeleteCall) => ({ data: {} }));
+const del = vi.fn(async (...args: DeleteCall) => {
+  void args;
+  return { data: {} };
+});
 
 vi.mock('@/shared/lib/http', () => ({
   http: {

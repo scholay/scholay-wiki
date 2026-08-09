@@ -6,8 +6,13 @@
 package invite
 
 import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"strconv"
+	"strings"
 
 	"scholar-backend/internal/common/utils"
 
@@ -27,7 +32,32 @@ func (h *Handler) Campaign(c *gin.Context) {
 		utils.InternalError(c, 500, "获取邀请活动失败", err)
 		return
 	}
+	if setCampaignPublicCache(c, view) {
+		return
+	}
 	utils.Success(c, view)
+}
+
+// setCampaignPublicCache 让低频活动开关可被浏览器/CDN 短时复用，并用 ETag
+// 将前端重回页面时的合理刷新降为 304；最长 60 秒后必须重验，
+// 不允许 CDN 用 stale-while-revalidate 继续展示已关闭的活动。
+func setCampaignPublicCache(c *gin.Context, view PublicCampaign) bool {
+	raw, err := json.Marshal(view)
+	if err != nil {
+		return false
+	}
+	sum := sha256.Sum256(raw)
+	etag := fmt.Sprintf("\"%x\"", sum)
+	c.Header("Cache-Control", "public, max-age=60, must-revalidate")
+	c.Header("ETag", etag)
+	for _, candidate := range strings.Split(c.GetHeader("If-None-Match"), ",") {
+		candidate = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(candidate), "W/"))
+		if candidate == etag || candidate == "*" {
+			c.Status(http.StatusNotModified)
+			return true
+		}
+	}
+	return false
 }
 
 // Preview POST /invite/preview {code}(公开，路由限流)。无效请求统一 valid=false。

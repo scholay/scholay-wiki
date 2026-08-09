@@ -4,7 +4,7 @@ import { Separator } from '@/shared/ui';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { TITLES } from '../../components/AuthDialog';
+import { AUTH_TITLES } from '../../components/auth-titles';
 import { LoginForm } from '../../components/LoginForm';
 import { RegisterForm } from '../../components/RegisterForm';
 import { ForgotPasswordForm } from '../../components/ForgotPasswordForm';
@@ -55,7 +55,7 @@ export function MobileAuthPage() {
     setMode(m);
   };
 
-  const t = TITLES[mode];
+  const t = AUTH_TITLES[mode];
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background px-6 pb-10">

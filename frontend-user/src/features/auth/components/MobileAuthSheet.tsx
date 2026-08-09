@@ -5,7 +5,7 @@ import { MobileBottomSheet } from '@/shared/components/MobileBottomSheet';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
-import { TITLES } from './AuthDialog';
+import { AUTH_TITLES } from './auth-titles';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
@@ -28,7 +28,7 @@ export function MobileAuthSheet() {
   const close = useAuthDialog((s) => s.close);
 
   const visible = open && mode !== 'wechat-qr';
-  const t = mode === 'wechat-qr' ? TITLES.login : TITLES[mode];
+  const t = mode === 'wechat-qr' ? AUTH_TITLES.login : AUTH_TITLES[mode];
 
   // 关闭(点蒙层/Esc/下滑/✕)= 放弃登录 → 清掉待执行动作(与 PC AuthDialog.handleClose 一致);
   // 登录成功是表单自调 close()(token 已在),不会清。

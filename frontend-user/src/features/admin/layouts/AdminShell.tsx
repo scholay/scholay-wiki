@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useMatches } from 'react-router-dom';
 import { PanelLeft, Search } from 'lucide-react';
 import { SidebarLayout } from '@/shared/components/sidebar';
@@ -10,12 +10,15 @@ import { useHotkey } from '@/shared/hooks';
 import { useSidebar } from '@/stores/sidebar.store';
 import { useIsAuthenticated, useAuthStore } from '@/stores/auth.store';
 import { AdminSidebar } from '../components/AdminSidebar';
-import {
-  AdminCommandPalette,
-  CMDK_HOTKEY,
-} from '../components/AdminCommandPalette';
 import { AdminUserDetailProvider } from '../components/AdminUserDetailProvider';
 import { ROLE_LABEL } from '../permissions';
+
+const AdminCommandPalette = lazy(() =>
+  import('../components/AdminCommandPalette').then((m) => ({
+    default: m.AdminCommandPalette,
+  })),
+);
+const CMDK_HOTKEY = 'mod+k';
 
 /**
  * Admin 专用 shell —— 结构对齐用户端 AppShell:
@@ -50,6 +53,8 @@ export function AdminShell() {
   // 用户搜索 + 快捷动作),但此前只有定义没有任何调用方,整整一个组件是死代码。
   // 单人运维、35 个页面靠侧栏一项项翻,这是最高性价比的一次"接线"。
   const [cmdkOpen, setCmdkOpen] = useState(false);
+  const cmdkEverOpened = useRef(false);
+  if (cmdkOpen) cmdkEverOpened.current = true;
   useHotkey(CMDK_HOTKEY, () => setCmdkOpen(true), { enableOnFormTags: true });
 
   // 当前角色 —— 菜单是按 role 过滤的(nav.ts 的 requires),排查"为什么我看不到计费配置"
@@ -124,7 +129,11 @@ export function AdminShell() {
         )}
       </header>
 
-      <AdminCommandPalette open={cmdkOpen} onOpenChange={setCmdkOpen} />
+      {cmdkEverOpened.current && (
+        <Suspense fallback={null}>
+          <AdminCommandPalette open={cmdkOpen} onOpenChange={setCmdkOpen} />
+        </Suspense>
+      )}
 
       <div className="flex-1 min-h-0">
         <SidebarLayout sidebar={<AdminSidebar />}>

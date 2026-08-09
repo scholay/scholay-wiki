@@ -12,7 +12,7 @@ import { Check, Copy } from 'lucide-react';
  *   - 复制按钮默认半透明, hover 容器才显形, 不抢正文注意力
  *   - overflow-x-auto: 长代码行横向滚动, 不撑破气泡 (气泡 overflow-hidden 兜底)
  *
- * hljs 主题色走 github light (在 MarkdownRenderer 顶部 import 一次). 代码语法色是独立色域,
+ * hljs 主题色走 github light(由 MarkdownRenderer 的代码增强 loader 按需 import)。代码语法色是独立色域,
  * 不受项目 design token 约束 (token 管 UI chrome, 语法高亮是另一回事)。
  */
 export function CodeBlock({ children }: { children?: ReactNode }) {

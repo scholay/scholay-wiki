@@ -3,6 +3,7 @@ import { ChevronRight, Flame } from 'lucide-react';
 import { useNewsList, useNewsTrending } from '@/shared/api/news';
 import { NewsListItem } from '@/shared/components/news/NewsListItem';
 import { NewsHotItem } from '@/shared/components/news/NewsHotItem';
+import { useAfterPageLoad, useMediaQuery } from '@/shared/hooks';
 
 /**
  * 首页底部「学术情报」区(PC):左主信息流 + 右侧实时热榜两栏。
@@ -15,12 +16,17 @@ import { NewsHotItem } from '@/shared/components/news/NewsHotItem';
  *   标题行 sticky 吸顶:往下滚时「学术情报 / 全部资讯」始终可见,内容从它下面穿过。
  */
 export function NewsSection() {
-  const { data: latest, isLoading } = useNewsList('latest', 6);
-  const { data: trending } = useNewsTrending(7, 8);
+  const showTrending = useMediaQuery('(min-width: 768px)');
+  // 新闻正文会命中 Noto Serif SC 的多个 CJK 分片。它是首页次要内容，等 window.load
+  // 后的空闲期再取数，确保这些字体不会与首屏 AppShell/Home JS 抢慢网带宽。
+  const secondaryReady = useAfterPageLoad();
+  const { data: latest, isLoading } = useNewsList('latest', 6, secondaryReady);
+  const { data: trending } = useNewsTrending(7, 8, showTrending && secondaryReady);
+  const showSkeleton = !secondaryReady || isLoading;
 
   // 无内容(功能未开 / 暂无情报)→ 不渲染整块。
   // 此时 hero 的 flex-1 会自己撑满剩余空间,Footer 仍贴在视口底部。
-  if (!isLoading && (!latest || latest.length === 0)) return null;
+  if (!showSkeleton && (!latest || latest.length === 0)) return null;
 
   return (
     // shrink-0 + 定高:不参与 flex 分配,hero 抢不走它的空间,它也挤不到 Footer。
@@ -31,7 +37,10 @@ export function NewsSection() {
           保留 arbitrary value(对齐情报调研 03 方案 A)。
           scrollbar-none:隐藏滚动条但保留滚动能力(触控板/滚轮/键盘都不受影响)。
           首页是门面,一条常驻的滚动条会把「三段共占一屏」的干净版面切开。 */}
-      <div className="scrollbar-none mx-auto h-full w-full max-w-[960px] overflow-y-auto px-6">
+      <div
+        data-news-scroll
+        className="scrollbar-none mx-auto h-full w-full max-w-[960px] overflow-y-auto px-6"
+      >
         {/* sticky 吸顶。
             - -mx-6 px-6:滚动容器有 px-6,负边距让吸顶条的底色铺满整宽,
               否则内容会从左右两侧的 padding 空隙里「漏」上去
@@ -51,14 +60,16 @@ export function NewsSection() {
         <div className="flex gap-6 pb-4">
         {/* 主信息流 */}
         <div className="min-w-0 flex-1 space-y-3">
-          {isLoading
+          {showSkeleton
             ? Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
                   className="h-28 animate-pulse rounded-16 border border-border-soft bg-surface-1"
                 />
               ))
-            : latest?.map((it) => <NewsListItem key={it.slug} item={it} />)}
+            : latest?.map((it, index) => (
+                <NewsListItem key={it.slug} item={it} deferDetails={index >= 2} />
+              ))}
         </div>
 
         {/* 右侧实时热榜(窄屏隐藏) */}

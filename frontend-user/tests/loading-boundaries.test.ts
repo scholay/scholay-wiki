@@ -1,0 +1,148 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const readSource = (path: string) =>
+  readFileSync(resolve(process.cwd(), path), 'utf8');
+
+describe('route and overlay loading boundaries', () => {
+  it('keeps the desktop shell and home page out of independent top-level routes', () => {
+    const source = readSource('src/app/router.tsx');
+    expect(source).not.toMatch(/^import .*AppShell/m);
+    expect(source).not.toMatch(/^import .*HomePage/m);
+    expect(source).toContain("import('./layouts/AppShell')");
+    expect(source).toContain("import('@/features/home/HomePage')");
+  });
+
+  it('keeps global controllers eager while their heavy dialog UI is lazy', () => {
+    const providers = readSource('src/app/providers.tsx');
+    expect(providers).toContain('<QuotaNotifierGate />');
+    expect(providers).toContain('<PromoModalGate />');
+    expect(providers).toContain('<AttachmentManagerDialogGate />');
+    expect(providers).not.toMatch(/^import .*\/QuotaNotifier['"]/m);
+    expect(providers).not.toMatch(/^import .*\/PromoModal['"]/m);
+    expect(providers).not.toMatch(/^import .*\/AttachmentManagerDialog['"]/m);
+    // 这些 lazy gate 位于 RouterProvider 之外，分包失败不得拖垮整棵应用。
+    expect(providers.match(/<ErrorBoundary fallback=\{\(\) => null\}>/g)).toHaveLength(4);
+    expect(providers).toMatch(
+      /<ErrorBoundary fallback=\{\(\) => null\}>\s*<CollectFolderPickerGate \/>\s*<\/ErrorBoundary>/,
+    );
+
+    for (const [path, dynamicImport] of [
+      ['src/shared/components/QuotaNotifierGate.tsx', "import('./QuotaNotifier')"],
+      ['src/shared/components/PromoModalGate.tsx', "import('./PromoModal')"],
+      [
+        'src/shared/components/AttachmentManagerDialogGate.tsx',
+        "import('./AttachmentManagerDialog')",
+      ],
+    ] as const) {
+      const source = readSource(path);
+      expect(source).toContain(dynamicImport);
+      expect(source).toContain('everOpened');
+    }
+  });
+
+  it('shows a lightweight router bootstrap fallback and contains global lazy failures', () => {
+    const app = readSource('src/app/App.tsx');
+    expect(app).toContain('useSyncExternalStore');
+    expect(app).toContain('!routerInitialized && <RouteLoadingFallback />');
+    expect(app).toContain('function RouteLoadingFallback()');
+    expect(app).not.toMatch(/RouteLoadingFallback[\s\S]*?<(?:[A-Z][A-Za-z]+Icon|img)\b/);
+    expect(app.match(/<ErrorBoundary fallback=\{\(\) => null\}>/g)).toHaveLength(3);
+  });
+
+  it('closes responsive Radix menus instead of unmounting an open Root', () => {
+    const nav = readSource('src/app/layouts/TopNav.tsx');
+    const compact = readSource('src/app/layouts/topnav/CompactNavMenu.tsx');
+    const user = readSource('src/app/layouts/topnav/UserSection.tsx');
+    const activity = readSource('src/app/layouts/topnav/ActivityNavMenu.tsx');
+
+    expect(nav).toContain('compactEverMounted');
+    expect(nav).toContain('<CompactNavMenu active={!isWide} />');
+    expect(compact).toContain('open={active && open}');
+    expect(user).toContain('activityEverMounted');
+    expect(user).toContain('<ActivityNavMenu active={wide}');
+    expect(activity).toContain('open={active && items.length > 0 && open}');
+  });
+
+  it('loads mobile overlays and image export only after the matching user action', () => {
+    const shell = readSource('src/features/mobile/layouts/MobileShell.tsx');
+    for (const moduleName of [
+      '@/shared/components/share/ShareSheet',
+      '@/features/auth/components/MobileAuthSheet',
+      '../components/MobileSearchOverlay',
+    ]) {
+      expect(shell).toContain(`import('${moduleName}')`);
+      expect(shell).not.toMatch(
+        new RegExp(`^import .*from ['"]${moduleName.replaceAll('/', '\\/')}['"]`, 'm'),
+      );
+    }
+
+    const mobileAuth = readSource(
+      'src/features/auth/components/MobileAuthSheet.tsx',
+    );
+    expect(mobileAuth).toContain("from './auth-titles'");
+    expect(mobileAuth).not.toContain("from './AuthDialog'");
+
+    const share = readSource('src/shared/components/share/ShareSheet.tsx');
+    expect(share).toContain("await import('html-to-image')");
+    expect(share).not.toMatch(/^import .*html-to-image/m);
+  });
+
+  it('scopes feed prefetching and admin drawers to their first relevant route/action', () => {
+    const providers = readSource('src/app/providers.tsx');
+    const mobileRoutes = readSource('src/features/mobile/routes.tsx');
+    expect(providers).not.toContain('FeedPrefetcher');
+    expect(mobileRoutes).toContain("import('./components/FeedPrefetcher')");
+    expect(mobileRoutes).toContain('Component: m.FeedPrefetchLayout');
+
+    const adminShell = readSource('src/features/admin/layouts/AdminShell.tsx');
+    const detailProvider = readSource(
+      'src/features/admin/components/AdminUserDetailProvider.tsx',
+    );
+    expect(adminShell).toContain("import('../components/AdminCommandPalette')");
+    expect(adminShell).toContain('cmdkEverOpened');
+    expect(detailProvider).toContain("import('./UserDetailDrawer')");
+    expect(detailProvider).toContain('everOpened');
+  });
+
+  it('hydrates feed data before the first query fetch and budgets the parent lazy layout', () => {
+    const feedApi = readSource('src/features/mobile/api/feed.ts');
+    const journalApi = readSource('src/features/mobile/api/journal-feed.ts');
+    const budgets = JSON.parse(readSource('bundle-budgets.json')) as {
+      routeClosures: { mobileFeed: { sources: string[] } };
+    };
+
+    expect(feedApi).toContain("initialData: () => readFeedPages<Paper[], number>('papers', seed)");
+    expect(journalApi).toContain(
+      "initialData: () => readFeedPages<JournalListPage, number>('journals', seed)",
+    );
+    expect(budgets.routeClosures.mobileFeed.sources).toContain(
+      'src/features/mobile/components/FeedPrefetcher.tsx',
+    );
+  });
+
+  it('only defers code snippets explicitly marked non-critical', () => {
+    const index = readSource('index.html');
+    const fetchAt = index.indexOf("fetch('/api/v1/config/code-snippets')");
+    const idleInjectAt = index.indexOf(
+      'window.__afterCriticalLoad(function () { inject(deferred); })',
+    );
+
+    expect(fetchAt).toBeGreaterThan(0);
+    expect(index).toContain('!!item.defer_until_idle === deferred');
+    expect(idleInjectAt).toBeGreaterThan(fetchAt);
+    expect(index.slice(fetchAt, idleInjectAt)).toContain('select(d.head, false)');
+  });
+
+  it('lets the Umami config cache revalidate and flushes metrics queued before tracker load', () => {
+    const index = readSource('index.html');
+
+    expect(index).toContain("fetch('/api/v1/public/umami-config')");
+    expect(index).not.toMatch(
+      /fetch\('\/api\/v1\/public\/umami-config',[^)]*force-cache/,
+    );
+    expect(index).toContain('s.onload = function ()');
+    expect(index).toContain('window.__flushScholayUmamiQueue()');
+  });
+});

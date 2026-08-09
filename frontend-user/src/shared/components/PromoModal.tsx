@@ -4,7 +4,7 @@
 //  · 顶部导航「限时活动」菜单手动弹(ActivityNavMenu / CompactNavMenu → usePromoStore.openPromo('manual'))
 //  · 已是付费会员(pro/max)一律不弹(推广目标是拉新,给会员看「领会员」没意义)
 // 服务端配置走 usePromoConfig(react-query);开关/触发态走 usePromoStore + localStorage(按日期)。
-import { useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Check, Gift, Sparkles } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { localDateKey } from '@/shared/lib/daily-trend';
@@ -16,11 +16,9 @@ import {
   DialogFooter,
   DialogTitle,
 } from '@/shared/ui/dialog';
-import { usePromoEligible } from '@/shared/api/promo';
+import type { PromoPublicConfig } from '@/shared/api/promo';
 import { usePromoStore } from '@/stores/promo.store';
-import { useQuotaStore, QUOTA_DIALOG_SNOOZE_MS } from '@/stores/quota.store';
 import { useLocalStorage } from '@/shared/hooks/useLocalStorage';
-import { QUOTA_EXCEEDED_EVENT } from '@/shared/lib/quota-events';
 
 // 文案留空时的内置默认(后台可逐项覆盖)。
 const DEFAULTS = {
@@ -30,61 +28,40 @@ const DEFAULTS = {
   buttonText: '扫码加客服 · 免费领取',
 };
 
-// 额度用尽弹窗每会话最多一次(模块级:跨组件重挂仍记忆,整页刷新才重置)。
-let quotaTriggeredThisSession = false;
-
 function todayStr(): string {
   // 「按天」key 走本地日历日(容器/后端本地零点重置对齐)。不能用 toISOString()——
   // 那是 UTC,北京 00:00–08:00 会算成昨天,导致每日抑制在 08:00 而非本地 00:00 翻天。
   return localDateKey();
 }
 
-export function PromoModal() {
-  const { cfg, tierReady, visible } = usePromoEligible();
-
+export function PromoModal({
+  cfg,
+  visible,
+  qrRetryNonce = 0,
+  onQRCodeError,
+}: {
+  cfg: PromoPublicConfig | undefined;
+  visible: boolean;
+  qrRetryNonce?: number;
+  onQRCodeError?: () => void;
+}) {
   const open = usePromoStore((s) => s.open);
   const openPromo = usePromoStore((s) => s.openPromo);
   const closePromo = usePromoStore((s) => s.closePromo);
 
-  const [shownDate, setShownDate] = useLocalStorage<string>('promo:auto-shown-date', '');
-  const [dismissedDate, setDismissedDate] = useLocalStorage<string>('promo:dismissed-date', '');
-
-  // ── 首屏自动弹(仅一次,等配置 + 等级就绪后判定)──
-  const autoRan = useRef(false);
-  useEffect(() => {
-    if (autoRan.current) return;
-    if (cfg === undefined) return; // 配置还没拉到
-    if (!tierReady) return; // 已登录则等等级到位再判(避免给会员误弹)
-    autoRan.current = true;
-    if (!visible) return;
-    const today = todayStr();
-    if (shownDate === today || dismissedDate === today) return;
-    setShownDate(today);
-    openPromo('auto');
-  }, [cfg, tierReady, visible, shownDate, dismissedDate, setShownDate, openPromo]);
-
-  // ── 额度用尽再弹(每会话一次,即便当天已「今日不再弹出」)──
-  useEffect(() => {
-    const onQuota = () => {
-      if (!visible) return;
-      // 额度重置弹窗打开期间 / 刚关掉的冷却期内**不叠加**营销弹窗 —— 那一刻用户正在处理
-      // 「额度耗尽」本身,推广盖上去两层 modal 互抢。此处不消耗每会话一次的名额
-      // (quotaTriggeredThisSession 不置位),冷却过后的下一次 6010 仍可弹。
-      // 注:QuotaNotifier 先于本组件挂载,监听器先执行 → 事件抵达时 resetOpen 已翻 true。
-      const qs = useQuotaStore.getState();
-      if (qs.resetOpen || Date.now() - qs.dismissedAt < QUOTA_DIALOG_SNOOZE_MS) return;
-      if (quotaTriggeredThisSession) return;
-      quotaTriggeredThisSession = true;
-      openPromo('quota');
-    };
-    window.addEventListener(QUOTA_EXCEEDED_EVENT, onQuota);
-    return () => window.removeEventListener(QUOTA_EXCEEDED_EVENT, onQuota);
-  }, [visible, openPromo]);
+  const [, setDismissedDate] = useLocalStorage<string>('promo:dismissed-date', '');
 
   // 未启用 / 付费会员 / 配置未到 → 关闭弹窗(付费会员即便被 store.open 也不展示,双保险)。
   // ⚠️ 绝不 `return null`:open===true 时卸载 Dialog 会让 Radix body 锁泄漏(全站点击失灵,
   // 见 BodyPointerLockGuard)。改为把闸门折进 open prop + 内容用 ready 守卫,让 Radix 正常收尾。
   const ready = !!cfg && visible;
+  // 明确把二维码 URL 闸在真正 open 之后：即使 Radix 日后改变 Portal
+  // 预挂载行为，关闭态也不会意外发起 65KB+ 的 QR 图片请求。
+  const versionedQRSource = open && ready ? cfg.wechat_qr_url : undefined;
+  const qrSrc = versionedQRSource && qrRetryNonce > 0
+    ? `${versionedQRSource}${versionedQRSource.includes('?') ? '&' : '?'}retry=${qrRetryNonce}`
+    : versionedQRSource;
+  const [failedQRSource, setFailedQRSource] = useState<string>();
 
   const title = cfg?.title?.trim() || DEFAULTS.title;
   const subtitle = cfg?.subtitle?.trim() || DEFAULTS.subtitle;
@@ -132,11 +109,15 @@ export function PromoModal() {
 
         {/* 二维码 */}
         <div className="flex flex-col items-center gap-2.5 px-6 pt-5">
-          {cfg?.wechat_qr ? (
+          {qrSrc && failedQRSource !== qrSrc ? (
             <img
-              src={cfg?.wechat_qr}
+              src={qrSrc}
               alt="微信客服二维码"
               className="size-44 rounded-12 border border-border object-contain p-1"
+              onError={() => {
+                setFailedQRSource(qrSrc);
+                onQRCodeError?.();
+              }}
             />
           ) : (
             <div className="flex size-44 items-center justify-center rounded-12 border border-dashed border-border text-12 text-faint">

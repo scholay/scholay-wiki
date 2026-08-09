@@ -1,4 +1,4 @@
-import { Fragment, type ComponentType } from 'react';
+import { Fragment, useEffect, useState, type ComponentType } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Gift, Globe, Headphones, Home, Menu as MenuIcon, UserPlus } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton';
@@ -49,10 +49,17 @@ import { cn } from '@/shared/lib/utils';
  *   Radix HoverCard 只认 pointerType=mouse，**触屏点不开** ——
  *   窄屏恰恰是触屏为主，用 HoverCard 等于做了个点不开的菜单。
  */
-export function CompactNavMenu() {
+export function CompactNavMenu({ active = true }: { active?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const groups = groupMenusByCategory();
+  const [open, setOpen] = useState(false);
+
+  // 跨过 1200px 断点时 Root 保持挂载，先走受控 open→false
+  // 让 Radix 完成 pointer-lock/Portal 清理，不在打开态直接卸载。
+  useEffect(() => {
+    if (!active) setOpen(false);
+  }, [active]);
 
   const { visible: promoVisible } = usePromoEligible();
   const openPromo = usePromoStore((s) => s.openPromo);
@@ -79,7 +86,7 @@ export function CompactNavMenu() {
   const onHome = location.pathname === '/';
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={active && open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <IconButton
           aria-label="导航菜单"

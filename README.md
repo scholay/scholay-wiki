@@ -90,7 +90,7 @@ scholar/
 ### Prerequisites
 
 - Docker 20.10+
-- Docker Compose 2.0+
+- Docker Compose 2.7+ (`docker compose up --wait` 用于部署就绪门禁)
 - (Optional) Node.js 18+ and Go 1.21+ for local development
 
 ### Installation

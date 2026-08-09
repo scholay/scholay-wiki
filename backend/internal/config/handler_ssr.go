@@ -1404,59 +1404,117 @@ func normalizeSSRCacheKey(path string) string {
 	return path
 }
 
-// injectCodeSnippets injects code snippets into the HTML at appropriate positions
+type deferredSnippetPayload struct {
+	Head      []string `json:"head,omitempty"`
+	BodyStart []string `json:"body_start,omitempty"`
+	BodyEnd   []string `json:"body_end,omitempty"`
+}
+
+// splitCodeSnippets keeps the service-provided priority order intact while
+// separating parse-time snippets from work that administrators explicitly
+// opted into running after load/idle.
+func splitCodeSnippets(snippets []model.CodeSnippetResponse) (immediate, deferred []model.CodeSnippetResponse) {
+	for _, snippet := range snippets {
+		if snippet.DeferUntilIdle {
+			deferred = append(deferred, snippet)
+			continue
+		}
+		immediate = append(immediate, snippet)
+	}
+	return immediate, deferred
+}
+
+func appendRawCodeSnippets(builder *strings.Builder, snippets []model.CodeSnippetResponse) {
+	for _, snippet := range snippets {
+		builder.WriteString(snippet.CodeContent)
+		builder.WriteString("\n")
+	}
+}
+
+func snippetCodeContents(snippets []model.CodeSnippetResponse) []string {
+	contents := make([]string, 0, len(snippets))
+	for _, snippet := range snippets {
+		contents = append(contents, snippet.CodeContent)
+	}
+	return contents
+}
+
+// buildDeferredCodeSnippetsRuntime serializes administrator-authored HTML as
+// JSON before embedding it in an inline script. encoding/json's default HTML
+// escaping turns '<', '>' and '&' into unicode escapes, so a snippet containing
+// a closing script tag cannot terminate this wrapper early.
+//
+// Scripts parsed through template.innerHTML are inert. Recreating each script
+// node makes it executable when the fragment is finally inserted, matching the
+// runtime injector in frontend-user/index.html.
+func buildDeferredCodeSnippetsRuntime(payload deferredSnippetPayload) string {
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		// The payload only contains strings, so json.Marshal cannot fail in
+		// practice. Keep the SSR response usable if that invariant ever changes.
+		slog.Error("failed to marshal deferred SSR code snippets", "err", err)
+		return ""
+	}
+
+	return `<script data-ssr-deferred-snippets>(function(group){
+function build(list){var frag=document.createDocumentFragment();for(var i=0;i<list.length;i++){var tpl=document.createElement('template');tpl.innerHTML=list[i];var scripts=tpl.content.querySelectorAll('script');for(var j=0;j<scripts.length;j++){var old=scripts[j];var script=document.createElement('script');for(var k=0;k<old.attributes.length;k++){script.setAttribute(old.attributes[k].name,old.attributes[k].value);}script.text=old.textContent||'';old.parentNode.replaceChild(script,old);}frag.appendChild(tpl.content);}return frag;}
+function inject(){document.head.appendChild(build(group.head||[]));var injectBody=function(){document.body.insertBefore(build(group.body_start||[]),document.body.firstChild);document.body.appendChild(build(group.body_end||[]));};if(document.body){injectBody();}else{document.addEventListener('DOMContentLoaded',injectBody,{once:true});}}
+function schedule(){if('requestIdleCallback' in window){window.requestIdleCallback(inject,{timeout:2000});}else{window.setTimeout(inject,250);}}
+if(document.readyState==='complete'){schedule();}else{window.addEventListener('load',schedule,{once:true});}
+})(` + string(payloadJSON) + `);</script>`
+}
+
+// injectCodeSnippets injects code snippets into the HTML at appropriate positions.
 func (h *Handler) injectCodeSnippets(html string, snippets *model.CodeSnippetsGroupedResponse) string {
 	if snippets == nil {
 		return html
 	}
 
 	result := html
+	immediateHead, deferredHead := splitCodeSnippets(snippets.Head)
+	immediateBodyStart, deferredBodyStart := splitCodeSnippets(snippets.BodyStart)
+	immediateBodyEnd, deferredBodyEnd := splitCodeSnippets(snippets.BodyEnd)
 
-	// Build head snippets content
-	if len(snippets.Head) > 0 {
-		var headContent strings.Builder
-		headContent.WriteString("\n<!-- SSR Code Snippets: head -->\n")
-		headContent.WriteString("<script>window.__SSR_SNIPPETS_INJECTED__=true;</script>\n")
-		for _, s := range snippets.Head {
-			headContent.WriteString(s.CodeContent)
-			headContent.WriteString("\n")
-		}
-		headContent.WriteString("<!-- End SSR Code Snippets: head -->\n")
-
-		// Inject before </head>
-		result = strings.Replace(result, "</head>", headContent.String()+"</head>", 1)
-	} else {
-		// Still add the flag even if no head snippets
-		flagScript := "\n<!-- SSR Code Snippets -->\n<script>window.__SSR_SNIPPETS_INJECTED__=true;</script>\n<!-- End SSR Code Snippets -->\n"
-		result = strings.Replace(result, "</head>", flagScript+"</head>", 1)
+	// The marker is emitted for every non-nil response, including an empty one,
+	// so the frontend does not issue a second injection after SSR has made the
+	// authoritative decision for this response.
+	var headContent strings.Builder
+	headContent.WriteString("\n<!-- SSR Code Snippets: head -->\n")
+	headContent.WriteString("<script>window.__SSR_SNIPPETS_INJECTED__=true;</script>\n")
+	appendRawCodeSnippets(&headContent, immediateHead)
+	if len(deferredHead)+len(deferredBodyStart)+len(deferredBodyEnd) > 0 {
+		headContent.WriteString("<!-- SSR Deferred Code Snippets: load + idle -->\n")
+		headContent.WriteString(buildDeferredCodeSnippetsRuntime(deferredSnippetPayload{
+			Head:      snippetCodeContents(deferredHead),
+			BodyStart: snippetCodeContents(deferredBodyStart),
+			BodyEnd:   snippetCodeContents(deferredBodyEnd),
+		}))
+		headContent.WriteString("\n<!-- End SSR Deferred Code Snippets -->\n")
 	}
+	headContent.WriteString("<!-- End SSR Code Snippets: head -->\n")
+	result = strings.Replace(result, "</head>", headContent.String()+"</head>", 1)
 
-	// Build body_start snippets content
-	if len(snippets.BodyStart) > 0 {
+	// Build parser-time body_start snippets. FindStringIndex + direct slicing is
+	// intentional: ReplaceAllString treats '$' in administrator code as capture
+	// expansion and would silently corrupt otherwise valid JavaScript.
+	if len(immediateBodyStart) > 0 {
 		var bodyStartContent strings.Builder
 		bodyStartContent.WriteString("\n<!-- SSR Code Snippets: body_start -->\n")
-		for _, s := range snippets.BodyStart {
-			bodyStartContent.WriteString(s.CodeContent)
-			bodyStartContent.WriteString("\n")
-		}
+		appendRawCodeSnippets(&bodyStartContent, immediateBodyStart)
 		bodyStartContent.WriteString("<!-- End SSR Code Snippets: body_start -->\n")
 
-		// Inject after <body> (handle potential attributes on body tag)
-		bodyTagRegex := ssrBodyTagRe
-		result = bodyTagRegex.ReplaceAllString(result, "${1}"+bodyStartContent.String())
+		if bodyTagLocation := ssrBodyTagRe.FindStringIndex(result); bodyTagLocation != nil {
+			result = result[:bodyTagLocation[1]] + bodyStartContent.String() + result[bodyTagLocation[1]:]
+		}
 	}
 
-	// Build body_end snippets content
-	if len(snippets.BodyEnd) > 0 {
+	// Build parser-time body_end snippets content.
+	if len(immediateBodyEnd) > 0 {
 		var bodyEndContent strings.Builder
 		bodyEndContent.WriteString("\n<!-- SSR Code Snippets: body_end -->\n")
-		for _, s := range snippets.BodyEnd {
-			bodyEndContent.WriteString(s.CodeContent)
-			bodyEndContent.WriteString("\n")
-		}
+		appendRawCodeSnippets(&bodyEndContent, immediateBodyEnd)
 		bodyEndContent.WriteString("<!-- End SSR Code Snippets: body_end -->\n")
 
-		// Inject before </body>
 		result = strings.Replace(result, "</body>", bodyEndContent.String()+"</body>", 1)
 	}
 

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, type QueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import type { JournalListPage, JournalListUnified } from '@/shared/api/types';
+import { readFeedPages } from '@/shared/lib/feed-cache';
 
 /** 每批期刊条数 */
 export const JOURNAL_FEED_PAGE_SIZE = 10;
@@ -69,6 +70,7 @@ export function useJournalFeed(seed: number) {
     staleTime: Infinity,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
+    initialData: () => readFeedPages<JournalListPage, number>('journals', seed),
     queryFn: ({ pageParam }) => fetchJournalFeedPage(seed, pageParam),
   });
 }

@@ -16,14 +16,7 @@ import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
 import { WeChatQRPanel } from './WeChatQRPanel';
 import { InviteAuthNotice } from './InviteAuthNotice';
-
-// 移动整页版(MobileAuthPage)共用同一份标题文案 —— 双端措辞永远一致
-export const TITLES = {
-  login: { title: '欢迎回来', desc: '继续你的学术之旅' },
-  register: { title: '创建账号', desc: '免费开始使用 Scholay' },
-  forgot: { title: '找回密码', desc: '通过验证码重置你的密码' },
-  'wechat-qr' : { title: '使用微信扫一扫', desc: '打开微信,扫描下方二维码完成登录' },
-} as const;
+import { AUTH_TITLES } from './auth-titles';
 
 /**
  * 鉴权弹窗 — 全局唯一,挂在 Providers 之下。
@@ -37,7 +30,7 @@ export const TITLES = {
  */
 export function AuthDialog() {
   const { open, mode, initialAccountType, setMode, close } = useAuthDialog();
-  const t = TITLES[mode];
+  const t = AUTH_TITLES[mode];
   const isWeChatQR = mode === 'wechat-qr';
 
   // 移动端(/m/*)的登录走 /m/auth 整页(MobileShell 的桥接 effect 会立刻转跳),

@@ -18,8 +18,7 @@ function trimRedundantIntegerLeadingZeros(value: string): string {
  * 字号 = text-14,对应 dev.pen 搜索框 Google Sans 400 / 14px。
  * `file:` 伪元素同步到 14,避免同一控件内出现两套字号。
  */
-export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, autoComplete, onChange, onWheel, ...props }, ref) => {

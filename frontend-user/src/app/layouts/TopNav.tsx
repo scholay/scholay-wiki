@@ -1,9 +1,16 @@
+import { lazy, Suspense, useRef } from 'react';
 import { BrandSection } from './topnav/BrandSection';
 import { RailLinks } from './topnav/RailLinks';
-import { MenuCarousel } from './topnav/MenuCarousel';
-import { CompactNavMenu } from './topnav/CompactNavMenu';
 import { UserSection } from './topnav/UserSection';
 import { useSidebar } from '@/stores/sidebar.store';
+import { useMediaQuery } from '@/shared/hooks';
+
+const MenuCarousel = lazy(() =>
+  import('./topnav/MenuCarousel').then((module) => ({ default: module.MenuCarousel })),
+);
+const CompactNavMenu = lazy(() =>
+  import('./topnav/CompactNavMenu').then((module) => ({ default: module.CompactNavMenu })),
+);
 
 /**
  * 顶部导航 —— **两种形态**，阈值 1200px。
@@ -48,6 +55,15 @@ import { useSidebar } from '@/stores/sidebar.store';
 export function TopNav() {
   const { rail, expanded, hasPanel, toggle } = useSidebar();
   const showRail = !expanded && rail.length > 0;
+  // CSS hidden 只隐藏像素，不会阻止 React 挂载、query observer 和 effect。
+  // 首访只挂当前分支，同时把 MenuDock/Motion 留在宽屏按需 chunk；
+  // 仅 modal 窄屏菜单在首次出现后为了 Radix 清理安全保留 Root。
+  const isWide = useMediaQuery('(min-width: 1200px)');
+  // CompactNavMenu 是 modal DropdownMenu。它首次挂载后必须保留：
+  // 用户打开菜单时拖动窗口跨过断点，直接 unmount 会跳过 Radix
+  // open→closed 清理。active=false 会先受控关闭，视觉上仍只显示当前分支。
+  const compactEverMounted = useRef(!isWide);
+  if (!isWide) compactEverMounted.current = true;
 
   return (
     <header
@@ -78,15 +94,23 @@ export function TopNav() {
           窄屏整段 display:none —— 里面的 MenuDock 有 rAF 主循环，
           `hidden` 会让 viewport clientWidth = 0，主循环 early-return，不空转。 */}
       <div className="hidden items-center justify-self-center min-[1200px]:flex">
-        <MenuCarousel />
+        {isWide && (
+          <Suspense fallback={<div aria-hidden className="h-10 w-[460px]" />}>
+            <MenuCarousel />
+          </Suspense>
+        )}
       </div>
 
       {/* Right col —— 窄屏的汉堡菜单 + User actions。
           `shrink-0`:右侧是「登录/注册」「头像」这类不可截断的元素，
           宁可让左侧 flex-1 的 brand 区让位，也不能把它压没(改造前它被压到 0%)。 */}
       <div className="flex min-w-0 shrink-0 items-center gap-2 justify-self-end overflow-hidden">
-        <CompactNavMenu />
-        <UserSection />
+        {compactEverMounted.current && (
+          <Suspense fallback={null}>
+            <CompactNavMenu active={!isWide} />
+          </Suspense>
+        )}
+        <UserSection wide={isWide} />
       </div>
     </header>
   );

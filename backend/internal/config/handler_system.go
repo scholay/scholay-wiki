@@ -12,6 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const publicSystemConfigCacheControl = "public, max-age=60, must-revalidate"
+
+func setPublicSystemConfigCache(c *gin.Context) {
+	c.Header("Cache-Control", publicSystemConfigCacheControl)
+}
+
 // GetSystemConfig handles getting system configuration (public endpoint)
 func (h *Handler) GetSystemConfig(c *gin.Context) {
 	config, err := h.service.GetSystemConfig()
@@ -85,6 +91,8 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 		response["wechat_enabled"] = false
 	}
 
+	// Turnstile / OAuth 开关必须在 60s 后重验，避免前端继续按旧配置发起认证。
+	setPublicSystemConfigCache(c)
 	utils.Success(c, response)
 }
 

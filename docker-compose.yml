@@ -563,6 +563,12 @@ services:
       # - ./data/frontend-assets:/usr/share/nginx/html/assets
     expose:
       - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
     depends_on:
       - backend
     deploy:
@@ -632,15 +638,27 @@ services:
       <<: *tz-env
     ports:
       # 主入口 (含 /admin 路径)。umami UI / tracker 都通过这个端口的反代,不另开端口。
-      - "${HTTP_PORT:-5411}:80"
+      # 默认只绑本机；真机/局域网联调时显式设 HTTP_BIND_ADDRESS=0.0.0.0。
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-5411}:80"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
+      - nginx-static-cache:/var/cache/nginx/static
     depends_on:
       - backend
       - frontend-user
       - umami
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
     deploy:
       resources:
         limits:
@@ -649,6 +667,9 @@ services:
           memory: 128M
     networks:
       - scholar-network
+
+volumes:
+  nginx-static-cache:
 
 networks:
   scholar-network:

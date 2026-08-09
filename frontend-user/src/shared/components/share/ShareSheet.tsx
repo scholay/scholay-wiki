@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 import { Copy, ImageDown, Link2, Loader2, LogIn, MessageCircle, QrCode, Share2, ShieldCheck } from 'lucide-react';
 import {
@@ -353,6 +352,8 @@ function ShareBody({ target }: { target: ShareTarget }) {
         : cardRef.current;
     if (!node) return;
     try {
+      // html-to-image 只在用户点「保存图片」时下载；普通打开分享面板、复制链接不承担它的体积。
+      const { toPng } = await import('html-to-image');
       // 导出画布底色 = 页面米白。走 tokenValue 而非写死 hex ——
       // 这是 JS 字面量位置(canvas 背景),给不了类名,但也不该硬编码:
       // 改造前这里是 '#ffffff',--background 从纯白改米白后导出图边缘就出白边了。

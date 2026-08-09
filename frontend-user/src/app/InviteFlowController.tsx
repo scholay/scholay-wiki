@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { router } from "./router";
@@ -7,6 +7,7 @@ import {
   bindInviteCode,
   inviteReasonText,
   INVITE_STATUS_QUERY_KEY,
+  type InviteCampaign,
 } from "@/shared/api/invite-campaign";
 import {
   AUTH_SUCCESS_EVENT,
@@ -18,8 +19,13 @@ import { useAuthDialog } from "@/stores/auth-dialog.store";
 import { useInviteCandidate } from "@/stores/invite.store";
 import { useAuthStore } from "@/stores/auth.store";
 import { usePendingAction } from "@/stores/pending-action.store";
-import { PostRegisterInviteDialog } from "@/features/auth/components/PostRegisterInviteDialog";
 import { isPhoneDevice } from "@/shared/lib/device";
+
+const PostRegisterInviteDialog = lazy(() =>
+  import("@/features/auth/components/PostRegisterInviteDialog").then((m) => ({
+    default: m.PostRegisterInviteDialog,
+  })),
+);
 
 // 鉴权提供方在极端情况下可能重复发出 success event。按新用户+候选码
 // 去重，网络请求未 settle 时不允许第二次 bind；失败后也只允许
@@ -230,11 +236,9 @@ export function InviteFlowController() {
     return router.subscribe(consume);
   }, [campaignQ.data, campaignQ.isError]);
 
-  if (!campaignQ.data?.enabled) return null;
-
   return (
-    <PostRegisterInviteDialog
-      open={postRegisterOpen}
+    <PostRegisterInviteDialogGate
+      open={postRegisterOpen && campaignQ.data?.enabled === true}
       campaign={campaignQ.data}
       onOpenChange={setPostRegisterOpen}
       onFillCode={() => {
@@ -242,5 +246,34 @@ export function InviteFlowController() {
         void router.navigate(`${postRegisterDestination}?bind=1`);
       }}
     />
+  );
+}
+
+function PostRegisterInviteDialogGate({
+  open,
+  campaign,
+  onOpenChange,
+  onFillCode,
+}: {
+  open: boolean;
+  campaign: InviteCampaign | undefined;
+  onOpenChange: (open: boolean) => void;
+  onFillCode: () => void;
+}) {
+  const everOpened = useRef(false);
+  const lastCampaign = useRef<InviteCampaign | null>(null);
+  if (campaign) lastCampaign.current = campaign;
+  if (open) everOpened.current = true;
+  if (!everOpened.current || !lastCampaign.current) return null;
+
+  return (
+    <Suspense fallback={null}>
+      <PostRegisterInviteDialog
+        open={open}
+        campaign={lastCampaign.current}
+        onOpenChange={onOpenChange}
+        onFillCode={onFillCode}
+      />
+    </Suspense>
   );
 }

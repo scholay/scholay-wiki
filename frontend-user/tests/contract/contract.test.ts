@@ -25,8 +25,9 @@ import {
 } from './schemas';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const fixture = (name: string): any =>
-  JSON.parse(readFileSync(path.join(here, 'fixtures', name), 'utf-8'));
+type JsonObject = Record<string, unknown>;
+const fixture = (name: string): JsonObject =>
+  JSON.parse(readFileSync(path.join(here, 'fixtures', name), 'utf-8')) as JsonObject;
 
 describe('error-code contract: FE BizCode ↔ backend errcode/codes.go', () => {
   it('每个 BizCode 常量都等于规范数值(任一侧改号即 fail)', () => {
@@ -86,8 +87,8 @@ describe('response shapes: 录制的后端 fixture 满足 FE 依赖的契约', (
     const body = fixture('billing-plans.json');
     envelopeSchema.parse(body);
     // 基数 × multiplier = 三档绝对上限。这是个匿名可打的端点,基数出现即等于公开额度真值。
-    publicPlansNoAbsoluteQuotaSchema.parse(body.data);
-    expect(body.data.plans.some((p: any) => p.multiplier > 1), 'multiplier 是产品要讲的相对故事,不该被一起删掉').toBe(true);
+    const plans = publicPlansNoAbsoluteQuotaSchema.parse(body.data);
+    expect(plans.plans.some((plan) => plan.multiplier > 1), 'multiplier 是产品要讲的相对故事,不该被一起删掉').toBe(true);
   });
 
   it('GET /user/billing/usage-calendar —— 只有相对强度 pct,没有每日绝对成本', () => {

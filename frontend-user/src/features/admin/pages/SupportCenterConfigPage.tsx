@@ -88,6 +88,7 @@ const SECRET_KEYS = [
 
 function toForm(cfg: SupportCenterConfig): FormState {
   const { id: _id, ...rest } = cfg;
+  void _id;
   return rest;
 }
 
