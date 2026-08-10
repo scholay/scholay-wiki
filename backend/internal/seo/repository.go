@@ -195,6 +195,22 @@ func (r *Repository) BackfillSitemapPage() (int64, error) {
 }
 
 // GetBySlug 路由解析：通过 slug 反查 paper_id + metadata（SSR 用）
+// PaperByDOI 按 DOI 查已有行的 (paper_id, title)。DOI 撞键防线用(idx_doi 索引查询):
+// 入库前发现同 DOI 已挂在【另一篇标题不同的】论文上 → 拒写本 seed 的 DOI,
+// 防 2026-04 匿名 expose 时代那类「字段嫁接」脏行再次出现。未命中返回 ("", "", nil)。
+func (r *Repository) PaperByDOI(doi string) (paperID, title string, err error) {
+	var row struct {
+		PaperID string
+		Title   string
+	}
+	res := r.db.Model(&SEOPaper{}).Select("paper_id, title").
+		Where("doi = ?", doi).Limit(1).Scan(&row)
+	if res.Error != nil {
+		return "", "", res.Error
+	}
+	return row.PaperID, row.Title, nil
+}
+
 func (r *Repository) GetBySlug(slug string) (*SEOPaper, error) {
 	var p SEOPaper
 	err := r.db.Where("slug = ?", slug).First(&p).Error

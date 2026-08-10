@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -25,6 +26,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// issnRE 标准 ISSN 形态(4 位数字-3 位数字+校验位[数字或 X])。入库前校验,
+// 挡住上游偶发的占位/垃圾串;大小写已在调用侧统一为大写 X。
+var issnRE = regexp.MustCompile(`^[0-9]{4}-[0-9]{3}[0-9X]$`)
 
 // AuthorSEORecorder 由 seo.Service 直接实现, 作者详情命中时写入 SEO 索引库 tier=1。
 // 历史上 minicod 自定义了一份 AuthorSEOSeed 与 seo.AuthorSeed 字段镜像, 中间靠
@@ -999,26 +1004,31 @@ func buildJournalSEOSeed(raw []byte) *seo.JournalSeed {
 	}
 
 	// issns: 收集 print + electronic 去重, 若仍空再切 all_issns CSV
+	// 2026-08-10 审计:上游 print_issn/electronic_issn 字段本身可能是逗号拼接的多 ISSN 串
+	// (Nature/JAMA 等 18 刊实测),不拆分会把 "A" 与 "A, B" 当两个元素双双入库 →
+	// Periodical JSON-LD 输出重复+拼接的脏 issn 数组。所有字段统一:拆分 → TrimSpace →
+	// 大写 X → 格式校验(^\d{4}-\d{3}[\dX]$)→ 保序去重。存量 18 行由迁移 0122 清洗
+	// (「更长才覆盖」策略使干净值无法自然盖回)。
 	seen := make(map[string]struct{}, 4)
 	var issns []string
-	add := func(s string) {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			return
+	add := func(raw string) {
+		for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' }) {
+			s := strings.ToUpper(strings.TrimSpace(part))
+			if !issnRE.MatchString(s) {
+				continue
+			}
+			if _, ok := seen[s]; ok {
+				continue
+			}
+			seen[s] = struct{}{}
+			issns = append(issns, s)
 		}
-		if _, ok := seen[s]; ok {
-			return
-		}
-		seen[s] = struct{}{}
-		issns = append(issns, s)
 	}
 	add(u.ISSNL)
 	add(u.PrintISSN)
 	add(u.ElectronicISSN)
 	if len(issns) == 0 && u.AllISSNs != "" {
-		for _, s := range strings.Split(u.AllISSNs, ",") {
-			add(s)
-		}
+		add(u.AllISSNs)
 	}
 
 	seed := &seo.JournalSeed{

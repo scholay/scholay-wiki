@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 )
 
 // PaperSSRMeta SSR 注入所需的最小论文元数据集。
@@ -224,10 +225,55 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 	if j.ISSNsJSON != "" {
 		var issns []string
 		if err := json.Unmarshal([]byte(j.ISSNsJSON), &issns); err == nil {
-			meta.ISSNs = issns
+			// 输出兜底(2026-08-10 审计):历史行可能存有「单元素内逗号拼接多 ISSN」的
+			// 脏数组(入库侧已修 + 迁移 0122 已清洗,这里挡未来其它写入路径),
+			// 读出时拆分+去重,保证 Periodical JSON-LD 的 issn 永远是干净数组。
+			meta.ISSNs = NormalizeISSNs(issns)
 		}
 	}
 	return meta, nil
+}
+
+// samePaperTitle 判断两个标题是否同一篇论文(DOI 撞键防线用):大小写不敏感、
+// 前 30 个 rune 前缀比对 —— 同一论文的跨源记录标题一致(或仅尾部标点/副标题差异),
+// 字段嫁接的两篇论文标题则完全无关。空标题按「不同」处理(无从判定,宁可拒写 DOI)。
+func samePaperTitle(a, b string) bool {
+	na, nb := titlePrefix30(a), titlePrefix30(b)
+	if na == "" || nb == "" {
+		return false
+	}
+	return na == nb
+}
+
+func titlePrefix30(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	r := []rune(s)
+	if len(r) > 30 {
+		r = r[:30]
+	}
+	return string(r)
+}
+
+// NormalizeISSNs 把 ISSN 列表归一:每个元素按 [,;] 拆分、TrimSpace、统一大写 X、
+// 剔除空串、保序去重。刻意不做严格格式校验(那是入库侧的职责)——输出侧只负责
+// 「不重复、不拼接」,避免把历史上格式特殊但真实的值静默吞掉。
+func NormalizeISSNs(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, el := range in {
+		for _, part := range strings.FieldsFunc(el, func(r rune) bool { return r == ',' || r == ';' }) {
+			s := strings.ToUpper(strings.TrimSpace(part))
+			if s == "" {
+				continue
+			}
+			if _, ok := seen[s]; ok {
+				continue
+			}
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // paperSSRMetaFromRow 把 seo_papers 行映射成 SSR 注入需要的子集

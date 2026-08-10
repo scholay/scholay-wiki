@@ -525,7 +525,11 @@ func canonicalAuthorPath(meta *seo.AuthorSSRMeta) string {
 
 func isParameterizedSearchRoute(path string) bool {
 	switch path {
-	case "/search", "/journals/search", "/tools", "/tools/skills":
+	case "/search", "/journals/search", "/tools", "/tools/skills",
+		// 2026-08-10 审计:四个期刊榜单页复用搜索结果组件,会产生真实可爬的 ?page=N
+		// 分页 URL,此前只有 canonical 收敛(提示非指令)没有 noindex —— 一并纳入,
+		// 参数态统一 200+noindex+canonical 收敛的受控形态。
+		"/journals/sci-q1", "/journals/cas-zone1", "/journals/ccf-a", "/journals/high-impact-factor":
 		return true
 	default:
 		return false
@@ -667,13 +671,17 @@ func buildPaperJSONLD(meta *seo.PaperSSRMeta, canonical string) string {
 	if meta.Title == "" {
 		return ""
 	}
+	// 2026-08-10 审计:此前 publisher 硬编码「Scholay学术」—— 对 29.6k 论文页规模化断言
+	// 虚假出版商(IEEE 的论文也标 Scholay),违反 Google 结构化数据「内容必须准确」准则。
+	// ScholarlyArticle 的 publisher 应为论文真实出版商(数据侧暂无该字段,故整个省略 ——
+	// Article 类 publisher 非必填);Scholay 的站点级 publisher 角色由壳里的
+	// WebSite→Organization @graph 承载,不在作品实体上冒名。期刊归属仍由 isPartOf 表达。
 	obj := map[string]any{
-		"@context":  "https://schema.org",
-		"@type":     "ScholarlyArticle",
+		"@context": "https://schema.org",
+		"@type":    "ScholarlyArticle",
 		"headline":  truncate(meta.Title, 110),
 		"name":      meta.Title,
 		"url":       canonical,
-		"publisher": map[string]any{"@type": "Organization", "name": "Scholay学术", "url": appconfig.CanonicalBaseURL()},
 	}
 	if meta.Abstract != "" {
 		obj["abstract"] = truncate(meta.Abstract, 500)

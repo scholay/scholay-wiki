@@ -186,6 +186,18 @@ func (s *Service) RecordSearchSeeds(seeds []PaperSeed) (int, error) {
 			continue
 		}
 		seed.Source = InferSource(seed.PaperID)
+		// DOI 撞键防线(2026-08-10 审计):同一 DOI 已挂在另一篇【标题不同】的论文上时,
+		// 拒写本 seed 的 DOI 并告警 —— 这是 2026-04 匿名 expose 时代「字段嫁接」脏行
+		// (olx:W29576601 事故)的形成模式。标题相同(前缀比对)视为同一论文的跨源 ID,放行。
+		// 只清 DOI 不动摘要:摘要无嫁接实证,误清会伤正常数据。
+		if seed.DOI != "" {
+			if pid, title, derr := s.repo.PaperByDOI(seed.DOI); derr == nil && pid != "" &&
+				pid != seed.PaperID && !samePaperTitle(title, seed.Title) {
+				slog.Warn("seo: DOI 已属于另一篇标题不同的论文,拒写本 seed 的 doi 防字段嫁接",
+					"doi", seed.DOI, "existing_paper_id", pid, "incoming_paper_id", seed.PaperID)
+				seed.DOI = ""
+			}
+		}
 		slug := GenerateSlug(seed.Title, seed.PaperID)
 		authorsJSON := marshalAuthors(seed.Authors)
 		fieldsJSON := marshalFields(seed.FieldsOfStudy)
