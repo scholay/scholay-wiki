@@ -114,9 +114,21 @@ func SubmitBaidu(ctx context.Context, site, token string, urls []string, quota i
 
 	// 过滤 host 不匹配的 URL(百度会把整批拒掉)。被过滤的属结构性错误,
 	// 进 Rejected 落死信(回队也永远推不上去)。
+	//
+	// site 参数支持两种登记形态(2026-08-10 线上实测):老式裸 host("www.scholay.com")
+	// 与百度新版控制台的带 scheme 形式("https://www.scholay.com")。query 参数按配置
+	// 原样传给百度;本地 host 比对先归一到裸 hostname —— 否则带 scheme 的 site 会让
+	// matchesHost 永不相等,整批 URL 被误判死信。
+	matchHost, hostErr := baiduMatchHost(site)
+	if hostErr != nil {
+		// 结构性配置错误:整批保留待重试(实际上 service 构造期校验会先拦住,这里是兜底),
+		// wrap errBaiduAPIReject 让调用方装冷却而非每 tick 重试。
+		out.Unsent = urls
+		return out, fmt.Errorf("%w: BAIDU_PUSH_SITE %q 无法解析出 host: %v", errBaiduAPIReject, site, hostErr)
+	}
 	filtered := make([]string, 0, len(urls))
 	for _, u := range urls {
-		if matchesHost(u, site) {
+		if matchesHost(u, matchHost) {
 			filtered = append(filtered, u)
 		} else {
 			out.Rejected = append(out.Rejected, u)
@@ -207,6 +219,18 @@ func SubmitBaidu(ctx context.Context, site, token string, urls []string, quota i
 	)
 	out.Submitted = parsed.Success
 	return out, nil
+}
+
+// baiduMatchHost 把配置的 site(可能带 scheme,如百度新版控制台的
+// "https://www.scholay.com")归一成用于 URL host 比对的裸 hostname;
+// 老式裸 host 配置原样返回。解析失败(带端口/userinfo/畸形)返回 error ——
+// 【绝不静默回退原串】:原串带 "://" 时 matchesHost 永不相等,整批 URL 会被
+// 误判死信,正是本函数要防的事故换个 config 形态复发(2026-08-10 复审)。
+func baiduMatchHost(site string) (string, error) {
+	if !strings.Contains(site, "://") {
+		return site, nil
+	}
+	return extractHost(site)
 }
 
 func baiduDailyKey() string {

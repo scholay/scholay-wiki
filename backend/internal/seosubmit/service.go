@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -134,6 +135,11 @@ type Service struct {
 	canonical         canonicalSite
 	canonicalErr      error
 	indexNowConfigErr error
+	// baiduConfigErr 构造期校验:BAIDU_PUSH_SITE 解析失败 / host 与 canonical 不一致
+	// (2026-08-10 事故:站长平台登记 apex 而 canonical 是 www → 全部 URL 被
+	// not_same_site 拒收,每天静默死信)。非 nil 时百度通道禁用并在 StartWorker 报一条 ERROR,
+	// 与 indexNowConfigErr 同一套「enabled-but-invalid 启动即拒」哲学。
+	baiduConfigErr error
 
 	queue          seoQueue
 	submitIndexNow indexNowSubmitter
@@ -173,6 +179,19 @@ func newServiceWithDependencies(cfg appconfig.SEOSubmitConfig, siteOrigin string
 	if cfg.Enabled && cfg.IndexNowEnabled && !isValidIndexNowKey(cfg.IndexNowKey) {
 		s.indexNowConfigErr = fmt.Errorf("%w: INDEXNOW_KEY must be 8-128 letters, digits, or hyphens", errIndexNowConfig)
 	}
+	if cfg.Enabled && cfg.BaiduEnabled {
+		switch {
+		case cfg.BaiduToken == "" || cfg.BaiduSite == "":
+			s.baiduConfigErr = errors.New("BAIDU_PUSH_ENABLED=true 但 BAIDU_PUSH_TOKEN / BAIDU_PUSH_SITE 为空 —— 去 ziyuan.baidu.com 普通收录→API 提交页取值")
+		default:
+			host, err := baiduMatchHost(cfg.BaiduSite)
+			if err != nil {
+				s.baiduConfigErr = fmt.Errorf("BAIDU_PUSH_SITE %q 无法解析出 host: %w", cfg.BaiduSite, err)
+			} else if canonicalErr == nil && !strings.EqualFold(host, site.host) {
+				s.baiduConfigErr = fmt.Errorf("BAIDU_PUSH_SITE 的 host %q 与 canonical host %q 不一致 —— 推送的 URL 会被百度整批 not_same_site 拒收(2026-08-10 事故);站长平台需登记与 canonical 同 host 的站点", host, site.host)
+			}
+		}
+	}
 	if s.queue == nil {
 		s.queue = redisSEOQueue{}
 	}
@@ -200,7 +219,8 @@ func (s *Service) indexNowReady() bool {
 }
 
 func (s *Service) baiduReady() bool {
-	return s != nil && s.cfg.Enabled && s.cfg.BaiduEnabled && s.cfg.BaiduToken != "" && s.cfg.BaiduSite != ""
+	return s != nil && s.cfg.Enabled && s.cfg.BaiduEnabled &&
+		s.cfg.BaiduToken != "" && s.cfg.BaiduSite != "" && s.baiduConfigErr == nil
 }
 
 // EnqueuePaths accepts paths only.  Absolute/cross-host URLs, query strings,
@@ -280,6 +300,11 @@ func (s *Service) StartWorker(ctx context.Context) {
 	}
 	if s != nil && s.cfg.Enabled && s.indexNowConfigErr != nil {
 		slog.Error("indexnow disabled by startup validation", "err", s.indexNowConfigErr)
+	}
+	// 百度声明启用但没就绪:必须有一条显式日志。否则(如 .env 模板漏填 SITE)整个通道
+	// 会静默不跑数周,只能靠收录统计倒查(2026-08-10 复审)。
+	if s != nil && s.cfg.Enabled && s.cfg.BaiduEnabled && !s.baiduReady() {
+		slog.Error("baidu push disabled by startup validation", "err", s.baiduConfigErr)
 	}
 	if !s.Enabled() {
 		slog.Info("seo push disabled, worker not started")

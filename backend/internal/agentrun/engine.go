@@ -89,7 +89,16 @@ type StepExecutor interface {
 
 // SlotProbe 读执行器容器的并发槽快照(agent 的 GET /api/admission)。
 type SlotProbe interface {
-	Snapshot(ctx context.Context) (inUse, max int, err error)
+	Snapshot(ctx context.Context) (AdmissionSnapshot, error)
+}
+
+// AdmissionSnapshot —— agent /api/admission 的解码结果。
+// MemLimit==0 表示 agent 侧内存水位闸未启用(dev 无 cgroup 限制)。
+type AdmissionSnapshot struct {
+	InUse    int
+	Max      int
+	MemUsed  int64 // 容器当前内存用量(含子进程,减可回收页缓存)
+	MemLimit int64 // 准入水位;0 = 未启用
 }
 
 // TemplateSource 按 feature 找模板(生产实现读 FeatureSpec.RunTemplates)。
@@ -167,21 +176,32 @@ func (e *Engine) Start(ctx context.Context) {
 //	(Run 拿不到槽 → 一直重试 → 把槽的竞争变得更糟)。这里是**会排队的那一侧**,
 //	发现槽紧张就干脆不认领,step 留在 pending,下个 tick 再看。
 //
-// 判据是 `inUse >= max-1`:**始终给交互用户留一个槽**。max=2 时 Run 只在完全空闲时才动。
+// 判据一 `inUse >= max-1`:**始终给交互用户留一个槽**。max=2 时 Run 只在完全空闲时才动。
+// 判据二(2026-08-10 复审):**内存水位让路** —— agent 侧的内存闸只挡交互轮的准入,
+// shadow turn 走 /api/turn 天然绕过它(刻意:执行器侧给 Run 加硬闸会自锁,见上)。
+// 若 Run 在内存吃紧时继续认领,会在交互用户已被拒的时刻雪上加霜。所以这里在
+// **水位的 90%** 就提前让路:后台任务比真人先退,step 留在 pending 下个 tick 再看。
 // 探针失败按"槽紧张"处理(保守):探不到就不抢,宁可 Run 慢,不可真人卡住。
 func (e *Engine) yieldToInteractive(ctx context.Context) bool {
 	if e.slots == nil {
 		return false
 	}
-	inUse, max, err := e.slots.Snapshot(ctx)
+	snap, err := e.slots.Snapshot(ctx)
 	if err != nil {
 		slog.Debug("agentrun: slot probe failed, yielding", "err", err)
 		return true
 	}
-	if max <= 0 {
+	if snap.Max <= 0 {
 		return true
 	}
-	return inUse >= max-1
+	if snap.InUse >= snap.Max-1 {
+		return true
+	}
+	if snap.MemLimit > 0 && snap.MemUsed >= snap.MemLimit/10*9 {
+		slog.Debug("agentrun: memory watermark near, yielding", "used", snap.MemUsed, "limit", snap.MemLimit)
+		return true
+	}
+	return false
 }
 
 // tick 推进一轮:挑一个可推进的 Run,认领并执行它的下一步。
@@ -426,9 +446,10 @@ type HTTPSlotProbe struct {
 	Client  *http.Client
 }
 
-func (p *HTTPSlotProbe) Snapshot(ctx context.Context) (int, int, error) {
+func (p *HTTPSlotProbe) Snapshot(ctx context.Context) (AdmissionSnapshot, error) {
+	var zero AdmissionSnapshot
 	if p == nil || p.BaseURL == "" {
-		return 0, 0, fmt.Errorf("agentrun: slot probe not configured")
+		return zero, fmt.Errorf("agentrun: slot probe not configured")
 	}
 	cli := p.Client
 	if cli == nil {
@@ -436,27 +457,38 @@ func (p *HTTPSlotProbe) Snapshot(ctx context.Context) (int, int, error) {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(p.BaseURL, "/")+"/api/admission", nil)
 	if err != nil {
-		return 0, 0, err
+		return zero, err
 	}
 	if p.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+p.Token)
 	}
 	resp, err := cli.Do(req)
 	if err != nil {
-		return 0, 0, err
+		return zero, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return 0, 0, fmt.Errorf("agentrun: admission probe status %d", resp.StatusCode)
+		return zero, fmt.Errorf("agentrun: admission probe status %d", resp.StatusCode)
 	}
 	var body struct {
 		Turns struct {
 			InUse int `json:"inUse"`
 			Max   int `json:"max"`
 		} `json:"turns"`
+		// memory 是 2026-08-10 agent 新增字段;旧 agent 无此字段时解码得零值 = 水位闸未启用,
+		// 让路退化为纯槽位判据(向后兼容)。limitBytes 为 null 时同样解码为 0。
+		Memory struct {
+			UsedBytes  int64 `json:"usedBytes"`
+			LimitBytes int64 `json:"limitBytes"`
+		} `json:"memory"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return 0, 0, err
+		return zero, err
 	}
-	return body.Turns.InUse, body.Turns.Max, nil
+	return AdmissionSnapshot{
+		InUse:    body.Turns.InUse,
+		Max:      body.Turns.Max,
+		MemUsed:  body.Memory.UsedBytes,
+		MemLimit: body.Memory.LimitBytes,
+	}, nil
 }

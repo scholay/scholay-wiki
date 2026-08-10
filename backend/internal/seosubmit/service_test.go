@@ -365,6 +365,63 @@ func TestEnqueueRejectsCrossHostAndAbsolutePaths(t *testing.T) {
 	}
 }
 
+// 2026-08-10 线上实测:百度新版控制台登记的 site 是带 scheme 形式。host 比对必须
+// 先归一;解析不出 host(带端口等)必须报错而非静默回退原串(回退 = 整批误判死信)。
+func TestBaiduMatchHostToleratesSchemefulSite(t *testing.T) {
+	for _, tc := range []struct{ site, want string }{
+		{"www.scholay.com", "www.scholay.com"},
+		{"https://www.scholay.com", "www.scholay.com"},
+		{"http://www.scholay.com/", "www.scholay.com"},
+		{"scholay.com", "scholay.com"},
+	} {
+		got, err := baiduMatchHost(tc.site)
+		if err != nil || got != tc.want {
+			t.Fatalf("baiduMatchHost(%q) = (%q, %v), want (%q, nil)", tc.site, got, err, tc.want)
+		}
+	}
+	// 带端口解析不出裸 host → 必须报错而非回退原串(userinfo 形态 extractHost 能正确
+	// 取出 hostname,不在报错面内)。
+	if _, err := baiduMatchHost("https://www.scholay.com:443"); err == nil {
+		t.Fatalf("baiduMatchHost with port must error, not silently fall back")
+	}
+}
+
+// 构造期校验(2026-08-10 复审):BAIDU_PUSH_SITE 与 canonical host 不一致(如站长平台
+// 登记 apex 而 canonical 是 www)必须在启动时判定为配置错误并禁用通道 —— 否则是
+// 「每天整批 not_same_site 静默死信」的线上事故形态。
+func TestBaiduConfigValidatedAtConstruction(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		site  string
+		token string
+		ready bool
+	}{
+		{"schemeful www matches canonical", "https://www.scholay.com", "tok", true},
+		{"bare www matches canonical", "www.scholay.com", "tok", true},
+		{"apex mismatches www canonical", "scholay.com", "tok", false},
+		{"schemeful apex mismatches", "https://scholay.com", "tok", false},
+		{"unparsable site with port", "https://www.scholay.com:443", "tok", false},
+		{"enabled but empty site", "", "tok", false},
+		{"enabled but empty token", "www.scholay.com", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testSEOConfig()
+			cfg.BaiduEnabled = true
+			cfg.BaiduSite = tc.site
+			cfg.BaiduToken = tc.token
+			cfg.BaiduDailyQuota = 10
+			svc := newServiceWithDependencies(cfg, "https://www.scholay.com", &fakeSEOQueue{}, nil, time.Now)
+			if got := svc.baiduReady(); got != tc.ready {
+				t.Fatalf("baiduReady() = %v, want %v (configErr=%v)", got, tc.ready, svc.baiduConfigErr)
+			}
+			if !tc.ready && svc.baiduConfigErr == nil && (tc.site == "" || tc.token == "") {
+				// 空 site/token 也要有明确的 configErr(否则「声明启用但静默不跑」无日志可查)
+				t.Fatalf("missing site/token must set baiduConfigErr")
+			}
+		})
+	}
+}
+
 func testSEOConfigWithBaidu() appconfig.SEOSubmitConfig {
 	cfg := testSEOConfig()
 	cfg.BaiduEnabled = true

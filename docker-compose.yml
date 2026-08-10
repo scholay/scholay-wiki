@@ -400,6 +400,8 @@ services:
       MINICOD_API_BASE_URL: ${MINICOD_API_BASE_URL:-https://www.minicod.com/v1}
       # ExportDocument 的 PDF 引擎(镜像已装 weasyprint;registry.ts 读此 env 启用 pdf 目标)。
       EXECUTOR_PDF_ENGINE: weasyprint
+      # 并发槽(prod 默认 4 + RSS 水位闸,见 docker-compose.prod.yml 同名项与 admission.ts)
+      EXECUTOR_MAX_CONCURRENT_TURNS: ${EXECUTOR_MAX_CONCURRENT_TURNS:-4}
       # 沙箱:none(本地/默认) | bwrap(仅生产真内核,P4b)。
       # 出网:egress 容器已合并 —— agent 直接经 egress-net(NAT)访问公网,不再走独立代理。
       # 数据面隔离仍在:agent 只在 scholar-agent-net(backend)+ egress-net(外网),**不**接 scholar-network

@@ -64,11 +64,14 @@ func TestFindTemplateDoesNotFallBack(t *testing.T) {
 }
 
 type fakeProbe struct {
-	inUse, max int
-	err        error
+	inUse, max        int
+	memUsed, memLimit int64
+	err               error
 }
 
-func (f fakeProbe) Snapshot(context.Context) (int, int, error) { return f.inUse, f.max, f.err }
+func (f fakeProbe) Snapshot(context.Context) (AdmissionSnapshot, error) {
+	return AdmissionSnapshot{InUse: f.inUse, Max: f.max, MemUsed: f.memUsed, MemLimit: f.memLimit}, f.err
+}
 
 func TestYieldToInteractive(t *testing.T) {
 	cases := []struct {
@@ -84,6 +87,13 @@ func TestYieldToInteractive(t *testing.T) {
 		{"探针失败按槽紧张处理(保守)", fakeProbe{err: errors.New("boom")}, true,
 			"探不到就不抢:宁可 Run 慢,不可真人卡住"},
 		{"max<=0 视为不可用", fakeProbe{inUse: 0, max: 0}, true, ""},
+		// 内存水位让路(2026-08-10):shadow turn 刻意绕过 agent 侧内存闸(执行器侧硬闸会自锁),
+		// 补偿是这里在水位 90% 就提前让路 —— 后台任务比真人先退。
+		{"内存逼近水位(≥90%)让路", fakeProbe{inUse: 0, max: 4, memUsed: 2700 << 20, memLimit: 2800 << 20}, true,
+			"agent 的内存闸只挡交互轮;Run 若此刻还认领,会在真人已被拒时雪上加霜"},
+		{"内存在水位 90% 之下正常认领", fakeProbe{inUse: 0, max: 4, memUsed: 2000 << 20, memLimit: 2800 << 20}, false, ""},
+		{"旧 agent 无 memory 字段(零值)退化为纯槽位判据", fakeProbe{inUse: 0, max: 4}, false,
+			"MemLimit=0 = 水位闸未启用/旧镜像,向后兼容不让路"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

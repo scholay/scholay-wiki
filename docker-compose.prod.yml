@@ -382,6 +382,10 @@ services:
       # ExportDocument 的 PDF 引擎(镜像已装 weasyprint;registry.ts 读此 env 启用 pdf 目标,
       # 缺省=pdf 优雅降级。2026-07 审计:此 env 从未配置是「半月 0 个 pdf」的另一半根因)。
       EXECUTOR_PDF_ENGINE: weasyprint
+      # 并发槽(2026-08-10 事故:默认 2 在部署后高峰被打满,第 3 个用户起每条消息瞬时 busy)。
+      # prod 提到 4;OOM 防线不再靠「最坏体积×槽数预留」,而是 admission.ts 的 RSS 真实水位闸
+      # (默认 cgroup 上限 70% ≈ 2.8G,超水位拒新 turn;可用 EXECUTOR_ADMIT_MAX_RSS_MB 覆盖)。
+      EXECUTOR_MAX_CONCURRENT_TURNS: ${EXECUTOR_MAX_CONCURRENT_TURNS:-4}
       # 沙箱:none(默认) | bwrap(生产真内核,需放开 userns)。bash 凭据安全已由 env 白名单兜底,
     expose:
       - "3456"
@@ -435,13 +439,11 @@ services:
     deploy:
       resources:
         limits:
-          # 2026-08-05「数据分析」能力(方案 R)上调 1.5G → 4G。算式:并发槽 2 × 单会话峰值 ~765MiB
-          # ≈ 1.53G,**已经把 1.5G 吃光**;statkit 子进程(pandas 读表 + bootstrap 重采样)再要 ~800MB
-          # ⇒ 在 1.5G 下反算出来的可用余量是**负数**,pandas 根本没有位置。4G = 1.53G + 0.8G + 头。
-          # ⚠️ 抬内存后**不要**顺手调大 EXECUTOR_MAX_CONCURRENT_TURNS(admission.ts:11 那句注释按字面
-          #    读会误导):并发槽维持 2,统计计算另设 **StatRun 信号量 = 1**。理由是两者约束的东西不同 ——
-          #    槽约束的是「同时几条 turn」,信号量约束的是「同时几个吃内存的统计子进程」;把槽提到 4
-          #    等于允许 4 个 statkit 同时跑 = 3.2G 只给统计,又回到 OOM 杀整容器连坐所有会话的老路。
+          # 2026-08-05「数据分析」能力(方案 R)上调 1.5G → 4G(statkit 子进程 ~800MB 要有位置)。
+          # 2026-08-10 并发口径更新:槽位提到 4(见上方 EXECUTOR_MAX_CONCURRENT_TURNS),
+          # OOM 防线从「最坏体积×槽数预留」改为 admission.ts 的 RSS 真实水位闸(cgroup 上限 70%
+          # 超水位即拒新 turn 回 busy)——轻负载时 4 槽全开,重负载时按真实内存收口,
+          # statkit 仍由 StatRun 信号量=1 单独约束。
           memory: 4G
           cpus: "2.0"
           pids: 512                  # 挡 fork 炸弹(Bash 起子进程)

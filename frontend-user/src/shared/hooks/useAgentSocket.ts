@@ -199,7 +199,38 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   const [peerMessage, setPeerMessage] = useState<{ seq: number; text: string } | null>(null);
   const peerSeqRef = useRef(0);
   // 回答中锁住竞态兜底:被 Hub 以 error/busy 拒的单调计数。
+  // ⚠️ 2026-08-10 起语义收紧为「busy 且自动重试已放弃」:socket 层先按退避自动重发
+  // (见 busyRetryRef),三次耗尽仍 busy 才自增本计数 —— 消费方的「回滚气泡 + 报错」
+  // 行为不变,只是触发点从「首个 busy」后移到「重试放弃」。
   const [busyRejected, setBusyRejected] = useState(0);
+  // ── busy 自动退避重试(2026-08-10 线上事故闭环)────────────────────────────
+  // 执行器并发槽满 / 回答中锁住时,后端以 error/code=busy 瞬时拒绝 user_message。
+  // 旧行为:立刻上抛 → 消费方回滚气泡,用户只能手动狂点(admin 后台连环 4ms 失败轮)。
+  // 现在 socket 层自动重发同一帧。三条经复审钉死的设计约束:
+  //   ① 重发**复用原 clientTurnId**:后端 turn 日志只为「已接受」的消息登记去重
+  //     (turncoord BeginTurn 在接受后才调;eventlog 明确把「同 id 重发」列为受支持的
+  //     幂等路径)。同 id ⇒ 即便某帧其实已被接受、或多 tab 广播导致误触发重发,
+  //     后端也按重复丢弃 —— 双发双计费在协议层不可能;消费方 ackWait/firedAckRef
+  //     按原 id 配对的契约也保持有效。
+  //   ② 重试总窗口必须收在消费方 10s「未送达看门狗」之内(1.5s/3s + ≤50% 抖动,
+  //     最坏 ~6.8s):窗口超过看门狗会在重试中途误弹「未送达·重新发送」。
+  //   ③ 不用 message_complete 等**无关联字段**的全局帧清态(多 tab 下别人的终帧会
+  //     无信号地取消本端重试,孤儿气泡):清态点只有 新 send 覆盖 / 额度拒绝 /
+  //     重试耗尽 / 连接 effect 卸载,配 30s 陈旧窗兜底。
+  // 耗尽仍 busy → 上抛 busyRejected,消费方语义不变(信号 = 已放弃,回滚气泡)。
+  const busyRetryRef = useRef<{
+    frame: Record<string, unknown>;
+    attempts: number;
+    timer: number | null;
+    sentAt: number;
+  } | null>(null);
+  const BUSY_RETRY_DELAYS_MS = [1500, 3000] as const;
+  const BUSY_RETRY_STALE_MS = 30000;
+  const clearBusyRetry = () => {
+    const st = busyRetryRef.current;
+    if (st?.timer != null) window.clearTimeout(st.timer);
+    busyRetryRef.current = null;
+  };
   // 会话当前生效模型(runtime_config_updated 帧驱动;换会话清空,重连由 hub 迟到补帧恢复)。
   const [sessionModel, setSessionModel] = useState<{ modelId: string; isDefault: boolean } | null>(null);
   // 投递确认(user_ack 帧驱动;seq 单调,消费方据变化撤销未送达看门狗)。
@@ -420,6 +451,7 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
         // 带类型读 error 帧(asAgentErrorFrame),额度判定走统一谓词 isQuotaSignal(与 http/SSE 同一处)。
         const errFrame = asAgentErrorFrame(evt);
         if (errFrame && isQuotaSignal(errFrame)) {
+          clearBusyRetry(); // 额度拒绝是终局,别再替这条消息自动重试
           // 结构化载荷(冻结契约):WS 错误帧把 quota 对象平铺在帧上({type:'error',
           // code:'quota_exceeded', message, quota:{...}})。旧后端无 quota 字段时为 undefined。
           notifyQuotaExceeded({
@@ -431,9 +463,32 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           setQuotaExceeded((n) => n + 1);
           return;
         }
-        // 回答中锁住竞态:一轮进行中再发被 Hub 拒(error/code=busy)。不进 messages,抛信号让消费方
-        // 回滚刚乐观追加的那条 pendingTurn(正常输入框已因 busy 置灰,极少触发)。
+        // busy(并发槽满 / 回答中锁住):不进 messages。先按退避自动重发(保留消费方的乐观气泡),
+        // 重试耗尽仍 busy 才上抛 busyRejected 让消费方回滚 —— 消费方语义不变(信号 = 已放弃)。
         if (errFrame && errFrame.code === 'busy') {
+          const st = busyRetryRef.current;
+          if (st && st.timer !== null) return; // 重试已在途:重复/迟到的 busy 帧忽略,别误取消
+          if (st && st.attempts < BUSY_RETRY_DELAYS_MS.length && Date.now() - st.sentAt < BUSY_RETRY_STALE_MS) {
+            const base = BUSY_RETRY_DELAYS_MS[st.attempts]!;
+            st.attempts += 1;
+            const delay = Math.round(base * (1 + Math.random() * 0.5)); // +0~50% 抖动,错开同批被拒的客户端
+            toast.message(`系统繁忙,${Math.round(delay / 1000)} 秒后自动重试(${st.attempts}/${BUSY_RETRY_DELAYS_MS.length})`, {
+              duration: delay,
+            });
+            st.timer = window.setTimeout(() => {
+              st.timer = null;
+              const live = wsRef.current;
+              if (!live || live.readyState !== live.OPEN) {
+                // 连接不在:放弃重试,交回消费方按旧行为回滚
+                busyRetryRef.current = null;
+                setBusyRejected((n) => n + 1);
+                return;
+              }
+              live.send(JSON.stringify(st.frame)); // 原帧原 id 重发(幂等,见上方约束①)
+            }, delay);
+            return;
+          }
+          clearBusyRetry();
           setBusyRejected((n) => n + 1);
           return;
         }
@@ -452,6 +507,9 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           return;
         }
         // 一轮 AI 结束 → 用量已落账,广播刷新额度(触发过半/将尽阈值 toastr)。
+        // ⚠️ 刻意**不**在这里清 busy 重试态:message_complete 无 clientTurnId 关联,
+        // 多 tab 下别人的终帧会无信号取消本端重试(孤儿气泡);同 id 重发本身幂等,
+        // 陈旧重发无害(见 busyRetryRef 注释③)。
         if (evt.type === 'message_complete') notifyBillingChanged();
         // pong/connected 不进 messages(审查修复):fold 本就忽略它们,而它们污染 messages.length
         // 会让消费方把「保活/握手」误当「本轮有真实进展」(未送达看门狗被 pong 误撤 → 幽灵轮失守)。
@@ -501,6 +559,7 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
       cancelledRef.current = true;
       reconnectNowRef.current = null;
       flushNowRef.current = null;
+      clearBusyRetry();
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
         rafId = null;
@@ -630,7 +689,17 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           : m;
       // 记录出站 user_message 的 clientTurnId(有界)→ 自回声识别 + 隐式 ack(见 sentTurnIdsRef 注释)。
       const finalId = (payload as { type?: string; clientTurnId?: string });
-      if (finalId?.type === 'user_message' && finalId.clientTurnId) rememberSentTurnId(finalId.clientTurnId);
+      if (finalId?.type === 'user_message' && finalId.clientTurnId) {
+        rememberSentTurnId(finalId.clientTurnId);
+        // 登记 busy 自动重试的底稿:这条被 busy 拒时按退避重发同帧(新 send 覆盖旧底稿)。
+        clearBusyRetry();
+        busyRetryRef.current = {
+          frame: payload as Record<string, unknown>,
+          attempts: 0,
+          timer: null,
+          sentAt: Date.now(),
+        };
+      }
       ws.send(JSON.stringify(payload));
       return true;
     },
