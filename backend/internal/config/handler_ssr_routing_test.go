@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -265,6 +266,91 @@ func TestServeIndexHTMLCanonicalizesEntitySourcesAndToolCase(t *testing.T) {
 				t.Fatalf("Location = %q, want %q", location, tc.location)
 			}
 		})
+	}
+}
+
+// TestServeIndexHTMLCJKSlugRendersWithoutSelfRedirect 锁定 2026-08-10 线上事故:
+// c.Request.URL.Path 是【已解码】形态,旧实现拿 url.PathEscape 后的 canonical 与它比较,
+// 含转义字符(中文等)的 slug 永不相等 → 301 指向自身编码形态、下一跳解码后再 301,
+// 全部中文情报详情页无限自我重定向。比较必须走 canonicalMatchesRequest(解码域),
+// 输出(canonical link)保持编码域。
+func TestServeIndexHTMLCJKSlugRendersWithoutSelfRedirect(t *testing.T) {
+	const cjkSlug = "2026-08-10-小型热带蝙蝠寿命纪录翻倍"
+	encodedPath := "/news/" + url.PathEscape(cjkSlug)
+	for _, tc := range []struct {
+		name   string
+		target string
+	}{
+		{"percent-encoded request", encodedPath},
+		{"literal utf-8 request", "/news/" + cjkSlug},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newSSRRoutingTestHandler(t)
+			h.newsSEOProvider = stubNewsSEO{resolve: func(slug string) (*seo.NewsSSRMeta, error) {
+				if slug != cjkSlug {
+					return nil, nil
+				}
+				return &seo.NewsSSRMeta{Slug: cjkSlug, Title: "中文情报标题", Summary: "摘要"}, nil
+			}}
+			got := requestSSR(t, h, tc.target, "Googlebot/2.1")
+			if got.Code != http.StatusOK {
+				t.Fatalf("status = %d (Location=%q), want 200 — CJK slug 自我 301 死循环回归",
+					got.Code, got.Header().Get("Location"))
+			}
+			// canonical 输出必须是编码域形态(与 sitemap loc 同口径),不能出现未编码中文。
+			if body := got.Body.String(); !strings.Contains(body, encodedPath) {
+				t.Fatalf("canonical 未输出 percent-encoded 形态 %q:\n%s", encodedPath, body)
+			}
+		})
+	}
+}
+
+// TestSSRStaticBodyCarriesSiteNavAndEntityLinks 锁定 2026-08-10 内链修复:
+// ① 每个 SSR 兜底正文尾部必须带全站栏目导航(data-ssr-nav),让非 JS 爬虫可沿
+//    链接发现列表枢纽页(此前首页/详情页 0 出链,链接图断裂);
+// ② 论文卡作者名(有 AuthorID)必须渲染成 /author/{source}/{id} 实体内链。
+func TestSSRStaticBodyCarriesSiteNavAndEntityLinks(t *testing.T) {
+	h := newSSRRoutingTestHandler(t)
+	h.paperSEOProvider = stubPaperSEO{byID: func(_, _ string) (*seo.PaperSSRMeta, error) {
+		return &seo.PaperSSRMeta{
+			PaperID: "p-1", Source: "olx", Title: "Paper", SEOIndexable: true,
+			Authors:    []string{"Ada Lovelace", "No Id Author"},
+			AuthorRefs: []seo.Author{{Name: "Ada Lovelace", AuthorID: "A123"}, {Name: "No Id Author"}},
+		}, nil
+	}}
+	body := requestSSR(t, h, "/paper/olx/p-1", "Googlebot/2.1").Body.String()
+	if !strings.Contains(body, `<a href="/author/olx/A123">Ada Lovelace</a>`) {
+		t.Fatalf("paper card lacks author entity link:\n%s", body)
+	}
+	if !strings.Contains(body, "No Id Author") || strings.Contains(body, `href="/author/olx/"`) {
+		t.Fatalf("author without ID must stay plain text:\n%s", body)
+	}
+	if !strings.Contains(body, `data-ssr-nav="true"`) || !strings.Contains(body, `<a href="/journals/search"`) {
+		t.Fatalf("paper static body lacks site nav:\n%s", body)
+	}
+
+	home := requestSSR(t, h, "/", "Baiduspider/2.0").Body.String()
+	if !strings.Contains(home, `data-ssr-nav="true"`) || !strings.Contains(home, `<a href="/blog"`) {
+		t.Fatalf("homepage static body lacks site nav:\n%s", home)
+	}
+}
+
+// TestSSRSiteNavLinksExistInStaticRegistry 钉住导航路径与 seo.StaticPages 注册表的
+// 一致性:路由改名只改注册表、漏改导航时,这里会先红,阻止全站兜底正文带 301/404 死链。
+// /news 是唯一例外(有独立的 news sitemap hub,不在静态注册表)。
+func TestSSRSiteNavLinksExistInStaticRegistry(t *testing.T) {
+	registered := make(map[string]struct{})
+	for _, p := range seo.AllStaticPaths() {
+		registered[p] = struct{}{}
+	}
+	for _, link := range ssrSiteNavLinks {
+		path := link[0]
+		if path == "/news" {
+			continue
+		}
+		if _, ok := registered[path]; !ok {
+			t.Fatalf("nav path %q is not in seo.StaticPages registry — stale link on every SSR page", path)
+		}
 	}
 }
 

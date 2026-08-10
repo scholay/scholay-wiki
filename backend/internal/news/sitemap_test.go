@@ -25,6 +25,17 @@ func TestIsValidNewsSlugCompatibilityAndBoundaries(t *testing.T) {
 	}{
 		{name: "upstream date prefix", slug: "2026-06-12-new-ai-model", want: true},
 		{name: "all RFC3986 unreserved forms", slug: "News_v2.final~draft", want: true},
+		// 2026-08-10 事故回归:上游真实 slug 是「日期前缀+中文」,ASCII-only 校验曾把
+		// 线上 1055 条已发布情报全部滤出 sitemap 并拒收后续入库。
+		{name: "upstream CJK slug", slug: "2026-08-10-小型热带蝙蝠寿命纪录翻倍-端粒变化没有想象中简单", want: true},
+		{name: "pure CJK slug", slug: "学术新闻", want: true},
+		// 长度按字符数(DB utf8mb4 VARCHAR(200)=200 字符),不是字节数:
+		// 200 个汉字 = 600 字节,必须合法;201 字符必须拒绝。
+		{name: "max length CJK counts runes not bytes", slug: strings.Repeat("学", maxNewsSlugLength), want: true},
+		{name: "over max length CJK", slug: strings.Repeat("学", maxNewsSlugLength+1), want: false},
+		{name: "CJK with blocked static suffix", slug: "中文新闻.xml", want: false},
+		{name: "invalid UTF-8 bytes", slug: "bad-\xff\xfe-slug", want: false},
+		{name: "percent-encoded literal stays rejected", slug: "%E5%AD%A6%E6%9C%AF", want: false},
 		{name: "max database length", slug: strings.Repeat("a", maxNewsSlugLength), want: true},
 		{name: "empty", slug: "", want: false},
 		{name: "too long", slug: strings.Repeat("a", maxNewsSlugLength+1), want: false},
@@ -39,7 +50,6 @@ func TestIsValidNewsSlugCompatibilityAndBoundaries(t *testing.T) {
 		{name: "SSR scanner suffix XML", slug: "release.xml", want: false},
 		{name: "SSR scanner suffix PHP", slug: "release.PHP", want: false},
 		{name: "space", slug: "good bad", want: false},
-		{name: "non ASCII", slug: "学术新闻", want: false},
 		{name: "dot segment", slug: ".", want: false},
 		{name: "parent dot segment", slug: "..", want: false},
 		{name: "hidden-file prefix", slug: ".published-news", want: false},
@@ -106,16 +116,17 @@ func TestSitemapEntriesFromItemsExcludesHistoricalInvalidSlugs(t *testing.T) {
 		{Slug: "2026-08-09-invalid?preview=1", Title: "Invalid slug", UpstreamUpdatedAt: &updated},
 		{Slug: "2026-08-09-valid-but-empty-title", Title: "  ", UpstreamUpdatedAt: &updated},
 		{Slug: "2026-08-09-static.js", Title: "Unroutable", UpstreamUpdatedAt: &updated},
+		{Slug: "2026-08-09-中文情报标题", Title: "CJK", UpstreamUpdatedAt: &updated},
 	}
 
 	got := sitemapEntriesFromItems(items)
-	if len(got) != 2 {
-		t.Fatalf("sitemapEntriesFromItems() returned %d entries, want 2: %#v", len(got), got)
+	if len(got) != 3 {
+		t.Fatalf("sitemapEntriesFromItems() returned %d entries, want 3: %#v", len(got), got)
 	}
-	if got[0].Slug != "2026-08-09-valid-news" || got[1].Slug != "2026-08-09-valid_second" {
+	if got[0].Slug != "2026-08-09-valid-news" || got[1].Slug != "2026-08-09-valid_second" || got[2].Slug != "2026-08-09-中文情报标题" {
 		t.Fatalf("unexpected sitemap slugs/order: %#v", got)
 	}
-	if got[0].LastMod != "2026-08-09" || got[1].LastMod != "2026-08-09" {
+	if got[0].LastMod != "2026-08-09" || got[1].LastMod != "2026-08-09" || got[2].LastMod != "2026-08-09" {
 		t.Fatalf("unexpected lastmod values: %#v", got)
 	}
 }

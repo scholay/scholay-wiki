@@ -54,6 +54,37 @@ func TestSitemapPagesPropagatesRepositoryFailure(t *testing.T) {
 	}
 }
 
+// TestSEOReviewViolationReasons 钉住批量审核与单件审核共用的契约谓词:
+// 每种失败模式给出确定的原因串(BatchSEOReview 的 SkipSamples 靠它诊断)。
+func TestSEOReviewViolationReasons(t *testing.T) {
+	if got := seoReviewViolation(eligibleTool()); got != "" {
+		t.Fatalf("eligible tool flagged: %q", got)
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func(*Tool)
+		want   string
+	}{
+		{"draft status", func(x *Tool) { x.Status = "draft" }, "status != published"},
+		{"numeric slug", func(x *Tool) { x.Slug = "12345" }, "numeric-only slug"},
+		{"non-public url", func(x *Tool) { x.OfficialURL = "http://localhost/x" }, "official_url is not a public http(s) URL"},
+		{"short description", func(x *Tool) { x.DescriptionMD = "太短" }, "description_md shorter than 120 chars"},
+		{"not enriched", func(x *Tool) { x.DataQuality.Enriched = false }, "data_quality not enriched"},
+		{"needs review", func(x *Tool) { x.DataQuality.NeedsReview = true }, "data_quality.needs_review is set"},
+		{"needs enrich", func(x *Tool) { x.DataQuality.NeedsEnrich = []string{"logo"} }, "data_quality.needs_enrich pending"},
+		{"no public source", func(x *Tool) { x.DataQuality.Sources = nil }, "no public data_quality source"},
+		{"one use case", func(x *Tool) { x.UseCases = x.UseCases[:1] }, "fewer than 2 substantive use cases"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tool := eligibleTool()
+			tc.mutate(tool)
+			if got := seoReviewViolation(tool); got != tc.want {
+				t.Fatalf("violation = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestApplySEOReviewAcceptsCompleteReviewedTool(t *testing.T) {
 	tool := eligibleTool()
 	adminID := uint(7)

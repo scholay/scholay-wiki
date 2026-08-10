@@ -248,6 +248,12 @@ func (c *Client) doPost(ctx context.Context, path string, body any) (json.RawMes
 	return apiResp.Data, nil
 }
 
+// IsNotFoundError 导出版 isNotFoundErr,供上层(seoenrich on-miss)把「上游明确说
+// 不存在」与「上游故障」区分开:前者应折叠为 404(死链可被搜索引擎清除),
+// 后者才是 503。刻意不用 IsClientSideError —— 那个还包含 401/403(我方 key 失效),
+// key 失效时把有效论文页 404 掉是更糟的事故。
+func IsNotFoundError(err error) bool { return isNotFoundErr(err) }
+
 // isNotFoundErr 判断是否「资源未找到」——HTTP 404(upstream.ErrNotFound)或上游业务码
 // 40401/40400。DOI/标题精确查询在某源未命中是**正常结果**,不能当上游故障计入熔断
 // (否则一个 DOI 只在 1 源命中、另 2 源"未找到"就会把与主搜索共享的源级熔断器打开)。

@@ -27,8 +27,14 @@ import (
 )
 
 const (
-	queueKey       = "seo:push:queue"
+	queueKey       = "seo:push:queue" // IndexNow 待推送队列(历史上双引擎共用,现仅 IndexNow)
 	queueOpTimeout = 2 * time.Second
+
+	// baiduQueueKey 百度专属待推送队列。2026-08-10 审计:双引擎共用一个破坏性
+	// ZPOPMIN 队列时,重入队补偿只由 IndexNow 结果驱动 —— 百度提交失败/超配额的
+	// 批次对百度永久丢失;IndexNow 进入冷却时百度也被连带饿死。每引擎独立队列
+	// 后,各自的失败补偿互不干扰。
+	baiduQueueKey = "seo:push:baidu:pending"
 
 	// ── 死信 + IndexNow 所有权验证冷却
 	deadKey        = "seo:push:dead"             // ZSET: member=URL, score=落死信时刻
@@ -38,11 +44,24 @@ const (
 
 	indexNowCooldownKey  = "seo:push:indexnow:cooldown_until"
 	deadRecoveryLeaseKey = "seo:push:dead:recovery_lease"
+
+	// IndexNow 连续 403 计数(驱动指数退避冷却)。成功一次即清零。
+	indexNowAuthStrikesKey = "seo:push:indexnow:auth_strikes"
+	indexNowAuthStrikesTTL = 48 * time.Hour
 )
 
-// Enqueue 把一组 URL 放进待推送队列。重复 URL 会被 ZADD 去重(更新 score 为最新时间)。
+// Enqueue 把一组 URL 放进 IndexNow 待推送队列。重复 URL 会被 ZADD 去重(更新 score 为最新时间)。
 // 调用频次高,本身不做远程网络 IO,只一条 ZADD,失败静默(SEO 推送不影响主流程)。
 func Enqueue(ctx context.Context, urls []string) error {
+	return enqueueTo(ctx, queueKey, urls)
+}
+
+// EnqueueBaidu 百度专属队列入队(语义同 Enqueue)。
+func EnqueueBaidu(ctx context.Context, urls []string) error {
+	return enqueueTo(ctx, baiduQueueKey, urls)
+}
+
+func enqueueTo(ctx context.Context, key string, urls []string) error {
 	if len(urls) == 0 {
 		return nil
 	}
@@ -64,12 +83,21 @@ func Enqueue(ctx context.Context, urls []string) error {
 	if len(members) == 0 {
 		return nil
 	}
-	return rdb.ZAdd(cctx, queueKey, members...).Err()
+	return rdb.ZAdd(cctx, key, members...).Err()
 }
 
-// PopBatch 原子拉取 n 个最早入队的 URL,从队列中移除。
+// PopBatch 原子拉取 n 个最早入队的 URL(IndexNow 队列),从队列中移除。
 // 失败(Redis 故障)返回 error,worker 应跳过本轮等下次重试,不要把"未推送"的 URL 丢失。
 func PopBatch(ctx context.Context, n int) ([]string, error) {
+	return popBatchFrom(ctx, queueKey, n)
+}
+
+// PopBaiduBatch 百度专属队列出队(语义同 PopBatch)。
+func PopBaiduBatch(ctx context.Context, n int) ([]string, error) {
+	return popBatchFrom(ctx, baiduQueueKey, n)
+}
+
+func popBatchFrom(ctx context.Context, key string, n int) ([]string, error) {
 	if n <= 0 {
 		return nil, nil
 	}
@@ -80,7 +108,7 @@ func PopBatch(ctx context.Context, n int) ([]string, error) {
 	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
 	defer cancel()
 
-	zs, err := rdb.ZPopMin(cctx, queueKey, int64(n)).Result()
+	zs, err := rdb.ZPopMin(cctx, key, int64(n)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -93,10 +121,42 @@ func PopBatch(ctx context.Context, n int) ([]string, error) {
 	return urls, nil
 }
 
-// Requeue 推送失败的 URL 放回队列,使用当前时间作 score(队尾)。
+// Requeue 推送失败的 URL 放回 IndexNow 队列,使用当前时间作 score(队尾)。
 // 设计上配合 PopBatch:网络抖 / 5xx / 限流时把整批拿出的 URL 还给队列。
 func Requeue(ctx context.Context, urls []string) error {
 	return Enqueue(ctx, urls)
+}
+
+// RequeueBaidu 百度提交失败/配额顺延的 URL 放回百度队列。
+func RequeueBaidu(ctx context.Context, urls []string) error {
+	return EnqueueBaidu(ctx, urls)
+}
+
+// IncrIndexNowAuthStrikes 连续 403 计数 +1,返回当前值(驱动指数退避)。
+func IncrIndexNowAuthStrikes(ctx context.Context) (int64, error) {
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return 0, errors.New("redis unavailable")
+	}
+	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
+	defer cancel()
+	n, err := rdb.Incr(cctx, indexNowAuthStrikesKey).Result()
+	if err != nil {
+		return 0, err
+	}
+	_ = rdb.Expire(cctx, indexNowAuthStrikesKey, indexNowAuthStrikesTTL).Err()
+	return n, nil
+}
+
+// ClearIndexNowAuthStrikes 提交成功后清零连续失败计数。
+func ClearIndexNowAuthStrikes(ctx context.Context) error {
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return errors.New("redis unavailable")
+	}
+	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
+	defer cancel()
+	return rdb.Del(cctx, indexNowAuthStrikesKey).Err()
 }
 
 // DeadLetter 把「判定为永久失败」的一批 URL 落进死信 ZSET,并记下最近一次失败原因。
@@ -264,13 +324,22 @@ func moveDeadLettersToQueue(ctx context.Context, entries []deadLetterRecovery) (
 	return moveDeadLettersScript.Run(cctx, rdb, []string{deadKey, queueKey, deadReasonKey}, args...).Int64()
 }
 
-// QueueLen 返回队列剩余条数(诊断/监控用)
+// QueueLen 返回 IndexNow 队列剩余条数(诊断/监控用)
 func QueueLen(ctx context.Context) (int64, error) {
+	return queueLenOf(ctx, queueKey)
+}
+
+// BaiduQueueLen 返回百度队列剩余条数(诊断/监控用)
+func BaiduQueueLen(ctx context.Context) (int64, error) {
+	return queueLenOf(ctx, baiduQueueKey)
+}
+
+func queueLenOf(ctx context.Context, key string) (int64, error) {
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return 0, nil
 	}
 	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
 	defer cancel()
-	return rdb.ZCard(cctx, queueKey).Result()
+	return rdb.ZCard(cctx, key).Result()
 }

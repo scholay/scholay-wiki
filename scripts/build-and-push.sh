@@ -185,7 +185,13 @@ build_server_image() {
     echo -e "${GREEN}✓ ${service} 完成${NC}"
 }
 
-# 构建 Frontend (需要指定平台为 linux/amd64)
+# 构建 Frontend —— 与后端同一套 buildx + --push 直推
+#
+# 2026-08-10 磁盘优化:旧实现用 `docker build` + `docker tag` + `docker push`,
+# 每个版本号都会在本地镜像库永久留一份(0.0.70/0.0.71/… 每份 ~85MB,从不清理),
+# 且走的是 docker daemon 的另一套构建缓存。改成 buildx --push 后:
+#   - 镜像直接推 ACR,本地不落副本(磁盘零增长);
+#   - 与 backend/agent 共用 scholar-builder 的缓存域,统一被 cleanup_local 封顶。
 build_frontend() {
     local service=$1
     local image=$2
@@ -200,29 +206,54 @@ build_frontend() {
     echo "  SITE_URL          = ${SITE_URL}"
     echo "  SITE_NAME         = ${SITE_NAME}"
 
-    # 使用 docker build 指定平台
-    # 注意:需要确保 Docker Desktop 开启了 "Use Rosetta for x86/amd64 emulation"
-    #
+    setup_buildx
+
     # build-arg 必须显式传 —— Vite 在编译期把 import.meta.env.VITE_* 替换进 bundle,
     # 运行期再改 docker compose env 也改不了打好的 JS。
     # 详见 frontend-user/Dockerfile + frontend-user/vite.config.ts。
-    docker build \
+    docker buildx build \
         --platform ${TARGET_PLATFORM} \
         -t ${image} \
+        -t ${latest} \
         --build-arg VITE_API_BASE_URL= \
         --build-arg VITE_SITE_URL="${SITE_URL}" \
         --build-arg VITE_SITE_NAME="${SITE_NAME}" \
+        --push \
         ${context}
 
-    # 打 latest 标签
-    docker tag ${image} ${latest}
-
-    # 推送
-    echo -e "${YELLOW}推送镜像...${NC}"
-    docker push ${image}
-    docker push ${latest}
-
     echo -e "${GREEN}✓ ${service} 完成${NC}"
+}
+
+# ==================== 磁盘清理 ====================
+# 每次构建后自动执行:缓存封顶(保留增量构建能力)+ 清历史残留。
+# BUILD_CACHE_KEEP 可用 env 覆盖(如 BUILD_CACHE_KEEP=40GB ./scripts/build-and-push.sh)。
+BUILD_CACHE_KEEP="${BUILD_CACHE_KEEP:-25GB}"
+
+cleanup_local() {
+    echo ""
+    echo -e "${YELLOW}=== 清理本地磁盘(缓存封顶 ${BUILD_CACHE_KEEP},保留增量能力)===${NC}"
+
+    # 1) scholar-builder 的 BuildKit 缓存按 LRU 封顶 —— 不是清空:热层留着,下次构建仍增量。
+    #    (新旧 buildx 的参数名不同,逐个回退)
+    docker buildx prune --builder scholar-builder --force --max-used-space "${BUILD_CACHE_KEEP}" 2>/dev/null \
+      || docker buildx prune --builder scholar-builder --force --keep-storage "${BUILD_CACHE_KEEP}" 2>/dev/null \
+      || true
+
+    # 2) 本地的 ACR 镜像副本:buildx --push 直推后本地不需要任何副本,
+    #    清掉旧版脚本历年攒下的每版一份(只清本项目 namespace,不碰其他项目)。
+    local stale
+    stale=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep "^${REGISTRY}/${NAMESPACE}/" || true)
+    if [ -n "$stale" ]; then
+        echo "清理本地 ACR 镜像副本(已推远端,本地是重复占用):"
+        echo "$stale" | sed 's/^/  - /'
+        echo "$stale" | xargs docker rmi -f >/dev/null 2>&1 || true
+    fi
+
+    # 3) dangling(无标签)镜像层
+    docker image prune -f >/dev/null 2>&1 || true
+
+    echo -e "${GREEN}清理完成。当前占用:${NC}"
+    docker system df | head -5
 }
 
 # 根据目标构建
@@ -254,6 +285,9 @@ esac
 
 # 保存新版本号
 save_version "${NEW_VERSION}"
+
+# 构建后清理:缓存封顶 + 清历史残留(失败不影响本次发布结果)
+cleanup_local || true
 
 echo ""
 echo -e "${GREEN}========================================${NC}"

@@ -140,6 +140,7 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		{
 			tools.GET("", h.featureTool.AdminList)
 			tools.POST("", h.featureTool.AdminCreate)
+			tools.POST("/seo-review/batch", h.featureTool.AdminBatchSEOReview)
 			tools.GET("/categories", h.featureTool.AdminCategories)
 
 			// 批量导入 (JSON body) + zip 上传导入 + 任务管理

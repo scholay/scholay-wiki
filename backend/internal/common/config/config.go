@@ -445,3 +445,11 @@ func CanonicalBaseURL() string {
 	}
 	return v
 }
+
+// GoogleSiteVerification 返回 Google Search Console 的 HTML-tag 验证 token
+// (env GOOGLE_SITE_VERIFICATION,即 <meta name="google-site-verification"> 的
+// content 值,不含标签本身)。非空时 SSR 会在每个页面 <head> 注入验证 meta。
+// 留空 = 不注入(推荐用 DNS TXT 做域名级验证时无需此项)。
+func GoogleSiteVerification() string {
+	return strings.TrimSpace(getEnv("GOOGLE_SITE_VERIFICATION", ""))
+}

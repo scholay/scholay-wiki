@@ -53,6 +53,8 @@ const (
 	ssrMetaStyle    = `style="color: #6E6E78; font-size: 0.9rem; margin-bottom: 8px;"`
 	ssrSubHeadStyle = `style="color: #1F1F23; font-size: 1.1rem; margin: 16px 0 8px;"`
 	ssrListStyle    = `style="color: #505059; line-height: 1.8; padding-left: 20px;"`
+	ssrNavStyle     = `style="max-width: 1000px; margin: 4px auto 20px; padding: 12px 20px 0; border-top: 1px solid #DCDAD6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.85rem;"`
+	ssrNavListStyle = `style="list-style: none; margin: 0; padding: 0; color: #6E6E78; line-height: 2;"`
 )
 
 const (
@@ -275,7 +277,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						status = http.StatusNotFound
 					default:
 						canonical := canonicalPaperPath(meta)
-						if canonical != "" && canonical != requestPath {
+						if canonical != "" && !canonicalMatchesRequest(canonical, requestPath) {
 							c.Redirect(http.StatusMovedPermanently, canonical)
 							return
 						}
@@ -357,7 +359,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						status = http.StatusNotFound
 					default:
 						canonical := canonicalAuthorPath(meta)
-						if canonical != "" && canonical != requestPath {
+						if canonical != "" && !canonicalMatchesRequest(canonical, requestPath) {
 							c.Redirect(http.StatusMovedPermanently, canonical)
 							return
 						}
@@ -407,7 +409,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 					status = http.StatusNotFound
 				} else {
 					canonical := canonicalJournalPath(meta)
-					if canonical != "" && canonical != requestPath {
+					if canonical != "" && !canonicalMatchesRequest(canonical, requestPath) {
 						c.Redirect(http.StatusMovedPermanently, canonical)
 						return
 					}
@@ -447,7 +449,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 					status = http.StatusNotFound
 				default:
 					canonical := "/tools/" + url.PathEscape(meta.Slug)
-					if canonical != requestPath {
+					if !canonicalMatchesRequest(canonical, requestPath) {
 						c.Redirect(http.StatusMovedPermanently, canonical)
 						return
 					}
@@ -484,8 +486,27 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		modifiedHTML = setSSRNoindex(c, modifiedHTML)
 	}
 
+	// GSC HTML-tag 站点验证:env GOOGLE_SITE_VERIFICATION 非空时注入到每个 SSR 页
+	// (验证只需首页,但全页注入无害且省一个路径判断)。DNS TXT 验证时留空即可。
+	if token := appconfig.GoogleSiteVerification(); token != "" {
+		tag := fmt.Sprintf(`<meta name="google-site-verification" content="%s" />`, htmlEscape(token))
+		modifiedHTML = strings.Replace(modifiedHTML, "</head>", tag+"\n</head>", 1)
+	}
 	modifiedHTML = markSSRSEOHead(modifiedHTML)
 	writeSSRHTML(c, http.StatusOK, modifiedHTML)
+}
+
+// canonicalMatchesRequest 判断编码域 canonical(PathEscape 产物)与 requestPath 是否指同一资源。
+// c.Request.URL.Path 是【已解码】形态,直接与 PathEscape 后的 canonical 比较,任何含转义字符
+// (中文/空格等)的 slug/ID 都永不相等 → 301 指向自身编码形态、下一跳解码后再 301,无限自我
+// 重定向(2026-08-10 news 全量 1055 篇中文 slug 线上事故)。比较统一回解码域做;
+// canonical(编码域)只用于输出(Location 头 / canonical link)。
+func canonicalMatchesRequest(canonical, requestPath string) bool {
+	if canonical == requestPath {
+		return true
+	}
+	dec, err := url.PathUnescape(canonical)
+	return err == nil && dec == requestPath
 }
 
 func canonicalPaperPath(meta *seo.PaperSSRMeta) string {
@@ -613,8 +634,9 @@ func (h *Handler) canonicalRedirectFor(requestPath string) string {
 	return ""
 }
 
-// canonicalJournalPath 用 meta 拼 canonical 路径
-//   - 有 slug → /journal/{id}/{slug}
+// canonicalJournalPath 用 meta 拼 canonical 路径(编码域,供输出;比较走 canonicalMatchesRequest)
+//   - 有 slug → /journal/{id}/{slug}(slug 经 PathEscape:CJK 期刊名 canonical/og:url
+//     必须输出 percent-encoded 形态,与 sitemap loc 同口径)
 //   - 无 slug → /journal/{id} (永远不需要 301)
 func canonicalJournalPath(meta *seo.JournalSSRMeta) string {
 	if meta == nil || meta.JournalID <= 0 {
@@ -622,7 +644,7 @@ func canonicalJournalPath(meta *seo.JournalSSRMeta) string {
 	}
 	idStr := strconv.FormatInt(meta.JournalID, 10)
 	if meta.Slug != "" {
-		return "/journal/" + idStr + "/" + meta.Slug
+		return "/journal/" + idStr + "/" + url.PathEscape(meta.Slug)
 	}
 	return "/journal/" + idStr
 }
@@ -887,14 +909,55 @@ func prepareSSRPageShell(html string) string {
 	return ssrNoscriptRe.ReplaceAllString(html, "")
 }
 
+// ssrSiteNavHTML 全站栏目导航,统一追加在每个 SSR 静态兜底正文尾部(insertNoscriptBlock)。
+// 2026-08-10 审计:首页兜底正文 0 出链、实体/文章详情页 0 内链、4 个列表页 0 入链 ——
+// 对不渲染 JS 的引擎(百度/搜狗)整站链接图断裂,发现与权重传递只剩 sitemap 单通道。
+// 这一块让每个 SSR 页都成为链接图节点:任意页导出到各列表枢纽,爬虫沿列表页可发现
+// 全部内容。React 接管 #root 后此块不再显示,不影响真实用户 UI。
+var ssrSiteNavHTML = buildSSRSiteNav()
+
+// ssrSiteNavLinks 导航条目。路径必须存在于 seo.StaticPages 注册表(或为 /news hub)——
+// 有测试钉住这层约束,防止路由改名后这里残留全站性的 301/404 死链。
+var ssrSiteNavLinks = [][2]string{
+	{"/search", "论文搜索"},
+	{"/journals/search", "期刊检索"},
+	{"/news", "学术情报"},
+	{"/blog", "Scholay 博客"},
+	{"/resources", "学术资源"},
+	{"/help", "学术问答"},
+	{"/features", "全部功能"},
+	{"/tools", "功能广场"},
+	{"/journals/sci-q1", "SCI 一区期刊"},
+	{"/journals/cas-zone1", "中科院一区期刊"},
+	{"/journals/ccf-a", "CCF A 类期刊"},
+	{"/journals/high-impact-factor", "高影响因子期刊"},
+	{"/pricing", "会员定价"},
+	{"/about", "关于 Scholay"},
+}
+
+func buildSSRSiteNav() string {
+	links := ssrSiteNavLinks
+	var b strings.Builder
+	b.WriteString(`<nav data-ssr-nav="true" aria-label="站点栏目" ` + ssrNavStyle + `><ul ` + ssrNavListStyle + `>`)
+	for i, l := range links {
+		if i > 0 {
+			b.WriteString(` <li style="display: inline;">·</li> `)
+		}
+		fmt.Fprintf(&b, `<li style="display: inline;"><a href="%s" style="color: #505059;">%s</a></li>`, l[0], l[1])
+	}
+	b.WriteString(`</ul></nav>`)
+	return b.String()
+}
+
 // insertNoscriptBlock 保留历史函数名以减少调用面，但正文已不再放在 noscript。
 // 它把可见静态 fallback 直接写入 #root；浏览器拿到首包即可显示真实路由正文，
 // React createRoot 随后替换该内容。搜索引擎与普通用户因此观察同一份初始 HTML。
+// 每个静态兜底正文尾部统一带全站栏目导航(见 ssrSiteNavHTML)。
 func insertNoscriptBlock(html, innerHTML string) string {
 	if innerHTML == "" {
 		return html
 	}
-	block := `<main data-ssr-static="true">` + "\n" + innerHTML + "\n</main>"
+	block := `<main data-ssr-static="true">` + "\n" + innerHTML + "\n" + ssrSiteNavHTML + "\n</main>"
 	if loc := ssrEmptyRootRe.FindStringIndex(html); loc != nil {
 		root := html[loc[0]:loc[1]]
 		if openEnd := strings.Index(root, ">"); openEnd >= 0 {
@@ -1081,8 +1144,8 @@ func buildPaperNoscriptCard(meta *seo.PaperSSRMeta) string {
 	}
 
 	var metaLines []string
-	if len(meta.Authors) > 0 {
-		metaLines = append(metaLines, "作者："+htmlEscape(strings.Join(meta.Authors, ", ")))
+	if authorsHTML := buildPaperAuthorsHTML(meta); authorsHTML != "" {
+		metaLines = append(metaLines, "作者："+authorsHTML)
 	}
 	if meta.Venue != "" {
 		metaLines = append(metaLines, "发表于："+htmlEscape(meta.Venue))
@@ -1111,6 +1174,42 @@ func buildPaperNoscriptCard(meta *seo.PaperSSRMeta) string {
 %s
 %s
 </article>`, baseStyle, headingStyle, title, metaHTML, abstract)
+}
+
+// buildPaperAuthorsHTML 论文卡片的作者列表:有 AuthorID 的渲染成 /author/{source}/{id}
+// 内链(与 SPA PaperHeader 的可点作者同一映射,paper.Source 即作者 ID 的来源空间),
+// 其余纯文本。2026-08-10 审计:论文/作者/期刊详情页 SSR HTML 内链数为 0,~2.5 万
+// 实体页对不渲染 JS 的爬虫(百度/搜狗)是零出链孤岛 —— 作者内链让权重在
+// 论文↔作者间流动,爬虫可沿链接发现作者页。
+func buildPaperAuthorsHTML(meta *seo.PaperSSRMeta) string {
+	// 超长作者列表只链前 12 位,避免兜底正文膨胀成链接农场。
+	const maxLinked = 12
+	canLink := seo.IsCanonicalSource(meta.Source)
+	names := meta.Authors
+	refs := meta.AuthorRefs
+	if len(refs) == 0 && len(names) == 0 {
+		return ""
+	}
+	if len(refs) == 0 {
+		// 旧行只有名字列表:保持原纯文本行为。
+		return htmlEscape(strings.Join(names, ", "))
+	}
+	parts := make([]string, 0, len(refs))
+	linked := 0
+	for _, au := range refs {
+		if au.Name == "" {
+			continue
+		}
+		name := htmlEscape(au.Name)
+		if canLink && au.AuthorID != "" && linked < maxLinked {
+			href := "/author/" + url.PathEscape(meta.Source) + "/" + url.PathEscape(au.AuthorID)
+			parts = append(parts, fmt.Sprintf(`<a href="%s">%s</a>`, htmlEscape(href), name))
+			linked++
+		} else {
+			parts = append(parts, name)
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // injectAuthorSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入作者卡片
@@ -2103,7 +2202,7 @@ func (h *Handler) injectNewsSSR(html, path string) (string, int, string) {
 	}
 	if meta.Slug != "" {
 		canonicalPath := "/news/" + url.PathEscape(meta.Slug)
-		if canonicalPath != path {
+		if !canonicalMatchesRequest(canonicalPath, path) {
 			return html, http.StatusOK, canonicalPath
 		}
 		path = canonicalPath

@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/upstream"
 )
 
@@ -149,6 +151,47 @@ func classifyIndexNowError(err error, site canonicalSite) error {
 	default:
 		return fmt.Errorf("indexnow: %w", err)
 	}
+}
+
+// VerifyIndexNowKeyFile 从公网侧确认 {origin}/{key}.txt 可达且内容精确等于 key。
+//
+// 2026-08-10 事故:部署时 backend 比边缘层(nginx/Caddy)早就绪,worker 启动即发首批,
+// 引擎回抓 key 文件撞上未就绪窗口 → 403 UserForbiddedToAccessSite + 长冷却,
+// 每次部署都可能复发。出站提交前先做这一步廉价自检:失败只推迟本轮提交
+// (队列不动、不装冷却),下个 tick 再试 —— 把「部署竞态吃 403 冻结半天」变成
+// 「等边缘就绪后自然恢复」。
+//
+// 不走 common/upstream(自检目标是本站,失败不该计入 IndexNow 上游的 breaker),
+// 但复用共享连接池(httpclient.WithTimeout),不 per-call 新建 Transport。
+func VerifyIndexNowKeyFile(ctx context.Context, origin, key string) error {
+	if origin == "" || key == "" {
+		return fmt.Errorf("%w: origin/key empty for key file self-check", errIndexNowConfig)
+	}
+	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(cctx, http.MethodGet, origin+"/"+key+".txt", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "ScholayIndexNowSelfCheck/1.0")
+	resp, err := httpclient.WithTimeout(5 * time.Second).Do(req)
+	if err != nil {
+		return fmt.Errorf("indexnow key file self-check: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("indexnow key file self-check: GET %s/%s.txt returned %d, want 200", origin, key, resp.StatusCode)
+	}
+	// io.ReadAll 读全量(限长防御):io.Reader 允许短读(chunked/TLS 分片),
+	// 单次 Read 会把正确的 key 文件误判为 mismatch、无限推迟提交。
+	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(len(key))+64))
+	if err != nil {
+		return fmt.Errorf("indexnow key file self-check: read body: %w", err)
+	}
+	if got := strings.TrimSpace(string(body)); got != key {
+		return fmt.Errorf("indexnow key file self-check: body mismatch (got %d bytes)", len(got))
+	}
+	return nil
 }
 
 // extractHost and matchesHost are retained for the Baidu sink.  They compare

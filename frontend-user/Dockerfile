@@ -6,7 +6,10 @@ WORKDIR /app
 # 先装依赖,利用 Docker 层缓存
 # .npmrc 指向 npmmirror(中国镜像),解决 docker 内网络 ECONNRESET
 COPY package*.json .npmrc ./
-RUN npm ci
+# npm 下载缓存挂进 BuildKit 缓存卷:package.json 变化导致该层重建时,
+# 依赖包走本地缓存增量补齐,不再全量重拉(node_modules 本身仍由 npm ci 全新生成,可复现性不变)
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline
 
 COPY . .
 

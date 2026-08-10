@@ -22,9 +22,43 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/seo"
 )
+
+// ─── on-miss 负缓存 ────────────────────────────────────────────────────────
+// 2026-08-10 审计:失效/伪造 ID 的 canonical URL 每次命中都同步打一次 minicod
+// (3s 超时、含重试),失败结果不落任何缓存 —— 爬虫对死链的重试风暴按次烧上游
+// 配额。短 TTL 负缓存把同一死 ID 的上游调用收敛到 15 分钟一次。
+// 用非持久 Redis(纯性能缓存,丢了无所谓);Redis 不可用时静默退化为无负缓存。
+
+const onMissNegativeTTL = 15 * time.Minute
+
+func onMissNegativeKey(kind, source, id string) string {
+	return "seo:onmiss:neg:" + kind + ":" + source + ":" + id
+}
+
+func hasNegativeOnMiss(ctx context.Context, kind, source, id string) bool {
+	rdb := cache.GetRedis()
+	if rdb == nil {
+		return false
+	}
+	cctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	defer cancel()
+	n, err := rdb.Exists(cctx, onMissNegativeKey(kind, source, id)).Result()
+	return err == nil && n > 0
+}
+
+func setNegativeOnMiss(ctx context.Context, kind, source, id string) {
+	rdb := cache.GetRedis()
+	if rdb == nil {
+		return
+	}
+	cctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	defer cancel()
+	_ = rdb.Set(cctx, onMissNegativeKey(kind, source, id), "1", onMissNegativeTTL).Err()
+}
 
 // Fetcher 抽象 minicod 取论文 / 作者能力(便于测试 / 解耦)。*minicod.Manager 直接满足。
 type Fetcher interface {
@@ -112,16 +146,27 @@ func (e *Enricher) RunPaperBackfill(ctx context.Context) (int, error) {
 }
 
 // EnrichPaperOnMiss 供 SSR 冷门 URL(seo 无行)现场拉一次 minicod、落库并返回 meta(M2 方案 A)。
-// 拉不到(伪造/失效 ID)返回 (nil, nil) —— 调用方据此打 noindex。超时由传入 ctx 控制。
+// 拉不到(伪造/失效 ID)返回 (nil, nil) —— 调用方据此走 404。超时由传入 ctx 控制。
 func (e *Enricher) EnrichPaperOnMiss(ctx context.Context, source, paperID string) (*seo.PaperSSRMeta, error) {
 	if paperID == "" || !seo.IsCanonicalSource(source) {
 		return nil, nil
 	}
+	if hasNegativeOnMiss(ctx, "paper", source, paperID) {
+		return nil, nil // 15 分钟内已确认不存在,不再打上游
+	}
 	p, err := e.mc.GetPaper(ctx, paperID, minicod.PaperDetailsOptions{Fields: paperEnrichFields})
 	if err != nil {
+		// 上游明确说「不存在」是结论不是故障:折叠为 (nil, nil) → SSR 输出 404,
+		// 死链才会被搜索引擎从抓取队列剔除。旧行为把它当错误上抛 → 503,Google
+		// 视为临时故障无限重试(2026-08-10 审计)。真正的上游故障(超时/5xx)仍上抛 → 503。
+		if minicod.IsNotFoundError(err) {
+			setNegativeOnMiss(ctx, "paper", source, paperID)
+			return nil, nil
+		}
 		return nil, err
 	}
 	if p == nil || strings.TrimSpace(p.Title) == "" {
+		setNegativeOnMiss(ctx, "paper", source, paperID)
 		return nil, nil // 失效/伪造 ID
 	}
 	canonicalID := strings.TrimSpace(p.PaperID)

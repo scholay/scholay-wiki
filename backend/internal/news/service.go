@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // ErrBadPayload body 解析失败(→ 400,重试无意义但仍按契约让上游重试到死信)。
@@ -28,11 +29,13 @@ var ErrBadPayload = errors.New("bad payload")
 
 const maxNewsSlugLength = 200
 
-// newsSlugRE 只接受 RFC 3986 unreserved 字符。上游目前生成的 slug 形如
-// 2026-06-12-xxx，完全属于该字符集；同时保留大小写、下划线、点和波浪号，
-// 兼容已经合法的单段 URL slug。不接受 percent-encoded 字面量，避免二次解码后
-// 出现斜杠或多个 canonical 形态。
-var newsSlugRE = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
+// newsSlugRE 接受 Unicode 字母/数字(含中文)+ RFC 3986 unreserved 的四个标点。
+// 上游真实推送的 slug 形如「2026-08-10-小型热带蝙蝠寿命纪录翻倍-…」(日期前缀+中文);
+// 2026-08-10 事故:旧版只收 ASCII,线上 1055 条已发布中文 slug 全部被滤出 sitemap,
+// 且入库校验会把上游后续推送整体 400 拒收 —— 校验契约必须与真实数据契约一致。
+// 仍不接受 '%'(percent-encoded 字面量二次解码会出现斜杠/多 canonical 形态)、
+// 斜杠、空白与控制字符(均不在白名单内);URL 输出侧统一走 url.PathEscape。
+var newsSlugRE = regexp.MustCompile(`^[\p{L}\p{N}._~-]+$`)
 
 // 外层 Nginx 的静态资源正则与 SSR 的扫描器后缀拦截都会在情报
 // resolver 前截停这些路径。入库/sitemap 必须共用该可路由契约，否则会
@@ -40,7 +43,16 @@ var newsSlugRE = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
 var newsBlockedSuffixRE = regexp.MustCompile(`(?i)\.(?:jpe?g|png|gif|ico|svg|webp|woff2?|ttf|eot|css|m?js|wasm|php|asp|aspx|jsp|cgi|pl|env|git|bak|sql|ya?ml|xml|log|ini|conf|config)$`)
 
 func isValidNewsSlug(slug string) bool {
-	if len(slug) == 0 || len(slug) > maxNewsSlugLength || slug[0] == '.' {
+	if len(slug) == 0 || slug[0] == '.' {
+		return false
+	}
+	// 无效 UTF-8 显式拒绝:PathEscape/XML 输出与 \p{L} 匹配都假定合法 UTF-8。
+	if !utf8.ValidString(slug) {
+		return false
+	}
+	// 长度按【字符】数比较:DB 列是 utf8mb4 VARCHAR(200) = 200 字符。按 len(字节)算
+	// 会把 >66 个汉字的合法 slug 拒掉 —— 正是「校验契约窄于真实数据契约」的同类事故复发点。
+	if utf8.RuneCountInString(slug) > maxNewsSlugLength {
 		return false
 	}
 	return newsSlugRE.MatchString(slug) && !newsBlockedSuffixRE.MatchString(slug)

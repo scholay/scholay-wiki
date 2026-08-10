@@ -180,7 +180,9 @@ COPY package.json bun.lock ./
 #    apt 超时同型:大包在这条链路上拉不完整。
 #    `--frozen-lockfile` 保持不变 —— 换源只换下载地址,版本仍由 bun.lock 钉死,不引入漂移。
 ENV BUN_CONFIG_REGISTRY=https://registry.npmmirror.com
-RUN bun install --frozen-lockfile
+# bun 全局下载缓存挂进 BuildKit 缓存卷:lock 变化时增量补包,不全量重拉
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 # source
 COPY tsconfig.json ./

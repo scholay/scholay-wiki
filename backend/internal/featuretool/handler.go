@@ -142,6 +142,26 @@ func (h *Handler) AdminGet(c *gin.Context) {
 	utils.Success(c, t)
 }
 
+// AdminBatchSEOReview POST /api/v1/admin/tools/seo-review/batch
+// 批量 SEO 审核放行(契约同单件审核,见 service.BatchSEOReview)。
+// query: limit(默认 1000,上限 5000) · after_id(续扫游标) · dry_run=1(只预览不写)
+// 全量放行用法:循环调用,把每次返回的 last_id 作为下一次 after_id,直到 done=true。
+func (h *Handler) AdminBatchSEOReview(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "1000"))
+	afterID, _ := strconv.ParseUint(c.DefaultQuery("after_id", "0"), 10, 64)
+	dryRun := c.Query("dry_run") == "1" || c.Query("dry_run") == "true"
+	res, err := h.svc.BatchSEOReview(adminIDPtr(c), afterID, limit, dryRun)
+	if err == ErrSEOReview {
+		utils.BadRequest(c, "缺少管理员身份,无法执行批量 SEO 审核")
+		return
+	}
+	if err != nil {
+		utils.InternalError(c, 5000, "批量 SEO 审核失败", err)
+		return
+	}
+	utils.Success(c, res)
+}
+
 // AdminCreate POST /api/v1/admin/tools
 func (h *Handler) AdminCreate(c *gin.Context) {
 	var t Tool

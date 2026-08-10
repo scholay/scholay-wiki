@@ -44,6 +44,9 @@ type PaperSSRMeta struct {
 	// 让 AI 生成式引擎能引用可量化的论文权威度与领域。CitationCount 为 0 时不渲染。
 	CitationCount int
 	FieldsOfStudy []string
+	// AuthorRefs 带 AuthorID 的作者列表(与 Authors 同源同序)。SSR 卡片用它把作者名
+	// 渲染成 /author/{Source}/{AuthorID} 内链;Authors(纯名字)保留给 JSON-LD 与旧调用面。
+	AuthorRefs []Author
 	// SEOInactive means the durable SEO row was explicitly hidden/retired. A
 	// missing row is different: it can be a legitimate deep link that has not
 	// yet entered the SEO cache.
@@ -266,6 +269,7 @@ func paperSSRMetaFromRow(p *SEOPaper) *PaperSSRMeta {
 			for _, au := range authors {
 				if au.Name != "" {
 					meta.Authors = append(meta.Authors, au.Name)
+					meta.AuthorRefs = append(meta.AuthorRefs, au)
 				}
 			}
 		}

@@ -453,22 +453,120 @@ func applySEOReview(t *Tool, wasIndexable bool, adminID *uint) error {
 	if adminID == nil {
 		return ErrSEOReview
 	}
-	if t.Status != "published" ||
-		isAllDigits(t.Slug) ||
-		!isPublicHTTPURL(t.OfficialURL) ||
-		len([]rune(strings.TrimSpace(t.DescriptionMD))) < 120 ||
-		t.DataQuality == nil ||
-		!t.DataQuality.Enriched ||
-		t.DataQuality.NeedsReview ||
-		len(t.DataQuality.NeedsEnrich) > 0 ||
-		!hasPublicSource(t.DataQuality.Sources) ||
-		countSubstantiveUseCases(t.UseCases) < 2 {
+	if seoReviewViolation(t) != "" {
 		return ErrSEOReview
 	}
 	now := time.Now()
 	t.SEOReviewedAt = &now
 	t.SEOReviewedBy = adminID
 	return nil
+}
+
+// seoReviewViolation 返回工具不满足 SEO 客观最低契约的原因;"" 表示通过。
+// applySEOReview(单件管理员编辑)与 BatchSEOReview(批量审核)共用这一份契约,
+// 两条路径永不漂移。
+func seoReviewViolation(t *Tool) string {
+	switch {
+	case t.Status != "published":
+		return "status != published"
+	case isAllDigits(t.Slug):
+		return "numeric-only slug"
+	case !isPublicHTTPURL(t.OfficialURL):
+		return "official_url is not a public http(s) URL"
+	case len([]rune(strings.TrimSpace(t.DescriptionMD))) < 120:
+		return "description_md shorter than 120 chars"
+	case t.DataQuality == nil || !t.DataQuality.Enriched:
+		return "data_quality not enriched"
+	case t.DataQuality.NeedsReview:
+		return "data_quality.needs_review is set"
+	case len(t.DataQuality.NeedsEnrich) > 0:
+		return "data_quality.needs_enrich pending"
+	case !hasPublicSource(t.DataQuality.Sources):
+		return "no public data_quality source"
+	case countSubstantiveUseCases(t.UseCases) < 2:
+		return "fewer than 2 substantive use cases"
+	default:
+		return ""
+	}
+}
+
+// ── 批量 SEO 审核放行 ────────────────────────────────────────────────────────
+
+// BatchSEOReviewResult 一次批量审核的结果与续扫游标。
+type BatchSEOReviewResult struct {
+	Scanned     int               `json:"scanned"`      // 本批扫描的候选数
+	Approved    int               `json:"approved"`     // 通过契约并置位的条数(dry_run 时为「将通过」数)
+	Skipped     int               `json:"skipped"`      // 未过契约、保持 noindex 的条数
+	SkipSamples []BatchSkipSample `json:"skip_samples"` // 未过原因样本(≤10 条,便于诊断)
+	LastID      uint64            `json:"last_id"`      // 续扫游标:下一批传 after_id=LastID
+	Done        bool              `json:"done"`         // 候选已扫完
+	DryRun      bool              `json:"dry_run"`
+}
+
+type BatchSkipSample struct {
+	Slug   string `json:"slug"`
+	Reason string `json:"reason"`
+}
+
+// BatchSEOReview 把「已发布但未过 SEO 审核」的工具按 seoReviewViolation 的同一份
+// 客观契约批量审核放行。2026-08-10 审计:50,200 个已发布工具 seo_indexable 全为 0,
+// 单件审核流程从未执行,整个垂类零 sitemap 发现性,而它恰是收录表现最好的一族页面
+// (noindex 生效前的历史收录,会随重抓消失)。
+//
+// 设计:
+//   - 幂等:只扫 seo_indexable=0 的行;通过的置位并落审计字段(reviewed_by=触发的管理员);
+//   - 游标分批(afterID/limit),管理员可 dry_run 预览、分批灰度;
+//   - 不过契约的行保持 noindex,原因进 SkipSamples;
+//   - 放行的 slug 喂给主动提交队列(幂等 ZSET,IndexNow/百度按日额慢慢消化)。
+func (s *Service) BatchSEOReview(adminID *uint, afterID uint64, limit int, dryRun bool) (*BatchSEOReviewResult, error) {
+	if adminID == nil {
+		return nil, ErrSEOReview
+	}
+	if limit <= 0 {
+		limit = 1000
+	}
+	if limit > 5000 {
+		limit = 5000
+	}
+	tools, err := s.repo.SEOReviewCandidates(afterID, limit)
+	if err != nil {
+		return nil, err
+	}
+	res := &BatchSEOReviewResult{
+		Scanned:     len(tools),
+		LastID:      afterID,
+		Done:        len(tools) < limit,
+		DryRun:      dryRun,
+		SkipSamples: []BatchSkipSample{},
+	}
+	ids := make([]uint64, 0, len(tools))
+	slugs := make([]string, 0, len(tools))
+	for i := range tools {
+		t := &tools[i]
+		if t.ID > res.LastID {
+			res.LastID = t.ID
+		}
+		if reason := seoReviewViolation(t); reason != "" {
+			res.Skipped++
+			if len(res.SkipSamples) < 10 {
+				res.SkipSamples = append(res.SkipSamples, BatchSkipSample{Slug: t.Slug, Reason: reason})
+			}
+			continue
+		}
+		ids = append(ids, t.ID)
+		slugs = append(slugs, t.Slug)
+	}
+	if dryRun {
+		res.Approved = len(ids)
+		return res, nil
+	}
+	approved, err := s.repo.ApproveSEOBatch(ids, adminID, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	res.Approved = int(approved)
+	s.enqueueToolPaths(slugs...)
+	return res, nil
 }
 
 func isPublicHTTPURL(raw string) bool {

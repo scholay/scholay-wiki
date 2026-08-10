@@ -321,6 +321,31 @@ func (r *Repository) sitemapEligibleTools() *gorm.DB {
 		Where("status = ? AND seo_indexable = ?", "published", true)
 }
 
+// SEOReviewCandidates 返回「已发布但尚未过 SEO 审核」的完整行,按 id 升序、
+// id > afterID 取 limit 条 —— 供 BatchSEOReview 游标分批扫描。
+func (r *Repository) SEOReviewCandidates(afterID uint64, limit int) ([]Tool, error) {
+	var items []Tool
+	err := r.db.Where("status = ? AND seo_indexable = ? AND id > ?", "published", false, afterID).
+		Order("id ASC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
+// ApproveSEOBatch 批量置位 seo_indexable 并落审计字段。只影响仍未置位的行(幂等,
+// 且不会覆盖并发的人工审核结果)。返回实际置位条数。
+func (r *Repository) ApproveSEOBatch(ids []uint64, adminID *uint, at time.Time) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := r.db.Model(&Tool{}).
+		Where("id IN ? AND seo_indexable = ?", ids, false).
+		Updates(map[string]any{
+			"seo_indexable":   true,
+			"seo_reviewed_at": at,
+			"seo_reviewed_by": adminID,
+		})
+	return res.RowsAffected, res.Error
+}
+
 // SitemapCount 仅统计已上线且经过 SEO 人工审核的工具。产品可见与搜索引擎可索引
 // 是两套独立状态，批量导入绝不能自动扩张 sitemap。
 func (r *Repository) SitemapCount() (int64, time.Time, error) {

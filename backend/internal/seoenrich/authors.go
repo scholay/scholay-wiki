@@ -122,11 +122,20 @@ func (e *Enricher) EnrichAuthorOnMiss(ctx context.Context, source, authorID stri
 	if bareAuthorID(authorID) == "" || !seo.IsCanonicalSource(source) {
 		return nil, nil
 	}
+	if hasNegativeOnMiss(ctx, "author", source, authorID) {
+		return nil, nil // 15 分钟内已确认不存在,不再打上游
+	}
 	a, err := e.mc.GetAuthor(ctx, authorID, authorEnrichFields)
 	if err != nil {
+		// 同 EnrichPaperOnMiss:上游 404 折叠为 (nil, nil) → SSR 走 404;故障才 503。
+		if minicod.IsNotFoundError(err) {
+			setNegativeOnMiss(ctx, "author", source, authorID)
+			return nil, nil
+		}
 		return nil, err
 	}
 	if a == nil || strings.TrimSpace(a.Name) == "" {
+		setNegativeOnMiss(ctx, "author", source, authorID)
 		return nil, nil // 失效/伪造 ID
 	}
 	canonicalID := strings.TrimSpace(a.AuthorID)
