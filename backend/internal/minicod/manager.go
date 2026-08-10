@@ -296,6 +296,9 @@ func (m *Manager) GetPaper(ctx context.Context, paperID string, opts PaperDetail
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(resp.PaperID) == "" && strings.TrimSpace(resp.Title) == "" {
+		return nil, nil
+	}
 	return &resp, nil
 }
 

@@ -32,7 +32,7 @@ type ArticleEntry struct {
 // 维护: 当 ServeStaticSitemap 中 staticPages 列表新增/删除/改路径,或这些
 // 静态页的页面内容有显著变更(SEO 文案/标题)时,手动 bump 这个日期。
 // 不需要每天改 — 没有真实变更就别动。
-const StaticPagesLastMod = "2026-05-22"
+const StaticPagesLastMod = "2026-08-10"
 
 // StaticPage sitemap-static 的单条目结构。导出后 ServeStaticSitemap 和
 // 主动提交 bootstrap 都基于同一份数据,避免两处维护。
@@ -63,12 +63,14 @@ var StaticPages = []StaticPage{
 	{"/", "daily", "1.0"},
 	{"/search", "weekly", "0.8"},          // 文献搜索入口
 	{"/journals/search", "weekly", "0.7"}, // 期刊搜索入口
+	{"/tools", "weekly", "0.8"},           // 经审核科研工具的发现枢纽
+	{"/tools/skills", "weekly", "0.7"},    // 社区技能公开入口
 
 	// ── 期刊聚合榜单(程序化 SEO 落地页,预设筛选 + 实结果,非 thin content)──
-	{"/journals/sci-q1", "weekly", "0.6"},              // SCI 一区(JCR Q1)
-	{"/journals/cas-zone1", "weekly", "0.6"},           // 中科院一区
-	{"/journals/ccf-a", "weekly", "0.6"},               // CCF A 类
-	{"/journals/high-impact-factor", "weekly", "0.6"},  // 高影响因子 IF≥10
+	{"/journals/sci-q1", "weekly", "0.6"},             // SCI 一区(JCR Q1)
+	{"/journals/cas-zone1", "weekly", "0.6"},          // 中科院一区
+	{"/journals/ccf-a", "weekly", "0.6"},              // CCF A 类
+	{"/journals/high-impact-factor", "weekly", "0.6"}, // 高影响因子 IF≥10
 
 	// ── 营销 / 品牌页(7 个 feature 落地页 + 概览 + 价格) ─────
 	{"/features", "monthly", "0.7"},

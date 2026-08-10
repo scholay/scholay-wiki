@@ -103,6 +103,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
         description={(tool.tagline || tool.description_md || `${tool.name} —— 科研工具详情、获取方式与使用说明。`).slice(0, 150)}
         keywords={[tool.name, tool.name_en, tool.category_label, ...(tool.tags ?? [])].filter(Boolean).join(',')}
         canonical={`/tools/${tool.slug || tool.id}`}
+        noindex={tool.seo_indexable !== true}
       />
 
       {/* 头部 */}

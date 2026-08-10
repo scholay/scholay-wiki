@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMatch } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { RouteSEO } from '@/shared/components/RouteSEO';
 import type { TranslatePaperResult } from '@/shared/api/translate';
 import { trackPaperSeoView } from '@/shared/api/hot-content';
 import {
@@ -144,8 +145,26 @@ export function PaperDetailPane() {
     );
   }
 
+  const title = paper.title?.trim() || '论文详情';
+  const description =
+    paper.abstract?.trim().slice(0, 180) ||
+    `查看《${title}》的摘要、作者、引用与参考文献信息。`;
+  const canonical =
+    source && paperId
+      ? `/paper/${encodeURIComponent(source)}/${encodeURIComponent(paperId)}`
+      : undefined;
+
   return (
-    <PaperDetailView paper={paper} libRow={libRow} isLocal={isLocal} />
+    <>
+      <RouteSEO
+        title={`${title} - Scholay学术`}
+        description={description}
+        keywords={paper.fieldsOfStudy?.filter(Boolean).join(',')}
+        canonical={canonical}
+        noindex={isLocal}
+      />
+      <PaperDetailView paper={paper} libRow={libRow} isLocal={isLocal} />
+    </>
   );
 }
 

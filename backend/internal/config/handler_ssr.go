@@ -116,7 +116,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	}
 
 	if isSuspiciousPath(requestPath) {
-		c.Redirect(http.StatusFound, "/")
+		writeSSRStatusPage(c, "", http.StatusNotFound)
 		return
 	}
 
@@ -148,161 +148,424 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	pageHTML, err := h.getPageHTML(requestPath)
 	if err != nil {
 		slog.Error("failed to get HTML for route", "path", requestPath, "err", err)
-		// Fallback: proxy to frontend container directly
-		h.proxyToFrontend(c)
+		writeSSRStatusPage(c, "", http.StatusServiceUnavailable)
 		return
 	}
 
-	// Get code snippets from database
-	snippetsGrouped, err := h.service.GetCodeSnippetsGrouped()
-	if err != nil {
-		slog.Error("failed to get code snippets", "err", err)
-		// Return original HTML without snippets
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.Header("Cache-Control", "no-cache, must-revalidate")
-		c.String(http.StatusOK, pageHTML)
-		return
-	}
+	// 所有公开页面(普通用户与爬虫)都从同一份、带可见正文的初始 HTML 启动。
+	// React 随后会替换 #root 内的静态 fallback；壳自带的全站 noscript 必须先移除，
+	// 否则详情页会同时出现品牌 H1 与实体 H1。
+	modifiedHTML := prepareSSRPageShell(pageHTML)
 
-	// Inject code snippets into HTML
-	modifiedHTML := h.injectCodeSnippets(pageHTML, snippetsGrouped)
-
-	// Inject route-specific noscript content for SEO (Google AdSense compliance)
-	modifiedHTML = injectRouteNoscript(modifiedHTML, requestPath)
-
-	// 静态/入口页专属 title/description/自指 canonical —— SPA 壳对所有路由回落同一份
-	// 首页 index.html,不注入则新纳入索引的 search/journals/privacy/terms/disclaimer
-	// 全是首页通用标题。实体页(paper/author/...)不在 map 内,此调用对其为 no-op。
-	modifiedHTML = injectStaticPageSEOMeta(modifiedHTML, requestPath)
-
-	// 博客 / 资源文章:完整正文已由上面的 injectRouteNoscript 写进 noscript(content 包单一真源),
-	// 这里补专属 title/description/自指 canonical + BlogPosting/Article JSON-LD + OG。
-	if strings.HasPrefix(requestPath, "/blog/") {
-		if slug := strings.TrimPrefix(requestPath, "/blog/"); slug != "" && !strings.Contains(slug, "/") {
-			modifiedHTML = injectArticleSEOMeta(modifiedHTML, "blog", slug, requestPath)
-		}
-	} else if strings.HasPrefix(requestPath, "/resources/") {
-		if slug := strings.TrimPrefix(requestPath, "/resources/"); slug != "" && !strings.Contains(slug, "/") {
-			modifiedHTML = injectArticleSEOMeta(modifiedHTML, "resources", slug, requestPath)
-		}
-	} else if strings.HasPrefix(requestPath, "/qa/") {
-		if slug := strings.TrimPrefix(requestPath, "/qa/"); slug != "" && !strings.Contains(slug, "/") {
-			modifiedHTML = injectArticleSEOMeta(modifiedHTML, "qa", slug, requestPath)
+	// 配置服务临时不可用不应让整个页面退回通用首页壳；代码片段是增强项，
+	// 记录错误后继续生成本路由的 title/canonical/正文与正确状态码。
+	if h.service != nil {
+		snippetsGrouped, snippetErr := h.service.GetCodeSnippetsGrouped()
+		if snippetErr != nil {
+			slog.Error("failed to get code snippets", "err", snippetErr)
+		} else {
+			modifiedHTML = h.injectCodeSnippets(modifiedHTML, snippetsGrouped)
 		}
 	}
 
-	// 论文详情页 SEO 元数据注入 —— 同时支持新 canonical 和 legacy 两种路径形式:
-	//   新 canonical /paper/{source}/{paperId}   → ResolveByPaperID
-	//   legacy      /paper/{slug}                → ResolveSlug
-	// 仅按 `/` 段数区分,paperId 内部允许出现 `:`(如 arXiv:1706.03762),不可有 `/`。
-	if h.paperSEOProvider != nil && strings.HasPrefix(requestPath, "/paper/") {
-		rest := strings.TrimPrefix(requestPath, "/paper/")
-		if rest != "" {
-			parts := strings.Split(rest, "/")
-			var meta *seo.PaperSSRMeta
-			var err error
-			switch len(parts) {
-			case 1:
-				// legacy /paper/{slug}
-				meta, err = h.paperSEOProvider.ResolveSlug(parts[0])
-			case 2:
-				// canonical /paper/{source}/{paperId}
-				if source, paperID := parts[0], parts[1]; source != "" && paperID != "" {
-					meta, err = h.paperSEOProvider.ResolveByPaperID(source, paperID)
-					// M2:seo 无行(冷门 URL)且注入了 enricher → 现拉一次 minicod 落库并渲染,
-					// 让首个爬虫命中即建索引(带超时;拉不到/超时回落下面的 noindex)。
-					if err == nil && meta == nil && h.paperEnricher != nil {
-						ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
-						if m2, e2 := h.paperEnricher.EnrichPaperOnMiss(ctx, source, paperID); e2 == nil && m2 != nil {
-							meta = m2
-						}
-						cancel()
-					}
+	status := http.StatusOK
+	handled := false
+
+	// 静态/入口页只有白名单里的路径才是 200。此前 `/features/<任意值>` 等路径会
+	// 回落通用壳并返回 200，形成无限软 404。
+	if _, ok := staticPageSEO[requestPath]; ok {
+		handled = true
+		modifiedHTML = injectRouteNoscript(modifiedHTML, requestPath)
+		modifiedHTML = injectStaticPageSEOMeta(modifiedHTML, requestPath)
+		if requestPath == "/tools" {
+			if listing, ok := h.toolSEOProvider.(ToolSEOListingProvider); ok {
+				tools, listErr := listing.ListIndexableToolsForSEO(100)
+				if listErr != nil {
+					status = http.StatusServiceUnavailable
+				} else {
+					modifiedHTML = appendSSRStaticContent(modifiedHTML, buildToolHubLinks(tools))
 				}
 			}
-			if meta != nil {
-				modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
-			} else if err == nil {
-				// 论文不存在(非 DB 错误)—— 失效/伪造 paperId 空间无界,打 noindex 阻止软 404 被收录
-				modifiedHTML = injectNoindex(modifiedHTML)
-			}
 		}
 	}
 
-	// 作者详情页 SEO 元数据注入 —— 同样支持新 canonical 和 legacy
-	if h.authorSEOProvider != nil && strings.HasPrefix(requestPath, "/author/") {
-		rest := strings.TrimPrefix(requestPath, "/author/")
-		if rest != "" {
-			parts := strings.Split(rest, "/")
-			var meta *seo.AuthorSSRMeta
-			var err error
-			switch len(parts) {
-			case 1:
-				meta, err = h.authorSEOProvider.ResolveAuthorSlug(parts[0])
-			case 2:
-				if source, authorID := parts[0], parts[1]; source != "" && authorID != "" {
-					meta, err = h.authorSEOProvider.ResolveByAuthorID(source, authorID)
-					// M2:seo 无行(冷门作者 URL)→ 现拉一次 minicod 落库并渲染。
-					if err == nil && meta == nil && h.authorEnricher != nil {
-						ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
-						if m2, e2 := h.authorEnricher.EnrichAuthorOnMiss(ctx, source, authorID); e2 == nil && m2 != nil {
-							meta = m2
-						}
-						cancel()
-					}
-				}
+	// 博客 / 资源 / 问答详情必须命中正文单一真源；不存在的 slug 返回真 404。
+	for _, articleRoute := range []struct{ prefix, kind string }{
+		{"/blog/", "blog"},
+		{"/resources/", "resources"},
+		{"/qa/", "qa"},
+	} {
+		if strings.HasPrefix(requestPath, articleRoute.prefix) {
+			handled = true
+			slug := strings.TrimPrefix(requestPath, articleRoute.prefix)
+			if slug == "" || strings.Contains(slug, "/") {
+				status = http.StatusNotFound
+				break
 			}
-			if meta != nil {
-				modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
-			} else if err == nil {
-				// 作者不存在(非 DB 错误)—— 失效/伪造 authorId 空间无界,打 noindex
-				modifiedHTML = injectNoindex(modifiedHTML)
+			if _, ok := content.Get(articleRoute.kind, slug); !ok {
+				status = http.StatusNotFound
+				break
 			}
+			modifiedHTML = injectRouteNoscript(modifiedHTML, requestPath)
+			modifiedHTML = injectArticleSEOMeta(modifiedHTML, articleRoute.kind, slug, requestPath)
+			break
 		}
 	}
 
-	// 期刊详情页 SEO 元数据注入 (canonicalRedirectFor 已处理 301; 走到这里说明 URL 已是 canonical
-	// 或者 SEO 行不存在/没 slug 不需要重定向)
-	if h.journalSEOProvider != nil && strings.HasPrefix(requestPath, "/journal/") {
-		rest := strings.TrimPrefix(requestPath, "/journal/")
-		if rest != "" {
-			idStr, _ := splitJournalPath(rest)
-			if id, perr := strconv.ParseInt(idStr, 10, 64); perr == nil && id > 0 {
-				if meta, err := h.journalSEOProvider.ResolveByJournalID(id); err == nil && meta != nil {
-					modifiedHTML = injectJournalSEOMeta(modifiedHTML, meta, requestPath)
-				} else if err == nil {
-					// 期刊不存在(非 DB 错误)→ noindex
-					modifiedHTML = injectNoindex(modifiedHTML)
-				}
+	// 论文详情页 SEO 元数据注入 —— source 必须与 resolver 返回的权威 source 一致。
+	if strings.HasPrefix(requestPath, "/paper/") {
+		handled = true
+		if h.paperSEOProvider == nil {
+			status = http.StatusServiceUnavailable
+		} else {
+			rest := strings.TrimPrefix(requestPath, "/paper/")
+			if rest == "" {
+				status = http.StatusNotFound
 			} else {
-				// journal id 非数字 / <=0 —— 非法期刊路径,软 404
-				modifiedHTML = injectNoindex(modifiedHTML)
+				parts := strings.Split(rest, "/")
+				var meta *seo.PaperSSRMeta
+				var resolveErr error
+				canonicalRequest := false
+				enrichmentAttempted := false
+				switch len(parts) {
+				case 1:
+					meta, resolveErr = h.paperSEOProvider.ResolveSlug(parts[0])
+				case 2:
+					canonicalRequest = true
+					if source, paperID := parts[0], parts[1]; source != "" && paperID != "" {
+						meta, resolveErr = h.paperSEOProvider.ResolveByPaperID(source, paperID)
+						if resolveErr == nil && meta == nil && !seo.IsCanonicalSource(source) {
+							// 允许已存在的历史别名由 resolver 收口，但未命中时绝不用
+							// URL 中的任意 source 触发上游回填，否则首访可污染 canonical。
+							status = http.StatusNotFound
+						} else if resolveErr == nil && meta == nil && h.paperEnricher != nil {
+							enrichmentAttempted = true
+							ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+							var e2 error
+							if m2, enrichErr := h.paperEnricher.EnrichPaperOnMiss(ctx, source, paperID); enrichErr == nil && m2 != nil {
+								meta = m2
+							} else {
+								e2 = enrichErr
+							}
+							cancel()
+							if e2 != nil {
+								resolveErr = e2
+							}
+						}
+					} else {
+						status = http.StatusNotFound
+					}
+				default:
+					status = http.StatusNotFound
+				}
+				if status == http.StatusOK {
+					switch {
+					case resolveErr != nil:
+						status = http.StatusServiceUnavailable
+					case meta == nil:
+						if canonicalRequest && !enrichmentAttempted {
+							// SEO 行只是缓存，canonical 深链在未启用 on-miss 时不能据此判实体不存在。
+							// 保留 SPA 让用户端数据源继续解析，同时去掉错误的首页 canonical。
+							modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
+							modifiedHTML = setSSRNoindex(c, modifiedHTML)
+						} else {
+							status = http.StatusNotFound
+						}
+					case meta.SEOInactive:
+						status = http.StatusNotFound
+					default:
+						canonical := canonicalPaperPath(meta)
+						if canonical != "" && canonical != requestPath {
+							c.Redirect(http.StatusMovedPermanently, canonical)
+							return
+						}
+						renderPath := requestPath
+						if canonical != "" {
+							renderPath = canonical
+						}
+						modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, renderPath)
+						if !meta.SEOIndexable || canonical == "" {
+							if canonical == "" {
+								// 旧 SEO 行可能没有 source。没有权威 canonical 时宁可省略，
+								// 也不能让 Vite 壳里的首页 canonical 泄漏到实体页。
+								modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
+							}
+							modifiedHTML = setSSRNoindex(c, modifiedHTML)
+						}
+					}
+				}
 			}
 		}
 	}
 
-	// 功能广场工具详情页 SEO 元数据注入 (/tools/{slug}) —— 单段 slug, 列表页 /tools 不命中。
-	if h.toolSEOProvider != nil && strings.HasPrefix(requestPath, "/tools/") {
-		rest := strings.TrimPrefix(requestPath, "/tools/")
-		if rest != "" && !strings.Contains(rest, "/") {
-			if meta, err := h.toolSEOProvider.ResolveToolBySlug(rest); err == nil && meta != nil {
-				modifiedHTML = injectToolSEOMeta(modifiedHTML, meta, requestPath)
-			} else if err == nil {
-				// 工具不存在(非 DB 错误)→ noindex,避免 /tools/<乱写> 成软 404
-				modifiedHTML = injectNoindex(modifiedHTML)
+	// 作者详情页与论文同口径：错误 503、缺失 404、source 不匹配 301。
+	if strings.HasPrefix(requestPath, "/author/") {
+		handled = true
+		if h.authorSEOProvider == nil {
+			status = http.StatusServiceUnavailable
+		} else {
+			rest := strings.TrimPrefix(requestPath, "/author/")
+			if rest == "" {
+				status = http.StatusNotFound
+			} else {
+				parts := strings.Split(rest, "/")
+				var meta *seo.AuthorSSRMeta
+				var resolveErr error
+				canonicalRequest := false
+				enrichmentAttempted := false
+				switch len(parts) {
+				case 1:
+					meta, resolveErr = h.authorSEOProvider.ResolveAuthorSlug(parts[0])
+				case 2:
+					canonicalRequest = true
+					if source, authorID := parts[0], parts[1]; source != "" && authorID != "" {
+						meta, resolveErr = h.authorSEOProvider.ResolveByAuthorID(source, authorID)
+						if resolveErr == nil && meta == nil && !seo.IsCanonicalSource(source) {
+							status = http.StatusNotFound
+						} else if resolveErr == nil && meta == nil && h.authorEnricher != nil {
+							enrichmentAttempted = true
+							ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+							var e2 error
+							if m2, enrichErr := h.authorEnricher.EnrichAuthorOnMiss(ctx, source, authorID); enrichErr == nil && m2 != nil {
+								meta = m2
+							} else {
+								e2 = enrichErr
+							}
+							cancel()
+							if e2 != nil {
+								resolveErr = e2
+							}
+						}
+					} else {
+						status = http.StatusNotFound
+					}
+				default:
+					status = http.StatusNotFound
+				}
+				if status == http.StatusOK {
+					switch {
+					case resolveErr != nil:
+						status = http.StatusServiceUnavailable
+					case meta == nil:
+						if canonicalRequest && !enrichmentAttempted {
+							modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
+							modifiedHTML = setSSRNoindex(c, modifiedHTML)
+						} else {
+							status = http.StatusNotFound
+						}
+					case meta.SEOInactive:
+						status = http.StatusNotFound
+					default:
+						canonical := canonicalAuthorPath(meta)
+						if canonical != "" && canonical != requestPath {
+							c.Redirect(http.StatusMovedPermanently, canonical)
+							return
+						}
+						renderPath := requestPath
+						if canonical != "" {
+							renderPath = canonical
+						}
+						modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, renderPath)
+						if !meta.SEOIndexable || canonical == "" {
+							if canonical == "" {
+								modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
+							}
+							modifiedHTML = setSSRNoindex(c, modifiedHTML)
+						}
+					}
+				}
 			}
 		}
 	}
 
-	// 情报 SEO 注入:/news 列表(noscript 链接列表)+ /news/{slug} 详情(全文 noscript + NewsArticle JSON-LD)。
-	if h.newsSEOProvider != nil && (requestPath == "/news" || strings.HasPrefix(requestPath, "/news/")) {
-		modifiedHTML = h.injectNewsSSR(modifiedHTML, requestPath)
+	if strings.HasPrefix(requestPath, "/journal/") {
+		handled = true
+		if h.journalSEOProvider == nil {
+			status = http.StatusServiceUnavailable
+		} else {
+			rest := strings.TrimPrefix(requestPath, "/journal/")
+			if rest == "" {
+				status = http.StatusNotFound
+			} else {
+				parts := strings.Split(rest, "/")
+				validShape := (len(parts) == 1 || len(parts) == 2) && parts[0] != ""
+				if len(parts) == 2 && parts[1] == "" {
+					validShape = false
+				}
+				if !validShape {
+					status = http.StatusNotFound
+				} else if id, parseErr := strconv.ParseInt(parts[0], 10, 64); parseErr != nil || id <= 0 {
+					status = http.StatusNotFound
+				} else if meta, resolveErr := h.journalSEOProvider.ResolveByJournalID(id); resolveErr != nil {
+					status = http.StatusServiceUnavailable
+				} else if meta == nil {
+					// seo_journals 只是曝光缓存，没有权威 on-miss resolver。合法 ID
+					// 的首次直达仍交给 SPA/API 解析，同时去掉首页 canonical 并 noindex。
+					modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
+					modifiedHTML = setSSRNoindex(c, modifiedHTML)
+				} else if meta.SEOInactive {
+					status = http.StatusNotFound
+				} else {
+					canonical := canonicalJournalPath(meta)
+					if canonical != "" && canonical != requestPath {
+						c.Redirect(http.StatusMovedPermanently, canonical)
+						return
+					}
+					renderPath := requestPath
+					if canonical != "" {
+						renderPath = canonical
+					}
+					modifiedHTML = injectJournalSEOMeta(modifiedHTML, meta, renderPath)
+					if !meta.SEOIndexable || meta.JournalID <= 0 || meta.CanonicalName == "" {
+						modifiedHTML = setSSRNoindex(c, modifiedHTML)
+					}
+				}
+			}
+		}
 	}
 
-	// Return the modified HTML
+	// `/tools/skills` 是独立静态公开页，已由 staticPageSEO 分支处理，不能再当工具 slug。
+	if !handled && strings.HasPrefix(requestPath, "/tools/") {
+		handled = true
+		if h.toolSEOProvider == nil {
+			status = http.StatusServiceUnavailable
+		} else {
+			rest := strings.TrimPrefix(requestPath, "/tools/")
+			if rest == "" || strings.Contains(rest, "/") {
+				status = http.StatusNotFound
+			} else {
+				meta, resolveErr := h.toolSEOProvider.ResolveToolBySlug(rest)
+				// MySQL 常用 collation 不区分大小写；这里仍给严格 provider 一个 lowercase 回退，
+				// 从而 `/tools/Python` 能稳定找到权威 slug 并 301，而不是误报 404。
+				if resolveErr == nil && meta == nil && rest != strings.ToLower(rest) {
+					meta, resolveErr = h.toolSEOProvider.ResolveToolBySlug(strings.ToLower(rest))
+				}
+				switch {
+				case resolveErr != nil:
+					status = http.StatusServiceUnavailable
+				case meta == nil || meta.Slug == "":
+					status = http.StatusNotFound
+				default:
+					canonical := "/tools/" + url.PathEscape(meta.Slug)
+					if canonical != requestPath {
+						c.Redirect(http.StatusMovedPermanently, canonical)
+						return
+					}
+					modifiedHTML = injectToolSEOMeta(modifiedHTML, meta, canonical)
+					if !meta.SEOIndexable {
+						modifiedHTML = setSSRNoindex(c, modifiedHTML)
+					}
+				}
+			}
+		}
+	}
+
+	if requestPath == "/news" || strings.HasPrefix(requestPath, "/news/") {
+		handled = true
+		var redirectTo string
+		modifiedHTML, status, redirectTo = h.injectNewsSSR(modifiedHTML, requestPath)
+		if redirectTo != "" {
+			c.Redirect(http.StatusMovedPermanently, redirectTo)
+			return
+		}
+	}
+
+	if !handled {
+		status = http.StatusNotFound
+	}
+	if status != http.StatusOK {
+		writeSSRStatusPage(c, pageHTML, status)
+		return
+	}
+
+	// 带检索/筛选/分页参数的结果状态不是稳定落地页：统一 canonical 到干净入口并 noindex，
+	// 避免 canonical 指向参数 URL、robots 又要求不索引的冲突组合。
+	if c.Request.URL.RawQuery != "" && isParameterizedSearchRoute(requestPath) {
+		modifiedHTML = setSSRNoindex(c, modifiedHTML)
+	}
+
+	modifiedHTML = markSSRSEOHead(modifiedHTML)
+	writeSSRHTML(c, http.StatusOK, modifiedHTML)
+}
+
+func canonicalPaperPath(meta *seo.PaperSSRMeta) string {
+	if meta == nil || !seo.IsCanonicalSource(meta.Source) || meta.PaperID == "" {
+		return ""
+	}
+	return "/paper/" + url.PathEscape(meta.Source) + "/" + url.PathEscape(meta.PaperID)
+}
+
+func canonicalAuthorPath(meta *seo.AuthorSSRMeta) string {
+	if meta == nil || !seo.IsCanonicalSource(meta.Source) || meta.AuthorID == "" {
+		return ""
+	}
+	return "/author/" + url.PathEscape(meta.Source) + "/" + url.PathEscape(meta.AuthorID)
+}
+
+func isParameterizedSearchRoute(path string) bool {
+	switch path {
+	case "/search", "/journals/search", "/tools", "/tools/skills":
+		return true
+	default:
+		return false
+	}
+}
+
+func setSSRNoindex(c *gin.Context, html string) string {
+	c.Header("X-Robots-Tag", "noindex, follow")
+	return injectNoindex(html)
+}
+
+// markSSRSEOHead 标记由服务端提供、随后可被 React RouteSEO 临时接管的基础 SEO 标签。
+// OG/Twitter/JSON-LD 不属于 RouteSEO 的所有权，刻意不标记。
+func markSSRSEOHead(html string) string {
+	mark := func(tag string) string {
+		if ssrFallbackAttrRe.MatchString(tag) {
+			return ssrFallbackAttrRe.ReplaceAllString(tag, `data-seo-fallback="server"`)
+		}
+		lower := strings.ToLower(tag)
+		for _, prefix := range []string{"<title", "<meta", "<link"} {
+			if strings.HasPrefix(lower, prefix) {
+				return tag[:len(prefix)] + ` data-seo-fallback="server"` + tag[len(prefix):]
+			}
+		}
+		return tag
+	}
+	for _, re := range []*regexp.Regexp{ssrTitleRe, ssrDescRe, ssrKeywordsRe, ssrCanonRe, ssrRobotsRe} {
+		html = re.ReplaceAllStringFunc(html, mark)
+	}
+	return html
+}
+
+func writeSSRHTML(c *gin.Context, status int, html string) {
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
-	c.String(http.StatusOK, modifiedHTML)
+	c.String(status, html)
+}
+
+func writeSSRStatusPage(c *gin.Context, shell string, status int) {
+	title := "页面不存在 | Scholay 学术"
+	desc := "抱歉，你访问的页面不存在。"
+	heading := "页面不存在"
+	message := "请检查网址，或返回 Scholay 学术首页继续浏览。"
+	if status == http.StatusServiceUnavailable {
+		title = "服务暂时不可用 | Scholay 学术"
+		desc = "服务暂时不可用，请稍后重试。"
+		heading = "服务暂时不可用"
+		message = "数据服务正在恢复，请稍后重试。"
+		c.Header("Retry-After", "60")
+	}
+	if shell == "" {
+		shell = `<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><title>Scholay 学术</title><meta name="description" content=""></head><body><div id="root"></div></body></html>`
+	}
+	html := prepareSSRPageShell(shell)
+	html = ssrCanonRe.ReplaceAllString(html, "")
+	html = replaceSSRTitleDescCanon(html, title, desc, "")
+	html = injectNoindex(html)
+	html = insertNoscriptBlock(html, fmt.Sprintf(`<section %s><h1 %s>%s</h1><p %s>%s</p><p><a href="/">返回首页</a></p></section>`, ssrBaseStyle, ssrHeadingTight, heading, ssrTextStyle, message))
+	html = markSSRSEOHead(html)
+	c.Header("X-Robots-Tag", "noindex, nofollow")
+	writeSSRHTML(c, status, html)
 }
 
 // canonicalRedirectFor 检查请求路径是不是 legacy /paper/{slug} 或 /author/{slug},
@@ -312,13 +575,23 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 // 调用方在拿到 HTML 之前调,所以 200 的 SSR 路径不会被 301 截掉。
 // query string + raw path 一并保留 —— 用户可能从带 utm 的链接进来。
 func (h *Handler) canonicalRedirectFor(requestPath string) string {
+	switch requestPath {
+	case "/journals":
+		return "/journals/search"
+	case "/features/latex-writer":
+		return "/features/prism"
+	case "/skills":
+		return "/tools/skills"
+	case "/qa":
+		return "/help"
+	}
 	// /paper/{slug}
 	if h.paperSEOProvider != nil && strings.HasPrefix(requestPath, "/paper/") {
 		rest := strings.TrimPrefix(requestPath, "/paper/")
 		if rest != "" && !strings.Contains(rest, "/") {
-			if meta, err := h.paperSEOProvider.ResolveSlug(rest); err == nil && meta != nil {
-				if meta.Source != "" && meta.PaperID != "" {
-					return "/paper/" + meta.Source + "/" + url.PathEscape(meta.PaperID)
+			if meta, err := h.paperSEOProvider.ResolveSlug(rest); err == nil && meta != nil && !meta.SEOInactive {
+				if canonical := canonicalPaperPath(meta); canonical != "" {
+					return canonical
 				}
 			}
 		}
@@ -327,54 +600,26 @@ func (h *Handler) canonicalRedirectFor(requestPath string) string {
 	if h.authorSEOProvider != nil && strings.HasPrefix(requestPath, "/author/") {
 		rest := strings.TrimPrefix(requestPath, "/author/")
 		if rest != "" && !strings.Contains(rest, "/") {
-			if meta, err := h.authorSEOProvider.ResolveAuthorSlug(rest); err == nil && meta != nil {
-				if meta.Source != "" && meta.AuthorID != "" {
-					return "/author/" + meta.Source + "/" + url.PathEscape(meta.AuthorID)
+			if meta, err := h.authorSEOProvider.ResolveAuthorSlug(rest); err == nil && meta != nil && !meta.SEOInactive {
+				if canonical := canonicalAuthorPath(meta); canonical != "" {
+					return canonical
 				}
 			}
 		}
 	}
-	// /journal/{id} 或 /journal/{id}/{slug}  ——  301 到 canonical /journal/{id}/{canonical-slug}
-	//   - 缺 slug → 补到 canonical
-	//   - slug 不对 → 校正
-	//   - 已是 canonical → 返回 ""
-	//   - id 解析失败 / 找不到 SEO 行 / 无 slug → 不重定向 (前端正常渲染,但没 SEO 增益)
-	if h.journalSEOProvider != nil && strings.HasPrefix(requestPath, "/journal/") {
-		rest := strings.TrimPrefix(requestPath, "/journal/")
-		if rest != "" {
-			idStr, currentSlug := splitJournalPath(rest)
-			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil && id > 0 {
-				if meta, err := h.journalSEOProvider.ResolveByJournalID(id); err == nil && meta != nil {
-					canonical := canonicalJournalPath(meta)
-					if canonical != "" && canonical != requestPath {
-						// 只在 slug 部分不一致时 301; canonical 和 currentSlug 已被 splitJournalPath 解码
-						_ = currentSlug
-						return canonical
-					}
-				}
-			}
-		}
-	}
-	// /qa 裸列表页 → /help(帮助中心 = 学术问答;详情 /qa/{slug} 不受影响,保持 canonical)
-	if requestPath == "/qa" {
-		return "/help"
-	}
+	// Journal canonicalization is intentionally performed in ServeIndexHTML after
+	// its single resolver call. Keeping it here as well doubles the DB query for
+	// every journal request and makes cache-miss status handling ambiguous.
 	return ""
-}
-
-// splitJournalPath 把 "{id}" 或 "{id}/{slug}" 切成两段
-// 多于 1 个 "/" (例如 /journal/123/foo/bar) → slug 取第一段, 多余尾段忽略
-func splitJournalPath(rest string) (id, slug string) {
-	if i := strings.Index(rest, "/"); i >= 0 {
-		return rest[:i], rest[i+1:]
-	}
-	return rest, ""
 }
 
 // canonicalJournalPath 用 meta 拼 canonical 路径
 //   - 有 slug → /journal/{id}/{slug}
 //   - 无 slug → /journal/{id} (永远不需要 301)
 func canonicalJournalPath(meta *seo.JournalSSRMeta) string {
+	if meta == nil || meta.JournalID <= 0 {
+		return ""
+	}
 	idStr := strconv.FormatInt(meta.JournalID, 10)
 	if meta.Slug != "" {
 		return "/journal/" + idStr + "/" + meta.Slug
@@ -558,34 +803,45 @@ func buildJournalJSONLD(meta *seo.JournalSSRMeta, canonical string) string {
 // 在函数体内 regexp.MustCompile 同样的模式，而 ServeIndexHTML 对每个爬虫请求都会跑一次注入，
 // 等于每请求重编译；提到包级 var 后只在 init 编译一次。
 var (
-	ssrTitleRe    = regexp.MustCompile(`(?is)<title>.*?</title>`)
-	ssrDescRe     = regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
-	ssrKeywordsRe = regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
-	ssrCanonRe    = regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
-	ssrBodyTagRe  = regexp.MustCompile(`(?i)(<body[^>]*>)`)
+	ssrTitleRe        = regexp.MustCompile(`(?is)<title\b[^>]*>.*?</title>`)
+	ssrDescRe         = regexp.MustCompile(`(?is)<meta\b[^>]*\bname=["']description["'][^>]*>`)
+	ssrKeywordsRe     = regexp.MustCompile(`(?is)<meta\b[^>]*\bname=["']keywords["'][^>]*>`)
+	ssrCanonRe        = regexp.MustCompile(`(?is)<link\b[^>]*\brel=["']canonical["'][^>]*>`)
+	ssrBodyTagRe      = regexp.MustCompile(`(?i)(<body[^>]*>)`)
+	ssrNoscriptRe     = regexp.MustCompile(`(?is)<noscript\b[^>]*>.*?</noscript>`)
+	ssrEmptyRootRe    = regexp.MustCompile(`(?is)<div[^>]*\bid=["']root["'][^>]*>\s*</div>`)
+	ssrFallbackAttrRe = regexp.MustCompile(`(?i)data-seo-fallback=["'][^"']*["']`)
 	// Open Graph 标签(社媒分享卡片)。壳里硬编码成首页值,实体页必须改写成本页的 url/title/desc,
-	// 否则 facebook/twitter/linkedin/whatsapp(已被 $is_crawler 路由到 SSR)抓分享链接全塌缩成首页卡片。
-	ssrOgTitleRe = regexp.MustCompile(`(?is)<meta\s+property=["']og:title["'][^>]*>`)
-	ssrOgURLRe   = regexp.MustCompile(`(?is)<meta\s+property=["']og:url["'][^>]*>`)
-	ssrOgDescRe  = regexp.MustCompile(`(?is)<meta\s+property=["']og:description["'][^>]*>`)
-	ssrOgTypeRe  = regexp.MustCompile(`(?is)<meta\s+property=["']og:type["'][^>]*>`)
-	ssrOgImageRe = regexp.MustCompile(`(?is)<meta\s+property=["']og:image["'][^>]*>`)
+	// 否则 facebook/twitter/linkedin/whatsapp 抓取分享链接时会全部塌缩成首页卡片。
+	ssrOgTitleRe = regexp.MustCompile(`(?is)<meta\b[^>]*\bproperty=["']og:title["'][^>]*>`)
+	ssrOgURLRe   = regexp.MustCompile(`(?is)<meta\b[^>]*\bproperty=["']og:url["'][^>]*>`)
+	ssrOgDescRe  = regexp.MustCompile(`(?is)<meta\b[^>]*\bproperty=["']og:description["'][^>]*>`)
+	ssrOgTypeRe  = regexp.MustCompile(`(?is)<meta\b[^>]*\bproperty=["']og:type["'][^>]*>`)
+	ssrOgImageRe = regexp.MustCompile(`(?is)<meta\b[^>]*\bproperty=["']og:image["'][^>]*>`)
 	// Twitter Card 壳里同样硬编码首页值,与 og:* 一并按页改写(否则 X / 偏好 twitter:* 的 AI 爬虫
 	// 对每个不同详情页都显示同一张首页卡)。
-	ssrTwTitleRe = regexp.MustCompile(`(?is)<meta\s+name=["']twitter:title["'][^>]*>`)
-	ssrTwDescRe  = regexp.MustCompile(`(?is)<meta\s+name=["']twitter:description["'][^>]*>`)
-	ssrTwImageRe = regexp.MustCompile(`(?is)<meta\s+name=["']twitter:image["'][^>]*>`)
+	ssrTwTitleRe = regexp.MustCompile(`(?is)<meta\b[^>]*\bname=["']twitter:title["'][^>]*>`)
+	ssrTwDescRe  = regexp.MustCompile(`(?is)<meta\b[^>]*\bname=["']twitter:description["'][^>]*>`)
+	ssrTwImageRe = regexp.MustCompile(`(?is)<meta\b[^>]*\bname=["']twitter:image["'][^>]*>`)
 	// robots meta —— 实体路径解析不到实体时打 noindex,阻止无界失效/伪造 ID 形成软 404 重复面。
-	ssrRobotsRe = regexp.MustCompile(`(?is)<meta\s+name=["']robots["'][^>]*>`)
+	ssrRobotsRe = regexp.MustCompile(`(?is)<meta\b[^>]*\bname=["']robots["'][^>]*>`)
 )
 
 // upsertHeadTag 若 re 命中则整段替换为 tag,否则把 tag 插在 </head> 前。
 // SSR 注入统一走它,消除各处「MatchString ? Replace : 插 </head>」重复。
 func upsertHeadTag(html string, re *regexp.Regexp, tag string) string {
 	if re.MatchString(html) {
-		return re.ReplaceAllString(html, tag)
+		return replaceRegexpLiteral(re, html, tag)
 	}
 	return strings.Replace(html, "</head>", tag+"\n</head>", 1)
+}
+
+// regexp.ReplaceAllString interprets `$1` and `$name` in its replacement.
+// Titles, abstracts and canonical URLs are data, not replacement templates;
+// a perfectly ordinary title such as "Cost is $E$" must remain byte-for-byte
+// intact after HTML escaping. ReplaceAllStringFunc returns the tag literally.
+func replaceRegexpLiteral(re *regexp.Regexp, input, replacement string) string {
+	return re.ReplaceAllStringFunc(input, func(string) string { return replacement })
 }
 
 // injectNoindex 给「实体路径但实体不存在」的软 404 打 noindex,阻止无界的失效/伪造 ID
@@ -602,7 +858,8 @@ func injectNoindex(html string) string {
 // twitter:description 镜像同值(标签存在则替换,缺失则插在 </head> 前)。
 // title/desc 走 htmlEscape 防属性注入;url 已是安全 URL。空值不动对应标签。
 // ogType: 详情/文章类页传 "article"(带 og:type 后 OG 消费方才知是文章而非落地页);
-//         列表/落地/枢纽页传 "website";空串则不写 og:type。
+//
+//	列表/落地/枢纽页传 "website";空串则不写 og:type。
 func injectOG(html, ogTitle, ogURL, ogDesc, ogType string) string {
 	if ogTitle != "" {
 		esc := htmlEscape(ogTitle)
@@ -623,23 +880,42 @@ func injectOG(html, ogTitle, ogURL, ogDesc, ogType string) string {
 	return html
 }
 
-// insertNoscriptBlock 把一段「爬虫友好正文」包进 <noscript> 后插进 shell。
-//
-// 关键修复:当前 Vite 构建的 index.html **既没有 <noscript> 也没有旧锚点**
-// (`<p style="text-align:center;margin-top:30px`),旧实现找不到锚点就**静默丢弃整张卡**
-// → 弱 JS 爬虫(百度/搜狗)拿到空 <body>,SSR 为爬虫提供真实正文/H1/摘要的核心目的被打穿。
-// 这里统一改为:把内容包进 <noscript> 后插在 </body> 前(Vite 壳唯一保证存在的锚点),
-// 保证 noscript 正文一定进 HTML。浏览器执行 JS 时 <noscript> 不渲染(SPA 接管),爬虫则能读到。
+// prepareSSRPageShell 移除 Vite 壳里全站通用的 noscript 品牌正文。公开路由由后端
+// 给普通用户和爬虫返回同一份初始 HTML，路由正文随后写进 #root；保留这段会制造
+// 第二个 H1，并让每个详情页重复首页文字。
+func prepareSSRPageShell(html string) string {
+	return ssrNoscriptRe.ReplaceAllString(html, "")
+}
+
+// insertNoscriptBlock 保留历史函数名以减少调用面，但正文已不再放在 noscript。
+// 它把可见静态 fallback 直接写入 #root；浏览器拿到首包即可显示真实路由正文，
+// React createRoot 随后替换该内容。搜索引擎与普通用户因此观察同一份初始 HTML。
 func insertNoscriptBlock(html, innerHTML string) string {
 	if innerHTML == "" {
 		return html
 	}
-	block := "<noscript>\n" + innerHTML + "\n</noscript>"
+	block := `<main data-ssr-static="true">` + "\n" + innerHTML + "\n</main>"
+	if loc := ssrEmptyRootRe.FindStringIndex(html); loc != nil {
+		root := html[loc[0]:loc[1]]
+		if openEnd := strings.Index(root, ">"); openEnd >= 0 {
+			replacement := root[:openEnd+1] + "\n" + block + "\n</div>"
+			return html[:loc[0]] + replacement + html[loc[1]:]
+		}
+	}
 	if idx := strings.LastIndex(html, "</body>"); idx >= 0 {
 		return html[:idx] + block + "\n" + html[idx:]
 	}
-	// 极端兜底:连 </body> 都没有(理论不会)也把正文追加到末尾,crawler 仍可读。
 	return html + "\n" + block
+}
+
+func appendSSRStaticContent(html, innerHTML string) string {
+	if innerHTML == "" {
+		return html
+	}
+	if idx := strings.Index(html, "</main>"); idx >= 0 {
+		return html[:idx] + "\n" + innerHTML + "\n" + html[idx:]
+	}
+	return insertNoscriptBlock(html, innerHTML)
 }
 
 // injectPaperSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入论文摘要卡片
@@ -691,19 +967,19 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 
 	// 1) 替换 <title>
 	titleRe := ssrTitleRe
-	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+	html = replaceRegexpLiteral(titleRe, html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
 	// 2) 替换 <meta name="description" ...>（若不存在则跳过，不主动插入以免破坏已有结构）
 	descRe := ssrDescRe
 	if descRe.MatchString(html) {
-		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+		html = replaceRegexpLiteral(descRe, html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	// 2.5) 替换 <meta name="keywords"> —— 论文场景词 + 标题中的关键名词作为长尾
 	keywords := buildPaperKeywords(meta)
 	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
-		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+		html = replaceRegexpLiteral(keywordsRe, html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
 
 	// 3) 追加 canonical 链接（若 head 里已有则替换）
@@ -713,7 +989,7 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
-		html = canonRe.ReplaceAllString(html, canonTag)
+		html = replaceRegexpLiteral(canonRe, html, canonTag)
 	} else {
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
@@ -875,25 +1151,25 @@ func injectAuthorSEOMeta(html string, meta *seo.AuthorSSRMeta, path string) stri
 	desc = truncate(desc, 300)
 
 	titleRe := ssrTitleRe
-	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+	html = replaceRegexpLiteral(titleRe, html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
 	descRe := ssrDescRe
 	if descRe.MatchString(html) {
-		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+		html = replaceRegexpLiteral(descRe, html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	// keywords meta —— 作者场景高频词 + 个人元数据
 	keywords := buildAuthorKeywords(meta)
 	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
-		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+		html = replaceRegexpLiteral(keywordsRe, html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
 
 	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
 	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
-		html = canonRe.ReplaceAllString(html, canonTag)
+		html = replaceRegexpLiteral(canonRe, html, canonTag)
 	} else {
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
@@ -1069,17 +1345,17 @@ func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) st
 	desc = truncate(desc, 300)
 
 	titleRe := ssrTitleRe
-	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+	html = replaceRegexpLiteral(titleRe, html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
 	descRe := ssrDescRe
 	if descRe.MatchString(html) {
-		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+		html = replaceRegexpLiteral(descRe, html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	keywords := buildJournalKeywords(meta)
 	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
-		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+		html = replaceRegexpLiteral(keywordsRe, html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
 
 	// canonical 永远指向当前 path —— canonicalRedirectFor 已经把非 canonical 的路径 301 走了
@@ -1087,7 +1363,7 @@ func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) st
 	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
-		html = canonRe.ReplaceAllString(html, canonTag)
+		html = replaceRegexpLiteral(canonRe, html, canonTag)
 	} else {
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
@@ -1211,30 +1487,33 @@ func injectToolSEOMeta(html string, meta *seo.ToolSSRMeta, path string) string {
 	desc = truncate(desc, 300)
 
 	titleRe := ssrTitleRe
-	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+	html = replaceRegexpLiteral(titleRe, html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
 	descRe := ssrDescRe
 	if descRe.MatchString(html) {
-		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+		html = replaceRegexpLiteral(descRe, html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	keywords := buildToolKeywords(meta)
 	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
-		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+		html = replaceRegexpLiteral(keywordsRe, html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
 
 	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
 	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
-		html = canonRe.ReplaceAllString(html, canonTag)
+		html = replaceRegexpLiteral(canonRe, html, canonTag)
 	} else {
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
 
 	if jsonLD := buildToolJSONLD(meta, canonical); jsonLD != "" {
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
+	}
+	if faqLD := buildToolFAQJSONLD(meta); faqLD != "" {
+		html = strings.Replace(html, "</head>", faqLD+"\n</head>", 1)
 	}
 
 	html = injectOG(html, seoTitle, canonical, desc, "website")
@@ -1254,6 +1533,34 @@ func buildToolKeywords(meta *seo.ToolSSRMeta) string {
 	}
 	parts = append(parts, meta.Tags...)
 	return strings.Join(parts, ",")
+}
+
+func buildToolHubLinks(metas []*seo.ToolSSRMeta) string {
+	var b strings.Builder
+	count := 0
+	for _, meta := range metas {
+		if meta == nil || !meta.SEOIndexable || meta.Slug == "" || meta.Name == "" {
+			continue
+		}
+		if count == 0 {
+			b.WriteString(`<section aria-labelledby="approved-tools"><h2 id="approved-tools">精选科研工具</h2><ul>`)
+		}
+		href := "/tools/" + url.PathEscape(meta.Slug)
+		fmt.Fprintf(&b, `<li><a href="%s">%s</a>`, htmlEscape(href), htmlEscape(meta.Name))
+		if meta.Tagline != "" {
+			b.WriteString(" — " + htmlEscape(truncate(meta.Tagline, 160)))
+		}
+		b.WriteString(`</li>`)
+		count++
+		if count >= 100 {
+			break
+		}
+	}
+	if count == 0 {
+		return ""
+	}
+	b.WriteString(`</ul></section>`)
+	return b.String()
 }
 
 // buildToolJSONLD —— SoftwareApplication(名称/分类/描述/价格/图标)。
@@ -1284,7 +1591,48 @@ func buildToolJSONLD(meta *seo.ToolSSRMeta, canonical string) string {
 	if meta.PriceType == "free" {
 		obj["offers"] = map[string]any{"@type": "Offer", "price": "0", "priceCurrency": "USD"}
 	}
+	if officialURL := safeHTTPURL(meta.OfficialURL); officialURL != "" {
+		obj["sameAs"] = officialURL
+	}
 	return jsonLDScript(obj)
+}
+
+func buildToolFAQJSONLD(meta *seo.ToolSSRMeta) string {
+	if meta == nil {
+		return ""
+	}
+	mainEntity := make([]map[string]any, 0, len(meta.FAQ))
+	for _, item := range meta.FAQ {
+		question := strings.TrimSpace(item.Question)
+		answer := strings.TrimSpace(item.Answer)
+		if question == "" || answer == "" {
+			continue
+		}
+		mainEntity = append(mainEntity, map[string]any{
+			"@type": "Question",
+			"name":  question,
+			"acceptedAnswer": map[string]string{
+				"@type": "Answer",
+				"text":  answer,
+			},
+		})
+	}
+	if len(mainEntity) == 0 {
+		return ""
+	}
+	return jsonLDScript(map[string]any{
+		"@context":   "https://schema.org",
+		"@type":      "FAQPage",
+		"mainEntity": mainEntity,
+	})
+}
+
+func safeHTTPURL(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return ""
+	}
+	return parsed.String()
 }
 
 // buildToolNoscriptCard 渲染工具的 noscript 卡片(供爬虫)。
@@ -1311,6 +1659,40 @@ func buildToolNoscriptCard(meta *seo.ToolSSRMeta) string {
 	}
 	if meta.Description != "" {
 		bodyHTML += fmt.Sprintf("<p %s>%s</p>", textStyle, htmlEscape(truncate(meta.Description, 1500)))
+	}
+	if officialURL := safeHTTPURL(meta.OfficialURL); officialURL != "" {
+		bodyHTML += fmt.Sprintf(`<p %s><a href="%s" rel="nofollow noopener">访问官方网站</a></p>`, textStyle, htmlEscape(officialURL))
+	}
+	if len(meta.UseCases) > 0 {
+		var useCases strings.Builder
+		for _, item := range meta.UseCases {
+			title := strings.TrimSpace(item.Title)
+			if title == "" {
+				continue
+			}
+			useCases.WriteString(`<li><strong>` + htmlEscape(title) + `</strong>`)
+			if desc := strings.TrimSpace(item.Desc); desc != "" {
+				useCases.WriteString(` — ` + htmlEscape(desc))
+			}
+			useCases.WriteString(`</li>`)
+		}
+		if useCases.Len() > 0 {
+			bodyHTML += `<section><h2>使用场景</h2><ul>` + useCases.String() + `</ul></section>`
+		}
+	}
+	if len(meta.FAQ) > 0 {
+		var faq strings.Builder
+		for _, item := range meta.FAQ {
+			question := strings.TrimSpace(item.Question)
+			answer := strings.TrimSpace(item.Answer)
+			if question == "" || answer == "" {
+				continue
+			}
+			faq.WriteString(`<dt><strong>` + htmlEscape(question) + `</strong></dt><dd>` + htmlEscape(answer) + `</dd>`)
+		}
+		if faq.Len() > 0 {
+			bodyHTML += `<section><h2>常见问题</h2><dl>` + faq.String() + `</dl></section>`
+		}
 	}
 	return fmt.Sprintf(`<article %s>
 <h1 %s>%s</h1>
@@ -1369,7 +1751,12 @@ func (h *Handler) getPageHTML(requestPath string) (string, error) {
 		return cached, nil
 	}
 
-	fetchURL := h.frontendURL + requestPath
+	// The Vite frontend serves one identical index.html shell for every SPA
+	// route. Always fetch the safe root URL: forwarding an arbitrary entity slug
+	// (for example `/news/.draft`) can trigger the frontend Nginx hidden-file or
+	// static-extension locations and turn an otherwise valid SSR request into a
+	// false 403/404/503 before the resolver even runs.
+	fetchURL := strings.TrimRight(h.frontendURL, "/") + "/"
 	resp, err := ssrHTTPClient.Get(fetchURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch HTML for %s from frontend: %w", requestPath, err)
@@ -1549,9 +1936,37 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 		"全部功能 — 智能搜索 · AI 审稿 · 智能写作 · 文献集 | Scholay 学术",
 		"Scholay 学术全部功能一览:智能论文搜索、AI 论文分析、AI 智能审稿、文献集管理、期刊查询与 LaTeX 在线写作。",
 	},
+	"/features/search": {
+		"文献搜索 · Scholay学术 — 用一句中文,读懂一整个研究领域",
+		"Scholay 文献搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献。",
+	},
+	"/features/library": {
+		"文件夹 · Scholay学术 — 千篇文献,一处归档",
+		"用文件夹树结构与 AI 自动打标签,管理 1000+ 篇论文;浏览器内高亮批注 PDF,多端实时同步,一键导出 BibTeX/RIS 引用,并与团队成员实时协作。",
+	},
+	"/features/prism": {
+		"Prism · Scholay学术 — AI 学术写作 + LaTeX 编辑器",
+		"在浏览器里写 LaTeX,在 AI 协作中完成论文。Prism 把实时预览、文献引用、润色批注、模板套用与版本协作合并到一个简洁的编辑器里。",
+	},
+	"/features/claw": {
+		"Claw · Scholay学术 — 你的学术对话伙伴,基于你的文件夹回答",
+		"Claw 根植于你上传的论文、笔记与数据,提供可溯源的引用、可复用的研究路径,以及中英双语的多轮学术对话。",
+	},
+	"/features/submit": {
+		"智能投稿 · Scholay学术 — 一次准备,多刊投稿",
+		"从期刊匹配到 Cover Letter,Scholay 让 SCI / EI / 核心期刊投稿全流程自动化,并检查格式、参考文献与投稿材料。",
+	},
+	"/features/peer-review": {
+		"同行评审 · Scholay学术 — 为学者,重新发明同行评审",
+		"Scholay 同行评审是为期刊与会议而生的智能评审工作台,提供结构化评审模板、自动新颖性核查、引用图谱对比与偏见提示。",
+	},
 	"/tools": {
 		"学术工具广场 — 科研软件与在线工具大全 | Scholay 学术",
 		"Scholay 学术工具广场:汇集编程语言、数据分析、文献管理、写作排版等科研常用软件与在线工具,按分类检索与对比。",
+	},
+	"/tools/skills": {
+		"社区技能 · 科研能力广场 | Scholay 学术",
+		"浏览社区分享的科研智能体技能,按主题搜索与排序,将可复用的研究能力安装到 Scholay 智能助手或其他 Agent。",
 	},
 	"/pricing": {
 		"会员与定价 — 免费额度 · Pro · Max | Scholay 学术",
@@ -1573,6 +1988,22 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 		"期刊检索 — 影响因子 / 分区 / 收录查询 | Scholay 学术",
 		"按刊名、ISSN、学科与影响因子分区查找学术期刊,查看 JCR 影响因子、CiteScore、中科院分区与开放获取(OA)信息,辅助选刊投稿。",
 	},
+	"/journals/sci-q1": {
+		"SCI 一区(JCR Q1)期刊有哪些 - Scholay 期刊库",
+		"JCR Q1(SCI 一区)期刊完整列表,含影响因子、中科院分区、CCF 等级、ISSN、出版商,按影响因子排序,支持继续筛选与检索。",
+	},
+	"/journals/cas-zone1": {
+		"中科院一区期刊有哪些 - Scholay 期刊库",
+		"中科院基础版一区(Top)期刊列表,含影响因子、JCR 分区、CCF 等级、ISSN、出版商,按影响因子排序,支持筛选与检索。",
+	},
+	"/journals/ccf-a": {
+		"CCF A 类推荐期刊有哪些 - Scholay 期刊库",
+		"CCF(中国计算机学会)推荐 A 类期刊列表,含影响因子、JCR / 中科院分区、ISSN、出版商,适合计算机方向选刊投稿。",
+	},
+	"/journals/high-impact-factor": {
+		"高影响因子期刊(IF ≥ 10)有哪些 - Scholay 期刊库",
+		"影响因子 10 以上的高影响力期刊列表,含中科院 / JCR 分区、CCF 等级、ISSN、出版商,按影响因子降序排列。",
+	},
 	"/privacy": {
 		"隐私政策 | Scholay 学术",
 		"Scholay(成都恩特罐罐文化科技有限公司)隐私政策:个人信息的收集、使用、存储、保护,以及用户的数据访问、更正与删除权利。",
@@ -1588,10 +2019,6 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 	"/help": {
 		"帮助中心 · 学术问答 — 科研常见问题深度解答 | Scholay 学术",
 		"Scholay 帮助中心即学术问答:开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉、文献核对等科研真实问题的深度长答案。",
-	},
-	"/qa": {
-		"学术问答 — 科研常见问题深度解答 | Scholay 学术",
-		"Scholay 学术问答:开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉、文献核对等科研真实问题的深度长答案。",
 	},
 }
 
@@ -1613,15 +2040,15 @@ func injectArticleSEOMeta(html, kind, slug, path string) string {
 	desc := truncate(a.Excerpt, 300)
 
 	if ssrTitleRe.MatchString(html) {
-		html = ssrTitleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+		html = replaceRegexpLiteral(ssrTitleRe, html, "<title>"+htmlEscape(seoTitle)+"</title>")
 	}
 	if ssrDescRe.MatchString(html) {
-		html = ssrDescRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+		html = replaceRegexpLiteral(ssrDescRe, html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 	canonical := appconfig.CanonicalBaseURL() + path
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if ssrCanonRe.MatchString(html) {
-		html = ssrCanonRe.ReplaceAllString(html, canonTag)
+		html = replaceRegexpLiteral(ssrCanonRe, html, canonTag)
 	} else {
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
@@ -1639,8 +2066,12 @@ func injectArticleSEOMeta(html, kind, slug, path string) string {
 // injectNewsSSR 情报 SSR 注入(方法,持有 newsSEOProvider):
 //   - /news        列表页:专属 title/desc/canonical + noscript 链接列表(爬虫发现各详情)
 //   - /news/{slug} 详情页:title/desc/自指 canonical + NewsArticle JSON-LD + OG + 全文 noscript
-// 功能未开启 / 不存在时 provider 返回 nil → 回落默认壳(不注入)。
-func (h *Handler) injectNewsSSR(html, path string) string {
+//
+// Provider 错误返回 503，不存在的详情返回 404；返回的权威 slug 与请求不同时返回 301 目标。
+func (h *Handler) injectNewsSSR(html, path string) (string, int, string) {
+	if h.newsSEOProvider == nil {
+		return html, http.StatusServiceUnavailable, ""
+	}
 	base := appconfig.CanonicalBaseURL()
 
 	// 列表页
@@ -1649,24 +2080,33 @@ func (h *Handler) injectNewsSSR(html, path string) string {
 		desc := "Scholay 学术情报:实时汇集顶级期刊论文速递、学术界重大事件、国内科研政策等学术新闻,按热度与时间持续更新。"
 		canonical := base + "/news"
 		html = replaceSSRTitleDescCanon(html, seoTitle, desc, canonical)
-		if metas, err := h.newsSEOProvider.RecentNewsForSEO(50); err == nil && len(metas) > 0 {
-			html = insertNoscriptBlock(html, buildNewsListNoscript(metas))
+		metas, err := h.newsSEOProvider.RecentNewsForSEO(50)
+		if err != nil {
+			return html, http.StatusServiceUnavailable, ""
 		}
+		html = insertNoscriptBlock(html, buildNewsListNoscript(metas))
 		html = injectOG(html, seoTitle, canonical, desc, "website")
-		return html
+		return html, http.StatusOK, ""
 	}
 
 	// 详情页:单段 slug
 	slug := strings.TrimPrefix(path, "/news/")
 	if slug == "" || strings.Contains(slug, "/") {
-		return html
+		return html, http.StatusNotFound, ""
 	}
 	meta, err := h.newsSEOProvider.ResolveNewsBySlug(slug)
 	if err != nil {
-		return html // DB 错误,保守不动(不误伤)
+		return html, http.StatusServiceUnavailable, ""
 	}
 	if meta == nil || meta.Title == "" {
-		return injectNoindex(html) // 情报不存在 → 软 404 打 noindex
+		return html, http.StatusNotFound, ""
+	}
+	if meta.Slug != "" {
+		canonicalPath := "/news/" + url.PathEscape(meta.Slug)
+		if canonicalPath != path {
+			return html, http.StatusOK, canonicalPath
+		}
+		path = canonicalPath
 	}
 	seoTitle := truncate(meta.Title, 100) + " | Scholay 学术情报"
 	desc := truncate(meta.Summary, 300)
@@ -1693,22 +2133,24 @@ func (h *Handler) injectNewsSSR(html, path string) string {
 		html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
 	}
 	html = insertNoscriptBlock(html, buildNewsNoscript(meta))
-	return html
+	return html, http.StatusOK, ""
 }
 
 // replaceSSRTitleDescCanon 统一替换 <title>/<meta description>/<link canonical>(缺失则按既有约定处理)。
 func replaceSSRTitleDescCanon(html, title, desc, canonical string) string {
 	if ssrTitleRe.MatchString(html) {
-		html = ssrTitleRe.ReplaceAllString(html, "<title>"+htmlEscape(title)+"</title>")
+		html = replaceRegexpLiteral(ssrTitleRe, html, "<title>"+htmlEscape(title)+"</title>")
 	}
 	if ssrDescRe.MatchString(html) {
-		html = ssrDescRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+		html = replaceRegexpLiteral(ssrDescRe, html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
-	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
-	if ssrCanonRe.MatchString(html) {
-		html = ssrCanonRe.ReplaceAllString(html, canonTag)
-	} else {
-		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	if canonical != "" {
+		canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+		if ssrCanonRe.MatchString(html) {
+			html = replaceRegexpLiteral(ssrCanonRe, html, canonTag)
+		} else {
+			html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+		}
 	}
 	return html
 }
@@ -1832,10 +2274,10 @@ func injectStaticPageSEOMeta(html string, path string) string {
 		return html
 	}
 	if ssrTitleRe.MatchString(html) {
-		html = ssrTitleRe.ReplaceAllString(html, "<title>"+htmlEscape(meta.title)+"</title>")
+		html = replaceRegexpLiteral(ssrTitleRe, html, "<title>"+htmlEscape(meta.title)+"</title>")
 	}
 	if ssrDescRe.MatchString(html) {
-		html = ssrDescRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(meta.desc)))
+		html = replaceRegexpLiteral(ssrDescRe, html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(meta.desc)))
 	}
 	// 自指 canonical(否则吃首页 canonical,被判重复页)。首页 path="/" → canonical 带尾斜杠。
 	canonical := appconfig.CanonicalBaseURL() + path
@@ -1845,16 +2287,79 @@ func injectStaticPageSEOMeta(html string, path string) string {
 	return html
 }
 
-// getRouteNoscriptContent returns route-specific HTML for noscript injection
+type staticRouteBody struct {
+	heading string
+	body    string
+}
+
+// dedicatedStaticRouteBodies 镜像前端 6 个功能落地页与 4 个期刊榜单的首屏事实文案。
+// 这些路由此前全部复用一段通用 features 文案或完全没有正文，导致 title/description/
+// canonical 缺失且内容哈希相同。这里只保留可验证的概述，完整交互仍由 React 渲染。
+var dedicatedStaticRouteBodies = map[string]staticRouteBody{
+	"/": {
+		"Scholay学术 — AI 驱动的学术搜索与科研工具平台",
+		"Scholay 学术提供论文搜索、AI 论文分析、同行评审、文献管理、期刊查询与 LaTeX 在线写作，帮助研究者在一个工作空间完成检索、阅读、分析与写作。",
+	},
+	"/features/search": {
+		"用一句中文，读懂一整个研究领域",
+		"Scholay 文献搜索支持自然语言与关键词检索，并把跨来源论文、引文关系和筛选结果组织成可继续分析的研究视图。",
+	},
+	"/features/library": {
+		"千篇文献，一处归档",
+		"用文件夹树、标签与 PDF 批注管理研究资料，支持引用导出、多端同步与团队协作，并可把已收藏文献直接交给智能助手分析。",
+	},
+	"/features/prism": {
+		"Prism AI 学术写作与 LaTeX 编辑器",
+		"Prism 将 LaTeX 编辑、实时编译预览、文献引用、AI 润色与版本协作放在同一个浏览器工作空间中。",
+	},
+	"/features/claw": {
+		"Claw 可溯源学术对话助手",
+		"Claw 基于你选择的论文、笔记和数据回答问题，在多轮对话中保留研究上下文，并为关键结论提供可追溯引用。",
+	},
+	"/features/submit": {
+		"智能投稿 — 一次准备，多刊投稿",
+		"从目标期刊匹配、格式与参考文献检查到 Cover Letter 草拟，Scholay 帮助研究者系统准备投稿材料。",
+	},
+	"/features/peer-review": {
+		"为学者重新设计的同行评审工作台",
+		"通过结构化评审模板、新颖性核查、引用图谱对比与偏见提示，辅助审稿人和作者发现论文中的关键问题。",
+	},
+	"/journals/sci-q1": {
+		"SCI 一区（JCR Q1）期刊",
+		"JCR Q1 代表各学科影响力较高的前 25% 期刊。本榜单展示匹配期刊及其影响因子、分区、ISSN 与出版商，并支持继续按学科筛选。",
+	},
+	"/journals/cas-zone1": {
+		"中科院一区期刊",
+		"查看中科院期刊分区中一区期刊的影响因子、JCR 分区、ISSN 与出版信息，并进入期刊详情核对投稿相关指标。",
+	},
+	"/journals/ccf-a": {
+		"CCF A 类推荐期刊",
+		"查看中国计算机学会推荐目录中的 A 类期刊，以及相应影响因子、JCR 与中科院分区、ISSN 和出版商信息。",
+	},
+	"/journals/high-impact-factor": {
+		"高影响因子期刊（IF ≥ 10）",
+		"按影响因子降序浏览 IF 不低于 10 的期刊，并结合 JCR、中科院与 CCF 等指标进一步判断投稿适配度。",
+	},
+	"/tools/skills": {
+		"社区技能 — 可复用的科研智能体能力",
+		"浏览社区发布的科研技能，按关键词、热度与更新时间筛选，并打开技能详情了解用途后安装到支持的智能助手。",
+	},
+}
+
+// getRouteNoscriptContent returns route-specific static fallback HTML.
 func getRouteNoscriptContent(path string) string {
 	baseStyle := ssrBaseStyle
 	headingStyle := ssrHeadingTight
 	textStyle := ssrTextStyle
+	if page, ok := dedicatedStaticRouteBodies[path]; ok {
+		return fmt.Sprintf(`<section %s><h1 %s>%s</h1><p %s>%s</p></section>`,
+			baseStyle, headingStyle, htmlEscape(page.heading), textStyle, htmlEscape(page.body))
+	}
 
 	switch {
 	case path == "/resources":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>学术资源中心</h2>
+<h1 %s>学术资源中心</h1>
 <p %s>Scholay 学术资源中心提供原创学术指南，涵盖文献检索技巧、论文写作方法、引用格式规范、研究方法论和 AI 学术工具使用教程，助力科研工作者提升效率。</p>
 %s
 </section>`, baseStyle, headingStyle, textStyle, articleListNoscript("resources", "/resources/"))
@@ -1885,45 +2390,45 @@ func getRouteNoscriptContent(path string) string {
 		// 帮助中心 = 学术问答(QA 列表)。爬虫读到的就是 QA 全文索引,
 		// 详情链接指向 canonical /qa/{slug}(详情 URL 不变,SEO 不动)。
 		return fmt.Sprintf(`<section %s>
-<h2 %s>帮助中心 · 学术问答 — 科研常见问题深度解答</h2>
+<h1 %s>帮助中心 · 学术问答 — 科研常见问题深度解答</h1>
 <p %s>Scholay 帮助中心即学术问答,收录科研全流程的真实问题与深度解答,涵盖学术开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉与文献核对等主题,每个问题都给出一篇完整回答。</p>
 %s
 </section>`, baseStyle, headingStyle, textStyle, articleListNoscript("qa", "/qa/"))
 
 	case path == "/search":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>学术搜索</h2>
+<h1 %s>学术搜索</h1>
 <p %s>Scholay 学术搜索覆盖超过 2 亿篇学术论文，支持直接检索和 AI 智能检索两种模式。使用布尔运算符（AND、OR、NOT）和精确短语检索提升搜索精度。结果可按相关度、被引次数和发表时间排序，并支持按年份、领域、论文类型等条件筛选。</p>
 <p %s>热门研究领域包括：深度学习、量子计算、CRISPR 基因编辑、气候变化、大语言模型、新能源技术、计算机视觉、自然语言处理、生物信息学等。</p>
 </section>`, baseStyle, headingStyle, textStyle, textStyle)
 
 	case path == "/journals/search":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>期刊检索 — 影响因子 / 分区 / 收录查询</h2>
+<h1 %s>期刊检索 — 影响因子 / 分区 / 收录查询</h1>
 <p %s>Scholay 期刊检索帮助科研工作者按刊名、ISSN、学科、出版商及影响因子分区查找学术期刊，查看每本期刊的影响因子（JCR Impact Factor）、CiteScore、中科院分区与 JCR 分区、是否开放获取（OA）及收录范围，辅助选刊投稿与文献质量评估。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/claw":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>智能助手 — AI 学术对话</h2>
+<h1 %s>智能助手 — AI 学术对话</h1>
 <p %s>Scholay 智能助手是面向科研的 AI 学术对话工具，可帮您解答学术问题、讨论研究方向、分析论文观点、生成文献综述。支持多种大语言模型，对话支持上下文连续交流，可直接粘贴论文片段让 AI 解读，或请 AI 帮助改善论文表达、检索并引用相关文献。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/prism":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>智能写作 — ScholayPrism AI-native LaTeX 编辑器</h2>
+<h1 %s>智能写作 — ScholayPrism AI-native LaTeX 编辑器</h1>
 <p %s>ScholayPrism 是原生支持 LaTeX 的在线学术写作工作空间，AI 内联协作、实时编译预览、内置多种期刊模板。AI 可按指令直接修改正文并以 diff 形式呈现、自动 \cite 引用检索到的文献、按学科规范排版，是论文写作与投稿前排版的一体化工具。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/about":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>关于 Scholay 学术</h2>
+<h1 %s>关于 Scholay 学术</h1>
 <p %s>Scholay（学术）是一个 AI 驱动的学术搜索与科研协作平台，整合超过 2 亿篇学术论文，提供学术检索、AI 论文分析、智能学术对话、AI 智能审稿与 LaTeX 智能写作等一站式科研工具，致力于用人工智能提升科研工作者的文献检索与论文写作效率。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
-	case path == "/features" || strings.HasPrefix(path, "/features/"):
+	case path == "/features":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>Scholay 核心功能</h2>
+<h1 %s>Scholay 核心功能</h1>
 <p %s>Scholay 提供覆盖科研全流程的 AI 学术工具：</p>
 <ul style="color: #505059; line-height: 2; padding-left: 24px;">
 <li><a href="/features/search" style="color: #882828;">学术检索</a> — 直接检索 + AI 智能检索,覆盖 2 亿+ 论文</li>
@@ -1937,51 +2442,51 @@ func getRouteNoscriptContent(path string) string {
 
 	case path == "/blog":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>Scholay 学术博客</h2>
+<h1 %s>Scholay 学术博客</h1>
 <p %s>Scholay 学术博客分享文献检索技巧、学术工具评测、论文写作与同行评审经验、AI 科研应用等原创长文,帮助研究者提升科研效率。精选文章:</p>
 %s
 </section>`, baseStyle, headingStyle, textStyle, articleListNoscript("blog", "/blog/"))
 
 	case path == "/qa":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>学术问答 — 科研常见问题深度解答</h2>
+<h1 %s>学术问答 — 科研常见问题深度解答</h1>
 <p %s>Scholay 学术问答收录科研全流程的真实问题与深度解答,涵盖学术开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉与文献核对等主题,每个问题都给出一篇完整回答。</p>
 %s
 </section>`, baseStyle, headingStyle, textStyle, articleListNoscript("qa", "/qa/"))
 
 	case path == "/tools":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>科研工具广场 — 学术软件与工具大全</h2>
+<h1 %s>科研工具广场 — 学术软件与工具大全</h1>
 <p %s>Scholay 功能广场收录科研工作者常用的学术工具与软件,涵盖文献检索、文献管理、论文写作、数据分析、AI 学术助手、LaTeX 排版、参考文献管理、学术绘图等类目。每个工具含分类、获取方式、官网链接与使用说明,帮助研究者快速找到合适的科研工具。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/peer-review":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>AI 智能审稿</h2>
+<h1 %s>AI 智能审稿</h1>
 <p %s>Scholay 智能审稿服务模拟同行评审流程，从论文结构、方法论严谨性、论证逻辑、写作质量等多个维度对论文进行全面评估。支持 PDF 上传和文本粘贴两种方式提交论文，审稿报告按问题严重性分级，并提供具体的修改建议和改进方向。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/pricing":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>订阅方案</h2>
+<h1 %s>订阅方案</h1>
 <p %s>Scholay 提供灵活的订阅方案，从 Free 到 Pro 和 Max，满足不同层次的学术研究需求。Free 用户可使用基础检索和有限次数的 AI 分析功能，付费订阅解锁高级 AI 模型、更多使用配额和专属功能。支持支付宝和微信支付。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/privacy":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>隐私政策</h2>
+<h1 %s>隐私政策</h1>
 <p %s>本页说明 Scholay（成都恩特罐罐文化科技有限公司）如何收集、使用、存储与保护用户个人信息，包括账号信息与检索/使用记录的处理方式、Cookie 使用、第三方服务、数据安全措施，以及用户对自身数据的访问、更正与删除权利。完整条款以页面正文为准。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/terms":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>服务条款</h2>
+<h1 %s>服务条款</h1>
 <p %s>本页为 Scholay 学术平台的服务条款，说明用户在使用检索、AI 论文分析、智能写作与智能审稿等服务时的权利与义务、账号与订阅规则、知识产权与内容使用规范、免责声明及条款变更方式。使用本平台即视为同意本条款。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/disclaimer":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>免责声明</h2>
+<h1 %s>免责声明</h1>
 <p %s>本页为 Scholay 免责声明。平台提供的检索结果、AI 生成的论文分析、审稿意见与写作建议仅供学术参考，不构成专业意见或决策依据；论文版权归原作者及出版方所有，用户应遵守相关版权规定并自行核验信息准确性。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 

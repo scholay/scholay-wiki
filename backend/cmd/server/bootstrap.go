@@ -445,7 +445,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		return err == nil && cfg != nil && cfg.AppID != "" && cfg.AppSecret != ""
 	})
 
-	// AI → seo（作者详情命中 → tier=1 写入 seo_authors）
+	// AI → seo：只由 minicod 已验证的上游搜索/详情响应落 SEO 种子。
+	// 匿名 /public/seo/expose 不再写库，防止伪造 title/metrics/detail tier 进 sitemap。
+	aiB.minicodHandler.SetPaperSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetAuthorSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetJournalSEORecorder(plat.seoService)
 
@@ -691,6 +693,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	featureToolRepo := featuretool.NewRepository(db)
 	featureToolDisp := featuretool.NewDispatcher(featureToolRepo)
 	featureToolSvc := featuretool.NewService(featureToolRepo, featureToolDisp)
+	featureToolSvc.SetPushSubmitter(plat.seoSubmitService)
 	featureToolHandler := featuretool.NewHandler(featureToolSvc, featureToolDisp)
 	// 功能大全工具详情页 /tools/{slug} SSR 元数据(匿名 SEO)
 	core.configHandler.SetToolSEOProvider(featureToolSvc)

@@ -114,7 +114,7 @@ func (e *Enricher) RunPaperBackfill(ctx context.Context) (int, error) {
 // EnrichPaperOnMiss 供 SSR 冷门 URL(seo 无行)现场拉一次 minicod、落库并返回 meta(M2 方案 A)。
 // 拉不到(伪造/失效 ID)返回 (nil, nil) —— 调用方据此打 noindex。超时由传入 ctx 控制。
 func (e *Enricher) EnrichPaperOnMiss(ctx context.Context, source, paperID string) (*seo.PaperSSRMeta, error) {
-	if paperID == "" {
+	if paperID == "" || !seo.IsCanonicalSource(source) {
 		return nil, nil
 	}
 	p, err := e.mc.GetPaper(ctx, paperID, minicod.PaperDetailsOptions{Fields: paperEnrichFields})
@@ -124,23 +124,29 @@ func (e *Enricher) EnrichPaperOnMiss(ctx context.Context, source, paperID string
 	if p == nil || strings.TrimSpace(p.Title) == "" {
 		return nil, nil // 失效/伪造 ID
 	}
-	// 落库:走搜索种子路径(tier-2 插入,进 sitemap 候选)。用 URL 里的 source + 请求 paperID 保 canonical 一致。
+	canonicalID := strings.TrimSpace(p.PaperID)
+	if canonicalID == "" {
+		canonicalID = paperID
+	}
+	canonicalSource := seo.AuthoritativeSource(p.Source, canonicalID)
+	// 落库只使用上游返回的来源（缺失时由已归一 ID 推断），绝不使用 URL source。
 	seed := seo.PaperSeed{
-		PaperID:       paperID,
+		PaperID:       canonicalID,
 		Title:         p.Title,
 		Abstract:      p.Abstract,
 		Year:          yearPtr(p.Year),
 		Venue:         p.Venue,
 		CitationCount: p.CitationCount,
-		Source:        source,
+		Source:        canonicalSource,
 		DOI:           extractDOI(p),
 		FieldsOfStudy: p.FieldsOfStudy,
 		Authors:       toSeoAuthors(p.Authors),
 	}
 	if _, err := e.svc.RecordSearchSeeds([]seo.PaperSeed{seed}); err != nil {
-		slog.Warn("seoenrich: on-miss record failed", "paper_id", paperID, "err", err)
+		slog.Warn("seoenrich: on-miss record failed", "paper_id", canonicalID, "err", err)
+		return nil, err
 	}
-	return e.svc.ResolveByPaperID(source, paperID)
+	return e.svc.ResolveByPaperID(canonicalSource, canonicalID)
 }
 
 // Start 启动周期性回填 worker(仅当 Enabled)。首次立即跑一遍,之后每 RunInterval 一遍。

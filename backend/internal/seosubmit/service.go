@@ -1,15 +1,6 @@
 // ============================================================================
 // Scholay学术 V1.0
 // SEO 主动提交 —— 业务编排层
-//
-// 职责:
-//   1. 提供 Enqueue 系列 API,业务侧"写完入队"即可,不感知具体推哪些引擎
-//   2. 维护 Worker 生命周期(启动/停止),后台轮询消费队列
-//   3. 把 URL 同时推 IndexNow / 百度,各家失败独立处理(一家挂另一家照走)
-//
-// 不在这里做的事:
-//   - 不做去重(交给 Redis ZSET 天然去重)
-//   - 不做 URL 拼接(调用方负责把完整 URL 喂进来,本包不知道 site origin 怎么拼路径)
 // ============================================================================
 
 package seosubmit
@@ -17,8 +8,9 @@ package seosubmit
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
-	"strings"
+	"sync"
 	"time"
 
 	appconfig "scholar-backend/internal/common/config"
@@ -26,78 +18,196 @@ import (
 	"scholar-backend/internal/common/upstream"
 )
 
-// Service 主动提交服务。可空使用 —— 当 cfg.SEOSubmit.Enabled=false 时所有方法 no-op。
+const (
+	// A 403 ownership failure is structural enough to stop repeated outbound
+	// traffic, but not grounds for discarding URLs.  The finite Redis-backed
+	// cooldown permits an automatic retry after operators fix key reachability.
+	indexNowAuthCooldown = 6 * time.Hour
+
+	deadRecoveryMax          = 100
+	deadRecoveryAfterSuccess = 50
+	deadRecoveryStartupProbe = 10
+	deadRecoveryMinInterval  = time.Minute
+)
+
+type indexNowSubmitter func(context.Context, string, string, []string) error
+
+type seoQueue interface {
+	Enqueue(context.Context, []string) error
+	PopBatch(context.Context, int) ([]string, error)
+	Requeue(context.Context, []string) error
+	DeadLetter(context.Context, []string, string) error
+	CooldownUntil(context.Context) (time.Time, error)
+	SetCooldown(context.Context, time.Time) error
+	ClearCooldown(context.Context) error
+	ClaimDeadLetterRecovery(context.Context, time.Duration) (bool, error)
+	DeadLetters(context.Context, int) ([]string, error)
+	MoveDeadLettersToQueue(context.Context, []deadLetterRecovery) (int64, error)
+}
+
+type redisSEOQueue struct{}
+
+func (redisSEOQueue) Enqueue(ctx context.Context, urls []string) error { return Enqueue(ctx, urls) }
+func (redisSEOQueue) PopBatch(ctx context.Context, n int) ([]string, error) {
+	return PopBatch(ctx, n)
+}
+func (redisSEOQueue) Requeue(ctx context.Context, urls []string) error {
+	return Requeue(ctx, urls)
+}
+func (redisSEOQueue) DeadLetter(ctx context.Context, urls []string, reason string) error {
+	return DeadLetter(ctx, urls, reason)
+}
+func (redisSEOQueue) CooldownUntil(ctx context.Context) (time.Time, error) {
+	return IndexNowCooldownUntil(ctx)
+}
+func (redisSEOQueue) SetCooldown(ctx context.Context, until time.Time) error {
+	return SetIndexNowCooldown(ctx, until)
+}
+func (redisSEOQueue) ClearCooldown(ctx context.Context) error {
+	return ClearIndexNowCooldown(ctx)
+}
+func (redisSEOQueue) ClaimDeadLetterRecovery(ctx context.Context, ttl time.Duration) (bool, error) {
+	return ClaimDeadLetterRecovery(ctx, ttl)
+}
+func (redisSEOQueue) DeadLetters(ctx context.Context, n int) ([]string, error) {
+	return DeadLetters(ctx, n)
+}
+func (redisSEOQueue) MoveDeadLettersToQueue(ctx context.Context, entries []deadLetterRecovery) (int64, error) {
+	return moveDeadLettersToQueue(ctx, entries)
+}
+
+// Service is safe to construct even when disabled.  canonicalErr and
+// indexNowConfigErr deliberately retain startup validation failures so an
+// enabled-but-invalid setup is rejected instead of silently submitting to a
+// different host.
 type Service struct {
 	cfg appconfig.SEOSubmitConfig
-	// siteOrigin 站点权威域名(https://www.scholay.com),来自 cfg.ExternalServices 系
-	siteOrigin string
+
+	siteOrigin        string
+	canonical         canonicalSite
+	canonicalErr      error
+	indexNowConfigErr error
+
+	queue          seoQueue
+	submitIndexNow indexNowSubmitter
+	now            func() time.Time
+
+	cooldownMu    sync.RWMutex
+	localCooldown time.Time
 }
 
-// NewService 构造。cfg 在调用方组装好(见 bootstrap)。
 func NewService(cfg appconfig.SEOSubmitConfig, siteOrigin string) *Service {
-	return &Service{cfg: cfg, siteOrigin: strings.TrimRight(siteOrigin, "/")}
+	return newServiceWithDependencies(cfg, siteOrigin, redisSEOQueue{}, SubmitIndexNow, time.Now)
 }
 
-// Enabled 总开关 + 至少一家 sink 启用且配置全 → 才算工作中。
-// 开关关 / 配置缺 / siteOrigin 空 任一情况都视作禁用。
+func newServiceWithDependencies(cfg appconfig.SEOSubmitConfig, siteOrigin string, queue seoQueue, submit indexNowSubmitter, now func() time.Time) *Service {
+	site, canonicalErr := parseCanonicalSite(siteOrigin)
+	s := &Service{
+		cfg:            cfg,
+		canonical:      site,
+		canonicalErr:   canonicalErr,
+		queue:          queue,
+		submitIndexNow: submit,
+		now:            now,
+	}
+	if canonicalErr == nil {
+		s.siteOrigin = site.origin
+	}
+	if cfg.Enabled && cfg.IndexNowEnabled && !isValidIndexNowKey(cfg.IndexNowKey) {
+		s.indexNowConfigErr = fmt.Errorf("%w: INDEXNOW_KEY must be 8-128 letters, digits, or hyphens", errIndexNowConfig)
+	}
+	if s.queue == nil {
+		s.queue = redisSEOQueue{}
+	}
+	if s.submitIndexNow == nil {
+		s.submitIndexNow = SubmitIndexNow
+	}
+	if s.now == nil {
+		s.now = time.Now
+	}
+	return s
+}
+
 func (s *Service) Enabled() bool {
-	if s == nil || !s.cfg.Enabled || s.siteOrigin == "" {
+	if s == nil || !s.cfg.Enabled || s.canonicalErr != nil {
 		return false
 	}
 	return s.indexNowReady() || s.baiduReady()
 }
 
 func (s *Service) indexNowReady() bool {
-	return s.cfg.IndexNowEnabled && s.cfg.IndexNowKey != ""
+	return s != nil && s.cfg.Enabled && s.cfg.IndexNowEnabled && s.indexNowConfigErr == nil && s.canonicalErr == nil
 }
 
 func (s *Service) baiduReady() bool {
-	return s.cfg.BaiduEnabled && s.cfg.BaiduToken != "" && s.cfg.BaiduSite != ""
+	return s != nil && s.cfg.Enabled && s.cfg.BaiduEnabled && s.cfg.BaiduToken != "" && s.cfg.BaiduSite != ""
 }
 
-// EnqueuePaths 把站内 path 列表(如 ["/paper/abc","/blog/xyz"])拼成完整 URL 入队。
-// 业务侧最常用接口 —— 调用方只需关心路径,不操心 host。
+// EnqueuePaths accepts paths only.  Absolute/cross-host URLs, query strings,
+// fragments and dot segments are rejected locally and never enter Redis.
 func (s *Service) EnqueuePaths(ctx context.Context, paths []string) {
 	if !s.Enabled() || len(paths) == 0 {
 		return
 	}
 	urls := make([]string, 0, len(paths))
-	for _, p := range paths {
-		if p == "" {
+	rejected := 0
+	for _, raw := range paths {
+		if raw == "" {
 			continue
 		}
-		if strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") {
-			urls = append(urls, p)
+		canonical, err := s.canonical.canonicalPath(raw)
+		if err != nil {
+			rejected++
 			continue
 		}
-		if !strings.HasPrefix(p, "/") {
-			p = "/" + p
-		}
-		urls = append(urls, s.siteOrigin+p)
+		urls = append(urls, canonical)
 	}
-	if err := Enqueue(ctx, urls); err != nil {
+	if rejected > 0 {
+		slog.Error("seo push rejected non-canonical enqueue paths", "rejected", rejected, "canonical_host", s.canonical.host)
+	}
+	if err := s.queue.Enqueue(ctx, urls); err != nil {
 		slog.Warn("seo push enqueue failed", "count", len(urls), "err", err)
 	}
 }
 
-// EnqueueURLs 直接接收完整 URL 入队(host 必须与 siteOrigin 一致,否则被推送时丢弃)。
+// EnqueueURLs only accepts absolute URLs on CanonicalBaseURL.  Bad members are
+// rejected rather than silently filtered during a later outbound submission.
 func (s *Service) EnqueueURLs(ctx context.Context, urls []string) {
 	if !s.Enabled() || len(urls) == 0 {
 		return
 	}
-	if err := Enqueue(ctx, urls); err != nil {
-		slog.Warn("seo push enqueue failed", "count", len(urls), "err", err)
+	canonical := make([]string, 0, len(urls))
+	rejected := 0
+	for _, raw := range urls {
+		value, err := s.canonical.canonicalURL(raw)
+		if err != nil {
+			rejected++
+			continue
+		}
+		canonical = append(canonical, value)
+	}
+	if rejected > 0 {
+		slog.Error("seo push rejected non-canonical enqueue URLs", "rejected", rejected, "canonical_host", s.canonical.host)
+	}
+	if err := s.queue.Enqueue(ctx, canonical); err != nil {
+		slog.Warn("seo push enqueue failed", "count", len(canonical), "err", err)
 	}
 }
 
-// IndexNowKey 暴露 key 供 handler 校验文件路由
 func (s *Service) IndexNowKey() string {
+	if s == nil || !s.indexNowReady() {
+		return ""
+	}
 	return s.cfg.IndexNowKey
 }
 
-// StartWorker 启动后台 worker。ctx 关闭时退出。
-// worker 是单实例运行(进程内 1 个 goroutine);Redis 队列在多副本时自然分摊。
 func (s *Service) StartWorker(ctx context.Context) {
+	if s != nil && s.cfg.Enabled && s.canonicalErr != nil {
+		slog.Error("seo push rejected invalid CanonicalBaseURL", "err", s.canonicalErr)
+	}
+	if s != nil && s.cfg.Enabled && s.indexNowConfigErr != nil {
+		slog.Error("indexnow disabled by startup validation", "err", s.indexNowConfigErr)
+	}
 	if !s.Enabled() {
 		slog.Info("seo push disabled, worker not started")
 		return
@@ -119,7 +229,6 @@ func (s *Service) StartWorker(ctx context.Context) {
 	)
 
 	safego.Go("seo-push-worker", func() {
-		// 启动时先跑一次,加快首次推送
 		s.processOne(ctx, batch)
 
 		ticker := time.NewTicker(interval)
@@ -136,82 +245,204 @@ func (s *Service) StartWorker(ctx context.Context) {
 	})
 }
 
-// processOne 单轮:从队列拉一批 URL,串行推 IndexNow / 百度,失败 URL 放回队列。
 func (s *Service) processOne(ctx context.Context, batch int) {
-	urls, err := PopBatch(ctx, batch)
+	cooling, until := s.indexNowCooling(ctx)
+	// The queue is shared by IndexNow and Baidu. During an IndexNow ownership
+	// cooldown it must remain untouched even when Baidu is enabled: popping,
+	// requeueing and submitting the same batch to Baidu on every worker tick
+	// would burn its daily quota dozens of times while adding no crawl value.
+	if cooling {
+		slog.Warn("indexnow ownership cooldown active; shared SEO queue left untouched", "until", until, "canonical_host", s.canonical.host)
+		return
+	}
+
+	urls, err := s.queue.PopBatch(ctx, batch)
 	if err != nil {
 		slog.Warn("seo push pop batch failed", "err", err)
 		return
 	}
 	if len(urls) == 0 {
+		// A small bounded probe makes a dead-only installation recover after a
+		// configuration fix.  The next tick submits it; failures are requeued,
+		// never copied back into the dead set.
+		if s.indexNowReady() && !cooling {
+			limit := minInt(batch, deadRecoveryStartupProbe)
+			if moved, recoverErr := s.RecoverDeadLetters(ctx, limit); recoverErr != nil {
+				slog.Warn("indexnow startup dead-letter recovery failed", "err", recoverErr)
+			} else if moved > 0 {
+				slog.Info("indexnow startup dead-letter recovery staged", "count", moved)
+			}
+		}
 		return
 	}
 
-	// IndexNow:整批推一次。2026-07 线上审计修复:
-	//   1. 此前任何失败都全批回队 —— 结构性失败(host/key 不匹配)回队后每 5 分钟永动重试。
-	//      现按错误类型分流,细则见 submitIndexNowBatch。
-	//   2. 此前 IndexNow 失败会 return 短路百度 —— 现两通道独立成败,互不连坐。
-	//      (代价:IndexNow 临时失败回队后,下轮百度会重复收到同批 URL;重复提交幂等,
-	//      仅多耗每日配额,可接受。)
-	if s.indexNowReady() {
-		s.submitIndexNowBatch(ctx, urls)
+	canonical, invalid := s.splitCanonicalURLs(urls)
+	if len(invalid) > 0 {
+		s.toDeadLetter(ctx, invalid, fmt.Errorf("%w: queued URL is cross-host or non-canonical", errIndexNowConfig))
+		slog.Error("seo push quarantined non-canonical queued URLs", "count", len(invalid), "canonical_host", s.canonical.host)
+	}
+	if len(canonical) == 0 {
+		return
 	}
 
-	// 百度:同一批,内部做配额限流。失败不回队(配额耗尽是预期行为,回队也没用)。
+	if s.indexNowReady() {
+		s.submitIndexNowBatch(ctx, canonical)
+	}
+
 	if s.baiduReady() {
-		if _, err := SubmitBaidu(ctx, s.cfg.BaiduSite, s.cfg.BaiduToken, urls, s.cfg.BaiduDailyQuota); err != nil {
-			slog.Warn("seo push baidu failed", "count", len(urls), "err", err)
+		if _, err := SubmitBaidu(ctx, s.cfg.BaiduSite, s.cfg.BaiduToken, canonical, s.cfg.BaiduDailyQuota); err != nil {
+			slog.Warn("seo push baidu failed", "count", len(canonical), "err", err)
 		}
 	}
 }
 
-// indexNowAuthStrikes — 连续多少轮鉴权失败(401/403)才判永久。
-// worker 默认 5 分钟一轮 → 3 轮 ≈ 15 分钟持续失败,足以跨过一次部署/CDN 抖动窗口。
-const indexNowAuthStrikes = 3
+func (s *Service) indexNowCooling(ctx context.Context) (bool, time.Time) {
+	if !s.indexNowReady() {
+		return false, time.Time{}
+	}
+	if until := s.getLocalCooldown(); until.After(s.now()) {
+		return true, until
+	}
+	until, err := s.queue.CooldownUntil(ctx)
+	if err != nil {
+		slog.Warn("indexnow cooldown read failed; retaining normal retry behavior", "err", err)
+		return false, time.Time{}
+	}
+	return until.After(s.now()), until
+}
 
-// submitIndexNowBatch 推一批并按错误性质分流。三条路(2026-07 审查定):
-//
-//   - **结构性永久失败**(本地配置非法 / 400、422 host-key 不匹配):重试一万次也不会好,
-//     落死信 ZSET 留档(不是就地丢弃),运维改完配置可回灌。
-//   - **鉴权失败**(401/403):IndexNow 的 403 是搜索引擎异步反查 /{key}.txt 没过 ——
-//     我们自己部署/CDN 抖动期间它取不到 key 就回 403,单次不判死。连续 N 轮才落死信,
-//     否则照常回队。
-//   - **其余**(429/5xx/网络/熔断):临时,回队。
+func (s *Service) splitCanonicalURLs(urls []string) (valid, invalid []string) {
+	seen := make(map[string]struct{}, len(urls))
+	for _, raw := range urls {
+		canonical, err := s.canonical.canonicalURL(raw)
+		if err != nil {
+			invalid = append(invalid, raw)
+			continue
+		}
+		if _, ok := seen[canonical]; ok {
+			continue
+		}
+		seen[canonical] = struct{}{}
+		valid = append(valid, canonical)
+	}
+	return valid, invalid
+}
+
+// submitIndexNowBatch keeps transient/auth failures pending.  In particular a
+// 403 never enters the dead set: it installs one finite shared cooldown and
+// preserves the batch in the idempotent ZSET queue.
 func (s *Service) submitIndexNowBatch(ctx context.Context, urls []string) {
-	err := SubmitIndexNow(ctx, s.cfg.IndexNowKey, s.siteOrigin, urls)
+	err := s.submitIndexNow(ctx, s.cfg.IndexNowKey, s.siteOrigin, urls)
 	if err == nil {
-		ResetIndexNowAuthStrike(ctx)
+		s.setLocalCooldown(time.Time{})
+		if clearErr := s.queue.ClearCooldown(ctx); clearErr != nil {
+			slog.Warn("indexnow cooldown clear failed after success", "err", clearErr)
+		}
+		if moved, recoverErr := s.RecoverDeadLetters(ctx, deadRecoveryAfterSuccess); recoverErr != nil {
+			slog.Warn("indexnow gradual dead-letter recovery failed", "err", recoverErr)
+		} else if moved > 0 {
+			slog.Info("indexnow gradually recovered dead letters", "count", moved)
+		}
 		return
 	}
 
 	switch {
+	case errors.Is(err, errIndexNowOwnership) || errors.Is(err, upstream.ErrAuth):
+		until := s.now().Add(indexNowAuthCooldown)
+		s.setLocalCooldown(until)
+		if cooldownErr := s.queue.SetCooldown(ctx, until); cooldownErr != nil {
+			slog.Warn("indexnow ownership cooldown write failed", "until", until, "err", cooldownErr)
+		}
+		if requeueErr := s.queue.Requeue(ctx, urls); requeueErr != nil {
+			slog.Error("indexnow ownership requeue failed", "count", len(urls), "err", requeueErr)
+		}
+		slog.Error("indexnow ownership rejected; batch retained with finite cooldown",
+			"count", len(urls), "cooldown_until", until, "canonical_host", s.canonical.host, "err", err)
+
 	case errors.Is(err, errIndexNowConfig) || errors.Is(err, upstream.ErrBadRequest):
-		slog.Error("seo push indexnow structurally rejected, moved to dead-letter — 需运维核对 INDEXNOW_KEY / SITE_URL 与 /{key}.txt",
+		slog.Error("seo push indexnow structurally rejected, moved to bounded dead-letter",
 			"count", len(urls), "dead_key", deadKey, "err", err)
 		s.toDeadLetter(ctx, urls, err)
 
-	case errors.Is(err, upstream.ErrAuth):
-		if n := IndexNowAuthStrike(ctx); n >= indexNowAuthStrikes {
-			slog.Error("seo push indexnow auth failed repeatedly, moved to dead-letter — /{key}.txt 连续多轮取不到或内容不符",
-				"count", len(urls), "strikes", n, "dead_key", deadKey, "err", err)
-			s.toDeadLetter(ctx, urls, err)
-			ResetIndexNowAuthStrike(ctx)
-		} else {
-			slog.Warn("seo push indexnow auth failed, requeue (可能只是部署窗口内取不到 key 文件)",
-				"count", len(urls), "strikes", n, "err", err)
-			_ = Requeue(ctx, urls)
-		}
-
 	default:
-		slog.Warn("seo push indexnow failed, requeue", "count", len(urls), "err", err)
-		_ = Requeue(ctx, urls)
+		// Includes 429, 5xx, network, circuit breaker and undocumented 2xx.
+		slog.Warn("seo push indexnow transient failure, requeue", "count", len(urls), "err", err)
+		if requeueErr := s.queue.Requeue(ctx, urls); requeueErr != nil {
+			slog.Error("indexnow transient requeue failed", "count", len(urls), "err", requeueErr)
+		}
 	}
 }
 
-// toDeadLetter 落死信;死信本身写失败(Redis 挂了)时退回普通队列,绝不静默丢 URL。
-func (s *Service) toDeadLetter(ctx context.Context, urls []string, cause error) {
-	if err := DeadLetter(ctx, urls, cause.Error()); err != nil {
-		slog.Warn("seo push dead-letter write failed, falling back to requeue", "count", len(urls), "err", err)
-		_ = Requeue(ctx, urls)
+func (s *Service) getLocalCooldown() time.Time {
+	s.cooldownMu.RLock()
+	defer s.cooldownMu.RUnlock()
+	return s.localCooldown
+}
+
+func (s *Service) setLocalCooldown(until time.Time) {
+	s.cooldownMu.Lock()
+	s.localCooldown = until
+	s.cooldownMu.Unlock()
+}
+
+// RecoverDeadLetters is the bounded, idempotent recovery API.  It only selects
+// URLs that still validate against the current CanonicalBaseURL, then asks the
+// queue layer to move those exact members atomically.  Invalid/cross-host dead
+// letters remain quarantined for diagnosis.
+func (s *Service) RecoverDeadLetters(ctx context.Context, requested int) (int64, error) {
+	if s == nil || !s.indexNowReady() {
+		return 0, fmt.Errorf("%w: IndexNow is not ready", errIndexNowConfig)
 	}
+	limit := requested
+	if limit <= 0 {
+		return 0, nil
+	}
+	if limit > deadRecoveryMax {
+		limit = deadRecoveryMax
+	}
+	claimed, err := s.queue.ClaimDeadLetterRecovery(ctx, deadRecoveryMinInterval)
+	if err != nil {
+		return 0, err
+	}
+	if !claimed {
+		return 0, nil
+	}
+	// Scan is also bounded (deadMaxEntries=5000), but it spans the whole
+	// quarantine so a run of invalid oldest members cannot permanently hide
+	// recoverable canonical URLs behind it.
+	candidates, err := s.queue.DeadLetters(ctx, deadMaxEntries)
+	if err != nil {
+		return 0, err
+	}
+	selected := make([]deadLetterRecovery, 0, limit)
+	seen := make(map[string]struct{}, limit)
+	for _, raw := range candidates {
+		canonical, validateErr := s.canonical.canonicalURL(raw)
+		if validateErr != nil {
+			continue
+		}
+		if _, ok := seen[canonical]; ok {
+			continue
+		}
+		seen[canonical] = struct{}{}
+		selected = append(selected, deadLetterRecovery{DeadURL: raw, CanonicalURL: canonical})
+		if len(selected) == limit {
+			break
+		}
+	}
+	return s.queue.MoveDeadLettersToQueue(ctx, selected)
+}
+
+func (s *Service) toDeadLetter(ctx context.Context, urls []string, cause error) {
+	if err := s.queue.DeadLetter(ctx, urls, cause.Error()); err != nil {
+		slog.Warn("seo push dead-letter write failed, falling back to requeue", "count", len(urls), "err", err)
+		_ = s.queue.Requeue(ctx, urls)
+	}
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -26,6 +26,26 @@ import (
 // ErrBadPayload body 解析失败(→ 400,重试无意义但仍按契约让上游重试到死信)。
 var ErrBadPayload = errors.New("bad payload")
 
+const maxNewsSlugLength = 200
+
+// newsSlugRE 只接受 RFC 3986 unreserved 字符。上游目前生成的 slug 形如
+// 2026-06-12-xxx，完全属于该字符集；同时保留大小写、下划线、点和波浪号，
+// 兼容已经合法的单段 URL slug。不接受 percent-encoded 字面量，避免二次解码后
+// 出现斜杠或多个 canonical 形态。
+var newsSlugRE = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
+
+// 外层 Nginx 的静态资源正则与 SSR 的扫描器后缀拦截都会在情报
+// resolver 前截停这些路径。入库/sitemap 必须共用该可路由契约，否则会
+// 对外发布一个确定 404 的 URL。
+var newsBlockedSuffixRE = regexp.MustCompile(`(?i)\.(?:jpe?g|png|gif|ico|svg|webp|woff2?|ttf|eot|css|m?js|wasm|php|asp|aspx|jsp|cgi|pl|env|git|bak|sql|ya?ml|xml|log|ini|conf|config)$`)
+
+func isValidNewsSlug(slug string) bool {
+	if len(slug) == 0 || len(slug) > maxNewsSlugLength || slug[0] == '.' {
+		return false
+	}
+	return newsSlugRE.MatchString(slug) && !newsBlockedSuffixRE.MatchString(slug)
+}
+
 // PushSubmitter 由 seosubmit.Service 实现:把 /news/{slug} 喂给主动收录队列(百度/IndexNow…)。
 // 可选;nil 或队列未启用时为 no-op。news 不直接 import seosubmit(解耦)。
 type PushSubmitter interface {
@@ -59,7 +79,7 @@ func (s *Service) VerifySignature(rawBody []byte, sigHeader, secret string) bool
 
 // ─── 配置 ──────────────────────────────────────────────────────────────────
 
-func (s *Service) GetConfig() (*NewsWebhookConfig, error) { return s.repo.GetConfig() }
+func (s *Service) GetConfig() (*NewsWebhookConfig, error)   { return s.repo.GetConfig() }
 func (s *Service) UpdateConfig(in *NewsWebhookConfig) error { return s.repo.UpdateConfig(in) }
 
 // Enabled 前端展示总开关(关闭时公开 API 不返数据)。读失败按关闭处理。
@@ -126,9 +146,10 @@ func (s *Service) ProcessContent(rawBody []byte) error {
 	if err := json.Unmarshal(rawBody, &p); err != nil {
 		return ErrBadPayload
 	}
-	// id 是幂等/覆盖主键;slug 是 URL + 唯一索引键。二者缺一即坏负载(空 slug 还会撞 uk_news_slug
-	// 变成「毒丸」:同一空 slug 第二条 insert 失败 → 500 → 上游无限重试到死信)。
-	if p.Item.ID == "" || p.Item.Slug == "" {
+	// id 是幂等/覆盖主键，slug 是 URL + 唯一索引键，title 是 SSR 详情页可索引的最低契约。
+	// 任一缺失都是坏负载；空 slug 还会撞 uk_news_slug 变成「毒丸」：同一空 slug 第二条
+	// insert 失败 → 500 → 上游无限重试到死信。
+	if p.Item.ID == "" || !isValidNewsSlug(p.Item.Slug) || strings.TrimSpace(p.Item.Title) == "" {
 		return ErrBadPayload
 	}
 	it := p.Item
@@ -259,19 +280,38 @@ type SitemapEntry struct {
 // SitemapEntries 全部已发布情报(功能关闭返回空,不进 sitemap)。
 // lastmod 取 upstream_updated_at(内容更新真源)→ published_at → 行 updated_at。
 func (s *Service) SitemapEntries() ([]SitemapEntry, error) {
-	if !s.Enabled() {
-		return nil, nil
-	}
-	items, err := s.repo.AllSlugsForSitemap(50000, 0)
+	// 不通过 Enabled() 读。Enabled 为公开页面采用 fail-closed 语义，会把 DB 错误
+	// 伪装成“功能关闭”；sitemap 必须将此类仓储错误上报给 handler 返回 500，
+	// 不能发布200空站点地图让搜索引擎误判 URL 被批量删除。
+	cfg, err := s.repo.GetConfig()
 	if err != nil {
 		return nil, err
 	}
+	if !cfg.Enabled {
+		return nil, nil
+	}
+	// 单个 sitemap 协议上限是 50,000 URL；handler 还会加 1 条 /news hub，
+	// 所以详情最多取 49,999。规模超过后应改为分页 sitemap。
+	items, err := s.repo.AllSlugsForSitemap(49999, 0)
+	if err != nil {
+		return nil, err
+	}
+	return sitemapEntriesFromItems(items), nil
+}
+
+// sitemapEntriesFromItems 是对历史数据的第二道闸：即使旧版曾经放进了非法 slug，
+// 它也不会被拼进 sitemap。顺序保留 repository 的 published_at DESC 结果。
+func sitemapEntriesFromItems(items []NewsItem) []SitemapEntry {
 	out := make([]SitemapEntry, 0, len(items))
 	for i := range items {
 		it := items[i]
+		// SSR 对空 title 的详情页返回 404，因此 sitemap eligibility 必须与之对齐。
+		if !isValidNewsSlug(it.Slug) || strings.TrimSpace(it.Title) == "" {
+			continue
+		}
 		out = append(out, SitemapEntry{Slug: it.Slug, LastMod: sitemapLastMod(&it)})
 	}
-	return out, nil
+	return out
 }
 
 // SitemapMaxLastMod 全量情报最新 lastmod(天粒度),供 sitemap 索引的 <lastmod> 反映新内容。
@@ -399,11 +439,15 @@ func firstImageURL(html string) string {
 // proxifyImageURL 把 minicod 图床的绝对 URL 改写成本站同源代理路径(/img-remote/minicod/…)。
 //
 // 为什么必须代理:minicod 图床(Caddy)对 /uploads/* 响应带
-//   Cross-Origin-Resource-Policy: same-site
+//
+//	Cross-Origin-Resource-Policy: same-site
+//
 // 头。本站是 www.scholay.com,与 www.minicod.com 非 same-site → 浏览器直接【拦掉】跨站
 // <img> 加载 → 封面裂图。CORP 是浏览器强制、图片属性(crossorigin 等)无解,唯一出路是让
 // 图片走本站同源:nginx 有一条 `location ^~ /img-remote/minicod/` 把它反代到
-//   https://www.minicod.com/uploads/…
+//
+//	https://www.minicod.com/uploads/…
+//
 // 并 proxy_hide_header 掉那个 CORP 头(server↔server 取图不受 CORP 约束)。
 //
 // 只改写 host == www.minicod.com 且 path 以 /uploads/ 开头的 URL(与 nginx 硬编码上游严格对齐);

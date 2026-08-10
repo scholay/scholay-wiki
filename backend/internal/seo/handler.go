@@ -3,7 +3,7 @@
 // SEO HTTP Handler
 //
 // 暴露三类 endpoint：
-//   1. 搜索曝光批量 seed           POST /api/v1/public/seo/expose
+//   1. 历史搜索曝光端点（仅兼容 ACK，不信任客户端 SEO 数据）
 //   2. sitemap 索引文件              GET  /sitemap.xml
 //   3. sitemap 分片（静态 / 分页论文）
 //        GET  /sitemap-static.xml
@@ -18,16 +18,17 @@ package seo
 import (
 	"context"
 	"fmt"
+	"html"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"scholar-backend/internal/common/cache"
 	appconfig "scholar-backend/internal/common/config"
-	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/content"
 
@@ -61,7 +62,7 @@ type Handler struct {
 	// 的分片总数 + 最新 lastmod。主 sitemap 索引据此直接列出各叶子 /sitemap-tools-N.xml,
 	// 而不是嵌套引用 /sitemap-tools.xml(索引套索引 → Google 不递归解析,约 6 万工具页发现性受损)。
 	// seo 不 import featuretool(反向依赖),故用注入函数解耦。
-	toolSitemapFn func() (pages int, lastmod string)
+	toolSitemapFn func() (pages int, lastmod string, err error)
 }
 
 // NewHandler 构造
@@ -75,7 +76,7 @@ func (h *Handler) SetNewsLastModProvider(fn func() string) {
 }
 
 // SetToolSitemapProvider 注入工具 sitemap 分片信息提供者(bootstrap 调一次)。
-func (h *Handler) SetToolSitemapProvider(fn func() (int, string)) {
+func (h *Handler) SetToolSitemapProvider(fn func() (int, string, error)) {
 	h.toolSitemapFn = fn
 }
 
@@ -90,49 +91,25 @@ type ExposeRequest struct {
 	DetailPapers []PaperSeed `json:"detail_papers,omitempty"`
 }
 
-// ExposeSeeds 接收搜索曝光批量种子
-// 前端在搜索结果加载后调用,传入 1-20 条可见论文/作者/期刊的精简元数据
+// ExposeSeeds 仅保留历史 API 兼容。
+//
+// 这是匿名公开端点，客户端上报的 title/abstract/metrics/detail tier 均可伪造。
+// 如果用它直接 upsert，攻击者可制造立即进 sitemap 的垃圾页。现在 SEO seed
+// 只由 minicod 服务端已验证的搜索/详情响应写入；此端点解析旧 payload 后明确拒绝持久化。
 func (h *Handler) ExposeSeeds(c *gin.Context) {
 	var req ExposeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "invalid payload")
 		return
 	}
-	papers, authors, journals, detailPapers := req.Papers, req.Authors, req.Journals, req.DetailPapers
-	if len(papers) == 0 && len(authors) == 0 && len(journals) == 0 && len(detailPapers) == 0 {
+	if len(req.Papers) == 0 && len(req.Authors) == 0 && len(req.Journals) == 0 && len(req.DetailPapers) == 0 {
 		utils.Success(c, gin.H{"accepted": false})
 		return
 	}
-
-	// 曝光种子是 best-effort 的 SEO 遥测,前端用 sendBeacon 发出且**不读响应体**。
-	// 原本同步跑最多 20+20+20 条 upsert,把全部 DB 往返压在请求路径上(N+1,纯浪费的请求延迟)。
-	// 改成立即 ACK + 后台落库:请求 O(1) 返回,写入在 goroutine(safego 带 recover)里慢慢做。
-	// req.* 切片由本请求独占,捕获进 goroutine 安全;goroutine 内不得再碰 gin.Context。
-	safego.Record("seo-expose-seeds", func() {
-		if len(detailPapers) > 0 {
-			// 论文详情曝光 → tier-1(priority 高 / changefreq weekly),与作者/期刊详情对齐。
-			if _, err := h.service.RecordDetailSeeds(detailPapers); err != nil {
-				slog.Warn("seo expose detail papers failed", "err", err)
-			}
-		}
-		if len(papers) > 0 {
-			if _, err := h.service.RecordSearchSeeds(papers); err != nil {
-				slog.Warn("seo expose papers failed", "err", err)
-			}
-		}
-		if len(authors) > 0 {
-			if _, err := h.service.RecordAuthorSearchSeeds(authors); err != nil {
-				slog.Warn("seo expose authors failed", "err", err)
-			}
-		}
-		if len(journals) > 0 {
-			if _, err := h.service.RecordJournalSearchSeeds(journals); err != nil {
-				slog.Warn("seo expose journals failed", "err", err)
-			}
-		}
+	utils.Success(c, gin.H{
+		"accepted": false,
+		"reason":   "server_verified_sources_only",
 	})
-
-	utils.Success(c, gin.H{"accepted": true})
 }
 
 // ResolveAuthorBySlug 通过 slug 查询作者元数据（前端 /author/:slug 首屏解析用）
@@ -205,23 +182,33 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	pVer := h.versionForKind(c.Request.Context(), "papers")
 	aVer := h.versionForKind(c.Request.Context(), "authors")
 	jVer := h.versionForKind(c.Request.Context(), "journals")
-	cacheKey := fmt.Sprintf("%s:index:vP%d:vA%d:vJ%d", sitemapCacheKey, pVer, aVer, jVer)
+	toolPages := 0
+	toolLastMod := ""
+	if h.toolSitemapFn != nil {
+		var toolErr error
+		toolPages, toolLastMod, toolErr = h.toolSitemapFn()
+		if toolErr != nil {
+			slog.Error("seo tool sitemap page enumeration failed", "err", toolErr)
+			c.String(http.StatusInternalServerError, "internal error")
+			return
+		}
+	}
+	// nonempty-pages-v2 强制绕过旧的 COUNT 推页数索引缓存；否则 Redis 持久化时，
+	// 发布后最长 10 分钟仍可能继续漏掉已经存在的 authors-2 等真实分片。
+	// Tools do not share the entity version counters. Fold their actual page
+	// count/date into the key so the first approval, a page-boundary crossing or
+	// a new-day update cannot leave a cached main index silently omitting them.
+	cacheKey := fmt.Sprintf("%s:index:nonempty-pages-v4:vP%d:vA%d:vJ%d:vT%d:%s",
+		sitemapCacheKey, pVer, aVer, jVer, toolPages, toolLastMod)
 
 	if xml, ok := h.getCached(c.Request.Context(), cacheKey); ok {
 		h.writeXML(c, xml, sitemapSummaryCache)
 		return
 	}
 
-	summary, err := h.service.GetSitemapSummary()
-	if err != nil {
-		slog.Error("seo sitemap summary failed", "err", err)
-		c.String(http.StatusInternalServerError, "internal error")
-		return
-	}
-
 	// 各子 sitemap 的真实 lastmod ——
 	// 用真实数据而非 now,避免误导爬虫每分钟都来抓
-	staticLastMod := StaticPagesLastMod                    // 静态页面常量(代码维护)
+	staticLastMod := StaticPagesLastMod                // 静态页面常量(代码维护)
 	blogLastMod := content.MaxLastMod("blog")          // 博客文章里最新的(content 单一真源)
 	resourceLastMod := content.MaxLastMod("resources") // 资源文章里最新的
 	qaLastMod := content.MaxLastMod("qa")              // 学术问答里最新的
@@ -235,47 +222,29 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 		qaLastMod = staticLastMod
 	}
 
-	// 论文 sitemap 各页的 lastmod (单次 GROUP BY 查询)
+	// 论文 sitemap 的真实非空页集合 + 各页 lastmod（单次 GROUP BY 查询）。
+	// map key 是持久化 sitemap_page 的真实页号，允许有缺口；禁止再由 COUNT 推 1..N。
 	paperPageLastMod, err := h.service.GetSitemapLastModPerPage()
 	if err != nil {
-		slog.Warn("seo sitemap per-page lastmod failed, fallback to summary lastmod", "err", err)
-		paperPageLastMod = nil
-	}
-	fallbackPapersLastMod := summary.LastMod
-	if fallbackPapersLastMod.IsZero() {
-		fallbackPapersLastMod = time.Now()
+		slog.Error("seo paper sitemap page enumeration failed", "err", err)
+		c.String(http.StatusInternalServerError, "internal error")
+		return
 	}
 
-	// 作者 sitemap：与论文同构，summary + per-page lastmod
-	authorSummary, err := h.service.GetAuthorSitemapSummary()
-	if err != nil {
-		slog.Warn("seo author sitemap summary failed", "err", err)
-		authorSummary = &SitemapSummary{}
-	}
+	// 作者 sitemap：同样枚举真实 key；这会把 ID 空洞后的 authors-2 正确写进主索引。
 	authorPageLastMod, err := h.service.GetAuthorSitemapLastModPerPage()
 	if err != nil {
-		slog.Warn("seo author sitemap per-page lastmod failed", "err", err)
-		authorPageLastMod = nil
-	}
-	fallbackAuthorsLastMod := authorSummary.LastMod
-	if fallbackAuthorsLastMod.IsZero() {
-		fallbackAuthorsLastMod = time.Now()
+		slog.Error("seo author sitemap page enumeration failed", "err", err)
+		c.String(http.StatusInternalServerError, "internal error")
+		return
 	}
 
-	// 期刊 sitemap: 同构, summary + per-page lastmod
-	journalSummary, err := h.service.GetJournalSitemapSummary()
-	if err != nil {
-		slog.Warn("seo journal sitemap summary failed", "err", err)
-		journalSummary = &SitemapSummary{}
-	}
+	// 期刊 sitemap：同构，枚举真实非空 key。
 	journalPageLastMod, err := h.service.GetJournalSitemapLastModPerPage()
 	if err != nil {
-		slog.Warn("seo journal sitemap per-page lastmod failed", "err", err)
-		journalPageLastMod = nil
-	}
-	fallbackJournalsLastMod := journalSummary.LastMod
-	if fallbackJournalsLastMod.IsZero() {
-		fallbackJournalsLastMod = time.Now()
+		slog.Error("seo journal sitemap page enumeration failed", "err", err)
+		c.String(http.StatusInternalServerError, "internal error")
+		return
 	}
 
 	base := baseURL()
@@ -304,7 +273,6 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	// 行为被发现。分片数 + lastmod 由 featuretool 经注入函数提供(seo 不 import featuretool)。
 	// 注入缺失(理论不会)时兜底回退到旧的单条 /sitemap-tools.xml 引用,保证工具垂类不至于零发现。
 	if h.toolSitemapFn != nil {
-		toolPages, toolLastMod := h.toolSitemapFn()
 		if toolLastMod == "" {
 			toolLastMod = staticLastMod
 		}
@@ -328,42 +296,36 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-news.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
 		base, newsLastMod)
 
-	// 动态论文 sitemap（按分页,各页用自身真实 lastmod）
-	// 统一 YYYY-MM-DD 粒度 — 爬虫按天判断变化,跟其它子 sitemap 一致
-	for i := 1; i <= summary.TotalPages; i++ {
-		t, ok := paperPageLastMod[i]
-		if !ok {
-			t = fallbackPapersLastMod
-		}
-		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-papers-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-			base, i, t.Format("2006-01-02"))
-	}
-
-	// 动态作者 sitemap
-	for i := 1; i <= authorSummary.TotalPages; i++ {
-		t, ok := authorPageLastMod[i]
-		if !ok {
-			t = fallbackAuthorsLastMod
-		}
-		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-authors-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-			base, i, t.Format("2006-01-02"))
-	}
-
-	// 动态期刊 sitemap
-	for i := 1; i <= journalSummary.TotalPages; i++ {
-		t, ok := journalPageLastMod[i]
-		if !ok {
-			t = fallbackJournalsLastMod
-		}
-		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-journals-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-			base, i, t.Format("2006-01-02"))
-	}
+	// 动态实体 sitemap：严格按真实非空页号升序写入，缺号不补空 leaf。
+	appendEntitySitemapIndexEntries(&b, base, "papers", paperPageLastMod)
+	appendEntitySitemapIndexEntries(&b, base, "authors", authorPageLastMod)
+	appendEntitySitemapIndexEntries(&b, base, "journals", journalPageLastMod)
 
 	b.WriteString(`</sitemapindex>` + "\n")
 
 	xml := b.String()
 	h.setCached(c.Request.Context(), cacheKey, xml, sitemapSummaryTTL)
 	h.writeXML(c, xml, sitemapSummaryCache)
+}
+
+// appendEntitySitemapIndexEntries 将真实非空 page map 稳定地写进主 sitemap。
+// map 可能是 {1,2,4}；必须输出 1、2、4，既不能因 COUNT 只输出 1，也不能补出空的 3。
+func appendEntitySitemapIndexEntries(b *strings.Builder, base, kind string, pageLastMod map[int]time.Time) {
+	pages := make([]int, 0, len(pageLastMod))
+	for page := range pageLastMod {
+		if page > 0 {
+			pages = append(pages, page)
+		}
+	}
+	sort.Ints(pages)
+	for _, page := range pages {
+		lastMod := pageLastMod[page]
+		if lastMod.IsZero() {
+			lastMod = time.Now()
+		}
+		fmt.Fprintf(b, "  <sitemap>\n    <loc>%s/sitemap-%s-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+			base, kind, page, lastMod.Format("2006-01-02"))
+	}
 }
 
 // ServeStaticSitemap 静态页 sitemap（/sitemap-static.xml）
@@ -462,7 +424,7 @@ func (h *Handler) ServeJournalSitemap(c *gin.Context) {
 // serveJournalSitemap 独立于 serveEntitySitemap, 因为 journal URL 形态不带 source 段
 func (h *Handler) serveJournalSitemap(c *gin.Context, page int) {
 	version := h.versionForKind(c.Request.Context(), "journals")
-	cacheKey := fmt.Sprintf("%s:journals:%d:v%d", sitemapCacheKey, page, version)
+	cacheKey := fmt.Sprintf("%s:journals:eligibility-v2:%d:v%d", sitemapCacheKey, page, version)
 
 	if xml, ok := h.getCached(c.Request.Context(), cacheKey); ok {
 		h.writeXML(c, xml, sitemapBrowserCache)
@@ -493,7 +455,7 @@ func (h *Handler) serveJournalSitemap(c *gin.Context, page int) {
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		changefreq := changefreqForTier(e.QualityTier)
 		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
-			loc, lastMod, changefreq, priority)
+			html.EscapeString(loc), lastMod, changefreq, priority)
 	}
 	b.WriteString(`</urlset>` + "\n")
 
@@ -511,9 +473,9 @@ func journalCanonicalURL(base, journalID, slug string) string {
 		return ""
 	}
 	if slug != "" {
-		return base + "/journal/" + journalID + "/" + slug
+		return base + "/journal/" + url.PathEscape(journalID) + "/" + url.PathEscape(slug)
 	}
-	return base + "/journal/" + journalID
+	return base + "/journal/" + url.PathEscape(journalID)
 }
 
 // parseSitemapPageParam 解析 /sitemap-{kind}-{N}.xml 中的页码
@@ -550,7 +512,7 @@ func parseSitemapPageParam(c *gin.Context, prefix string) (int, bool) {
 func (h *Handler) serveEntitySitemap(c *gin.Context, page int, kind, urlPrefix string, fetcher func(int) ([]SitemapEntry, error)) {
 	// 只取自家 kind 的版本号 —— 论文写入不会让作者 sitemap cache 失效
 	version := h.versionForKind(c.Request.Context(), kind)
-	cacheKey := fmt.Sprintf("%s:%s:%d:v%d", sitemapCacheKey, kind, page, version)
+	cacheKey := fmt.Sprintf("%s:%s:eligibility-v2:%d:v%d", sitemapCacheKey, kind, page, version)
 
 	if xml, ok := h.getCached(c.Request.Context(), cacheKey); ok {
 		h.writeXML(c, xml, sitemapBrowserCache)
@@ -582,7 +544,7 @@ func (h *Handler) serveEntitySitemap(c *gin.Context, page int, kind, urlPrefix s
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		changefreq := changefreqForTier(e.QualityTier)
 		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
-			loc, lastMod, changefreq, priority)
+			html.EscapeString(loc), lastMod, changefreq, priority)
 	}
 	b.WriteString(`</urlset>` + "\n")
 
@@ -600,10 +562,10 @@ func (h *Handler) serveEntitySitemap(c *gin.Context, page int, kind, urlPrefix s
 // `MAG:1234567890`,带冒号或斜杠也要在 URL 里安全。
 func canonicalEntityURL(base, urlPrefix string, e SitemapEntry) string {
 	if e.Source != "" && e.EntityID != "" {
-		return base + urlPrefix + e.Source + "/" + url.PathEscape(e.EntityID)
+		return base + urlPrefix + url.PathEscape(e.Source) + "/" + url.PathEscape(e.EntityID)
 	}
 	if e.Slug != "" {
-		return base + urlPrefix + e.Slug
+		return base + urlPrefix + url.PathEscape(e.Slug)
 	}
 	return ""
 }
@@ -623,12 +585,16 @@ func (h *Handler) ServeRobotsTxt(c *gin.Context) {
 	// 故 Baiduspider / Sogou 这两个主力中文爬虫的具名组必须各自自带 Disallow,
 	// 否则它们会无视下面的禁爬目录,去爬 /admin、/api、OAuth 回调(query 带 code/state)等非 SEO 面。
 	rules := `Allow: /
+Allow: /api/v1/public/
+Allow: /api/v1/news
+Allow: /api/v1/content/
 Disallow: /admin
 Disallow: /settings
 Disallow: /m/
 Disallow: /alipay-return
 Disallow: /wechat/callback
 Disallow: /github/callback
+Disallow: /google/callback
 Disallow: /apple/callback
 Disallow: /orcid/callback
 Disallow: /microsoft/callback

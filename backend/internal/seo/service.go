@@ -49,7 +49,7 @@ func (s *Service) SetPushSubmitter(p PushSubmitter) {
 // 必须与 sitemap(canonicalEntityURL)和 SSR canonical link 一致 —— 主动推送(百度/IndexNow)
 // 若推 legacy /paper/{slug} 会被 canonicalRedirectFor 301,浪费推送配额、稀释 canonical 信号。
 func paperCanonicalPath(source, paperID string) string {
-	if source == "" || paperID == "" {
+	if !IsCanonicalSource(source) || paperID == "" {
 		return ""
 	}
 	return "/paper/" + source + "/" + url.PathEscape(paperID)
@@ -69,6 +69,21 @@ func (s *Service) enqueuePaperPaths(paths ...string) {
 	if len(out) > 0 {
 		s.submitter.EnqueuePaths(context.Background(), out)
 	}
+}
+
+// enqueueIndexablePaperRows keeps proactive submission on the exact same
+// row-level eligibility contract as sitemap leaves and SSR. Search discovery
+// may persist a title-only tier-2 row for later enrichment, but that thin row
+// must not be sent to IndexNow/Baidu while its HTML is still noindex.
+func (s *Service) enqueueIndexablePaperRows(rows ...*SEOPaper) {
+	paths := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if !paperRowIndexable(row) {
+			continue
+		}
+		paths = append(paths, paperCanonicalPath(row.Source, row.PaperID))
+	}
+	s.enqueuePaperPaths(paths...)
 }
 
 // authorCanonicalPath 由 source + authorID 拼出 canonical 作者路径 /author/{source}/{id}
@@ -96,6 +111,20 @@ func (s *Service) enqueueAuthorPaths(paths ...string) {
 	}
 }
 
+// enqueueIndexableAuthorRows mirrors authorSitemapRows/authorRowIndexable for
+// proactive submission. Name-only tier-2 shells remain available for future
+// enrichment without consuming crawler submission quota prematurely.
+func (s *Service) enqueueIndexableAuthorRows(rows ...*SEOAuthor) {
+	paths := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if !authorRowIndexable(row) {
+			continue
+		}
+		paths = append(paths, authorCanonicalPath(row.Source, row.AuthorID))
+	}
+	s.enqueueAuthorPaths(paths...)
+}
+
 // RecordDetailClick 记录用户点击详情页（tier=1 高质量）
 // 由 usagelog 的 detail_page_view / landing_page_view 钩子调用
 // 必填：seed.PaperID、seed.Title；其它字段尽力而为
@@ -104,10 +133,8 @@ func (s *Service) RecordDetailClick(seed *PaperSeed) error {
 		return errors.New("detail click requires paper_id and title")
 	}
 
-	// source 缺失时按 paperId 前缀兜底推断（stc / olx）
-	if seed.Source == "" {
-		seed.Source = InferSource(seed.PaperID)
-	}
+	// entity ID 是来源的权威信号；忽略公开请求中可伪造的 source。
+	seed.Source = InferSource(seed.PaperID)
 
 	slug := GenerateSlug(seed.Title, seed.PaperID)
 	authorsJSON := marshalAuthors(seed.Authors)
@@ -151,32 +178,42 @@ func (s *Service) RecordSearchSeeds(seeds []PaperSeed) (int, error) {
 	}
 
 	written := 0
-	pushPaths := make([]string, 0, len(seeds))
+	var writeErr error
+	pushRows := make([]*SEOPaper, 0, len(seeds))
 	for i := range seeds {
 		seed := &seeds[i]
 		if seed.PaperID == "" || seed.Title == "" {
 			continue
 		}
-		if seed.Source == "" {
-			seed.Source = InferSource(seed.PaperID)
-		}
+		seed.Source = InferSource(seed.PaperID)
 		slug := GenerateSlug(seed.Title, seed.PaperID)
 		authorsJSON := marshalAuthors(seed.Authors)
 		fieldsJSON := marshalFields(seed.FieldsOfStudy)
 
 		if err := s.repo.UpsertSeed(seed, slug, authorsJSON, fieldsJSON); err != nil {
 			slog.Warn("seo seed upsert failed", "paper_id", seed.PaperID, "err", err)
+			writeErr = errors.Join(writeErr, err)
 			continue
 		}
 		written++
-		pushPaths = append(pushPaths, paperCanonicalPath(seed.Source, seed.PaperID))
+
+		// Read the durable final row rather than judging only the incoming seed:
+		// an existing row may already be tier-1 / enriched, hidden, or retired.
+		// This is the same object SSR evaluates with paperRowIndexable.
+		row, err := s.repo.GetByPaperID(seed.PaperID)
+		if err != nil {
+			slog.Warn("seo seed eligibility read failed", "paper_id", seed.PaperID, "err", err)
+			writeErr = errors.Join(writeErr, err)
+			continue
+		}
+		pushRows = append(pushRows, row)
 	}
 
 	if written > 0 {
 		s.invalidatePapersCache()
-		s.enqueuePaperPaths(pushPaths...)
+		s.enqueueIndexablePaperRows(pushRows...)
 	}
-	return written, nil
+	return written, writeErr
 }
 
 // GetBySlug 路由解析（SSR 用）
@@ -242,56 +279,35 @@ func (s *Service) ReconcileSitemapPages() error {
 //   - 论文写入只让 papers cache 失效,作者 sitemap 不受影响,反之亦然
 //   - 索引文件 cache key 同时引用两个版本号,任一变化都重建
 //
-// 合并锁(SETNX EX coalesceWindow): 同一计数器在 coalesceWindow 秒内的多次写入
-// 只触发一次 INCR,避免高并发下 cache key 频繁失效导致冷启风暴。
+// 每次成功写入都必须 INCR。曾用 SETNX 5s 做 leading-edge 合并，但窗口内
+// 第二次写入没有 trailing bump：若爬虫在首次 bump 后立即缓存 leaf，后续行
+// 会被漏到 6h TTL 结束。各批量 service 本就只在批次尾 invalidate 一次，
+// Redis INCR 成本远低于错过 sitemap URL，因此优先 correctness。
 const (
 	sitemapPapersVersionKey   = "seo:sitemap:papers:version"
 	sitemapAuthorsVersionKey  = "seo:sitemap:authors:version"
 	sitemapJournalsVersionKey = "seo:sitemap:journals:version"
-	sitemapPapersLockKey      = "seo:sitemap:papers:invalidate-lock"
-	sitemapAuthorsLockKey     = "seo:sitemap:authors:invalidate-lock"
-	sitemapJournalsLockKey    = "seo:sitemap:journals:invalidate-lock"
-
-	// 合并窗口: 5 秒内的多次写入只触发 1 次版本递增
-	// 代价: sitemap 最多比写入晚 5 秒可见; 收益: cache key 不会随每次 expose 抖动
-	sitemapCoalesceWindow = 5 * time.Second
 	// 版本号本身的 TTL: 一周。Redis 重启会清零(handler 拿到 0,正常重建)
 	sitemapVersionTTL = 7 * 24 * time.Hour
 )
 
 // invalidatePapersCache 论文相关写入触发 (RecordDetailClick / RecordSearchSeeds / Reconcile)
 func (s *Service) invalidatePapersCache() {
-	bumpVersionWithCoalesce(sitemapPapersLockKey, sitemapPapersVersionKey)
+	bumpSitemapVersion(sitemapPapersVersionKey)
 }
 
 // invalidateAuthorsCache 作者相关写入触发
 func (s *Service) invalidateAuthorsCache() {
-	bumpVersionWithCoalesce(sitemapAuthorsLockKey, sitemapAuthorsVersionKey)
+	bumpSitemapVersion(sitemapAuthorsVersionKey)
 }
 
-// bumpVersionWithCoalesce SETNX 合并锁实现:
-//   - SETNX lock=1 EX 5s 成功 → 当前调用是窗口内第一个,执行 INCR
-//   - 失败 → 已有同窗口内的调用做过 INCR,本次跳过
-//
-// 这样高 QPS 下也只产生 ~1 INCR / 5s,平稳缓存键。
-func bumpVersionWithCoalesce(lockKey, versionKey string) {
+func bumpSitemapVersion(versionKey string) {
 	rdb := cache.GetRedis()
 	if rdb == nil {
 		return
 	}
 	ctx, cancel := ctxutil.With(ctxutil.CacheWrite)
 	defer cancel()
-
-	// 抢窗口锁
-	ok, err := rdb.SetNX(ctx, lockKey, "1", sitemapCoalesceWindow).Result()
-	if err != nil {
-		slog.Warn("seo sitemap invalidate lock failed", "key", lockKey, "err", err)
-		return
-	}
-	if !ok {
-		// 窗口内已经 bumped 过,本次合并跳过
-		return
-	}
 
 	if err := rdb.Incr(ctx, versionKey).Err(); err != nil {
 		slog.Warn("seo sitemap version bump failed", "key", versionKey, "err", err)

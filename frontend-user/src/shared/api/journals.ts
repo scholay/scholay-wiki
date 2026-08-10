@@ -21,6 +21,7 @@ function normalizeUnifiedJournal(u: JournalListUnified, fallbackId: number): Jou
   return {
     id: u.id ?? fallbackId,
     canonical_name: u.canonical_name ?? '',
+    seo_slug: u.seo_slug ?? undefined,
     issns: issns.length ? issns : undefined,
     publisher: u.crossref_publisher ?? u.doaj_publisher ?? undefined,
     country: u.openalex_country ?? undefined,

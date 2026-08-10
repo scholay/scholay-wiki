@@ -43,6 +43,7 @@ func (s *Service) RecordJournalSearchSeeds(seeds []JournalSeed) (int, error) {
 	}
 
 	written := 0
+	var writeErr error
 	for i := range seeds {
 		seed := &seeds[i]
 		if seed.JournalID <= 0 || seed.CanonicalName == "" {
@@ -53,6 +54,7 @@ func (s *Service) RecordJournalSearchSeeds(seeds []JournalSeed) (int, error) {
 
 		if err := s.repo.UpsertJournalSeed(seed, slug, issnsJSON); err != nil {
 			slog.Warn("seo journal seed upsert failed", "journal_id", seed.JournalID, "err", err)
+			writeErr = errors.Join(writeErr, err)
 			continue
 		}
 		written++
@@ -61,7 +63,7 @@ func (s *Service) RecordJournalSearchSeeds(seeds []JournalSeed) (int, error) {
 	if written > 0 {
 		s.invalidateJournalsCache()
 	}
-	return written, nil
+	return written, writeErr
 }
 
 // GetJournalByID 路由解析 (SSR / 301 校验用)
@@ -99,7 +101,7 @@ func (s *Service) ReconcileJournalSitemapPages() error {
 
 // invalidateJournalsCache 期刊写入触发, 独立计数器, 不影响 papers / authors cache
 func (s *Service) invalidateJournalsCache() {
-	bumpVersionWithCoalesce(sitemapJournalsLockKey, sitemapJournalsVersionKey)
+	bumpSitemapVersion(sitemapJournalsVersionKey)
 }
 
 // formatJournalID 把 BIGINT id 序列化成 URL 路径用的字符串

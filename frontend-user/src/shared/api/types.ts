@@ -235,6 +235,8 @@ export interface AuthorPapersResult {
 export interface Journal {
   id: number;
   canonical_name: string;
+  /** 后端 Go 生成的权威 canonical slug；未返回时只使用 /journal/{id}。 */
+  seo_slug?: string;
   issns?: string[];
   publisher?: string;
   country?: string;
@@ -275,6 +277,7 @@ export interface JournalSearchResult {
 export interface JournalListUnified {
   id: number;
   canonical_name: string;
+  seo_slug?: string;
   issn_l?: string | null;
   print_issn?: string | null;
   electronic_issn?: string | null;

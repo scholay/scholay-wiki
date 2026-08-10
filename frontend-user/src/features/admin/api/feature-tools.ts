@@ -88,6 +88,7 @@ export interface AdminToolListParams {
   category?: string;
   access_type?: string;
   price_type?: string;
+  seo_review?: 'indexable' | 'pending';
 }
 
 interface AdminToolListResponse {

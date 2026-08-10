@@ -99,8 +99,8 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		// umami tracker 运行时配置 —— 前端 index.html 加载时 fetch
 		publicAPI.GET("/umami-config", h.umami.GetTrackerConfig)
 
-		// SEO 搜索曝光批量 seed (前端搜索结果加载后上报)
-		// 限流: 每 IP 每分钟最多 60 次
+		// 历史 SEO expose 兼容 ACK：客户端元数据不再写库，真实 seed
+		// 只来自 minicod 服务端已验证响应。保留限流避免旧客户端流量滥用。
 		publicAPI.POST("/seo/expose",
 			middleware.RateLimitMiddleware(60, time.Minute),
 			h.seo.ExposeSeeds,

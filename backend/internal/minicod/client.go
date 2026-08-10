@@ -64,6 +64,26 @@ func sourcePrefix(source string) string {
 	}
 }
 
+// canonicalPaperSource 与 sourcePrefix 的默认 STC 语义保持一致，但显式返回
+// 真实路由源，避免把请求中任意 source 原样写回 SEO/canonical。
+func canonicalPaperSource(source string) string {
+	switch source {
+	case SourceOLX:
+		return source
+	case SourcePMD, "pubmed":
+		return SourcePMD
+	default:
+		return SourceSTC
+	}
+}
+
+func canonicalAuthorSource(source string) string {
+	if source == SourceOLX {
+		return SourceOLX
+	}
+	return SourceSTC
+}
+
 // paperPath 返回某源 + 某动作的论文端点完整路径。
 //
 // 命名陷阱:OpenAlex 把论文叫 "works", 所以 OLX 是 `/v1/olx/works/<action>`,
@@ -246,6 +266,7 @@ func isNotFoundErr(err error) bool {
 
 // SearchPapers searches for papers via STC source
 func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
+	actualSource := canonicalPaperSource(opts.Source)
 	// 通用字段(所有源都支持):query / limit / offset / year_from / year_to /
 	//   date_from / date_to / venue / fields / sort
 	body := map[string]any{
@@ -297,7 +318,7 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 	}
 
 	// OLX 是 /v1/olx/works/search,不是 /papers/search,统一走 paperPath
-	data, err := c.doPost(ctx, paperPath(opts.Source, "search"), body)
+	data, err := c.doPost(ctx, paperPath(actualSource, "search"), body)
 	if err != nil {
 		return nil, err
 	}
@@ -307,14 +328,17 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 		return nil, fmt.Errorf("failed to parse paper search result: %w", err)
 	}
 
-	// Convert to frontend-compatible format
+	// Convert to frontend-compatible format. 已选中的上游端点是 source 真源；
+	// 即使某源响应漏了 raw.source，也必须返回可路由的归一 ID。
+	papers := ConvertPapers(raw.Items)
+	normalizePapersForSource(papers, actualSource)
 	result := &SearchResponse{
 		Total:  raw.Total,
 		Offset: raw.Offset,
-		Data:   ConvertPapers(raw.Items),
+		Data:   papers,
 		// W6 P1-5:上游实际查询的库 + 本次命中的 minicod 源(此前 raw.SourcesQueried 解析后丢弃)。
 		SourcesQueried: raw.SourcesQueried,
-		ActualSource:   opts.Source,
+		ActualSource:   actualSource,
 	}
 	if raw.Offset+raw.Limit < raw.Total {
 		result.Next = raw.Offset + raw.Limit
@@ -325,20 +349,17 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 
 // GetPaper retrieves paper details
 func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetailsOptions) (*Paper, error) {
+	source, upstreamID := paperSourceAndUpstreamID(paperID)
 	body := map[string]any{
-		"id": paperID,
+		"id": upstreamID,
 	}
 	// 2026-07 线上审计:fields 过白名单再透传(见 fields.go)。
 	if fs := filterPaperFields(opts.Fields); len(fs) > 0 {
 		body["fields"] = strings.Join(fs, ",")
 	}
 
-	// Determine endpoint based on ID prefix
-	path := "/v1/stc/papers/get"
-	if strings.HasPrefix(paperID, "olx:") {
-		path = "/v1/olx/works/get"
-		// Strip prefix — OLX API expects raw ID (e.g., "W2726369860")
-		body["id"] = strings.TrimPrefix(paperID, "olx:")
+	path := paperPath(source, "get")
+	if source == SourceOLX {
 		// 对齐 api-1.json:olx works get 走共享 PaperGetRequest，字段过滤参数是 `fields`(不是历史的
 		// `select`)。旧代码把 fields 换成 select 会被上游忽略(裁剪失效)甚至 400。保留上面已设的 fields 即可。
 	}
@@ -347,14 +368,48 @@ func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetails
 	if err != nil {
 		return nil, err
 	}
+	if len(data) == 0 || string(data) == "null" {
+		return nil, nil
+	}
 
 	var raw RawPaper
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse paper detail: %w", err)
 	}
+	if strings.TrimSpace(raw.ID) == "" && strings.TrimSpace(raw.Title) == "" {
+		return nil, nil
+	}
 
 	paper := ConvertPaper(raw)
+	// 请求端点已由 entity ID 选定，它比可能缺失的 raw.source 更权威。
+	paper.Source = source
+	if strings.TrimSpace(paper.PaperID) == "" {
+		paper.PaperID = upstreamID
+	}
+	paper.PaperID = normalizeID(paper.PaperID, source)
+	for i := range paper.Authors {
+		paper.Authors[i].Source = source
+		paper.Authors[i].AuthorID = normalizeID(paper.Authors[i].AuthorID, source)
+	}
 	return &paper, nil
+}
+
+// paperSourceAndUpstreamID 是详情深链与上游端点的唯一路由真源。
+// 入库/URL 中非 STC ID 被归一为 `olx:` / `pmd:`，但上游 body 只接受裸 ID。
+// PMD search 的历史契约会返回 `pubmed:`，这里将它作为 `pmd:` 的输入别名。
+func paperSourceAndUpstreamID(paperID string) (string, string) {
+	switch {
+	case strings.HasPrefix(paperID, SourceOLX+":"):
+		return SourceOLX, strings.TrimPrefix(paperID, SourceOLX+":")
+	case strings.HasPrefix(paperID, SourcePMD+":"):
+		return SourcePMD, strings.TrimPrefix(paperID, SourcePMD+":")
+	case strings.HasPrefix(paperID, "pubmed:"):
+		return SourcePMD, strings.TrimPrefix(paperID, "pubmed:")
+	case strings.HasPrefix(paperID, SourceSTC+":"):
+		return SourceSTC, strings.TrimPrefix(paperID, SourceSTC+":")
+	default:
+		return SourceSTC, paperID
+	}
 }
 
 // GetPaperByDOI 通过 DOI **精确解析**单篇论文(POST /v1/{src}/papers/doi,olx 是 /works/doi)。
@@ -367,6 +422,7 @@ func (c *Client) GetPaperByDOI(ctx context.Context, source, doi string) (*Paper,
 	if doi == "" {
 		return nil, nil
 	}
+	source = canonicalPaperSource(source)
 	// 不限制 fields —— 识别要拿完整元数据做在线增补层(被引/OA/venue 等)
 	data, err := c.doPost(ctx, paperPath(source, "doi"), map[string]any{"doi": doi})
 	if err != nil {
@@ -408,9 +464,7 @@ func convertSinglePaperOrNil(data json.RawMessage, source string) (*Paper, error
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse paper: %w", err)
 	}
-	if strings.TrimSpace(raw.Source) == "" {
-		raw.Source = source
-	}
+	raw.Source = canonicalPaperSource(source)
 	paper := ConvertPaper(raw)
 	if strings.TrimSpace(paper.PaperID) == "" && strings.TrimSpace(paper.Title) == "" {
 		return nil, nil // 空壳,当未命中
@@ -437,13 +491,14 @@ func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []
 
 	var stcIDs, olxIDs, pmdIDs []string
 	for _, id := range paperIDs {
-		switch {
-		case strings.HasPrefix(id, "olx:"):
-			olxIDs = append(olxIDs, strings.TrimPrefix(id, "olx:"))
-		case strings.HasPrefix(id, "pmd:"):
-			pmdIDs = append(pmdIDs, strings.TrimPrefix(id, "pmd:"))
+		source, upstreamID := paperSourceAndUpstreamID(id)
+		switch source {
+		case SourceOLX:
+			olxIDs = append(olxIDs, upstreamID)
+		case SourcePMD:
+			pmdIDs = append(pmdIDs, upstreamID)
 		default:
-			stcIDs = append(stcIDs, id)
+			stcIDs = append(stcIDs, upstreamID)
 		}
 	}
 
@@ -462,7 +517,9 @@ func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []
 		if err := json.Unmarshal(data, &raws); err != nil {
 			return nil, fmt.Errorf("failed to parse stc batch papers: %w", err)
 		}
-		out = append(out, ConvertPapers(raws)...)
+		papers := ConvertPapers(raws)
+		normalizePapersForSource(papers, SourceSTC)
+		out = append(out, papers...)
 	}
 
 	if len(olxIDs) > 0 {
@@ -479,49 +536,42 @@ func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []
 		if err := json.Unmarshal(data, &raws); err != nil {
 			return nil, fmt.Errorf("failed to parse olx batch papers: %w", err)
 		}
-		out = append(out, ConvertPapers(raws)...)
+		papers := ConvertPapers(raws)
+		normalizePapersForSource(papers, SourceOLX)
+		out = append(out, papers...)
 	}
 
 	if len(pmdIDs) > 0 {
-		// PMD 的 /v1/pmd/papers/batch 上游走 NCBI esummary,**只返元数据,没 abstract**。
-		// 经实测,STC 的 /v1/stc/papers/get 单篇接口会用同一 ID 跑 efetch 拿 abstract
-		// (与 GetPaper 单篇路径一致)—— fan-out 复用这个,保留 `pmd:` 前缀。
+		// PMD batch 只返 esummary 元数据，为了拿到 abstract 按单篇 PMD get fan-out。
+		// 路由必须仍是 /v1/pmd/papers/get，不能把 PMID 误发到 STC。
 		// sem 限并发避免上游打爆;单篇失败静默丢弃,不阻塞整批。
 		const pmdConcurrency = 8
 		results := make([]Paper, len(pmdIDs))
-		ok := make([]bool, len(pmdIDs))
 
 		eg, egCtx := errgroup.WithContext(ctx)
 		eg.SetLimit(pmdConcurrency)
 
 		for i, id := range pmdIDs {
 			i, id := i, id
-			fullID := "pmd:" + id // 上面把前缀剥掉了,这里要补回
+			fullID := SourcePMD + ":" + id
 			eg.Go(func() error {
-				body := map[string]any{"id": fullID}
-				if len(fields) > 0 {
-					body["fields"] = strings.Join(fields, ",")
-				}
-				data, err := c.doPost(egCtx, "/v1/stc/papers/get", body)
+				paper, err := c.GetPaper(egCtx, fullID, PaperDetailsOptions{Fields: fields})
 				if err != nil {
-					return nil // 单篇失败不冒泡,后面 ok[i]=false 即可
+					return fmt.Errorf("get PMD paper %s: %w", id, err)
 				}
-				var raw RawPaper
-				if err := json.Unmarshal(data, &raw); err != nil {
-					return nil
+				if paper == nil || strings.TrimSpace(paper.Title) == "" {
+					return fmt.Errorf("get PMD paper %s: incomplete response", id)
 				}
-				results[i] = ConvertPaper(raw)
-				ok[i] = true
+				results[i] = *paper
 				return nil
 			})
 		}
-		_ = eg.Wait()
-
-		for i, p := range results {
-			if ok[i] {
-				out = append(out, p)
-			}
+		if err := eg.Wait(); err != nil {
+			// Manager 会缓存 nil error 的 batch 24 小时，因此不能把部分/全部
+			// 上游失败伪装成成功空集，否则会长时污染搜索摘要与 SEO。
+			return nil, err
 		}
+		out = append(out, results...)
 	}
 
 	return out, nil
@@ -529,8 +579,9 @@ func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []
 
 // GetPaperCitations retrieves papers that cite the given paper
 func (c *Client) GetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
+	source, upstreamID := paperSourceAndUpstreamID(paperID)
 	body := map[string]any{
-		"paper_id": paperID,
+		"paper_id": upstreamID,
 	}
 	if opts.Limit > 0 {
 		body["limit"] = opts.Limit
@@ -543,12 +594,7 @@ func (c *Client) GetPaperCitations(ctx context.Context, paperID string, opts Cit
 		body["fields"] = strings.Join(fs, ",")
 	}
 
-	// Determine endpoint based on ID prefix
-	path := "/v1/stc/papers/citations"
-	if strings.HasPrefix(paperID, "olx:") {
-		path = "/v1/olx/works/citations"
-		body["paper_id"] = strings.TrimPrefix(paperID, "olx:")
-	}
+	path := paperPath(source, "citations")
 
 	data, err := c.doPost(ctx, path, body)
 	if err != nil {
@@ -560,9 +606,11 @@ func (c *Client) GetPaperCitations(ctx context.Context, paperID string, opts Cit
 		return nil, fmt.Errorf("failed to parse citations: %w", err)
 	}
 
+	citations := ConvertPapersToCitations(raw.Items)
+	normalizeCitationsForSource(citations, source)
 	result := &CitationsResponse{
 		Offset: raw.Offset,
-		Data:   ConvertPapersToCitations(raw.Items),
+		Data:   citations,
 	}
 	if raw.Offset+raw.Limit < raw.Total {
 		result.Next = raw.Offset + raw.Limit
@@ -573,8 +621,9 @@ func (c *Client) GetPaperCitations(ctx context.Context, paperID string, opts Cit
 
 // GetPaperReferences retrieves papers referenced by the given paper
 func (c *Client) GetPaperReferences(ctx context.Context, paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
+	source, upstreamID := paperSourceAndUpstreamID(paperID)
 	body := map[string]any{
-		"paper_id": paperID,
+		"paper_id": upstreamID,
 	}
 	if opts.Limit > 0 {
 		body["limit"] = opts.Limit
@@ -587,11 +636,7 @@ func (c *Client) GetPaperReferences(ctx context.Context, paperID string, opts Ci
 		body["fields"] = strings.Join(fs, ",")
 	}
 
-	path := "/v1/stc/papers/references"
-	if strings.HasPrefix(paperID, "olx:") {
-		path = "/v1/olx/works/references"
-		body["paper_id"] = strings.TrimPrefix(paperID, "olx:")
-	}
+	path := paperPath(source, "references")
 
 	data, err := c.doPost(ctx, path, body)
 	if err != nil {
@@ -603,9 +648,11 @@ func (c *Client) GetPaperReferences(ctx context.Context, paperID string, opts Ci
 		return nil, fmt.Errorf("failed to parse references: %w", err)
 	}
 
+	references := ConvertPapersToCitations(raw.Items)
+	normalizeCitationsForSource(references, source)
 	result := &ReferencesResponse{
 		Offset: raw.Offset,
-		Data:   ConvertPapersToCitations(raw.Items),
+		Data:   references,
 	}
 	if raw.Offset+raw.Limit < raw.Total {
 		result.Next = raw.Offset + raw.Limit
@@ -616,8 +663,9 @@ func (c *Client) GetPaperReferences(ctx context.Context, paperID string, opts Ci
 
 // GetPaperAuthors retrieves authors of a specific paper
 func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
+	source, upstreamID := paperSourceAndUpstreamID(paperID)
 	body := map[string]any{
-		"paper_id": paperID,
+		"paper_id": upstreamID,
 	}
 	if limit > 0 {
 		body["limit"] = limit
@@ -630,11 +678,7 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 		body["fields"] = strings.Join(fs, ",")
 	}
 
-	path := "/v1/stc/papers/authors"
-	if strings.HasPrefix(paperID, "olx:") {
-		path = "/v1/olx/works/authors"
-		body["paper_id"] = strings.TrimPrefix(paperID, "olx:")
-	}
+	path := paperPath(source, "authors")
 
 	data, err := c.doPost(ctx, path, body)
 	if err != nil {
@@ -646,11 +690,41 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 		return nil, fmt.Errorf("failed to parse paper authors: %w", err)
 	}
 
+	authors := ConvertAuthors(raw.Items)
+	normalizeAuthorsForSource(authors, source)
 	return &AuthorSearchResponse{
 		Total:  raw.Total,
 		Offset: raw.Offset,
-		Data:   ConvertAuthors(raw.Items),
+		Data:   authors,
 	}, nil
+}
+
+func normalizeCitationsForSource(citations []Citation, source string) {
+	for i := range citations {
+		citations[i].Source = source
+		citations[i].PaperId = normalizeID(citations[i].PaperId, source)
+		for j := range citations[i].Authors {
+			citations[i].Authors[j].Source = source
+			citations[i].Authors[j].AuthorID = normalizeID(citations[i].Authors[j].AuthorID, source)
+		}
+	}
+}
+
+func normalizePapersForSource(papers []Paper, source string) {
+	source = canonicalPaperSource(source)
+	for i := range papers {
+		papers[i].Source = source
+		papers[i].PaperID = normalizeID(papers[i].PaperID, source)
+		normalizeAuthorsForSource(papers[i].Authors, source)
+	}
+}
+
+func normalizeAuthorsForSource(authors []Author, source string) {
+	source = canonicalPaperSource(source)
+	for i := range authors {
+		authors[i].Source = source
+		authors[i].AuthorID = normalizeID(authors[i].AuthorID, source)
+	}
 }
 
 // PaperAutocomplete returns paper title suggestions.
@@ -705,6 +779,7 @@ func (c *Client) PaperAutocomplete(ctx context.Context, query, source string) (*
 
 // SearchAuthors searches for authors
 func (c *Client) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
+	actualSource := canonicalAuthorSource(opts.Source)
 	body := map[string]any{
 		"query": opts.Query,
 	}
@@ -719,7 +794,7 @@ func (c *Client) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*
 		body["fields"] = strings.Join(fs, ",")
 	}
 
-	prefix := sourcePrefix(opts.Source)
+	prefix := sourcePrefix(actualSource)
 	data, err := c.doPost(ctx, prefix+"/authors/search", body)
 	if err != nil {
 		return nil, err
@@ -730,27 +805,28 @@ func (c *Client) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*
 		return nil, fmt.Errorf("failed to parse author search: %w", err)
 	}
 
+	authors := ConvertAuthors(raw.Items)
+	normalizeAuthorsForSource(authors, actualSource)
 	return &AuthorSearchResponse{
 		Total:  raw.Total,
 		Offset: raw.Offset,
-		Data:   ConvertAuthors(raw.Items),
+		Data:   authors,
 	}, nil
 }
 
 // GetAuthor retrieves author details
 func (c *Client) GetAuthor(ctx context.Context, authorID string, fields []string) (*Author, error) {
+	source, upstreamID := authorSourceAndUpstreamID(authorID)
 	body := map[string]any{
-		"id": authorID,
+		"id": upstreamID,
 	}
 	// 2026-07 线上审计:作者字段词表过白名单再透传(见 fields.go)。
 	if fs := filterAuthorFields(fields); len(fs) > 0 {
 		body["fields"] = strings.Join(fs, ",")
 	}
 
-	path := "/v1/stc/authors/get"
-	if strings.HasPrefix(authorID, "olx:") {
-		path = "/v1/olx/authors/get"
-		body["id"] = strings.TrimPrefix(authorID, "olx:")
+	path := sourcePrefix(source) + "/authors/get"
+	if source == SourceOLX {
 		// olx(OpenAlex 源)用 `select` 选字段,且字段名词表与 STC 不同
 		// (STC 的 paperCount/hIndex vs OpenAlex 的 works_count/summary_stats)。
 		// 旧代码把 STC 字段名原样塞进 select → OpenAlex 报 400。这里直接不发 select,
@@ -769,13 +845,29 @@ func (c *Client) GetAuthor(ctx context.Context, authorID string, fields []string
 	}
 
 	author := ConvertAuthor(raw)
+	author.Source = source
+	if strings.TrimSpace(author.AuthorID) == "" {
+		author.AuthorID = upstreamID
+	}
+	author.AuthorID = normalizeID(author.AuthorID, source)
 	return &author, nil
+}
+
+func authorSourceAndUpstreamID(authorID string) (string, string) {
+	if strings.HasPrefix(authorID, SourceOLX+":") {
+		return SourceOLX, strings.TrimPrefix(authorID, SourceOLX+":")
+	}
+	if strings.HasPrefix(authorID, SourceSTC+":") {
+		return SourceSTC, strings.TrimPrefix(authorID, SourceSTC+":")
+	}
+	return SourceSTC, authorID
 }
 
 // GetAuthorPapers retrieves papers by a specific author
 func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
+	source, upstreamID := authorSourceAndUpstreamID(authorID)
 	body := map[string]any{
-		"author_id": authorID,
+		"author_id": upstreamID,
 	}
 	if limit > 0 {
 		body["limit"] = limit
@@ -795,10 +887,8 @@ func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []
 	}
 	body["fields"] = strings.Join(fs, ",")
 
-	path := "/v1/stc/authors/papers"
-	if strings.HasPrefix(authorID, "olx:") {
-		path = "/v1/olx/authors/papers"
-		body["author_id"] = strings.TrimPrefix(authorID, "olx:")
+	path := sourcePrefix(source) + "/authors/papers"
+	if source == SourceOLX {
 		// 同 GetAuthor:olx 源字段名词表与 STC 不同,不转发 STC 字段名(否则 400),取上游默认。
 		// olx 的上游默认是好的(实测 200),故这里维持"不发 fields"。
 		delete(body, "fields")
@@ -814,12 +904,15 @@ func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []
 		return nil, fmt.Errorf("failed to parse author papers: %w", err)
 	}
 
+	papers := ConvertPapers(raw.Items)
+	normalizePapersForSource(papers, source)
 	result := &SearchResponse{
 		Total:  raw.Total,
 		Offset: raw.Offset,
-		Data:   ConvertPapers(raw.Items),
+		Data:   papers,
 		// W6 P1-5:同 SearchPapers 透传上游实际查询库(作者论文按 ID 前缀路由,无 opts.Source)。
 		SourcesQueried: raw.SourcesQueried,
+		ActualSource:   source,
 	}
 	if raw.Offset+raw.Limit < raw.Total {
 		result.Next = raw.Offset + raw.Limit

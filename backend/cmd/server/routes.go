@@ -117,6 +117,54 @@ type allHandlers struct {
 	attachment *agentattach.ServeHandler
 }
 
+// headResponseWriter 保留 handler 产生的状态码与响应头，但丢弃响应体。
+// Gin/httptest 不会像真实 net/http server 那样自动抑制 HEAD body；显式包装可让
+// 线上行为、单元测试与 RFC HEAD 语义一致，也覆盖返回 404/500 的 sitemap handler。
+type headResponseWriter struct {
+	gin.ResponseWriter
+}
+
+func (w *headResponseWriter) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+func (w *headResponseWriter) WriteString(data string) (int, error) {
+	return len(data), nil
+}
+
+func headOnly(handler gin.HandlerFunc) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		original := c.Writer
+		c.Writer = &headResponseWriter{ResponseWriter: original}
+		defer func() { c.Writer = original }()
+		handler(c)
+	}
+}
+
+// registerGETAndHEAD 为只读 SEO 资源注册同一个 handler。
+// HEAD 会完整执行 handler 以保持与 GET 相同的状态码/缓存头/MIME，但不传输正文。
+func registerGETAndHEAD(router *gin.Engine, path string, handler gin.HandlerFunc) {
+	router.GET(path, handler)
+	router.HEAD(path, headOnly(handler))
+}
+
+func registerSEOReadRoutes(router *gin.Engine, h *allHandlers) {
+	registerGETAndHEAD(router, "/sitemap.xml", h.seo.ServeSitemapIndex)
+	registerGETAndHEAD(router, "/sitemap-static.xml", h.seo.ServeStaticSitemap)
+	registerGETAndHEAD(router, "/sitemap-blogs.xml", h.seo.ServeBlogSitemap)
+	registerGETAndHEAD(router, "/sitemap-resources.xml", h.seo.ServeResourceSitemap)
+	registerGETAndHEAD(router, "/sitemap-qa.xml", h.seo.ServeQASitemap)
+	registerGETAndHEAD(router, "/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
+	registerGETAndHEAD(router, "/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
+	registerGETAndHEAD(router, "/sitemap-journals-:page.xml", h.seo.ServeJournalSitemap)
+	// 功能大全工具 sitemap（匿名收录）—— 索引 + 分页。
+	registerGETAndHEAD(router, "/sitemap-tools.xml", h.featureTool.ServeToolSitemapIndex)
+	registerGETAndHEAD(router, "/sitemap-tools-:page.xml", h.featureTool.ServeToolSitemap)
+	// 情报 sitemap（由 news 提供；seo 索引引用其 URL）。
+	registerGETAndHEAD(router, "/sitemap-news.xml", h.news.ServeNewsSitemap)
+	registerGETAndHEAD(router, "/robots.txt", h.seo.ServeRobotsTxt)
+}
+
 // registerRoutes 注册所有 API 路由
 func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	// 第二道限流：按 user_id（认证用户）/ IP（匿名）分级限流，挂在认证路由组内层，
@@ -227,21 +275,8 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		})
 	})
 
-	// SEO sitemap（基于 seo_papers / seo_authors 永久索引库 + 前端静态内容索引）
-	router.GET("/sitemap.xml", h.seo.ServeSitemapIndex)
-	router.GET("/sitemap-static.xml", h.seo.ServeStaticSitemap)
-	router.GET("/sitemap-blogs.xml", h.seo.ServeBlogSitemap)
-	router.GET("/sitemap-resources.xml", h.seo.ServeResourceSitemap)
-	router.GET("/sitemap-qa.xml", h.seo.ServeQASitemap)
-	router.GET("/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
-	router.GET("/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
-	router.GET("/sitemap-journals-:page.xml", h.seo.ServeJournalSitemap)
-	// 功能大全工具 sitemap(匿名收录)—— 索引 + 分页, robots.txt 里独立列出。
-	router.GET("/sitemap-tools.xml", h.featureTool.ServeToolSitemapIndex)
-	router.GET("/sitemap-tools-:page.xml", h.featureTool.ServeToolSitemap)
-	// 情报 sitemap(由 news 提供;seo 索引引用其 URL)
-	router.GET("/sitemap-news.xml", h.news.ServeNewsSitemap)
-	router.GET("/robots.txt", h.seo.ServeRobotsTxt)
+	// SEO sitemap/robots：GET + HEAD 同状态/同响应头，HEAD 无正文。
+	registerSEOReadRoutes(router, h)
 
 	// SPA 兜底路由（SSR 代码片段注入）
 	router.NoRoute(func(c *gin.Context) {

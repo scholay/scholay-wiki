@@ -1,15 +1,23 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Filter, FolderOpen, Loader2 } from 'lucide-react';
-import { RouteSEO } from '@/shared/components/RouteSEO';
-import { SidebarLayout } from '@/shared/components/sidebar';
-import { useLocalStorage } from '@/shared/hooks';
-import { useRegisterSidebarRail } from '@/stores/sidebar.store';
-import { SearchSidebar } from '../components/SearchSidebar';
-import { SearcherColumn, type SearchMode } from '../components/SearcherColumn';
-import { StageFlyLayer } from '../components/StageFlyLayer';
-import type { Paper } from '../api/papers';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { Filter, FolderOpen, Loader2 } from "lucide-react";
+import { RouteSEO } from "@/shared/components/RouteSEO";
+import { SidebarLayout } from "@/shared/components/sidebar";
+import { useLocalStorage } from "@/shared/hooks";
+import { useRegisterSidebarRail } from "@/stores/sidebar.store";
+import { SearchSidebar } from "../components/SearchSidebar";
+import { SearcherColumn, type SearchMode } from "../components/SearcherColumn";
+import { StageFlyLayer } from "../components/StageFlyLayer";
+import type { Paper } from "../api/papers";
 
 /**
  * 右侧工作区两个候选 —— lazy 拆分:
@@ -18,14 +26,18 @@ import type { Paper } from '../api/papers';
  * 首屏只加载 SearcherColumn, 用户行为触发后才下载工作区代码块。
  */
 const MatrixColumn = lazy(() =>
-  import('../components/MatrixColumn').then((m) => ({ default: m.MatrixColumn }))
+  import("../components/MatrixColumn").then((m) => ({
+    default: m.MatrixColumn,
+  })),
 );
 const WelcomeBoard = lazy(() =>
-  import('../components/WelcomeBoard').then((m) => ({ default: m.WelcomeBoard }))
+  import("../components/WelcomeBoard").then((m) => ({
+    default: m.WelcomeBoard,
+  })),
 );
-import { useStagingActions } from '../hooks/useStagingActions';
-import { useStagingView } from '../hooks/useStagingView';
-import { useUrlFilters } from '../hooks/useUrlFilters';
+import { useStagingActions } from "../hooks/useStagingActions";
+import { useStagingView } from "../hooks/useStagingView";
+import { useUrlFilters } from "../hooks/useUrlFilters";
 
 const SEARCHER_MIN_PX = 380;
 const SEARCHER_MAX_PX = 900;
@@ -64,7 +76,7 @@ const RIGHT_MIN_PX = 480; // 右侧工作区 / 矩阵的最小可视宽,撑不�
  * 任何位置(顶栏菜单 / sidebar)点"文献搜索"跳到 /search,且 URL 无 params,
  * 自动恢复;有 params 时不动用户当前 URL,只把它写进 storage 作为新的"last"。
  */
-const LAST_SEARCH_KEY = 'scholay.last-search';
+const LAST_SEARCH_KEY = "scholay.last-search";
 
 export function SearchPage() {
   // ============ "回到文献搜索" 自动恢复上次状态 ============
@@ -79,11 +91,12 @@ export function SearchPage() {
     restoredRef.current = true;
     // 已有 ?q=... / ?src=... 任何参数 → 用户来路自带状态,不干扰
     if (urlParams.toString()) return;
-    const saved = typeof localStorage !== 'undefined'
-      ? localStorage.getItem(LAST_SEARCH_KEY)
-      : null;
+    const saved =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem(LAST_SEARCH_KEY)
+        : null;
     if (!saved || saved.length <= 1) return;
-    navigate({ pathname: '/search', search: saved }, { replace: true });
+    navigate({ pathname: "/search", search: saved }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -92,7 +105,7 @@ export function SearchPage() {
   // 老 storage 还留着;实际行为是"下次回到 /search 还会恢复"。这个交互
   // 与文档中 "last meaningful search" 心智一致,后续要"全新"再手动改即可。
   useEffect(() => {
-    if (typeof localStorage === 'undefined') return;
+    if (typeof localStorage === "undefined") return;
     const s = urlParams.toString();
     if (s) localStorage.setItem(LAST_SEARCH_KEY, `?${s}`);
   }, [urlParams]);
@@ -107,32 +120,42 @@ export function SearchPage() {
   // setMode 用 `replace: true` 写入 —— 切 tab 不污染 history,
   // 避免 browser back/forward "嗖嗖滚 tab" 的体验问题。
   const mode: SearchMode =
-    urlParams.get('mode') === 'smart' ? 'smart' : 'classic';
+    urlParams.get("mode") === "smart" ? "smart" : "classic";
   const setMode = useCallback(
     (next: SearchMode) => {
       setUrlParams(
         (prev) => {
           const p = new URLSearchParams(prev);
-          if (next === 'smart') p.set('mode', 'smart');
-          else p.delete('mode');
+          if (next === "smart") p.set("mode", "smart");
+          else p.delete("mode");
           return p;
         },
-        { replace: true }
+        { replace: true },
       );
     },
-    [setUrlParams]
+    [setUrlParams],
   );
 
   // rail 按 mode 动态:智能模式下移除"筛选器"快捷入口 ——
   // 筛选器属于传统搜索,智能模式 sidebar 也不会渲染对应 section,
   // 留着 chip 反而会"打开 sidebar 后 flash 一个找不到的 section"。
   useRegisterSidebarRail(
-    mode === 'smart'
-      ? [{ id: 'all', label: '文件夹', icon: FolderOpen, sectionId: 'library' }]
+    mode === "smart"
+      ? [{ id: "all", label: "文件夹", icon: FolderOpen, sectionId: "library" }]
       : [
-          { id: 'all', label: '文件夹', icon: FolderOpen, sectionId: 'library' },
-          { id: 'filters', label: '筛选器', icon: Filter, sectionId: 'filters' },
-        ]
+          {
+            id: "all",
+            label: "文件夹",
+            icon: FolderOpen,
+            sectionId: "library",
+          },
+          {
+            id: "filters",
+            label: "筛选器",
+            icon: Filter,
+            sectionId: "filters",
+          },
+        ],
   );
 
   // view 只读 —— 用 stagedIds 已是稳定引用,不需要再 useMemo 一次
@@ -154,7 +177,7 @@ export function SearchPage() {
         }
       }
     },
-    [areas, stagedIds, removePaper]
+    [areas, stagedIds, removePaper],
   );
 
   /**
@@ -178,20 +201,23 @@ export function SearchPage() {
       }
       // 批量加入 —— bulkStagePapers 内部会跳过已在区内的,并返回三类计数
       try {
-        const { added, skipped, capped } = await bulkStagePapers(papers, 'traditional');
+        const { added, skipped, capped } = await bulkStagePapers(
+          papers,
+          "traditional",
+        );
         const parts: string[] = [];
         if (added > 0) parts.push(`已暂存 ${added} 篇`);
         if (skipped > 0) parts.push(`${skipped} 篇已在暂存区`);
         if (capped > 0) parts.push(`${capped} 篇因暂存区已满未加入`);
-        if (parts.length === 0) toast.info('本页论文已全部在暂存区');
+        if (parts.length === 0) toast.info("本页论文已全部在暂存区");
         // added===0 但有跳过/超限 → 用 info 而非 success,别把"什么都没加成"报成成功
-        else if (added === 0) toast.info(parts.join('、'));
-        else toast.success(parts.join('、'));
+        else if (added === 0) toast.info(parts.join("、"));
+        else toast.success(parts.join("、"));
       } catch (err) {
         toast.error(`批量暂存失败:${(err as Error).message}`);
       }
     },
-    [stagedIds, unstageAcrossAreas, bulkStagePapers]
+    [stagedIds, unstageAcrossAreas, bulkStagePapers],
   );
 
   // 折叠态由 3 个集合派生(SearcherColumn 直接消费 effectivelyCollapsed):
@@ -204,10 +230,10 @@ export function SearchPage() {
   //
   // 公式:effectivelyCollapsed = (stagedIds ∪ manuallyCollapsedIds) \ expandedOverrides
   const [manuallyCollapsedIds, setManuallyCollapsedIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [expandedOverrides, setExpandedOverrides] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   const effectivelyCollapsed = useMemo(() => {
@@ -251,7 +277,7 @@ export function SearchPage() {
 
   const handleStage = useCallback(
     (paper: Paper) => {
-      stagePaper(paper, mode === 'smart' ? 'smart' : 'traditional');
+      stagePaper(paper, mode === "smart" ? "smart" : "traditional");
       // 加入暂存后:由 stagedIds 自动派生折叠态(不需要手动设 collapsedIds)。
       // 但要清掉本 paper 的 expandedOverrides,避免"刚暂存还展开着"的诡异态。
       setExpandedOverrides((s) => {
@@ -261,13 +287,13 @@ export function SearchPage() {
         return next;
       });
     },
-    [stagePaper, mode]
+    [stagePaper, mode],
   );
 
   // ── 自管 split:SearcherColumn px 锁定 + 中间手柄 + 右侧 flex-1 ─────────────
   const [searcherWidth, setSearcherWidth] = useLocalStorage<number>(
-    'search.searcher-width',
-    SEARCHER_DEFAULT_PX
+    "search.searcher-width",
+    SEARCHER_DEFAULT_PX,
   );
   const draggingRef = useRef(false);
 
@@ -282,35 +308,35 @@ export function SearchPage() {
         const dx = ev.clientX - startX;
         const next = Math.max(
           SEARCHER_MIN_PX,
-          Math.min(SEARCHER_MAX_PX, startW + dx)
+          Math.min(SEARCHER_MAX_PX, startW + dx),
         );
         setSearcherWidth(next);
       };
       const onUp = () => {
         draggingRef.current = false;
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onUp);
-        document.body.style.cursor = '';
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        document.body.style.cursor = "";
       };
-      document.body.style.cursor = 'col-resize';
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
+      document.body.style.cursor = "col-resize";
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
     },
-    [searcherWidth, setSearcherWidth]
+    [searcherWidth, setSearcherWidth],
   );
 
   // SEO title 反映搜索词 —— 有 q 时拼 "{q} - 文献搜索 | Scholay";空查询时回到通用文案。
   // canonical 把 q 也带上,让 Google 把每个有意义的搜索词页面索引为独立 URL。
-  const seoQuery = (urlParams.get('q') ?? '').trim();
+  const seoQuery = (urlParams.get("q") ?? "").trim();
   const seoTitle = seoQuery
     ? `${seoQuery} - 文献搜索 | Scholay 学术搜索`
-    : '文献搜索 - Scholay | AI 驱动的学术文献检索';
+    : "文献搜索 - Scholay | AI 驱动的学术文献检索";
   const seoDesc = seoQuery
     ? `Scholay 学术搜索: ${seoQuery}。覆盖 Semantic Scholar / OpenAlex / PubMed 多源,AI 排序 + 引用图谱 + PDF 全文,一键加入文件夹。`
-    : 'Scholay 学术文献搜索 —— 多源融合 (Semantic Scholar / OpenAlex / PubMed),支持高级筛选、暂存矩阵分析、AI 智能筛选。覆盖 3 亿+ 学术论文。';
-  const seoCanonical = seoQuery
-    ? `/search?q=${encodeURIComponent(seoQuery)}`
-    : '/search';
+    : "Scholay 学术文献搜索 —— 多源融合 (Semantic Scholar / OpenAlex / PubMed),支持高级筛选、暂存矩阵分析、AI 智能筛选。覆盖 3 亿+ 学术论文。";
+  // 查询词、筛选、排序和分页组合空间无界：结果态统一 noindex，并把 canonical
+  // 收口到稳定的无参数入口。标题仍保留查询词，方便用户识别当前页面。
+  const hasSearchState = urlParams.toString().length > 0;
 
   return (
     <SidebarLayout
@@ -329,7 +355,8 @@ export function SearchPage() {
         title={seoTitle}
         description={seoDesc}
         keywords="文献搜索,学术搜索,论文检索,文献查找,Semantic Scholar,OpenAlex,PubMed,智能搜索,高级筛选,AI 排序,Scholay"
-        canonical={seoCanonical}
+        canonical="/search"
+        noindex={hasSearchState}
       />
 
       <div className="flex h-full min-h-0 bg-background">

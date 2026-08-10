@@ -21,15 +21,43 @@ import (
 const (
 	SourceSTC = "stc"
 	SourceOLX = "olx"
+	SourcePMD = "pmd"
 )
 
-// InferSource 按 paperId 前缀推断来源：`olx:` 开头 → OpenAlex；否则 → Semantic Scholar。
-// 两个源的 ID 形态是唯一可靠信号（前端 localStorage 里的 search_source 可能与真实命中源不一致）。
-func InferSource(paperID string) string {
-	if strings.HasPrefix(paperID, "olx:") {
-		return SourceOLX
+// IsCanonicalSource 只允许公开 URL / sitemap 协议中已定义的来源枚举。
+// source 会进入 canonical path，不能把 URL 或公开 expose API 中的任意字符串当作真源。
+func IsCanonicalSource(source string) bool {
+	switch source {
+	case SourceSTC, SourceOLX, SourcePMD:
+		return true
+	default:
+		return false
 	}
-	return SourceSTC
+}
+
+// InferSource 按已归一的 entity ID 前缀推断来源。非 STC 的 ID 在 minicod
+// 输出边界会带 olx:/pmd: 前缀，因此 ID 比浏览器传入的 source 可靠。
+func InferSource(paperID string) string {
+	switch {
+	case strings.HasPrefix(paperID, SourceOLX+":"):
+		return SourceOLX
+	case strings.HasPrefix(paperID, SourcePMD+":"):
+		return SourcePMD
+	case strings.HasPrefix(paperID, "pubmed:"):
+		return SourcePMD
+	default:
+		return SourceSTC
+	}
+}
+
+// AuthoritativeSource 优先使用上游返回的受控 source；上游未回传时再由
+// 已归一 ID 推断。调用方不得把请求 URL 中的 source 传到这里当真源。
+func AuthoritativeSource(upstreamSource, entityID string) string {
+	upstreamSource = strings.ToLower(strings.TrimSpace(upstreamSource))
+	if IsCanonicalSource(upstreamSource) {
+		return upstreamSource
+	}
+	return InferSource(strings.TrimSpace(entityID))
 }
 
 // slug base 的 rune 数上限。DB 列是 VARCHAR(200)，utf8mb4 下中文每字符 3~4 字节

@@ -1,7 +1,8 @@
 // ============================================================================
 // Scholay学术 V1.0
 // SEO 期刊索引库 —— 永久保留的 SEO 主数据，服务于 sitemap 和 /journal/{id}/{slug} 路由
-// 与 SEOPaper / SEOAuthor 同构: 双 tier 写入路径、版本化 sitemap 缓存、slug 永久冻结。
+// 与 SEOPaper / SEOAuthor 同构: 双 tier 写入路径、版本化 sitemap 缓存。期刊 URL 已有
+// journal_id 消歧，slug 随 canonical_name 更名而更新，旧路径由 SSR 301 归一。
 // 差异点: URL 形态 /journal/{id}/{slug}, id 是 BIGINT 主键(不是 string),slug 仅作辅助。
 // ============================================================================
 

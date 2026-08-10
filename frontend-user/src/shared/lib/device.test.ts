@@ -83,6 +83,14 @@ describe('isPhoneDevice — 桌面、爬虫、请求桌面版排除', () => {
     expect(isPhoneDevice()).toBe(false);
   });
 
+  it.each(['Google-InspectionTool/1.0 Mobile', 'GoogleOther/1.0 Mobile'])(
+    '%s 不被客户端 loader 送去 noindex 移动路由',
+    (ua) => {
+      stubUA(ua, true);
+      expect(isPhoneDevice()).toBe(false);
+    }
+  );
+
   it('百度移动蜘蛛 → 不分流', () => {
     stubUA(
       'Mozilla/5.0 (Linux;u;Android 4.2.2;zh-cn;) AppleWebKit/534.46 (KHTML,like Gecko) Version/5.1 Mobile Safari/10600.6.3 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)'

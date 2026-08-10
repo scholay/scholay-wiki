@@ -37,19 +37,20 @@ export function FeatureToolsPage() {
   const q = useDebounce(qInput, 400);
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
+  const [seoReview, setSeoReview] = useState<'' | 'indexable' | 'pending'>('');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<FeatureTool | null>(null);
 
   const { data: catData } = useAdminToolCategories();
-  const { data, isLoading, isFetching, error, refetch } = useAdminToolList({ q: q || undefined, status: status || undefined, category: category || undefined, page, page_size: PAGE_SIZE });
+  const { data, isLoading, isFetching, error, refetch } = useAdminToolList({ q: q || undefined, status: status || undefined, category: category || undefined, seo_review: seoReview || undefined, page, page_size: PAGE_SIZE });
   const update = useUpdateTool();
   const del = useDeleteTool();
   const apiToast = useApiToast();
   const confirm = useConfirm();
 
   const total = data?.total ?? 0;
-  const hasFilter = !!qInput || !!status || !!category;
-  const clearFilters = () => { setQInput(''); setStatus(''); setCategory(''); setPage(1); };
+  const hasFilter = !!qInput || !!status || !!category || !!seoReview;
+  const clearFilters = () => { setQInput(''); setStatus(''); setCategory(''); setSeoReview(''); setPage(1); };
 
   const handleDelete = async (row: FeatureTool) => {
     const ok = await confirm({ title: `删除工具「${row.name}」?`, description: '删除会触发 webhook 通知下游同步删除。', danger: true, confirmText: '删除' });
@@ -81,6 +82,10 @@ export function FeatureToolsPage() {
         const s = STATUS_LABEL[r.status] ?? { text: r.status, variant: 'outline' as const };
         return <Badge variant={s.variant}>{s.text}</Badge>;
       },
+    },
+    {
+      header: 'SEO', width: 76,
+      cell: (r) => <Badge variant={r.seo_indexable ? 'success' : 'outline'}>{r.seo_indexable ? '已审核' : '不收录'}</Badge>,
     },
     { header: '浏览', width: 60, align: 'right', cell: (r) => <span className="text-12 text-faint">{r.view_count ?? 0}</span> },
     {
@@ -125,6 +130,13 @@ export function FeatureToolsPage() {
             <option value="draft">草稿</option>
             <option value="pending">待审</option>
             <option value="archived">归档</option>
+          </Select>
+        </div>
+        <div className="w-full sm:max-w-[9rem]">
+          <Select value={seoReview} onChange={(e) => { setSeoReview(e.target.value as '' | 'indexable' | 'pending'); setPage(1); }}>
+            <option value="">全部 SEO 状态</option>
+            <option value="pending">待审核</option>
+            <option value="indexable">已允许收录</option>
           </Select>
         </div>
       </div>
@@ -186,6 +198,21 @@ function EditDialog({
             const fd = new FormData(e.currentTarget);
             // 关键:基于完整原对象做合并, 保留 spec/faq/access 等嵌套字段不被清空
             const tagsRaw = String(fd.get('tags') || '').trim();
+            const seoIndexable = fd.get('seo_indexable') === 'on';
+            const sources = String(fd.get('seo_sources') || '')
+              .split(/\r?\n/)
+              .map((value) => value.trim())
+              .filter(Boolean);
+            const useCases = String(fd.get('seo_use_cases') || '')
+              .split(/\r?\n/)
+              .map((line) => {
+                const separator = line.indexOf('|');
+                if (separator < 0) return null;
+                const title = line.slice(0, separator).trim();
+                const desc = line.slice(separator + 1).trim();
+                return title ? { title, desc } : null;
+              })
+              .filter((item): item is { title: string; desc: string } => item !== null);
             onSubmit({
               ...tool,
               name: String(fd.get('name') || tool.name),
@@ -195,10 +222,21 @@ function EditDialog({
               price_type: String(fd.get('price_type') || tool.price_type),
               access_type: (String(fd.get('access_type')) || tool.access_type) as FeatureTool['access_type'],
               status: (String(fd.get('status')) || tool.status) as FeatureTool['status'],
+              seo_indexable: seoIndexable,
               official_url: String(fd.get('official_url') || ''),
               logo: String(fd.get('logo') || ''),
               description_md: String(fd.get('description_md') || ''),
               tags: tagsRaw ? tagsRaw.split(/[,，]/).map((t) => t.trim()).filter(Boolean) : [],
+              use_cases: useCases,
+              data_quality: {
+                ...(tool.data_quality ?? {}),
+                sources,
+                // 勾选“允许收录”就是管理员的显式人工复核动作；
+                // 后端仍会独立校验官网、描述、来源和使用场景。
+                ...(seoIndexable
+                  ? { enriched: true, needs_review: false, needs_enrich: [] }
+                  : {}),
+              },
             });
           }}
           className="max-h-[70dvh] space-y-3 overflow-y-auto pr-1"
@@ -231,6 +269,22 @@ function EditDialog({
           <Field label="详细描述">
             <Textarea name="description_md" defaultValue={tool.description_md} rows={4} />
           </Field>
+          <Field label="SEO 公开来源（每行一个 URL）">
+            <Textarea
+              name="seo_sources"
+              defaultValue={(tool.data_quality?.sources ?? []).join('\n')}
+              rows={3}
+              placeholder="https://official.example/docs"
+            />
+          </Field>
+          <Field label="SEO 使用场景（每行：标题 | 至少 12 字描述）">
+            <Textarea
+              name="seo_use_cases"
+              defaultValue={(tool.use_cases ?? []).map((item) => `${item.title} | ${item.desc ?? ''}`).join('\n')}
+              rows={4}
+              placeholder="文献分析 | 用于整理研究主题、方法和关键结论"
+            />
+          </Field>
           <Field label="状态" inline>
             <Select name="status" defaultValue={tool.status} fullWidth={false} className="w-32">
               <option value="published">已上线</option>
@@ -239,6 +293,18 @@ function EditDialog({
               <option value="archived">归档</option>
             </Select>
           </Field>
+          <label className="flex items-start gap-2 rounded-8 border border-border-soft bg-surface-2 p-3 text-12 text-subtle">
+            <input
+              type="checkbox"
+              name="seo_indexable"
+              defaultChecked={tool.seo_indexable === true}
+              className="mt-0.5 size-4"
+            />
+            <span>
+              <strong className="block text-foreground">允许搜索引擎收录</strong>
+              勾选即确认你已人工核对原创详情、官网、使用场景和公开来源；重新批量导入会自动撤销审核。
+            </span>
+          </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>取消</Button>
             <Button type="submit" disabled={pending}>

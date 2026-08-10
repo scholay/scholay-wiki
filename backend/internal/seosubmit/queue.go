@@ -18,6 +18,7 @@ package seosubmit
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"scholar-backend/internal/common/cache"
@@ -29,14 +30,14 @@ const (
 	queueKey       = "seo:push:queue"
 	queueOpTimeout = 2 * time.Second
 
-	// ── 死信 + 鉴权失败计数(2026-07 审查新增,见 DeadLetter / IndexNowAuthStrike)
+	// ── 死信 + IndexNow 所有权验证冷却
 	deadKey        = "seo:push:dead"             // ZSET: member=URL, score=落死信时刻
 	deadReasonKey  = "seo:push:dead:last_reason" // 最近一次落死信的原因(运维排障用)
 	deadMaxEntries = 5000                        // 只留最新 5000 条,防 Redis 无界增长
 	deadTTL        = 30 * 24 * time.Hour         // 30 天够运维发现并回灌
 
-	authStrikeKey = "seo:push:indexnow:auth_strikes" // 连续鉴权失败轮数
-	authStrikeTTL = 24 * time.Hour
+	indexNowCooldownKey  = "seo:push:indexnow:cooldown_until"
+	deadRecoveryLeaseKey = "seo:push:dead:recovery_lease"
 )
 
 // Enqueue 把一组 URL 放进待推送队列。重复 URL 会被 ZADD 去重(更新 score 为最新时间)。
@@ -137,36 +138,130 @@ func DeadLetter(ctx context.Context, urls []string, reason string) error {
 	return nil
 }
 
-// IndexNowAuthStrike 记一次 IndexNow 鉴权类失败(401/403)并返回累计轮数。
-//
-// 2026-07 审查:IndexNow 的 403 语义是「搜索引擎**异步**反查 https://site/{key}.txt
-// 没通过」—— 我们自己部署 / nginx 重启 / CDN 抖动的窗口内它取不到 key 文件就回 403,
-// 单次 403 远不足以判永久。所以 403 走连续计数,连中 N 轮才当配置错误。
-// Redis 不可用时返回 0(=按临时失败处理、回队),宁可多推一次也不丢 URL。
-func IndexNowAuthStrike(ctx context.Context) int64 {
+// IndexNowCooldownUntil returns the finite, shared cooldown installed after an
+// ownership/auth 403.  A Redis key (rather than process memory) keeps multiple
+// backend replicas from hammering the endpoint independently.
+func IndexNowCooldownUntil(ctx context.Context) (time.Time, error) {
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
-		return 0
+		return time.Time{}, errors.New("redis unavailable")
 	}
 	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
 	defer cancel()
-	n, err := rdb.Incr(cctx, authStrikeKey).Result()
-	if err != nil {
-		return 0
+	raw, err := rdb.Get(cctx, indexNowCooldownKey).Result()
+	if errors.Is(err, redis.Nil) {
+		return time.Time{}, nil
 	}
-	_ = rdb.Expire(cctx, authStrikeKey, authStrikeTTL).Err()
-	return n
+	if err != nil {
+		return time.Time{}, err
+	}
+	unix, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Unix(unix, 0), nil
 }
 
-// ResetIndexNowAuthStrike 一次成功推送(或已判死落了死信)后清零连续失败计数。
-func ResetIndexNowAuthStrike(ctx context.Context) {
+func SetIndexNowCooldown(ctx context.Context, until time.Time) error {
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
-		return
+		return errors.New("redis unavailable")
 	}
 	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
 	defer cancel()
-	_ = rdb.Del(cctx, authStrikeKey).Err()
+	ttl := time.Until(until)
+	if ttl <= 0 {
+		return rdb.Del(cctx, indexNowCooldownKey).Err()
+	}
+	return rdb.Set(cctx, indexNowCooldownKey, strconv.FormatInt(until.Unix(), 10), ttl).Err()
+}
+
+func ClearIndexNowCooldown(ctx context.Context) error {
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return errors.New("redis unavailable")
+	}
+	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
+	defer cancel()
+	return rdb.Del(cctx, indexNowCooldownKey).Err()
+}
+
+// DeadLetters returns at most n oldest dead-letter members without removing
+// them.  The service validates every candidate against CanonicalBaseURL before
+// selecting it for recovery.
+func DeadLetters(ctx context.Context, n int) ([]string, error) {
+	if n <= 0 {
+		return nil, nil
+	}
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return nil, errors.New("redis unavailable")
+	}
+	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
+	defer cancel()
+	return rdb.ZRange(cctx, deadKey, 0, int64(n-1)).Result()
+}
+
+// ClaimDeadLetterRecovery provides a short cross-replica lease.  Combined with
+// the per-call cap this prevents several backend replicas (or an accidental
+// caller loop) from draining the entire dead set at once.
+func ClaimDeadLetterRecovery(ctx context.Context, ttl time.Duration) (bool, error) {
+	if ttl <= 0 {
+		return false, errors.New("dead-letter recovery lease must be positive")
+	}
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return false, errors.New("redis unavailable")
+	}
+	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
+	defer cancel()
+	return rdb.SetNX(cctx, deadRecoveryLeaseKey, time.Now().Unix(), ttl).Result()
+}
+
+var moveDeadLettersScript = redis.NewScript(`
+local moved = 0
+local score = ARGV[1]
+for i = 2, #ARGV, 2 do
+  if redis.call('ZREM', KEYS[1], ARGV[i]) == 1 then
+    redis.call('ZADD', KEYS[2], score, ARGV[i + 1])
+    moved = moved + 1
+  end
+end
+if redis.call('ZCARD', KEYS[1]) == 0 then
+  redis.call('DEL', KEYS[3])
+end
+return moved
+`)
+
+type deadLetterRecovery struct {
+	DeadURL      string
+	CanonicalURL string
+}
+
+// moveDeadLettersToQueue atomically removes the selected exact members from
+// the dead set and ZADDs them to the pending queue.  ZSET semantics make the
+// operation idempotent and prevent duplicate pending tasks.
+func moveDeadLettersToQueue(ctx context.Context, entries []deadLetterRecovery) (int64, error) {
+	if len(entries) == 0 {
+		return 0, nil
+	}
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return 0, errors.New("redis unavailable")
+	}
+	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
+	defer cancel()
+	args := make([]any, 0, len(entries)*2+1)
+	args = append(args, time.Now().Unix())
+	for _, entry := range entries {
+		if entry.DeadURL != "" && entry.CanonicalURL != "" {
+			args = append(args, entry.DeadURL, entry.CanonicalURL)
+		}
+	}
+	if len(args) == 1 {
+		return 0, nil
+	}
+	return moveDeadLettersScript.Run(cctx, rdb, []string{deadKey, queueKey, deadReasonKey}, args...).Int64()
 }
 
 // QueueLen 返回队列剩余条数(诊断/监控用)

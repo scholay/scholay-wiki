@@ -194,9 +194,9 @@ func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 		Priority    float64   `gorm:"column:priority"`
 		QualityTier int       `gorm:"column:quality_tier"`
 	}
-	err := r.db.Table("seo_authors").
+	err := r.authorSitemapRows().
 		Select("slug, source, author_id, updated_at, priority, quality_tier").
-		Where("status = ? AND sitemap_page = ?", StatusActive, page).
+		Where("sitemap_page = ?", page).
 		Order("id").
 		Find(&rows).Error
 	if err != nil {
@@ -216,6 +216,28 @@ func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 	return out, nil
 }
 
+// authorSitemapRows 是作者 leaf、主动提交与 sitemap index 共用的 eligibility
+// 单一真源。只有姓名的搜索曝光壳不进入 sitemap；真实详情点击或至少一个可验证的
+// 机构、代表作、主页/ORCID、论文/引用/h-index 信号才算实质页面。
+func (r *Repository) authorSitemapRows() *gorm.DB {
+	return r.db.Table("seo_authors").Where(`
+		status = ?
+		AND source IN ?
+		AND TRIM(COALESCE(author_id, '')) <> ''
+		AND TRIM(COALESCE(name, '')) <> ''
+		AND (
+			quality_tier = ?
+			OR COALESCE(JSON_LENGTH(affiliations), 0) > 0
+			OR TRIM(COALESCE(homepage, '')) <> ''
+			OR TRIM(COALESCE(orcid, '')) <> ''
+			OR paper_count > 0
+			OR citation_count > 0
+			OR COALESCE(h_index, 0) > 0
+			OR COALESCE(JSON_LENGTH(top_works), 0) > 0
+		)
+	`, StatusActive, []string{SourceSTC, SourceOLX, SourcePMD}, TierDetailClick)
+}
+
 // ListTopAuthorPaths 返回最值得主动推送的作者 canonical 路径 /author/{source}/{id}
 // (同 ListTopPaperPaths 思路;canonical 避免推送被 301,source/id 缺失回落 slug)。
 func (r *Repository) ListTopAuthorPaths(limit int) ([]string, error) {
@@ -227,9 +249,9 @@ func (r *Repository) ListTopAuthorPaths(limit int) ([]string, error) {
 		Source   string `gorm:"column:source"`
 		AuthorID string `gorm:"column:author_id"`
 	}
-	err := r.db.Table("seo_authors").
+	err := r.authorSitemapRows().
 		Select("slug, source, author_id").
-		Where("status = ? AND slug <> ''", StatusActive).
+		Where("slug <> ''").
 		Order("quality_tier ASC, view_count DESC, id ASC").
 		Limit(limit).
 		Find(&rows).Error
@@ -247,47 +269,18 @@ func (r *Repository) ListTopAuthorPaths(limit int) ([]string, error) {
 	return out, nil
 }
 
-// GetAuthorSitemapLastModPerPage 每个分页的最大 updated_at
+// GetAuthorSitemapLastModPerPage 返回每个真实非空分页的最大 updated_at。
+// 真实页号允许有缺口（例如只有 page 1、2、4），调用方必须枚举 map key。
 func (r *Repository) GetAuthorSitemapLastModPerPage() (map[int]time.Time, error) {
-	var rows []struct {
-		Page    int       `gorm:"column:sitemap_page"`
-		LastMod time.Time `gorm:"column:last_mod"`
-	}
-	err := r.db.Table("seo_authors").
-		Select("sitemap_page, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
-		Group("sitemap_page").
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[int]time.Time, len(rows))
-	for _, r := range rows {
-		out[r.Page] = r.LastMod
-	}
-	return out, nil
+	return sitemapPageLastMods(r.authorSitemapRows())
 }
 
-// GetAuthorSitemapSummary 返回作者 sitemap 分页总数和最后修改时间
-// 仅统计 sitemap_page > 0 的行,避免新插入未回填的"幽灵分页"。
+// GetAuthorSitemapSummary 返回真实非空 sitemap 分片数量和最后修改时间。
+// TotalPages 不能用于构造连续页号；真实页号取 GetAuthorSitemapLastModPerPage 的 key。
 func (r *Repository) GetAuthorSitemapSummary() (*SitemapSummary, error) {
-	var row struct {
-		Total   int64      `gorm:"column:total"`
-		LastMod *time.Time `gorm:"column:last_mod"`
-	}
-	err := r.db.Table("seo_authors").
-		Select("COUNT(*) AS total, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
-		Scan(&row).Error
+	pages, err := r.GetAuthorSitemapLastModPerPage()
 	if err != nil {
 		return nil, err
 	}
-	summary := &SitemapSummary{}
-	if row.Total > 0 {
-		summary.TotalPages = int((row.Total-1)/int64(URLsPerSitemapPage)) + 1
-	}
-	if row.LastMod != nil {
-		summary.LastMod = *row.LastMod
-	}
-	return summary, nil
+	return sitemapSummaryFromPageLastMods(pages), nil
 }

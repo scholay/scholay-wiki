@@ -45,6 +45,7 @@ func (r *Repository) UpsertJournalDetail(seed *JournalSeed, slug, issnsJSON stri
 			updated_at = IF(
 				quality_tier = 2
 				OR canonical_name <> VALUES(canonical_name)
+				OR slug <> VALUES(slug)
 				OR (NULLIF(VALUES(publisher),'') IS NOT NULL
 				    AND LENGTH(VALUES(publisher)) > COALESCE(LENGTH(publisher),0))
 				OR (NULLIF(VALUES(issns_json),'') IS NOT NULL
@@ -56,7 +57,7 @@ func (r *Repository) UpsertJournalDetail(seed *JournalSeed, slug, issnsJSON stri
 			priority          = GREATEST(priority, 0.7),
 			view_count        = view_count + 1,
 			last_seen_at      = VALUES(last_seen_at),
-			slug              = IF(slug = '' AND VALUES(slug) <> '', VALUES(slug), slug),
+			slug              = IF(VALUES(slug) <> '', VALUES(slug), slug),
 			canonical_name    = VALUES(canonical_name),
 			publisher         = CASE
 				WHEN NULLIF(VALUES(publisher),'') IS NULL THEN publisher
@@ -107,6 +108,7 @@ func (r *Repository) UpsertJournalSeed(seed *JournalSeed, slug, issnsJSON string
 		ON DUPLICATE KEY UPDATE
 			updated_at = IF(
 				canonical_name <> VALUES(canonical_name)
+				OR slug <> VALUES(slug)
 				OR (NULLIF(VALUES(publisher),'') IS NOT NULL
 				    AND LENGTH(VALUES(publisher)) > COALESCE(LENGTH(publisher),0))
 				OR (NULLIF(VALUES(issns_json),'') IS NOT NULL
@@ -115,7 +117,7 @@ func (r *Repository) UpsertJournalSeed(seed *JournalSeed, slug, issnsJSON string
 				updated_at
 			),
 			last_seen_at      = VALUES(last_seen_at),
-			slug              = IF(slug = '' AND VALUES(slug) <> '', VALUES(slug), slug),
+			slug              = IF(VALUES(slug) <> '', VALUES(slug), slug),
 			canonical_name    = VALUES(canonical_name),
 			publisher         = CASE
 				WHEN NULLIF(VALUES(publisher),'') IS NULL THEN publisher
@@ -174,15 +176,15 @@ func (r *Repository) ListJournalSitemapPage(page int) ([]SitemapEntry, error) {
 		return nil, errors.New("page must be > 0")
 	}
 	var rows []struct {
-		JournalID   int64     `gorm:"column:journal_id"`
-		Slug        string    `gorm:"column:slug"`
-		UpdatedAt   time.Time `gorm:"column:updated_at"`
-		Priority    float64   `gorm:"column:priority"`
-		QualityTier int       `gorm:"column:quality_tier"`
+		JournalID     int64     `gorm:"column:journal_id"`
+		CanonicalName string    `gorm:"column:canonical_name"`
+		UpdatedAt     time.Time `gorm:"column:updated_at"`
+		Priority      float64   `gorm:"column:priority"`
+		QualityTier   int       `gorm:"column:quality_tier"`
 	}
-	err := r.db.Table("seo_journals").
-		Select("journal_id, slug, updated_at, priority, quality_tier").
-		Where("status = ? AND sitemap_page = ?", StatusActive, page).
+	err := r.journalSitemapRows().
+		Select("journal_id, canonical_name, updated_at, priority, quality_tier").
+		Where("sitemap_page = ?", page).
 		Order("id").
 		Find(&rows).Error
 	if err != nil {
@@ -191,7 +193,7 @@ func (r *Repository) ListJournalSitemapPage(page int) ([]SitemapEntry, error) {
 	out := make([]SitemapEntry, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, SitemapEntry{
-			Slug:        r.Slug,
+			Slug:        GenerateJournalSlug(r.CanonicalName),
 			EntityID:    formatJournalID(r.JournalID),
 			UpdatedAt:   r.UpdatedAt,
 			Priority:    r.Priority,
@@ -201,46 +203,34 @@ func (r *Repository) ListJournalSitemapPage(page int) ([]SitemapEntry, error) {
 	return out, nil
 }
 
-// GetJournalSitemapLastModPerPage 每个分页的最大 updated_at
-func (r *Repository) GetJournalSitemapLastModPerPage() (map[int]time.Time, error) {
-	var rows []struct {
-		Page    int       `gorm:"column:sitemap_page"`
-		LastMod time.Time `gorm:"column:last_mod"`
-	}
-	err := r.db.Table("seo_journals").
-		Select("sitemap_page, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
-		Group("sitemap_page").
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[int]time.Time, len(rows))
-	for _, r := range rows {
-		out[r.Page] = r.LastMod
-	}
-	return out, nil
+// journalSitemapRows 是期刊 leaf、主动提交与 sitemap index 共用的 eligibility
+// 单一真源。只有刊名的搜索曝光壳不进入 sitemap。
+func (r *Repository) journalSitemapRows() *gorm.DB {
+	return r.db.Table("seo_journals").Where(`
+		status = ?
+		AND journal_id > 0
+		AND TRIM(COALESCE(canonical_name, '')) <> ''
+		AND (
+			quality_tier = ?
+			OR TRIM(COALESCE(publisher, '')) <> ''
+			OR COALESCE(JSON_LENGTH(issns_json), 0) > 0
+			OR COALESCE(jcr_impact_factor, 0) > 0
+			OR COALESCE(openalex_h_index, 0) > 0
+		)
+	`, StatusActive, TierDetailClick)
 }
 
-// GetJournalSitemapSummary 返回期刊 sitemap 分页总数 + 最后修改时间
+// GetJournalSitemapLastModPerPage 返回每个真实非空分页的最大 updated_at。
+func (r *Repository) GetJournalSitemapLastModPerPage() (map[int]time.Time, error) {
+	return sitemapPageLastMods(r.journalSitemapRows())
+}
+
+// GetJournalSitemapSummary 返回真实非空 sitemap 分片数量和最后修改时间。
+// TotalPages 不能用于构造连续页号；真实页号取 GetJournalSitemapLastModPerPage 的 key。
 func (r *Repository) GetJournalSitemapSummary() (*SitemapSummary, error) {
-	var row struct {
-		Total   int64      `gorm:"column:total"`
-		LastMod *time.Time `gorm:"column:last_mod"`
-	}
-	err := r.db.Table("seo_journals").
-		Select("COUNT(*) AS total, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
-		Scan(&row).Error
+	pages, err := r.GetJournalSitemapLastModPerPage()
 	if err != nil {
 		return nil, err
 	}
-	summary := &SitemapSummary{}
-	if row.Total > 0 {
-		summary.TotalPages = int((row.Total-1)/int64(URLsPerSitemapPage)) + 1
-	}
-	if row.LastMod != nil {
-		summary.LastMod = *row.LastMod
-	}
-	return summary, nil
+	return sitemapSummaryFromPageLastMods(pages), nil
 }

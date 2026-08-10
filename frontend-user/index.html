@@ -267,12 +267,14 @@
     <!-- ───────── SEO 基础 meta(静态兜底)─────────
          非 JS 爬虫 / 百度首屏即可见;详情页由后端 SSR(handler_ssr.go)用正则替换 title/description/keywords。
          首页 RouteSEO(React 注入)与此处保持品牌词一致即可。 -->
-    <title>Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理</title>
+    <title data-seo-fallback="default">Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理</title>
     <meta
+      data-seo-fallback="default"
       name="description"
       content="Scholay学术(scholay)是 AI 驱动的一站式学术研究平台:智能论文搜索、AI 论文分析、AI 智能审稿、学者库、期刊查询、文献集管理与 LaTeX 在线写作。覆盖全球 2 亿+ 学术论文,助你高效科研。"
     />
     <meta
+      data-seo-fallback="default"
       name="keywords"
       content="Scholay,Scholay学术,Scholay科研,Scholay工具,Scholay AI,AI 学术工具,学术搜索,论文搜索,AI 论文分析,智能审稿,文献管理,期刊查询,学者库,LaTeX 在线编辑"
     />

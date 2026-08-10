@@ -119,7 +119,7 @@ func bareAuthorID(id string) string {
 // EnrichAuthorOnMiss 供 SSR 冷门作者 URL(seo 无行)现拉一次落库并返回 meta(M2)。拉不到返回 (nil,nil)。
 func (e *Enricher) EnrichAuthorOnMiss(ctx context.Context, source, authorID string) (*seo.AuthorSSRMeta, error) {
 	// 2026-07 线上审计:空 / 前缀后空 ID("pmd:")直接短路,不打上游(同 RunAuthorBackfill 口径)。
-	if bareAuthorID(authorID) == "" {
+	if bareAuthorID(authorID) == "" || !seo.IsCanonicalSource(source) {
 		return nil, nil
 	}
 	a, err := e.mc.GetAuthor(ctx, authorID, authorEnrichFields)
@@ -129,15 +129,20 @@ func (e *Enricher) EnrichAuthorOnMiss(ctx context.Context, source, authorID stri
 	if a == nil || strings.TrimSpace(a.Name) == "" {
 		return nil, nil // 失效/伪造 ID
 	}
-	// 先落一条基础行(搜索种子路径,tier-2 插入),再补机构/代表作。
+	canonicalID := strings.TrimSpace(a.AuthorID)
+	if canonicalID == "" {
+		canonicalID = authorID
+	}
+	canonicalSource := seo.AuthoritativeSource(a.Source, canonicalID)
+	// 先落一条基础行；source 只信上游/已归一 ID，不信 URL。
 	seed := seo.AuthorSeed{
-		AuthorID:      authorID,
+		AuthorID:      canonicalID,
 		Name:          a.Name,
 		Affiliations:  a.Affiliations,
 		Homepage:      a.Homepage,
 		PaperCount:    a.PaperCount,
 		CitationCount: a.CitationCount,
-		Source:        source,
+		Source:        canonicalSource,
 		ORCID:         a.ORCID,
 	}
 	if a.HIndex > 0 {
@@ -145,13 +150,14 @@ func (e *Enricher) EnrichAuthorOnMiss(ctx context.Context, source, authorID stri
 		seed.HIndex = &h
 	}
 	if _, err := e.svc.RecordAuthorSearchSeeds([]seo.AuthorSeed{seed}); err != nil {
-		slog.Warn("seoenrich: author on-miss record failed", "author_id", authorID, "err", err)
+		slog.Warn("seoenrich: author on-miss record failed", "author_id", canonicalID, "err", err)
+		return nil, err
 	}
 	// 补代表作(EnrichAuthor 走「更完整才覆盖」,不改 tier / 不推送)。
-	if _, err := e.enrichOneAuthor(ctx, authorID); err != nil {
-		slog.Warn("seoenrich: author on-miss enrich failed", "author_id", authorID, "err", err)
+	if _, err := e.enrichOneAuthor(ctx, canonicalID); err != nil {
+		slog.Warn("seoenrich: author on-miss enrich failed", "author_id", canonicalID, "err", err)
 	}
-	return e.svc.ResolveByAuthorID(source, authorID)
+	return e.svc.ResolveByAuthorID(canonicalSource, canonicalID)
 }
 
 // enrichOneAuthor 拉一个作者的完整元数据 + 代表作,补进 seo。返回是否补到实质内容(机构或代表作)。

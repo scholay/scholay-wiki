@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Author, Journal, Paper } from '@/shared/api/types';
+import { journalCanonicalPath } from '@/shared/lib/seo-paths';
 
 /**
  * 浏览器页签 store —— 浏览器 tabs 的心智模型。
@@ -93,7 +94,7 @@ export function browserTabUrl(tab: BrowserTab): string {
     return `/paper/${source}/${encodeURIComponent(tab.paper.paperId)}`;
   }
   if (tab.kind === 'journal') {
-    return `/journal/${tab.journal.id}`;
+    return journalCanonicalPath(tab.journal.id, tab.journal.seo_slug);
   }
   if (tab.kind === 'pdf') {
     return `/pdf/${tab.libPaperId}`;

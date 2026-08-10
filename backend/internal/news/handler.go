@@ -8,18 +8,19 @@
 package news
 
 import (
+	"encoding/xml"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/cache"
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -29,10 +30,13 @@ import (
 const deliveryLockTTL = 24 * time.Hour
 
 type Handler struct {
-	svc *Service
+	svc              *Service
+	sitemapEntriesFn func() ([]SitemapEntry, error)
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc, sitemapEntriesFn: svc.SitemapEntries}
+}
 
 // ─── webhook 接收 ──────────────────────────────────────────────────────────
 
@@ -203,21 +207,100 @@ func (h *Handler) GetDetailPublic(c *gin.Context) {
 // 由 news 自己提供(像 featuretool 的 tools sitemap),seo 索引只引用其 URL。
 func (h *Handler) ServeNewsSitemap(c *gin.Context) {
 	base := appconfig.CanonicalBaseURL()
-	entries, err := h.svc.SitemapEntries()
+	entriesFn := h.sitemapEntriesFn
+	if entriesFn == nil && h.svc != nil {
+		entriesFn = h.svc.SitemapEntries
+	}
+	if entriesFn == nil {
+		slog.Error("news: sitemap entries provider is not configured")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	entries, err := entriesFn()
 	if err != nil {
-		slog.Warn("news: sitemap entries failed", "err", err)
+		slog.Error("news: sitemap entries failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
-	var b strings.Builder
-	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
-	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
-	for _, e := range entries {
-		fmt.Fprintf(&b,
-			"  <url>\n    <loc>%s/news/%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>\n",
-			base, e.Slug, e.LastMod)
+	body, err := marshalNewsSitemap(base, entries)
+	if err != nil {
+		slog.Error("news: marshal sitemap failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
-	b.WriteString(`</urlset>` + "\n")
-	c.Header("Content-Type", "application/xml; charset=utf-8")
-	c.String(http.StatusOK, b.String())
+	c.Data(http.StatusOK, "application/xml; charset=utf-8", body)
+}
+
+type newsSitemapURLSet struct {
+	XMLName xml.Name         `xml:"urlset"`
+	XMLNS   string           `xml:"xmlns,attr"`
+	URLs    []newsSitemapURL `xml:"url"`
+}
+
+type newsSitemapURL struct {
+	Loc        string `xml:"loc"`
+	LastMod    string `xml:"lastmod,omitempty"`
+	ChangeFreq string `xml:"changefreq"`
+	Priority   string `xml:"priority"`
+}
+
+func newsSitemapLocation(base, slug string) string {
+	return strings.TrimRight(base, "/") + "/news/" + url.PathEscape(slug)
+}
+
+func marshalNewsSitemap(base string, entries []SitemapEntry) ([]byte, error) {
+	validEntries := make([]SitemapEntry, 0, len(entries))
+	for _, entry := range entries {
+		// Service 已经过滤，handler 再校验一次，防止未来替换 provider 时
+		// 把历史脏数据或多段路径重新带回 sitemap。
+		if isValidNewsSlug(entry.Slug) {
+			validEntries = append(validEntries, entry)
+		}
+	}
+	// 防御性封顶：provider 可被测试/未来实现替换，handler 仍必须保证
+	// hub + details 总数不超过 sitemap 协议的 50,000 URL。
+	if len(validEntries) > 49999 {
+		validEntries = validEntries[:49999]
+	}
+	set := newsSitemapURLSet{
+		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
+		URLs:  make([]newsSitemapURL, 0, len(validEntries)+1),
+	}
+	// The hub is a canonical, crawlable discovery page, but only publish it
+	// while the feature has at least one eligible article.  This avoids both a
+	// permanently undiscoverable /news page and an empty thin hub when news is
+	// disabled.
+	if len(validEntries) > 0 {
+		lastMod := ""
+		for _, entry := range validEntries {
+			if entry.LastMod > lastMod {
+				lastMod = entry.LastMod
+			}
+		}
+		set.URLs = append(set.URLs, newsSitemapURL{
+			Loc:        strings.TrimRight(base, "/") + "/news",
+			LastMod:    lastMod,
+			ChangeFreq: "daily",
+			Priority:   "0.8",
+		})
+	}
+	for _, entry := range validEntries {
+		set.URLs = append(set.URLs, newsSitemapURL{
+			Loc:        newsSitemapLocation(base, entry.Slug),
+			LastMod:    entry.LastMod,
+			ChangeFreq: "daily",
+			Priority:   "0.7",
+		})
+	}
+	payload, err := xml.MarshalIndent(set, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	body := make([]byte, 0, len(xml.Header)+len(payload)+1)
+	body = append(body, xml.Header...)
+	body = append(body, payload...)
+	body = append(body, '\n')
+	return body, nil
 }
 
 // ─── admin 配置 ────────────────────────────────────────────────────────────

@@ -11,7 +11,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -25,15 +28,51 @@ import (
 var (
 	ErrNotFound  = errors.New("featuretool: tool not found")
 	ErrNameEmpty = errors.New("featuretool: name is required")
+	ErrSEOReview = errors.New("featuretool: SEO approval requirements not met")
 )
 
 type Service struct {
-	repo *Repository
-	disp *Dispatcher
+	repo      *Repository
+	disp      *Dispatcher
+	submitter PushSubmitter
 }
 
 func NewService(repo *Repository, disp *Dispatcher) *Service {
 	return &Service{repo: repo, disp: disp}
+}
+
+// PushSubmitter is implemented by seosubmit.Service. Feature tools keep this
+// interface local so the catalogue package does not depend on the submission
+// implementation (or on a particular search engine).
+type PushSubmitter interface {
+	EnqueuePaths(ctx context.Context, paths []string)
+}
+
+// SetPushSubmitter wires approved tool changes into the same canonical URL
+// queue used by papers/authors/news. It is optional in tests and local tooling.
+func (s *Service) SetPushSubmitter(p PushSubmitter) { s.submitter = p }
+
+func (s *Service) enqueueToolPaths(slugs ...string) {
+	if s.submitter == nil {
+		return
+	}
+	seen := make(map[string]struct{}, len(slugs))
+	paths := make([]string, 0, len(slugs))
+	for _, slug := range slugs {
+		slug = strings.TrimSpace(slug)
+		if slug == "" {
+			continue
+		}
+		path := "/tools/" + url.PathEscape(slug)
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		paths = append(paths, path)
+	}
+	if len(paths) > 0 {
+		s.submitter.EnqueuePaths(context.Background(), paths)
+	}
 }
 
 // ── 公开/后台查询 ────────────────────────────────────────────────────────────
@@ -53,7 +92,11 @@ func (s *Service) GetPublic(idOrSlug string) (*Tool, error) {
 	var t *Tool
 	var err error
 	if isAllDigits(idOrSlug) {
-		t, err = s.repo.GetByID(parseUint64(idOrSlug))
+		id, ok := parseNumericToolID(idOrSlug)
+		if !ok {
+			return nil, ErrNotFound
+		}
+		t, err = s.repo.GetByID(id)
 	} else {
 		t, err = s.repo.GetBySlug(idOrSlug)
 	}
@@ -96,6 +139,9 @@ func (s *Service) Create(t *Tool, adminID *uint) (*Tool, error) {
 	}
 	t.Slug = slug
 	t.CreatedBy = adminID
+	if err := applySEOReview(t, false, adminID); err != nil {
+		return nil, err
+	}
 	if t.Status == "published" && t.PublishedAt == nil {
 		now := time.Now()
 		t.PublishedAt = &now
@@ -104,10 +150,13 @@ func (s *Service) Create(t *Tool, adminID *uint) (*Tool, error) {
 		return nil, err
 	}
 	s.disp.Dispatch(EventCreated, t)
+	if t.SEOIndexable {
+		s.enqueueToolPaths(t.Slug)
+	}
 	return t, nil
 }
 
-func (s *Service) Update(id uint64, t *Tool) (*Tool, error) {
+func (s *Service) Update(id uint64, t *Tool, adminID *uint) (*Tool, error) {
 	existing, err := s.repo.GetByID(id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
@@ -130,6 +179,11 @@ func (s *Service) Update(id uint64, t *Tool) (*Tool, error) {
 	t.CreatedAt = existing.CreatedAt
 	t.ViewCount = existing.ViewCount
 	t.FavoriteCount = existing.FavoriteCount
+	t.SEOReviewedAt = existing.SEOReviewedAt
+	t.SEOReviewedBy = existing.SEOReviewedBy
+	if err := applySEOReview(t, existing.SEOIndexable, adminID); err != nil {
+		return nil, err
+	}
 	if t.Status == "published" && existing.PublishedAt == nil {
 		now := time.Now()
 		t.PublishedAt = &now
@@ -140,6 +194,12 @@ func (s *Service) Update(id uint64, t *Tool) (*Tool, error) {
 		return nil, err
 	}
 	s.disp.Dispatch(EventUpdated, t)
+	if existing.SEOIndexable || t.SEOIndexable {
+		// Submit both paths when an approved slug changes. The old URL must be
+		// revisited to observe its 404/redirect and the new canonical must be
+		// discovered without waiting for sitemap cache expiry.
+		s.enqueueToolPaths(existing.Slug, t.Slug)
+	}
 	return t, nil
 }
 
@@ -156,6 +216,9 @@ func (s *Service) Delete(id uint64) error {
 	}
 	// deleted 事件下游靠 id/slug/source_topic_id 定位要删的帖子
 	s.disp.Dispatch(EventDeleted, &Tool{ID: t.ID, Slug: t.Slug, Name: t.Name, SourceTopicID: t.SourceTopicID})
+	if t.SEOIndexable {
+		s.enqueueToolPaths(t.Slug)
+	}
 	return nil
 }
 
@@ -323,6 +386,12 @@ func (s *Service) upsertOne(t *Tool, adminID *uint, notify bool) (string, error)
 		t.CreatedAt = existing.CreatedAt
 		t.ViewCount = existing.ViewCount
 		t.FavoriteCount = existing.FavoriteCount
+		// An automated import invalidates the editorial decision, even when the tool
+		// stays published. Changed content must be reviewed again before re-entering
+		// the sitemap.
+		t.SEOIndexable = false
+		t.SEOReviewedAt = nil
+		t.SEOReviewedBy = nil
 		if t.Status == "published" && existing.PublishedAt == nil {
 			now := time.Now()
 			t.PublishedAt = &now
@@ -335,6 +404,11 @@ func (s *Service) upsertOne(t *Tool, adminID *uint, notify bool) (string, error)
 		if notify {
 			s.disp.Dispatch(EventUpdated, t)
 		}
+		if existing.SEOIndexable {
+			// Imports deliberately revoke editorial approval. Ask engines to
+			// revisit the formerly indexable URL and observe noindex promptly.
+			s.enqueueToolPaths(existing.Slug, t.Slug)
+		}
 		return "updated", nil
 	}
 
@@ -345,6 +419,9 @@ func (s *Service) upsertOne(t *Tool, adminID *uint, notify bool) (string, error)
 	t.ID = 0
 	t.Slug = slug
 	t.CreatedBy = adminID
+	t.SEOIndexable = false
+	t.SEOReviewedAt = nil
+	t.SEOReviewedBy = nil
 	if t.Status == "published" && t.PublishedAt == nil {
 		now := time.Now()
 		t.PublishedAt = &now
@@ -356,6 +433,76 @@ func (s *Service) upsertOne(t *Tool, adminID *uint, notify bool) (string, error)
 		s.disp.Dispatch(EventCreated, t)
 	}
 	return "created", nil
+}
+
+// applySEOReview enforces the objective minimum contract before an administrator
+// can expose a tool to search engines. It deliberately does not infer approval
+// from `published`: imported catalogue records remain product-visible but noindex.
+func applySEOReview(t *Tool, wasIndexable bool, adminID *uint) error {
+	if !t.SEOIndexable {
+		if wasIndexable {
+			now := time.Now()
+			t.SEOReviewedAt = &now
+			t.SEOReviewedBy = adminID
+		}
+		// false -> false is a normal edit of an already non-indexable row.
+		// Preserve the last explicit approval/revocation audit copied from the
+		// database instead of silently erasing who made that decision.
+		return nil
+	}
+	if adminID == nil {
+		return ErrSEOReview
+	}
+	if t.Status != "published" ||
+		isAllDigits(t.Slug) ||
+		!isPublicHTTPURL(t.OfficialURL) ||
+		len([]rune(strings.TrimSpace(t.DescriptionMD))) < 120 ||
+		t.DataQuality == nil ||
+		!t.DataQuality.Enriched ||
+		t.DataQuality.NeedsReview ||
+		len(t.DataQuality.NeedsEnrich) > 0 ||
+		!hasPublicSource(t.DataQuality.Sources) ||
+		countSubstantiveUseCases(t.UseCases) < 2 {
+		return ErrSEOReview
+	}
+	now := time.Now()
+	t.SEOReviewedAt = &now
+	t.SEOReviewedBy = adminID
+	return nil
+}
+
+func isPublicHTTPURL(raw string) bool {
+	u, err := url.ParseRequestURI(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
+		return false
+	}
+	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if host == "" || host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return !ip.IsPrivate() && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() && !ip.IsUnspecified()
+	}
+	return true
+}
+
+func hasPublicSource(sources []string) bool {
+	for _, source := range sources {
+		if isPublicHTTPURL(source) {
+			return true
+		}
+	}
+	return false
+}
+
+func countSubstantiveUseCases(items []UseCase) int {
+	count := 0
+	for _, item := range items {
+		if strings.TrimSpace(item.Title) != "" && len([]rune(strings.TrimSpace(item.Desc))) >= 12 {
+			count++
+		}
+	}
+	return count
 }
 
 // ── 规范化 + slug ────────────────────────────────────────────────────────────
@@ -393,13 +540,20 @@ func slugify(s string) string {
 }
 
 // ensureUniqueSlug 选定一个全局唯一 slug。优先 provided → name_en → name → 源topic回退。
-// reservedToolSlugs: 移动端 /m/tools/* 的保留路由段(all=功能广场列表, pc=「建议电脑端使用」引导),
-// 不能作为工具 slug —— 否则 /m/tools/all 之类会被静态路由遮蔽,该工具详情页永远打不开。
+// reservedToolSlugs: 桌面/移动工具子路由的保留段（skills=社区技能，all=功能
+// 广场列表，pc=「建议电脑端使用」引导），不能作为工具 slug；否则 sitemap 会
+// 指向一个被静态路由遮蔽的错误页面。
 // 命中则在 ensureUniqueSlug 里视作「已占用」自动退避到 base-2(如 "all" → "all-2")。
-var reservedToolSlugs = map[string]bool{"all": true, "pc": true}
+var reservedToolSlugs = map[string]bool{"all": true, "pc": true, "skills": true}
 
 func (s *Service) ensureUniqueSlug(provided, name, nameEn string, topicID *int64, exceptID uint64) (string, error) {
 	base := slugify(provided)
+	// Numeric path segments are ambiguous with the public detail endpoint's
+	// legacy ID fallback, so they are never valid slugs. Migration 0121 rewrites
+	// the historical numeric rows before any page can be approved.
+	if isAllDigits(base) {
+		base = ""
+	}
 	if base == "" {
 		base = slugify(nameEn)
 	}
@@ -429,10 +583,10 @@ func (s *Service) ensureUniqueSlug(provided, name, nameEn string, topicID *int64
 // ── Webhook 管理 (转发给 repo, dispatcher 测试用) ─────────────────────────────
 
 func (s *Service) ListWebhooks() ([]Webhook, error)       { return s.repo.ListWebhooks() }
-func (s *Service) CreateWebhook(w *Webhook) error          { return s.repo.CreateWebhook(w) }
-func (s *Service) SaveWebhook(w *Webhook) error            { return s.repo.SaveWebhook(w) }
-func (s *Service) DeleteWebhook(id uint64) error           { return s.repo.DeleteWebhook(id) }
-func (s *Service) GetWebhook(id uint64) (*Webhook, error)  { return s.repo.GetWebhook(id) }
+func (s *Service) CreateWebhook(w *Webhook) error         { return s.repo.CreateWebhook(w) }
+func (s *Service) SaveWebhook(w *Webhook) error           { return s.repo.SaveWebhook(w) }
+func (s *Service) DeleteWebhook(id uint64) error          { return s.repo.DeleteWebhook(id) }
+func (s *Service) GetWebhook(id uint64) (*Webhook, error) { return s.repo.GetWebhook(id) }
 func (s *Service) ListDeliveries(id uint64, n int) ([]WebhookDelivery, error) {
 	return s.repo.ListDeliveries(id, n)
 }
@@ -452,9 +606,20 @@ func (s *Service) GetJob(id uint64) (*ImportJob, error) { return s.repo.GetJob(i
 // ── SEO ──────────────────────────────────────────────────────────────────────
 
 // ResolveToolBySlug 实现 config.ToolSEOProvider —— 工具详情页 /tools/{slug} 的 SSR 元数据。
-// 仅已上线工具返回;不存在 / 未上线 → (nil, nil) 让 SSR 走通用兜底。
+// 公开 API 历史上也接受 /tools/{numeric-id}；SSR 必须用同一解析规则找到该行，
+// 再由 handler 统一 301 到权威 slug。仅已上线工具返回。
 func (s *Service) ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error) {
-	t, err := s.repo.GetBySlug(slug)
+	var t *Tool
+	var err error
+	if isAllDigits(slug) {
+		id, ok := parseNumericToolID(slug)
+		if !ok {
+			return nil, nil
+		}
+		t, err = s.repo.GetByID(id)
+	} else {
+		t, err = s.repo.GetBySlug(slug)
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -463,6 +628,40 @@ func (s *Service) ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error) {
 	}
 	if t == nil || t.Status != "published" {
 		return nil, nil
+	}
+	return toolSSRMeta(t), nil
+}
+
+// ListIndexableToolsForSEO supplies the public /tools SSR hub with real,
+// crawlable internal links. The repository applies the exact same editorial
+// eligibility scope as the tool sitemap.
+func (s *Service) ListIndexableToolsForSEO(limit int) ([]*seo.ToolSSRMeta, error) {
+	tools, err := s.repo.ListIndexableForSEO(limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*seo.ToolSSRMeta, 0, len(tools))
+	for i := range tools {
+		out = append(out, toolSSRMeta(&tools[i]))
+	}
+	return out, nil
+}
+
+func toolSSRMeta(t *Tool) *seo.ToolSSRMeta {
+	if t == nil {
+		return nil
+	}
+	useCases := make([]seo.ToolUseCaseMeta, 0, len(t.UseCases))
+	for _, item := range t.UseCases {
+		if strings.TrimSpace(item.Title) != "" {
+			useCases = append(useCases, seo.ToolUseCaseMeta{Title: item.Title, Desc: item.Desc})
+		}
+	}
+	faq := make([]seo.ToolQAMeta, 0, len(t.FAQ))
+	for _, item := range t.FAQ {
+		if strings.TrimSpace(item.Q) != "" && strings.TrimSpace(item.A) != "" {
+			faq = append(faq, seo.ToolQAMeta{Question: item.Q, Answer: item.A})
+		}
 	}
 	return &seo.ToolSSRMeta{
 		Slug:          t.Slug,
@@ -475,7 +674,11 @@ func (s *Service) ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error) {
 		Tags:          t.Tags,
 		AccessType:    t.AccessType,
 		PriceType:     t.PriceType,
-	}, nil
+		OfficialURL:   t.OfficialURL,
+		SEOIndexable:  t.SEOIndexable,
+		UseCases:      useCases,
+		FAQ:           faq,
+	}
 }
 
 // SitemapCount 已上线工具总数 + 最近更新时间(给 sitemap 索引算页数 + lastmod)。
@@ -484,17 +687,21 @@ func (s *Service) SitemapCount() (int64, time.Time, error) { return s.repo.Sitem
 // SitemapPages 返回工具 sitemap 的分片总数 + 最新 lastmod(YYYY-MM-DD 粒度)。
 // 供 seo 主 sitemap 索引「直接列出各叶子分片 /sitemap-tools-N.xml」用 —— 避免主索引引用
 // /sitemap-tools.xml(索引套索引,协议/Google 不递归)。分片数用与 sitemap.go 同一个
-// toolSitemapPageSize 计算,单一真源。无数据 / 出错时返回 (0, ""),索引层据此不列任何分片。
-func (s *Service) SitemapPages() (int, string) {
+// toolSitemapPageSize 计算,单一真源。无数据返回 (0, "", nil)；
+// 仓储错误必须上抛，主 sitemap 应返回 5xx，不能缓存一份静默丢失全部工具分片的 200 索引。
+func (s *Service) SitemapPages() (int, string, error) {
 	count, lastMod, err := s.repo.SitemapCount()
-	if err != nil || count <= 0 {
-		return 0, ""
+	if err != nil {
+		return 0, "", err
+	}
+	if count <= 0 {
+		return 0, "", nil
 	}
 	pages := int((count + toolSitemapPageSize - 1) / toolSitemapPageSize)
 	if pages < 1 {
 		pages = 1
 	}
-	return pages, lastMod.Format("2006-01-02")
+	return pages, lastMod.Format("2006-01-02"), nil
 }
 
 // SitemapPage 第 page 页(1-based)已上线工具的 slug + updated_at,按 id 升序稳定分页。
@@ -516,10 +723,13 @@ func isAllDigits(s string) bool {
 	return true
 }
 
-func parseUint64(s string) uint64 {
-	var n uint64
-	for _, r := range s {
-		n = n*10 + uint64(r-'0')
+func parseNumericToolID(s string) (uint64, bool) {
+	if !isAllDigits(s) {
+		return 0, false
 	}
-	return n
+	id, err := strconv.ParseUint(s, 10, 64)
+	if err != nil || id == 0 {
+		return 0, false
+	}
+	return id, true
 }

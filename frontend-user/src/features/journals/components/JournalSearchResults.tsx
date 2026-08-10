@@ -14,7 +14,6 @@ import { EmptyState } from '@/shared/components/EmptyState';
 import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
 import { cn } from '@/shared/lib/utils';
 import { useOpenJournalInBrowser } from '@/shared/hooks';
-import { exposeJournals } from '@/shared/api/seo';
 import { useJournalSearch, useJournalStats, type Journal } from '../api/journals';
 import type { JournalFilters } from '../types';
 import { JournalCover } from '@/shared/components/JournalCover';
@@ -92,13 +91,6 @@ export function JournalSearchResults({
 
   const items = searchQ.data?.items ?? [];
   const hasMore = !!searchQ.data?.has_more;
-
-  // 搜索结果落定后批量曝光为 tier=2 SEO seed (sendBeacon, best-effort, 不阻塞)。
-  // 用 items 引用变化做触发器: useJournalSearch 内部 react-query 缓存命中时 items
-  // 是同一对象, useEffect 不重复触发, 不会刷一次面板就重复 POST。
-  useEffect(() => {
-    if (items.length > 0) exposeJournals(items);
-  }, [items]);
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();

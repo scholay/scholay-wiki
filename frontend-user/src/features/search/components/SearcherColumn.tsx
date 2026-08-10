@@ -6,11 +6,6 @@ import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store'
 import { extractPapers, useSearchPapers, type Paper, type UpstreamSource } from '../api/papers';
 import { useFavoriteCheck } from '../api/library';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
-import {
-  exposeAuthors,
-  exposePapers,
-  extractAuthorsFromPapers,
-} from '@/shared/api/seo';
 import { useSearchVisiblePapers } from '@/stores/search-visible-papers.store';
 import { PaperResultCard } from '@/shared/components/PaperResultCard';
 import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
@@ -153,16 +148,6 @@ export function SearcherColumn({
   useEffect(() => {
     setVisiblePapers(papers);
   }, [papers, setVisiblePapers]);
-
-  // SEO tier=2 长尾种子: papers 落定后批量曝光 papers + 去重的作者 (mirror 旧前端
-  // useSearchState 的合并 expose 逻辑)。sendBeacon, best-effort, 不阻塞。
-  // 依赖 [papers] 即可: react-query 缓存命中时 items 是同一引用, 不重复 POST。
-  useEffect(() => {
-    if (papers.length === 0) return;
-    exposePapers(papers);
-    const authors = extractAuthorsFromPapers(papers);
-    if (authors.length > 0) exposeAuthors(authors);
-  }, [papers]);
 
   // 当前页所有 paperId,批量查"哪些已收藏",卡片用稳定的 Set 判断
   // 引用稳定化:papers 变化才重算,memo 后避免每次父级 re-render 都重建 Set

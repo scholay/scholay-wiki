@@ -97,8 +97,10 @@ type RawRecommendationResult struct {
 }
 
 // RawAutocompleteItem 兼容 STC / OLX 两种 autocomplete item 形态:
-//   STC (SemanticAutocompleteItem): { id, title }
-//   OLX (AutocompleteItem):         { id, display_name, hint, ... }
+//
+//	STC (SemanticAutocompleteItem): { id, title }
+//	OLX (AutocompleteItem):         { id, display_name, hint, ... }
+//
 // 上游字段名不同 —— STC 用 title, OLX 用 display_name。Label() 取二者非空者,
 // 修掉了"OLX 联想结果标题全空"的 bug。
 type RawAutocompleteItem struct {
@@ -128,28 +130,28 @@ type RawBulkSearchResult struct {
 
 // Paper matches the existing frontend Paper contract
 type Paper struct {
-	PaperID          string             `json:"paperId,omitempty"`
-	CorpusID         int64              `json:"corpusId,omitempty"`
-	Title            string             `json:"title,omitempty"`
-	Abstract         string             `json:"abstract,omitempty"`
-	Year             int                `json:"year,omitempty"`
-	PublicationDate  string             `json:"publicationDate,omitempty"`
-	Venue            string             `json:"venue,omitempty"`
-	URL              string             `json:"url,omitempty"`
-	CitationCount    int                `json:"citationCount,omitempty"`
-	ReferenceCount   int                `json:"referenceCount,omitempty"`
-	InfluentialCount int                `json:"influentialCitationCount,omitempty"`
-	IsOpenAccess     bool               `json:"isOpenAccess,omitempty"`
-	OpenAccessPDF    *OpenAccessPDF     `json:"openAccessPdf,omitempty"`
-	FieldsOfStudy    []string           `json:"fieldsOfStudy,omitempty"`
-	S2FieldsOfStudy  []S2FieldOfStudy   `json:"s2FieldsOfStudy,omitempty"`
-	Authors          []Author           `json:"authors,omitempty"`
-	ExternalIDs      map[string]any     `json:"externalIds,omitempty"`
-	TLDR             *TLDR              `json:"tldr,omitempty"`
+	PaperID          string           `json:"paperId,omitempty"`
+	CorpusID         int64            `json:"corpusId,omitempty"`
+	Title            string           `json:"title,omitempty"`
+	Abstract         string           `json:"abstract,omitempty"`
+	Year             int              `json:"year,omitempty"`
+	PublicationDate  string           `json:"publicationDate,omitempty"`
+	Venue            string           `json:"venue,omitempty"`
+	URL              string           `json:"url,omitempty"`
+	CitationCount    int              `json:"citationCount,omitempty"`
+	ReferenceCount   int              `json:"referenceCount,omitempty"`
+	InfluentialCount int              `json:"influentialCitationCount,omitempty"`
+	IsOpenAccess     bool             `json:"isOpenAccess,omitempty"`
+	OpenAccessPDF    *OpenAccessPDF   `json:"openAccessPdf,omitempty"`
+	FieldsOfStudy    []string         `json:"fieldsOfStudy,omitempty"`
+	S2FieldsOfStudy  []S2FieldOfStudy `json:"s2FieldsOfStudy,omitempty"`
+	Authors          []Author         `json:"authors,omitempty"`
+	ExternalIDs      map[string]any   `json:"externalIds,omitempty"`
+	TLDR             *TLDR            `json:"tldr,omitempty"`
 	// BibTeX:api-1.json 的 Paper 直供的可引用条目(prism 引用接地 / 前端「复制引用」可直接用)。
-	BibTeX           string             `json:"bibtex,omitempty"`
-	Journal          *JournalRef        `json:"journal,omitempty"`
-	Source           string             `json:"source,omitempty"`
+	BibTeX  string      `json:"bibtex,omitempty"`
+	Journal *JournalRef `json:"journal,omitempty"`
+	Source  string      `json:"source,omitempty"`
 	// IsFavorited 仅在「已登录」请求时由 handler 后置标注(在共享缓存命中之后,逐请求标注,
 	// 不污染按 query 缓存的公共结果);匿名请求省略。供搜索结果直接显示「已收藏」,省一次 /library/check。
 	IsFavorited *bool `json:"isFavorited,omitempty"`
@@ -328,21 +330,21 @@ type PaperDetailsOptions struct {
 
 // Journal represents a journal entry from JNL API
 type Journal struct {
-	ID                int                `json:"id"`
-	CanonicalName     string             `json:"canonical_name"`
-	ISSNs             []string           `json:"issns,omitempty"`
-	Publisher         string             `json:"publisher,omitempty"`
-	Country           string             `json:"country,omitempty"`
-	Type              string             `json:"type,omitempty"`
-	IsOA              bool               `json:"is_oa,omitempty"`
-	JCRImpactFactor   float64            `json:"jcr_impact_factor,omitempty"`
-	JCRQuartile       string             `json:"jcr_quartile,omitempty"`
-	FQBQuartile       string             `json:"fqb_quartile,omitempty"`
-	CCFRank           string             `json:"ccf_rank,omitempty"`
-	OpenAlexHIndex    int                `json:"openalex_h_index,omitempty"`
-	GJQKWarning       bool               `json:"gjqk_warning,omitempty"`
-	SourceCount       int                `json:"source_count,omitempty"`
-	Sources           map[string]any     `json:"sources,omitempty"`
+	ID              int            `json:"id"`
+	CanonicalName   string         `json:"canonical_name"`
+	ISSNs           []string       `json:"issns,omitempty"`
+	Publisher       string         `json:"publisher,omitempty"`
+	Country         string         `json:"country,omitempty"`
+	Type            string         `json:"type,omitempty"`
+	IsOA            bool           `json:"is_oa,omitempty"`
+	JCRImpactFactor float64        `json:"jcr_impact_factor,omitempty"`
+	JCRQuartile     string         `json:"jcr_quartile,omitempty"`
+	FQBQuartile     string         `json:"fqb_quartile,omitempty"`
+	CCFRank         string         `json:"ccf_rank,omitempty"`
+	OpenAlexHIndex  int            `json:"openalex_h_index,omitempty"`
+	GJQKWarning     bool           `json:"gjqk_warning,omitempty"`
+	SourceCount     int            `json:"source_count,omitempty"`
+	Sources         map[string]any `json:"sources,omitempty"`
 }
 
 // JournalSearchOptions 期刊搜索过滤参数 —— 对齐上游 /v1/jnl/search 全量字段(api-1.json 2440-2580)。
@@ -374,12 +376,12 @@ type JournalSearchOptions struct {
 	MinCommentCount  int     `json:"min_comment_count,omitempty"`
 	CountMode        string  `json:"count_mode,omitempty"`
 	MinSources       int     `json:"min_sources,omitempty"` // 最少数据源覆盖数
-	HasSources          string  `json:"has_sources,omitempty"`     // 命中的数据源逗号分隔
-	GJQKWarning         string  `json:"gjqk_warning,omitempty"`
-	SortBy              string  `json:"sort_by,omitempty"`  // 排序字段(jcr_impact_factor_num / scimago_sjr_num 等)
-	SortDir             string  `json:"sort_dir,omitempty"` // asc / desc
-	Fields              string  `json:"fields,omitempty"`   // 返回字段裁剪,逗号分隔
-	Full                string  `json:"full,omitempty"`
+	HasSources       string  `json:"has_sources,omitempty"` // 命中的数据源逗号分隔
+	GJQKWarning      string  `json:"gjqk_warning,omitempty"`
+	SortBy           string  `json:"sort_by,omitempty"`  // 排序字段(jcr_impact_factor_num / scimago_sjr_num 等)
+	SortDir          string  `json:"sort_dir,omitempty"` // asc / desc
+	Fields           string  `json:"fields,omitempty"`   // 返回字段裁剪,逗号分隔
+	Full             string  `json:"full,omitempty"`
 }
 
 // JournalListOptions contains options for journal listing
@@ -489,7 +491,20 @@ func isSpamPaper(raw RawPaper) bool {
 // so that downstream GetPaper/GetAuthor calls can route to the correct endpoint.
 // IDs from STC (Semantic Scholar) are left as-is since they're the default.
 func normalizeID(id, source string) string {
-	if source != "" && source != SourceSTC && !strings.Contains(id, ":") {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	source = canonicalPaperSource(strings.ToLower(strings.TrimSpace(source)))
+	// PMD search 的 API 契约返回 pubmed:<PMID>；内部和 canonical URL
+	// 只保留 pmd:<PMID> 一种形态。已知前缀与端点冲突时，端点是真源。
+	for _, prefix := range []string{SourceSTC + ":", SourceOLX + ":", SourcePMD + ":", "pubmed:"} {
+		if strings.HasPrefix(id, prefix) {
+			id = strings.TrimPrefix(id, prefix)
+			break
+		}
+	}
+	if source != SourceSTC {
 		return source + ":" + id
 	}
 	return id

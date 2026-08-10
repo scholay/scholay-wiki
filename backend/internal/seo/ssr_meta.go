@@ -44,6 +44,11 @@ type PaperSSRMeta struct {
 	// 让 AI 生成式引擎能引用可量化的论文权威度与领域。CitationCount 为 0 时不渲染。
 	CitationCount int
 	FieldsOfStudy []string
+	// SEOInactive means the durable SEO row was explicitly hidden/retired. A
+	// missing row is different: it can be a legitimate deep link that has not
+	// yet entered the SEO cache.
+	SEOInactive  bool
+	SEOIndexable bool
 }
 
 // AuthorWork 作者代表作(一篇论文的精简信息),供 SSR noscript 内链 + JSON-LD。
@@ -68,6 +73,8 @@ type AuthorSSRMeta struct {
 	HIndex        *int
 	ORCID         string       // 裸 iD;非空则进 ProfilePage 的 sameAs(权威身份信号)
 	Works         []AuthorWork // 代表作(seoenrich 回填);noscript 列表 + 内链论文页
+	SEOInactive   bool
+	SEOIndexable  bool
 }
 
 // JournalSSRMeta 期刊 SSR 注入所需的最小元数据集
@@ -88,6 +95,8 @@ type JournalSSRMeta struct {
 	JCRImpactFactor float64
 	JCRQuartile     string
 	OpenAlexHIndex  *int
+	SEOInactive     bool
+	SEOIndexable    bool
 }
 
 // ToolSSRMeta 功能广场工具详情页 (/tools/{slug}) 的 SSR 元数据。
@@ -104,6 +113,20 @@ type ToolSSRMeta struct {
 	Tags          []string
 	AccessType    string
 	PriceType     string
+	OfficialURL   string
+	SEOIndexable  bool
+	UseCases      []ToolUseCaseMeta
+	FAQ           []ToolQAMeta
+}
+
+type ToolUseCaseMeta struct {
+	Title string
+	Desc  string
+}
+
+type ToolQAMeta struct {
+	Question string
+	Answer   string
 }
 
 // NewsSourceMeta 情报来源(SSR / JSON-LD 用)。
@@ -131,7 +154,8 @@ type NewsSSRMeta struct {
 }
 
 // ResolveSlug 老 /paper/{slug} 直接根据 slug 反查, 返回 SSR meta (legacy 301 流量)。
-// 返回 (nil, nil) 表示 slug 不存在 — handler 走 404 路径。
+// 返回 (nil, nil) 只表示 SEO 缓存未命中，不能证明上游实体不存在。canonical
+// 两段深链在未启用权威 on-miss resolver 时必须保留 200+noindex，避免误伤真实体。
 func (s *Service) ResolveSlug(slug string) (*PaperSSRMeta, error) {
 	p, err := s.GetBySlug(slug)
 	if err != nil || p == nil {
@@ -175,8 +199,11 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 		return nil, err
 	}
 	meta := &JournalSSRMeta{
-		JournalID:       j.JournalID,
-		Slug:            j.Slug,
+		JournalID: j.JournalID,
+		// Slug is derived from the current canonical name, just like the
+		// frontend helper and sitemap renderer. The persisted column is only a
+		// write-time cache and may predate a journal rename.
+		Slug:            GenerateJournalSlug(j.CanonicalName),
 		CanonicalName:   j.CanonicalName,
 		Publisher:       j.Publisher,
 		Country:         j.Country,
@@ -184,6 +211,8 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 		IsOA:            j.IsOA,
 		JCRImpactFactor: j.JCRImpactFactor,
 		JCRQuartile:     j.JCRQuartile,
+		SEOInactive:     j.Status != StatusActive,
+		SEOIndexable:    journalRowIndexable(j),
 	}
 	if j.OpenAlexHIndex != nil {
 		h := *j.OpenAlexHIndex
@@ -208,6 +237,8 @@ func paperSSRMetaFromRow(p *SEOPaper) *PaperSSRMeta {
 		Venue:         p.Venue,
 		DOI:           p.DOI,
 		CitationCount: p.CitationCount,
+		SEOInactive:   p.Status != StatusActive,
+		SEOIndexable:  paperRowIndexable(p),
 	}
 	if p.Year != nil {
 		y := *p.Year
@@ -251,6 +282,8 @@ func authorSSRMetaFromRow(au *SEOAuthor) *AuthorSSRMeta {
 		Homepage:      au.Homepage,
 		PaperCount:    au.PaperCount,
 		CitationCount: au.CitationCount,
+		SEOInactive:   au.Status != StatusActive,
+		SEOIndexable:  authorRowIndexable(au),
 	}
 	if au.HIndex != nil {
 		h := *au.HIndex

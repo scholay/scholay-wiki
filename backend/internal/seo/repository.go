@@ -244,9 +244,9 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	// 注:分页仍按预计算的 sitemap_page 列,过滤后单页 URL 数变少(合法),不额外重排。
 	// OR 条件用显式括号写进同一个 Where，不依赖 GORM 对多段 Where 的括号化(不同版本行为不一,
 	// 漏括号会让 `AND ... OR ...` 优先级错乱)。
-	err := r.db.Table("seo_papers").
+	err := r.paperSitemapRows().
 		Select("slug, source, paper_id, updated_at, priority, quality_tier").
-		Where("status = ? AND sitemap_page = ? AND (COALESCE(abstract, '') <> '' OR quality_tier = 1)", StatusActive, page).
+		Where("sitemap_page = ?", page).
 		Order("id").
 		Find(&rows).Error
 	if err != nil {
@@ -266,26 +266,56 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	return out, nil
 }
 
-// GetSitemapLastModPerPage 返回每个分页的最大 updated_at,用于索引文件 <lastmod>
-// 单条 SQL: GROUP BY sitemap_page → 一次拿到所有分页的真实修改时间
-func (r *Repository) GetSitemapLastModPerPage() (map[int]time.Time, error) {
-	var rows []struct {
-		Page    int       `gorm:"column:sitemap_page"`
-		LastMod time.Time `gorm:"column:last_mod"`
-	}
-	err := r.db.Table("seo_papers").
+// paperSitemapRows 是论文 leaf 与 sitemap index 共用的 eligibility 单一真源。
+// 任何改动都必须同时影响 ListSitemapPage 和 GetSitemapLastModPerPage，避免 index
+// 发布一个 leaf 实际为空的页，或遗漏真实有内容的页。
+func (r *Repository) paperSitemapRows() *gorm.DB {
+	return r.db.Table("seo_papers").
+		Where("status = ? AND source IN ? AND TRIM(COALESCE(paper_id, '')) <> '' AND TRIM(COALESCE(title, '')) <> '' AND (TRIM(COALESCE(abstract, '')) <> '' OR quality_tier = ?)", StatusActive, []string{SourceSTC, SourceOLX, SourcePMD}, TierDetailClick)
+}
+
+type sitemapPageLastModRow struct {
+	Page    int       `gorm:"column:sitemap_page"`
+	LastMod time.Time `gorm:"column:last_mod"`
+}
+
+// sitemapPageLastModQuery 枚举 scope 中真实存在的非空 sitemap_page。
+// sitemap_page 是按持久化 id 区间分桶，可能因删除/失效产生缺号，因此调用方必须
+// 使用返回 map 的真实 key，禁止再由 COUNT 推导 1..N 连续页。
+func sitemapPageLastModQuery(scope *gorm.DB) *gorm.DB {
+	return scope.
 		Select("sitemap_page, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
+		Where("sitemap_page > 0").
 		Group("sitemap_page").
-		Scan(&rows).Error
-	if err != nil {
+		Order("sitemap_page")
+}
+
+func sitemapPageLastMods(scope *gorm.DB) (map[int]time.Time, error) {
+	var rows []sitemapPageLastModRow
+	if err := sitemapPageLastModQuery(scope).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make(map[int]time.Time, len(rows))
-	for _, r := range rows {
-		out[r.Page] = r.LastMod
+	for _, row := range rows {
+		out[row.Page] = row.LastMod
 	}
 	return out, nil
+}
+
+func sitemapSummaryFromPageLastMods(pages map[int]time.Time) *SitemapSummary {
+	summary := &SitemapSummary{TotalPages: len(pages)}
+	for _, lastMod := range pages {
+		if lastMod.After(summary.LastMod) {
+			summary.LastMod = lastMod
+		}
+	}
+	return summary
+}
+
+// GetSitemapLastModPerPage 返回每个真实非空分页的最大 updated_at。
+// map key 同时就是主 sitemap 必须枚举的真实页号。
+func (r *Repository) GetSitemapLastModPerPage() (map[int]time.Time, error) {
+	return sitemapPageLastMods(r.paperSitemapRows())
 }
 
 // ListTopPaperPaths 返回最值得主动推送的论文 **canonical 路径** /paper/{source}/{id}
@@ -302,9 +332,9 @@ func (r *Repository) ListTopPaperPaths(limit int) ([]string, error) {
 		Source  string `gorm:"column:source"`
 		PaperID string `gorm:"column:paper_id"`
 	}
-	err := r.db.Table("seo_papers").
+	err := r.paperSitemapRows().
 		Select("slug, source, paper_id").
-		Where("status = ? AND slug <> ''", StatusActive).
+		Where("slug <> ''").
 		Order("quality_tier ASC, view_count DESC, id ASC"). // tier=1 优先,然后看人气
 		Limit(limit).
 		Find(&rows).Error
@@ -322,29 +352,15 @@ func (r *Repository) ListTopPaperPaths(limit int) ([]string, error) {
 	return out, nil
 }
 
-// GetSitemapSummary 返回 sitemap 分页总数和最后修改时间
-// 只统计 sitemap_page > 0 的行 —— 新插入但 BackfillSitemapPage 还没跑到的行
-// 不算入分页,避免索引文件列出空的"幽灵分页"导致爬虫拿到 404。
+// GetSitemapSummary 返回真实非空 sitemap 分片数量和最后修改时间。
+// TotalPages 仅是非空分片数量，不能用于构造 1..N；真实页号必须取
+// GetSitemapLastModPerPage 的 map key。
 func (r *Repository) GetSitemapSummary() (*SitemapSummary, error) {
-	var row struct {
-		Total   int64      `gorm:"column:total"`
-		LastMod *time.Time `gorm:"column:last_mod"`
-	}
-	err := r.db.Table("seo_papers").
-		Select("COUNT(*) AS total, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
-		Scan(&row).Error
+	pages, err := r.GetSitemapLastModPerPage()
 	if err != nil {
 		return nil, err
 	}
-	summary := &SitemapSummary{}
-	if row.Total > 0 {
-		summary.TotalPages = int((row.Total-1)/int64(URLsPerSitemapPage)) + 1
-	}
-	if row.LastMod != nil {
-		summary.LastMod = *row.LastMod
-	}
-	return summary, nil
+	return sitemapSummaryFromPageLastMods(pages), nil
 }
 
 // calcSitemapPage 由 id 计算所属分页（1-based）。新行 id 未知时返回 0（由 BackfillSitemapPage 事后修正）

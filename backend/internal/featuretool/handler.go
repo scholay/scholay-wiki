@@ -102,6 +102,7 @@ func (h *Handler) PublicGet(c *gin.Context) {
 func (h *Handler) AdminList(c *gin.Context) {
 	f := parseListFilter(c)
 	f.Status = c.Query("status") // admin 可按 status 过滤; 空=全部
+	f.SEOReview = c.Query("seo_review")
 	if f.PageSize == 24 {
 		f.PageSize = 20
 	}
@@ -153,6 +154,10 @@ func (h *Handler) AdminCreate(c *gin.Context) {
 		utils.BadRequest(c, "工具名称不能为空")
 		return
 	}
+	if err == ErrSEOReview {
+		utils.BadRequest(c, "SEO 收录审核未通过：需已上线、详细描述不少于 120 字、有公开官网与至少 2 个完整使用场景，且数据已完善、无需复核并保留公开来源")
+		return
+	}
 	if err != nil {
 		utils.InternalError(c, 5000, "创建工具失败", err)
 		return
@@ -170,13 +175,17 @@ func (h *Handler) AdminUpdate(c *gin.Context) {
 	if !utils.BindJSON(c, &t) {
 		return
 	}
-	updated, err := h.svc.Update(uint64(id), &t)
+	updated, err := h.svc.Update(uint64(id), &t, adminIDPtr(c))
 	if err == ErrNotFound {
 		utils.NotFound(c, "工具不存在")
 		return
 	}
 	if err == ErrNameEmpty {
 		utils.BadRequest(c, "工具名称不能为空")
+		return
+	}
+	if err == ErrSEOReview {
+		utils.BadRequest(c, "SEO 收录审核未通过：需已上线、详细描述不少于 120 字、有公开官网与至少 2 个完整使用场景，且数据已完善、无需复核并保留公开来源")
 		return
 	}
 	if err != nil {

@@ -125,6 +125,9 @@ restart_services() {
     echo ""
 
     echo -e "${YELLOW}=== 原地收敛服务 (不提前停掉全栈) ===${NC}"
+	# Nginx 配置已 COPY 进自有镜像，必须显式构建才能让配置文件
+	# 的内容变化体现为新 image ID，从而触发 Compose 重建并加载。
+	docker compose -f "${COMPOSE_FILE}" build nginx
     # Umami 的健康检查最长合理启动窗口约 210s(start_period 60s + 5×30s),
     # 部署等待必须覆盖该窗口，否则会把仍在正常迁移的服务误判为失败。
     if ! docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans --wait --wait-timeout 300; then

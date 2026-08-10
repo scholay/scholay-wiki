@@ -1,14 +1,16 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
-import { useMatch } from 'react-router-dom';
+import { useMatch, useNavigate } from 'react-router-dom';
 import { AlertCircle, ExternalLink, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { RouteSEO } from '@/shared/components/RouteSEO';
 import { JournalCover } from '@/shared/components/JournalCover';
 import { JournalSubmissionCard } from '@/shared/components/JournalSubmissionCard';
 import { JournalMetricsGroups } from '@/shared/components/JournalMetricsGroups';
 import { JournalDecisionCard } from '@/shared/components/JournalDecisionCard';
 import { cn } from '@/shared/lib/utils';
+import { journalCanonicalPath } from '@/shared/lib/seo-paths';
 import {
   journalTabKey,
   useBrowserTabs,
@@ -43,6 +45,7 @@ export function JournalDetailPane() {
   // /journal/:id 和 /journal/:id/:slug 都 match; slug 仅做 SEO, 这里只读 id。
   const match = useMatch('/journal/:id/*');
   const id = match?.params.id ? Number(match.params.id) : NaN;
+  const navigate = useNavigate();
   const tabId = Number.isFinite(id) ? journalTabKey(id) : '';
 
   const tab = useBrowserTabs((s) => {
@@ -68,6 +71,7 @@ export function JournalDetailPane() {
   const validId = Number.isFinite(id) && id > 0;
   const fullQ = useJournalFullDetail(validId ? id : 0, validId);
   const unified = fullQ.data?.unified;
+  const authoritativeSlug = unified?.seo_slug ?? journal?.seo_slug;
   // 投稿资源真实结构在 sources.submission(main.has_* + latex.class);规整成卡片要的精简态。
   const subSrc = fullQ.data?.sources?.submission;
   const submissionInfo = subSrc
@@ -86,6 +90,14 @@ export function JournalDetailPane() {
     () => (journal?.issns ?? []).filter(Boolean).join(' / '),
     [journal]
   );
+
+  useEffect(() => {
+    if (!validId || !authoritativeSlug) return;
+    const canonical = journalCanonicalPath(id, authoritativeSlug);
+    if (window.location.pathname !== canonical) {
+      navigate(canonical, { replace: true });
+    }
+  }, [authoritativeSlug, id, navigate, validId]);
 
   if (!journal) {
     if (fallback.isLoading) {
@@ -115,8 +127,17 @@ export function JournalDetailPane() {
     );
   }
 
+  const seoDescription = buildDescription(journal).slice(0, 180);
+
   return (
-    <div className="h-full overflow-auto">
+    <>
+      <RouteSEO
+        title={`${journal.canonical_name} - 期刊详情 | Scholay学术`}
+        description={seoDescription}
+        keywords={`${journal.canonical_name},期刊,影响因子,ISSN,期刊分区`}
+        canonical={journalCanonicalPath(journal.id, authoritativeSlug)}
+      />
+      <div className="h-full overflow-auto">
       <div className="max-w-6xl mx-auto px-4 py-4 sm:px-10 sm:py-7 space-y-4 sm:space-y-6">
         {/* breadcrumb 已删除 —— 浏览器 tabs 条已经能交代"我从哪来 / 现在看什么",
             再叠一层"我的收藏 › 期刊 › <name>"反而冗余 */}
@@ -311,7 +332,8 @@ export function JournalDetailPane() {
           </div>
         </section>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

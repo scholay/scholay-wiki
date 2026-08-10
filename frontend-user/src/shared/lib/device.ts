@@ -18,7 +18,8 @@
 // 放 shared/lib(纯 TS、无依赖),router 的两个 loader(/ 与 /m)共用。
 
 /** 爬虫特征(含 Googlebot/Baiduspider/Bytespider/PetalBot/神马等的公共子串) */
-const BOT_RE = /bot|spider|crawl|slurp|bingpreview|petalbot|yisou/i;
+const BOT_RE =
+  /bot|spider|crawl|slurp|bingpreview|petalbot|yisou|google-inspectiontool|googleother/i;
 
 /**
  * pad 明示特征 → 一律 PC。

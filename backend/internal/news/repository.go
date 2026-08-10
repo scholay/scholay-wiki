@@ -186,11 +186,11 @@ func (r *Repository) IncrViewCount(id string) error {
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
 
-// AllSlugsForSitemap 取全部已发布的 slug + lastmod(分页),供 sitemap 用。
+// AllSlugsForSitemap 取全部已发布的 slug + title + lastmod(分页),供 sitemap 做最终 eligibility 过滤。
 func (r *Repository) AllSlugsForSitemap(limit, offset int) ([]NewsItem, error) {
 	var items []NewsItem
 	err := r.db.Model(&NewsItem{}).Where("status = ?", "published").
-		Select("slug", "upstream_updated_at", "updated_at", "published_at").
+		Select("slug", "title", "upstream_updated_at", "updated_at", "published_at").
 		Order("published_at DESC").Limit(limit).Offset(offset).Find(&items).Error
 	return items, err
 }

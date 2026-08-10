@@ -56,6 +56,14 @@ type ToolSEOProvider interface {
 	ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error)
 }
 
+// ToolSEOListingProvider is optional and intentionally separate from the
+// detail resolver so lightweight test/provider implementations keep working.
+// Production featuretool.Service implements it to expose approved internal
+// links in the server-rendered /tools discovery hub.
+type ToolSEOListingProvider interface {
+	ListIndexableToolsForSEO(limit int) ([]*seo.ToolSSRMeta, error)
+}
+
 // NewsSEOProvider 由 news.Service 实现, 用于情报详情页 (/news/{slug}) + 列表页 (/news) SSR 注入。
 //   - ResolveNewsBySlug:详情页全文 + 元数据(功能未开启时返回 nil,SSR 走默认壳)
 //   - RecentNewsForSEO :列表页 noscript 链接列表(供爬虫从 /news 发现各详情页)
