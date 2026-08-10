@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   authorTabKey,
@@ -7,6 +7,7 @@ import {
   pdfTabKey,
   useBrowserTabs,
 } from '@/stores/browser-tabs.store';
+import { journalCanonicalPath } from '@/shared/lib/seo-paths';
 import { trackPaperClick } from '@/shared/api/hot-content';
 import type { Author, Journal, Paper } from '@/shared/api/types';
 
@@ -25,10 +26,70 @@ import type { Author, Journal, Paper } from '@/shared/api/types';
  *
  * 不主动拉数据 —— 调用方已经持有 entity(react-query 缓存),详情页缺字段时
  * 由对应 *DetailPane 内部 fallback fetch。
+ *
+ * ── SEO 硬约束(2026-08-10 审计):站内实体跳转必须渲染真实 <a href> ────────
+ * 审计实测水合后的 DOM 内链为 0(全是 button/div onClick + useNavigate),爬虫
+ * 拿不到任何站内实体链接。因此:
+ *   - 下面导出的 paperPath / authorPath / journalPath / pdfPath 是**路径唯一真源**,
+ *     四个 hook 的 cfg.getPath 也委托它们 —— href 与 SPA navigate 永不漂移;
+ *   - 列表/导航调用点渲染 `<Link to={xxxPath(e)} onClick={handler}>`,handler 里
+ *     `if (isModifiedClick(e)) return;` 后只跑副作用(hook 的 `.prepare(e)`),
+ *     **不 preventDefault、不 navigate** —— 平点由 <Link> 做 SPA 导航,
+ *     ctrl/cmd/中键点击走浏览器原生新标签(此时不写 store,由新标签自己 fallback fetch);
+ *   - hook 本体 `openXxx(entity)`(副作用 + navigate)保留给**程序化跳转**
+ *     (提交后重定向、卡片级兜底点击等)。
  */
 
 // 当前路径在 paper/author/journal/pdf detail pane 里
 const DETAIL_PANE_RE = /^\/(paper|author|journal|pdf)\//;
+
+// ============================================================================
+// 纯路径 helpers —— href 与 navigate 的单一真源
+// ============================================================================
+
+/** 论文详情路径。/paper/:source/:paperId(source 缺省 'stc') */
+export function paperPath(p: Pick<Paper, 'paperId' | 'source'>): string {
+  return `/paper/${p.source ?? 'stc'}/${encodeURIComponent(p.paperId)}`;
+}
+
+/** 学者详情路径。/author/:source/:authorId;无 authorId 返 null(防呆) */
+export function authorPath(a: {
+  authorId?: Author['authorId'] | null;
+  source?: Author['source'];
+}): string | null {
+  return a.authorId
+    ? `/author/${a.source ?? 'stc'}/${encodeURIComponent(a.authorId)}`
+    : null;
+}
+
+/**
+ * 期刊详情路径 —— 走 journalCanonicalPath(与 browser-tabs.store 的 browserTabUrl
+ * 同源):有 seo_slug 用 /journal/:id/:slug,否则 /journal/:id。
+ * 不能再拼裸 `/journal/${id}`:带 slug 的 canonical 形态才是 JournalDetailPane
+ * 的最终 URL(id-only 会被它 client-side replace 成 slug 形态),把 redirect
+ * 目标当 href 发出去等于给爬虫喂跳转链。列表 payload 通常不带 seo_slug
+ * (后端只在详情接口注入),此时按 id-only 回退 —— 可接受。
+ */
+export function journalPath(j: Pick<Journal, 'id' | 'seo_slug'>): string {
+  return journalCanonicalPath(j.id, j.seo_slug);
+}
+
+/** 用户上传 PDF 预览路径。/pdf/:libPaperId */
+export function pdfPath(e: Pick<PdfTabEntity, 'libPaperId'>): string {
+  return `/pdf/${e.libPaperId}`;
+}
+
+/**
+ * 修饰键点击(ctrl/cmd/shift/alt/中键)—— 用户明确要"新标签/新窗口/下载"语义,
+ * <Link> 的 onClick 副作用 handler 见到它应当直接 return,把事件完整让给浏览器。
+ */
+export function isModifiedClick(e: React.MouseEvent): boolean {
+  return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1;
+}
+
+// ============================================================================
+// hook 工厂
+// ============================================================================
 
 interface OpenInBrowserConfig<E> {
   /**
@@ -45,27 +106,37 @@ interface OpenInBrowserConfig<E> {
   trackHotClick?: (entity: E) => void;
 }
 
+/** hook 返回值:本体 = 副作用 + navigate;`.prepare` = 只做副作用(给 <Link> onClick) */
+export interface OpenInBrowserFn<E> {
+  (entity: E): void;
+  prepare: (entity: E) => void;
+}
+
 function createOpenInBrowserHook<E>(cfg: OpenInBrowserConfig<E>) {
-  return function useOpenInBrowser() {
+  return function useOpenInBrowser(): OpenInBrowserFn<E> {
     const navigate = useNavigate();
     const location = useLocation();
 
-    return useCallback(
-      (entity: E) => {
-        const path = cfg.getPath(entity);
-        if (!path) return;
+    return useMemo(() => {
+      const prepare = (entity: E) => {
+        if (!cfg.getPath(entity)) return; // 与本体同一防呆口径
         const id = cfg.getTabKey(entity);
         const inDetailPane = DETAIL_PANE_RE.test(location.pathname);
         const returnTo = inDetailPane
-          ? (useBrowserTabs.getState().tabs.find((t) => t.id === id)?.returnTo ??
-            '/')
+          ? (useBrowserTabs.getState().tabs.find((t) => t.id === id)
+              ?.returnTo ?? '/')
           : `${location.pathname}${location.search}`;
         cfg.invokeAction(entity, returnTo);
         cfg.trackHotClick?.(entity);
+      };
+      const open = (entity: E) => {
+        const path = cfg.getPath(entity);
+        if (!path) return;
+        prepare(entity);
         navigate(path);
-      },
-      [navigate, location.pathname, location.search]
-    );
+      };
+      return Object.assign(open, { prepare });
+    }, [navigate, location.pathname, location.search]);
   };
 }
 
@@ -79,8 +150,7 @@ export const useOpenPaperInBrowser = createOpenInBrowserHook<Paper>({
   invokeAction: (p, returnTo) =>
     useBrowserTabs.getState().openPaperTab(p, returnTo),
   getTabKey: (p) => paperTabKey(p.source ?? 'stc', p.paperId),
-  getPath: (p) =>
-    `/paper/${p.source ?? 'stc'}/${encodeURIComponent(p.paperId)}`,
+  getPath: paperPath,
   trackHotClick: trackPaperClick,
 });
 
@@ -89,18 +159,15 @@ export const useOpenAuthorInBrowser = createOpenInBrowserHook<Author>({
   invokeAction: (a, returnTo) =>
     useBrowserTabs.getState().openAuthorTab(a, returnTo),
   getTabKey: (a) => authorTabKey(a.source ?? 'stc', a.authorId),
-  getPath: (a) =>
-    a.authorId
-      ? `/author/${a.source ?? 'stc'}/${encodeURIComponent(a.authorId)}`
-      : null,
+  getPath: authorPath,
 });
 
-/** 打开期刊详情 tab。/journal/:id。期刊池跨源已统一,不带 source */
+/** 打开期刊详情 tab。/journal/:id(有 seo_slug 时 /journal/:id/:slug) */
 export const useOpenJournalInBrowser = createOpenInBrowserHook<Journal>({
   invokeAction: (j, returnTo) =>
     useBrowserTabs.getState().openJournalTab(j, returnTo),
   getTabKey: (j) => journalTabKey(j.id),
-  getPath: (j) => `/journal/${j.id}`,
+  getPath: journalPath,
 });
 
 /**
@@ -115,5 +182,5 @@ export const useOpenPdfInBrowser = createOpenInBrowserHook<PdfTabEntity>({
       .getState()
       .openPdfTab(e.libPaperId, e.title || '无标题', returnTo),
   getTabKey: (e) => pdfTabKey(e.libPaperId),
-  getPath: (e) => `/pdf/${e.libPaperId}`,
+  getPath: pdfPath,
 });

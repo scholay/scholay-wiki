@@ -47,7 +47,7 @@ export function JournalSearchPage() {
     : "期刊搜索 - Scholay | 期刊分区、影响因子、ISSN 一键查询";
   const seoDesc = seoQuery
     ? `Scholay 期刊搜索: ${seoQuery}。涵盖 JCR / 中科院 / CCF / SCImago 多重分区,影响因子、h-index、ISSN、出版商一目了然。`
-    : "Scholay 期刊搜索 —— 按刊名 / ISSN / 出版商检索全球学术期刊,实时展示 JCR 影响因子、中科院分区、CCF 等级、OpenAlex h-index 等多源指标。";
+    : "按刊名、ISSN、学科、出版商与影响因子分区查找学术期刊,逐刊查看 JCR 影响因子、CiteScore、中科院分区与 JCR 分区、是否开放获取(OA)及收录范围,辅助选刊投稿与文献质量评估;另有 SCI 一区、中科院一区、CCF A 类与高影响因子期刊榜单。";
   const hasSearchState = urlParams.toString().length > 0;
 
   return (

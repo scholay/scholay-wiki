@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 // 用 motion.* 而非 m.* —— m.* 需要 LazyMotion 祖先,而 PC 壳 AppShell 没有提供
 // (只有 MobileShell 有)。用 m.* 会【构建通过但完全不动画】,静默失效。
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion';
+
+// Dock 项是真实 <a href>(SEO 硬约束:水合后的 DOM 必须保留导航内链);
+// motion.create 让它继续吃 fontSize/padding 的逐帧插值。平点 = <Link> SPA 导航,
+// 已在当前路由时再点 = 同址导航(react-router 对 same-location 是 replace,不重挂载)。
+const MotionLink = motion.create(Link);
 import { MENUS, type Menu } from '@/app/menus';
 import { useMediaQuery } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
@@ -108,7 +113,6 @@ const BASE_PAD = 10;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export function MenuDock() {
-  const navigate = useNavigate();
   const location = useLocation();
   const reduceMotion = useReducedMotion();
   /**
@@ -134,7 +138,7 @@ export function MenuDock() {
    * 没有统一 PITCH 可用 —— 必须实测一次,才能算出每项的基准中心位置。
    */
   const [widths, setWidths] = useState<number[] | null>(null);
-  const measureRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const measureRefs = useRef<Array<HTMLAnchorElement | null>>([]);
 
   const measure = useCallback(() => {
     const w = measureRefs.current.slice(0, N).map((el) => el?.offsetWidth ?? 0);
@@ -469,13 +473,10 @@ export function MenuDock() {
             pointerX={pointerX}
             trackX={trackX}
             dockMode={dockMode}
-            measureRef={(el: HTMLButtonElement | null) => {
+            measureRef={(el: HTMLAnchorElement | null) => {
               measureRefs.current[i] = el;
             }}
             onFocus={() => ensureVisible(i)}
-            onClick={() => {
-              if (!menu.match(location.pathname)) navigate(menu.href);
-            }}
           />
         ))}
       </motion.div>
@@ -492,7 +493,6 @@ function DockItem({
   dockMode,
   measureRef,
   onFocus,
-  onClick,
 }: {
   menu: Menu;
   active: boolean;
@@ -501,9 +501,8 @@ function DockItem({
   pointerX: ReturnType<typeof useMotionValue<number>>;
   trackX: ReturnType<typeof useMotionValue<number>>;
   dockMode: boolean;
-  measureRef: (el: HTMLButtonElement | null) => void;
+  measureRef: (el: HTMLAnchorElement | null) => void;
   onFocus: () => void;
-  onClick: () => void;
 }) {
   const Icon = menu.icon;
 
@@ -538,10 +537,9 @@ function DockItem({
   const pad = useTransform(s, (v) => `${BASE_PAD * v}px`);
 
   return (
-    <motion.button
+    <MotionLink
       ref={measureRef}
-      type="button"
-      onClick={onClick}
+      to={menu.href}
       onFocus={onFocus}
       title={menu.label}
       aria-current={active ? 'page' : undefined}
@@ -567,6 +565,6 @@ function DockItem({
       </motion.span>
       <span>{menu.label}</span>
 
-    </motion.button>
+    </MotionLink>
   );
 }

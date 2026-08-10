@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight, LayoutGrid, List } from 'lucide-react';
 import {
   HoverCard,
@@ -35,15 +35,12 @@ export function AllMenusOverlay({
     'scholay.all-menus.view',
     'list'
   );
-  const navigate = useNavigate();
   const location = useLocation();
 
   const activeIndex = findActiveMenuIndex(location.pathname);
   const groups = useMemo(() => groupMenusByCategory(), []);
 
-  const handleSelect = (menu: Menu) => {
-    navigate(menu.href);
-  };
+  // 菜单项是真实 <Link href>(SEO 硬约束),导航由 Link 完成,不再 useNavigate
 
   return (
     <HoverCard openDelay={120} closeDelay={180}>
@@ -80,9 +77,9 @@ export function AllMenusOverlay({
 
         {/* 主体 */}
         {view === 'list' ? (
-          <ListView groups={groups} activeIndex={activeIndex} onSelect={handleSelect} />
+          <ListView groups={groups} activeIndex={activeIndex} />
         ) : (
-          <GridView groups={groups} activeIndex={activeIndex} onSelect={handleSelect} />
+          <GridView groups={groups} activeIndex={activeIndex} />
         )}
 
       </HoverCardContent>
@@ -97,11 +94,9 @@ export function AllMenusOverlay({
 function ListView({
   groups,
   activeIndex,
-  onSelect,
 }: {
   groups: ReturnType<typeof groupMenusByCategory>;
   activeIndex: number;
-  onSelect: (m: Menu) => void;
 }) {
   return (
     <div className="py-1.5">
@@ -114,14 +109,7 @@ function ListView({
           {g.items.map((m) => {
             const flatIdx = MENUS.findIndex((x) => x.id === m.id);
             const isActive = flatIdx === activeIndex;
-            return (
-              <ListItem
-                key={m.id}
-                menu={m}
-                isActive={isActive}
-                onSelect={() => onSelect(m)}
-              />
-            );
+            return <ListItem key={m.id} menu={m} isActive={isActive} />;
           })}
         </section>
       ))}
@@ -132,17 +120,15 @@ function ListView({
 function ListItem({
   menu,
   isActive,
-  onSelect,
 }: {
   menu: Menu;
   isActive: boolean;
-  onSelect: () => void;
 }) {
   const Icon = menu.icon;
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    // 真实 <Link href>(SEO 硬约束);平点 = SPA 导航,无额外副作用
+    <Link
+      to={menu.href}
       className={cn(
         'group w-full flex items-center gap-3 h-14 px-4 transition-colors text-left',
         isActive ? 'bg-surface-1' : 'hover:bg-surface-1'
@@ -162,7 +148,7 @@ function ListItem({
         </span>
       </div>
       <ChevronRight className="size-3.5 text-faint shrink-0" />
-    </button>
+    </Link>
   );
 }
 
@@ -173,11 +159,9 @@ function ListItem({
 function GridView({
   groups,
   activeIndex,
-  onSelect,
 }: {
   groups: ReturnType<typeof groupMenusByCategory>;
   activeIndex: number;
-  onSelect: (m: Menu) => void;
 }) {
   return (
     <div className="px-4 py-3.5 space-y-3.5 max-h-[480px] overflow-y-auto">
@@ -193,10 +177,10 @@ function GridView({
               const flatIdx = MENUS.findIndex((x) => x.id === m.id);
               const isActive = flatIdx === activeIndex;
               return (
-                <button
+                // 真实 <Link href>(SEO 硬约束);平点 = SPA 导航,无额外副作用
+                <Link
                   key={m.id}
-                  type="button"
-                  onClick={() => onSelect(m)}
+                  to={m.href}
                   className={cn(
                     'relative flex flex-col items-center gap-2 py-3 px-2 rounded-12 transition-colors text-center',
                     isActive ? 'bg-surface-1' : 'hover:bg-surface-1'
@@ -209,7 +193,7 @@ function GridView({
                     <span className="text-14 font-medium text-foreground">{m.label}</span>
                     <span className="text-12 text-faint mt-0.5">{m.englishName}</span>
                   </div>
-                </button>
+                </Link>
               );
             })}
           </div>

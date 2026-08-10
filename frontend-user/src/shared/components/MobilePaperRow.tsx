@@ -1,5 +1,7 @@
 import { memo } from 'react';
+import { Link } from 'react-router-dom';
 import { Quote, Share2 } from 'lucide-react';
+import { isModifiedClick, paperPath } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { JournalBadges } from '@/shared/components/JournalBadges';
@@ -27,7 +29,11 @@ export interface MobilePaperRowProps {
   isFavorited: boolean;
   /** 该论文 venue 命中的期刊增强(JCR/中科院/CCF/IF);无则只显基础标签。 */
   enrichment?: JournalEnrichment | null;
-  onOpen: (p: Paper) => void;
+  /**
+   * 进详情前的副作用(如搜索浮层的 suspendForDetail)。导航本身由行内真实
+   * <Link href>(SEO 硬约束)完成 —— 这里**不要**再 navigate,否则双跳。
+   */
+  onBeforeOpen?: (p: Paper) => void;
   onShare: (p: Paper) => void;
   onCite: (p: Paper) => void;
   /** 收藏/取消收藏成功回调 —— 调用方用它就地翻转「已收藏」态(无需重拉 /library/check) */
@@ -49,7 +55,7 @@ export const MobilePaperRow = memo(function MobilePaperRow({
   paper,
   isFavorited,
   enrichment,
-  onOpen,
+  onBeforeOpen,
   onShare,
   onCite,
   onFavoriteToggle,
@@ -60,25 +66,29 @@ export const MobilePaperRow = memo(function MobilePaperRow({
   const meta =
     [paper.venue, paper.year ? String(paper.year) : null].filter(Boolean).join(' · ') ||
     '来源信息暂缺';
-  const open = () => onOpen(paper);
+  // 平点 = <Link> SPA 导航;handler 只跑进详情前副作用,不 preventDefault 不 navigate
+  const handleOpenClick = (e: React.MouseEvent) => {
+    if (isModifiedClick(e)) return;
+    onBeforeOpen?.(paper);
+  };
 
   return (
     <article className="flex gap-3 border-b border-border px-4 py-3.5">
-      {/* 左列:头像 */}
-      <button
-        type="button"
-        onClick={open}
+      {/* 左列:头像 —— 真实 <a href>(SEO 硬约束) */}
+      <Link
+        to={paperPath(paper)}
+        onClick={handleOpenClick}
         aria-label="查看详情"
         className="shrink-0 transition-transform active:scale-95 active:opacity-80"
       >
         <span className="flex size-10 items-center justify-center rounded-pill bg-brand-green text-14 font-medium text-on-brand">
           {initial}
         </span>
-      </button>
+      </Link>
 
       {/* 右列:作者/来源 + 标题 + 摘要 + 标签 + 操作条 */}
       <div className="min-w-0 flex-1">
-        <button type="button" onClick={open} className="block w-full text-left">
+        <Link to={paperPath(paper)} onClick={handleOpenClick} className="block w-full text-left">
           <p className="truncate text-12 font-medium text-foreground">{authorsLine(paper)}</p>
           <p className="truncate text-12 text-faint">{meta}</p>
           <h3 className="mt-1.5 line-clamp-3 text-16 font-medium text-foreground">
@@ -97,7 +107,7 @@ export const MobilePaperRow = memo(function MobilePaperRow({
             )}
             {paper.isOpenAccess && <Chip className="bg-brand-green/10 text-brand-green">开放获取</Chip>}
           </div>
-        </button>
+        </Link>
 
         {/* 操作条:收藏 / 分享 / 引用(铺在内容列内,推特式) */}
         <div className="mt-2.5 flex items-center justify-between pr-2">

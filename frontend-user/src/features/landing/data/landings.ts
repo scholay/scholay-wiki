@@ -655,7 +655,7 @@ const prism: LandingFeature = {
   name: '智能写作',
   pageTitle: 'Prism · Scholay学术 — AI 学术写作 + LaTeX 编辑器',
   metaDesc:
-    '在浏览器里写 LaTeX,在 AI 协作中完成论文。Prism 把实时预览、文献引用、润色批注、模板套用与版本协作合并到一个简洁的编辑器里。',
+    '在浏览器里写 LaTeX,在 AI 协作中完成论文。Prism 把实时编译预览、文献引用、润色批注、模板套用与版本协作合并到一个简洁的编辑器里:AI 可按指令直接修改正文并以 diff 形式呈现,自动引用检索到的文献,内置 IEEE、ACM、Springer 等主流期刊模板,零安装上手。',
   metaKeywords:
     'LaTeX 编辑器,在线 LaTeX,AI 学术写作,论文写作,模板套用,文献引用,Overleaf 替代,Prism,Scholay',
 
@@ -1279,7 +1279,7 @@ const peerReview: LandingFeature = {
   name: '同行评审',
   pageTitle: '同行评审 · Scholay学术 — 为学者,重新发明同行评审',
   metaDesc:
-    'Scholay 同行评审,是一个为期刊与会议而生的智能评审工作台。结构化评审模板、自动新颖性核查、引用图谱对比、偏见提示。',
+    'Scholay 同行评审是为期刊与会议而生的智能评审工作台,提供结构化评审模板、自动新颖性核查、引用图谱对比与偏见提示,辅助审稿人与作者在投稿前发现结构、方法论与论证逻辑中的关键问题。支持 PDF 上传与文本粘贴提交,审稿报告按问题严重性分级并附具体修改建议。',
   metaKeywords:
     '同行评审,智能评审,审稿工作台,Peer Review,论文新颖性核查,引用图谱对比,期刊评审,Scholay',
 

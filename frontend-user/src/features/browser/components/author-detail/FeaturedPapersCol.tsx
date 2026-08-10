@@ -1,5 +1,6 @@
+import { Link } from 'react-router-dom';
 import { AlertCircle, Bookmark, Inbox, Loader2 } from 'lucide-react';
-import { useOpenPaperInBrowser } from '@/shared/hooks';
+import { isModifiedClick, paperPath, useOpenPaperInBrowser } from '@/shared/hooks';
 import type { Paper } from '@/shared/api/types';
 
 /**
@@ -62,9 +63,14 @@ export function FeaturedPapersCol({
         <ul className="space-y-3.5">
           {papers.map((p) => (
             <li key={p.paperId}>
-              <button
-                type="button"
-                onClick={() => openPaper(p)}
+              {/* 整行是真实 <Link href>(SEO 硬约束);onClick 只做副作用
+                  (store 写 tab + 热点上报),导航由 <Link> 完成 */}
+              <Link
+                to={paperPath(p)}
+                onClick={(e) => {
+                  if (isModifiedClick(e)) return;
+                  openPaper.prepare(p);
+                }}
                 className="group w-full text-left flex items-start gap-4 rounded-16 bg-surface-card border border-border p-5 hover:border-foreground hover:transition-all"
               >
                 <div className="flex-1 min-w-0 space-y-1.5">
@@ -103,7 +109,7 @@ export function FeaturedPapersCol({
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-8 bg-surface-2 text-subtle shrink-0 group-hover:bg-foreground group-hover:text-on-dark transition-colors">
                   <Bookmark className="size-3.5" strokeWidth={2} />
                 </span>
-              </button>
+              </Link>
             </li>
           ))}
         </ul>

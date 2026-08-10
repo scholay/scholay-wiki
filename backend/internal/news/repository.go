@@ -195,6 +195,17 @@ func (r *Repository) AllSlugsForSitemap(limit, offset int) ([]NewsItem, error) {
 	return items, err
 }
 
+// RecentForGoogleNewsSitemap 最近 since 之后发布的情报(Google News sitemap 专用)。
+// Google 官方要求 News sitemap 只含最近两天的文章、上限 1,000 条。
+func (r *Repository) RecentForGoogleNewsSitemap(since time.Time, limit int) ([]NewsItem, error) {
+	var items []NewsItem
+	err := r.db.Model(&NewsItem{}).
+		Where("status = ? AND published_at >= ?", "published", since).
+		Select("slug", "title", "published_at").
+		Order("published_at DESC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
 // CountPublished 已发布总数(sitemap 分页 / 列表是否还有下一页)。
 func (r *Repository) CountPublished() (int64, error) {
 	var n int64

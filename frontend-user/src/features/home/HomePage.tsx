@@ -116,14 +116,17 @@ export function HomePage() {
                     : '/journals/search'
                 )
               }
+              // onPickX 只跑副作用(store 写 tab):联想项本体是真实 <Link href>
+              // (SEO 硬约束,见 AutocompleteSections),导航由 <Link> 完成,
+              // 这里不得再 navigate(.prepare 不含 navigate)。
               onPickJournal={(j) =>
-                openJournal({
+                openJournal.prepare({
                   id: j.id,
                   canonical_name: j.canonical_name,
                 })
               }
               onPickPaper={(p) =>
-                openPaper({
+                openPaper.prepare({
                   paperId: p.id,
                   title: p.title,
                   source: p.source,
@@ -131,7 +134,7 @@ export function HomePage() {
               }
               onPickAuthor={(a) => {
                 if (!a.authorId) return;
-                openAuthor({
+                openAuthor.prepare({
                   authorId: a.authorId,
                   name: a.name ?? '',
                   affiliations: a.affiliations,

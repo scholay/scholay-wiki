@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
+import { authorPath, journalPath, paperPath } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import {
   type JournalSuggestion,
@@ -277,10 +278,18 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             className="absolute top-full left-0 right-0 z-popover flex flex-col bg-surface-card border border-border-control border-t-0 rounded-b-16 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ maxHeight: dropdownMaxHeight }}
           >
+            {/* onPickX 存在 = 实体导航语义 → 行渲染真实 <Link href>(SEO 硬约束),
+                onPick 只跑副作用(收起下拉 + store 写 tab),导航由 <Link> 完成;
+                onPickX 缺省 = 「填入搜索词」提交语义 → 保持 button。 */}
             {papers.length > 0 && (
               <PaperSection
                 query={trimmed}
                 papers={papers}
+                hrefFor={
+                  onPickPaper
+                    ? (p) => paperPath({ paperId: p.id, source: p.source })
+                    : undefined
+                }
                 onPick={(p) => {
                   setFocused(false);
                   if (onPickPaper) onPickPaper(p);
@@ -297,6 +306,11 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
               <AuthorSection
                 query={trimmed}
                 authors={authors}
+                hrefFor={
+                  onPickAuthor
+                    ? (a) => authorPath({ authorId: a.authorId, source: a.source })
+                    : undefined
+                }
                 onPick={(a) => {
                   setFocused(false);
                   if (onPickAuthor) onPickAuthor(a);
@@ -312,6 +326,9 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             {journals.length > 0 && (
               <JournalSection
                 journals={journals}
+                hrefFor={
+                  onPickJournal ? (j) => journalPath({ id: j.id }) : undefined
+                }
                 onPick={(j) => {
                   setFocused(false);
                   if (onPickJournal) onPickJournal(j);

@@ -7,6 +7,7 @@ package seo
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -185,10 +186,15 @@ func (r *Repository) UpsertSeed(seed *PaperSeed, slug, authorsJSON, fieldsJSON s
 
 // BackfillSitemapPage 扫描 sitemap_page=0 的新行，填入正确的分页号
 // 仅依赖 id（严格单调递增）：page = FLOOR((id-1)/50000)+1
+//
+// updated_at = updated_at 显式自赋值:该列历史上带 ON UPDATE CURRENT_TIMESTAMP,
+// 任何不显式管理 updated_at 的 UPDATE 都会把整批行的 sitemap <lastmod> 刷成当下
+// (2026-08-10 审计:整片 sitemap 出现分钟桶批量戳,爬虫据此不再信任 lastmod)。
+// 迁移 0123 已去掉 ON UPDATE,这里仍显式写死以防 schema 回退复发。
 func (r *Repository) BackfillSitemapPage() (int64, error) {
 	res := r.db.Exec(`
 		UPDATE seo_papers
-		SET sitemap_page = FLOOR((id - 1) / ?) + 1
+		SET updated_at = updated_at, sitemap_page = FLOOR((id - 1) / ?) + 1
 		WHERE sitemap_page = 0 AND status = 1
 	`, URLsPerSitemapPage)
 	return res.RowsAffected, res.Error
@@ -250,6 +256,7 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 		Source      string    `gorm:"column:source"`
 		PaperID     string    `gorm:"column:paper_id"`
 		UpdatedAt   time.Time `gorm:"column:updated_at"`
+		CreatedAt   time.Time `gorm:"column:created_at"`
 		Priority    float64   `gorm:"column:priority"`
 		QualityTier int       `gorm:"column:quality_tier"`
 	}
@@ -261,7 +268,7 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	// OR 条件用显式括号写进同一个 Where，不依赖 GORM 对多段 Where 的括号化(不同版本行为不一,
 	// 漏括号会让 `AND ... OR ...` 优先级错乱)。
 	err := r.paperSitemapRows().
-		Select("slug, source, paper_id, updated_at, priority, quality_tier").
+		Select("slug, source, paper_id, updated_at, created_at, priority, quality_tier").
 		Where("sitemap_page = ?", page).
 		Order("id").
 		Find(&rows).Error
@@ -275,6 +282,7 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 			Source:      r.Source,
 			EntityID:    r.PaperID,
 			UpdatedAt:   r.UpdatedAt,
+			CreatedAt:   r.CreatedAt,
 			Priority:    r.Priority,
 			QualityTier: r.QualityTier,
 		})
@@ -364,6 +372,46 @@ func (r *Repository) ListTopPaperPaths(limit int) ([]string, error) {
 		} else if row.Slug != "" {
 			out = append(out, "/paper/"+row.Slug)
 		}
+	}
+	return out, nil
+}
+
+// ListPapersByVenueForSSR 期刊页 SSR 的「近期代表论文」——按 venue 名称精确匹配
+// 可收录论文(与 sitemap eligibility 同 scope,不给爬虫指向 noindex 薄页的内链),
+// 年份↓、被引↓。venue 走 0124 迁移的前缀索引;年份/被引在小结果集上内存排序即可。
+func (r *Repository) ListPapersByVenueForSSR(venue string, limit int) ([]AuthorWork, error) {
+	venue = strings.TrimSpace(venue)
+	if venue == "" || limit <= 0 {
+		return nil, nil
+	}
+	var rows []struct {
+		Title         string `gorm:"column:title"`
+		Source        string `gorm:"column:source"`
+		PaperID       string `gorm:"column:paper_id"`
+		Year          *int   `gorm:"column:year"`
+		CitationCount int    `gorm:"column:citation_count"`
+	}
+	err := r.paperSitemapRows().
+		Select("title, source, paper_id, year, citation_count").
+		Where("venue = ?", venue).
+		Order("year DESC, citation_count DESC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AuthorWork, 0, len(rows))
+	for _, row := range rows {
+		w := AuthorWork{
+			Title:         row.Title,
+			Source:        row.Source,
+			PaperID:       row.PaperID,
+			CitationCount: row.CitationCount,
+		}
+		if row.Year != nil {
+			w.Year = *row.Year
+		}
+		out = append(out, w)
 	}
 	return out, nil
 }

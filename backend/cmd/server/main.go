@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -119,7 +121,19 @@ func main() {
 	router.Use(middleware.BodyLimitMiddleware(middleware.DefaultMaxBodySize))
 	// 第一道限流：全局 IP 限流（DoS 防护），参数从 RATE_LIMIT_IP_RPS 读取。
 	// 第二道限流：见 TieredRateLimitMiddleware，在认证路由组内按 user_id 限流（待挂载）。
-	router.Use(middleware.RateLimitMiddleware(cfg.RateLimit.IPRPS, 1*time.Second))
+	//
+	// 爬虫基础设施路径(robots.txt / sitemap*.xml / IndexNow key 文件)豁免 IP 限流:
+	// 这些响应全部 Redis 版本化缓存、成本极低,而对搜索引擎返回 429 会被 Google
+	// 记为「站点限流信号」直接压低全站抓取配额(官方 crawl-budget 文档)。
+	// 429 换来的防护价值 ≈ 0(攻击者打 sitemap 不如打 SSR/API),风险却是收录面萎缩。
+	ipLimiter := middleware.RateLimitMiddleware(cfg.RateLimit.IPRPS, 1*time.Second)
+	router.Use(func(c *gin.Context) {
+		if isCrawlerInfraPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+		ipLimiter(c)
+	})
 	router.Use(middleware.APITimeoutMiddleware())
 
 	registerRoutes(router, svc.handlers, cfg)
@@ -205,4 +219,20 @@ func main() {
 	svc.agentBridge.ShutdownJournal(shutdownCtx)
 
 	slog.Info("Server stopped")
+}
+
+// crawlerInfraKeyFileRe IndexNow key 文件路径(与 seosubmit.RegisterKeyFileRoute
+// 及 nginx user.conf 的根级 .txt 正则同构:8-128 位字母数字连字符)。
+var crawlerInfraKeyFileRe = regexp.MustCompile(`^/[A-Za-z0-9-]{8,128}\.txt$`)
+
+// isCrawlerInfraPath 搜索引擎基础设施路径 —— 全局 IP 限流豁免面(见挂载处注释)。
+// 面刻意收窄:仅 robots / sitemap / key 文件,SSR 页面与 API 照常限流。
+func isCrawlerInfraPath(path string) bool {
+	if path == "/robots.txt" {
+		return true
+	}
+	if strings.HasPrefix(path, "/sitemap") && strings.HasSuffix(path, ".xml") {
+		return true
+	}
+	return crawlerInfraKeyFileRe.MatchString(path)
 }

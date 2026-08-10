@@ -147,13 +147,11 @@ export function MobileSearchOverlay() {
   const submit = () => setQuery(input.trim());
   // 稳定回调(useCallback)—— 否则每次渲染都新建函数,使 memo 化的结果行全量重渲染。
   // 进详情前不关闭浮层:存滚动位置 + 标记 resume,返回 feed 时浮层复原结果与位置。
-  const openPaper = useCallback(
-    (p: Paper) => {
-      suspendForDetail(scrollRef.current?.scrollTop ?? 0);
-      navigate(`/paper/${p.source}/${encodeURIComponent(p.paperId)}`);
-    },
-    [navigate, suspendForDetail]
-  );
+  // 论文行导航已由 MobilePaperRow 内的真实 <Link href> 承担(SEO 硬约束),
+  // 这里只保留进详情前副作用:存滚动位置 + 标记 resume,返回 feed 时浮层复原。
+  const beforeOpenPaper = useCallback(() => {
+    suspendForDetail(scrollRef.current?.scrollTop ?? 0);
+  }, [suspendForDetail]);
   const openJournal = useCallback(
     (j: Journal) => {
       suspendForDetail(scrollRef.current?.scrollTop ?? 0);
@@ -324,7 +322,7 @@ export function MobileSearchOverlay() {
                           paper={paper}
                           isFavorited={favOverrides.get(paper.paperId) ?? paper.isFavorited ?? false}
                           enrichment={paper.venue ? enrichments[paper.venue] : null}
-                          onOpen={openPaper}
+                          onBeforeOpen={beforeOpenPaper}
                           onShare={sharePaper}
                           onCite={setCitePaper}
                           onFavoriteToggle={handleFavToggle}

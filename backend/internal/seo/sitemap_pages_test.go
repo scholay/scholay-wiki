@@ -78,10 +78,12 @@ func TestAuthorAndJournalLeafIndexShareSubstantiveEligibility(t *testing.T) {
 			name:  "authors",
 			leaf:  repo.authorSitemapRows().Where("sitemap_page = ?", 2),
 			index: sitemapPageLastModQuery(repo.authorSitemapRows()),
+			// 2026-08-10 收紧:纯指标(paper_count/citation_count/h_index)不再是
+			// 收录资格 —— 指标行渲染出来只有「姓名 + 三个数字」的薄页。
 			required: []string{
 				"status = ?", "source in", "coalesce(author_id, '')",
 				"quality_tier = ?", "json_length(affiliations)",
-				"paper_count > 0", "citation_count > 0", "json_length(top_works)",
+				"json_length(top_works)",
 			},
 		},
 		{
@@ -137,10 +139,17 @@ func TestSSRIndexabilityMirrorsSitemapQuality(t *testing.T) {
 	if authorRowIndexable(&SEOAuthor{Status: StatusActive, Name: "Name", HIndex: &zero}) {
 		t.Fatal("name-only author must be noindex")
 	}
-	if !authorRowIndexable(&SEOAuthor{Status: StatusActive, Source: "stc", AuthorID: "a1", Name: "Name", HIndex: &positive}) {
-		t.Fatal("author with h-index must be indexable")
+	// 2026-08-10 收紧:纯指标行(仅论文数/被引数/h-index)= 薄页,不再具备收录资格。
+	if authorRowIndexable(&SEOAuthor{Status: StatusActive, Source: "stc", AuthorID: "a1", Name: "Name", HIndex: &positive, PaperCount: 42, CitationCount: 146}) {
+		t.Fatal("metrics-only author must be noindex (thin page)")
 	}
-	if authorRowIndexable(&SEOAuthor{Status: StatusActive, AuthorID: "a-no-source", Name: "Name", HIndex: &positive}) {
+	if !authorRowIndexable(&SEOAuthor{Status: StatusActive, Source: "stc", AuthorID: "a1", Name: "Name", TopWorksJSON: `[{"title":"W"}]`}) {
+		t.Fatal("author with representative works must be indexable")
+	}
+	if !authorRowIndexable(&SEOAuthor{Status: StatusActive, Source: "stc", AuthorID: "a1b", Name: "Name", AffiliationsJSON: `["MIT"]`}) {
+		t.Fatal("author with affiliation must be indexable")
+	}
+	if authorRowIndexable(&SEOAuthor{Status: StatusActive, AuthorID: "a-no-source", Name: "Name", TopWorksJSON: `[{"title":"W"}]`}) {
 		t.Fatal("author without a canonical source must not enter sitemap")
 	}
 	if !authorRowIndexable(&SEOAuthor{Status: StatusActive, Source: "stc", AuthorID: "a2", Name: "Visited", QualityTier: tierOne}) {

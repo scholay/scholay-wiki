@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ComponentType } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Gift, Globe, Headphones, Home, Menu as MenuIcon, UserPlus } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton';
 import {
@@ -100,7 +100,9 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
       {/* 顶栏是 h-16 sticky，菜单可能比视口高(11 项)：给它自己的滚动条。
           用 dvh 不用 vh —— iOS 地址栏会改 vh(CLAUDE.md 移动端铁律)。 */}
       <DropdownMenuContent align="end" sideOffset={8} className="w-56 max-h-[70dvh] overflow-y-auto">
-        <Row icon={Home} label="首页" active={onHome} onSelect={() => navigate('/')} />
+        {/* 路由型条目走 to=(真实 <Link href>,SEO 硬约束);「浏览器」是会话态 URL
+            (browserTabUrl + returnTo store 写),保持 onSelect 程序化跳转 */}
+        <Row icon={Home} label="首页" active={onHome} to="/" />
         {browserTabs.length > 0 && (
           <Row icon={Globe} label="浏览器" active={isInDetailPane} onSelect={goBrowser} />
         )}
@@ -112,7 +114,7 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-faint">{g.label}</DropdownMenuLabel>
             {g.items.map((m) => (
-              <MenuRow key={m.id} menu={m} pathname={location.pathname} onGo={() => navigate(m.href)} />
+              <MenuRow key={m.id} menu={m} pathname={location.pathname} />
             ))}
           </Fragment>
         ))}
@@ -135,7 +137,7 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
             onSelect={openInvite}
           />
         )}
-        <Row icon={Headphones} label="反馈与建议" onSelect={() => navigate('/feedback')} />
+        <Row icon={Headphones} label="反馈与建议" to="/feedback" />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -144,18 +146,16 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
 function MenuRow({
   menu,
   pathname,
-  onGo,
 }: {
   menu: Menu;
   pathname: string;
-  onGo: () => void;
 }) {
   return (
     <Row
       icon={menu.icon}
       label={menu.label}
       active={menu.match(pathname)}
-      onSelect={onGo}
+      to={menu.href}
     />
   );
 }
@@ -166,6 +166,7 @@ function Row({
   active,
   badge,
   tone,
+  to,
   onSelect,
 }: {
   icon: ComponentType<{ className?: string }>;
@@ -173,13 +174,13 @@ function Row({
   active?: boolean;
   badge?: string;
   tone?: 'brand';
-  onSelect: () => void;
+  /** 路由型条目 —— 渲染真实 <Link href>(SEO 硬约束),导航由 Link 完成 */
+  to?: string;
+  /** 动作型条目(弹窗 / 会话态跳转)—— 仍走 onSelect */
+  onSelect?: () => void;
 }) {
-  return (
-    <DropdownMenuItem
-      onSelect={onSelect}
-      className={cn('gap-2', active && 'bg-surface-2', tone === 'brand' && 'text-brand-red')}
-    >
+  const inner = (
+    <>
       <Icon className="size-4 shrink-0" />
       <span className="truncate">{label}</span>
       {badge && (
@@ -191,6 +192,20 @@ function Row({
           {badge}
         </span>
       )}
+    </>
+  );
+  const className = cn('gap-2', active && 'bg-surface-2', tone === 'brand' && 'text-brand-red');
+  if (to) {
+    return (
+      // asChild:Radix 的 onSelect(关菜单)照常触发,导航由 <Link> 自己做
+      <DropdownMenuItem asChild className={className}>
+        <Link to={to}>{inner}</Link>
+      </DropdownMenuItem>
+    );
+  }
+  return (
+    <DropdownMenuItem onSelect={onSelect} className={className}>
+      {inner}
     </DropdownMenuItem>
   );
 }

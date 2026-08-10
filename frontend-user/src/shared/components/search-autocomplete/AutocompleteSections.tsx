@@ -1,6 +1,8 @@
 import { type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronRight, Search, User } from 'lucide-react';
 import { SourceBadge } from '@/shared/components/SourceBadge';
+import { isModifiedClick } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import type {
   AuthorSuggestion,
@@ -14,7 +16,44 @@ import type { JournalSuggestion } from '@/shared/api/suggestions';
  * 切分原因:SearchAutocomplete.tsx 包含主框 / picker / 联想 dropdown 三层逻辑
  * 已 ~250 行,各 section 加起来又 ~250 行,合并就过 500 行硬阈值。Sections
  * 都是纯展示(props in、callback out),无内部状态,挪出来无任何耦合损失。
+ *
+ * 联想项默认是 button(onPick 语义由父级决定,可能是「填入搜索词」)。
+ * 父级传 hrefFor(联想项 = 实体导航)时渲染真实 <Link href>(SEO 硬约束):
+ * 平点 = <Link> SPA 导航,onPick 只跑副作用;修饰键点击让给浏览器开新标签。
  */
+
+/** 行渲染:有 href → 真实 <Link>;无 → 保持 button(提交型语义) */
+function SuggestionRow({
+  href,
+  onPick,
+  className,
+  children,
+}: {
+  href: string | null;
+  onPick: () => void;
+  className: string;
+  children: ReactNode;
+}) {
+  if (href) {
+    return (
+      <Link
+        to={href}
+        onClick={(e) => {
+          if (isModifiedClick(e)) return;
+          onPick();
+        }}
+        className={className}
+      >
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onPick} className={className}>
+      {children}
+    </button>
+  );
+}
 
 // ============================================================================
 // 期刊检索替代行(hover 主搜索按钮时出现)
@@ -68,19 +107,22 @@ export function PaperSection({
   query,
   papers,
   onPick,
+  hrefFor,
 }: {
   query: string;
   papers: PaperSuggestion[];
   onPick: (p: PaperSuggestion) => void;
+  /** 实体导航语义时提供 —— 行渲染成真实 <Link href> */
+  hrefFor?: (p: PaperSuggestion) => string | null;
 }) {
   return (
     <div className="py-1.5">
       <SectionHeader>论文</SectionHeader>
       {papers.map((p) => (
-        <button
+        <SuggestionRow
           key={`${p.source ?? ''}-${p.id}`}
-          type="button"
-          onClick={() => onPick(p)}
+          href={hrefFor?.(p) ?? null}
+          onPick={() => onPick(p)}
           className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-surface-1 transition-colors"
         >
           <Search className="size-3.5 shrink-0 text-faint" />
@@ -88,7 +130,7 @@ export function PaperSection({
             {highlightQuery(p.title, query)}
           </span>
           <SourceBadge source={p.source} variant="letter" size="sm" />
-        </button>
+        </SuggestionRow>
       ))}
     </div>
   );
@@ -98,10 +140,13 @@ export function AuthorSection({
   query,
   authors,
   onPick,
+  hrefFor,
 }: {
   query: string;
   authors: AuthorSuggestion[];
   onPick: (a: AuthorSuggestion) => void;
+  /** 实体导航语义时提供 —— 行渲染成真实 <Link href>(无 authorId 返 null 回落 button) */
+  hrefFor?: (a: AuthorSuggestion) => string | null;
 }) {
   return (
     <div className="py-1.5">
@@ -109,10 +154,10 @@ export function AuthorSection({
       {authors.map((a) => {
         const aff = a.affiliations?.[0];
         return (
-          <button
+          <SuggestionRow
             key={`${a.source ?? ''}-${a.authorId ?? a.name}`}
-            type="button"
-            onClick={() => onPick(a)}
+            href={hrefFor?.(a) ?? null}
+            onPick={() => onPick(a)}
             className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-surface-1 transition-colors"
           >
             <User className="size-3.5 shrink-0 text-faint" />
@@ -131,7 +176,7 @@ export function AuthorSection({
               )}
             </div>
             <SourceBadge source={a.source} variant="letter" size="sm" />
-          </button>
+          </SuggestionRow>
         );
       })}
     </div>
@@ -153,9 +198,12 @@ const COVER_PALETTE = [
 export function JournalSection({
   journals,
   onPick,
+  hrefFor,
 }: {
   journals: JournalSuggestion[];
   onPick: (j: JournalSuggestion) => void;
+  /** 实体导航语义时提供 —— 行渲染成真实 <Link href> */
+  hrefFor?: (j: JournalSuggestion) => string | null;
 }) {
   return (
     // .pen `a17q5P` 米黄软底,与 papers 区视觉区分(token: journal-soft)
@@ -164,10 +212,10 @@ export function JournalSection({
         <span className="text-12 font-medium text-brand-red">期刊推荐</span>
       </div>
       {journals.map((j, i) => (
-        <button
+        <SuggestionRow
           key={j.id}
-          type="button"
-          onClick={() => onPick(j)}
+          href={hrefFor?.(j) ?? null}
+          onPick={() => onPick(j)}
           className="flex w-full items-center gap-3.5 px-5 py-3 text-left hover:bg-foreground/[0.03] transition-colors"
         >
           <JournalCover name={j.canonical_name} index={i} />
@@ -186,7 +234,7 @@ export function JournalSection({
             </div>
           </div>
           <ChevronRight className="size-5 text-faint shrink-0" />
-        </button>
+        </SuggestionRow>
       ))}
     </div>
   );

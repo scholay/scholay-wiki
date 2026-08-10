@@ -10,6 +10,7 @@ package seosubmit
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,15 @@ func RegisterKeyFileRoute(router *gin.Engine, svc *Service) {
 		c.Header("Content-Type", "text/plain; charset=utf-8")
 		c.Header("Cache-Control", "public, max-age=86400")
 		c.String(http.StatusOK, key)
+	})
+	// HEAD 必须同样 200:gin 的 GET 路由不覆盖 HEAD,缺了会 404。
+	// 2026-08-10 线上实测:GET /{key}.txt 200 但 HEAD 404 —— 引擎侧抓取器若先发
+	// HEAD 预检(协议未禁止),就会把 key 文件判为不可达,进而 403 UserForbiddedToAccessSite。
+	router.HEAD(expectedPath, func(c *gin.Context) {
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.Header("Content-Length", strconv.Itoa(len(key)))
+		c.Status(http.StatusOK)
 	})
 }
 

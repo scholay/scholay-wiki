@@ -333,7 +333,7 @@ export function SearchPage() {
     : "文献搜索 - Scholay | AI 驱动的学术文献检索";
   const seoDesc = seoQuery
     ? `Scholay 学术搜索: ${seoQuery}。覆盖 Semantic Scholar / OpenAlex / PubMed 多源,AI 排序 + 引用图谱 + PDF 全文,一键加入文件夹。`
-    : "Scholay 学术文献搜索 —— 多源融合 (Semantic Scholar / OpenAlex / PubMed),支持高级筛选、暂存矩阵分析、AI 智能筛选。覆盖 3 亿+ 学术论文。";
+    : "Scholay 学术搜索覆盖 2 亿+ 学术论文,支持直接检索与 AI 智能检索两种模式,可用布尔运算符(AND、OR、NOT)与精确短语提升检索精度;结果可按相关度、被引次数与发表时间排序,并按年份、领域、论文类型筛选,覆盖深度学习、大语言模型等热门研究方向。";
   // 查询词、筛选、排序和分页组合空间无界：结果态统一 noindex，并把 canonical
   // 收口到稳定的无参数入口。标题仍保留查询词，方便用户识别当前页面。
   const hasSearchState = urlParams.toString().length > 0;

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertCircle, ChevronDown, Inbox, Loader2 } from 'lucide-react';
 import { CitationProse } from '@/shared/components/CitationProse';
 import { generateCitation } from '@/shared/lib/citation';
-import { useOpenPaperInBrowser } from '@/shared/hooks';
+import { isModifiedClick, paperPath, useOpenPaperInBrowser } from '@/shared/hooks';
 import type { Paper } from '@/shared/api/types';
 // 跨 feature import —— browser ⇄ library 设计交叉,详见 PaperDetailPane 顶部注释
 import {
@@ -121,26 +122,25 @@ function ReferenceItem({
 
   const openPaper = useOpenPaperInBrowser();
 
-  // 优先内嵌打开:有 paperId → 走 useOpenPaperInBrowser 在浏览器内新开 tab
+  // 优先内嵌打开:有 paperId → 站内 <Link> 跳论文详情(浏览器内新开 tab)
   // 兜底外链:仅有 r.url → target=_blank 跳出去
   // 都没 → 纯文本
-  const handleOpenInApp = () => {
-    if (!r.paperId) return;
-    openPaper({
-      paperId: r.paperId,
-      title: r.title,
-      year: r.year,
-      venue: r.venue,
-      authors: r.authors,
-      url: r.url,
-      // 从 paperId 前缀推 source —— normalizeID 约定:olx: / pmd: / 无前缀=stc
-      source: r.paperId.startsWith('olx:')
-        ? 'olx'
-        : r.paperId.startsWith('pmd:')
-          ? 'pmd'
-          : 'stc',
-    });
-  };
+  const inAppPaper: Paper | null = r.paperId
+    ? {
+        paperId: r.paperId,
+        title: r.title,
+        year: r.year,
+        venue: r.venue,
+        authors: r.authors,
+        url: r.url,
+        // 从 paperId 前缀推 source —— normalizeID 约定:olx: / pmd: / 无前缀=stc
+        source: r.paperId.startsWith('olx:')
+          ? 'olx'
+          : r.paperId.startsWith('pmd:')
+            ? 'pmd'
+            : 'stc',
+      }
+    : null;
 
   return (
     <li className="flex gap-3.5 text-14 leading-paragraph text-subtle">
@@ -148,17 +148,22 @@ function ReferenceItem({
         [{index}]
       </span>
       <span className="flex-1 min-w-0">
-        {r.paperId ? (
-          // 用 button 而不是 <a>:避免浏览器 ctrl+click 走外链导致语义混乱;
-          // 用户期望"点引用 = 在站内看详情",和详情页其他论文跳转一致
-          <button
-            type="button"
-            onClick={handleOpenInApp}
+        {inAppPaper ? (
+          // 真实 <a href> 是 SEO 硬约束:水合后的 DOM 必须保留站内内链,
+          // 引用列表是论文详情之间最密的内链网。ctrl/cmd+click 开新标签正是
+          // 真锚点的**正确行为**(修饰键守卫直接让给浏览器);平点仍是 <Link>
+          // 的 SPA 导航,onClick 只做副作用(store 写 tab + 热点上报)。
+          <Link
+            to={paperPath(inAppPaper)}
+            onClick={(e) => {
+              if (isModifiedClick(e)) return;
+              openPaper.prepare(inAppPaper);
+            }}
             className="text-left hover:text-foreground hover:underline transition-colors"
             title="在站内打开该论文详情"
           >
             <CitationProse text={cite} />
-          </button>
+          </Link>
         ) : r.url ? (
           <a
             href={r.url}

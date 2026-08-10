@@ -99,8 +99,12 @@ type JournalSSRMeta struct {
 	JCRImpactFactor float64
 	JCRQuartile     string
 	OpenAlexHIndex  *int
-	SEOInactive     bool
-	SEOIndexable    bool
+	// RecentPapers 本刊近期代表论文(venue 名称匹配 seo_papers,年份↓被引↓)。
+	// 2026-08-10 审计:期刊页此前 0 实体内链、描述承诺「近期发表」而正文没有 ——
+	// 这份列表同时补上内容承诺与期刊→论文的内链(链接权重传递 + 抓取发现)。
+	RecentPapers []AuthorWork
+	SEOInactive  bool
+	SEOIndexable bool
 }
 
 // ToolSSRMeta 功能广场工具详情页 (/tools/{slug}) 的 SSR 元数据。
@@ -230,6 +234,12 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 			// 读出时拆分+去重,保证 Periodical JSON-LD 的 issn 永远是干净数组。
 			meta.ISSNs = NormalizeISSNs(issns)
 		}
+	}
+	// 近期代表论文:失败不阻断 SSR(列表是增强,元数据是底线)。
+	if papers, err := s.repo.ListPapersByVenueForSSR(j.CanonicalName, 6); err != nil {
+		slog.Warn("seo journal recent papers query failed", "journal_id", j.JournalID, "err", err)
+	} else {
+		meta.RecentPapers = papers
 	}
 	return meta, nil
 }

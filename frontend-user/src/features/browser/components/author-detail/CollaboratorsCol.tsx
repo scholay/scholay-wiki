@@ -1,5 +1,6 @@
+import { Link } from 'react-router-dom';
 import { ArrowUpRight, Loader2, Users } from 'lucide-react';
-import { useOpenAuthorInBrowser } from '@/shared/hooks';
+import { authorPath, isModifiedClick, useOpenAuthorInBrowser } from '@/shared/hooks';
 import type { PaperAuthor, UpstreamSource } from '@/shared/api/types';
 import { cn } from '@/shared/lib/utils';
 import { pickAvatarColor } from './pick-avatar-color';
@@ -21,9 +22,11 @@ export function CollaboratorsCol({
   currentSource: UpstreamSource;
 }) {
   const openAuthorInBrowser = useOpenAuthorInBrowser();
-  const openAuthor = (a: PaperAuthor) => {
+  // <Link> 的 onClick 只做副作用(store 写 tab),导航由 <Link> 完成
+  const prepareAuthor = (a: PaperAuthor, e: React.MouseEvent) => {
+    if (isModifiedClick(e)) return;
     if (!a.authorId) return;
-    openAuthorInBrowser({
+    openAuthorInBrowser.prepare({
       authorId: a.authorId,
       name: a.name ?? '',
       affiliations: a.affiliations,
@@ -94,14 +97,17 @@ export function CollaboratorsCol({
                   合作 {c.count} 次
                 </span>
                 {c.author.authorId && (
-                  <button
-                    type="button"
-                    onClick={() => openAuthor(c.author)}
+                  <Link
+                    to={authorPath({
+                      authorId: c.author.authorId,
+                      source: currentSource,
+                    })!}
+                    onClick={(e) => prepareAuthor(c.author, e)}
                     className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-8 text-faint hover:bg-surface-1 hover:text-foreground transition-colors"
                     aria-label="打开学者详情"
                   >
                     <ArrowUpRight className="size-3.5" strokeWidth={2} />
-                  </button>
+                  </Link>
                 )}
               </li>
             ))}

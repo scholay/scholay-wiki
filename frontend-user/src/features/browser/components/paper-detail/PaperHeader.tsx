@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useOpenAuthorInBrowser } from '@/shared/hooks';
+import { Link } from 'react-router-dom';
+import { authorPath, isModifiedClick, useOpenAuthorInBrowser } from '@/shared/hooks';
 import type { TranslatePaperResult } from '@/shared/api/translate';
 import type { Paper, UserLibraryPaper } from '@/shared/api/types';
 import { PaperMetadataBlock } from './PaperMetadataBlock';
@@ -43,8 +44,9 @@ export function PaperHeader({
   }, [paper]);
 
   // 作者:最多展示 12 个,超出 "… (N 位作者)"。
-  // 有 authorId 的渲染成 button(可点跳学者详情),没 id 的纯文本不可点,
-  // 与 MetaLine 里的搜索结果卡保持一致。自由文件(source='local')无上游 → 不可点。
+  // 有 authorId 的渲染成真实 <Link href>(SEO 硬约束:水合后的 DOM 必须保留内链),
+  // 没 id 的纯文本不可点,与 MetaLine 里的搜索结果卡保持一致。
+  // 自由文件(source='local')无上游 → 不可点。
   const openAuthor = useOpenAuthorInBrowser();
   const authors = paper.authors ?? [];
   const visibleAuthors = useMemo(
@@ -59,15 +61,24 @@ export function PaperHeader({
   );
   const overflowCount = authors.length - visibleAuthors.length;
   const isLocal = paper.source === 'local';
-  const handleClickAuthor = (a: (typeof authors)[number]) => {
+  // isLocal 已守门:这里 paper.source 必然是 UpstreamSource('stc' | 'olx' | 'pmd')
+  // 之一,但 TS 不能从局部变量 isLocal 反推 paper.source 类型,所以再判一次
+  const authorSource = paper.source === 'local' ? undefined : paper.source;
+  const authorTo = (a: (typeof authors)[number]): string | null =>
+    isLocal ? null : authorPath({ authorId: a.authorId, source: authorSource });
+  // <Link> 的 onClick 只做副作用(store 写 tab),导航由 <Link> 自己完成;
+  // 修饰键点击(新标签)不写 store,由新标签自己 fallback fetch
+  const handleClickAuthor = (
+    a: (typeof authors)[number],
+    e: React.MouseEvent
+  ) => {
+    if (isModifiedClick(e)) return;
     if (!a.authorId || isLocal) return;
-    openAuthor({
+    openAuthor.prepare({
       authorId: a.authorId,
       name: a.name ?? '',
       affiliations: a.affiliations,
-      // isLocal 已守门:这里 paper.source 必然是 UpstreamSource('stc' | 'olx' | 'pmd')
-      // 之一,但 TS 不能从局部变量 isLocal 反推 paper.source 类型,所以再判一次
-      source: paper.source === 'local' ? undefined : paper.source,
+      source: authorSource,
     });
   };
 
@@ -106,23 +117,26 @@ export function PaperHeader({
         <div className="space-y-1.5">
           {visibleAuthors.length > 0 && (
             <p className="text-14 leading-paragraph text-subtle">
-              {visibleAuthors.map((a, i) => (
-                <span key={a.authorId ?? `${i}-${a.name}`}>
-                  {i > 0 && <span className="text-faint">, </span>}
-                  {a.authorId && !isLocal ? (
-                    <button
-                      type="button"
-                      onClick={() => handleClickAuthor(a)}
-                      title={`查看学者详情:${a.name}`}
-                      className="underline decoration-dotted decoration-faint underline-offset-2 hover:text-brand-red hover:decoration-brand-red transition-colors"
-                    >
-                      {a.name}
-                    </button>
-                  ) : (
-                    <span>{a.name}</span>
-                  )}
-                </span>
-              ))}
+              {visibleAuthors.map((a, i) => {
+                const to = authorTo(a);
+                return (
+                  <span key={a.authorId ?? `${i}-${a.name}`}>
+                    {i > 0 && <span className="text-faint">, </span>}
+                    {to ? (
+                      <Link
+                        to={to}
+                        onClick={(e) => handleClickAuthor(a, e)}
+                        title={`查看学者详情:${a.name}`}
+                        className="underline decoration-dotted decoration-faint underline-offset-2 hover:text-brand-red hover:decoration-brand-red transition-colors"
+                      >
+                        {a.name}
+                      </Link>
+                    ) : (
+                      <span>{a.name}</span>
+                    )}
+                  </span>
+                );
+              })}
               {overflowCount > 0 && (
                 <span className="text-faint">
                   {' '}

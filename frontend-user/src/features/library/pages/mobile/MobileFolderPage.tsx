@@ -77,10 +77,7 @@ export function MobileFolderPage() {
   }, [virtualRows, papers.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // 稳定回调 —— 否则每次渲染新建函数,使 memo 化的 MobilePaperRow 全量重渲染。
-  const openPaper = useCallback(
-    (p: Paper) => navigate(`/paper/${p.source}/${encodeURIComponent(p.paperId)}`),
-    [navigate]
-  );
+  // (进详情的导航已由 MobilePaperRow 内的真实 <Link href> 承担,这里无需 navigate。)
   const sharePaper = useCallback(
     (p: Paper) => openShare({ kind: 'single', paper: p }),
     [openShare]
@@ -174,7 +171,6 @@ export function MobileFolderPage() {
                     enrichment={
                       papers[vi.index].venue ? enrichments[papers[vi.index].venue!] : null
                     }
-                    onOpen={openPaper}
                     onShare={sharePaper}
                     onCite={setCitePaper}
                   />

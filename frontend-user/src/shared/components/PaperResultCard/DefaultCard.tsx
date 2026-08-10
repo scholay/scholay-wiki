@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { FileText, Minimize2 } from 'lucide-react';
-import { useOpenPaperInBrowser } from '@/shared/hooks';
+import { isModifiedClick, paperPath, useOpenPaperInBrowser } from '@/shared/hooks';
 import { TruncatedText } from '@/shared/components/TruncatedText';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
@@ -84,14 +85,23 @@ export function DefaultCard({
             <StageToggle staged={isStaged} title={displayTitle || '无标题'} onToggle={onToggleStage} />
           </span>
         )}
-        <h3
-          onClick={() => openPaper(paper)}
-          className="flex-1 min-w-0 text-14 font-medium text-foreground cursor-pointer hover:text-brand-red transition-colors"
-          title="打开论文详情"
-        >
-          {highlightQuery && !showZh
-            ? renderHighlight(displayTitle, highlightQuery)
-            : displayTitle || '无标题'}
+        {/* 标题是真实 <a href>(SEO 硬约束:水合后的 DOM 必须保留内链)。
+            平点 = <Link> SPA 导航;handler 只做副作用(store 写 tab + 热点上报),
+            不 preventDefault / 不 navigate;修饰键点击整个让给浏览器(新标签)。 */}
+        <h3 className="flex-1 min-w-0 text-14 font-medium text-foreground">
+          <Link
+            to={paperPath(paper)}
+            onClick={(e) => {
+              if (isModifiedClick(e)) return;
+              openPaper.prepare(paper);
+            }}
+            className="cursor-pointer hover:text-brand-red transition-colors"
+            title="打开论文详情"
+          >
+            {highlightQuery && !showZh
+              ? renderHighlight(displayTitle, highlightQuery)
+              : displayTitle || '无标题'}
+          </Link>
         </h3>
       </div>
       <MetaLine paper={paper} journalEnrichment={journalEnrichment} />

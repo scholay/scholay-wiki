@@ -326,6 +326,43 @@ func sitemapEntriesFromItems(items []NewsItem) []SitemapEntry {
 	return out
 }
 
+// GoogleNewsEntry Google News sitemap 的一行(news: 命名空间要求文章标题 + 精确发布时刻)。
+type GoogleNewsEntry struct {
+	Slug        string
+	Title       string
+	PublishedAt string // RFC3339
+}
+
+// GoogleNewsEntries 最近 48h 发布的情报(Google News sitemap 专用窗口)。
+// Google 官方要求:只含最近两天的文章;历史文章继续留在普通 /sitemap-news.xml。
+// 错误语义与 SitemapEntries 一致:DB 错误上报(500),功能关闭返回空。
+func (s *Service) GoogleNewsEntries() ([]GoogleNewsEntry, error) {
+	cfg, err := s.repo.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.Enabled {
+		return nil, nil
+	}
+	items, err := s.repo.RecentForGoogleNewsSitemap(time.Now().Add(-48*time.Hour), 1000)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]GoogleNewsEntry, 0, len(items))
+	for i := range items {
+		it := items[i]
+		if !isValidNewsSlug(it.Slug) || strings.TrimSpace(it.Title) == "" || it.PublishedAt == nil {
+			continue
+		}
+		out = append(out, GoogleNewsEntry{
+			Slug:        it.Slug,
+			Title:       it.Title,
+			PublishedAt: it.PublishedAt.Format(time.RFC3339),
+		})
+	}
+	return out, nil
+}
+
 // SitemapMaxLastMod 全量情报最新 lastmod(天粒度),供 sitemap 索引的 <lastmod> 反映新内容。
 // 功能关闭 / 无数据 → ""(seo 索引回落静态常量)。
 func (s *Service) SitemapMaxLastMod() string {

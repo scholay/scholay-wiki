@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowUpRight,
@@ -13,7 +13,7 @@ import {
 import { EmptyState } from '@/shared/components/EmptyState';
 import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
 import { cn } from '@/shared/lib/utils';
-import { useOpenJournalInBrowser } from '@/shared/hooks';
+import { isModifiedClick, journalPath, useOpenJournalInBrowser } from '@/shared/hooks';
 import { useJournalSearch, useJournalStats, type Journal } from '../api/journals';
 import type { JournalFilters } from '../types';
 import { JournalCover } from '@/shared/components/JournalCover';
@@ -278,6 +278,7 @@ export function JournalSearchResults({
                 key={j.id}
                 journal={j}
                 onOpen={() => openJournal(j)}
+                onPrepare={() => openJournal.prepare(j)}
               />
             ))}
           </div>
@@ -315,16 +316,22 @@ function Kpi({ value, label }: { value: string; label: string }) {
 }
 
 // ─── 单卡 —— .pen `AO18q` (cover 120 + info 自适应, h-192) ───────────────
+// 刊名是真实 <Link href>(SEO 硬约束:水合后的 DOM 必须保留内链);整卡点击
+// 保留为补充性的 div onClick(走完整 openJournal:副作用 + navigate)。
+// 刊名 Link 的 onClick stopPropagation 压掉卡片级点击,避免双导航。
 function JournalCard({
   journal: j,
   onOpen,
+  onPrepare,
 }: {
   journal: Journal;
   onOpen: () => void;
+  /** 只做副作用(store 写 tab),导航由刊名 <Link> 完成 */
+  onPrepare: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
       onClick={onOpen}
       className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-16 bg-surface-card border border-border hover:border-foreground hover:transition-all"
     >
@@ -335,7 +342,17 @@ function JournalCard({
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0 space-y-1">
             <h3 className="font-display font-bold text-14 leading-display-tight text-foreground truncate group-hover:text-brand-red transition-colors">
-              {j.canonical_name}
+              <Link
+                to={journalPath(j)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isModifiedClick(e)) return;
+                  onPrepare();
+                }}
+                title={`查看期刊详情:${j.canonical_name}`}
+              >
+                {j.canonical_name}
+              </Link>
             </h3>
             <div className="text-12 text-faint truncate">
               {j.publisher ?? '出版社未知'}
@@ -408,7 +425,7 @@ function JournalCard({
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

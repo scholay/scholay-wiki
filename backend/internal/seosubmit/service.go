@@ -155,6 +155,10 @@ type Service struct {
 	localCooldown time.Time
 	// baiduCooldownUntil 百度业务级拒绝后的进程本地冷却(见 baiduAPIRejectCooldown)。
 	baiduCooldownUntil time.Time
+	// cooldownLoggedUntil 已按 WARN 级别播报过的冷却截止时刻 —— 同一次冷却期内
+	// worker 每 5 分钟 tick 一次,不去重会刷出几十条相同 WARN 淹没真信号
+	// (2026-08-10:一次 6h 冷却产生 35+ 条重复 WARN)。首次 WARN,后续降为 Debug。
+	cooldownLoggedUntil time.Time
 }
 
 func NewService(cfg appconfig.SEOSubmitConfig, siteOrigin string) *Service {
@@ -356,7 +360,7 @@ func (s *Service) processOne(ctx context.Context, batch int) {
 func (s *Service) processIndexNow(ctx context.Context, batch int) {
 	cooling, until := s.indexNowCooling(ctx)
 	if cooling {
-		slog.Warn("indexnow ownership cooldown active; indexnow queue left untouched", "until", until, "canonical_host", s.canonical.host)
+		s.logCooldownOnce(until)
 		return
 	}
 	// 出站前公网自检 key 文件:部署竞态(backend 先于边缘就绪)时盲发首批会吃
@@ -431,8 +435,11 @@ func (s *Service) processBaidu(ctx context.Context, batch int) {
 		if requeueErr := s.queue.RequeueBaidu(ctx, retry); requeueErr != nil {
 			slog.Error("baidu failure requeue failed", "count", len(retry), "err", requeueErr)
 		}
-		if errors.Is(err, errBaiduAPIReject) {
+		if errors.Is(err, errBaiduAPIReject) || errors.Is(err, upstream.ErrNotFound) || errors.Is(err, upstream.ErrAuth) || errors.Is(err, upstream.ErrBadRequest) {
 			// 结构性拒绝:每 5 分钟重试只会原样再错一次并刷一次上游,装小时级冷却。
+			// 2026-08-10 线上实测:站点未在 token 账号下验证时,百度回 404 HTML 页
+			// (upstream.ErrNotFound)而非 JSON 业务错误 —— 旧分支把它当瞬时错误,
+			// 每 5 分钟白打一次持续数日。4xx 一族全是结构性问题,统一进冷却。
 			until := s.now().Add(baiduAPIRejectCooldown)
 			s.setBaiduCooldown(until)
 			slog.Error("baidu api rejected; cooling down", "count", len(retry), "cooldown_until", until, "err", err)
@@ -448,6 +455,22 @@ func (s *Service) processBaidu(ctx context.Context, batch int) {
 		}
 		slog.Info("baidu daily quota exhausted; remainder requeued", "submitted", outcome.Submitted, "deferred", len(outcome.Unsent))
 	}
+}
+
+// logCooldownOnce 同一冷却期(相同 until)只 WARN 一次,后续 tick 降为 Debug。
+func (s *Service) logCooldownOnce(until time.Time) {
+	s.cooldownMu.Lock()
+	first := !until.Equal(s.cooldownLoggedUntil)
+	if first {
+		s.cooldownLoggedUntil = until
+	}
+	s.cooldownMu.Unlock()
+	if first {
+		slog.Warn("indexnow ownership cooldown active; indexnow queue left untouched (further ticks logged at debug)",
+			"until", until, "canonical_host", s.canonical.host)
+		return
+	}
+	slog.Debug("indexnow ownership cooldown active", "until", until, "canonical_host", s.canonical.host)
 }
 
 func (s *Service) getBaiduCooldown() time.Time {

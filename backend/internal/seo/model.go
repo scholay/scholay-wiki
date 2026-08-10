@@ -96,6 +96,7 @@ type SitemapEntry struct {
 	Source      string // 'stc' / 'olx' / 'pmd'(期刊空)
 	EntityID    string // 论文/学者的上游 paper_id/author_id;期刊的 journal id 字符串化
 	UpdatedAt   time.Time
+	CreatedAt   time.Time // 入库时间;与 UpdatedAt 相等 = 入库后内容从未变化 → leaf 省略 <lastmod>
 	Priority    float64
 	QualityTier int
 }

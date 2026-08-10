@@ -22,6 +22,7 @@ import (
 	"scholar-backend/internal/common/cache"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/seo"
 
 	"github.com/gin-gonic/gin"
 )
@@ -228,7 +229,33 @@ func (h *Handler) ServeNewsSitemap(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	c.Data(http.StatusOK, "application/xml; charset=utf-8", body)
+	// 弱 ETag + 304:每请求全量重建 XML,让爬虫的 conditional GET 不再整包回源。
+	seo.WriteBodyWithETag(c, "application/xml; charset=utf-8", string(body), 900)
+}
+
+// ServeGoogleNewsSitemap GET /sitemap-news-latest.xml —— Google News sitemap。
+// 与 /sitemap-news.xml(全量库存)分工:本文件只含最近 48h 的文章 + news: 命名空间
+// 元数据(Google 官方要求 News sitemap 仅收录两天内的新闻,超窗文章从这里滚出,
+// 但继续留在全量 sitemap)。空窗口输出合法的空 urlset。
+func (h *Handler) ServeGoogleNewsSitemap(c *gin.Context) {
+	if h.svc == nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	entries, err := h.svc.GoogleNewsEntries()
+	if err != nil {
+		slog.Error("news: google news sitemap entries failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	body, err := marshalGoogleNewsSitemap(appconfig.CanonicalBaseURL(), entries)
+	if err != nil {
+		slog.Error("news: marshal google news sitemap failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	// 短缓存:News sitemap 的价值就是新鲜度,允许爬虫高频 revalidate(304 兜底成本)。
+	seo.WriteBodyWithETag(c, "application/xml; charset=utf-8", string(body), 300)
 }
 
 type newsSitemapURLSet struct {
@@ -246,6 +273,65 @@ type newsSitemapURL struct {
 
 func newsSitemapLocation(base, slug string) string {
 	return strings.TrimRight(base, "/") + "/news/" + url.PathEscape(slug)
+}
+
+// ── Google News sitemap(news: 命名空间)────────────────────────────────────
+// encoding/xml 不原生管理前缀命名空间,这里按惯用法把 "news:" 直接写进元素名,
+// 并在根元素声明 xmlns:news —— 产物与 Google 文档示例逐字段一致。
+type googleNewsURLSet struct {
+	XMLName   xml.Name        `xml:"urlset"`
+	XMLNS     string          `xml:"xmlns,attr"`
+	XMLNSNews string          `xml:"xmlns:news,attr"`
+	URLs      []googleNewsURL `xml:"url"`
+}
+
+type googleNewsURL struct {
+	Loc  string         `xml:"loc"`
+	News googleNewsMeta `xml:"news:news"`
+}
+
+type googleNewsMeta struct {
+	Publication     googleNewsPublication `xml:"news:publication"`
+	PublicationDate string                `xml:"news:publication_date"`
+	Title           string                `xml:"news:title"`
+}
+
+type googleNewsPublication struct {
+	Name     string `xml:"news:name"`
+	Language string `xml:"news:language"`
+}
+
+func marshalGoogleNewsSitemap(base string, entries []GoogleNewsEntry) ([]byte, error) {
+	set := googleNewsURLSet{
+		XMLNS:     "http://www.sitemaps.org/schemas/sitemap/0.9",
+		XMLNSNews: "http://www.google.com/schemas/sitemap-news/0.9",
+		URLs:      make([]googleNewsURL, 0, len(entries)),
+	}
+	for _, e := range entries {
+		if !isValidNewsSlug(e.Slug) {
+			continue
+		}
+		set.URLs = append(set.URLs, googleNewsURL{
+			Loc: newsSitemapLocation(base, e.Slug),
+			News: googleNewsMeta{
+				Publication: googleNewsPublication{
+					Name:     "Scholay 学术情报",
+					Language: "zh-cn",
+				},
+				PublicationDate: e.PublishedAt,
+				Title:           e.Title,
+			},
+		})
+	}
+	payload, err := xml.MarshalIndent(set, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	body := make([]byte, 0, len(xml.Header)+len(payload)+1)
+	body = append(body, xml.Header...)
+	body = append(body, payload...)
+	body = append(body, '\n')
+	return body, nil
 }
 
 func marshalNewsSitemap(base string, entries []SitemapEntry) ([]byte, error) {

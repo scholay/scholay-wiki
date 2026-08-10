@@ -145,10 +145,11 @@ func (r *Repository) UpsertJournalSeed(seed *JournalSeed, slug, issnsJSON string
 }
 
 // BackfillJournalSitemapPage 扫描 sitemap_page=0 的新行,填入正确的分页号
+// updated_at 自赋值原因见 repository.go BackfillSitemapPage。
 func (r *Repository) BackfillJournalSitemapPage() (int64, error) {
 	res := r.db.Exec(`
 		UPDATE seo_journals
-		SET sitemap_page = FLOOR((id - 1) / ?) + 1
+		SET updated_at = updated_at, sitemap_page = FLOOR((id - 1) / ?) + 1
 		WHERE sitemap_page = 0 AND status = 1
 	`, URLsPerSitemapPage)
 	return res.RowsAffected, res.Error
@@ -179,11 +180,12 @@ func (r *Repository) ListJournalSitemapPage(page int) ([]SitemapEntry, error) {
 		JournalID     int64     `gorm:"column:journal_id"`
 		CanonicalName string    `gorm:"column:canonical_name"`
 		UpdatedAt     time.Time `gorm:"column:updated_at"`
+		CreatedAt     time.Time `gorm:"column:created_at"`
 		Priority      float64   `gorm:"column:priority"`
 		QualityTier   int       `gorm:"column:quality_tier"`
 	}
 	err := r.journalSitemapRows().
-		Select("journal_id, canonical_name, updated_at, priority, quality_tier").
+		Select("journal_id, canonical_name, updated_at, created_at, priority, quality_tier").
 		Where("sitemap_page = ?", page).
 		Order("id").
 		Find(&rows).Error
@@ -196,6 +198,7 @@ func (r *Repository) ListJournalSitemapPage(page int) ([]SitemapEntry, error) {
 			Slug:        GenerateJournalSlug(r.CanonicalName),
 			EntityID:    formatJournalID(r.JournalID),
 			UpdatedAt:   r.UpdatedAt,
+			CreatedAt:   r.CreatedAt,
 			Priority:    r.Priority,
 			QualityTier: r.QualityTier,
 		})

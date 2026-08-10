@@ -691,6 +691,13 @@ features/<x>/components/  业务组件(只本 feature 用)
 2. `app/router.tsx` 只负责拼装,不写具体路径。
 3. **登录态校验用 `loader`**,不要在组件里 useEffect + navigate。
 4. **页面级 lazy 是默认**,不要全部一次加载。
+5. **站内导航与实体跳转必须渲染真实 `<a href>`(react-router `<Link>`/`<NavLink>`)**;
+   禁止以 button/div onClick + useNavigate 作为唯一跳转路径(**SEO 硬约束**:水合后的
+   DOM 必须保留内链;2026-08-10 审计实测渲染后内链为 **0**)。`useNavigate` 仅用于
+   程序化跳转(提交后重定向、canonical replace、会话态 URL)。点击处理用
+   `isModifiedClick` 守卫 + 副作用(`@/shared/hooks` 的路径 helpers
+   `paperPath/authorPath/journalPath/pdfPath` 是 href 唯一真源,副作用走
+   `openXxx.prepare(entity)`),**不得 preventDefault、不得再 navigate**。
 
 ---
 

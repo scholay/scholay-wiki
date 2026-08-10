@@ -89,7 +89,10 @@ func (s *Service) MarkPapersEnriched(paperIDs []string) error {
 	if len(paperIDs) == 0 {
 		return nil
 	}
-	return s.repo.db.Exec(`UPDATE seo_papers SET enriched_at = NOW() WHERE paper_id IN (?)`, paperIDs).Error
+	// updated_at 显式自赋值:enriched_at 只是「已尝试补全」的内部标记,不是内容变化,
+	// 不加会被 ON UPDATE CURRENT_TIMESTAMP 连带刷新 sitemap <lastmod>
+	// (2026-08-10 审计:papers-2 全片 4,737 条 lastmod 集中在 enrich 批处理的 2 小时窗口)。
+	return s.repo.db.Exec(`UPDATE seo_papers SET updated_at = updated_at, enriched_at = NOW() WHERE paper_id IN (?)`, paperIDs).Error
 }
 
 // ─── 作者(H3)────────────────────────────────────────────────────────────
@@ -114,8 +117,17 @@ func (s *Service) EnrichAuthor(authorID string, affiliationsJSON, homepage, orci
 	if authorID == "" {
 		return errors.New("empty author_id")
 	}
+	// ⚠️ updated_at 必须显式管理且放在最前(同一条 UPDATE 内赋值左→右生效,放前面才能读到
+	// 旧 top_works / affiliations):仅当「代表作从无到有」或「机构列表真的变长」才 bump ——
+	// 这两种是页面可见的内容变化,值得爬虫重抓。此前这条 UPDATE 完全没管 updated_at,
+	// ON UPDATE CURRENT_TIMESTAMP 让每次 enrich 尝试(哪怕什么都没补到)都刷新 lastmod,
+	// 正是 2026-08-10 审计发现 authors-3 全片 17,375 条 lastmod 同日分钟桶戳的根因。
 	if err := s.repo.db.Exec(`
 		UPDATE seo_authors SET
+			updated_at = CASE
+				WHEN (COALESCE(JSON_LENGTH(top_works),0) = 0 AND NULLIF(?,'') IS NOT NULL)
+				  OR (NULLIF(?,'') IS NOT NULL AND LENGTH(?) > COALESCE(LENGTH(affiliations),0))
+				THEN NOW() ELSE updated_at END,
 			affiliations = CASE
 				WHEN NULLIF(?,'') IS NOT NULL AND LENGTH(?) > COALESCE(LENGTH(affiliations),0) THEN ?
 				ELSE affiliations END,
@@ -126,6 +138,7 @@ func (s *Service) EnrichAuthor(authorID string, affiliationsJSON, homepage, orci
 			citation_count = GREATEST(citation_count, ?),
 			h_index        = GREATEST(COALESCE(h_index,0), COALESCE(?,0))
 		WHERE author_id = ?`,
+		topWorksJSON, affiliationsJSON, affiliationsJSON,
 		affiliationsJSON, affiliationsJSON, affiliationsJSON,
 		homepage, homepage,
 		orcid, orcid,
@@ -147,5 +160,6 @@ func (s *Service) MarkAuthorsEnriched(authorIDs []string) error {
 	if len(authorIDs) == 0 {
 		return nil
 	}
-	return s.repo.db.Exec(`UPDATE seo_authors SET enriched_at = NOW() WHERE author_id IN (?)`, authorIDs).Error
+	// updated_at 自赋值原因同 MarkPapersEnriched。
+	return s.repo.db.Exec(`UPDATE seo_authors SET updated_at = updated_at, enriched_at = NOW() WHERE author_id IN (?)`, authorIDs).Error
 }

@@ -54,7 +54,7 @@ export function ToolsCatalogPage() {
     <>
       <RouteSEO
         title="科研能力广场 · 科研工具黄页 — Scholay学术"
-        description="汇聚科研常用工具:统计分析、化学材料、生物信息、绘图可视化、文献管理、学术写作、期刊评价等,分门别类快速找到适合你的工具。"
+        description="Scholay 学术工具广场:汇集文献检索、文献管理、论文写作、数据分析、AI 学术助手、LaTeX 排版、学术绘图等科研常用软件与在线工具,每个工具附分类、获取方式、官网链接与使用说明,支持按类目检索与对比,帮研究者快速找到合适的科研工具。"
         keywords="科研工具,学术软件,统计分析,科研绘图,文献管理,LaTeX,期刊分区,生物信息"
         canonical="/tools"
         noindex={search.length > 0}

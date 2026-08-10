@@ -14,6 +14,12 @@ func paperRowIndexable(p *SEOPaper) bool {
 		(strings.TrimSpace(p.Abstract) != "" || p.QualityTier == TierDetailClick)
 }
 
+// 2026-08-10 审计收紧:paper_count / citation_count / h_index 不再单独构成收录资格。
+// 线上实测 stc 作者 72% 无 top_works、99% 无 affiliations,这些行渲染出来只有
+// 「姓名 + 三个数字」的 169 字符薄页(约 2.6 万条,占作者 sitemap 一半以上),
+// 是「已抓取未收录」与模板化重复描述的最大来源。指标行保留展示,但页面要进
+// sitemap / 主动推送,必须有至少一块可展开的实质内容(代表作 / 机构 / 主页 / ORCID)
+// 或真实用户详情点击(TierDetailClick)。enrich 补齐 top_works 后自动恢复资格。
 func authorRowIndexable(a *SEOAuthor) bool {
 	if a == nil || a.Status != StatusActive ||
 		!IsCanonicalSource(strings.TrimSpace(a.Source)) || strings.TrimSpace(a.AuthorID) == "" ||
@@ -24,9 +30,6 @@ func authorRowIndexable(a *SEOAuthor) bool {
 		hasJSONArrayContent(a.AffiliationsJSON) ||
 		strings.TrimSpace(a.Homepage) != "" ||
 		strings.TrimSpace(a.ORCID) != "" ||
-		a.PaperCount > 0 ||
-		a.CitationCount > 0 ||
-		(a.HIndex != nil && *a.HIndex > 0) ||
 		hasJSONArrayContent(a.TopWorksJSON)
 }
 

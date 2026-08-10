@@ -18,6 +18,7 @@ package seo
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"html"
 	"log/slog"
 	"net/http"
@@ -295,6 +296,10 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	}
 	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-news.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
 		base, newsLastMod)
+	// Google News sitemap(48h 窗口,news 模块提供)。放进索引便于发现;
+	// GSC 里仍建议单独提交一次以启用 News 专属报告。
+	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-news-latest.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+		base, newsLastMod)
 
 	// 动态实体 sitemap：严格按真实非空页号升序写入，缺号不补空 leaf。
 	appendEntitySitemapIndexEntries(&b, base, "papers", paperPageLastMod)
@@ -424,7 +429,7 @@ func (h *Handler) ServeJournalSitemap(c *gin.Context) {
 // serveJournalSitemap 独立于 serveEntitySitemap, 因为 journal URL 形态不带 source 段
 func (h *Handler) serveJournalSitemap(c *gin.Context, page int) {
 	version := h.versionForKind(c.Request.Context(), "journals")
-	cacheKey := fmt.Sprintf("%s:journals:eligibility-v2:%d:v%d", sitemapCacheKey, page, version)
+	cacheKey := fmt.Sprintf("%s:journals:lastmod-honest-v3:%d:v%d", sitemapCacheKey, page, version)
 
 	if xml, ok := h.getCached(c.Request.Context(), cacheKey); ok {
 		h.writeXML(c, xml, sitemapBrowserCache)
@@ -451,11 +456,10 @@ func (h *Handler) serveJournalSitemap(c *gin.Context, page int) {
 		if loc == "" {
 			continue
 		}
-		lastMod := e.UpdatedAt.Format(time.RFC3339)
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		changefreq := changefreqForTier(e.QualityTier)
-		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
-			html.EscapeString(loc), lastMod, changefreq, priority)
+		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n%s    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
+			html.EscapeString(loc), entityLastModXML(e), changefreq, priority)
 	}
 	b.WriteString(`</urlset>` + "\n")
 
@@ -512,7 +516,7 @@ func parseSitemapPageParam(c *gin.Context, prefix string) (int, bool) {
 func (h *Handler) serveEntitySitemap(c *gin.Context, page int, kind, urlPrefix string, fetcher func(int) ([]SitemapEntry, error)) {
 	// 只取自家 kind 的版本号 —— 论文写入不会让作者 sitemap cache 失效
 	version := h.versionForKind(c.Request.Context(), kind)
-	cacheKey := fmt.Sprintf("%s:%s:eligibility-v2:%d:v%d", sitemapCacheKey, kind, page, version)
+	cacheKey := fmt.Sprintf("%s:%s:lastmod-honest-v3:%d:v%d", sitemapCacheKey, kind, page, version)
 
 	if xml, ok := h.getCached(c.Request.Context(), cacheKey); ok {
 		h.writeXML(c, xml, sitemapBrowserCache)
@@ -540,11 +544,10 @@ func (h *Handler) serveEntitySitemap(c *gin.Context, page int, kind, urlPrefix s
 			// source + entityID + slug 全空 —— 跳过,不写无效 URL
 			continue
 		}
-		lastMod := e.UpdatedAt.Format(time.RFC3339)
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		changefreq := changefreqForTier(e.QualityTier)
-		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
-			html.EscapeString(loc), lastMod, changefreq, priority)
+		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n%s    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
+			html.EscapeString(loc), entityLastModXML(e), changefreq, priority)
 	}
 	b.WriteString(`</urlset>` + "\n")
 
@@ -576,6 +579,22 @@ func changefreqForTier(tier int) string {
 		return "weekly"
 	}
 	return "monthly"
+}
+
+// entityLastModXML 条件输出 <lastmod> 行(含缩进与换行),不可信时返回 ""。
+//
+// updated_at ≈ created_at 意味着「入库后内容从未变化」—— 此时 updated_at 只是
+// 入库时刻,不是内容修改时刻。批量灌数据的分片若把入库时间当 <lastmod> 输出,
+// 会呈现「整片 URL 同一天全部'被修改'」的假象,教会 Googlebot 不信任本站 lastmod
+// (2026-08-10 审计:papers-2 / authors-3 全片如此)。sitemap 协议里 <lastmod> 是
+// 可选字段,省略是合法且诚实的表达;真实内容变化(标题变更/摘要变长/代表作从无到有)
+// 会让 updated_at 显著晚于 created_at,恢复输出。60s 容差覆盖 INSERT 参数与
+// DB 时钟的亚秒抖动。
+func entityLastModXML(e SitemapEntry) string {
+	if e.CreatedAt.IsZero() || e.UpdatedAt.Sub(e.CreatedAt) <= time.Minute {
+		return ""
+	}
+	return "    <lastmod>" + e.UpdatedAt.Format(time.RFC3339) + "</lastmod>\n"
 }
 
 // ServeRobotsTxt 返回 robots.txt，声明 sitemap 入口
@@ -638,9 +657,7 @@ Crawl-delay: 5
 
 Sitemap: %s/sitemap.xml
 `, rules, rules, rules, rules, rules, baseURL())
-	c.Header("Content-Type", "text/plain; charset=utf-8")
-	c.Header("Cache-Control", "public, max-age=86400")
-	c.String(http.StatusOK, body)
+	WriteBodyWithETag(c, "text/plain; charset=utf-8", body, 86400)
 }
 
 // ---------- 内部工具 ----------
@@ -699,7 +716,42 @@ func (h *Handler) setCached(ctx context.Context, key, xml string, ttl time.Durat
 }
 
 func (h *Handler) writeXML(c *gin.Context, xml string, maxAge int) {
-	c.Header("Content-Type", "application/xml; charset=utf-8")
+	WriteBodyWithETag(c, "application/xml; charset=utf-8", xml, maxAge)
+}
+
+// WriteBodyWithETag 统一的条件请求出口:弱 ETag + If-None-Match → 304。
+//
+// 2026-08-10 审计:全站 SEO 面(sitemap/robots)零 conditional-GET 支持,爬虫每次
+// 都全量回源(单片 sitemap 4.3MB 未压缩)。Google 抓取预算文档明确:服务端支持
+// 304 能显著提高大站点抓取效率。ETag 用 FNV-1a 内容哈希 —— 内容由 Redis 版本化
+// 缓存驱动,同版本字节恒定,哈希即身份;弱标记(W/)表达「字节级可能有差异但语义等价」。
+func WriteBodyWithETag(c *gin.Context, contentType, body string, maxAge int) {
+	sum := fnv.New64a()
+	_, _ = sum.Write([]byte(body))
+	etag := fmt.Sprintf(`W/"%016x"`, sum.Sum64())
+
 	c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d", maxAge))
-	c.String(http.StatusOK, xml)
+	c.Header("ETag", etag)
+	if inm := c.GetHeader("If-None-Match"); inm != "" && etagMatches(inm, etag) {
+		c.Status(http.StatusNotModified)
+		return
+	}
+	c.Header("Content-Type", contentType)
+	c.String(http.StatusOK, body)
+}
+
+// etagMatches If-None-Match 弱比较:忽略 W/ 前缀,支持逗号分隔的多值与 "*"。
+func etagMatches(headerVal, etag string) bool {
+	stripWeak := func(s string) string {
+		s = strings.TrimSpace(s)
+		return strings.TrimPrefix(s, "W/")
+	}
+	target := stripWeak(etag)
+	for _, candidate := range strings.Split(headerVal, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "*" || stripWeak(candidate) == target {
+			return true
+		}
+	}
+	return false
 }

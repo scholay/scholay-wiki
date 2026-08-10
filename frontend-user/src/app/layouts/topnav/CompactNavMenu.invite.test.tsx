@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
@@ -15,6 +15,18 @@ const mocks = vi.hoisted(() => ({
 vi.mock("react-router-dom", () => ({
   useNavigate: () => mocks.navigate,
   useLocation: () => ({ pathname: "/", search: "" }),
+  // 路由型条目现在渲染真实 <Link href> —— passthrough 成裸 <a>
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: { to: unknown } & AnchorHTMLAttributes<HTMLAnchorElement> & {
+      children?: ReactNode;
+    }) => (
+    <a href={typeof to === "string" ? to : ""} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock("@/shared/components/IconButton", () => ({

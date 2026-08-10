@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Globe, Home, LayoutGrid } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton';
 import { cn } from '@/shared/lib/utils';
@@ -67,7 +67,10 @@ export function MenuCarousel() {
         </IconButton>
       )}
 
+      {/* 首页是路由型入口 → 真实 <Link href>(SEO 硬约束);
+          Globe(浏览器)按钮是会话态 URL + returnTo store 写,保持 button。 */}
       <IconButton
+        asChild
         tooltip="首页"
         aria-label="首页"
         className={cn(
@@ -79,9 +82,10 @@ export function MenuCarousel() {
               'bg-foreground text-on-dark cursor-default hover:bg-foreground hover:text-on-dark'
             : 'bg-surface-2'
         )}
-        onClick={() => navigate('/')}
       >
-        <Home strokeWidth={2} />
+        <Link to="/">
+          <Home strokeWidth={2} />
+        </Link>
       </IconButton>
 
       <Separator />

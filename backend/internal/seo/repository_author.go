@@ -135,18 +135,21 @@ func (r *Repository) SetAuthorORCID(authorID, orcid string) error {
 	if authorID == "" || orcid == "" {
 		return nil
 	}
+	// updated_at 显式自赋值:否则 ON UPDATE CURRENT_TIMESTAMP 会 bump lastmod,
+	// 与本函数「不改变 sitemap 新鲜度语义」的承诺相反(2026-08-10 审计修正)。
 	return r.db.Exec(`
 		UPDATE seo_authors
-		SET orcid = ?
+		SET updated_at = updated_at, orcid = ?
 		WHERE author_id = ? AND (orcid IS NULL OR orcid = '')
 	`, orcid, authorID).Error
 }
 
 // BackfillAuthorSitemapPage 扫描 sitemap_page=0 的新行，填入正确的分页号
+// updated_at 自赋值原因见 BackfillSitemapPage。
 func (r *Repository) BackfillAuthorSitemapPage() (int64, error) {
 	res := r.db.Exec(`
 		UPDATE seo_authors
-		SET sitemap_page = FLOOR((id - 1) / ?) + 1
+		SET updated_at = updated_at, sitemap_page = FLOOR((id - 1) / ?) + 1
 		WHERE sitemap_page = 0 AND status = 1
 	`, URLsPerSitemapPage)
 	return res.RowsAffected, res.Error
@@ -191,11 +194,12 @@ func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 		Source      string    `gorm:"column:source"`
 		AuthorID    string    `gorm:"column:author_id"`
 		UpdatedAt   time.Time `gorm:"column:updated_at"`
+		CreatedAt   time.Time `gorm:"column:created_at"`
 		Priority    float64   `gorm:"column:priority"`
 		QualityTier int       `gorm:"column:quality_tier"`
 	}
 	err := r.authorSitemapRows().
-		Select("slug, source, author_id, updated_at, priority, quality_tier").
+		Select("slug, source, author_id, updated_at, created_at, priority, quality_tier").
 		Where("sitemap_page = ?", page).
 		Order("id").
 		Find(&rows).Error
@@ -209,6 +213,7 @@ func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 			Source:      r.Source,
 			EntityID:    r.AuthorID,
 			UpdatedAt:   r.UpdatedAt,
+			CreatedAt:   r.CreatedAt,
 			Priority:    r.Priority,
 			QualityTier: r.QualityTier,
 		})
@@ -217,8 +222,10 @@ func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 }
 
 // authorSitemapRows 是作者 leaf、主动提交与 sitemap index 共用的 eligibility
-// 单一真源。只有姓名的搜索曝光壳不进入 sitemap；真实详情点击或至少一个可验证的
-// 机构、代表作、主页/ORCID、论文/引用/h-index 信号才算实质页面。
+// 单一真源(必须与 eligibility.go authorRowIndexable 保持逐条一致)。
+// 2026-08-10 审计收紧:纯指标行(仅 paper_count/citation_count/h_index)不再入选 ——
+// 它们渲染出来只有「姓名 + 三个数字」的薄页,线上 2.6 万条 stc 作者属此类,
+// 是索引质量的最大拖累。enrich 补齐 top_works / affiliations 后自动恢复资格。
 func (r *Repository) authorSitemapRows() *gorm.DB {
 	return r.db.Table("seo_authors").Where(`
 		status = ?
@@ -230,9 +237,6 @@ func (r *Repository) authorSitemapRows() *gorm.DB {
 			OR COALESCE(JSON_LENGTH(affiliations), 0) > 0
 			OR TRIM(COALESCE(homepage, '')) <> ''
 			OR TRIM(COALESCE(orcid, '')) <> ''
-			OR paper_count > 0
-			OR citation_count > 0
-			OR COALESCE(h_index, 0) > 0
 			OR COALESCE(JSON_LENGTH(top_works), 0) > 0
 		)
 	`, StatusActive, []string{SourceSTC, SourceOLX, SourcePMD}, TierDetailClick)

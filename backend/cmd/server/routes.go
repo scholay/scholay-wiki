@@ -162,6 +162,8 @@ func registerSEOReadRoutes(router *gin.Engine, h *allHandlers) {
 	registerGETAndHEAD(router, "/sitemap-tools-:page.xml", h.featureTool.ServeToolSitemap)
 	// 情报 sitemap（由 news 提供；seo 索引引用其 URL）。
 	registerGETAndHEAD(router, "/sitemap-news.xml", h.news.ServeNewsSitemap)
+	// Google News sitemap:仅最近 48h 的文章 + news: 命名空间(官方两天窗口要求)。
+	registerGETAndHEAD(router, "/sitemap-news-latest.xml", h.news.ServeGoogleNewsSitemap)
 	registerGETAndHEAD(router, "/robots.txt", h.seo.ServeRobotsTxt)
 }
 

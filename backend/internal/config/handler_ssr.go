@@ -998,11 +998,16 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 	}
 	// 标题:论文标题 + 学科/年份提示 + 品牌后缀
 	// 例如:"Attention Is All You Need - 论文详情 (NeurIPS 2017) | Scholay 学术搜索"
+	//
+	// 2026-08-10 审计收紧:① 上游(OpenAlex 等)标题自带的尾部省略号先剥掉,否则
+	// truncate 再补 "..." 会出现「...NU... - 论文详情」双截断;② 标题段 100→70 rune ——
+	// 叠加固定后缀后整条 <title> 曾达 141 字符,SERP 只展示 ~60 字符,超长部分纯粹
+	// 稀释关键词权重。H1 与 JSON-LD headline 保留完整标题,不受影响。
 	venueYear := buildPaperVenueSegment(meta)
 	if venueYear != "" {
 		venueYear = " (" + venueYear + ")"
 	}
-	seoTitle := fmt.Sprintf("%s - 论文详情%s | Scholay 学术搜索", truncate(title, 100), venueYear)
+	seoTitle := fmt.Sprintf("%s - 论文详情%s | Scholay 学术搜索", truncate(stripTrailingEllipsis(title), 70), venueYear)
 
 	// 描述：摘要优先，其次 venue/year/DOI/作者(作者截前 3 + 等,避免多作者时描述溢出被 SERP 截断)
 	desc := meta.Abstract
@@ -1364,13 +1369,20 @@ func buildAuthorNoscriptCard(meta *seo.AuthorSSRMeta) string {
 
 // buildAuthorWorksHTML 渲染作者代表作列表(noscript);标题带内链到 canonical 论文页。
 func buildAuthorWorksHTML(works []seo.AuthorWork) string {
+	return buildWorksListHTML("代表论文", works)
+}
+
+// buildWorksListHTML 论文精简列表的通用渲染(作者代表作 / 期刊近期论文共用):
+// 每条尽量带 <a href> 内链到 canonical 论文页 —— 实体间真实链接是爬虫发现与
+// 权重传递的载体(2026-08-10 审计:期刊页此前 0 实体内链)。
+func buildWorksListHTML(heading string, works []seo.AuthorWork) string {
 	if len(works) == 0 {
 		return ""
 	}
 	subHeadStyle := ssrSubHeadStyle
 	listStyle := ssrListStyle
 	var b strings.Builder
-	fmt.Fprintf(&b, "<h2 %s>代表论文</h2><ul %s>", subHeadStyle, listStyle)
+	fmt.Fprintf(&b, "<h2 %s>%s</h2><ul %s>", subHeadStyle, htmlEscape(heading), listStyle)
 	for _, w := range works {
 		if w.Title == "" {
 			continue
@@ -1560,11 +1572,15 @@ func buildJournalNoscriptCard(meta *seo.JournalSSRMeta) string {
 		statHTML = fmt.Sprintf("<p %s>%s</p>", statStyle, strings.Join(statLines, " · "))
 	}
 
+	// 近期代表论文(带内链):补上描述承诺的「近期发表」内容 + 期刊→论文实体链接。
+	papersHTML := buildWorksListHTML("本刊近期代表论文", meta.RecentPapers)
+
 	return fmt.Sprintf(`<article %s>
 <h1 %s>%s</h1>
 %s
 %s
-</article>`, baseStyle, headingStyle, name, metaHTML, statHTML)
+%s
+</article>`, baseStyle, headingStyle, name, metaHTML, statHTML, papersHTML)
 }
 
 // injectToolSEOMeta 功能广场工具详情页 SEO 注入(与 paper/author/journal 同构)。
@@ -1819,6 +1835,24 @@ func truncate(s string, n int) string {
 	return string(r[:n]) + "..."
 }
 
+// stripTrailingEllipsis 剥掉上游标题自带的尾部省略号("..." / "…")与收尾空白 ——
+// 否则 truncate 再补一次 "..." 会产生「...NU... - 论文详情」式双截断(2026-08-10 审计)。
+func stripTrailingEllipsis(s string) string {
+	s = strings.TrimSpace(s)
+	for {
+		switch {
+		case strings.HasSuffix(s, "..."):
+			s = strings.TrimSpace(strings.TrimSuffix(s, "..."))
+		case strings.HasSuffix(s, "…"):
+			s = strings.TrimSpace(strings.TrimSuffix(s, "…"))
+		case strings.HasSuffix(s, ".."):
+			s = strings.TrimSpace(strings.TrimSuffix(s, ".."))
+		default:
+			return s
+		}
+	}
+}
+
 // htmlEscape 轻量 HTML 转义（足以覆盖 title/description 中的常见特殊字符）
 func htmlEscape(s string) string {
 	r := strings.NewReplacer(
@@ -2053,7 +2087,7 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 	},
 	"/features/prism": {
 		"Prism · Scholay学术 — AI 学术写作 + LaTeX 编辑器",
-		"在浏览器里写 LaTeX,在 AI 协作中完成论文。Prism 把实时预览、文献引用、润色批注、模板套用与版本协作合并到一个简洁的编辑器里。",
+		"在浏览器里写 LaTeX,在 AI 协作中完成论文。Prism 把实时编译预览、文献引用、润色批注、模板套用与版本协作合并到一个简洁的编辑器里:AI 可按指令直接修改正文并以 diff 形式呈现,自动引用检索到的文献,内置 IEEE、ACM、Springer 等主流期刊模板,零安装上手。",
 	},
 	"/features/claw": {
 		"Claw · Scholay学术 — 你的学术对话伙伴,基于你的文件夹回答",
@@ -2065,11 +2099,11 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 	},
 	"/features/peer-review": {
 		"同行评审 · Scholay学术 — 为学者,重新发明同行评审",
-		"Scholay 同行评审是为期刊与会议而生的智能评审工作台,提供结构化评审模板、自动新颖性核查、引用图谱对比与偏见提示。",
+		"Scholay 同行评审是为期刊与会议而生的智能评审工作台,提供结构化评审模板、自动新颖性核查、引用图谱对比与偏见提示,辅助审稿人与作者在投稿前发现结构、方法论与论证逻辑中的关键问题。支持 PDF 上传与文本粘贴提交,审稿报告按问题严重性分级并附具体修改建议。",
 	},
 	"/tools": {
 		"学术工具广场 — 科研软件与在线工具大全 | Scholay 学术",
-		"Scholay 学术工具广场:汇集编程语言、数据分析、文献管理、写作排版等科研常用软件与在线工具,按分类检索与对比。",
+		"Scholay 学术工具广场:汇集文献检索、文献管理、论文写作、数据分析、AI 学术助手、LaTeX 排版、学术绘图等科研常用软件与在线工具,每个工具附分类、获取方式、官网链接与使用说明,支持按类目检索与对比,帮研究者快速找到合适的科研工具。",
 	},
 	"/tools/skills": {
 		"社区技能 · 科研能力广场 | Scholay 学术",
@@ -2089,11 +2123,11 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 	},
 	"/search": {
 		"学术文献搜索 — 2 亿+ 论文检索 | Scholay 学术",
-		"Scholay 学术搜索覆盖 2 亿+ 学术论文,支持直接检索与 AI 智能检索、布尔运算符与精确短语,结果可按相关度、被引次数与发表时间排序。",
+		"Scholay 学术搜索覆盖 2 亿+ 学术论文,支持直接检索与 AI 智能检索两种模式,可用布尔运算符(AND、OR、NOT)与精确短语提升检索精度;结果可按相关度、被引次数与发表时间排序,并按年份、领域、论文类型筛选,覆盖深度学习、大语言模型等热门研究方向。",
 	},
 	"/journals/search": {
 		"期刊检索 — 影响因子 / 分区 / 收录查询 | Scholay 学术",
-		"按刊名、ISSN、学科与影响因子分区查找学术期刊,查看 JCR 影响因子、CiteScore、中科院分区与开放获取(OA)信息,辅助选刊投稿。",
+		"按刊名、ISSN、学科、出版商与影响因子分区查找学术期刊,逐刊查看 JCR 影响因子、CiteScore、中科院分区与 JCR 分区、是否开放获取(OA)及收录范围,辅助选刊投稿与文献质量评估;另有 SCI 一区、中科院一区、CCF A 类与高影响因子期刊榜单。",
 	},
 	"/journals/sci-q1": {
 		"SCI 一区(JCR Q1)期刊有哪些 - Scholay 期刊库",
