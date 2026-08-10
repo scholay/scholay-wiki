@@ -250,6 +250,8 @@ services:
       BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
       SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
       SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
+      # Google Search Console HTML-tag 验证(meta content 值;DNS TXT 验证时留空)
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       # SEO 完整性回填(H1 论文摘要 + M2 冷门 URL 现拉):默认关,置 true 才消耗 minicod 配额
       SEO_ENRICH_ENABLED: ${SEO_ENRICH_ENABLED:-false}
       # MinIO 对象存储 (用户上传 PDF)
