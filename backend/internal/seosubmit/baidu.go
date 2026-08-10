@@ -35,7 +35,14 @@ import (
 )
 
 const (
-	baiduPushEndpoint = "http://data.zz.baidu.com/urls"
+	// baiduPushHost / baiduPushPath 分开声明:upstream.buildURL 对空 Path 会拼成
+	// `baseURL + "/"`,若把完整 endpoint 塞进 BaseURL、Path 传 "",实际出站 URL 是
+	// `http://data.zz.baidu.com/urls/`(带尾斜杠)—— 百度对 `/urls/` 返回 404 XHTML
+	// 「Page Not Found」页,整条推送通道全灭且报错里看不出 URL 差异
+	// (2026-08-11 线上事故:站长平台验证通过后 worker 仍 404,宿主机 curl 却成功,
+	// 逐变量对照才定位到这个斜杠)。
+	baiduPushHost = "http://data.zz.baidu.com"
+	baiduPushPath = "/urls"
 	baiduDailyKeyFmt  = "seo:push:baidu:daily:%s" // %s = YYYYMMDD
 	baiduDailyKeyTTL  = 30 * time.Hour            // 留余量保险
 
@@ -55,7 +62,7 @@ func baidu() *upstream.Client {
 		// 百度接口正常 1s 内回, 10s 失败就视为挂了。
 		hc := &http.Client{Timeout: baiduPushTimeout}
 		baiduClient = upstream.New("baidu_push").
-			BaseURL(baiduPushEndpoint).
+			BaseURL(baiduPushHost).
 			HTTPClient(hc).
 			Breaker(upstream.BreakerConfig{
 				MaxRequests:  2,
@@ -163,7 +170,7 @@ func SubmitBaidu(ctx context.Context, site, token string, urls []string, quota i
 
 	resp, err := baidu().Do(ctx, upstream.Request{
 		Method: http.MethodPost,
-		Path:   "", // baseURL 已经是完整 endpoint
+		Path:   baiduPushPath, // ⚠️ 不能传 ""(见 baiduPushHost 注释:会产生尾斜杠 404)
 		Query:  url.Values{"site": []string{site}, "token": []string{token}},
 		Headers: http.Header{
 			"Content-Type": []string{"text/plain"},
