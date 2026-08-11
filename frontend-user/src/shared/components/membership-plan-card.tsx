@@ -343,10 +343,12 @@ export function BillingCycleToggle({
       className={cn('inline-flex items-center gap-1 rounded-pill border border-border bg-surface-1 p-1', disabled && 'opacity-60')}
       title={disabled ? disabledHint : undefined}
     >
+      {/* 🔴 年付在前(2026-08-12 设计稿):它是我们希望用户选的那一档,带「省 N%」徽标。
+          放右边等于让优惠项排在默认视线终点,与「突出年付更划算」的目标相反。 */}
       {(
         [
-          { id: 'monthly', label: '月付' },
           { id: 'yearly', label: '年付' },
+          { id: 'monthly', label: '月付' },
         ] as const
       ).map((opt) => {
         const active = value === opt.id;

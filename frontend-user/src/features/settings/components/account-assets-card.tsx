@@ -190,9 +190,10 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
       <MembershipActionDialog
         open={flow !== null}
         onOpenChange={(o) => !o && setFlow(null)}
-        mode={flow === 'renew' ? 'renew' : 'upgrade'}
+        mode={flow === 'renew' ? 'renew' : data.tier === 'free' ? 'subscribe' : 'upgrade'}
         options={flow === 'renew' ? renewOpts : upOpts}
         plans={pricing}
+        popularTier={plans?.popular_plan}
         quote={quoteSubscription}
         methods={methods}
         onPay={(tier, method, cycle) => subscribe(tier, method, cycle, PLAN_LABEL[tier])}

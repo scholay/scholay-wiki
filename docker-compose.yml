@@ -275,6 +275,12 @@ services:
       # backend internal/umami 通过 umami:3000 拉取统计,admin /analytics 自渲染图表。
       # 内网 URL + 默认 admin/umami 都写死在 client.go 里,这里只需告诉 backend WebsiteID。
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # 爬虫监控专用 website(必须与上面的用户统计站点分开):后端识别到搜索引擎/AI
+      # 爬虫时服务端旁路上报,后台「数据统计 → 搜索引擎抓取」读它。Umami 原生 JS
+      # tracker 看不到爬虫(不执行 JS + 服务端 isbot 过滤),所以只能走这条旁路。
+      # 留空 = 中间件完全不挂载,零开销。
+      UMAMI_CRAWLER_WEBSITE_ID: ${UMAMI_CRAWLER_WEBSITE_ID:-}
+      UMAMI_CRAWLER_BASE_URL: ${UMAMI_CRAWLER_BASE_URL:-}
       # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       # P6:fork 已退役,后端唯一 agent 后端 = clean-room executor。默认即指向 executor,

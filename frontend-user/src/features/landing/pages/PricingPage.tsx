@@ -324,13 +324,20 @@ export function PricingPage() {
       <MembershipActionDialog
         open={sub.open}
         onOpenChange={(o) => setSub((s) => ({ ...s, open: o }))}
-        mode={sub.tier && sub.tier === currentTier ? 'renew' : 'upgrade'}
+        mode={
+          sub.tier && sub.tier === currentTier
+            ? 'renew'
+            : (currentTier ?? 'free') === 'free'
+              ? 'subscribe'
+              : 'upgrade'
+        }
         options={
           sub.tier && sub.tier === currentTier
             ? renewOptions(currentTier ?? 'free', currentCycle, plans)
             : upgradeOptions(currentTier ?? 'free', currentCycle, plans)
         }
         plans={plans}
+        popularTier={data?.popular_plan}
         preselect={sub.tier ? { tier: sub.tier, cycle } : null}
         quote={quoteSubscription}
         methods={methods}

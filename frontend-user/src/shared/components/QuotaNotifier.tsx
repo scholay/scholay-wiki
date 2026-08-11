@@ -137,9 +137,10 @@ export function QuotaNotifier({ data }: { data: QuotaOverview | undefined }) {
       <MembershipActionDialog
         open={subOpen}
         onOpenChange={(o) => (o ? openSubscribe() : closeSubscribe())}
-        mode="upgrade"
+        mode={(data?.tier ?? 'free') === 'free' ? 'subscribe' : 'upgrade'}
         options={upgradeOptions(data?.tier ?? 'free', data?.cycle, plansData?.plans ?? [])}
         plans={plansData?.plans ?? []}
+        popularTier={plansData?.popular_plan}
         quote={quoteSubscription}
         methods={subscribePayMethods(plansData?.payment_methods, plansData?.test_payment ?? false)}
         onPay={paySubscribe}

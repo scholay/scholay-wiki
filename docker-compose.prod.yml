@@ -271,6 +271,11 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required in prod}
       # Umami HTTP API 接入 —— admin /analytics 走 backend 自渲染图表
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # 爬虫监控专用 website(与用户统计站点分开):爬虫命中时服务端旁路上报,
+      # 后台「数据统计 → 搜索引擎抓取」读它。留空 = 中间件不挂载。
+      # ⚠️ compose 是显式 environment 映射,不写这两行则 .env 里配了也不生效。
+      UMAMI_CRAWLER_WEBSITE_ID: ${UMAMI_CRAWLER_WEBSITE_ID:-}
+      UMAMI_CRAWLER_BASE_URL: ${UMAMI_CRAWLER_BASE_URL:-}
       # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
