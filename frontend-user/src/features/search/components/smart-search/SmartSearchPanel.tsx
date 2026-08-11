@@ -195,7 +195,7 @@ export function SmartSearchPanel() {
     }
   }, []);
   /** 最近一次提交的原始 payload(text + 含 path 的 attachments + 引用)—— 命中额度 / 投递失败
-   *  被拦时据此把「未发送」消息持久化到 localStorage(BlockedTurnCard 一键重发,与 claw 同构;
+   *  被拦时据此把「未发送」消息持久化到 localStorage(QuotaComposerStrip 自动重发,与 claw 同构;
    *  旧「原文回填输入框」方案已退役)。 */
   const lastSubmitRef = useRef<SmartSearchBlockedMessage | null>(null);
   // sessionId 的最新镜像 —— 给 setTimeout / 只依赖单信号的 effect 读(闭包捕获的值会过期)。
@@ -238,7 +238,7 @@ export function SmartSearchPanel() {
       const timer = window.setTimeout(() => {
         ackWaitRef.current = null;
         firedAckRef.current = { clientTurnId, turnId }; // 保留配对供迟到证据解除误标
-        // 持久化「未发送」消息(同 claw):blocked 轮渲染 BlockedTurnCard 一键重发,不再回填输入框。
+        // 持久化「未发送」消息(同 claw):blocked 轮渲染 QuotaComposerStrip 自动重发,不再回填输入框。
         const sid = sessionIdRef.current;
         const payload = lastSubmitRef.current;
         if (sid && payload) setSmartSearchBlockedMessage(sid, payload);
@@ -495,7 +495,7 @@ export function SmartSearchPanel() {
   // messages),agent 永不对这轮 emit message_complete → 这条 pendingTurn 永远 complete=false →
   // busy 永久为 true、composer 永久禁用、连 stop/reset 都救不了(评审 #1;claw/prism 早已修)。
   // quotaExceeded 单调自增 → 把卡住的本轮标 blocked(busy 排除 blocked → composer 解锁),
-  // 并把消息持久化到 localStorage(BlockedTurnCard 一键重发,跳支付宝充会员整页返回 / 换设备
+  // 并把消息持久化到 localStorage(QuotaComposerStrip 自动重发,跳支付宝充会员整页返回 / 换设备
   // 回来都不丢;旧「原文回填输入框」方案已退役)。用户已由全局额度弹窗知道原因。
   const lastQuotaRef = useRef(0);
   useEffect(() => {
@@ -554,7 +554,7 @@ export function SmartSearchPanel() {
     const payload = lastSubmitRef.current;
     if (!hasContent && !delivered && payload && payload.text === last.userText) {
       const sid = sessionIdRef.current;
-      if (sid) setSmartSearchBlockedMessage(sid, payload); // 持久化 → BlockedTurnCard 一键重发
+      if (sid) setSmartSearchBlockedMessage(sid, payload); // 持久化 → QuotaComposerStrip 自动重发
       setPendingTurns((prev) => prev.map((t) => (t.id === last.id ? { ...t, blocked: true } : t)));
       return;
     }
@@ -681,7 +681,7 @@ export function SmartSearchPanel() {
   }, [sessionId, clearMessages, clearAckWait, clearStopFallback]);
 
   // 恢复「未发送」消息:进入(或切回)某 session 时,若 localStorage 里存着该会话的「未发送」
-  // 消息(命中额度 / 投递失败被拦),补一条 blocked 轮渲染出来(BlockedTurnCard 一键重发)。
+  // 消息(命中额度 / 投递失败被拦),补一条 blocked 轮渲染出来(QuotaComposerStrip 自动重发)。
   // 覆盖三条路径:跳支付宝充会员整页返回 / 换设备回来 / 切到别的会话再切回来。已有 blocked 轮
   // (live 刚标记 / 已恢复过)则不重复补。同 claw useClawConversation 的恢复 effect。
   useEffect(() => {
@@ -1028,11 +1028,7 @@ export function SmartSearchPanel() {
                       attachments={turn.userAttachments}
                       references={turn.userReferences}
                     />
-                    <AssistantTurn
-                      turn={turn}
-                      onResendBlocked={resendBlocked}
-                      onDismissBlocked={dismissBlocked}
-                    />
+                    <AssistantTurn turn={turn} />
                   </div>
                 ))}
                 {state === 'reconnecting' && (
@@ -1077,6 +1073,12 @@ export function SmartSearchPanel() {
                   onChange={setInput}
                   onSubmit={handleSubmit}
                   placeholder="继续与智能搜索对话…"
+                  quotaBlocked={
+                    visibleTurns.some((t) => t.blocked)
+                      ? { onResend: resendBlocked, onDismiss: dismissBlocked }
+                      : null
+                  }
+                  quotaWarn={visibleTurns.length > 0}
                   ready={ready}
                   busy={busy}
                   onStop={handleStop}

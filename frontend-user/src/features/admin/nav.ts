@@ -24,6 +24,7 @@ import {
   Sparkles,
   Newspaper,
   UserPlus,
+  DatabaseZap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PERM, type Permission } from './permissions';
@@ -87,6 +88,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // 代码片段库 = 全站脚本注入(安全高危),归入仅管理员;不是运营内容项。
       { id: 'announcements', label: '公告', icon: Megaphone, href: '/admin/announcements', requires: PERM.contentManage },
       { id: 'hot-content', label: '热门内容', icon: Flame, href: '/admin/hot-content', requires: PERM.analyticsView },
+      // 期刊全量摄取/发布(SEO 主动化)—— 同步烧上游配额、发布直改 sitemap,后端在 config.manage 组
+      { id: 'journal-sync', label: '期刊数据同步', icon: DatabaseZap, href: '/admin/journal-sync', requires: PERM.configManage },
       { id: 'tools', label: '功能广场', icon: Boxes, href: '/admin/tools', requires: PERM.contentManage },
       { id: 'skills-review', label: 'Skill 审核', icon: Sparkles, href: '/admin/skills-review', requires: PERM.contentManage },
     ],

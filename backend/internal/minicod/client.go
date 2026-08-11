@@ -1016,6 +1016,16 @@ func (c *Client) GetJournalFilters(ctx context.Context) (json.RawMessage, error)
 	return c.doPost(ctx, "/v1/jnl/filters", map[string]any{})
 }
 
+// GetJournalMeta 拉上游期刊库构建元信息(2026-08-11 实测):
+//
+//	{"totalJournals":327327,"lastBuiltAt":"2026-07-04T17:30:40.000Z","sources":[...]}
+//
+// lastBuiltAt 变化 = 上游重建了期刊库 → seoingest 每日检查据此触发全量 resync
+// (上游无 updated_since 语义,只能整库重摄;哈希比对保证未变行零写入)。
+func (c *Client) GetJournalMeta(ctx context.Context) (json.RawMessage, error) {
+	return c.doPost(ctx, "/v1/jnl/meta", map[string]any{})
+}
+
 // GetJournalStats returns journal statistics overview
 func (c *Client) GetJournalStats(ctx context.Context) (json.RawMessage, error) {
 	return c.doPost(ctx, "/v1/jnl/stats", map[string]any{})

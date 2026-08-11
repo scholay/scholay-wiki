@@ -301,6 +301,18 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-news-latest.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
 		base, newsLastMod)
 
+	// 期刊枢纽页(发现层 /journals/browse|category|country|warning|oa,含路径分页)。
+	// lastmod = 全体已发布期刊的最新 updated_at(发布 / 内容真实变化才动);
+	// 查询失败降级为静态常量 —— lastmod 只是提示,不值得让整个主索引 500。
+	hubLastMod := staticLastMod
+	if lm, hubErr := h.service.GetJournalHubSitemapLastMod(); hubErr != nil {
+		slog.Warn("seo journal hub lastmod query failed", "err", hubErr)
+	} else if !lm.IsZero() {
+		hubLastMod = lm.Format("2006-01-02")
+	}
+	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-journal-hubs.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+		base, hubLastMod)
+
 	// 动态实体 sitemap：严格按真实非空页号升序写入，缺号不补空 leaf。
 	appendEntitySitemapIndexEntries(&b, base, "papers", paperPageLastMod)
 	appendEntitySitemapIndexEntries(&b, base, "authors", authorPageLastMod)

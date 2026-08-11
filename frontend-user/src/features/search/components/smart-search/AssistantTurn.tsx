@@ -1,7 +1,6 @@
 import { memo } from 'react';
-import { BlockedTurnCard, SearchTurnView } from '@/shared/components/chat';
+import { SearchTurnView } from '@/shared/components/chat';
 import type { ToolBlock, Turn } from '@/shared/types/chat';
-import { useQuotaStore } from '@/stores/quota.store';
 import { PaperListScroller } from './PaperListScroller';
 
 function renderInteractivePaperResult(block: ToolBlock) {
@@ -10,30 +9,11 @@ function renderInteractivePaperResult(block: ToolBlock) {
   );
 }
 
-/** smart-search 用户端薄包装：仅注入可收藏论文卡和 quota 操作。 */
-export const AssistantTurn = memo(function AssistantTurn({
-  turn,
-  onResendBlocked,
-  onDismissBlocked,
-}: {
-  turn: Turn;
-  onResendBlocked?: () => void;
-  onDismissBlocked?: () => void;
-}) {
-  const openReset = useQuotaStore((state) => state.openReset);
+/** smart-search 用户端薄包装:仅注入可收藏论文卡。
+ *  额度被拦轮不再在会话流里出卡片(2026-08-12 交互重做):用户气泡保留,
+ *  提示与恢复动作在输入框上方的 QuotaComposerStrip(含自动重发)。 */
+export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn }) {
   return (
-    <SearchTurnView
-      turn={turn}
-      renderPaperResult={renderInteractivePaperResult}
-      blockedContent={
-        turn.blocked ? (
-          <BlockedTurnCard
-            onResend={onResendBlocked}
-            onOpenReset={openReset}
-            onDismiss={onDismissBlocked}
-          />
-        ) : undefined
-      }
-    />
+    <SearchTurnView turn={turn} renderPaperResult={renderInteractivePaperResult} />
   );
 });

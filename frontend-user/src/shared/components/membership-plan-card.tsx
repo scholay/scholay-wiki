@@ -184,6 +184,9 @@ export interface MembershipPlanCardProps {
   cycle?: BillingCycle;
   /** 显示「最受欢迎」徽章。 */
   popularBadge?: boolean;
+  /** 档名旁的中性徽标(升级/续费弹窗用来区分「月付 / 年付」两张同档卡)。
+   *  没有它时两张 Max 卡只剩价格能区分,用户得靠读数字反推自己在选什么。 */
+  badgeText?: string;
   /** 强调环(价格页=最受欢迎档;弹窗=当前选中档)。 */
   highlighted?: boolean;
   /** 整卡可点(弹窗选择模式);不传=不可点。 */
@@ -196,9 +199,18 @@ export interface MembershipPlanCardProps {
   compact?: boolean;
   /** 底部 CTA(价格页按钮)/ 选择态(弹窗)slot。 */
   footer: ReactNode;
+  /**
+   * 用**实际应付**覆盖价格区(升级/续费弹窗用)。
+   *
+   * 为什么必须能覆盖:那两个弹窗里的钱不等于牌价 —— 升级是按剩余天数的补差
+   * (Pro月→Max月 可能只有 ¥210)、switch 是整年价、续费是周期价,三种口径都由后端
+   * 报价给出。卡上若还显示牌价「¥269/月」,就会出现「卡上一个数、按钮上另一个数」,
+   * 正是用户报的价格对不上。传了本项时:主数字 = cents,副行 = note,划线价不显示。
+   */
+  priceOverride?: { cents: number; note?: string } | null;
 }
 
-export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, highlighted, onSelect, compact, muted, footer }: MembershipPlanCardProps) {
+export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, badgeText, highlighted, onSelect, compact, muted, footer, priceOverride = null }: MembershipPlanCardProps) {
   const meta = PLAN_META[plan.tier] ?? { name: plan.tier, sub: '' };
   const isFree = plan.tier === 'free';
   // 该档未开放年付时,即使全局切到年付也回落月度展示(报价/下单侧同样回落)。
@@ -210,12 +222,18 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
   const features = compact ? takeFirstBenefits(allFeatures, 4) : allFeatures;
 
   // 主数字恒为**月口径**:月付=月价,年付=年价折合月价。副行才交代真实计费方式。
-  const headlineCents = yearly ? monthlyEquivalentCents(plan.year_price_cents) : plan.price_cents;
+  const headlineCents = priceOverride
+    ? priceOverride.cents
+    : yearly
+      ? monthlyEquivalentCents(plan.year_price_cents)
+      : plan.price_cents;
   // 划线价 = 「不选这个方案的话每月要付多少」:年付时划月付价,月付时划促销原价。
   // 两种情形语义一致(都是"省下的那部分"),所以共用一个位置,不会让用户在两种卡上读到两种规则。
-  const strikeCents = yearly
-    ? (plan.price_cents > headlineCents ? plan.price_cents : 0)
-    : (plan.original_cents > plan.price_cents ? plan.original_cents : 0);
+  const strikeCents = priceOverride
+    ? 0 // 应付金额是算出来的,没有对应的「原价」可划
+    : yearly
+      ? (plan.price_cents > headlineCents ? plan.price_cents : 0)
+      : (plan.original_cents > plan.price_cents ? plan.original_cents : 0);
 
   return (
     <div
@@ -235,11 +253,14 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
         {popularBadge && (
           <span className="shrink-0 rounded-pill bg-brand-red px-2 py-1 text-12 font-medium text-on-brand">最受欢迎</span>
         )}
+        {badgeText && (
+          <span className="shrink-0 rounded-pill bg-surface-2 px-2 py-1 text-12 font-medium text-subtle">{badgeText}</span>
+        )}
       </div>
       {/* ② 一句话定位 */}
       <p className="mt-1 text-12 text-faint">{meta.sub}</p>
 
-      {/* ③ 主价格 —— 展示档字号 + Playfair 展示字族。
+      {/* ③ 主价格 —— 展示档字号 + 展示字族(系统衬线栈)。
           ⚠️ `font-display` 必须与 `font-bold` 写在**同一行 className**:设计护栏的
           「font-bold 只允许出现在衬线/等宽字族上」是按**同一行文本**判定的(零余量棘轮),
           拆成两行会当场红。 */}
@@ -255,7 +276,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
           <span className="font-display text-32 font-bold leading-display-tight text-foreground tabular-nums">
             {isFree ? '免费' : `¥${yuanText(headlineCents)}`}
           </span>
-          {!isFree && <span className="ml-1 text-14 text-faint">/月</span>}
+          {!isFree && !priceOverride && <span className="ml-1 text-14 text-faint">/月</span>}
         </span>
       </div>
 
@@ -264,7 +285,13 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
           刻意**不再**用「比月付省 ¥N」红徽章:省多少已由周期切换器上的「省 N%」承担,
           两处同时讲折扣会互相打架(且徽章挤在价格行里会破坏主数字的分量)。 */}
       <p className="mt-2 min-h-8 text-12 leading-paragraph text-muted-foreground">
-        {isFree ? '注册就能用,不用付钱' : yearly ? `按年付费,一次 ¥${yuanText(plan.year_price_cents)}` : '按月付费,随时可以改成年付'}
+        {priceOverride
+          ? priceOverride.note
+          : isFree
+            ? '注册就能用,不用付钱'
+            : yearly
+              ? `按年付费,一次 ¥${yuanText(plan.year_price_cents)}`
+              : '按月付费,随时可以改成年付'}
       </p>
 
       {/* ⑤ 特性 —— 「包含 Free/Pro 全部,另加:」是累加式分组行,不带对勾、弱化显示 */}

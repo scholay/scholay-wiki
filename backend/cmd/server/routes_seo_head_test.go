@@ -63,6 +63,7 @@ func TestAllRobotsAndSitemapRoutesRegisterGETAndHEAD(t *testing.T) {
 		"/sitemap-papers-:page.xml",
 		"/sitemap-authors-:page.xml",
 		"/sitemap-journals-:page.xml",
+		"/sitemap-journal-hubs.xml",
 		"/sitemap-tools.xml",
 		"/sitemap-tools-:page.xml",
 		"/sitemap-news.xml",

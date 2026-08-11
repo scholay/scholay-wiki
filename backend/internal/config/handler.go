@@ -51,6 +51,16 @@ type JournalSEOProvider interface {
 	ResolveByJournalID(journalID int64) (*seo.JournalSSRMeta, error)
 }
 
+// JournalHubProvider 由 seo.Service 直接实现, 用于期刊枢纽页 SSR
+// (/journals/browse | /journals/category/{slug}[/{page}] | /journals/country/{cc}[/{page}]
+// | /journals/warning | /journals/oa[/{page}])。
+// 刻意与 JournalSEOProvider 分开:详情 resolver 的测试桩不该被枢纽方法拖着一起实现。
+type JournalHubProvider interface {
+	GetJournalHubOverview() (*seo.JournalHubOverview, error)
+	// GetJournalHubList 返回 (nil, nil) 表示维度键不存在(SSR 侧 404)。
+	GetJournalHubList(dimension, key string, page, perPage int) (*seo.JournalHubList, error)
+}
+
 // ToolSEOProvider 由 featuretool.Service 实现, 用于功能广场工具详情页 (/tools/{slug}) SSR 元数据注入。
 type ToolSEOProvider interface {
 	ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error)
@@ -100,6 +110,9 @@ type Handler struct {
 
 	// 期刊详情页 SSR 元数据提供者 (/journal/{id} / /journal/{id}/{slug})
 	journalSEOProvider JournalSEOProvider
+
+	// 期刊枢纽页 SSR 数据提供者 (/journals/browse 等发现层路由)
+	journalHubProvider JournalHubProvider
 
 	// 功能广场工具详情页 SSR 元数据提供者 (/tools/{slug})
 	toolSEOProvider ToolSEOProvider
@@ -153,6 +166,11 @@ func (h *Handler) SetAuthorSEOProvider(p AuthorSEOProvider) {
 // SetJournalSEOProvider 设置期刊 SSR 元数据提供者
 func (h *Handler) SetJournalSEOProvider(p JournalSEOProvider) {
 	h.journalSEOProvider = p
+}
+
+// SetJournalHubProvider 设置期刊枢纽页 SSR 数据提供者
+func (h *Handler) SetJournalHubProvider(p JournalHubProvider) {
+	h.journalHubProvider = p
 }
 
 // SetToolSEOProvider 设置功能广场工具 SSR 元数据提供者

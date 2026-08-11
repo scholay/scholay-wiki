@@ -10,7 +10,7 @@ import type { PartialStreamState, ReviewReport, ReviewerResponse } from '@/share
  * Tab 5 - 主审决议(.pen `p9kpKj` mainArea)。
  *
  * 区块:
- *   1) rulingPara    — 左侧 2px 黑色引线 + Playfair italic 长段落 + 综合分概览
+ *   1) rulingPara    — 左侧 2px 黑色引线 + 衬线 italic 长段落(font-serif,系统衬线栈) + 综合分概览
  *   2) synthHead     — 「审稿人综合意见」标题 + 副标题
  *   3) revA/B/C      — 三位审稿人各一节: 顶部 01/02/03 编号 + 综合意见 + 主审判断
  *   4) finalSec      — 「确认结果」结果 + 必改 + 建议 + 截止期 + 主审签署
@@ -79,7 +79,7 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
 
   return (
     <article className="flex flex-col gap-7">
-      {/* 1) 主审 ruling 段 —— 概要(强, Playfair italic) + 详细(弱, 可折叠默认展开) */}
+      {/* 1) 主审 ruling 段 —— 概要(强, 衬线 italic) + 详细(弱, 可折叠默认展开) */}
       {(chief.rulingSummaryMd || chief.rulingParagraphMd) && (
         <section className="flex flex-col gap-3.5 border-l-2 border-foreground py-4 pl-7">
           <p className="text-12 font-medium text-faint">SCHOLAY 主审</p>

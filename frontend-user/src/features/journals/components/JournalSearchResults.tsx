@@ -150,6 +150,14 @@ export function JournalSearchResults({
               <p className="text-14 text-faint">
                 Journal Search · 检索全球期刊与顶会,按学科、分区、影响因子精准筛选
               </p>
+              {/* 枢纽入口 —— 真实 <Link>(SEO 硬约束 §七第5条),通向 /journals/browse 发现层 */}
+              <Link
+                to="/journals/browse"
+                className="inline-flex items-center gap-1 text-12 font-medium text-brand-red hover:underline underline-offset-4"
+              >
+                按学科 / 国家浏览全部期刊
+                <ArrowUpRight className="size-3" strokeWidth={2.5} />
+              </Link>
             </div>
             <div className="hidden md:flex items-end gap-[26px] shrink-0">
               <Kpi
@@ -308,7 +316,7 @@ function Kpi({ value, label }: { value: string; label: string }) {
       <span className="font-display font-bold text-20 leading-none text-foreground tabular-nums">
         {value}
       </span>
-      <span className="text-12 font-medium uppercase text-faint">
+      <span className="font-serif text-12 font-medium uppercase text-faint">
         {label}
       </span>
     </div>

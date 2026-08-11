@@ -36,7 +36,8 @@ export interface SubscribePayOption {
 
 /** 订阅报价(后端 /user/billing/subscribe/quote,mirrors vip.SubQuote)。 */
 export interface SubQuote {
-  action: 'new' | 'renew' | 'upgrade';
+  /** switch = 月付会员一步「升档 + 转年付」(后端 order.go 的 switch 分支,整年价、叠加到原到期日)。 */
+  action: 'new' | 'renew' | 'upgrade' | 'switch';
   tier: 'pro' | 'max';
   /** 实际计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(后端锁定)。 */
   cycle: BillingCycle;

@@ -55,7 +55,9 @@ export function SmartSearchHero({
         {/* 图标 + 标题(挂钩品牌:和 Scholay 一起找论文) */}
         <div className="flex flex-col items-center gap-3">
           <HeroSpark />
-          <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 text-24 font-medium text-foreground">
+          {/* font-serif 只作用于「和 / 一起找论文」两个文字 span;
+              中间的 SCHOLAY 是 BrandLogo 的 SVG 路径,不吃 font-family,保持冻结 */}
+          <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 font-serif text-24 font-medium text-foreground">
             <span>和</span>
             {/* 句中内联 —— 只用文字标(放完整锁定组合会打断句子),
                 高度 17px 对齐周围 text-24 的大写字身高 */}

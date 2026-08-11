@@ -149,7 +149,8 @@ export function MenuDock() {
 
   useLayoutEffect(measure, [measure]);
 
-  // 字体加载完会改变文字宽度 —— 不重测的话基准位置永远偏,放大会「错位一格」
+  // 字体就绪后重测一次文字宽度。全站已是系统字体(零下载),fonts.ready 基本即刻
+  // resolve,这里只是防御性兜底(KaTeX 等按需字体、或未来再引入 webfont 时不至于错位)。
   useEffect(() => {
     if (!('fonts' in document)) return;
     let alive = true;

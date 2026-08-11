@@ -47,3 +47,14 @@ export function resetInfo(t: QuotaWindowLike): ResetInfo {
     notStarted: false,
   };
 }
+
+/** 「X月X日 HH:MM」—— 周期重置时刻的短格式(展示用)。
+ *  真源在此(shared/lib,零重依赖);QuotaNotifier 再导出仅为兼容旧 import,
+ *  额度条/用量弹窗等常载路径必须从这里 import,避免把懒加载的支付/升级弹窗拽进主包。 */
+export function formatResetAt(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

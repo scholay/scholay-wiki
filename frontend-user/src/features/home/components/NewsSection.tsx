@@ -17,8 +17,8 @@ import { useAfterPageLoad, useMediaQuery } from '@/shared/hooks';
  */
 export function NewsSection() {
   const showTrending = useMediaQuery('(min-width: 768px)');
-  // 新闻正文会命中 Noto Serif SC 的多个 CJK 分片。它是首页次要内容，等 window.load
-  // 后的空闲期再取数，确保这些字体不会与首屏 AppShell/Home JS 抢慢网带宽。
+  // 新闻是首页次要内容,等 window.load 后的空闲期再取数,不与首屏
+  // AppShell/Home JS 抢慢网带宽(字体已全走系统栈,不再是带宽因素)。
   const secondaryReady = useAfterPageLoad();
   const { data: latest, isLoading } = useNewsList('latest', 6, secondaryReady);
   const { data: trending } = useNewsTrending(7, 8, showTrending && secondaryReady);
@@ -47,7 +47,7 @@ export function NewsSection() {
             - z-sticky:sticky 元素按 DOM 顺序绘制,不给层级会被后面的兄弟节点盖住
             - bg-background:与页面同底色,内容从下面穿过时不透字 */}
         <div className="sticky top-0 z-sticky -mx-6 flex items-center justify-between bg-background px-6 pb-3 pt-4">
-          <h2 className="text-16 font-medium text-foreground">学术情报</h2>
+          <h2 className="font-serif text-16 font-medium text-foreground">学术情报</h2>
           <Link
             to="/news"
             className="inline-flex items-center gap-0.5 text-12 text-muted-foreground transition-colors hover:text-brand-red"

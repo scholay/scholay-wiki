@@ -43,7 +43,7 @@ export function PeerReviewSidebar() {
   return (
     <Sidebar>
       <SidebarContent>
-        <SidebarSection id="submit" label="我要投稿">
+        <SidebarSection id="submit" label={<span className="font-serif">我要投稿</span>}>
           <Link to="/peer-review/journal" className="block">
             <SidebarItem
               icon={<FileEdit />}

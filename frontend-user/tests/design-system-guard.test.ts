@@ -622,7 +622,7 @@ describe('排印', () => {
   });
 
   it('font-bold 只允许出现在展示/品牌/衬线/等宽角色上(只减不增)', () => {
-    // Google Sans 资产覆盖 400–700，但 Pen 的正文控件仍以 400/500 为主。
+    // 系统 UI 字体各字重齐全,但 Pen 的正文控件仍以 400/500 为主。
     // 700 只在显式 display / serif / mono 或冻结 brand 角色中放行，
     // 避免普通 sans 控件重新长出随意粗体。
     const bad = hits(/\bfont-bold\b/).filter((h) => {
@@ -862,11 +862,10 @@ describe('样式系统逃逸', () => {
   it('globals.css 之外没有手写样式表', () => {
     // walk() 只收 .tsx/.ts,这里要单独遍历 —— 用它会永远返回空数组(假通过)
     //
-    // 例外:styles/fonts/*.css 是【机器生成的 @font-face 清单】(见 scripts/sync-*.mjs)。
-    // 本规则的本意是「禁止手写组件 CSS,样式只能来自 token + Tailwind 类」——
-    // 字体分片清单不是样式,是资产声明,且 Noto Serif SC 有 101 个 unicode-range 分片、
-    // 920 行,塞进 globals.css 会把真正需要人读的 token 定义淹掉。
-    // 它们【不得手改】,改动只能来自重跑同步脚本。
+    // 唯一豁免:styles/fonts/noto-serif-sc.css —— 机器生成的 @font-face 分片清单
+    // (2026-08-11 起 Noto Serif SC 是唯一保留的 webfont,只服务标题层中文;
+    // Google Sans / Playfair 的清单已随 webfont 移除,不得回流)。
+    // 生成物【不得手改】,改动只能来自重跑 scripts/sync-noto-serif-sc.mjs。
     const css: string[] = [];
     (function scan(dir: string) {
       for (const name of readdirSync(dir)) {
@@ -875,13 +874,12 @@ describe('样式系统逃逸', () => {
         else if (/\.(css|scss|sass|less)$/.test(p)) css.push(relative(SRC, p));
       }
     })(SRC);
-    const handwritten = css.filter((p) => !p.startsWith('styles/fonts/'));
-    expect(handwritten.sort()).toEqual(['styles/globals.css']);
+    expect(css.sort()).toEqual(['styles/fonts/noto-serif-sc.css', 'styles/globals.css']);
 
     // 生成物必须带「请勿手改」抬头 —— 防止有人把它当普通样式表用
-    for (const f of css.filter((p) => p.startsWith('styles/fonts/'))) {
-      expect(readFileSync(join(SRC, f), 'utf8').slice(0, 400), `${f} 缺少生成物抬头`).toContain('请勿手改');
-    }
+    expect(
+      readFileSync(join(SRC, 'styles/fonts/noto-serif-sc.css'), 'utf8').slice(0, 400),
+    ).toContain('请勿手改');
   });
 
   it('禁止 styled-components / emotion', () => {
@@ -2239,6 +2237,10 @@ const LITERAL_MIRRORS: { path: string; why: string; allow?: Record<string, strin
   {
     path: 'backend/internal/config/handler_ssr.go',
     why: 'SSR 首屏注入的内联样式(在 CSS 加载前就要有正确底色,拿不到 globals)。⚠️ #DCDAD6 是 `--border` 叠**米白**页底的实色',
+  },
+  {
+    path: 'backend/internal/config/handler_ssr_journal_hubs.go',
+    why: '期刊枢纽页(/journals/browse|category|country|warning|oa)的 SSR 直出 HTML,同 handler_ssr:内联样式拿不到 globals,只能写字面值(当前仅品牌朱砂 #882828 = --red-5)',
   },
   { path: 'backend/internal/content/render.go', why: '后端渲染内容页的内联样式,同 handler_ssr(#DCDAD6 同样是 --border 叠米白)' },
   // ── 宣传片素材(remotion + 同款 Python 直出 GIF,两份必须同色)──

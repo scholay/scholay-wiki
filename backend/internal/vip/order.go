@@ -59,7 +59,7 @@ type Order struct {
 	CreditsGranted int        `gorm:"column:credits_granted" json:"credits_granted"`
 	TransactionNo  string     `gorm:"column:transaction_no" json:"transaction_no"`
 	// 订阅履约参数(续期/升级):动作 + 赠送经费生效/失效 + 会员新到期。fulfill 时照此发放。
-	SubAction      string     `gorm:"column:sub_action" json:"sub_action"` // new|renew|upgrade
+	SubAction      string     `gorm:"column:sub_action" json:"sub_action"` // new|renew|upgrade|switch
 	GrantStartsAt  *time.Time `gorm:"column:grant_starts_at" json:"grant_starts_at"`
 	GrantExpiresAt *time.Time `gorm:"column:grant_expires_at" json:"grant_expires_at"`
 	NewExpiresAt   *time.Time `gorm:"column:new_expires_at" json:"new_expires_at"`
@@ -189,7 +189,7 @@ func (o *OrderService) CreateSubscription(userID uint, plan, cycle string) (*Ord
 
 // subPlan 订阅动作的计算结果(建单 + 报价共用)。
 type subPlan struct {
-	Action      string // new | renew | upgrade
+	Action      string // new | renew | upgrade | switch(升档并转年付)
 	Tier        string // 履约后等级
 	Cycle       string // 计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(见下)
 	AmountCents int    // 应付(分):new/renew=周期价;upgrade=按剩余天数补差价
@@ -222,6 +222,35 @@ func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, n
 	cur := effectiveTier(uv, now)
 	if tierRank(target) < tierRank(cur) {
 		return nil, ErrNoDowngrade
+	}
+
+	// 升档并转年付(switch)—— 月付会员一步买到「更高档 + 整年」。
+	//
+	// 为什么单独一支:原 upgrade 分支**只做原地补差**(到期日不变、周期不变),它在结构上
+	// 永远产不出一张年付订阅;而月付会员想直接上「Max 年会员」是真实诉求,过去只能
+	// 「先补差升档、再按年续期」两步走,两步之间的价格与到期日都对不上用户预期。
+	//
+	// 计价 = 目标档**年价全额**,到期日 = 当前到期日 + 1 自然年(与 renew 同一形状)。
+	//   · 不做「剩余价值折抵」:折抵模型要把到期日改成 now+1年,用户手上的剩余天数就没了,
+	//     而履约侧的到期日是 AddPeriod(max(now,当前到期), cycle) —— 改这条是动整个计费系统
+	//     最敏感的一段(P0-2 定价基准闸门就长在这里)。叠加模型对用户更有利(剩余天数一天不丢,
+	//     且从付款那刻起这段时间就已经是高档),对我们也划算(白送的上限 = 一个月的档位差)。
+	//   · Deferred 与 renew 同:本单权益从当前到期日起算。
+	//
+	// 年费会员不走这里(effectiveCycle == yearly):他们升档的正解是原地补差 ——
+	// 手上已经有整年,再叠一年不是「升级」而是「续费」,该走续费入口。
+	if isPaidTier(cur) && tierRank(target) > tierRank(cur) &&
+		normCycle(cycle) == CycleYearly &&
+		effectiveCycle(uv, now) != CycleYearly &&
+		cfg.PriceCentsFor(target, CycleYearly) > 0 {
+		curExpiry := AddPeriod(now, CycleMonthly)
+		if uv.VIPExpiresAt != nil {
+			curExpiry = *uv.VIPExpiresAt
+		}
+		exp := AddPeriod(curExpiry, CycleYearly)
+		return &subPlan{Action: "switch", Tier: target, Cycle: CycleYearly,
+			AmountCents: cfg.PriceCentsFor(target, CycleYearly),
+			GrantStarts: curExpiry, GrantExpires: exp, NewExpires: exp, Deferred: true}, nil
 	}
 
 	// 升级(在期升高一档):按剩余天数补差、到期日不变。
@@ -280,6 +309,13 @@ func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, n
 	}
 
 	// 续期(同档):往后延一个周期,经费预发放到下一周期。当前到期日兜底 now+周期。
+	//
+	// 🔴 年费会员只能按年续(ErrYearlyRenewOnly):履约侧 new/renew 会把 vip_cycle 改写成
+	// 本单周期,年费会员补一个月就被记成月度会员,之后的升级折算基准与续费价目全部错档。
+	// 拦在这里而不是静默改价:两者差 10 倍,悄悄换单是最坏的一种「帮用户做主」。
+	if effectiveCycle(uv, now) == CycleYearly && cycle == CycleMonthly {
+		return nil, ErrYearlyRenewOnly
+	}
 	curExpiry := AddPeriod(now, cycle)
 	if uv.VIPExpiresAt != nil {
 		curExpiry = *uv.VIPExpiresAt
@@ -314,6 +350,9 @@ func planActionName(tier, action, cycle string) string {
 	}
 	if action == "upgrade" {
 		return label + " · 升级"
+	}
+	if action == "switch" {
+		return label + " · 升级并转年付"
 	}
 	if normCycle(cycle) == CycleYearly {
 		if action == "renew" {

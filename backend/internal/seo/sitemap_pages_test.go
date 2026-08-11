@@ -90,9 +90,11 @@ func TestAuthorAndJournalLeafIndexShareSubstantiveEligibility(t *testing.T) {
 			name:  "journals",
 			leaf:  repo.journalSitemapRows().Where("sitemap_page = ?", 2),
 			index: sitemapPageLastModQuery(repo.journalSitemapRows()),
+			// 2026-08-11 全量摄取:publish_state 是新的硬前置 —— staged 摄取行
+			// 数据再全也不进 sitemap(镜像 journalRowIndexable,成对修改)。
 			required: []string{
-				"status = ?", "journal_id > 0", "quality_tier = ?", "publisher", "json_length(issns_json)",
-				"jcr_impact_factor", "openalex_h_index",
+				"status = ?", "publish_state = ?", "journal_id > 0", "quality_tier = ?", "publisher",
+				"json_length(issns_json)", "jcr_impact_factor", "openalex_h_index",
 			},
 		},
 	}
@@ -156,17 +158,27 @@ func TestSSRIndexabilityMirrorsSitemapQuality(t *testing.T) {
 		t.Fatal("detail-click author must stay indexable")
 	}
 
-	if journalRowIndexable(&SEOJournal{Status: StatusActive, CanonicalName: "Name"}) {
+	if journalRowIndexable(&SEOJournal{Status: StatusActive, PublishState: PublishStatePublished, CanonicalName: "Name"}) {
 		t.Fatal("name-only journal must be noindex")
 	}
-	if !journalRowIndexable(&SEOJournal{Status: StatusActive, JournalID: 1, CanonicalName: "Name", ISSNsJSON: `["1234-5678"]`}) {
+	if !journalRowIndexable(&SEOJournal{Status: StatusActive, PublishState: PublishStatePublished, JournalID: 1, CanonicalName: "Name", ISSNsJSON: `["1234-5678"]`}) {
 		t.Fatal("journal with ISSN must be indexable")
 	}
-	if journalRowIndexable(&SEOJournal{Status: StatusActive, JournalID: 0, CanonicalName: "Name", ISSNsJSON: `["1234-5678"]`}) {
+	if journalRowIndexable(&SEOJournal{Status: StatusActive, PublishState: PublishStatePublished, JournalID: 0, CanonicalName: "Name", ISSNsJSON: `["1234-5678"]`}) {
 		t.Fatal("journal with a non-routable id must not enter sitemap")
 	}
-	if journalRowIndexable(&SEOJournal{Status: StatusHidden, CanonicalName: "Hidden", Publisher: "Publisher"}) {
+	if journalRowIndexable(&SEOJournal{Status: StatusHidden, PublishState: PublishStatePublished, CanonicalName: "Hidden", Publisher: "Publisher"}) {
 		t.Fatal("hidden journal must be noindex")
+	}
+	// 2026-08-11 全量摄取:staged 行(publish_state=0)即便实质数据齐备,也必须
+	// noindex —— 放量节奏由发布批次决定,不由单行数据完整度决定。
+	if journalRowIndexable(&SEOJournal{Status: StatusActive, PublishState: PublishStateStaged, JournalID: 2,
+		CanonicalName: "Staged Journal", Publisher: "Publisher", ISSNsJSON: `["1234-5678"]`, JCRImpactFactor: 12.3}) {
+		t.Fatal("staged ingested journal must be noindex until published")
+	}
+	if journalRowIndexable(&SEOJournal{Status: StatusActive, PublishState: PublishStateStaged, JournalID: 3,
+		CanonicalName: "Staged Clicked", QualityTier: TierDetailClick}) {
+		t.Fatal("staged journal must be noindex even at detail-click tier (publish_state is a hard precondition)")
 	}
 }
 

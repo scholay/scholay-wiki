@@ -36,38 +36,14 @@
     </script>
 
     <!--
-      字体加载策略 —— 故意不走 Google Fonts CDN:
-        1) 国内访问 fonts.googleapis.com 经常超时/慢,首屏卡顿
-        2) display=swap 会先用 fallback 再切换,视觉上有"字体在变"
-        3) CSS link 是 render-blocking 串行 → preconnect+link 仍然慢
-
-      改成:
-        - Google Sans 官方可变字体版本化自托管(wght 400–700),
-          只 preload 首屏 normal latin;italic / latin-ext 按需加载
-        - Noto Serif SC 的首屏 UI 常用字收敛为一个小子集,
-          其他中文仍用完整 unicode-range 分片按需兜底
-        - Playfair Display 只供冻结的 Scholay 品牌字样使用,
-          preload 仅含该 7 个唯一字形的 2–3KB 子集
-
-      ⚠️ 2026-07-27:原先只自托了 700 一个静态字重,导致 font-medium(500)/
-         font-normal(400) 全在跑浏览器合成假粗体 —— BrandName 的三个 tone
-         渲染出来一模一样。换可变字体后三档才真正生效。
-         只 preload latin;latin-ext(带变音符的欧洲语言)走 swap 按需加载。
+      字体(2026-08-11 用户两段指令):UI/正文 = 系统字体零下载;
+      标题层中文 = 自托管 Noto Serif SC(唯一保留的 webfont,swap 分片按需加载)。
+      Google Sans / Playfair Display 的 preload 与资产已移除,不得回流。
+      这里只 preload Noto 的首屏 UI 常用字小子集(~33KB,覆盖侧栏/页面标题的
+      高频字,避免首屏标题先宋体后切换的闪动);其余 101 个分片按需加载。
+      栈定义与两条实现铁律见 src/styles/globals.css 文件头「字体策略」。
+      KaTeX 数学字体保留(build 产物内,数学页按需加载)。
     -->
-    <link
-      rel="preload"
-      href="/fonts/google-sans/v70/google-sans-normal-latin.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="/fonts/playfair-display/v40/playfair-display-brand.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
     <link
       rel="preload"
       href="/fonts/noto-serif-sc/noto-serif-sc-ui-239f956f88b7.woff2"
@@ -78,7 +54,7 @@
 
     <!--
       非关键第三方/运营脚本统一在 page load 后的 idle 期启动。
-      这些任务不参与首屏渲染，不应与 entry/CSS/字体/LCP 图片竞争。
+      这些任务不参与首屏渲染，不应与 entry/CSS/LCP 图片竞争。
       timeout 是上限：即使浏览器持续繁忙，也会在 load 后 2s 内执行。
     -->
     <script>

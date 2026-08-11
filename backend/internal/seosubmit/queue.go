@@ -86,18 +86,25 @@ func enqueueTo(ctx context.Context, key string, urls []string) error {
 	return rdb.ZAdd(cctx, key, members...).Err()
 }
 
-// PopBatch 原子拉取 n 个最早入队的 URL(IndexNow 队列),从队列中移除。
+// PopBatch 原子拉取 n 个最早入队的 URL(IndexNow 队列,FIFO),从队列中移除。
 // 失败(Redis 故障)返回 error,worker 应跳过本轮等下次重试,不要把"未推送"的 URL 丢失。
 func PopBatch(ctx context.Context, n int) ([]string, error) {
-	return popBatchFrom(ctx, queueKey, n)
+	return popBatchFrom(ctx, queueKey, n, false)
 }
 
-// PopBaiduBatch 百度专属队列出队(语义同 PopBatch)。
+// PopBaiduBatch 百度专属队列出队 —— **LIFO(新进先出)**,与 IndexNow 的 FIFO 刻意相反。
+//
+// 2026-08-11:百度普通收录 API 配额只有 10 条/天,而期刊全量发布会一次入队上千条。
+// FIFO 意味着新发布的 URL 要排在几十天前的积压尾巴后面 —— 等轮到它们时早失去
+// 时效价值;百度对「新页」的收录响应也远好于陈年 URL。ZPopMax(最高 score = 最新
+// enqueue)让每天仅有的 10 个名额永远花在最新鲜的页面上,老积压自然沉底,
+// 由 IndexNow(配额宽裕,保持 FIFO 清完整队列)兜发现性。
 func PopBaiduBatch(ctx context.Context, n int) ([]string, error) {
-	return popBatchFrom(ctx, baiduQueueKey, n)
+	return popBatchFrom(ctx, baiduQueueKey, n, true)
 }
 
-func popBatchFrom(ctx context.Context, key string, n int) ([]string, error) {
+// popBatchFrom newestFirst=false → ZPopMin(FIFO, IndexNow);true → ZPopMax(LIFO, 百度)。
+func popBatchFrom(ctx context.Context, key string, n int, newestFirst bool) ([]string, error) {
 	if n <= 0 {
 		return nil, nil
 	}
@@ -108,7 +115,13 @@ func popBatchFrom(ctx context.Context, key string, n int) ([]string, error) {
 	cctx, cancel := context.WithTimeout(ctx, queueOpTimeout)
 	defer cancel()
 
-	zs, err := rdb.ZPopMin(cctx, key, int64(n)).Result()
+	var zs []redis.Z
+	var err error
+	if newestFirst {
+		zs, err = rdb.ZPopMax(cctx, key, int64(n)).Result()
+	} else {
+		zs, err = rdb.ZPopMin(cctx, key, int64(n)).Result()
+	}
 	if err != nil {
 		return nil, err
 	}

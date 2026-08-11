@@ -426,6 +426,24 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		}
 	}
 
+	// 期刊枢纽页(发现层)SSR:/journals/browse | category/{slug}[/{page}] |
+	// country/{cc}[/{page}] | warning | oa[/{page}]。exact-match 的 /journals/search
+	// 与四个榜单页已被 staticPageSEO 分支 handled,不会进到这里;其余 /journals/*
+	// 未命中枢纽形状时不置 handled,落到统一 404。
+	// 🔴 刻意可索引:路径式真分页每页是独立稳定落地页,「?page 参数态 noindex」的
+	// 全站约定不适用于此(详见 handler_ssr_journal_hubs.go 头注)。
+	if !handled && strings.HasPrefix(requestPath, "/journals/") {
+		route, hubRedirect := parseJournalHubPath(requestPath)
+		if hubRedirect != "" {
+			c.Redirect(http.StatusMovedPermanently, hubRedirect)
+			return
+		}
+		if route != nil {
+			handled = true
+			modifiedHTML, status = h.injectJournalHubSSR(modifiedHTML, route)
+		}
+	}
+
 	// `/tools/skills` 是独立静态公开页，已由 staticPageSEO 分支处理，不能再当工具 slug。
 	if !handled && strings.HasPrefix(requestPath, "/tools/") {
 		handled = true
@@ -809,7 +827,7 @@ func buildAuthorJSONLD(meta *seo.AuthorSSRMeta, canonical string) string {
 	return jsonLDScript(page)
 }
 
-// buildJournalJSONLD —— Periodical(刊名/出版商/ISSN)
+// buildJournalJSONLD —— Periodical(刊名/出版商/ISSN/封面)
 func buildJournalJSONLD(meta *seo.JournalSSRMeta, canonical string) string {
 	if meta.CanonicalName == "" {
 		return ""
@@ -820,11 +838,19 @@ func buildJournalJSONLD(meta *seo.JournalSSRMeta, canonical string) string {
 		"name":     meta.CanonicalName,
 		"url":      canonical,
 	}
+	// 中文刊名(wikidata)作为 alternateName:中文 SERP 的实体对齐信号。
+	if meta.WikidataLabelZH != "" && meta.WikidataLabelZH != meta.CanonicalName {
+		obj["alternateName"] = meta.WikidataLabelZH
+	}
 	if meta.Publisher != "" {
 		obj["publisher"] = map[string]any{"@type": "Organization", "name": meta.Publisher}
 	}
 	if len(meta.ISSNs) > 0 {
 		obj["issn"] = meta.ISSNs
+	}
+	// 封面图(0125 cover_url):仅接受 http(s) 外链,与工具 logo 同口径走 safeHTTPURL。
+	if img := safeHTTPURL(meta.CoverURL); img != "" {
+		obj["image"] = img
 	}
 	return jsonLDScript(obj)
 }
@@ -1413,55 +1439,16 @@ func buildWorksListHTML(heading string, works []seo.AuthorWork) string {
 	return b.String()
 }
 
-// injectJournalSEOMeta 期刊详情页 SEO 注入 (与 paper / author 同构)
+// injectJournalSEOMeta 期刊详情页 SEO 注入 (与 paper / author 同构)。
+// 2026-08-11 全量摄取:title/desc 改指标矩阵模板(预警刊必须在两者中体现 ——
+// 「XX期刊 预警」是高价值搜索词),head 增补 FAQPage 与 BreadcrumbList JSON-LD。
 func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) string {
 	if meta.CanonicalName == "" {
 		return html
 	}
 
-	// 标题: 期刊名 + 出版商 + 品牌
-	// 例如:"Nature (Springer Nature) - 期刊详情 · 影响因子 64.8 | Scholay 学术搜索"
-	publisherSeg := ""
-	if meta.Publisher != "" {
-		publisherSeg = " (" + meta.Publisher + ")"
-	}
-	suffix := ""
-	if meta.JCRImpactFactor > 0 {
-		suffix = fmt.Sprintf(" · IF %.1f", meta.JCRImpactFactor)
-	} else if meta.JCRQuartile != "" {
-		suffix = " · " + meta.JCRQuartile
-	}
-	seoTitle := fmt.Sprintf("%s%s - 期刊详情%s | Scholay 学术搜索",
-		truncate(meta.CanonicalName, 100), publisherSeg, suffix)
-
-	// 描述: 出版商 + ISSN + 影响因子 + h-index + 国家
-	var parts []string
-	if meta.Publisher != "" {
-		parts = append(parts, "出版商: "+meta.Publisher)
-	}
-	if len(meta.ISSNs) > 0 {
-		parts = append(parts, "ISSN: "+strings.Join(meta.ISSNs, ", "))
-	}
-	if meta.JCRImpactFactor > 0 {
-		parts = append(parts, fmt.Sprintf("影响因子 %.1f", meta.JCRImpactFactor))
-	}
-	if meta.JCRQuartile != "" {
-		parts = append(parts, "JCR "+meta.JCRQuartile)
-	}
-	if meta.OpenAlexHIndex != nil && *meta.OpenAlexHIndex > 0 {
-		parts = append(parts, fmt.Sprintf("h-index %d", *meta.OpenAlexHIndex))
-	}
-	if meta.Country != "" {
-		parts = append(parts, meta.Country)
-	}
-	desc := ""
-	if len(parts) > 0 {
-		desc = fmt.Sprintf("%s 期刊详情 — %s。在 Scholay 查看期刊分区、影响因子、ISSN、近期发表与作者画像。",
-			meta.CanonicalName, strings.Join(parts, " · "))
-	} else {
-		desc = fmt.Sprintf("%s 期刊详情与近期发表 — Scholay 整合 JCR、SCImago、CCF、OpenAlex 多源期刊数据,提供分区、影响因子、ISSN、出版商等元数据。", meta.CanonicalName)
-	}
-	desc = truncate(desc, 300)
+	seoTitle := buildJournalTitle(meta)
+	desc := buildJournalDesc(meta)
 
 	titleRe := ssrTitleRe
 	html = replaceRegexpLiteral(titleRe, html, "<title>"+htmlEscape(seoTitle)+"</title>")
@@ -1490,11 +1477,118 @@ func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) st
 	if jsonLD := buildJournalJSONLD(meta, canonical); jsonLD != "" {
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
+	// FAQPage:字段生成的常见问题(无数据的问题不出;全部无数据则整块不出)。
+	if faqLD := buildJournalFAQJSONLD(meta); faqLD != "" {
+		html = strings.Replace(html, "</head>", faqLD+"\n</head>", 1)
+	}
+	// BreadcrumbList:首页 > 期刊 > 大类枢纽 > 本刊(大类缺失时跳过第三级)。
+	if bcLD := buildJournalBreadcrumbJSONLD(meta, canonical); bcLD != "" {
+		html = strings.Replace(html, "</head>", bcLD+"\n</head>", 1)
+	}
 
 	html = injectOG(html, seoTitle, canonical, desc, "website")
 	html = insertNoscriptBlock(html, buildJournalNoscriptCard(meta))
 
 	return html
+}
+
+// buildJournalTitle 标题模板(spec):《name》影响因子X·JCR Qx·中科院X区(year) - 期刊详情。
+// 预警刊在段首插「N年预警」—— title 必须可命中「XX期刊 预警」检索词。
+// 指标全缺(有机曝光的老行)回落旧「name (publisher) - 期刊详情」形态,不硬凑空段。
+func buildJournalTitle(meta *seo.JournalSSRMeta) string {
+	var segs []string
+	if meta.GJQKWarningLevel != "" {
+		seg := "预警期刊"
+		if meta.GJQKYear > 0 {
+			seg = fmt.Sprintf("%d年预警期刊", meta.GJQKYear)
+		}
+		segs = append(segs, seg)
+	}
+	if meta.JCRImpactFactor > 0 {
+		segs = append(segs, fmt.Sprintf("影响因子%.1f", meta.JCRImpactFactor))
+	}
+	if meta.JCRQuartile != "" {
+		segs = append(segs, "JCR "+meta.JCRQuartile)
+	}
+	if meta.FQBMajorQuartile != "" {
+		seg := "中科院" + meta.FQBMajorQuartile + "区"
+		if meta.FQBTop {
+			seg += "Top"
+		}
+		if meta.FQBYear > 0 {
+			seg += fmt.Sprintf("(%d)", meta.FQBYear)
+		}
+		segs = append(segs, seg)
+	}
+	name := truncate(meta.CanonicalName, 60)
+	if len(segs) == 0 {
+		publisherSeg := ""
+		if meta.Publisher != "" {
+			publisherSeg = " (" + truncate(meta.Publisher, 40) + ")"
+		}
+		return fmt.Sprintf("%s%s - 期刊详情 | Scholay 学术搜索", name, publisherSeg)
+	}
+	return fmt.Sprintf("《%s》%s - 期刊详情 | Scholay 学术搜索", name, strings.Join(segs, "·"))
+}
+
+// buildJournalDesc 描述(spec:指标浓缩 + 预警状态 + 投稿参考,120-160 字截断)。
+func buildJournalDesc(meta *seo.JournalSSRMeta) string {
+	var parts []string
+	if meta.WikidataLabelZH != "" && meta.WikidataLabelZH != meta.CanonicalName {
+		parts = append(parts, "中文名《"+meta.WikidataLabelZH+"》")
+	}
+	if meta.Publisher != "" {
+		parts = append(parts, "由 "+meta.Publisher+" 出版")
+	}
+	if meta.JCRImpactFactor > 0 {
+		seg := fmt.Sprintf("最新影响因子 %.1f", meta.JCRImpactFactor)
+		if meta.JCRQuartile != "" {
+			seg += "(JCR " + meta.JCRQuartile + ")"
+		}
+		parts = append(parts, seg)
+	} else if meta.JCRQuartile != "" {
+		parts = append(parts, "JCR "+meta.JCRQuartile)
+	}
+	if meta.FQBMajorQuartile != "" {
+		seg := "中科院"
+		if meta.FQBMajorCategory != "" {
+			seg += meta.FQBMajorCategory
+		}
+		seg += meta.FQBMajorQuartile + "区"
+		if meta.FQBTop {
+			seg += "(Top)"
+		}
+		parts = append(parts, seg)
+	}
+	// 预警状态必须进 desc(与 title 同理)。
+	if meta.GJQKWarningLevel != "" {
+		seg := "注意:已列入"
+		if meta.GJQKYear > 0 {
+			seg += fmt.Sprintf("%d年", meta.GJQKYear)
+		}
+		seg += "国际期刊预警名单(" + meta.GJQKWarningLevel + ")"
+		parts = append(parts, seg)
+	}
+	// 投稿参考浓缩。
+	if meta.FirstReviewMonths > 0 {
+		parts = append(parts, fmt.Sprintf("审稿周期约 %.1f 个月", meta.FirstReviewMonths))
+	}
+	if meta.IsOA || meta.IsInDOAJ {
+		parts = append(parts, "开放获取(OA)")
+	}
+	if meta.HasLatex {
+		parts = append(parts, "提供 LaTeX 投稿模板")
+	}
+
+	var desc string
+	if len(parts) > 0 {
+		desc = fmt.Sprintf("%s:%s。查看逐年趋势、同学科期刊与投稿参考 — Scholay 学术。",
+			meta.CanonicalName, strings.Join(parts, ","))
+	} else {
+		desc = fmt.Sprintf("%s 期刊详情与近期发表 — Scholay 整合 JCR、SCImago、CCF、OpenAlex 多源期刊数据,提供分区、影响因子、ISSN、出版商等元数据。", meta.CanonicalName)
+	}
+	// spec 定 120-160 字:比旧 300 上限严,超长在「投稿参考」段自然截断。
+	return truncate(desc, 160)
 }
 
 // buildJournalKeywords 期刊页 keywords meta
@@ -1504,6 +1598,16 @@ func buildJournalKeywords(meta *seo.JournalSSRMeta) string {
 		"期刊详情", "期刊分区", "影响因子", "JCR", "SCImago", "CCF", "OpenAlex",
 		"ISSN 查询", "期刊出版商", "学术期刊", "Scholay",
 		"journal", "academic journal", "impact factor", "journal quartile",
+	}
+	// 中文刊名 + 高价值组合词(「XX期刊 预警」「XX 影响因子」是真实检索形态)。
+	if meta.WikidataLabelZH != "" && meta.WikidataLabelZH != meta.CanonicalName {
+		parts = append(parts, meta.WikidataLabelZH)
+	}
+	if meta.GJQKWarningLevel != "" {
+		parts = append(parts, meta.CanonicalName+" 预警", "期刊预警", "国际期刊预警名单")
+	}
+	if meta.FQBMajorCategory != "" {
+		parts = append(parts, meta.FQBMajorCategory+"期刊", "中科院分区")
 	}
 	if meta.Publisher != "" {
 		parts = append(parts, meta.Publisher)
@@ -1525,16 +1629,30 @@ func buildJournalKeywords(meta *seo.JournalSSRMeta) string {
 	return strings.Join(parts, ",")
 }
 
-// buildJournalNoscriptCard 渲染期刊的 noscript 卡片(供爬虫)
+// buildJournalNoscriptCard 渲染期刊的 SSR 正文卡片(普通用户与爬虫的同一份初始 HTML)。
+// 2026-08-11 全量摄取:七区块模板,全部「有则渲染无则省略」——
+// 面包屑 → 身份行 → ①指标矩阵 → ②预警提示 → ③逐年趋势文字化 → ④投稿参考
+// → ⑤同学科推荐(内链) → ⑥FAQ 可见区块(JSON-LD 同源) → 近期代表论文。
 func buildJournalNoscriptCard(meta *seo.JournalSSRMeta) string {
 	baseStyle := ssrBaseStyle
 	headingStyle := ssrHeadingStyle
-	metaStyle := ssrMetaStyle
-	statStyle := ssrTextStyle
 
 	name := htmlEscape(meta.CanonicalName)
 
+	// 可见面包屑(与 BreadcrumbList JSON-LD 同构):每刊入链保障的一环 ——
+	// 详情页 → 大类枢纽的反向链接让爬虫从任意详情页发现枢纽层。
+	breadcrumb := fmt.Sprintf(`<p %s><a href="/" style="color: #882828;">首页</a> › <a href="/journals/browse" style="color: #882828;">期刊</a>`, ssrMetaStyle)
+	if meta.FQBMajorCategory != "" {
+		breadcrumb += fmt.Sprintf(` › <a href="%s" style="color: #882828;">%s</a>`,
+			htmlEscape("/journals/category/"+seo.JournalCategorySlug(meta.FQBMajorCategory)), htmlEscape(meta.FQBMajorCategory))
+	}
+	breadcrumb += " › " + name + "</p>"
+
+	// 身份行:中文名/出版商/ISSN/国家/类型/OA/创刊。
 	var metaLines []string
+	if meta.WikidataLabelZH != "" && meta.WikidataLabelZH != meta.CanonicalName {
+		metaLines = append(metaLines, "中文名："+htmlEscape(meta.WikidataLabelZH))
+	}
 	if meta.Publisher != "" {
 		metaLines = append(metaLines, "出版商："+htmlEscape(meta.Publisher))
 	}
@@ -1547,40 +1665,395 @@ func buildJournalNoscriptCard(meta *seo.JournalSSRMeta) string {
 	if meta.Type != "" {
 		metaLines = append(metaLines, "类型："+htmlEscape(meta.Type))
 	}
-	if meta.IsOA {
+	if meta.Inception != "" {
+		metaLines = append(metaLines, "创刊："+htmlEscape(meta.Inception))
+	}
+	if meta.IsOA || meta.IsInDOAJ {
 		metaLines = append(metaLines, "OA 开放获取")
 	}
 	var metaHTML string
 	if len(metaLines) > 0 {
-		metaHTML = fmt.Sprintf("<p %s>%s</p>", metaStyle, strings.Join(metaLines, " · "))
+		metaHTML = fmt.Sprintf("<p %s>%s</p>", ssrMetaStyle, strings.Join(metaLines, " · "))
 	}
 
-	var statLines []string
-	if meta.JCRImpactFactor > 0 {
-		statLines = append(statLines, fmt.Sprintf("影响因子 %.3f", meta.JCRImpactFactor))
+	blocks := []string{
+		buildJournalWarningHTML(meta),      // 预警放最前:读者/爬虫第一眼要看到风险提示
+		buildJournalMetricsMatrixHTML(meta),
+		buildJournalTrendHTML(meta),
+		buildJournalSubmitRefHTML(meta),
+		buildJournalSameCategoryHTML(meta),
+		buildJournalFAQHTML(meta),
+		buildWorksListHTML("本刊近期代表论文", meta.RecentPapers),
 	}
-	if meta.JCRQuartile != "" {
-		statLines = append(statLines, "JCR "+htmlEscape(meta.JCRQuartile))
+	var body strings.Builder
+	for _, b := range blocks {
+		if b != "" {
+			body.WriteString("\n" + b)
+		}
 	}
-	if meta.OpenAlexHIndex != nil && *meta.OpenAlexHIndex > 0 {
-		// 中性指标名:此处是 noscript **正文**(无 JS 用户与 AI 爬虫直接可见),
-		// 不带上游数据源名(与 1028 行 desc 分支同口径)。
-		statLines = append(statLines, fmt.Sprintf("h-index %d", *meta.OpenAlexHIndex))
-	}
-	var statHTML string
-	if len(statLines) > 0 {
-		statHTML = fmt.Sprintf("<p %s>%s</p>", statStyle, strings.Join(statLines, " · "))
-	}
-
-	// 近期代表论文(带内链):补上描述承诺的「近期发表」内容 + 期刊→论文实体链接。
-	papersHTML := buildWorksListHTML("本刊近期代表论文", meta.RecentPapers)
 
 	return fmt.Sprintf(`<article %s>
+%s
 <h1 %s>%s</h1>
-%s
-%s
-%s
-</article>`, baseStyle, headingStyle, name, metaHTML, statHTML, papersHTML)
+%s%s
+</article>`, baseStyle, breadcrumb, headingStyle, name, metaHTML, body.String())
+}
+
+// buildJournalWarningHTML ② 预警提示区块(gjqk 字段;非预警刊整块不出)。
+func buildJournalWarningHTML(meta *seo.JournalSSRMeta) string {
+	if meta.GJQKWarningLevel == "" {
+		return ""
+	}
+	yearSeg := ""
+	if meta.GJQKYear > 0 {
+		yearSeg = fmt.Sprintf("%d年", meta.GJQKYear)
+	}
+	text := fmt.Sprintf("预警提示:本刊已列入%s《国际期刊预警名单》,预警等级:%s。", yearSeg, htmlEscape(meta.GJQKWarningLevel))
+	if meta.GJQKWarningWhy != "" {
+		text += "预警原因:" + htmlEscape(meta.GJQKWarningWhy) + "。"
+	}
+	text += "投稿前请谨慎评估。"
+	// 朱砂色加边框:预警是本页最重要的事实,视觉上必须区别于普通段落。
+	return fmt.Sprintf(`<p style="color: #882828; border: 1px solid #882828; padding: 10px 12px; line-height: 1.8; margin: 12px 0;"><strong>%s</strong></p>`, text)
+}
+
+// buildJournalMetricsMatrixHTML ① 指标矩阵区块(有哪项渲染哪项)。
+func buildJournalMetricsMatrixHTML(meta *seo.JournalSSRMeta) string {
+	var items []string
+	if meta.JCRImpactFactor > 0 {
+		label := "影响因子"
+		if meta.JCRYear > 0 {
+			label = fmt.Sprintf("影响因子(JCR %d)", meta.JCRYear)
+		}
+		items = append(items, fmt.Sprintf("%s:%.3f", label, meta.JCRImpactFactor))
+	}
+	if meta.JCRQuartile != "" {
+		seg := "JCR 分区:" + htmlEscape(meta.JCRQuartile)
+		if meta.JCRCategory != "" {
+			seg += "(" + htmlEscape(meta.JCRCategory) + ")"
+		}
+		items = append(items, seg)
+	}
+	if meta.FQBMajorQuartile != "" {
+		seg := "中科院分区"
+		if meta.FQBYear > 0 {
+			seg += fmt.Sprintf("(%d)", meta.FQBYear)
+		}
+		seg += ":"
+		if meta.FQBMajorCategory != "" {
+			seg += htmlEscape(meta.FQBMajorCategory) + " "
+		}
+		seg += htmlEscape(meta.FQBMajorQuartile) + "区"
+		if meta.FQBTop {
+			seg += "(Top)"
+		}
+		if meta.FQBSubcategory != "" && meta.FQBSubQuartile != "" {
+			seg += ";小类:" + htmlEscape(meta.FQBSubcategory) + " " + htmlEscape(meta.FQBSubQuartile) + "区"
+		}
+		items = append(items, seg)
+	}
+	if meta.XRMajorQuartile != "" {
+		seg := "新锐分区"
+		if meta.XRYear > 0 {
+			seg += fmt.Sprintf("(%d)", meta.XRYear)
+		}
+		seg += ":"
+		if meta.XRMajorCategory != "" {
+			seg += htmlEscape(meta.XRMajorCategory) + " "
+		}
+		seg += htmlEscape(meta.XRMajorQuartile) + "区"
+		if meta.XRTop {
+			seg += "(Top)"
+		}
+		items = append(items, seg)
+	}
+	if meta.SJR != "" {
+		seg := "SJR:" + htmlEscape(meta.SJR)
+		if meta.SJRBestQuartile != "" {
+			seg += "(" + htmlEscape(meta.SJRBestQuartile) + ")"
+		}
+		items = append(items, seg)
+	}
+	if meta.CCFRank != "" {
+		seg := "CCF:" + htmlEscape(meta.CCFRank) + " 类"
+		if meta.CCFField != "" {
+			seg += "(" + htmlEscape(meta.CCFField) + ")"
+		}
+		items = append(items, seg)
+	}
+	// 中性指标名:noscript 正文不带上游数据源名(与 desc 口径一致)。
+	if meta.OpenAlexHIndex != nil && *meta.OpenAlexHIndex > 0 {
+		items = append(items, fmt.Sprintf("h-index:%d", *meta.OpenAlexHIndex))
+	} else if meta.ScimagoHIndex > 0 {
+		items = append(items, fmt.Sprintf("h-index:%d", meta.ScimagoHIndex))
+	}
+	var volume []string
+	if meta.WorksCount > 0 {
+		volume = append(volume, fmt.Sprintf("载文量 %d", meta.WorksCount))
+	}
+	if meta.CitedByCount > 0 {
+		volume = append(volume, fmt.Sprintf("总被引 %d", meta.CitedByCount))
+	}
+	if len(volume) > 0 {
+		items = append(items, strings.Join(volume, " · "))
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "<h2 %s>核心指标</h2><ul %s>", ssrSubHeadStyle, ssrListStyle)
+	for _, it := range items {
+		b.WriteString("<li>" + it + "</li>")
+	}
+	b.WriteString("</ul>")
+	return b.String()
+}
+
+// buildJournalTrendHTML ③ 逐年趋势文字化(metrics_json 解码;纯文本即可被索引)。
+// 最多取最近 5 年,箭头连接:「2021 3.2 → 2022 3.5 → …」。
+func buildJournalTrendHTML(meta *seo.JournalSSRMeta) string {
+	trendLine := func(label string, points []seo.JournalTrendPoint, withQ bool) string {
+		if len(points) == 0 {
+			return ""
+		}
+		if len(points) > 5 {
+			points = points[len(points)-5:]
+		}
+		segs := make([]string, 0, len(points))
+		for _, p := range points {
+			seg := fmt.Sprintf("%d %.3g", p.Year, p.Value)
+			if withQ && p.Quartile != "" {
+				seg += "(" + htmlEscape(p.Quartile) + ")"
+			}
+			segs = append(segs, seg)
+		}
+		return fmt.Sprintf("<li>%s:%s</li>", label, strings.Join(segs, " → "))
+	}
+	jcr := trendLine("近年影响因子", meta.JCRTrend, false)
+	sjr := trendLine("近年 SJR", meta.SJRTrend, true)
+	if jcr == "" && sjr == "" {
+		return ""
+	}
+	return fmt.Sprintf("<h2 %s>逐年趋势</h2><ul %s>%s%s</ul>", ssrSubHeadStyle, ssrListStyle, jcr, sjr)
+}
+
+// buildJournalSubmitRefHTML ④ 投稿参考区块(审稿周期/评价/APC/DOAJ/LaTeX/投稿指南)。
+func buildJournalSubmitRefHTML(meta *seo.JournalSSRMeta) string {
+	var items []string
+	if meta.FirstReviewMonths > 0 {
+		items = append(items, fmt.Sprintf("审稿周期:首次审稿意见平均约 %.1f 个月", meta.FirstReviewMonths))
+	}
+	if meta.CommentRating > 0 && meta.CommentCount > 0 {
+		items = append(items, fmt.Sprintf("投稿人评价:%.1f 分(%d 条评价)", meta.CommentRating, meta.CommentCount))
+	}
+	if meta.IsInDOAJ {
+		seg := "DOAJ 收录的开放获取期刊"
+		if meta.HasAPC {
+			seg += ",收取文章处理费(APC)"
+		} else {
+			seg += ",不收取文章处理费(APC)"
+		}
+		items = append(items, seg)
+	} else if meta.HasAPC {
+		items = append(items, "收取文章处理费(APC)")
+	}
+	if meta.HasLatex {
+		seg := "提供 LaTeX 投稿模板"
+		if meta.LatexClass != "" {
+			seg += "(" + htmlEscape(meta.LatexClass) + ")"
+		}
+		items = append(items, seg)
+	}
+	if meta.HasGuideline {
+		items = append(items, "提供投稿指南")
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "<h2 %s>投稿参考</h2><ul %s>", ssrSubHeadStyle, ssrListStyle)
+	for _, it := range items {
+		b.WriteString("<li>" + it + "</li>")
+	}
+	b.WriteString("</ul>")
+	return b.String()
+}
+
+// buildJournalSameCategoryHTML ⑤ 同学科推荐(published 行,真实 <a href> 内链)。
+func buildJournalSameCategoryHTML(meta *seo.JournalSSRMeta) string {
+	if len(meta.SameCategory) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "<h2 %s>同学科期刊推荐</h2><ul %s>", ssrSubHeadStyle, ssrListStyle)
+	for _, ref := range meta.SameCategory {
+		href := "/journal/" + strconv.FormatInt(ref.JournalID, 10)
+		if ref.Slug != "" {
+			href += "/" + ref.Slug
+		}
+		var metrics []string
+		if ref.JCRImpactFactor > 0 {
+			metrics = append(metrics, fmt.Sprintf("IF %.1f", ref.JCRImpactFactor))
+		}
+		if ref.JCRQuartile != "" {
+			metrics = append(metrics, "JCR "+htmlEscape(ref.JCRQuartile))
+		}
+		if ref.FQBMajorQuartile != "" {
+			seg := "中科院" + htmlEscape(ref.FQBMajorQuartile) + "区"
+			if ref.FQBTop {
+				seg += "(Top)"
+			}
+			metrics = append(metrics, seg)
+		}
+		suffix := ""
+		if len(metrics) > 0 {
+			suffix = " — " + strings.Join(metrics, " · ")
+		}
+		fmt.Fprintf(&b, `<li><a href="%s" style="color: #882828;">%s</a>%s</li>`,
+			htmlEscape(href), htmlEscape(ref.Name), suffix)
+	}
+	b.WriteString("</ul>")
+	return b.String()
+}
+
+// journalFAQItem FAQ 单条(可见区块与 FAQPage JSON-LD 的同一数据源)。
+type journalFAQItem struct {
+	Q, A string
+}
+
+// journalFAQItems ⑥ 由字段生成的常见问题。铁律:**无数据的问题不出** ——
+// 每条都以对应字段非零为前置;OA/预警等布尔零值无法与「未知」区分,只出肯定态。
+func journalFAQItems(meta *seo.JournalSSRMeta) []journalFAQItem {
+	name := meta.CanonicalName
+	var items []journalFAQItem
+	if meta.JCRImpactFactor > 0 {
+		a := fmt.Sprintf("《%s》的最新影响因子(IF)为 %.3f", name, meta.JCRImpactFactor)
+		if meta.JCRYear > 0 {
+			a = fmt.Sprintf("根据 JCR %d 年数据,%s", meta.JCRYear, a)
+		}
+		items = append(items, journalFAQItem{
+			Q: fmt.Sprintf("《%s》的影响因子是多少?", name),
+			A: a + "。",
+		})
+	}
+	if meta.FQBMajorQuartile != "" || meta.JCRQuartile != "" {
+		var segs []string
+		if meta.FQBMajorQuartile != "" {
+			seg := "中科院分区"
+			if meta.FQBYear > 0 {
+				seg += fmt.Sprintf("(%d年版)", meta.FQBYear)
+			}
+			seg += "为"
+			if meta.FQBMajorCategory != "" {
+				seg += meta.FQBMajorCategory
+			}
+			seg += meta.FQBMajorQuartile + "区"
+			if meta.FQBTop {
+				seg += "(Top 期刊)"
+			}
+			segs = append(segs, seg)
+		}
+		if meta.JCRQuartile != "" {
+			segs = append(segs, "JCR 分区为 "+meta.JCRQuartile)
+		}
+		items = append(items, journalFAQItem{
+			Q: fmt.Sprintf("《%s》是几区期刊?", name),
+			A: fmt.Sprintf("《%s》%s。", name, strings.Join(segs, ",")),
+		})
+	}
+	if meta.GJQKWarningLevel != "" {
+		a := fmt.Sprintf("是。《%s》已列入", name)
+		if meta.GJQKYear > 0 {
+			a += fmt.Sprintf("%d年", meta.GJQKYear)
+		}
+		a += "《国际期刊预警名单》,预警等级:" + meta.GJQKWarningLevel + "。"
+		if meta.GJQKWarningWhy != "" {
+			a += "预警原因:" + meta.GJQKWarningWhy + "。"
+		}
+		a += "投稿前请谨慎评估。"
+		items = append(items, journalFAQItem{
+			Q: fmt.Sprintf("《%s》是预警期刊吗?", name),
+			A: a,
+		})
+	}
+	if meta.IsOA || meta.IsInDOAJ {
+		a := fmt.Sprintf("是,《%s》是开放获取(Open Access)期刊", name)
+		if meta.IsInDOAJ {
+			a += ",已被 DOAJ 收录"
+		}
+		if meta.HasAPC {
+			a += ",发表需支付文章处理费(APC)"
+		}
+		items = append(items, journalFAQItem{
+			Q: fmt.Sprintf("《%s》是开放获取(OA)期刊吗?", name),
+			A: a + "。",
+		})
+	}
+	if meta.FirstReviewMonths > 0 {
+		items = append(items, journalFAQItem{
+			Q: fmt.Sprintf("《%s》的审稿周期多久?", name),
+			A: fmt.Sprintf("根据投稿经验数据,《%s》首次审稿意见平均约 %.1f 个月返回,实际周期因稿件而异。", name, meta.FirstReviewMonths),
+		})
+	}
+	return items
+}
+
+// buildJournalFAQHTML FAQ 可见区块(与 JSON-LD 同源;Google 要求 FAQPage
+// 标记的内容必须在页面可见,只挂 JSON-LD 不渲染正文是违规形态)。
+func buildJournalFAQHTML(meta *seo.JournalSSRMeta) string {
+	items := journalFAQItems(meta)
+	if len(items) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "<h2 %s>常见问题</h2>", ssrSubHeadStyle)
+	for _, it := range items {
+		fmt.Fprintf(&b, "<h3 %s>%s</h3><p %s>%s</p>",
+			ssrSubHeadStyle, htmlEscape(it.Q), ssrTextStyle, htmlEscape(it.A))
+	}
+	return b.String()
+}
+
+// buildJournalFAQJSONLD FAQPage JSON-LD(journalFAQItems 同源;无数据返回空)。
+func buildJournalFAQJSONLD(meta *seo.JournalSSRMeta) string {
+	items := journalFAQItems(meta)
+	if len(items) == 0 {
+		return ""
+	}
+	entities := make([]map[string]any, 0, len(items))
+	for _, it := range items {
+		entities = append(entities, map[string]any{
+			"@type": "Question",
+			"name":  it.Q,
+			"acceptedAnswer": map[string]any{
+				"@type": "Answer",
+				"text":  it.A,
+			},
+		})
+	}
+	return jsonLDScript(map[string]any{
+		"@context":   "https://schema.org",
+		"@type":      "FAQPage",
+		"mainEntity": entities,
+	})
+}
+
+// buildJournalBreadcrumbJSONLD 期刊详情页 BreadcrumbList:
+// 首页 > 期刊(/journals/browse) > 大类枢纽(slug 映射) > 本刊。大类缺失时三级降二级。
+func buildJournalBreadcrumbJSONLD(meta *seo.JournalSSRMeta, canonical string) string {
+	base := appconfig.CanonicalBaseURL()
+	items := [][2]string{
+		{"首页", base + "/"},
+		{"期刊", base + "/journals/browse"},
+	}
+	if meta.FQBMajorCategory != "" {
+		items = append(items, [2]string{
+			meta.FQBMajorCategory,
+			base + "/journals/category/" + seo.JournalCategorySlug(meta.FQBMajorCategory),
+		})
+	}
+	items = append(items, [2]string{meta.CanonicalName, canonical})
+	return buildBreadcrumbJSONLD(items)
 }
 
 // injectToolSEOMeta 功能广场工具详情页 SEO 注入(与 paper/author/journal 同构)。
@@ -2547,7 +3020,8 @@ func getRouteNoscriptContent(path string) string {
 		return fmt.Sprintf(`<section %s>
 <h1 %s>期刊检索 — 影响因子 / 分区 / 收录查询</h1>
 <p %s>Scholay 期刊检索帮助科研工作者按刊名、ISSN、学科、出版商及影响因子分区查找学术期刊，查看每本期刊的影响因子（JCR Impact Factor）、CiteScore、中科院分区与 JCR 分区、是否开放获取（OA）及收录范围，辅助选刊投稿与文献质量评估。</p>
-</section>`, baseStyle, headingStyle, textStyle)
+<p %s><a href="/journals/browse" style="color: #882828;">期刊导航：按学科 / 国家 / 预警 / OA 专题浏览全部期刊，查看本周新增期刊</a></p>
+</section>`, baseStyle, headingStyle, textStyle, textStyle)
 
 	case path == "/claw":
 		return fmt.Sprintf(`<section %s>

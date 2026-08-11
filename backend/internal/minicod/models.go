@@ -385,6 +385,10 @@ type JournalSearchOptions struct {
 }
 
 // JournalListOptions contains options for journal listing
+//
+// 全量摄取(seoingest)口径:full="1" + page_size≤100 + sort_by=id&sort_dir=asc
+// (上游承诺 id 永不复用,是稳定游标)。Fields 与 Full 互斥(上游约定),
+// 只在不需要 sources 血包的轻量拉取时用。
 type JournalListOptions struct {
 	Page       int    `json:"page,omitempty"`
 	PageSize   int    `json:"page_size,omitempty"`
@@ -395,6 +399,7 @@ type JournalListOptions struct {
 	MinSources int    `json:"min_sources,omitempty"`
 	HasSources string `json:"has_sources,omitempty"`
 	Full       string `json:"full,omitempty"`
+	Fields     string `json:"fields,omitempty"` // 逗号分隔字段裁剪(与 full 互斥)
 }
 
 // JournalSearchResponse represents journal search results

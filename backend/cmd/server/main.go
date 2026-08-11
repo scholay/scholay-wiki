@@ -17,6 +17,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"regexp"
@@ -30,8 +31,10 @@ import (
 	"scholar-backend/internal/common/logger"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/crawlerwatch"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/storage"
+	"scholar-backend/internal/umami"
 
 	"github.com/gin-gonic/gin"
 )
@@ -85,6 +88,11 @@ func main() {
 	// Bootstrap all application services and DI wiring
 	svc := bootstrapServices(cfg)
 
+	// 后台任务的根 ctx —— 提前到路由装配之前建:爬虫监控的 sender goroutine
+	// 也挂在它上面(shutdown 时随 cancel 一起退)。
+	bgCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Setup Gin router
 	// gin 全局模式跟随 GIN_MODE —— 不设的话 gin 默认 debug, 既打印调试噪声也让一些
 	// "release 才生效"的安全分支(默认密钥 fail-fast / 支付金额校验 / JSON 日志)失活。
@@ -118,6 +126,30 @@ func main() {
 	router.Use(middleware.RecoveryMiddleware())
 	router.Use(middleware.CORSMiddleware())
 
+	// 爬虫监控(internal/crawlerwatch):已知搜索引擎/AI 爬虫对可抓取路径
+	// (SSR 页 / robots / sitemap / IndexNow key)的命中,异步转成事件写进一个
+	// **独立**的 umami website —— umami 常规采集是 JS tracker + isbot 过滤,
+	// 天生看不见爬虫,这条服务端旁路两者都绕开。
+	// UMAMI_CRAWLER_WEBSITE_ID 为空 → New 返 nil,整个功能不挂载,零开销。
+	// 挂在 CORS 之后、限流/超时之前:被下游 429/408/404 的爬虫命中也要计数
+	// (status 记 c.Next() 后终值,持续 429 正是要观察的抓取配额风险信号)。
+	{
+		crawlerUmamiBase := cfg.Umami.CrawlerBaseURL
+		if crawlerUmamiBase == "" {
+			crawlerUmamiBase = umami.DefaultBaseURL // 与 admin /analytics 客户端同源的内网默认
+		}
+		if cw := crawlerwatch.New(crawlerwatch.Config{
+			UmamiBaseURL: crawlerUmamiBase,
+			WebsiteID:    cfg.Umami.CrawlerWebsiteID,
+			Hostname:     canonicalHost(),
+		}); cw != nil {
+			cw.Start(bgCtx)
+			router.Use(cw.Middleware())
+			slog.Info("crawler monitor enabled",
+				"website_id", cfg.Umami.CrawlerWebsiteID, "umami", crawlerUmamiBase)
+		}
+	}
+
 	router.Use(middleware.BodyLimitMiddleware(middleware.DefaultMaxBodySize))
 	// 第一道限流：全局 IP 限流（DoS 防护），参数从 RATE_LIMIT_IP_RPS 读取。
 	// 第二道限流：见 TieredRateLimitMiddleware，在认证路由组内按 user_id 限流（待挂载）。
@@ -141,9 +173,7 @@ func main() {
 	// IndexNow 协议要求站点根 /{key}.txt 200 OK,这条路由必须先于 NoRoute SPA 兜底注册
 	seosubmit.RegisterKeyFileRoute(router, svc.seoSubmitService)
 
-	bgCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	startBackgroundTasks(bgCtx, svc.seoService)
+	startBackgroundTasks(bgCtx, svc.seoService, svc.seoIngestService)
 
 	// (已移除)跨实例「多窗口接管」订阅 —— 抢占模型已被「多端实时同步扇出 Hub」取代
 	// (见 internal/agentbridge/hub.go);同一 session 的多个浏览器现在共享一条上游 agent WS,不再互踢。
@@ -224,6 +254,16 @@ func main() {
 // crawlerInfraKeyFileRe IndexNow key 文件路径(与 seosubmit.RegisterKeyFileRoute
 // 及 nginx user.conf 的根级 .txt 正则同构:8-128 位字母数字连字符)。
 var crawlerInfraKeyFileRe = regexp.MustCompile(`^/[A-Za-z0-9-]{8,128}\.txt$`)
+
+// canonicalHost 从 CanonicalBaseURL 取 host(www.scholay.com),给爬虫监控事件的
+// hostname 字段 —— 与 sitemap/canonical 的 SEO 口径一致。解析失败回落 localhost。
+func canonicalHost() string {
+	u, err := url.Parse(appconfig.CanonicalBaseURL())
+	if err != nil || u.Host == "" {
+		return "localhost"
+	}
+	return u.Host
+}
 
 // isCrawlerInfraPath 搜索引擎基础设施路径 —— 全局 IP 限流豁免面(见挂载处注释)。
 // 面刻意收窄:仅 robots / sitemap / key 文件,SSR 页面与 API 照常限流。

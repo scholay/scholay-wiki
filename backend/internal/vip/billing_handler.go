@@ -241,6 +241,8 @@ func (h *Handler) CreateSubscription(c *gin.Context) {
 		switch {
 		case errors.Is(err, ErrNoDowngrade):
 			utils.BadRequest(c, "不能换成比当前更低的套餐。当前套餐到期后,可以再选想要的档位。")
+		case errors.Is(err, ErrYearlyRenewOnly):
+			utils.BadRequest(c, "你现在是年费会员,续费请选择按年。按月续会把你的年费身份改成月度,价格与权益都会跟着变。")
 		case errors.Is(err, ErrPendingOrderExists):
 			utils.BadRequest(c, "你还有一笔会员订单没付完。回到刚才的收银台付掉那一笔即可;如果已经关掉了,2 小时后它会自动失效,那之后可以重新下单。同一时间只会有一笔生效,不会重复扣款。")
 		case errors.Is(err, ErrInvalidOrder):
@@ -265,6 +267,8 @@ func (h *Handler) SubscribeQuote(c *gin.Context) {
 		switch {
 		case errors.Is(err, ErrNoDowngrade):
 			utils.BadRequest(c, "不支持降级到更低套餐")
+		case errors.Is(err, ErrYearlyRenewOnly):
+			utils.BadRequest(c, "年费会员请按年续费")
 		case errors.Is(err, ErrInvalidOrder):
 			utils.BadRequest(c, "套餐无效或未配置价格")
 		default:

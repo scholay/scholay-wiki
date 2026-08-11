@@ -164,7 +164,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           <Inbox className="size-4 text-brand-red" strokeWidth={2.5} />
           {/* 列标题 —— 原 .pen `wgB2T` 15px/700,B6 排印迁移后归到 Figma 规范档
              text-16 + font-medium(sans 字族无 700) */}
-          <span className="text-16 font-medium text-foreground">工作区</span>
+          <span className="font-serif text-16 font-medium text-foreground">工作区</span>
         </div>
         {/* 右区:矩阵分析 + 工具 */}
         <div className="flex-1 min-w-0 flex items-center justify-between gap-2 px-4">
@@ -175,7 +175,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
               className="size-4 shrink-0 text-brand-red"
               strokeWidth={2.5}
             />
-            <span className="shrink-0 text-16 font-medium text-foreground whitespace-nowrap">
+            <span className="shrink-0 font-serif text-16 font-medium text-foreground whitespace-nowrap">
               矩阵分析
             </span>
             <span className="text-12 text-faint truncate">

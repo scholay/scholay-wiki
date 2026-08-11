@@ -26,16 +26,31 @@ import (
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // Handler 包装 Client + 注册路由
 type Handler struct {
 	client *Client
+
+	// ── 爬虫监控(internal/crawlerwatch 写入的独立 website)──
+	// crawler nil = UMAMI_CRAWLER_WEBSITE_ID 未配置,GetCrawlerStats 返 {configured:false}。
+	// crawlerDB 用于 top_pages 直查 umami 库(HTTP API 对自定义事件做不了 URL 聚合,
+	// 见 crawler.go 头注);nil = top_pages 降级为空列表。
+	crawler   *Client
+	crawlerDB *gorm.DB
 }
 
 // NewHandler 构造
 func NewHandler(client *Client) *Handler {
 	return &Handler{client: client}
+}
+
+// WithCrawler 挂上爬虫监控查询依赖(链式,bootstrap 用)。两个参数都允许 nil。
+func (h *Handler) WithCrawler(crawler *Client, db *gorm.DB) *Handler {
+	h.crawler = crawler
+	h.crawlerDB = db
+	return h
 }
 
 // parseRange 解析 query 里的 start/end,缺省最近 days 天。

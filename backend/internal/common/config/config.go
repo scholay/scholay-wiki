@@ -45,6 +45,14 @@ type Config struct {
 type UmamiConfig struct {
 	WebsiteID string // umami 后台创建网站后给的 UUID,前端 tracker 也读这个
 	AppSecret string // 给 umami 容器自身签 token 用,backend 暂时不用
+
+	// ── 爬虫监控旁路(internal/crawlerwatch)──
+	// umami 常规采集 = 页面 JS tracker + 服务端 isbot 过滤,两道机制都看不见爬虫。
+	// backend 在中间件层识别已知搜索引擎/AI 爬虫 UA,把命中异步 POST 到一个
+	// **独立**的爬虫监控 website(千万别复用上面 WebsiteID 的用户统计站点,
+	// 否则爬虫事件会污染真人 PV/UV)。
+	CrawlerWebsiteID string // 专用「爬虫监控」website 的 UUID;空 = 功能整体关闭(中间件不挂载)
+	CrawlerBaseURL   string // 可选 override;空 → 与统计客户端同源的内网默认 http://umami:3000
 }
 
 // MinIOConfig 对象存储(用户上传 PDF) —— S3 兼容协议。
@@ -251,8 +259,10 @@ func Load() *Config {
 
 	// Umami —— backend 用内网 umami:3000 + 默认 admin/umami 拿 token 调统计 API
 	AppConfig.Umami = UmamiConfig{
-		WebsiteID: getEnv("UMAMI_WEBSITE_ID", ""),
-		AppSecret: getEnv("UMAMI_APP_SECRET", ""),
+		WebsiteID:        getEnv("UMAMI_WEBSITE_ID", ""),
+		AppSecret:        getEnv("UMAMI_APP_SECRET", ""),
+		CrawlerWebsiteID: getEnv("UMAMI_CRAWLER_WEBSITE_ID", ""),
+		CrawlerBaseURL:   getEnv("UMAMI_CRAWLER_BASE_URL", ""),
 	}
 
 	// 主动 SEO 提交

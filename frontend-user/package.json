@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest",
-    "fonts:sync": "node scripts/sync-google-sans.mjs && node scripts/sync-noto-serif-sc.mjs && node scripts/sync-playfair-brand.mjs",
+    "fonts:sync": "node scripts/sync-noto-serif-sc.mjs",
     "test:performance": "vitest run tests/dependency-contract.test.ts tests/web-vitals-boundary.test.ts tests/bundle-boundaries.test.ts",
     "bundle:report": "node scripts/bundle-budget.mjs --report",
     "bundle:check": "node scripts/bundle-budget.mjs --check",

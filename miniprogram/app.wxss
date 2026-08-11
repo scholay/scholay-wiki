@@ -97,15 +97,19 @@ page {
   color: var(--text);
   font-size: var(--fs-body);
   line-height: 1.6;
-  /* 字族意图镜像 Web/Pencil：英文 Google Sans，中文 Noto Serif SC。
-   * 两者之间不得插入替代字体，避免英文或中文被提前截获。
-   * 注：WXSS 不会复用 Web @font-face；未做 wx.loadFontFace 前，真机仍可能落到栈尾保底。 */
-  --font-sans: "Google Sans", "Noto Serif SC", "Source Han Serif SC",
-    "Songti SC", "SimSun", system-ui, sans-serif;
-  --font-serif: "Google Sans", "Noto Serif SC", "Source Han Serif SC",
-    "Songti SC", "SimSun", serif;
-  --font-display: "Google Sans", "Noto Serif SC", "Source Han Serif SC",
-    "Songti SC", "SimSun", serif;
+  /* 字族镜像 Web 真源(frontend-user globals.css,2026-08-11):
+   * UI 栈 = 系统 UI 字体(iOS 苹方 / Android 各厂黑体);衬线/展示栈 = 具名
+   * Latin 字体 + Noto Serif SC(Web 端唯一 webfont;小程序未 wx.loadFontFace,
+   * 真机上落到后面的宋体系兜底,这正是设计给的离线兜底链)。
+   * system-ui 不得排在 Noto/宋体前(系统级联会截获 CJK)。
+   * 设计护栏(design-system-guard「小程序字号阶梯与字体栈必须镜像 Web 真源」)
+   * 会归一化比对这三条与 globals.css 同名 token,改动必须两侧同步。 */
+  --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Helvetica Neue", "Segoe UI", Arial, "Noto Serif SC", "Songti SC",
+    STSong, SimSun, "Source Han Serif SC", "Noto Serif CJK SC", system-ui, serif;
+  --font-display: "Helvetica Neue", "Segoe UI", Arial, "Noto Serif SC", "Songti SC",
+    STSong, SimSun, "Source Han Serif SC", "Noto Serif CJK SC", system-ui, serif;
   font-family: var(--font-sans);
 }
 

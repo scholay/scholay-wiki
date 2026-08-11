@@ -16,7 +16,13 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/shared/ui/dialog';
-import { SubscribeDialog, subscribePayMethods, WechatPayDialog } from '@/shared/components';
+import { subscribePayMethods, WechatPayDialog } from '@/shared/components';
+import { MembershipActionDialog } from '@/shared/components/membership-action-dialog';
+import {
+  primaryAction,
+  renewOptions,
+  upgradeOptions,
+} from '@/shared/lib/membership-options';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { useResetQuota, useSetCreditAutopay, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
@@ -39,6 +45,36 @@ const TIER_TAG: Record<Tier, string> = {
 };
 const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 
+/**
+ * 各档相对 **Free** 的额度倍率 —— 与后端 WindowCeiling 同构
+ * (backend/internal/vip/billing_model.go:141,147):
+ *     Pro 上限 = free × pro_multiplier
+ *     Max 上限 = free × pro_multiplier × max_multiplier   ← 注意是**连乘**
+ * 所以 plans 里的 max.multiplier 是「Max 相对 Pro」,不是相对 Free;
+ * 要展示「Max 是 Free 的几倍」必须乘上 pro 的那一档,漏乘会把 4× 说成 2×。
+ */
+function tierRatio(tier: Tier, proMult: number, maxMult: number): number {
+  if (tier === 'pro') return proMult;
+  if (tier === 'max') return proMult * maxMult;
+  return 1;
+}
+
+/**
+ * 该档是否**不限额** —— 后端 fail-open 语义:任一相关倍率 <=0 即该档不限
+ * (billing_model.go:138,144 返回 -1;config.go:36 的校验刻意不拦 <=0)。
+ * 不处理这一支会把「不限额」算成「0× 当前额度」。
+ */
+function tierUnlimited(tier: Tier, proMult: number, maxMult: number): boolean {
+  if (tier === 'pro') return proMult <= 0;
+  if (tier === 'max') return proMult <= 0 || maxMult <= 0;
+  return false;
+}
+
+/** 倍率显示:整数不带小数点(2 而不是 2.0),非整数保留一位(2.5)。 */
+function fmtMultiple(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 // 倍率口径:Pro 相对 Free,Max 相对 Pro。倍率与充值汇率都从后端 plans 取(动态),兜底 5/5/100。
 // 0090:重置只扣重置次数、经费买不到重置、无临时经费 —— 轮播文案与此口径对齐,别把旧话术加回来。
 function buildSlides(proMult: number, maxMult: number, rate: number) {
@@ -56,13 +92,22 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
   const locked = ALL_TIERS.filter((t) => TIER_RANK[t] > TIER_RANK[data.tier]);
   const { data: plans } = usePlans();
   const { subscribe, wechatOrder, closeWechat, onWechatPaid } = useSubscribeFlow();
-  const [upgrade, setUpgrade] = useState<{ open: boolean; tier?: 'pro' | 'max' }>({ open: false });
+  // 升级与续费是两条独立流程,各自一个弹窗(选项集/计价口径都不同)。
+  const [flow, setFlow] = useState<'upgrade' | 'renew' | null>(null);
 
   const methods = subscribePayMethods(plans?.payment_methods, plans?.test_payment ?? false);
   const proMult = plans?.plans?.find((p) => p.tier === 'pro')?.multiplier ?? 5;
   const maxMult = plans?.plans?.find((p) => p.tier === 'max')?.multiplier ?? 5;
   const rate = plans?.recharge_rate ?? 100; // 0095:经费=分,¥1 = 100 经费(汇率可调,以后端为准)
-  const openUpgrade = (tier?: 'pro' | 'max') => setUpgrade({ open: true, tier });
+  // 倍率兜底值(5/5)与线上配置(实测 2/2)不一致 —— 一个醒目的「×25」写错比不写更糟,
+  // 故倍率徽标只在 plans 真的到位后才渲染,未到位时轨道留空。
+  const plansLoaded = !!plans?.plans?.length;
+  // 本场景的合法选项 —— 单一真源在 shared/lib/membership-options(与后端 5 场景矩阵一一对应)。
+  const pricing = plans?.plans ?? [];
+  const upOpts = upgradeOptions(data.tier, data.cycle, pricing);
+  const renewOpts = renewOptions(data.tier, data.cycle, pricing);
+  const primary = primaryAction(data.tier, data.cycle, pricing);
+  const openUpgrade = () => setFlow('upgrade');
 
   return (
     <section className="rounded-16 border border-border bg-surface-card p-5">
@@ -77,13 +122,29 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
             {PLAN_LABEL[data.tier]}
             {data.tier !== 'free' && data.expires_at ? ` · 有效期至 ${data.expires_at.slice(0, 10)}` : ''}
           </span>
+          {/* 次级动作:主 CTA 是升级时,续费以文字链形式跟在有效期后面 ——
+              与主按钮不同层级(大厂惯例:一屏一个主 CTA),避免两个红按钮并排抢注意力。 */}
+          {primary === 'upgrade' && renewOpts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFlow('renew')}
+              className="text-12 text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+            >
+              续费
+            </button>
+          )}
+          {/* 🔴 主 CTA 只有一个,续费退到次级文字链(2026-08-12 产品拍板)。
+              旧版是一个「续期 / 升级」的合并按钮 —— 两个动作的选项集、计价口径、
+              甚至能不能做都不一样(顶档没有升级、年费不能按月续),合并进一个按钮
+              等于把选择推给弹窗内部,正是价格对不上的来源。
+              主次按业界惯例定:还有更高档可买 → 升级是主;已顶档 → 续费即主。 */}
           <Button
             size="sm"
-            onClick={() => openUpgrade()}
+            onClick={() => setFlow(primary === 'renew' ? 'renew' : 'upgrade')}
             className="h-7 gap-1 bg-brand-red px-2.5 text-on-brand hover:bg-brand-red/90"
           >
             <Sparkles className="size-3.5" />
-            {data.tier === 'free' ? '升级会员' : data.tier === 'max' ? '续期会员' : '续期 / 升级'}
+            {primary === 'subscribe' ? '开通会员' : primary === 'upgrade' ? '升级套餐' : '续费'}
           </Button>
         </div>
       </div>
@@ -97,7 +158,28 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
           <div className="my-3 h-px bg-border-soft" />
           <div className="flex flex-col gap-2.5">
             {locked.map((t) => (
-              <LockedRow key={t} tier={t} onUpgrade={() => openUpgrade(t as 'pro' | 'max')} />
+              <LockedRow
+                key={t}
+                tier={t}
+                // 倍率对比的分母是**当前档位**:free 用户看到的就是「相对 Free」,
+                // 而 pro 用户看 Max 时要的是「比我现在多几倍」,不是与他无关的「相对 Free 4 倍」。
+                unlimited={plansLoaded && tierUnlimited(t, proMult, maxMult)}
+                multiple={
+                  // 当前档已不限额时不给倍数(没有可比的分母,升级也换不来更多额度)。
+                  plansLoaded && !tierUnlimited(data.tier, proMult, maxMult)
+                    ? tierRatio(t, proMult, maxMult) / tierRatio(data.tier, proMult, maxMult)
+                    : null
+                }
+                // 轨道填充按「相对最高档」铺,多行并排时形成可读的阶梯。
+                fillPct={
+                  !plansLoaded
+                    ? 0
+                    : tierUnlimited(t, proMult, maxMult)
+                      ? 100
+                      : (tierRatio(t, proMult, maxMult) / tierRatio('max', proMult, maxMult)) * 100
+                }
+                onUpgrade={openUpgrade}
+              />
             ))}
           </div>
         </>
@@ -105,16 +187,14 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
 
       <ExplainerCarousel proMult={proMult} maxMult={maxMult} rate={rate} />
 
-      <SubscribeDialog
-        open={upgrade.open}
-        onOpenChange={(o) => setUpgrade((u) => ({ ...u, open: o }))}
-        plans={plans?.plans ?? []}
-        popularTier={plans?.popular_plan}
-        currentTier={data.tier}
-        currentCycle={data.cycle}
+      <MembershipActionDialog
+        open={flow !== null}
+        onOpenChange={(o) => !o && setFlow(null)}
+        mode={flow === 'renew' ? 'renew' : 'upgrade'}
+        options={flow === 'renew' ? renewOpts : upOpts}
+        plans={pricing}
         quote={quoteSubscription}
         methods={methods}
-        initialTier={upgrade.tier}
         onPay={(tier, method, cycle) => subscribe(tier, method, cycle, PLAN_LABEL[tier])}
       />
 
@@ -261,7 +341,27 @@ function ActiveRow({ data }: { data: Overview }) {
   );
 }
 
-function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
+/** 更高档位的诱导行:填充到该档比例的轨道 + 「×N 当前额度」徽标 + 升级解锁。
+ *  空灰轨传达不出任何信息 —— 填充长度让「更高档 = 更长的条」一眼可读,
+ *  徽标给出确切倍数(分母是当前档位,见调用点注释)。
+ *  ⚠️ 徽标必须写「×N **当前额度**」而不是「×N 用量」:本行上方是当前档的**用量**条
+ *  (满格 = 剩余 100%),两种条同屏时,一条填到 50% 的对比条很容易被读成
+ *  「Pro 只有 Free 的一半」。把分母写进徽标,数字自己消歧,不必再加一行说明。 */
+function LockedRow({
+  tier,
+  multiple,
+  unlimited,
+  fillPct,
+  onUpgrade,
+}: {
+  tier: Tier;
+  /** 相对当前档位的倍率;null = plans 未到位 / 当前档已不限额,不显示徽标(不猜数字)。 */
+  multiple: number | null;
+  /** 该档不限额(后端倍率 <=0):不写倍数,直接说不限额度。 */
+  unlimited: boolean;
+  fillPct: number;
+  onUpgrade: () => void;
+}) {
   const VIcon = TIER_ICON[tier];
   return (
     <div className="flex items-center gap-2">
@@ -269,7 +369,25 @@ function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
         <VIcon className="size-3" />
       </span>
       <span className="shrink-0 text-12 font-medium text-faint">{PLAN_LABEL[tier]} 额度</span>
-      <div className="h-2 flex-1 rounded-pill bg-surface-2" />
+      <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
+        <div
+          className={cn(
+            'h-full rounded-pill transition-[width] duration-slow',
+            tier === 'max' ? 'bg-brand-red/70' : 'bg-brand-amber/70',
+          )}
+          style={{ width: `${Math.min(100, Math.max(0, fillPct))}%` }}
+        />
+      </div>
+      {(unlimited || (multiple !== null && multiple > 1)) && (
+        <span
+          className={cn(
+            'shrink-0 text-12 font-medium tabular-nums',
+            tier === 'max' ? 'text-brand-red' : 'text-brand-amber',
+          )}
+        >
+          {unlimited ? '不限额度' : `${fmtMultiple(multiple!)}× 当前额度`}
+        </span>
+      )}
       <button
         onClick={() => tier !== 'free' && onUpgrade()}
         title="升级解锁更高额度"

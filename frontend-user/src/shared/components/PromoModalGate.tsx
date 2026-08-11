@@ -62,7 +62,6 @@ export function PromoModalGate() {
       if (!visible) return;
       const quota = useQuotaStore.getState();
       if (
-        quota.resetOpen ||
         Date.now() - quota.dismissedAt < QUOTA_DIALOG_SNOOZE_MS ||
         quotaTriggeredThisSession
       ) {

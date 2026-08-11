@@ -227,14 +227,25 @@ func TestComputeSubscriptionYearly(t *testing.T) {
 		t.Fatalf("upgrade must not extend expiry")
 	}
 
-	// 升级忽略请求周期:月度用户请求 cycle=yearly 升 Max → 仍按月度口径补差、周期不变。
+	// ⏪ 2026-08-12 行为变更(不是回归):月度会员请求 cycle=yearly 升 Max,过去被当成
+	// 「升级忽略请求周期」→ 按月度口径补差、到期日不变;现在走 switch 分支 = 买整年高档。
+	// 原口径下弹窗展示年付价、实扣却是补差价,用户报「价格对不上」正是这一格。
+	// 完整的 5 场景矩阵在 subscription_matrix_test.go,这里只留分流断言。
 	sp, err = computeSubscription(uvMonthly, TierMax, CycleYearly, cfg, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp.Action != "switch" || sp.Cycle != CycleYearly || sp.AmountCents != 269000 {
+		t.Fatalf("monthly→Max yearly should be a full-year switch: %+v", sp)
+	}
+	// 月度会员请求月付升级仍是原地补差(这一支没变)。
+	sp, err = computeSubscription(uvMonthly, TierMax, CycleMonthly, cfg, now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantDiffM := int(math.Round(float64(26900-5900) * 20.0 / 30.0))
 	if sp.Action != "upgrade" || sp.Cycle != CycleMonthly || sp.AmountCents != wantDiffM {
-		t.Fatalf("monthly upgrade should ignore requested yearly cycle: %+v want diff %d", sp, wantDiffM)
+		t.Fatalf("monthly upgrade (monthly request) should still prorate: %+v want diff %d", sp, wantDiffM)
 	}
 
 	// 年价未配置(<=0)→ 年付拒单;月付不受影响。

@@ -28,7 +28,12 @@ export function SettingsLayout() {
         <p className="text-12 text-muted-foreground mt-1">管理你的账号信息、安全与登录方式。</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-10">
+      {/* min-h-0 + overflow-y-auto:外层是 h-full 的一屏钳制,内容(如安全页表单)
+          超出视口时必须在这里内部滚动。此前没有滚动容器,超出部分可见溢出、
+          漏进 body 的隐式滚动 —— 顶栏跟着整页滚走,出现「全局滚动条」(实测
+          /settings/security 在 900 高视口溢出 118px)。滚动收在网格区,
+          页头「设置」与顶栏保持固定。 */}
+      <div className="grid min-h-0 flex-1 content-start overflow-y-auto grid-cols-1 lg:grid-cols-[200px_1fr] gap-10">
         <nav className="flex flex-col gap-1">
           {tabs.map((t) => (
             <NavLink

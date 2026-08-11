@@ -213,9 +213,11 @@ Pen 节点依据或工程推导理由。**偏离 Pen 的地方必须写明偏离
 Figma 布局、间距、阴影等引用，是尚未被 Pen 新节点替换的 **2026-07 历史工程约束**；
 它们可以继续约束实现，但不能反向覆盖本文明确列出的 Pen 颜色与排印值。
 
-字体是一项明确的用户级覆盖：非品牌英文使用 `Google Sans`，中文使用
-`Noto Serif SC`。这一指令优先于 Pen `rhCJT` 中的 Playfair Display 普通英文样张；
-但不解冻 Logo `D5gC67` 或 Scholay wordmark `V2IJR`。
+字体是一项明确的用户级覆盖（2026-08-11 两段指令）：**UI/正文/控件走系统字体
+零下载；标题层中文用自托管 `Noto Serif SC`**（取代此前的 Google Sans 方案，
+Playfair webfont 同步移除）。这一指令优先于 Pen `rhCJT` 中的任何字体样张；
+但不解冻 Logo `D5gC67` 或 Scholay wordmark `V2IJR`（两者是 SVG 路径，
+本就不依赖字体文件）。
 
 ### 护栏在哪跑(**两个执行点,覆盖面不一样**)
 
@@ -418,25 +420,34 @@ rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --
 **shadcn 语义别名**:`bg-primary` / `bg-secondary` / `bg-muted` / `bg-accent` / `bg-card` /
 `bg-popover` / `bg-destructive` / `border-input` / `ring-ring`
 
-### 字体
+### 字体（2026-08-11：UI 系统字体 + 标题 Noto Serif SC）
 
-| token / 用途 | 字体栈策略 |
+用户两段指令的混合态：①全站字体走系统字体、不能拖慢渲染;②标题层中文用回
+`Noto Serif SC`。落地:Google Sans / Playfair Display webfont **已移除且禁回流**;
+`Noto Serif SC` 是**唯一保留的 webfont**（101 个 unicode-range 分片 + 首屏 UI
+子集,swap 按需加载,只有标题真用到的字才下载）。栈真源在 `globals.css`「字体排印」:
+
+| token / 用途 | 字体栈策略（mac / win 实际命中） |
 |---|---|
-| `font-sans` · 非品牌 UI / Headline / Body | Latin / Latin-ext glyph 使用自托管 `Google Sans`；CJK glyph 由自托管 `Noto Serif SC` 承接 |
-| `font-serif` · 中文展示 / 中文适配 | 中文使用自托管 `Noto Serif SC`；混排的非品牌英文仍使用 `Google Sans` |
-| `font-display` · 非品牌展示标题 | 与全局语言分流一致：英文 `Google Sans`，中文 `Noto Serif SC` |
-| 品牌专用 · Scholay / wordmark | `Playfair Display` 只供冻结品牌文字使用，不得作为普通 display 标题字体 |
+| `font-sans` · 非品牌 UI / Body / 控件 | `system-ui` 领头的纯系统栈,零下载：SF Pro + 苹方 / Segoe UI + 微软雅黑。UI 中文走黑体系 —— 控件基座 text-12，衬线在 12px 的 win 渲染质量不可接受 |
+| `font-serif` / `font-display` · 标题 / 中文展示 / 衬线角色 | 具名 Latin 无衬线（Helvetica Neue / Segoe UI / Arial）+ **`Noto Serif SC`** 承接 CJK；宋体系（Songti SC / SimSun）只是断网/404 时的离线兜底 |
+| 品牌专用 · BrandName「Scholay」 | 系统高对比衬线近似 Playfair：mac `Didot` / win `Georgia`；`'Playfair Display'` 留在首位只做 local 匹配（零 @font-face 供源，绝不下载） |
 
-`Google Sans` 已于 2026-08-08 通过官方 Google Fonts specimen / CSS 核验。
-项目自托管官方 v70 Latin / Latin-ext variable WOFF2（wght 400–700）及
-SIL OFL 许可文件，生产构建不依赖运行时 Google Fonts CDN。字体的
-`unicode-range` 和家族顺序必须保证 Latin glyph 命中 Google Sans、CJK glyph 命中
-Noto Serif SC，不得在两者之间插入会抢占 Latin glyph 的替代字体。
+侧栏面板标题（我的文件夹 / 会话历史 / 项目 / 我要投稿）、staging 栏目头
+（搜索器 / 工作区 / 矩阵分析）、页面与 section 标题等「标题层」元素挂
+`font-serif` / `font-display`；正文与控件**不要**挂衬线字族。
 
-用户指令覆盖 Pen `rhCJT` 中的 Playfair Display 普通英文样张。Logo
-`D5gC67` 和 Scholay wordmark `V2IJR` 仍是冻结资产；品牌专用
-Playfair Display 的字体、字距、颜色与形状均不随 `font-sans/serif/display`
-迁移而变化。
+🔴 **两条铁律**（`tests/font-assets.test.ts` 钉死，违者构建红）：
+1. `system-ui` / `-apple-system` 自带系统级联，会在 CSS 栈轮到后续家族前把 CJK
+   交给苹方/雅黑 —— UI 栈正要这个效果，但**衬线栈里它们绝不能排在 Noto/宋体前**。
+2. 衬线栈里只允许「无 CJK 字形的具名 Latin 字体 + Noto/宋体系 + 垫底 generic」，
+   不得插入任何自带 CJK 的黑体家族（白名单硬校验）。
+
+Logo `D5gC67` 和 Scholay wordmark `V2IJR` 是 SVG 路径、不依赖字体文件，仍是
+冻结资产；小程序 `app.wxss` 的 `--font-sans/serif/display` 必须与 `globals.css`
+逐字镜像（design-system-guard 硬校验）。**不要引入 Noto 之外的任何 webfont**
+（包括 Google Fonts CDN / 镜像域 / base64 内联 / FontFace API）——
+反向契约见 `tests/font-assets.test.ts`;更新 Noto 资产用 `npm run fonts:sync`。
 
 ### 字号 — 8 档主 UI + 1 档 Headline / Display(数值命名)
 

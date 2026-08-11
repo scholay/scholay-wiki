@@ -120,7 +120,7 @@ export function LibrarySidebar() {
     return (
       <Sidebar>
         <SidebarContent>
-          <SidebarSection id="library" label="我的文件夹">
+          <SidebarSection id="library" label={<span className="font-serif">我的文件夹</span>}>
             <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
               <div className="text-12 text-subtle leading-paragraph">
                 登录后查看你的文件夹,所有收藏云端同步
@@ -151,7 +151,7 @@ export function LibrarySidebar() {
         <div ref={sectionRef}>
         <SidebarSection
           id="library"
-          label="我的文件夹"
+          label={<span className="font-serif">我的文件夹</span>}
           action={
             !creating && (
               <button

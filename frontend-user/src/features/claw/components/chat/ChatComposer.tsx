@@ -14,6 +14,7 @@ import {
 } from '@/shared/components/chat';
 import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
 import type { TurnReference } from '@/shared/types/chat';
+import type { QuotaBlockedControls } from '@/shared/components/chat';
 import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
 import type { AttachmentDTO, ReferenceItemDTO } from '../../api/types';
 import { ComposerSkillsButton } from './ComposerSkillsButton';
@@ -63,6 +64,10 @@ export interface ChatComposerProps {
   onRequireAuth?: () => void;
   /** 会话模型选择器(P2 模型目录化):ClawPage 组装 shared ModelSelector 后经此插槽注入。 */
   modelSlot?: ReactNode;
+  /** 额度耗尽「被拦未发送」控制 —— 透传给 shared Composer 的输入框上方额度条。 */
+  quotaBlocked?: QuotaBlockedControls | null;
+  /** 预警条准入(对话已有轮次才出),透传 shared Composer。 */
+  quotaWarn?: boolean;
   /** 当前会话模型是否支持图片输入(P2 图片通道;false → 图片被拦下并提示)。 */
   acceptImages?: boolean;
   /** 「新对话」回调 —— 输入框技能面板「在新对话中应用」用(启用变更建会话时冻结)。 */
@@ -119,6 +124,8 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   enableLibraryReference = true,
   placeholder,
   disabledPlaceholder,
+  quotaBlocked = null,
+  quotaWarn = false,
 }, ref) {
   // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
   const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
@@ -210,6 +217,8 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         requireAuth={requireAuth}
         onRequireAuth={onRequireAuth}
         context={context}
+        quotaBlocked={quotaBlocked}
+        quotaWarn={quotaWarn}
         maxHeightPx={140}
         onPaste={enableAttachments ? att.handlePaste : undefined}
         containerProps={enableAttachments ? att.dragHandlers : undefined}

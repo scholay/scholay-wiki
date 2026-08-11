@@ -197,7 +197,7 @@ export function SearcherColumn({
       <header className="flex items-center gap-2 h-14 px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2.5">
           <Search className="size-4 text-brand-red" strokeWidth={2.5} />
-          <span className="text-16 font-medium text-foreground">搜索器</span>
+          <span className="font-serif text-16 font-medium text-foreground">搜索器</span>
           {/* modeSwitch — 24h rounded-pill,active 红底白字 */}
           <div className="ml-2 inline-flex items-center h-6 rounded-pill bg-surface-2 p-0.5">
             <button

@@ -9,7 +9,7 @@ export function SubmissionLandingPage() {
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col justify-center px-10 py-16">
       <header className="mb-10">
-        <h1 className="text-24 font-medium text-foreground">开始一次智能审稿</h1>
+        <h1 className="font-serif text-24 font-medium text-foreground">开始一次智能审稿</h1>
         <p className="mt-2 text-14 text-muted-foreground">
           投稿前用 AI 把审稿过程预演一遍 —— 三位 AI 审稿人 + 主审决议,提前看到反馈。
         </p>

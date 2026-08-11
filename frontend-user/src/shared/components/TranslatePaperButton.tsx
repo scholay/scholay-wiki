@@ -113,7 +113,9 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
           onSuccess: (r) => onTranslated(r),
           onError: (err: unknown) => {
             const e = err instanceof Error ? err : new Error('翻译失败');
-            if (showToast) toast.error(e.message);
+            // 额度耗尽:全局通知器(耗尽 toast/额度条)已承接,这里不再叠一条裸 toast。
+            const quotaHandled = !!(e as Error & { quotaHandled?: boolean }).quotaHandled;
+            if (showToast && !quotaHandled) toast.error(e.message);
             onError?.(e);
           },
         }

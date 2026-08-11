@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
+import { renewOptions, upgradeOptions } from '@/shared/lib/membership-options';
 import {
-  SubscribeDialog,
+  MembershipActionDialog,
   subscribePayMethods,
   MembershipPlanCard,
   BillingCycleToggle,
@@ -318,17 +319,21 @@ export function PricingPage() {
         </div>
       </section>
 
-      <SubscribeDialog
+      {/* 点自己当前档 = 续费流程;点更高档 = 升级流程。两者的合法选项与计价口径都不同,
+          由 shared/lib/membership-options 统一推导(与设置页、额度条同一份真源)。 */}
+      <MembershipActionDialog
         open={sub.open}
         onOpenChange={(o) => setSub((s) => ({ ...s, open: o }))}
+        mode={sub.tier && sub.tier === currentTier ? 'renew' : 'upgrade'}
+        options={
+          sub.tier && sub.tier === currentTier
+            ? renewOptions(currentTier ?? 'free', currentCycle, plans)
+            : upgradeOptions(currentTier ?? 'free', currentCycle, plans)
+        }
         plans={plans}
-        popularTier={data?.popular_plan}
-        currentTier={currentTier}
-        currentCycle={currentCycle}
+        preselect={sub.tier ? { tier: sub.tier, cycle } : null}
         quote={quoteSubscription}
         methods={methods}
-        initialTier={sub.tier}
-        initialCycle={cycle}
         onPay={(tier, method, payCycle) => subscribe(tier, method, payCycle, PLAN_META[tier]?.name ?? tier)}
       />
 

@@ -97,7 +97,7 @@ export function UploadStep({
       <section className="rounded-16 border border-border bg-surface-card p-6">
         <header className="mb-4 flex items-end justify-between">
           <div>
-            <h2 className="text-14 font-medium text-foreground">稿件正文</h2>
+            <h2 className="font-serif text-14 font-medium text-foreground">稿件正文</h2>
             <p className="mt-1 text-12 text-muted-foreground">{mainHint}</p>
           </div>
           <span className="rounded-pill bg-danger-soft px-3 py-1 text-12 font-medium text-brand-red">

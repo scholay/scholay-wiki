@@ -46,6 +46,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		opsRead.GET("/analytics/pageviews", h.umami.GetPageviews)
 		opsRead.GET("/analytics/top", h.umami.GetTop)
 		opsRead.GET("/analytics/active", h.umami.GetActive)
+		// 搜索引擎/AI 爬虫抓取监控(crawlerwatch 写入的独立 umami website;未配置返 configured:false)
+		opsRead.GET("/analytics/crawler", h.umami.GetCrawlerStats)
 
 		// 订单与营收(orders 表 = vip 充值/订阅唯一收款真源;payment_transactions 是 stranded 勿用)
 		opsRead.GET("/billing/orders", h.vip.AdminListOrders)
@@ -360,6 +362,18 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminOnly.POST("/hot-content/cleanup", h.hotContent.ManualCleanup)
 		adminOnly.GET("/hot-content/config", h.hotContent.GetConfig)
 		adminOnly.PUT("/hot-content/config", h.hotContent.UpdateConfig)
+
+		// 期刊全量摄取与发布(SEO 主动化,internal/seoingest):
+		// 同步 run 控制(断点续跑,消耗 minicod 配额)+ 分批发布/整批回滚(直接改
+		// 全站 sitemap/推送面)—— 全是「点错一下影响收录」的动作,归 config.manage。
+		adminOnly.GET("/seo/journal-sync/status", h.seoIngest.GetStatus)
+		adminOnly.POST("/seo/journal-sync/start", h.seoIngest.StartSync)
+		adminOnly.POST("/seo/journal-sync/pause", h.seoIngest.PauseSync)
+		adminOnly.POST("/seo/journal-sync/resume", h.seoIngest.ResumeSync)
+		adminOnly.POST("/seo/journal-sync/cancel", h.seoIngest.CancelSync)
+		adminOnly.POST("/seo/journal-publish", h.seoIngest.Publish)
+		adminOnly.POST("/seo/journal-rollback", h.seoIngest.Rollback)
+		adminOnly.GET("/seo/journal-batches", h.seoIngest.Batches)
 	}
 
 	// ────────────────────────────────────────────────────────────────────

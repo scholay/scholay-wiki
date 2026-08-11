@@ -1,12 +1,10 @@
 import { memo, useCallback, useMemo } from 'react';
 import {
-  BlockedTurnCard,
   ClawTurnView,
   type ClawSkillPresentation,
 } from '@/shared/components/chat';
 import type { InstalledSkill } from '@/shared/api/skills';
 import type { ToolBlock, Turn } from '@/shared/types/chat';
-import { useQuotaStore } from '@/stores/quota.store';
 import type { ClawArtifact } from '../../api/artifacts';
 import { artifactCategory } from '../preview/artifact-format';
 import { ClawPaperList } from './ClawPaperList';
@@ -55,8 +53,6 @@ export const MessageTurn = memo(function MessageTurn({
   sessionId,
   userSkillsByGuide,
   onPreview,
-  onResendBlocked,
-  onDismissBlocked,
   onRetryTurn,
   artifactBasePath = '/user/claw',
   figuresInline = false,
@@ -68,11 +64,8 @@ export const MessageTurn = memo(function MessageTurn({
   figuresInline?: boolean;
   userSkillsByGuide?: Map<string, InstalledSkill>;
   onPreview?: (artifact: ClawArtifact) => void;
-  onResendBlocked?: () => void;
-  onDismissBlocked?: () => void;
   onRetryTurn?: () => void;
 }) {
-  const openReset = useQuotaStore((state) => state.openReset);
   const turnFiles = useMemo(
     () => mergeTurnArtifacts(turn, artifacts ?? []),
     [turn, artifacts],
@@ -110,16 +103,8 @@ export const MessageTurn = memo(function MessageTurn({
       renderArtifacts={renderArtifacts}
       resolveSkill={resolveSkill}
       onRetryTurn={onRetryTurn}
-      blockedContent={
-        turn.blocked ? (
-          <BlockedTurnCard
-            onResend={onResendBlocked}
-            onOpenReset={openReset}
-            onDismiss={onDismissBlocked}
-            message="开通会员或重置额度后,点「重新发送」即可继续(无需重新输入)。"
-          />
-        ) : undefined
-      }
+      // 额度被拦轮不再在会话流里出卡片(2026-08-12 交互重做):用户气泡保留,
+      // 提示与恢复动作移到输入框上方的 QuotaComposerStrip(含自动重发)。
     />
   );
 });

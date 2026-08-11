@@ -10,42 +10,39 @@
  * 同族的两处注释占位值已就地改成中文描述(MobileBottomNav.tsx / dialog.tsx 的红字)。 */
 @source not "../../tests";
 @import 'tw-animate-css';
-/* 三组字体均是版本化自托管资产。Noto Serif SC 用一个首屏常用字
-   子集收敛请求，再用 101 个 unicode-range 分片完整兜底；中文始终命中
-   Noto Serif SC，不会因首屏优化改用系统中文字体。 */
-@import './fonts/google-sans.css';
-@import './fonts/playfair-display.css';
+/* Noto Serif SC:唯一保留的 webfont(见下方「字体策略」)。首屏 UI 常用字
+   一个小子集收敛请求,其余 101 个 unicode-range 分片按标题实际命中的字按需加载。 */
 @import './fonts/noto-serif-sc.css';
 
 /* =============================================================================
- * 字体资产
+ * 字体策略 —— UI 系统字体 + 标题 Noto Serif SC(2026-08-11 用户两段指令)
  * ----------------------------------------------------------------------------
- * Playfair Display —— 只服务冻结的 Scholay 品牌字样，不再用于普通标题。
- * 自托管【可变字体】(SIL OFL),覆盖 wght 400–700 全区间。
+ * 指令一:全站字体资产改走系统字体(mac/win 各用自带),不能拖慢渲染。
+ * 指令二(随后补充):侧栏面板标题 / 页面与 section 标题这类「标题层」
+ *         中文必须用回 Noto Serif SC。
+ * 落地:
+ *   - Google Sans / Playfair Display 的 webfont【保持移除】,零回流。
+ *   - --font-sans(全站 UI / 正文 / 控件)= 纯系统栈,零下载:
+ *       mac → SF Pro(system-ui)+ 苹方;win → Segoe UI + 微软雅黑。
+ *   - --font-serif / --font-display(标题/衬线角色)的 CJK = 自托管
+ *     Noto Serif SC(可变 300–900,101 个 unicode-range 分片 + 首屏 UI 子集,
+ *     scripts/sync-noto-serif-sc.mjs 生成);Latin 仍是系统无衬线。
+ *     性能:font-display: swap 不阻塞渲染;只有标题真用到的分片才会下载
+ *     (典型页面 1–3 个分片,几十 KB);UI 子集 preload 覆盖首屏标题常用字,
+ *     正文/控件完全不碰 webfont。
+ *   - 品牌「Scholay」文本走系统 Didone(Didot / Georgia),Playfair 仅 local 命中。
  *
- * ⚠️ 2026-07-27 修正:改造前只自托管了 **700 一个静态字重**,而代码里 font-display
- *    同时用到 400 / 500 / 700 三档(font-normal / font-medium / font-bold)——
- *    非 700 的那些全部在跑浏览器合成(faux bold 描边),在 Playfair 这种高对比衬线上损伤明显。
- *    (此处【刻意不写「N 处」计数】:调用点每天都在动,写死的数字必然腐烂,
- *     本文件已经因为这类计数与 §10 自相矛盾过一轮。要数量请现场 rg。)
- *    最直观的后果:BrandName 的三个 tone(default 500 / strong 700 / subtle 400)
- *    **渲染出来完全一样**,三档设计等于不存在。
- *    换可变字体后一个文件覆盖三档,比自托管三个静态字重还省(58KB vs 3×20KB)。
+ * 保留不动的:
+ *   - KaTeX 数学字体(build 产物内,数学页按需加载)—— 数学排版无系统等价物。
+ *   - Logo D5gC67 / SCHOLAY wordmark V2IJR 是 SVG 路径,本来就不吃字体文件。
  *
- * 实际业务只有 BrandName 的“Scholay”使用 Playfair，现由
- * scripts/sync-playfair-brand.mjs 生成字形级 WOFF2，不再下载完整 Latin 字库。
- *
- * Google Sans —— dev.pen 与用户确认的英文主力字体。
- * 自托管 Google Fonts 官方 Latin / Latin-ext 可变分片(wght 400–700),
- * 由 scripts/sync-google-sans.mjs 生成；生产不依赖 Google Fonts CDN。
- * ✅ Noto Serif SC 已自托管(dev.pen 的中文字体,SIL OFL,300–900)。
- *    改造前 38 处 font-serif 的中文全部降级到系统宋体,mac/win/linux 三平台字形不一致,
- *    完全在设计系统之外 —— 台账称之为「本维度最严重的洞」。
- *    实现:首屏全局 UI 常用字合并成一个约 33KB 的子集，剩余字形继续由
- *    Google 的 101 个 unicode-range 分片完整兜底(可变字体 wght 300–900)。
- *    这避免“常用 3500 字”大包，也避免全局导航的少量字跨命中 8 个分片。
- *    两层均由 scripts/sync-noto-serif-sc.mjs 从同一 Google Fonts 版本生成。
- *    ⚠️ font-display: swap(不是 block)—— CJK 分片体积大,阻塞渲染不可接受。
+ * 两条实现铁律(改字族 token 前必读):
+ *   1. system-ui / -apple-system 自带【系统级联】,会在 CSS 栈轮到后续家族之前
+ *      把 CJK 交给苹方/雅黑。UI 栈(--font-sans)正要这个效果;但衬线栈里
+ *      它们绝不能排在 Noto/宋体前面,否则衬线中文永远轮不上。
+ *   2. 衬线栈的 Latin 段必须用【具名普通字体】(Helvetica Neue / Segoe UI / Arial,
+ *      均无 CJK 字形),CJK 才能可靠落到 Noto Serif SC(断网/分片 404 时
+ *      再落 Songti SC / SimSun 宋体兜底)。
  * ============================================================================= */
 
 /* =============================================================================
@@ -452,30 +449,34 @@
    * ========================================================================= */
 
   /* —— 字族 —— */
-  /* 用户确认的唯一主字体栈。Google Sans 的 @font-face 只覆盖 Latin，
-   * 因此同一元素中的中文会继续查找并命中 Noto Serif SC。后续家族
-   * 仅用于资产加载失败时保底，不得在两个主字体之间插入替代字体。 */
-  --font-sans: 'Google Sans', 'Noto Serif SC', 'Source Han Serif SC',
-               'Songti SC', 'SimSun', system-ui, sans-serif;
+  /* 全站 UI 主字体栈 = 各平台系统 UI 字体,零下载(策略见文件头「字体策略」)。
+   * mac: SF Pro + 苹方 / win: Segoe UI + 微软雅黑 / android·linux: system-ui 兜底。
+   * system-ui 在首位会以系统级联接管 CJK —— UI 栈正要这个效果:控件基座是
+   * text-12,宋体在 12px 的 Windows 渲染质量不可接受,UI 中文必须走黑体系。 */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+               'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
 
-  /* 🔴 改造前本文件【从未定义 --font-serif】,代码里大量 font-serif 全部落到 Tailwind 内置
-   * Georgia/Times(无 CJK 字形),中文被浏览器兜底到系统宋体,mac/win/linux 三平台长得都不一样,
-   * 完全在设计系统之外。
-   * ✅ 已自托管 Noto Serif SC(可变字体 wght 300–900,101 个 unicode-range 分片,
-   *    实测 public/fonts/noto-serif-sc/ 下 101 个 woff2)。本行原注释停在「需自托管…才算真正
-   *    落地,当前先给系统衬线兜底链」的修正前状态,已重写。后面几档仍是兜底链(用户断网 /
-   *    分片 404 时才会走到)。 */
-  --font-serif: 'Google Sans', 'Noto Serif SC', 'Source Han Serif SC',
-                'Songti SC', 'SimSun', serif;
+  /* 衬线/展示角色(标题层):「英文系统无衬线 + 中文 Noto Serif SC」。
+   * 2026-08-11 用户指令:标题中文必须是 Noto Serif SC —— 唯一保留的 webfont,
+   * 全部字重真字面(可变 300–900),swap 按需分片加载,不阻塞渲染。
+   * ⚠️ Latin 段必须是具名普通字体,不能放 system-ui/-apple-system ——
+   * 它们的系统级联会在轮到 Noto 之前吃掉 CJK(铁律见文件头)。
+   * Helvetica Neue(mac)/ Segoe UI(win)/ Arial 均无 CJK 字形,
+   * CJK 可靠命中 Noto Serif SC;宋体系(Songti SC / SimSun / 思源宋体)只是
+   * 断网、分片 404 时的离线兜底,正常情况下永远轮不到。 */
+  --font-serif: 'Helvetica Neue', 'Segoe UI', Arial, 'Noto Serif SC', 'Songti SC',
+                STSong, SimSun, 'Source Han Serif SC', 'Noto Serif CJK SC', system-ui, serif;
 
-  /* 普通展示标题也遵循同一中英文分流；Playfair 不再藏在通用
-   * display 角色中。 */
-  --font-display: 'Google Sans', 'Noto Serif SC', 'Source Han Serif SC',
-                  'Songti SC', 'SimSun', serif;
+  /* 普通展示标题与衬线角色同一分流,仅行高不同(见 --leading-*)。 */
+  --font-display: 'Helvetica Neue', 'Segoe UI', Arial, 'Noto Serif SC', 'Songti SC',
+                  STSong, SimSun, 'Source Han Serif SC', 'Noto Serif CJK SC', system-ui, serif;
 
-  /* Logo 节点 D5gC67 / SCHOLAY wordmark V2IJR 及 BrandName 的冻结字族。
-   * 只允许品牌组件使用，不参与普通英文排版。 */
-  --font-brand: 'Playfair Display', 'Google Sans', 'Noto Serif SC', serif;
+  /* 品牌「Scholay」文本(BrandName 专用)。Logo D5gC67 / wordmark V2IJR 是
+   * SVG 路径,不吃这里。系统高对比衬线近似 Playfair:mac 自带 Didot(同为
+   * Didone 体,最接近)/ win 无 Didone → Georgia。'Playfair Display' 留在首位
+   * 只做 local 匹配 —— 本机装了的访客零成本命中原品牌字,绝不触发下载。 */
+  --font-brand: 'Playfair Display', Didot, 'Bodoni MT', Georgia,
+                'Times New Roman', 'Songti SC', SimSun, serif;
 
   --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
 
@@ -503,9 +504,11 @@
    * 🔴 实现陷阱: Tailwind v4 支持 `--text-14--line-height` 配套声明。一旦定义,
    *    text-14 会同时输出 font-size 和 line-height,字号档会盖掉字族层行高,
    *    整套设计当场作废。故字号 token【只声明 font-size】。 */
-  --leading-sans:          1.25;   /* Google Sans */
-  --leading-display:       1.333;  /* Google Sans 展示标题的现有节奏 */
-  --leading-serif:         1.437;  /* Noto Serif SC    实测 16→22.992 / 32→45.984 */
+  --leading-sans:          1.25;   /* 沿用 webfont 时代按 Google Sans 实测的比值。
+                                    * 2026-08-11 换系统栈后刻意【不重调】:三档是全站
+                                    * 排版节奏,跟随字体微调 = 全站高度变化,需设计拍板 */
+  --leading-display:       1.333;  /* 展示标题节奏(同上,沿用不重调) */
+  --leading-serif:         1.437;  /* 按 Noto Serif SC 实测 16→22.992 / 32→45.984(该字族已恢复为衬线角色主字体) */
   --leading-paragraph:     1.7;    /* 长段中文正文(推导): Figma 全是单行短标签,
                                     * 没有一个多行段落样本;1.25 套到中文段落会挤成一坨 */
   --leading-display-tight: 1.15;   /* ≥28px 展示标题(推导): 字号越大行高比值越应越小 */
@@ -1215,6 +1218,19 @@
   body,
   #root {
     height: 100%;
+  }
+
+  /* 🔴 幽灵全局滚动条修复(2026-08-12 实测):sr-only 是 position:absolute,
+     它的包含块是最近的 relative 祖先(通常是 shell 层),**内部滚动容器裁不住它**。
+     当它的 static 位置深藏在一个已被滚走的列表里(如首页「学术情报」新闻卡的
+     h3.sr-only,实测把 body 可滚动区撑出 392px),这个 1px 盒子会落在视口之外,
+     把 body(overflow-x:hidden 使 overflow-y 隐式变 auto,是全窗口滚动容器)
+     的可滚动高度向下撑大 —— 出现一条滚过去全是空白的整页滚动条。
+     钉在包含块左上角后它不可能再向任何方向扩张滚动区;
+     对读屏/SEO 零影响(clip/尺寸裁剪原样保留,语义与可达性不变)。 */
+  .sr-only {
+    top: 0;
+    left: 0;
   }
 
   html,

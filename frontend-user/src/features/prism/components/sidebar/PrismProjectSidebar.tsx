@@ -72,7 +72,7 @@ export function PrismProjectSidebar({
       <SidebarContent>
         <SidebarSection
           id="prism-projects"
-          label="项目"
+          label={<span className="font-serif">项目</span>}
           prominent
           action={
             <button

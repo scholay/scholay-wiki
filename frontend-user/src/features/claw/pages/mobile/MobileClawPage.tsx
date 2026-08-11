@@ -307,8 +307,6 @@ function MobileClawWorkspace({
                   sessionId={sessionId}
                   userSkillsByGuide={userSkillsByGuide}
                   onPreview={openArtifactPreview}
-                  onResendBlocked={conv.resendBlocked}
-                  onDismissBlocked={conv.dismissBlocked}
                   // 失败轮「重试」只对最后一轮成立(与桌面同构;hook 内守卫 !busy)。
                   onRetryTurn={i === visibleTurns.length - 1 ? conv.handleRetryTurn : undefined}
                 />
@@ -329,6 +327,12 @@ function MobileClawWorkspace({
         )}
         <ChatComposer
           ref={composerRef}
+          quotaBlocked={
+            visibleTurns.some((t) => t.blocked)
+              ? { onResend: conv.resendBlocked, onDismiss: conv.dismissBlocked }
+              : null
+          }
+          quotaWarn={visibleTurns.length > 0}
           disabled={composerDisabled}
           // 视觉门控:非视觉模型禁图片上传(对齐桌面 ConversationWorkspace;审计 P2-1 移动端漏传补齐)。
           acceptImages={modelSupportsVision(userModels, selectorCurrent)}

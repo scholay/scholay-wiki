@@ -5,8 +5,9 @@
 // 第一个命中,woff/ttf 永不会被请求,纯属塞进镜像 / nginx 静态缓存的死重(性能审计 image-assets)。
 //
 // 本脚本:(1) 改写构建出的 CSS,去掉每个 @font-face 里 woff/ttf 的回退 src 段(只留 woff2);
-//        (2) 删掉随之孤立的 woff/ttf 文件。build/assets 下 woff/ttf 仅来自 KaTeX(本站其它字体
-//            playfair 是 woff2),故可安全全删。
+//        (2) 删掉随之孤立的 woff/ttf 文件。build/assets 下 woff/ttf 仅来自 KaTeX
+//            (Noto Serif SC 是 public/fonts 静态拷贝,落在 build/fonts,不进 assets;
+//            Google Sans / Playfair 已于 2026-08-11 移除),故可安全全删。
 //
 // 故意保守:只动 woff/ttf,绝不碰 woff2 url(正则用 `\.(woff|ttf)\)`,`.woff2)` 因结尾是 `2)`
 // 不会被误匹配)。改完后构建里若仍有 .woff/.ttf 引用即说明出错,可在 build 输出里 grep 自查。

@@ -141,7 +141,14 @@ type SubQuote struct {
 // cycle = monthly|yearly(空按 monthly)。降级回 ErrNoDowngrade;年付未配置回 ErrInvalidOrder。
 func (s *Service) QuoteSubscription(userID uint, target, cycle string) (*SubQuote, error) {
 	now := time.Now()
-	uv, _ := s.repo.GetUserVIP(userID)
+	// 🔴 会员状态读失败**不能吞**(2026-08-12):零值 uv 会被 effectiveTier 判成 free,
+	// 报价随即变成「新订阅整周期原价」——用户看到 Max 年付 ¥2690,点下去建单时
+	// 事务内正确判成升级只收补差(或反过来续期收整年价),弹窗金额与实扣金额对不上。
+	// 建单侧本来就把这个错误抛出(order.go 的 GetUserVIP),报价侧必须同口径。
+	uv, err := s.repo.GetUserVIP(userID)
+	if err != nil {
+		return nil, err
+	}
 	sp, err := computeSubscription(uv, target, cycle, s.cfg.Get(), now)
 	if err != nil {
 		return nil, err

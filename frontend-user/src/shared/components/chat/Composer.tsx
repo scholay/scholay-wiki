@@ -14,6 +14,7 @@ import {
 import { ArrowUp, Loader2, LogIn, Square } from'lucide-react';
 import { cn } from'@/shared/lib/utils';
 import { ContextMeter } from'./ContextMeter';
+import { QuotaComposerStrip, type QuotaBlockedControls } from './QuotaComposerStrip';
 
 /**
  * 统一对话输入框核心(智能搜索 / 智能助手 / 智能写作三处共用;主流 Claude/GPT 形态)。
@@ -75,6 +76,16 @@ export interface ComposerProps {
   maxHeightPx?: number;
   autoFocus?: boolean;
   className?: string;
+  /**
+   * 额度耗尽的「被拦未发送」控制(feature 注入 → 输入框上方渲染耗尽条 + 自动重发)。
+   * requireAuth(未登录)时任何额度条都不出。见 QuotaComposerStrip。
+   */
+  quotaBlocked?: QuotaBlockedControls | null;
+  /**
+   * 预警条(快用完,≥80% 当周期可关)准入:对话里已有至少一轮时传 true。
+   * 空态 hero / 新对话不传(默认不出)—— 空态上突兀(2026-08-12 拍板)。
+   */
+  quotaWarn?: boolean;
 }
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
@@ -103,6 +114,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     maxHeightPx = 160,
     autoFocus = false,
     className,
+    quotaBlocked = null,
+    quotaWarn = false,
   },
   ref,
 ) {
@@ -196,6 +209,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const canSend = requireAuth ? !!text.trim() || canSendEmpty : !disabled && sendReady && (!!text.trim() || canSendEmpty);
 
   return (
+    <>
+    {/* 额度条(耗尽/预警)—— 在输入框圆角容器之外、正上方「扩展出一块高度」。
+        改这一处即覆盖全部挂载点(claw 底栏/hero/移动端、smart-search 底栏/hero、prism)。 */}
+    <QuotaComposerStrip blocked={quotaBlocked} warnEligible={quotaWarn} authed={!requireAuth} />
     <div
       {...containerProps}
       className={cn('relative flex flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-2.5 transition', 'focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
@@ -270,6 +287,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         )}
       </div>
     </div>
+    </>
   );
 });
 Composer.displayName ='Composer';

@@ -9,7 +9,8 @@ import type { SVGProps } from 'react';
  * 为什么用 SVG 而不是用 Playfair Display 排文字:
  *   1. Figma 里它就是描边字形(VECTOR),不是文本 —— 用字体排永远差一点
  *   2. 实测字形笔画是【Playfair Display 400 Regular】(竖干 = 字身高 13.9%),
- *      而 public/fonts/ 只自托管了 700 Bold,渲出来会明显偏粗
+ *      而项目已不自托管任何 webfont(2026-08-11 全站改系统字体),字体排版
+ *      在没装 Playfair 的机器上必然跑到兜底衬线,品牌形状就漂了
  *   3. 改造前用的是混合大小写 "Scholay",Figma 规范是全大写 "SCHOLAY"
  *   用 SVG 一次性解决字重、字形、大小写三件事,且与设计稿像素一致。
  *

@@ -40,8 +40,10 @@ import (
 
 // 默认走内网 service name,本项目 docker network 上 umami 容器 hostname 就是 umami。
 // 改这个意味着 docker-compose service 名字也要改。
+// DefaultBaseURL 导出:internal/crawlerwatch 的爬虫监控旁路复用同一默认地址
+// (UMAMI_CRAWLER_BASE_URL 未 override 时)。
 const (
-	defaultBaseURL       = "http://umami:3000"
+	DefaultBaseURL       = "http://umami:3000"
 	defaultAdminUser     = "admin"
 	defaultAdminPassword = "umami"
 )
@@ -68,8 +70,23 @@ type Client struct {
 // websiteID 留空 → backend 自动 bootstrap (见 Client.EnsureWebsiteID)。
 // siteName/siteDomain 给 bootstrap 时新建 website 用。
 func NewClient(baseURL, adminUser, adminPassword, websiteID, siteName, siteDomain string) *Client {
+	return newClient("umami", baseURL, adminUser, adminPassword, websiteID, siteName, siteDomain)
+}
+
+// NewCrawlerClient 爬虫监控专用 website 的查询客户端(internal/crawlerwatch 写入,
+// 这里只读)。与主统计客户端的差别:
+//   - websiteID 必填 —— 空 = 功能未配置,调用方应传 nil Client 而不是让这里 bootstrap
+//     出一个新 website(爬虫监控站点必须是管理员显式建的独立站点,自动建会静默把
+//     事件写进一个没人知道 ID 的站点);
+//   - upstream 名独立("umami-crawler"),CrawlerBaseURL 指向别处时 breaker 状态
+//     不跟主统计串。
+func NewCrawlerClient(baseURL, websiteID string) *Client {
+	return newClient("umami-crawler", baseURL, "", "", websiteID, "", "")
+}
+
+func newClient(upstreamName, baseURL, adminUser, adminPassword, websiteID, siteName, siteDomain string) *Client {
 	if baseURL == "" {
-		baseURL = defaultBaseURL
+		baseURL = DefaultBaseURL
 	}
 	if adminUser == "" {
 		adminUser = defaultAdminUser
@@ -85,7 +102,7 @@ func NewClient(baseURL, adminUser, adminPassword, websiteID, siteName, siteDomai
 	}
 	// 8s 超时跟原实现一致 — umami 多在 1s 内回, 8s 是个稳健 timeout
 	hc := &http.Client{Timeout: 8 * time.Second}
-	up := upstream.New("umami").
+	up := upstream.New(upstreamName).
 		BaseURL(baseURL).
 		HTTPClient(hc).
 		Breaker(upstream.BreakerConfig{
@@ -364,6 +381,8 @@ func (c *Client) Metrics(ctx context.Context, startAt, endAt time.Time, mtype st
 	allowed := map[string]bool{
 		"url": true, "referrer": true, "country": true,
 		"browser": true, "os": true, "device": true,
+		// event = 自定义事件名计数(爬虫监控里事件名就是引擎 key)
+		"event": true,
 	}
 	if !allowed[mtype] {
 		return nil, fmt.Errorf("umami: unsupported metric type %q", mtype)
@@ -383,6 +402,76 @@ func (c *Client) Metrics(ctx context.Context, startAt, endAt time.Time, mtype st
 	var out []MetricRow
 	if err := json.Unmarshal(body, &out); err != nil {
 		return nil, fmt.Errorf("umami: parse metrics(%s): %w", mtype, err)
+	}
+	return out, nil
+}
+
+// EventSeriesRow —— GET /api/websites/:id/events/series 一行:
+// x = 事件名(爬虫监控里即引擎 key),t = 时间桶(请求 timezone 下的
+// "YYYY-MM-DD HH:00:00",unit=hour/day 都是这个格式),y = 次数。
+//
+// 🔴 为什么需要这个端点(2026-08-11 对 umami 2.20.2 逐端点实测):
+// 带 name 的自定义事件(/api/send type=event)在 umami 里是 event_type=2,
+// 而 /pageviews、/stats、/metrics?type=url、reports/insights 全部只统计
+// event_type=1 的 pageview —— 对爬虫监控站点它们**恒返回空**。
+// 自定义事件的时间序列只有 /events/series 给得出。
+type EventSeriesRow struct {
+	X string `json:"x"`
+	T string `json:"t"`
+	Y uint64 `json:"y"`
+}
+
+// EventsSeries 自定义事件时间序列(按事件名 × 时间桶)。unit 只认 hour/day。
+func (c *Client) EventsSeries(ctx context.Context, startAt, endAt time.Time, unit string) ([]EventSeriesRow, error) {
+	id, err := c.EnsureWebsiteID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if unit != "hour" && unit != "day" {
+		unit = "day"
+	}
+	body, err := c.sendAuthed(ctx, http.MethodGet, "/api/websites/"+id+"/events/series", url.Values{
+		"startAt":  {msStr(startAt)},
+		"endAt":    {msStr(endAt)},
+		"unit":     {unit},
+		"timezone": {platformTZName()},
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	var out []EventSeriesRow
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("umami: parse events series: %w", err)
+	}
+	return out, nil
+}
+
+// EventDataField —— GET /api/websites/:id/event-data/fields 一行:
+// 事件 data 属性的取值分布(propertyName/value/total)。爬虫监控事件的 data
+// 是 {engine, status},所以 propertyName=="status" 的行即 HTTP 状态码分布。
+type EventDataField struct {
+	PropertyName string `json:"propertyName"`
+	DataType     int    `json:"dataType"`
+	Value        string `json:"value"`
+	Total        uint64 `json:"total"`
+}
+
+// EventDataFields 事件 data 属性取值分布。
+func (c *Client) EventDataFields(ctx context.Context, startAt, endAt time.Time) ([]EventDataField, error) {
+	id, err := c.EnsureWebsiteID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	body, err := c.sendAuthed(ctx, http.MethodGet, "/api/websites/"+id+"/event-data/fields", url.Values{
+		"startAt": {msStr(startAt)},
+		"endAt":   {msStr(endAt)},
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	var out []EventDataField
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("umami: parse event-data fields: %w", err)
 	}
 	return out, nil
 }

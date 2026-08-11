@@ -35,7 +35,7 @@ beforeAll(async () => {
   const compiled = await compile(css, {
     base: ROOT,
     loadStylesheet: async (id: string) => {
-      // 相对路径(如 ./fonts/noto-serif-sc.css)按 globals.css 所在目录解析
+      // 相对路径按 globals.css 所在目录解析(当前 globals 无相对 @import,留作兜底)
       if (id.startsWith('.')) {
         const p = resolve(dirname(GLOBALS), id);
         return { base: dirname(p), content: readFileSync(p, 'utf8') };

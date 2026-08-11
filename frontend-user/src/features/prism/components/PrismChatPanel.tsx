@@ -200,12 +200,7 @@ export function PrismChatPanel({
             </div>
           )}
           {chat.turns.map((t) => (
-            <PrismMessageTurn
-              key={t.id}
-              turn={t}
-              onResendBlocked={handleResendBlocked}
-              onDismissBlocked={handleDismissBlocked}
-            />
+            <PrismMessageTurn key={t.id} turn={t} />
           ))}
           {chat.changeset && (
             <ChangesetCard cs={chat.changeset} onApply={chat.apply} onReject={chat.reject} />
@@ -233,6 +228,12 @@ export function PrismChatPanel({
         )}
         <Composer
           ref={composerRef}
+          quotaBlocked={
+            chat.turns.some((t) => t.blocked)
+              ? { onResend: handleResendBlocked, onDismiss: handleDismissBlocked }
+              : null
+          }
+          quotaWarn={chat.turns.length > 0}
           onSend={(t) => {
             if (blocked || !wsReady) return;
             trackEvent('prism_edit', { len: t.length, files: att.attachments.length, refs: references.length });

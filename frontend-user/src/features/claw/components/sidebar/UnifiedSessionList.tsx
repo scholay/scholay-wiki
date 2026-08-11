@@ -103,7 +103,7 @@ export function UnifiedSessionList({
   };
 
   return (
-    <SidebarSection id="unified-sessions" label="会话历史" prominent>
+    <SidebarSection id="unified-sessions" label={<span className="font-serif">会话历史</span>} prominent>
       {!token ? (
         <div className="px-4 py-3 text-12 text-faint">登录后可见历史会话</div>
       ) : isLoading ? (

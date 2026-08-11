@@ -58,3 +58,5 @@ export {
   SidebarCollapseButton,
   SidebarLayout,
 } from './sidebar';
+
+export { MembershipActionDialog, type MembershipActionDialogProps } from './membership-action-dialog';

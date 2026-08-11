@@ -15,6 +15,10 @@ import type { SmartSearchContextSnapshot } from '../../api/smart-search';
  */
 
 export interface SmartComposerProps {
+  /** 额度耗尽「被拦未发送」控制 —— 透传给 shared Composer 的输入框上方额度条。 */
+  quotaBlocked?: import('@/shared/components/chat').QuotaBlockedControls | null;
+  /** 预警条准入(对话已有轮次才出),透传 shared Composer。 */
+  quotaWarn?: boolean;
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
@@ -73,6 +77,8 @@ export function SmartComposer({
   onPaste,
   containerProps,
   overlay,
+  quotaBlocked = null,
+  quotaWarn = false,
 }: SmartComposerProps) {
   const rotating = !!rotatingPlaceholders && rotatingPlaceholders.length > 0;
   const hasUsage = !!contextSnapshot && contextSnapshot.maxTokens > 0;
@@ -86,6 +92,8 @@ export function SmartComposer({
       placeholderOverlay={rotating ? <RotatingPlaceholder items={rotatingPlaceholders!} /> : undefined}
       sendReady={ready && !busy}
       canSendEmpty={canSendEmpty}
+      quotaBlocked={quotaBlocked}
+      quotaWarn={quotaWarn}
       busy={busy}
       stopping={stopping}
       onStop={onStop}

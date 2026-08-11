@@ -47,6 +47,7 @@ import (
 	"scholar-backend/internal/promo"
 	"scholar-backend/internal/scidraw"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/seoingest"
 	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
@@ -82,6 +83,7 @@ type allHandlers struct {
 	vip            *vip.Handler           // 会员: 用户兑换/状态 + 管理端生码/列表
 	hotContent     *hotcontent.Handler
 	seo            *seo.Handler
+	seoIngest      *seoingest.Handler // 期刊全量摄取/发布(admin 同步 run 控制 + 分批发布)
 	message        *message.Handler
 	feedback       *feedback.Handler
 	emailLog       *emaillog.Handler // 邮件发送记录(后台「邮件记录」菜单)
@@ -157,6 +159,9 @@ func registerSEOReadRoutes(router *gin.Engine, h *allHandlers) {
 	registerGETAndHEAD(router, "/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
 	registerGETAndHEAD(router, "/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
 	registerGETAndHEAD(router, "/sitemap-journals-:page.xml", h.seo.ServeJournalSitemap)
+	// 期刊枢纽页 sitemap(/journals/browse 与各维度枢纽含路径分页;nginx 的
+	// sitemap-*.xml 正则已覆盖此文件名)。
+	registerGETAndHEAD(router, "/sitemap-journal-hubs.xml", h.seo.ServeJournalHubSitemap)
 	// 功能大全工具 sitemap（匿名收录）—— 索引 + 分页。
 	registerGETAndHEAD(router, "/sitemap-tools.xml", h.featureTool.ServeToolSitemapIndex)
 	registerGETAndHEAD(router, "/sitemap-tools-:page.xml", h.featureTool.ServeToolSitemap)

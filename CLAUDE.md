@@ -802,13 +802,16 @@ The backend runs several background tasks for performance and maintenance:
   页面底米白 `#F6F4EE`、卡片底纯白 `#FFFFFF`（分层全靠这 3.5% 明度差）
 - 主 UI 字号 8 档 `text-12/14/16/18/20/24/28/32`（正文基准 14），64px
   独立作 Headline / Display；圆角 6 档 `rounded-4/8/12/16/20/pill`
-- 字体：非品牌英文统一使用 `Google Sans`，中文统一使用
-  `Noto Serif SC`。`Google Sans` 已于 2026-08-08 通过官方 Google Fonts
-  specimen / CSS 核验；项目自托管官方 v70 Latin / Latin-ext variable
-  WOFF2（wght 400–700，SIL OFL），不使用替代英文字体抢占 Latin glyph
-- 用户明确指令覆盖 Pen 中普通英文的 Playfair Display 样张；
-  `Playfair Display` 只保留给冻结的 Scholay / 品牌文字。Logo 节点
-  `D5gC67` 与 wordmark 节点 `V2IJR` 的字体、字距、颜色和形状均不变
+- 字体（2026-08-11 用户两段指令的混合态）：**UI/正文/控件 = 系统字体零下载**
+  （mac → SF Pro + 苹方；win → Segoe UI + 微软雅黑）；**标题层中文 = 自托管
+  `Noto Serif SC`**（唯一保留的 webfont，挂在 `font-serif`/`font-display`，
+  swap 分片按需加载不阻塞渲染）。Google Sans / Playfair Display 的 webfont
+  已移除且有测试契约禁止回流。栈定义与两条实现铁律（system-ui 的系统级联会
+  截获 CJK）见 `frontend-user/src/styles/globals.css` 文件头「字体策略」；
+  KaTeX 数学字体保留
+- Logo 节点 `D5gC67` 与 wordmark 节点 `V2IJR` 是 SVG 路径、不吃字体文件，仍冻结不变；
+  BrandName 的「Scholay」文本改用系统高对比衬线（mac Didot / win Georgia）近似
+  Playfair，本机装有 Playfair Display 的访客经 local 匹配零成本命中原品牌字
 - **暗色态已于 2026-07 移除**：无 `.dark` 块、无 theme store、`dark:` 前缀 0 处
 - 护栏两个执行点（详见上文「设计系统护栏：两个执行点」）：
   ① `prebuild` → `npm run test:design`，挂在 `npm run build` / Docker 构建上，构建期硬失败，

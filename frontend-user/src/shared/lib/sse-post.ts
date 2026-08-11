@@ -91,8 +91,14 @@ export async function streamSsePost({
       if (j && typeof j === 'object' && isQuotaSignal(j as { code?: number | string })) {
         const quota = (j as { data?: { quota?: QuotaPayload } }).data?.quota;
         notifyQuotaExceeded({ message: msg, quota });
+        // 与 axios 侧 toApiError 的 quotaHandled 契约对齐:全局通知器已承接,
+        // 调用方 onError 见此标记应跳过自己的 toast(否则额度提示双响)。
+        const err = new Error(msg) as Error & { quotaHandled?: boolean };
+        err.quotaHandled = true;
+        throw err;
       }
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && (e as Error & { quotaHandled?: boolean }).quotaHandled) throw e;
       /* ignore parse failure */
     }
     throw new Error(msg);

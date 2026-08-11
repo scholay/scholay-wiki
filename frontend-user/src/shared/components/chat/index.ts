@@ -73,6 +73,7 @@ export { ResearchStateChip } from './ResearchStateChip';
 export { BlockedTurnCard, type BlockedTurnCardProps } from './BlockedTurnCard';
 export { ContextMeter, type ContextMeterProps } from './ContextMeter';
 export { Composer, type ComposerProps, type ComposerHandle, type ComposerContextInfo } from './Composer';
+export { QuotaComposerStrip, type QuotaBlockedControls } from './QuotaComposerStrip';
 export { ComposerAttachmentRow } from './ComposerAttachmentRow';
 export { ComposerPlusMenu } from './ComposerPlusMenu';
 export { LibraryReferencePicker, type ReferenceSelection } from './LibraryReferencePicker';

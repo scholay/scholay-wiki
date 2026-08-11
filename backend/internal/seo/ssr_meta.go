@@ -81,12 +81,35 @@ type AuthorSSRMeta struct {
 	SEOIndexable  bool
 }
 
-// JournalSSRMeta 期刊 SSR 注入所需的最小元数据集
+// JournalTrendPoint 逐年趋势单点(metrics_json 解码产物)。
+// Quartile 仅 SJR 序列有值(JCR 序列为空串)。
+type JournalTrendPoint struct {
+	Year     int
+	Value    float64
+	Quartile string
+}
+
+// JournalRef 同学科推荐用的期刊最小引用:够渲染一条「<a href> + 指标摘要」内链。
+// Slug 在构造时由 canonical_name 派生(与 sitemap / SSR canonical 同口径)。
+type JournalRef struct {
+	JournalID        int64
+	Slug             string
+	Name             string
+	JCRImpactFactor  float64
+	JCRQuartile      string
+	FQBMajorQuartile string
+	FQBTop           bool
+}
+
+// JournalSSRMeta 期刊 SSR 注入所需的元数据集
 //
 // Slug 是 SEO canonical 的 URL 后缀 (从 canonical_name 派生), 用于:
 //  1. 在 /journal/{id} 请求时 301 跳到 /journal/{id}/{slug}
 //  2. 在 /journal/{id}/{slug-wrong} 请求时 301 校正
 //  3. 注入 <link rel=canonical>
+//
+// 2026-08-11 全量摄取:字段面扩到 0125 全指标矩阵(SSR 模板七区块的数据源)。
+// 可空数值沿用行原型约定 —— 零值即缺失,模板按「>0 / 非空」条件渲染。
 type JournalSSRMeta struct {
 	JournalID       int64
 	Slug            string
@@ -99,6 +122,54 @@ type JournalSSRMeta struct {
 	JCRImpactFactor float64
 	JCRQuartile     string
 	OpenAlexHIndex  *int
+
+	// ── 指标矩阵 (0125) ──
+	JCRCategory      string
+	JCRYear          int
+	SJR              string
+	SJRBestQuartile  string
+	ScimagoHIndex    int
+	FQBMajorCategory string
+	FQBMajorQuartile string
+	FQBTop           bool
+	FQBYear          int
+	FQBSubcategory   string
+	FQBSubQuartile   string
+	XRMajorCategory  string
+	XRMajorQuartile  string
+	XRTop            bool
+	XRYear           int
+	CCFRank          string
+	CCFField         string
+	WorksCount       int
+	CitedByCount     int64
+
+	// ── 预警 (title/desc 必须体现;高价值搜索词「XX期刊 预警」) ──
+	GJQKWarningLevel string
+	GJQKWarningWhy   string
+	GJQKYear         int
+
+	// ── OA / 身份 / 投稿参考 ──
+	IsInDOAJ          bool
+	HasAPC            bool
+	WikidataLabelZH   string
+	Inception         string
+	CoverURL          string
+	HasGuideline      bool
+	HasLatex          bool
+	LatexClass        string
+	CommentCount      int
+	CommentRating     float64
+	FirstReviewMonths float64
+
+	// ── 逐年趋势(metrics_json 解码;文字化渲染,纯文本可被索引) ──
+	JCRTrend []JournalTrendPoint
+	SJRTrend []JournalTrendPoint
+
+	// SameCategory 同学科推荐 6-8 刊(fqb 大类优先,fallback jcr_category;仅 published 行)。
+	// 与 RecentPapers 同为增强项:查询失败不阻断 SSR。
+	SameCategory []JournalRef
+
 	// RecentPapers 本刊近期代表论文(venue 名称匹配 seo_papers,年份↓被引↓)。
 	// 2026-08-10 审计:期刊页此前 0 实体内链、描述承诺「近期发表」而正文没有 ——
 	// 这份列表同时补上内容承诺与期刊→论文的内链(链接权重传递 + 抓取发现)。
@@ -219,8 +290,45 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 		IsOA:            j.IsOA,
 		JCRImpactFactor: j.JCRImpactFactor,
 		JCRQuartile:     j.JCRQuartile,
-		SEOInactive:     j.Status != StatusActive,
-		SEOIndexable:    journalRowIndexable(j),
+
+		JCRCategory:      j.JCRCategory,
+		JCRYear:          j.JCRYear,
+		SJR:              j.SJR,
+		SJRBestQuartile:  j.SJRBestQuartile,
+		ScimagoHIndex:    j.ScimagoHIndex,
+		FQBMajorCategory: j.FQBMajorCategory,
+		FQBMajorQuartile: j.FQBMajorQuartile,
+		FQBTop:           j.FQBTop,
+		FQBYear:          j.FQBYear,
+		FQBSubcategory:   j.FQBSubcategory,
+		FQBSubQuartile:   j.FQBSubQuartile,
+		XRMajorCategory:  j.XRMajorCategory,
+		XRMajorQuartile:  j.XRMajorQuartile,
+		XRTop:            j.XRTop,
+		XRYear:           j.XRYear,
+		CCFRank:          j.CCFRank,
+		CCFField:         j.CCFField,
+		WorksCount:       j.WorksCount,
+		CitedByCount:     j.CitedByCount,
+
+		GJQKWarningLevel: j.GJQKWarningLevel,
+		GJQKWarningWhy:   j.GJQKWarningWhy,
+		GJQKYear:         j.GJQKYear,
+
+		IsInDOAJ:          j.IsInDOAJ,
+		HasAPC:            j.HasAPC,
+		WikidataLabelZH:   j.WikidataLabelZH,
+		Inception:         j.Inception,
+		CoverURL:          j.CoverURL,
+		HasGuideline:      j.HasGuideline,
+		HasLatex:          j.HasLatex,
+		LatexClass:        j.LatexClass,
+		CommentCount:      j.CommentCount,
+		CommentRating:     j.CommentRating,
+		FirstReviewMonths: j.FirstReviewMonths,
+
+		SEOInactive:  j.Status != StatusActive,
+		SEOIndexable: journalRowIndexable(j),
 	}
 	if j.OpenAlexHIndex != nil {
 		h := *j.OpenAlexHIndex
@@ -235,6 +343,22 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 			meta.ISSNs = NormalizeISSNs(issns)
 		}
 	}
+	// 逐年趋势:metrics_json 解码失败按缺失处理(趋势区块整块不渲染,不阻断 SSR)。
+	meta.JCRTrend, meta.SJRTrend = decodeJournalTrends(j.MetricsJSON)
+	// 同学科推荐:fqb 大类(中文心智)优先,缺失回落 jcr_category;失败不阻断 SSR
+	// (与 RecentPapers 同策:列表是增强,元数据是底线)。查询本身对两列做 OR 匹配
+	// (journalCategoryScope),这里只负责选一个非空入参。
+	category := strings.TrimSpace(j.FQBMajorCategory)
+	if category == "" {
+		category = strings.TrimSpace(j.JCRCategory)
+	}
+	if category != "" {
+		if rows, err := s.repo.ListPublishedJournalsByCategory(category, j.JournalID, 8); err != nil {
+			slog.Warn("seo journal same-category query failed", "journal_id", j.JournalID, "err", err)
+		} else {
+			meta.SameCategory = journalRefsFromRows(rows)
+		}
+	}
 	// 近期代表论文:失败不阻断 SSR(列表是增强,元数据是底线)。
 	if papers, err := s.repo.ListPapersByVenueForSSR(j.CanonicalName, 6); err != nil {
 		slog.Warn("seo journal recent papers query failed", "journal_id", j.JournalID, "err", err)
@@ -242,6 +366,71 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 		meta.RecentPapers = papers
 	}
 	return meta, nil
+}
+
+// journalRefsFromRows 把同学科查询行折成推荐引用(空名行剔除)。
+func journalRefsFromRows(rows []SEOJournal) []JournalRef {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make([]JournalRef, 0, len(rows))
+	for i := range rows {
+		r := &rows[i]
+		if strings.TrimSpace(r.CanonicalName) == "" {
+			continue
+		}
+		out = append(out, JournalRef{
+			JournalID:        r.JournalID,
+			Slug:             GenerateJournalSlug(r.CanonicalName),
+			Name:             r.CanonicalName,
+			JCRImpactFactor:  r.JCRImpactFactor,
+			JCRQuartile:      r.JCRQuartile,
+			FQBMajorQuartile: r.FQBMajorQuartile,
+			FQBTop:           r.FQBTop,
+		})
+	}
+	return out
+}
+
+// decodeJournalTrends 解码 metrics_json 的逐年趋势:
+//
+//	{"jcr":[[year,if],...],"sjr":[[year,sjr,quartile],...]}
+//
+// 元素形状不合法的点跳过(单点脏值不毒死整条序列);整体解析失败返回 (nil, nil)。
+func decodeJournalTrends(metricsJSON string) (jcr, sjr []JournalTrendPoint) {
+	if strings.TrimSpace(metricsJSON) == "" {
+		return nil, nil
+	}
+	var raw map[string][][]any
+	if err := json.Unmarshal([]byte(metricsJSON), &raw); err != nil {
+		slog.Debug("seo: journal metrics_json unmarshal failed", "err", err)
+		return nil, nil
+	}
+	decode := func(series [][]any) []JournalTrendPoint {
+		out := make([]JournalTrendPoint, 0, len(series))
+		for _, e := range series {
+			if len(e) < 2 {
+				continue
+			}
+			year, okY := e[0].(float64)
+			val, okV := e[1].(float64)
+			if !okY || !okV || year <= 0 || val <= 0 {
+				continue
+			}
+			p := JournalTrendPoint{Year: int(year), Value: val}
+			if len(e) >= 3 {
+				if q, ok := e[2].(string); ok {
+					p.Quartile = strings.TrimSpace(q)
+				}
+			}
+			out = append(out, p)
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+	return decode(raw["jcr"]), decode(raw["sjr"])
 }
 
 // samePaperTitle 判断两个标题是否同一篇论文(DOI 撞键防线用):大小写不敏感、

@@ -132,6 +132,13 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
 		publicAPI.GET("/seo/author/:slug", h.seo.ResolveAuthorBySlug)
 
+		// 期刊枢纽(发现层)—— SPA 的 /journals/browse 等枢纽页取数。
+		// SSR 由 config 包直连 seo.Service 渲染整页 HTML,这两条只服务浏览器端 React;
+		// 匿名、utils.Success 信封、限流继承 public 组。响应形状是与前端的精确契约
+		// (JournalCard 见 internal/seo/journal_hub.go)。
+		publicAPI.GET("/journal-hubs/overview", h.seo.JournalHubOverviewAPI)
+		publicAPI.GET("/journal-hubs/list", h.seo.JournalHubListAPI)
+
 		// JNL Journal (前端用到 search/list/get/stats/suggest/byNames; filters/byIssn/compare/batch 已下线)
 		publicAPI.POST("/journals/search", middleware.OptionalUserAuthMiddleware(), h.scholar.SearchJournals)
 		publicAPI.POST("/journals/list", h.scholar.ListJournals)

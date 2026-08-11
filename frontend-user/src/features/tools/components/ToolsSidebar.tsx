@@ -87,7 +87,7 @@ export function ToolsSidebar() {
     <Sidebar>
       <SidebarContent>
         <div className="px-4 pt-3 pb-1.5">
-          <p className="text-14 font-medium text-foreground">科研能力广场</p>
+          <p className="font-serif text-14 font-medium text-foreground">科研能力广场</p>
         </div>
 
         {/* 段切换在顶部 PlazaHeader 的 tab 上统一处理;侧栏只按当前段给对应的筛选/入口。 */}

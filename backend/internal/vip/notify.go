@@ -168,6 +168,9 @@ func (s *Service) notifyOrderFulfilled(ord *Order) {
 			}
 		case "upgrade":
 			title, verb = "已升级到 "+name, "升级"
+		case "switch":
+			// 升档并转年付:既升了档也买了整年,两件事都要说到。
+			title, verb = "已升级到 "+name+" 年度会员", "升级并转为年付"
 		default:
 			if yearly {
 				title, verb = name+" 年度会员开通成功", "开通"

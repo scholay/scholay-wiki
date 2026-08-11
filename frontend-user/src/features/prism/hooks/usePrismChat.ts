@@ -624,7 +624,7 @@ export function usePrismChat(
     // 切对话即刻清空(不等异步返回),避免旧对话 UI 闪现:历史/在途轮/改动门/实时 diff + 各 round ref。
     setHistoryTurns([]);
     // 恢复「未发送」消息:该「项目+对话」的 localStorage 里存着命中额度被拦的消息 → 补一条
-    // blocked 轮(BlockedTurnCard 一键重发)。覆盖三条路径:跳支付宝充会员整页返回 / 换设备
+    // blocked 轮(QuotaComposerStrip 自动重发)。覆盖三条路径:跳支付宝充会员整页返回 / 换设备
     // 回来 / 切到别的对话再切回来。没有则照旧清空。
     const storedBlocked = getPrismBlockedMessage(projectId, wantSession ?? null);
     setPendingTurns(

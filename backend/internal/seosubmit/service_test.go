@@ -50,12 +50,17 @@ func (q *fakeSEOQueue) EnqueueBaidu(_ context.Context, urls []string) error {
 	return nil
 }
 
+// PopBaiduBatch 镜像真实实现的 LIFO 语义(queue.go ZPopMax:最新 enqueue 先出)。
+// fake 的 slice 按 enqueue 顺序排列,故从尾部倒序弹出。
 func (q *fakeSEOQueue) PopBaiduBatch(_ context.Context, n int) ([]string, error) {
 	if n > len(q.baiduPending) {
 		n = len(q.baiduPending)
 	}
-	batch := append([]string(nil), q.baiduPending[:n]...)
-	q.baiduPending = append([]string(nil), q.baiduPending[n:]...)
+	batch := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		batch = append(batch, q.baiduPending[len(q.baiduPending)-1-i])
+	}
+	q.baiduPending = append([]string(nil), q.baiduPending[:len(q.baiduPending)-n]...)
 	return batch, nil
 }
 
@@ -467,6 +472,40 @@ func TestBaiduFailureRequeuesToBaiduQueue(t *testing.T) {
 	}
 	if !svc.getBaiduCooldown().IsZero() {
 		t.Fatalf("transient failure must not install baidu cooldown")
+	}
+}
+
+// 百度队列 LIFO 顺序断言:配额 10/天必须优先花在最新入队的 URL 上(期刊批量
+// 发布一次入队上千条,FIFO 会让新页排在几十天积压之后失去时效)。IndexNow
+// 队列保持 FIFO 不受影响。真实实现见 queue.go PopBaiduBatch(ZPopMax)。
+func TestBaiduPopsNewestFirstWhileIndexNowStaysFIFO(t *testing.T) {
+	older := "https://www.scholay.com/paper/older"
+	newer := "https://www.scholay.com/journal/8964/newest"
+	queue := &fakeSEOQueue{
+		pending:      []string{older, newer},
+		baiduPending: []string{older, newer},
+	}
+	var baiduGot, indexNowGot []string
+	svc := newServiceWithDependencies(
+		testSEOConfigWithBaidu(),
+		"https://www.scholay.com",
+		queue,
+		func(_ context.Context, _, _ string, urls []string) error {
+			indexNowGot = append(indexNowGot, urls...)
+			return nil
+		},
+		time.Now,
+	)
+	svc.submitBaidu = func(_ context.Context, _, _ string, urls []string, _ int) (BaiduSubmitOutcome, error) {
+		baiduGot = append(baiduGot, urls...)
+		return BaiduSubmitOutcome{Submitted: len(urls)}, nil
+	}
+	svc.processOne(context.Background(), 100)
+	if want := []string{newer, older}; !reflect.DeepEqual(baiduGot, want) {
+		t.Fatalf("baidu batch order = %#v, want newest-first %#v", baiduGot, want)
+	}
+	if want := []string{older, newer}; !reflect.DeepEqual(indexNowGot, want) {
+		t.Fatalf("indexnow batch order = %#v, want FIFO %#v", indexNowGot, want)
 	}
 }
 

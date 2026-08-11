@@ -101,3 +101,11 @@ var ErrNoDowngrade = errors.New("vip: downgrade not supported")
 // ErrPendingOrderExists —— 该用户已有一笔未支付的订阅订单。拒绝重复建单:防「先挂低档单 +
 // 升档 + 再付旧单」借不降级钳制以低档价拿高档整周期(评审 pricing-math 叠加漏洞)。
 var ErrPendingOrderExists = errors.New("vip: pending subscription order exists")
+
+// ErrYearlyRenewOnly —— 年费会员只能按年续费(2026-08-12 产品拍板)。
+//
+// 为什么拦而不是「静默按年计价」:两者价差是 10 倍(现网 Pro ¥59/月 vs ¥590/年),
+// 悄悄把一笔月付单换成年付单是最坏的一种「帮用户做主」。也不能放行月付续期 ——
+// 履约侧 new/renew 会把 vip_cycle 改写成本单周期(order.go 的 updates["vip_cycle"]),
+// 年费会员补一个月就会被记成月度会员,之后的升级折算基准、续费价目全部跟着错档。
+var ErrYearlyRenewOnly = errors.New("vip: yearly membership renews yearly only")

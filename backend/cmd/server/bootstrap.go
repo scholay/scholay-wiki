@@ -50,6 +50,7 @@ import (
 	"scholar-backend/internal/scidraw"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seoenrich"
+	"scholar-backend/internal/seoingest"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
@@ -88,6 +89,17 @@ func siteName() string {
 	return "Scholay"
 }
 
+// newCrawlerAnalyticsClient 爬虫监控 website 的 umami 查询客户端。
+// UMAMI_CRAWLER_WEBSITE_ID 未配置 → nil(「搜索引擎抓取」面板返 configured:false)。
+// base URL 与写入侧 crawlerwatch 同一套 env(UMAMI_CRAWLER_BASE_URL,空 → 内网默认)。
+func newCrawlerAnalyticsClient() *umami.Client {
+	id := appconfig.AppConfig.Umami.CrawlerWebsiteID
+	if id == "" {
+		return nil
+	}
+	return umami.NewCrawlerClient(appconfig.AppConfig.Umami.CrawlerBaseURL, id)
+}
+
 // services 聚合所有服务与 handler，供 main 使用
 type services struct {
 	handlers          *allHandlers
@@ -96,6 +108,7 @@ type services struct {
 	thirdPartyService *thirdparty.Service
 	seoService        *seo.Service
 	seoSubmitService  *seosubmit.Service
+	seoIngestService  *seoingest.Service // 期刊全量摄取(background.go 注册每日增量检查)
 	wsHub             *websocket.Hub
 	// supportCenter 客服与联系中心(IMAP 收件轮询在 startBackgroundTasks 启动)
 	supportCenterService *supportcenter.Service
@@ -438,6 +451,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// platform → config (/journal/{id}/{slug} SSR 元数据提供)
 	core.configHandler.SetJournalSEOProvider(plat.seoService)
 
+	// platform → config (/journals/browse 等期刊枢纽页 SSR 列表/计数提供)
+	core.configHandler.SetJournalHubProvider(plat.seoService)
+
 	// wechat → config（public /config/system 返回 wechat_enabled 给前端 OAuth 按钮用)
 	// 走 GetActiveConfig() 是否非空判断,避免 config 包直接 import wechat 包形成循环依赖。
 	core.configHandler.SetWeChatOAuthEnabledProbe(func() bool {
@@ -700,6 +716,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 主 sitemap 索引直接列出各工具分片 /sitemap-tools-N.xml(扁平化,避免索引套索引)
 	plat.seoHandler.SetToolSitemapProvider(featureToolSvc.SitemapPages)
 
+	// 期刊全量摄取(SEO 主动化,2026-08-11):minicod /v1/jnl 全量 → seo_journals
+	// staged 行,admin 分批发布。worker 本体由 admin API 触发 / 每日增量检查自动
+	// 触发(background.go);这里只做装配 + 崩溃残留 run 的开机对账。
+	seoIngestService := seoingest.NewService(seoingest.NewRepository(db), plat.seoService, aiB.minicodManager)
+	seoIngestService.ReconcileOnBoot()
+
 	// SEO 完整性回填(H1 论文摘要批量回填 + M2 冷门 URL 现拉落库)。
 	// 默认关闭 —— 设 SEO_ENRICH_ENABLED=true 才消耗 minicod 配额;关闭时冷门 URL 仍由 M1 打 noindex 兜底。
 	if os.Getenv("SEO_ENRICH_ENABLED") == "true" {
@@ -779,6 +801,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			vip:            plat.vipHandler,
 			hotContent:     plat.hotContent,
 			seo:            plat.seoHandler,
+			seoIngest:      seoingest.NewHandler(seoIngestService),
 			message:        plat.message,
 			feedback:       core.feedback,
 			emailLog:       emailLogHandler,
@@ -809,12 +832,15 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap
 			// 详见 internal/umami/client.go:EnsureWebsiteID。
 			// WebsiteID env 配了用配的;空 → 启动后首次需要时 list+create 自动建一个 Scholay website。
+			// WithCrawler:「搜索引擎抓取」面板(/admin/analytics/crawler)。
+			// UMAMI_CRAWLER_WEBSITE_ID 未配置 → client 为 nil → 端点返 {configured:false},
+			// 与 crawlerwatch 中间件的开关口径一致(同一个 env 同时控制写入与展示)。
 			umami: umami.NewHandler(umami.NewClient(
 				"", "", "",
 				appconfig.AppConfig.Umami.WebsiteID,
 				siteName(),
 				domainFromSiteURL(),
-			)),
+			)).WithCrawler(newCrawlerAnalyticsClient(), db),
 			supportCenter: supportCenterHandler,
 			promo:         promoHandler,
 			news:          newsHandler,
@@ -825,6 +851,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		thirdPartyService:    aiB.thirdPartyService,
 		seoService:           plat.seoService,
 		seoSubmitService:     plat.seoSubmitService,
+		seoIngestService:     seoIngestService,
 		wsHub:                plat.wsHub,
 		supportCenterService: supportCenterService,
 		agentBridge:          agentBridge,

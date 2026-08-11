@@ -33,6 +33,7 @@ import { Button } from '@/shared/ui/button';
 import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
 import { AdminPageLayout } from '../components/AdminPageLayout';
+import { CrawlerStatsSection } from '../components/CrawlerStatsSection';
 import { EmptyState } from '@/shared/components/EmptyState';
 import {
   useAnalyticsOverview,
@@ -234,6 +235,10 @@ export function AnalyticsPage() {
           render={(row) => <span className="text-12">{row.x || '未知'}</span>}
         />
       </section>
+
+      {/* 搜索引擎/AI 爬虫抓取 —— 独立数据源(crawlerwatch → 专用 umami 站点),
+          自带 24h/7d/30d range 切换,不跟随上方 DateRangeControl(后端契约是预设窗口)。 */}
+      <CrawlerStatsSection />
     </AdminPageLayout>
   );
 }

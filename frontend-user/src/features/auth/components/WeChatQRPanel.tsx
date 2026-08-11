@@ -82,7 +82,7 @@ body { background: transparent; margin: 0; padding: 0 }
 .impowerBox .status, .status {
   text-align: center !important;
   margin-top: 8px !important;
-  font: 12px "Google Sans", "Noto Serif SC", serif !important;
+  font: 12px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif !important;
 }
 `;
 const cssDataUrl =

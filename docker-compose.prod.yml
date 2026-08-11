@@ -344,9 +344,11 @@ services:
         reservations:
           memory: 512M
     networks:
-      - scholar-network
+      # 固定 IP —— nginx 的 upstream backend_upstream 只在启动时解析一次,详见文件末 networks 注释。
+      scholar-network:
+        ipv4_address: 172.31.250.200
       # backend 同时在 scholar-agent-net 上, 才能解析/调用 scholar_agent:3456 (CreateSession / ServerSideChat / WS)。
-      - scholar-agent-net
+      scholar-agent-net: {}
 
   # AI agent 服务 (Bun + TypeScript,源在 agent/)
   # 模型/端点配置最终走 DB,backend 启动后 POST 到 /api/providers 热更新;
@@ -537,7 +539,9 @@ services:
         reservations:
           memory: 128M
     networks:
-      - scholar-network
+      # 固定 IP —— nginx 的 upstream frontend_upstream 只在启动时解析一次,详见文件末 networks 注释。
+      scholar-network:
+        ipv4_address: 172.31.250.201
 
 
   # Umami 自托管分析 —— 单容器,共用 scholar_mysql 的 `umami` 库
@@ -581,7 +585,9 @@ services:
         reservations:
           memory: 128M
     networks:
-      - scholar-network
+      # 固定 IP —— nginx 的 upstream umami_upstream 只在启动时解析一次,详见文件末 networks 注释。
+      scholar-network:
+        ipv4_address: 172.31.250.202
 
   nginx:
     build:
@@ -605,14 +611,24 @@ services:
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       # 容器重建不再清空 hash 静态资源的代理缓存。
       - nginx-static-cache:/var/cache/nginx/static
+    # nginx 加载配置时会解析 upstream 里的每个主机名,任一个解析不到就
+    # 「host not found in upstream」直接退出 → 靠 restart policy 反复重启(指数退避最长 60s)。
+    # 所以这三个必须先在:backend/frontend 等到 healthy,umami 只需 started(nginx 只要它的
+    # DNS 名可解析即可,而 umami 冷启动 healthy 最长要 210s,不该把整站入口堵在它后面)。
     depends_on:
-      - backend
-      - frontend-user
-      - umami
+      backend:
+        condition: service_healthy
+      frontend-user:
+        condition: service_healthy
+      umami:
+        condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health || exit 1"]
+      # 两个 upstream 都探:/health 走 backend_upstream,/ 走 frontend_upstream。
+      # 只探 /health 时,frontend 侧的 upstream 失效(如 IP 漂移、frontend 挂掉)
+      # 会出现「nginx healthy + 全站 502」这种最难归因的形态 —— 健康灯必须能反映它。
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health && wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
       interval: 10s
-      timeout: 3s
+      timeout: 5s
       retries: 6
       start_period: 15s
     deploy:
@@ -628,8 +644,33 @@ volumes:
   nginx-static-cache:
 
 networks:
+  # 🔴 固定子网 + 给 nginx 的三个 upstream 目标钉死 IP(见 backend / frontend-user / umami
+  # 的 ipv4_address)。理由是一个只在【宿主重启后】现形的故障:
+  #
+  #   OSS nginx 的 upstream 块里写主机名 (server scholar_backend:8080) 时,DNS 只在
+  #   nginx 启动加载配置时解析一次,结果缓存在进程里直到进程退出 —— 运行期永不重解析
+  #   (`resolve` 参数是 nginx Plus 独有)。
+  #   而 docker 的容器 IP 是每次 **启动** 时从网段池里动态分配的,重启不保证拿回原 IP。
+  #   宿主重启时 docker daemon 按 restart policy 并发拉起容器,**完全不遵守 compose 的
+  #   depends_on 顺序**(那是 compose CLI 的编排,不是 daemon 的);于是 backend 常常先起、
+  #   连不上还在做 InnoDB 崩溃恢复的 MySQL → log.Fatalf 退出 → 重启 → 换了个 IP。
+  #   只要这次重启发生在 nginx 之后,nginx 就永远往旧 IP 打 → 502,而两边容器各自
+  #   healthy(nginx 的健康检查只探自己的 /health)。必须整栈重启才恢复 —— 因为那让
+  #   nginx 进程重新解析了一次。
+  #
+  #   钉死 IP 后,"重启换 IP"这个前提消失,nginx 缓存的解析结果永远正确。
+  #
+  # 换网段:改下面 subnet 的同时,必须同步改三处 ipv4_address(它们必须落在网段内)。
+  # 选 172.31.250.0/24 的理由:docker 默认地址池是 172.17.0.0/12 按 /16 自动切分,
+  # 172.31 是池尾、最后才会被自动分配;/24 又只占 254 个地址,与宿主 LAN 撞车概率极低。
+  # 上线前确认没冲突:  docker network inspect $(docker network ls -q) | grep -i subnet
+  #                   ip route | grep 172.31
+  # 动态分配从 .2 起递增,静态 IP 放在 .200+ 避开(本栈容器数 ~12,够不着)。
   scholar-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
   # 安全隔离: backend↔agent 内部网,internal=无 NAT —— agent 碰不到 mysql/redis/minio。
   scholar-agent-net:
     driver: bridge

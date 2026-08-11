@@ -294,6 +294,8 @@ export function ConversationWorkspace({
     : sessionId !== null && socket.state !== 'open'
       ? '连接中断,正在重连…'
       : undefined;
+  // 额度耗尽被拦的未发送轮 → 输入框上方耗尽条(自动重发);会话流里只保留用户气泡。
+  const hasBlocked = turns.some((t) => t.blocked);
   const renderComposer = (ref?: Ref<ChatComposerHandle>) => (
     <ChatComposer
       ref={ref}
@@ -316,6 +318,8 @@ export function ConversationWorkspace({
       uploadBasePath={cfg.artifactBasePath ?? '/user/claw'}
       enableLibraryReference={cfg.enableLibraryReference ?? true}
       placeholder={cfg.composerPlaceholder}
+      quotaBlocked={hasBlocked ? { onResend: conv.resendBlocked, onDismiss: conv.dismissBlocked } : null}
+      quotaWarn={turns.length > 0}
     />
   );
 
@@ -333,7 +337,7 @@ export function ConversationWorkspace({
             <div className="flex h-7 w-7 items-center justify-center rounded-8 bg-foreground">
               <TitleIcon className="h-3.5 w-3.5 text-on-dark" />
             </div>
-            <h1 className="text-16 font-medium text-foreground">{cfg.title}</h1>
+            <h1 className="font-serif text-16 font-medium text-foreground">{cfg.title}</h1>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {/* 两颗按钮都【只用原子的 size 档、不写 className 覆写】——
@@ -433,8 +437,6 @@ export function ConversationWorkspace({
                           sessionId={sessionId}
                           userSkillsByGuide={userSkillsByGuide}
                           onPreview={openPreview}
-                          onResendBlocked={conv.resendBlocked}
-                          onDismissBlocked={conv.dismissBlocked}
                           // 失败轮「重试」只对**最后一轮**成立(hook 内还守卫 !busy;
                           // 可重试 errorCode 白名单由 MessageTurn 判)。
                           onRetryTurn={

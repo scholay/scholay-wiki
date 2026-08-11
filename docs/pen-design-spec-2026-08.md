@@ -109,11 +109,21 @@ Logo 和 Scholay wordmark 是独立品牌资产，不得因 `--brand-*` 颜色�
 
 ### 3.1 Pen 证据与当前字体决策
 
-用户已明确指定：**非品牌英文统一使用 `Google Sans`，中文统一使用
-`Noto Serif SC`**。这一用户级指令覆盖 Pen `rhCJT` 中用于普通英文的
-Playfair Display 样张，但不改动冻结品牌节点。
+> 🔴 **2026-08-11 用户两段指令覆盖为混合态。** 下表「当前运行时决策」列已过时:
+> Google Sans / Playfair 的 webfont 已移除(资产、@font-face、preload、同步脚本);
+> Noto Serif SC 保留为**唯一 webfont**但角色收窄 —— 只服务标题层
+> (`font-serif`/`font-display`),UI/正文/控件改为纯系统栈零下载。
+> **现行运行时决策**:UI 角色 = 系统 UI 栈(SF Pro+苹方 / Segoe UI+雅黑);
+> 衬线/展示角色 = 具名 Latin 无衬线 + 自托管 Noto Serif SC(宋体系作离线兜底);
+> 品牌文本 = 系统 Didone 近似(Didot / Georgia,'Playfair Display' 仅 local 命中)。
+> 真源见 `frontend-user/src/styles/globals.css`「字体策略」与
+> `frontend-user/CLAUDE.md` §五「字体」。
 
-| 角色 | Pen 证据 | 当前运行时决策 |
+(以下为 2026-08-08 的历史决策记录)用户当时指定:**非品牌英文统一使用
+`Google Sans`，中文统一使用 `Noto Serif SC`**。这一用户级指令覆盖 Pen `rhCJT`
+中用于普通英文的 Playfair Display 样张，但不改动冻结品牌节点。
+
+| 角色 | Pen 证据 | ~~当前~~历史运行时决策(已退役,见上方红字) |
 |---|---|---|
 | 非品牌英文 Headline / Body / UI / Display | `GQBuZ` 指定 `Google Sans`；`rhCJT` 有 Playfair 样张 | 统一使用自托管 `Google Sans` |
 | 中文展示、正文与中文适配 | `bM35q` / `GQBuZ` 指定 `Noto Serif SC` | 统一使用自托管 `Noto Serif SC` |
@@ -121,6 +131,11 @@ Playfair Display 样张，但不改动冻结品牌节点。
 | 中文 glyph 后备 | — | `Noto Serif SC` → `Source Han Serif SC` → `Songti SC` → `SimSun` → system-ui |
 
 #### Google Sans 官方资产与语言分流
+
+> ⏪ **2026-08-11 更正：Google Sans 自托管已退役**（用户指令：UI 走系统字体）。
+> v70 资产、@font-face、preload 与同步脚本均已从仓库移除；Noto Serif SC 的
+> 自托管保留，但角色收窄为标题层专用（见 §3.1 顶部红字）。下文仅作 Pen 证据
+> 与决策历史保留，现行字体口径见 `frontend-user/src/styles/globals.css`「字体策略」。
 
 2026-08-08 已通过官方 Google Fonts specimen 与 CSS 核验 `Google Sans`。项目
 自托管官方 v70 Latin / Latin-ext variable WOFF2，覆盖 wght 400–700，并将
@@ -252,5 +267,9 @@ token；只继承对应的语义颜色。
 4. 业务组件只消费语义 token，不直接引用 12 档原始色阶。
 5. 需要偏离 Pen 时，必须在实现与文档同时写明产品理由，不得把旧 Figma 值当作当前依据。
 6. `D5gC67` Logo 与 `V2IJR` Scholay wordmark 保持冻结，除非用户单独开启品牌资产改造。
-7. 非品牌英文必须命中 Google Sans，中文必须命中 Noto Serif SC；
-   Playfair Display 不得重新进入普通 `font-display` / Headline / Body。
+7. ~~非品牌英文必须命中 Google Sans，中文必须命中 Noto Serif SC~~
+   **（2026-08-11 已被用户指令覆盖为混合态：UI/正文英文中文均走系统字体；
+   标题层（`font-serif`/`font-display`）中文命中自托管 Noto Serif SC。
+   现行口径见 `frontend-user/src/styles/globals.css`「字体策略」与
+   `frontend-user/CLAUDE.md` §五「字体」。）** 不变的部分：Playfair Display
+   不得重新进入普通 `font-display` / Headline / Body（现连 webfont 供源也不存在）。

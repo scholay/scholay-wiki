@@ -679,6 +679,10 @@ func (m *Manager) GetJournal(ctx context.Context, id int, full string) (json.Raw
 	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournal(ctx, id, full) })
 }
 
+func (m *Manager) GetJournalMeta(ctx context.Context) (json.RawMessage, error) {
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournalMeta(ctx) })
+}
+
 func (m *Manager) SuggestJournals(ctx context.Context, q string, limit int) (json.RawMessage, error) {
 	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.SuggestJournals(ctx, q, limit) })
 }

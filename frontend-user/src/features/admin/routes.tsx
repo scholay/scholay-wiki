@@ -67,6 +67,11 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/HotContentPage'))('HotContentPage'),
       },
       {
+        path: 'journal-sync',
+        handle: { title: '期刊数据同步' },
+        lazy: lazyPage(() => import('./pages/JournalSyncPage'))('JournalSyncPage'),
+      },
+      {
         path: 'tools',
         handle: { title: '功能广场' },
         lazy: lazyPage(() => import('./pages/FeatureToolsPage'))('FeatureToolsPage'),
