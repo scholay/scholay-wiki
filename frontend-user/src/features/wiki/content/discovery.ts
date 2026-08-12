@@ -23,6 +23,11 @@ export const discoveryArticles: WikiArticle[] = [
         id: "overview",
         title: "概览",
         markdown: `论文检索是 Scholay 发现工作流的结构化入口。用户提交检索词和筛选条件后，结果以论文列表呈现，并可继续打开详情、查看 PDF、暂存、收藏或进入分析。`,
+        embeds: [
+          { id: "classic-search-dock" },
+          { id: "classic-search-filters" },
+          { id: "review-and-stage" },
+        ],
       },
       {
         id: "workspace",
@@ -69,6 +74,7 @@ export const discoveryArticles: WikiArticle[] = [
         id: "detail",
         title: "详情页",
         markdown: `论文详情可以展示摘要、元数据、作者、引用关系、参考文献及可用操作。详情在桌面浏览器工作区中以可保持上下文的面板打开，窄屏使用对应的移动详情头与布局。`,
+        embeds: [{ id: "paper-detail" }, { id: "mobile-detail-header" }],
       },
       {
         id: "actions",
@@ -99,6 +105,7 @@ export const discoveryArticles: WikiArticle[] = [
         id: "rendering",
         title: "阅读与渲染",
         markdown: `阅读器使用浏览器端 PDF 渲染能力展示文件，并随应用打包 CMap 资源以支持中日韩文字。PDF 标签与论文详情共用浏览器工作区，用户可以在多个对象之间切换。`,
+        embeds: [{ id: "pdf-reader" }],
       },
       {
         id: "availability",
@@ -135,16 +142,19 @@ export const discoveryArticles: WikiArticle[] = [
         id: "authors",
         title: "作者页面",
         markdown: `作者详情围绕身份信息、研究主题、代表论文、年度产出和合作作者组织内容。作者名可能存在同名和数据源归并问题，因此页面展示不能等同于人工验证的唯一身份。`,
+        embeds: [{ id: "author-profile" }],
       },
       {
         id: "journals",
         title: "期刊页面",
         markdown: `期刊能力包括搜索、详情以及按领域组织的期刊集合。期刊条目可以连接名称、标识、出版与收录信息、影响指标和论文列表；具体字段随数据源可用性变化。`,
+        embeds: [{ id: "journal-search" }, { id: "journal-detail" }],
       },
       {
         id: "navigation",
         title: "关系导航",
         markdown: `论文、作者与期刊之间使用真实站内链接相互跳转。稳定实体链接既支持用户打开新标签，也构成公开学术内容的内链网络。`,
+        embeds: [{ id: "browser-tabs-quick-open" }],
       },
     ],
   },
@@ -161,6 +171,7 @@ export const discoveryArticles: WikiArticle[] = [
       "frontend-user/src/features/search/components/StagingTabs.tsx",
       "frontend-user/src/features/search/hooks/useStagingActions.ts",
       "frontend-user/src/features/search/api/staging-areas.ts",
+      "frontend-user/src/features/wiki/embeds/WikiEmbedStagingUnits.tsx",
       "backend/internal/stagingarea",
     ],
     related: ["academic-search", "matrix-analysis", "literature-library"],
@@ -169,11 +180,13 @@ export const discoveryArticles: WikiArticle[] = [
         id: "purpose",
         title: "用途",
         markdown: `暂存区服务于“先筛选、后整理”的检索阶段。它允许用户把搜索结果中的候选论文快速加入当前工作区，而不必立即决定长期文件夹和正式收藏结构。`,
+        embeds: [{ id: "staging-units" }],
       },
       {
         id: "persistence",
         title: "状态与同步",
-        markdown: `每个账户最多有 5 个暂存区，每区最多 100 篇；界面以 A–E 五个固定区呈现。匿名状态先保存在本机，登录用户的内容可由后端保存并由前端同步，但现有代码没有保证所有匿名数据在登录后都完整上云。暂存区是检索任务的短期集合，个人文献集才是长期知识资产。`,
+        markdown: `每个账户最多有 5 个暂存区，每区最多 100 篇；界面按当前位置依次显示 A–E，用户不能手动改名或点关闭。清空当前区不会当场删除它，但切换到其他区时，刚离开的空区会自动移除，剩余分区再按位置显示字母。匿名状态先保存在本机，登录用户的内容可由后端保存并由前端同步，但现有代码没有保证所有匿名数据在登录后都完整上云。暂存区是检索任务的短期集合，个人文献集才是长期知识资产。`,
+        embeds: [{ id: "folder-icon-picker" }],
       },
       {
         id: "matrix",
@@ -204,6 +217,10 @@ export const discoveryArticles: WikiArticle[] = [
         id: "model",
         title: "矩阵模型",
         markdown: `每篇论文形成一列，每个分析维度形成一行，交叉单元格保存针对该论文的维度分析。维度既可以来自系统模板，也可以由用户在设置弹窗中增加、编辑或删除。`,
+        embeds: [
+          { id: "matrix-workspace" },
+          { id: "matrix-dimension-settings" },
+        ],
       },
       {
         id: "generation",
@@ -242,16 +259,26 @@ export const discoveryArticles: WikiArticle[] = [
         id: "organization",
         title: "组织方式",
         markdown: `文献集使用单层文件夹组织长期收藏；每个账户最多 50 个文件夹、1,000 篇论文。论文行展示基本信息、PDF 与处理状态，并支持批量选择和批量操作，单次批处理最多 500 篇。桌面端使用文献侧栏，移动端提供文件夹列表和文件夹详情。`,
+        embeds: [
+          { id: "literature-library" },
+          { id: "folder-icon-picker" },
+          { id: "mobile-library-flow" },
+        ],
       },
       {
         id: "import",
         title: "导入与识别",
         markdown: `用户可以从在线检索加入论文，也可以上传 PDF；单个 PDF 上限为 50 MiB。上传流程会检查扩展名与文件头、尝试识别论文，并让用户决定采用匹配结果或补充元数据；“文件存在”和“已正确关联学术记录”是两个独立状态。Zotero 与 EndNote 导入目前只显示“即将上线”。`,
+        embeds: [{ id: "library-import-workbench" }],
       },
       {
         id: "maintenance",
         title: "维护能力",
         markdown: `文献管理包括编辑元数据、管理 PDF、重新关联论文、移动与删除等动作。重新关联用于修复错误识别或缺少学术标识的记录，不应悄悄覆盖用户已经确认的内容。`,
+        embeds: [
+          { id: "library-bulk-actions" },
+          { id: "library-maintenance-workbench" },
+        ],
       },
     ],
   },
@@ -281,6 +308,10 @@ export const discoveryArticles: WikiArticle[] = [
         id: "receive",
         title: "接收行为",
         markdown: `访客可以先查看分享内容；分享可设置过期、撤销、提取码和是否允许保存。提取码按 token + IP 统计，连续错误 5 次会被锁定。把文献复制进自己的文献集属于账户写操作，需要登录并选择目标位置；接收端按 source + source_id 去重，源集合和副本后续各自维护。`,
+        embeds: [
+          { id: "library-share-receive" },
+          { id: "share-receive-variants" },
+        ],
       },
     ],
   },

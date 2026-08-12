@@ -1,7 +1,8 @@
 import { FileCode2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RouteSEO } from "@/shared/components/RouteSEO";
-import { WIKI_ARTICLES } from "../content";
+import { visibleArticles } from "../content";
+import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
 
 interface SourceEntry {
   path: string;
@@ -9,7 +10,9 @@ interface SourceEntry {
 }
 
 export function WikiSourcesPage() {
-  const sources = buildSources();
+  const canSeeAdmin = useCanSeeWikiAdmin();
+  const articles = visibleArticles(canSeeAdmin);
+  const sources = buildSources(articles);
 
   return (
     <>
@@ -18,7 +21,7 @@ export function WikiSourcesPage() {
         description="按仓库路径追溯 Scholay Wiki 词条所依据的页面、后端模块、配置、迁移与测试。"
         keywords="Scholay Wiki 来源,Scholay 源码索引,Scholay 架构"
       />
-      <section className="border-b border-border bg-surface-1">
+      <section className="border-b border-border bg-surface-card">
         <div className="mx-auto max-w-page px-6 py-10 md:py-14">
           <p className="text-12 font-medium text-brand-red">SOURCE INDEX</p>
           <h1 className="mt-2 font-display text-32 font-bold leading-display-tight text-foreground">
@@ -48,7 +51,7 @@ export function WikiSourcesPage() {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {source.articleSlugs.map((slug) => {
-                      const article = WIKI_ARTICLES.find(
+                      const article = articles.find(
                         (item) => item.slug === slug,
                       );
                       if (!article) return null;
@@ -56,7 +59,7 @@ export function WikiSourcesPage() {
                         <Link
                           key={slug}
                           to={`/wiki/${slug}`}
-                          className="inline-flex h-control-sm items-center rounded-pill bg-surface-1 px-3 text-12 text-muted-foreground hover:text-foreground"
+                          className="inline-flex h-control-sm items-center rounded-pill border border-border bg-surface-card px-3 text-12 text-muted-foreground hover:text-foreground"
                         >
                           {article.title}
                         </Link>
@@ -73,9 +76,11 @@ export function WikiSourcesPage() {
   );
 }
 
-function buildSources(): SourceEntry[] {
+function buildSources(
+  articles: ReturnType<typeof visibleArticles>,
+): SourceEntry[] {
   const index = new Map<string, string[]>();
-  for (const article of WIKI_ARTICLES) {
+  for (const article of articles) {
     for (const path of article.sourcePaths) {
       const slugs = index.get(path) ?? [];
       slugs.push(article.slug);

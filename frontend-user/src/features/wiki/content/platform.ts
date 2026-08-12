@@ -148,6 +148,7 @@ export const platformArticles: WikiArticle[] = [
         id: "quote",
         title: "报价与建单",
         markdown: `会员动作先由后端根据当前档位、周期、到期日和配置生成 quote，前端确认目标套餐与支付方式后才建单。客户端展示金额不能作为服务端履约依据。`,
+        embeds: [{ id: "billing-orders" }, { id: "mobile-billing-ledger" }],
       },
       {
         id: "payment",
@@ -158,6 +159,7 @@ export const platformArticles: WikiArticle[] = [
         id: "fulfillment",
         title: "幂等履约与退款",
         markdown: `重复回调不能重复延长会员或重复充值。当前后台的“退款”不会调用支付宝或微信网关：操作人必须先在商户后台实际退款，再把金额、网关退款号和幂等键登记进 Scholay。系统随后按已退金额关联原订单，并幂等反冲充值经费与邀请首单返利。`,
+        embeds: [{ id: "admin-orders" }, { id: "admin-order-revenue-chart" }],
       },
       {
         id: "refund-boundaries",

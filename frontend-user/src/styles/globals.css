@@ -1564,6 +1564,68 @@
  *    Q2 拍板后只改 globals.css 的 --status-* 一处,toast 自动跟随;
  *    而维持 richColors 原样则设计师的决定永远影响不到 toast。
  * ============================================================================= */
+/**
+ * Wiki 文档壳 —— 全树纯白(#FFFFFF)。
+ * 覆盖页面底 / 弱卡片等暖色 token;只作用在 .wiki-doc-surface 子树。
+ */
+.wiki-doc-surface {
+  --background: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  --surface-card: #ffffff;
+  background-color: #ffffff;
+}
+
+/**
+ * Wiki 嵌入演示框 —— 恢复产品 surface 色阶，以单层边界传达文档层级。
+ */
+.wiki-embed-stage {
+  --background: #f6f4ee;
+  --surface-1: #efede5;
+  --surface-2: #e8e5dc;
+  --surface-3: #f1efe8;
+  --surface-card: #ffffff;
+  background-color: var(--surface-1);
+  box-shadow: none;
+}
+.wiki-embed-canvas {
+  background-color: transparent;
+  color: var(--foreground);
+  filter: none;
+}
+
+/**
+ * Wiki 术语 ↔ 演示元素 hover 高亮。
+ * 正文 mark.wiki-spot-term 与 fixture [data-wiki-spot-id] 由 wiki-spot-linker 自动关联。
+ */
+.wiki-spot-section mark.wiki-spot-term {
+  color: inherit;
+  background-color: color-mix(in srgb, var(--brand-red) 8%, transparent);
+  border-bottom: 1px dotted
+    color-mix(in srgb, var(--brand-red) 45%, transparent);
+  border-radius: 2px;
+  cursor: help;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+.wiki-spot-section mark.wiki-spot-term[data-wiki-term-active],
+.wiki-spot-section [data-wiki-spot-id][data-wiki-spot-active] {
+  background-color: color-mix(
+    in srgb,
+    var(--brand-red) 16%,
+    var(--surface-card)
+  );
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-red) 35%, transparent);
+  border-radius: 4px;
+}
+.wiki-spot-section [data-wiki-spot-id] {
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
 [data-sonner-toaster][data-theme='light'] {
   --normal-bg: var(--surface-card);
   --normal-border: var(--border);

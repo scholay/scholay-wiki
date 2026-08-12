@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { ChevronDown } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
 import { BrandName } from './BrandName';
 
 /**
@@ -50,9 +51,9 @@ const BRAND_LINKS: { label: string; to: string }[] = [
   { label: '服务条款', to: '/terms' },
 ];
 
-export function Footer() {
+export function Footer({ className }: { className?: string } = {}) {
   return (
-    <footer className="bg-background border-t border-border">
+    <footer className={cn('border-t border-border bg-background', className)}>
       {/*
        * 单行(≥1024)/ 自动换行(<1024):brand / 法律 + 解决方案 popover
        *

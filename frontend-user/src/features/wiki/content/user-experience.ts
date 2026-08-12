@@ -22,7 +22,12 @@ export const userExperienceArticles: WikiArticle[] = [
       "frontend-user/src/features/auth/components/RegisterForm.tsx",
       "frontend-user/src/features/auth/components/ForgotPasswordForm.tsx",
       "frontend-user/src/features/auth/pages/mobile/MobileAuthPage.tsx",
+      "frontend-user/src/features/auth/components/MobileAuthSheet.tsx",
+      "frontend-user/src/features/auth/components/InviteAuthNotice.tsx",
+      "frontend-user/src/features/auth/components/PostRegisterInviteDialog.tsx",
       "frontend-user/src/features/auth/api/auth.ts",
+      "frontend-user/src/app/InviteFlowController.tsx",
+      "frontend-user/src/features/wiki/embeds/WikiEmbedAuthDialog.tsx",
     ],
     related: ["account", "oauth-wechat-login", "account-security-settings"],
     sections: [
@@ -30,16 +35,25 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "entry-and-methods",
         title: "入口与登录方式",
         markdown: `桌面端在需要身份的动作上打开认证弹窗，移动端可进入 /m/auth。邮箱和手机号都支持密码或验证码登录；切换登录方式不会把“页面可浏览”误变成“动作已获授权”，收藏、AI 发送和私有数据仍要等登录成功。`,
+        embeds: [
+          { id: "auth-dialog" },
+          { id: "mobile-auth-surfaces" },
+          { id: "mobile-subpage-auth-guard" },
+        ],
       },
       {
         id: "registration",
         title: "注册规则",
-        markdown: `注册密码为 8–64 位。启用注册验证码时必须输入 6 位数字；是否要求邮箱验证和 Cloudflare Turnstile 由公开系统配置决定。提交前必须同意服务条款与隐私政策。验证码按钮有 60 秒倒计时，倒计时结束只表示可以再次请求，不表示旧验证码一定仍有效。`,
+        markdown: `注册密码为 8–64 位。启用注册验证码时必须输入 6 位数字；是否要求邮箱验证和 Cloudflare Turnstile 由公开系统配置决定。提交前必须同意服务条款与隐私政策。验证码按钮有 60 秒倒计时，倒计时结束只表示可以再次请求，不表示旧验证码一定仍有效。
+
+邀请活动开启时，注册表面会显示可选的邀请码入口。用户可以跳过；填写后必须先通过有效性校验，校验成功的码只作为候选，待新账户注册成功后才尝试建立关联。取消或修改已验证的码会先清除旧候选，避免错误码继续随注册请求传递。`,
+        embeds: [{ id: "invite-code-field" }, { id: "auth-register-recovery" }],
       },
       {
         id: "recovery",
         title: "找回密码",
         markdown: `找回密码支持邮箱和手机号，两条路径都使用 6 位验证码，并要求新密码为 8–64 位。页面会分别显示发送中、倒计时、提交中和接口错误；验证码、账户归属与尝试次数的最终判断由服务端执行。`,
+        embeds: [{ id: "auth-register-recovery" }],
       },
     ],
   },
@@ -55,6 +69,7 @@ export const userExperienceArticles: WikiArticle[] = [
     aliases: ["第三方登录", "微信扫码登录", "GitHub 登录", "ORCID 登录"],
     sourcePaths: [
       "frontend-user/src/features/auth/components/OAuthRow.tsx",
+      "frontend-user/src/features/auth/components/GoogleSignInButton.tsx",
       "frontend-user/src/features/auth/components/WeChatQRPanel.tsx",
       "frontend-user/src/features/auth/pages/OAuthCallbackPage.tsx",
       "frontend-user/src/features/auth/pages/WeChatCallbackPage.tsx",
@@ -69,17 +84,19 @@ export const userExperienceArticles: WikiArticle[] = [
       {
         id: "providers",
         title: "可用提供方",
-        markdown: `现行身份提供方共 7 个：GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信。按钮只在后台启用且公开配置可用时出现；普通 OAuth 使用各自的整页 callback，微信使用登录弹窗内的二维码与独立 /wechat/callback。`,
+        markdown: `现行身份提供方共 7 个：GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信。按钮只在后台启用且公开配置可用时出现；GitHub、Apple、ORCID、Microsoft 和 Discourse 使用整页 callback，Google 登录使用 GIS ID Token，微信使用登录弹窗内的二维码与独立 /wechat/callback。登录入口可用不等于账户设置中的新绑定入口也已接通。`,
       },
       {
         id: "wechat-flow",
         title: "微信二维码流程",
         markdown: `桌面微信登录在约 220×240 的 iframe 中加载二维码。扫码后授权 code 只能兑换一次，回调页通过同源 postMessage 把 code 交给父窗口；处理中用状态层盖住 iframe，而不是提前卸载它。移动 Web 的认证页主动隐藏微信二维码入口。`,
+        embeds: [{ id: "wechat-qr-login" }],
       },
       {
         id: "callback-state",
         title: "回调与失败状态",
-        markdown: `OAuth 回调会处理加载、成功、错误与需要合并四种状态。除微信外的回调保留在桌面应用壳内，以便登录完成后触发本地暂存同步；回调失败不会创建半登录会话，用户需要回到认证入口重试。`,
+        markdown: `走整页跳转的 OAuth 回调会处理加载、成功、错误与需要合并四种状态，并保留在桌面应用壳内，以便登录完成后触发本地暂存同步；回调失败不会创建半登录会话，用户需要回到认证入口重试。Google GIS 和微信扫码使用各自的 ID Token / code 交换，不经过这套通用整页回调。`,
+        embeds: [{ id: "oauth-callback-states" }],
       },
     ],
   },
@@ -109,6 +126,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "choices",
         title: "两种选择",
         markdown: `选择合并时，用户必须先以目标 Scholay 账户本人身份登录，受保护的确认接口还会核对当前用户。选择不合并时，可用第三方资料创建独立账户；该账户可能没有邮箱，只能先用对应提供方登录，之后再到安全设置增加其他方式。`,
+        embeds: [{ id: "oauth-account-merge" }],
       },
       {
         id: "cancellation",
@@ -120,7 +138,8 @@ export const userExperienceArticles: WikiArticle[] = [
   {
     slug: "profile-settings",
     title: "个人资料设置",
-    summary: "在桌面或移动设置中维护昵称、简介和头像图片地址。",
+    summary:
+      "桌面端维护昵称、简介和头像地址；移动端只编辑昵称、简介并查看账户只读信息。",
     category: "getting-started",
     kind: "page",
     status: "current",
@@ -136,12 +155,13 @@ export const userExperienceArticles: WikiArticle[] = [
       {
         id: "fields",
         title: "可编辑字段",
-        markdown: `桌面入口是 /settings/profile，移动入口是 /m/me/profile。昵称最多 40 个字符，简介最多 200 个字符；头像字段接收图片 URL，不是本页本地文件上传。页面先拉取现有 profile，再把三个字段一起提交保存。`,
+        markdown: `桌面入口是 /settings/profile，可编辑昵称、简介和头像图片地址：昵称最多 40 个字符，简介最多 200 个字符，头像字段只接收图片 URL，不是本地文件上传。移动入口 /m/me/profile 只提交 username 和 bio：昵称上限是 32 个字符，简介仍是 200 个字符，不能在移动页修改 avatar_url。移动页另外只读展示邮箱、手机号和注册时间。`,
+        embeds: [{ id: "profile-settings" }],
       },
       {
         id: "states",
         title: "保存状态",
-        markdown: `资料加载中显示轻量加载文本，提交时禁用保存按钮。保存成功后刷新账户 profile 缓存并提示“资料已保存”；失败保留当前输入，用户可以检查网络后重试。页面文案说明资料可能用于公开展示和评论，因此不应填写敏感信息。`,
+        markdown: `两端都先拉取现有 profile，并在提交时禁用保存按钮。桌面保存三个字段；移动只保存裁去首尾空白的昵称和简介，并同步顶部用户卡的昵称。保存成功后刷新账户 profile 缓存并提示“资料已保存”；失败保留当前输入，用户可以检查网络后重试。公开昵称和简介可能出现在主页或评论中，不应填写敏感信息。`,
       },
     ],
   },
@@ -176,11 +196,12 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "rebind",
         title: "换绑联系方式",
         markdown: `首次绑定邮箱或手机号只验证新联系方式；已有绑定时，必须同时提供旧联系方式验证码和新联系方式的 6 位验证码，降低登录会话被盗后直接换绑的风险。手机号前端按中国大陆 11 位规则校验。`,
+        embeds: [{ id: "account-security" }],
       },
       {
         id: "boundary",
         title: "当前边界",
-        markdown: `本页的主流程是绑定或覆盖换绑，没有独立的“直接解绑邮箱/手机号”按钮。第三方连接页也会把邮箱和手机用户引导回这里；至少保留一种登录方式的最终约束由后端执行。`,
+        markdown: `桌面安全页的主流程是绑定或覆盖换绑，没有独立的“直接解绑邮箱/手机号”按钮。移动安全页只读展示邮箱、手机号和验证状态，并保留修改密码；换绑依赖旧、新联系方式双重验证码，移动端明确引导回桌面设置。第三方连接页也会把邮箱和手机用户引导回这里；至少保留一种登录方式的最终约束由后端执行。`,
       },
     ],
   },
@@ -188,7 +209,7 @@ export const userExperienceArticles: WikiArticle[] = [
     slug: "account-connections",
     title: "第三方账号连接与解绑",
     summary:
-      "查看所有登录方式，绑定已启用的 OAuth 提供方，并在保留至少一种登录方式的前提下解绑。",
+      "查看登录方式、管理已接通的第三方连接，并识别移动只读与 Google 新绑定未接通的边界。",
     category: "getting-started",
     kind: "page",
     status: "current",
@@ -198,7 +219,9 @@ export const userExperienceArticles: WikiArticle[] = [
       "frontend-user/src/features/settings/pages/ConnectionsPage.tsx",
       "frontend-user/src/features/settings/pages/mobile/MobileConnectionsPage.tsx",
       "frontend-user/src/features/settings/api/connections.ts",
+      "frontend-user/src/features/auth/components/GoogleSignInButton.tsx",
       "frontend-user/src/shared/lib/oauth-bind.ts",
+      "backend/internal/user/google_oauth.go",
     ],
     related: [
       "oauth-wechat-login",
@@ -209,12 +232,13 @@ export const userExperienceArticles: WikiArticle[] = [
       {
         id: "list",
         title: "连接列表",
-        markdown: `连接页展示邮箱、手机号以及后台启用的 GitHub、Google、微信、Apple、ORCID、Microsoft、Discourse。已经绑定但后来被管理员关闭的第三方方式仍会显示，方便用户识别和解绑。每一行显示绑定状态、显示名或提供方 ID，以及可用时的绑定时间。`,
+        markdown: `桌面连接页恒定展示邮箱和手机号；GitHub、Google、微信、Apple、ORCID、Microsoft、Discourse 只有在后台启用或账号已经绑定时显示。已经绑定但后来被管理员关闭的第三方方式仍会保留，方便用户识别和解绑。每一行显示绑定状态、显示名或提供方 ID，以及可用时的绑定时间。移动连接页复用同一数据但只读，且主动隐藏微信；所有绑定或解绑动作都引导到桌面端。`,
+        embeds: [{ id: "account-connections" }],
       },
       {
         id: "bind",
         title: "绑定方式",
-        markdown: `普通 OAuth 进入提供方授权流程，微信打开二维码绑定弹窗；Apple 的绑定 URL 由后端用 state nonce 中继。邮箱和手机号不在本页直接处理，而是转到安全设置完成验证码换绑。已经绑定的提供方不会重复绑定。`,
+        markdown: `GitHub、ORCID、Microsoft 和 Discourse 通过 login-url 进入授权回调；微信打开二维码绑定弹窗，Apple 的绑定 URL 由后端用 state nonce 中继。邮箱和手机号转到安全设置完成验证码换绑。Google 登录本身在启用 client_id 时走 GIS ID Token，但当前设置页仍尝试请求不存在的 /user/google/login-url，因此“新绑定 Google”是未接通的死路，Wiki 不把它列为可用绑定入口；既有 Google 绑定仍可在连接列表识别和解绑。`,
       },
       {
         id: "unbind",
@@ -237,6 +261,7 @@ export const userExperienceArticles: WikiArticle[] = [
       "frontend-user/src/shared/components/NotificationBell.tsx",
       "frontend-user/src/shared/api/notifications.ts",
       "frontend-user/src/shared/hooks/useNotificationSocket.ts",
+      "frontend-user/src/features/wiki/embeds/WikiEmbedRhinoAssistant.tsx",
     ],
     related: ["account", "promotion-banner"],
     sections: [
@@ -244,6 +269,13 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "unread-and-list",
         title: "未读数与列表",
         markdown: `通知铃铛只在登录后出现。徽标最多显示为 99+；弹层提供“全部”和“未读”两个 Tab，以及一键全部已读。列表每次读取 20 条并支持加载更多，加载中、请求失败、没有通知和没有未读通知都有独立状态。`,
+        embeds: [
+          { id: "notification-inbox" },
+          {
+            id: "rhino-assistant-support-panels",
+            caption: "牛犀犀助手 · 通知二级入口",
+          },
+        ],
       },
       {
         id: "actions",
@@ -280,11 +312,13 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "blocked-message",
         title: "被拦消息不会假装已发送",
         markdown: `后端在把消息交给 Agent 之前发现额度不足时，前端把本轮标为 blocked，并按会话保留文本、引用和可持久化附件信息。Claw、智能搜索和 Prism 在输入框上方显示额度条；矩阵、翻译和审稿等非对话功能使用带动作的额度提示。`,
+        embeds: [{ id: "quota-status-toasts" }],
       },
       {
         id: "recovery-actions",
         title: "恢复方式",
         markdown: `有重置次数时可消耗 1 次，立即恢复满额并重新计算周期；开启“用经费继续”后，只从永久 credit 支付超出周期额度的部分，而且可以在账户资产中关闭。两项操作都要求二次确认；没有可用资产时可进入会员升级。`,
+        embeds: [{ id: "quota-recovery" }],
       },
       {
         id: "resume",
@@ -296,13 +330,12 @@ export const userExperienceArticles: WikiArticle[] = [
   {
     slug: "paper-search-sources",
     title: "论文检索数据源",
-    summary:
-      "理解 Auto、STC、OpenAlex 与 PubMed 的覆盖范围、品牌显示和能力差异。",
+    summary: "理解综合、Graph、Discovery 与 Medicine 的覆盖范围和能力差异。",
     category: "discovery",
     kind: "feature",
     status: "current",
     audience: ["访客", "研究者", "学生"],
-    aliases: ["搜索源", "STC", "OpenAlex", "PubMed", "Auto 搜索"],
+    aliases: ["搜索源", "综合搜索", "Graph", "Discovery", "Medicine"],
     sourcePaths: [
       "frontend-user/src/features/search/api/papers.ts",
       "frontend-user/src/features/search/components/SearchSidebar.tsx",
@@ -314,12 +347,13 @@ export const userExperienceArticles: WikiArticle[] = [
       {
         id: "choices",
         title: "四种选择",
-        markdown: `经典搜索提供 Auto、STC、OpenAlex 和 PubMed。Auto 让服务端按 STC → OpenAlex → PubMed 的顺序寻找可用结果；手动选择则只查询指定来源。结果论文保留自己的真实 source，Auto 只是检索选择，不会成为收藏记录的数据源。`,
+        markdown: `经典搜索向用户提供综合、Graph、Discovery 和 Medicine 四种选择。综合让服务端在多个内部来源之间选择可用结果；手动选择则只查询对应定位的来源。内部 source code 是平台实现细节，页面、帮助文案和 Wiki 都统一使用这四个对外品牌名。`,
+        embeds: [{ id: "classic-search-filters" }],
       },
       {
         id: "differences",
         title: "能力并不完全相同",
-        markdown: `STC 适合作为综合默认源，但普通端点只提供有效的相关度排序。OpenAlex 支持引用量和日期排序，但学科筛选只取一个概念；PubMed 面向医学，主要支持查询、时间、期刊或会议名及相关度/日期排序，不支持页面中的学科、文献类型、OA 和最低引用筛选。`,
+        markdown: `Graph 偏向 AI 引文图谱学术发现，目前只提供有效的相关度排序；Discovery 覆盖全学科开放发现，支持引用量和日期排序，但学科筛选只取一个概念；Medicine 面向生物医学，主要支持查询、时间、期刊或会议名及相关度/日期排序，不支持页面中的学科、文献类型、OA 和最低引用筛选。`,
       },
       {
         id: "normalization",
@@ -350,12 +384,13 @@ export const userExperienceArticles: WikiArticle[] = [
       {
         id: "filters",
         title: "筛选条件",
-        markdown: `时间范围可选全部、近 1/3/5 年或自定义起止年；另有 23 个学科、文献类型和开放获取。筛选状态写入 URL，切换数据源时会自动剪掉新来源不支持的条件，避免界面看似选中、实际请求被忽略。OpenAlex 学科强制单选，PubMed 隐藏不支持的组。`,
+        markdown: `时间范围可选全部、近 1/3/5 年或自定义起止年；另有 23 个学科、文献类型和开放获取。筛选状态写入 URL，切换数据源时会自动剪掉新来源不支持的条件，避免界面看似选中、实际请求被忽略。Discovery 学科强制单选，Medicine 隐藏不支持的组。`,
+        embeds: [{ id: "classic-search-filters" }],
       },
       {
         id: "sort",
         title: "排序按来源变化",
-        markdown: `STC 和 Auto 只显示相关度；OpenAlex 可选相关度、引用数、最新和最早；PubMed 可选相关度与最新。切换到不支持当前排序的来源时会回到相关度。状态模型虽然保留 venues 和 minCitations，但当前页面没有稳定、完整的可见入口，不能把它们写成已开放筛选器。`,
+        markdown: `Graph 和综合只显示相关度；Discovery 可选相关度、引用数、最新和最早；Medicine 可选相关度与最新。切换到不支持当前排序的来源时会回到相关度。状态模型虽然保留 venues 和 minCitations，但当前页面没有稳定、完整的可见入口，不能把它们写成已开放筛选器。`,
       },
       {
         id: "pages",
@@ -397,6 +432,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "content",
         title: "页面内容",
         markdown: `页首展示标题、年份、来源和作者，作者链接最多直接铺开 12 位，更多作者以总数收起。元数据按实际可用字段展示 DOI、发表日期、被引/参考文献计数、OA 和最多 12 个学科标签；摘要关键词最多显示 8 个。参考文献单独请求，返回为空不代表论文一定没有引用。`,
+        embeds: [{ id: "paper-detail" }, { id: "paper-references-citation" }],
       },
       {
         id: "actions",
@@ -427,6 +463,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "oa",
         title: "开放获取查找",
         markdown: `论文自带 openAccessPdf 时直接使用该链接；没有直链但有 DOI 时，前端请求站内 OA 接口，由后端查询并缓存 Unpaywall 结果。页面会区分 PDF 与普通免费全文，并标注 via Unpaywall。找到元数据页或原始链接不等于找到了可合法下载的全文。`,
+        embeds: [{ id: "paper-detail" }],
       },
       {
         id: "translation",
@@ -462,11 +499,13 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "entry",
         title: "入口与状态",
         markdown: `作者入口是 /author/:source/:authorId。搜索或论文详情打开作者时会建立浏览器标签；直接访问深链则补拉作者详情。页面提供加载、接口失败和页签失效状态，同名作者、来源归并和机构字段都只是数据线索，不代表人工完成身份认证。`,
+        embeds: [{ id: "author-profile" }],
       },
       {
         id: "derived-sections",
         title: "派生内容",
         markdown: `页面最多请求 50 篇作者论文来派生主题和趋势。代表作按引用数排序取前 5；合作作者排除本人后按共同出现次数取前 8；年度柱状图也基于这批返回论文。因此这些区块是当前样本的摘要，不一定覆盖作者全部生涯。`,
+        embeds: [{ id: "author-collaboration-trends" }],
       },
       {
         id: "navigation",
@@ -507,6 +546,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "decision-data",
         title: "选刊信息",
         markdown: `页面可展示 ISSN、出版社、国家、期刊或会议类型、来源数量、JCR/中科院/CCF、影响因子、OpenAlex h-index、OA 和预警信号。指标按来源可用性出现，年度趋势数据不足时会隐藏；ISSN 可跳官方 ISSN Portal。决策卡是多个指标的摘要，不构成投稿保证。`,
+        embeds: [{ id: "journal-detail" }],
       },
       {
         id: "current-boundary",
@@ -542,6 +582,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "query",
         title: "搜索与默认列表",
         markdown: `入口是 /journals/search。搜索框接受刊名、ISSN 或主办机构；没有关键词时也显示默认高质量列表，默认按影响因子降序。关键词、页码、排序和筛选写入 URL，从详情返回时可以恢复。每页固定 8 条，上游没有可靠 total 时分页只使用上一页、下一页和 hasMore。`,
+        embeds: [{ id: "journal-search" }],
       },
       {
         id: "filters",
@@ -578,6 +619,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "rankings",
         title: "四个预设榜单",
         markdown: `现行榜单是 JCR Q1（/journals/sci-q1）、中科院 1 区（/journals/cas-zone1）、CCF A（/journals/ccf-a）和影响因子至少 10（/journals/high-impact-factor）。它们复用期刊搜索数据与分页，只是预设筛选并提供面向该榜单的说明。`,
+        embeds: [{ id: "journal-directory" }],
       },
       {
         id: "directories",
@@ -611,6 +653,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "availability",
         title: "什么时候显示",
         markdown: `完整期刊详情的 submission 数据明确标记 has_guideline 或 has_latex 时才显示卡片。作者指南下载为 .md，LaTeX 模板为 .zip；若上游提供 class 名，界面一并显示。没有资源时整个区块隐藏，而不是显示一个不可用占位。`,
+        embeds: [{ id: "journal-detail" }],
       },
       {
         id: "membership",
@@ -647,6 +690,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "favorite",
         title: "收藏流程",
         markdown: `统一收藏按钮用于搜索、矩阵、详情和移动 Feed。未登录点击时会保存一次 pending action、打开登录，并在成功后尝试自动收藏；登录后若调用方未指定文件夹，会打开全局文件夹选择器，未选择具体文件夹则由后端落入默认文件夹。`,
+        embeds: [{ id: "paper-favorite-flow" }],
       },
       {
         id: "duplicate",
@@ -689,11 +733,13 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "resolve",
         title: "流式识别与人工确认",
         markdown: `上传后通过 SSE 依次接收 parsed、searched 和 ready：提取标题、摘要、DOI、arXiv、作者、年份等，再跨来源寻找候选。用户必须选择候选并以 link 保存，或拒绝候选以 free 自由文件保存；扫描件无文本会给降级警告，但仍允许保存 PDF。最终确认搬运对象并落库，前端为该步骤保留 120 秒超时。`,
+        embeds: [{ id: "pdf-resolve" }],
       },
       {
         id: "relink",
         title: "重新关联与合并",
         markdown: `已有记录可按当前标题或覆盖标题重新检索，再明确选择新候选。若目标论文已在文库，重关联会把 PDF 和 AI 状态合并到现有行并删除当前重复行；否则原地替换上游关联。也可取消关联回到 local 自由文件，先固化当前显示元数据，再清除上游快照。`,
+        embeds: [{ id: "library-relink-workbench" }],
       },
     ],
   },
@@ -719,6 +765,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "formats",
         title: "五种格式",
         markdown: `统一格式集合是 GB/T 7714、BibTeX、MLA、APA 和 Chicago。BibTeX 使用等宽代码块，其他格式按引文段落渲染；论文详情内联引用区和全局弹窗共用同一生成器，因此格式算法不会各维护一份。`,
+        embeds: [{ id: "citation-dialog" }],
       },
       {
         id: "interaction",
@@ -764,6 +811,10 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "management",
         title: "管理动作",
         markdown: `侧栏支持新建、重命名和删除。标题不能为空；删除会先确认，删除当前会话后尝试切换到剩余会话，没有剩余项时回到新对话状态。每个会话的模型选择由服务端保存，刷新或换设备后以后端 session 的 pinned model 为准。`,
+        embeds: [
+          { id: "claw-session-history" },
+          { id: "mobile-claw-session-drawer" },
+        ],
       },
       {
         id: "history-window",
@@ -810,6 +861,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "references-skills",
         title: "文库引用与 Skill",
         markdown: `文库选择器把用户有权访问的论文作为结构化引用加入当前消息，不等于上传原始 PDF；是否有全文仍取决于文库记录。已安装 Skill 提供任务指南，用户可在会话中选择，但会话最多启用数量及账户安装上限以后端为准，工具权限不会因 Skill 文本自动扩大。`,
+        embeds: [{ id: "claw-context-composer" }],
       },
     ],
   },
@@ -852,6 +904,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "abnormal",
         title: "停滞、断线与接管",
         markdown: `忙碌状态连续 180 秒没有内容帧会显示软性停滞提示，用户可继续等待或停止，本提示不会自动杀死长任务。WebSocket 最多按指数退避重连 8 次，间隔封顶 60 秒；另一标签页接管同一会话时显示 displaced 横幅，避免两个窗口同时把自己当作主连接。`,
+        embeds: [{ id: "claw-run-states" }],
       },
     ],
   },
@@ -870,6 +923,7 @@ export const userExperienceArticles: WikiArticle[] = [
       "frontend-user/src/features/help/pages/QADetailPage.tsx",
       "frontend-user/src/features/help/api/content.ts",
       "frontend-user/src/features/help/components/ArticleRenderer.tsx",
+      "frontend-user/src/features/wiki/embeds/WikiEmbedRhinoAssistant.tsx",
     ],
     related: [
       "feedback-and-support",
@@ -881,11 +935,13 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "hub",
         title: "问答首页",
         markdown: `/help 是现行学术问答首页，旧 /qa 列表入口会转到这里。页面从内容 API 读取 qa 文章，按后台给出的 category 分组，并在分类多于一个时生成页内主题锚点；加载中显示明确状态，页面底部保留关于、反馈、联系和政策入口。`,
+        embeds: [{ id: "help-center" }, { id: "rhino-assistant-help-panel" }],
       },
       {
         id: "detail",
         title: "问答详情",
         markdown: `/qa/:slug 保留稳定详情 URL。详情展示分类、作者、阅读时长、正文目录和与分类相关的产品 CTA，并最多选出 3 篇相关问答。找不到文章或请求失败时返回 /help，不展示一个内容为空的伪详情页。`,
+        embeds: [{ id: "help-content-detail" }],
       },
       {
         id: "source",
@@ -917,11 +973,13 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "two-tabs",
         title: "两个列表入口",
         markdown: `/resources 默认打开学术资源，按内容分类组成多个 section；/blog 打开产品博客，支持分类 chip、最新文章 Hero 和两列卡片。切换 Tab 会真正改变 URL，而不是只切本地状态，因此两套入口都可被收藏和建立独立 canonical。`,
+        embeds: [{ id: "resource-center" }],
       },
       {
         id: "details",
         title: "详情与继续阅读",
         markdown: `资源详情使用 /resources/:slug，博客详情使用 /blog/:slug。正文支持目录、作者/日期/阅读时长、相关文章和回到产品的 CTA；无内容分类会给空态。文章是内容 API 的发布结果，页面展示的日期与作者应以该条记录为准。`,
+        embeds: [{ id: "help-content-detail" }],
       },
       {
         id: "boundary",
@@ -958,6 +1016,7 @@ export const userExperienceArticles: WikiArticle[] = [
         id: "channels",
         title: "链接、口令、二维码与系统分享",
         markdown: `面板支持复制链接、保存图片和二维码。文件夹还可复制“链接 + 提取码”的纯文本口令；二维码会直接包含 code 参数，扫码者无需再手输。支持 Web Share API 的移动浏览器打开系统分享面板，否则复制链接并提示粘贴到微信。`,
+        embeds: [{ id: "share-sheet" }],
       },
       {
         id: "image",
@@ -979,6 +1038,7 @@ export const userExperienceArticles: WikiArticle[] = [
     sourcePaths: [
       "frontend-user/src/features/mobile/pages/FeedPage.tsx",
       "frontend-user/src/features/mobile/pages/JournalFeedPage.tsx",
+      "frontend-user/src/features/mobile/components/JournalFeedCard.tsx",
       "frontend-user/src/features/mobile/pages/NewsPage.tsx",
       "frontend-user/src/features/mobile/components/VerticalSwipeFeed.tsx",
       "frontend-user/src/features/mobile/api/feed.ts",
@@ -994,17 +1054,23 @@ export const userExperienceArticles: WikiArticle[] = [
       {
         id: "navigation",
         title: "三条信息流",
-        markdown: `/m/feed 是论文，/m/feed/journals 是期刊，/m/feed/news 是情报。三者共用纵向一屏一卡与提前加载机制；横向手势按论文 → 期刊 → 情报切换，不干扰纵向滑动。加载、加载更多、错误、空内容、下拉刷新和下一张预览都有统一状态。`,
+        markdown: `/m/feed 是论文，/m/feed/journals 是期刊，/m/feed/news 是情报。三者共用纵向一屏一卡与提前加载机制；横向手势按论文 → 期刊 → 情报切换，不干扰纵向滑动。加载、加载更多、错误、空内容和下拉刷新使用同一套 Feed 状态；只有期刊 Feed 额外显示可点的“下一刊”预览条，论文与情报没有统一的下一张预览。`,
       },
       {
         id: "papers-journals",
         title: "论文与期刊的种子",
-        markdown: `论文每批 10 篇，按 seed 轮换 STC、OpenAlex、PubMed、主题和 offset，偏向近年内容；期刊每批 10 本，按影响因子数值降序，并用 seed 抖动起始页。两条流最多各翻 60 页，连续 4 个空页会停止；前 3 页和当前位置写入本机，同一 seed 返回时接着浏览。下拉刷新会换 seed。`,
+        markdown: `论文每批 10 篇，按 seed 在 Graph、Discovery、Medicine、主题和 offset 之间轮换，偏向近年内容；期刊每批 10 本，按影响因子数值降序，并用 seed 抖动起始页。两条流最多各翻 60 页，连续 4 个空页会停止；前 3 页和当前位置写入本机，同一 seed 返回时接着浏览。下拉刷新会换 seed。`,
+        embeds: [
+          { id: "mobile-feed" },
+          { id: "mobile-journal-feed" },
+          { id: "mobile-feed-states" },
+        ],
       },
       {
         id: "news-actions",
         title: "情报与卡片动作",
-        markdown: `情报每批 8 条，可切“实时”和“热榜”，使用确定性顺序；下拉刷新刷新同一查询，不保存随机 seed 或阅读位置。论文卡支持打开详情、引用以及登录后的收藏/取消收藏；期刊卡打开标准期刊详情。局部收藏状态会即时更新，最终仍以后端文库写入为准。`,
+        markdown: `情报每批 8 条，可切“实时”和“热榜”，使用确定性顺序；下拉刷新刷新同一查询，不保存随机 seed 或阅读位置。论文 Feed 卡当前提供作者标识、引用、分享以及登录后的收藏/取消收藏，卡片本身没有打开论文详情的动作；期刊 Feed 卡当前提供收藏占位和分享，也没有打开标准期刊详情的动作。论文收藏的局部状态会即时更新，最终仍以后端文库写入为准。`,
+        embeds: [{ id: "mobile-academic-intel" }],
       },
     ],
   },

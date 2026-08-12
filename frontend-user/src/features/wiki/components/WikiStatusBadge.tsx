@@ -6,8 +6,8 @@ const STATUS_CLASS: Record<WikiArticleStatus, string> = {
   current: "border-brand-green/20 bg-brand-green-soft text-brand-green",
   experimental: "border-brand-amber/20 bg-brand-amber-soft text-brand-amber",
   compatibility: "border-status-info/20 bg-status-info-soft text-status-info",
-  historical: "border-border bg-surface-1 text-muted-foreground",
-  planned: "border-border bg-surface-1 text-faint",
+  historical: "border-border bg-surface-card text-muted-foreground",
+  planned: "border-border bg-surface-card text-faint",
 };
 
 export function WikiStatusBadge({ status }: { status: WikiArticleStatus }) {

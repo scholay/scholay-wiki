@@ -14,6 +14,7 @@ import {
   DEFAULT_RETRY,
   DEFAULT_STALE_TIME,
 } from '@/shared/lib/query-config';
+import { WikiDevPanel } from '@/features/wiki/components/WikiDevPanel';
 
 /**
  * React 19 原生支持把 <title>/<meta>/<link> 渲染到 <head>,
@@ -100,6 +101,8 @@ export function Providers({ children }: { children: ReactNode }) {
         <ErrorBoundary fallback={() => null}>
           <CollectFolderPickerGate />
         </ErrorBoundary>
+        {/* Wiki 写作分支 DEV 面板：受众预览 + 快速跳转；仅 DEV，mod+shift+M 隐藏 */}
+        {import.meta.env.DEV && <WikiDevPanel />}
       </TooltipProvider>
     </QueryClientProvider>
   );

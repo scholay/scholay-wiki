@@ -7,8 +7,8 @@ import type {
 export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
   {
     slug: "getting-started",
-    title: "认识 Scholay",
-    shortTitle: "开始",
+    title: "Scholay",
+    shortTitle: "Scholay",
     description: "平台定位、账户、入口与构成 Scholay 的基础概念。",
   },
   {
@@ -46,12 +46,14 @@ export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
     title: "管理后台",
     shortTitle: "后台",
     description: "运营、配置、内容、用户、用量、订单与系统管理。",
+    adminOnly: true,
   },
   {
     slug: "platform",
     title: "平台与架构",
     shortTitle: "平台",
     description: "服务、Agent、数据、存储、消息、SEO、部署与可观测性。",
+    adminOnly: true,
   },
   {
     slug: "policies",

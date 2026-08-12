@@ -23,6 +23,7 @@ export const administrationArticles: WikiArticle[] = [
         id: "roles",
         title: "入口与角色",
         markdown: `访问 /admin 必须持有登录令牌，且角色为 operations、admin 或 super_admin。operations 拥有 analytics.view、content.manage、users.view；admin 追加 users.manage、config.manage、finance.refund；super_admin 再追加 users.role.assign。普通 user 不能进入后台外壳。`,
+        embeds: [{ id: "admin-access-control" }],
       },
       {
         id: "enforcement",
@@ -52,11 +53,24 @@ export const administrationArticles: WikiArticle[] = [
         id: "metrics",
         title: "核心指标",
         markdown: `总览展示总用户与新增用户、总收入减退款后的净收入、已支付与待支付订单、付费与免费用户、AI 成本、兑换码核销以及 30 天趋势。后台将聚合结果缓存 30 秒，页面同时展示数据更新时间，因此它适合运营巡视，不是逐笔实时账本。`,
+        embeds: [
+          { id: "admin-dashboard" },
+          {
+            id: "admin-dashboard-trend-cards",
+            caption: "关键指标与上一周期的趋势对比",
+          },
+        ],
       },
       {
         id: "checks",
         title: "今日检查与降级",
         markdown: `检查项覆盖待处理反馈、草稿消息、第三方账号健康、维护模式、支付宝和微信支付。只有两个支付渠道都不可用时才形成支付告警；请求失败会标为降级，而 operations 因无 config.manage 读取配置得到的 403 不会被误报为系统故障。`,
+        embeds: [
+          {
+            id: "admin-dashboard-today-panel",
+            caption: "正常、降级与阻断事项并列的今日待办",
+          },
+        ],
       },
     ],
   },
@@ -82,11 +96,32 @@ export const administrationArticles: WikiArticle[] = [
         id: "search",
         title: "查询范围",
         markdown: `列表可按用户 ID、用户名、邮箱或手机号搜索，并按角色、会员档位、状态、邮箱验证状态和注册日期过滤、排序。前端每页固定 20 条；批量动作只作用于当前已经选中的可见记录，不代表全量搜索结果。`,
+        embeds: [
+          { id: "admin-user-directory" },
+          {
+            id: "admin-user-metrics",
+            caption: "注册、活跃、来源与活跃时段分析",
+          },
+        ],
       },
       {
         id: "detail",
         title: "聚合详情",
         markdown: `详情抽屉分别读取身份与 OAuth 连接、登录和 IP 信息、订单、钱包、兑换记录、VIP、额度与 reset pass，以及功能使用和 LLM 消耗。各面板独立处理加载失败，所以单个统计接口异常不应被解释为账号不存在。`,
+        embeds: [
+          {
+            id: "admin-user-detail-drawer",
+            caption: "用户身份、状态与资产的聚合抽屉",
+          },
+          {
+            id: "admin-user-token-usage",
+            caption: "单用户功能事件与 AI 算力概况",
+          },
+          {
+            id: "admin-user-billing-history",
+            caption: "订单、经费流水与兑换记录",
+          },
+        ],
       },
     ],
   },
@@ -112,6 +147,7 @@ export const administrationArticles: WikiArticle[] = [
         id: "freeze",
         title: "冻结与解冻",
         markdown: `users.manage 可冻结普通账号，原因要求 1–255 个字符；admin 和 super_admin 不能由该操作冻结。冻结会把账号状态改为 frozen 并撤销其全部访问令牌；解冻只恢复账号状态，已经撤销的旧令牌不会复活，用户需要重新登录。`,
+        embeds: [{ id: "admin-user-lifecycle" }],
       },
       {
         id: "delete",
@@ -147,6 +183,13 @@ export const administrationArticles: WikiArticle[] = [
         id: "membership",
         title: "会员发放与撤销",
         markdown: `users.manage 可按天、月或年发放 Pro 或 Max，单次上限分别为 3650 天、120 月和 10 年；超过一年时前端增加二次确认。撤销会员只把档位恢复为 Free，不会顺带清空 Credit 或 Reset Pass。`,
+        embeds: [
+          { id: "admin-entitlement-grants" },
+          {
+            id: "admin-user-grant-panel",
+            caption: "会员、科研经费与重置次数的独立发放面板",
+          },
+        ],
       },
       {
         id: "credit",
@@ -182,6 +225,13 @@ export const administrationArticles: WikiArticle[] = [
         id: "model",
         title: "公告模型",
         markdown: `类型为 banner、popup 或 maintenance_note；级别为 info、warning、danger 或 success；受众可选 all、logged_in 或 paid。记录还包含起止时间、是否可关闭、启用状态和优先级，前端据此派生草稿、待生效、直播中或已过期等展示状态。`,
+        embeds: [
+          { id: "admin-announcements" },
+          {
+            id: "admin-announcement-editor",
+            caption: "公告形式、受众、排期与发布状态编辑器",
+          },
+        ],
       },
       {
         id: "delivery-gap",
@@ -212,11 +262,18 @@ export const administrationArticles: WikiArticle[] = [
         id: "signals",
         title: "热度信号",
         markdown: `论文与期刊搜索热度使用 search_count；论文内容另统计 impression_count、click_count 和 seo_view_count。历史 view_count 字段仍可能存在，但当前写入链路已经不再更新它，分析时不能把它当作实时浏览量。`,
+        embeds: [{ id: "admin-hot-content" }],
       },
       {
         id: "retention",
         title: "保留与清理",
         markdown: `列表查询时间窗最多 180 天。保留天数可配置为 1–3650 天，最大记录量可配置为 100 到 1000 万；系统每天 04:30 自动清理，也可由 config.manage 手动触发。analytics.view 仅能读取，不具备修改策略或清理权限。`,
+        embeds: [
+          {
+            id: "admin-hot-cleanup-config",
+            caption: "热门记录的保留数量与自动清理策略",
+          },
+        ],
       },
     ],
   },
@@ -242,6 +299,7 @@ export const administrationArticles: WikiArticle[] = [
         id: "states",
         title: "同步状态机",
         markdown: `任务状态为 running、paused、done、failed 或 cancelled；同一时间只允许一个 running 或 paused 的活跃任务。后台支持开始、暂停、继续和取消，页面在活跃时每 5 秒轮询、空闲时每 30 秒轮询。取消会停止后续抓取，但已经暂存的数据仍会保留。`,
+        embeds: [{ id: "admin-journal-sync" }],
       },
       {
         id: "publication",
@@ -274,16 +332,47 @@ export const administrationArticles: WikiArticle[] = [
         id: "catalog",
         title: "工具内容生命周期",
         markdown: `工具状态为 draft、pending、published 或 archived。published 控制用户可见性，seo_indexable 则是独立的 SEO 审核结果；公开可见不自动代表允许被搜索引擎收录。`,
+        embeds: [
+          { id: "admin-tool-operations" },
+          {
+            id: "admin-tool-editor",
+            caption: "工具内容、访问方式与 SEO 信息编辑器",
+          },
+        ],
       },
       {
         id: "imports",
         title: "批量导入与任务",
         markdown: `可导入顶层数组，或带 items/tools 字段的 JSON 与 ZIP；ZIP 最多处理 5000 项。系统优先用 source_topic_id、其次用 slug 做幂等识别。后台任务依次进入 pending、running，再结束为 succeeded、partial 或 failed，并保留逐项结果。`,
+        embeds: [
+          {
+            id: "admin-tool-import",
+            caption: "JSON 工具数据校验与异步导入入口",
+          },
+          {
+            id: "admin-tool-import-job-detail",
+            caption: "导入任务进度、结果统计与逐条错误",
+          },
+        ],
       },
       {
         id: "webhooks",
         title: "Webhook 投递边界",
         markdown: `工具 created、updated、deleted 事件可发送到配置地址，签名密钥可选；安全 HTTP 客户端限制 SSRF，后台可测试并查看响应与错误。当前实现把 Attempt 固定为 1 并单次派发，没有自动重试循环；失败后应查看投递记录并人工重测。`,
+        embeds: [
+          {
+            id: "admin-tool-webhook-list",
+            caption: "Webhook 订阅、状态与最近投递列表",
+          },
+          {
+            id: "admin-tool-webhook-editor",
+            caption: "地址、签名密钥与订阅事件编辑器",
+          },
+          {
+            id: "admin-tool-webhook-deliveries",
+            caption: "成功响应、失败原因与重试记录",
+          },
+        ],
       },
     ],
   },
@@ -309,6 +398,17 @@ export const administrationArticles: WikiArticle[] = [
         id: "moderation",
         title: "审核状态",
         markdown: `审核状态为 pending、approved、rejected 或 flagged。只有同时满足公开、approved 和 active 的 Skill 才能被其他用户查看与安装；作者修改已公开版本的内容后会重新进入 pending。举报只提供人工判断依据，当前服务明确不会因举报数自动改变审核状态或自动下架。`,
+        embeds: [
+          { id: "admin-skill-moderation" },
+          {
+            id: "admin-skill-report-queue",
+            caption: "独立于上架审核的技能举报队列",
+          },
+          {
+            id: "admin-skill-review-error",
+            caption: "与真实空队列区分的加载失败状态",
+          },
+        ],
       },
       {
         id: "takedown",
@@ -339,6 +439,13 @@ export const administrationArticles: WikiArticle[] = [
         id: "workflow",
         title: "处理状态与详情",
         markdown: `反馈状态为 pending、processed、replied 或 closed。后台支持搜索、查看提交 IP 和附件并更新状态；回复会发送邮件，若反馈来自登录用户，还会同时创建站内通知，并将记录推进为 replied。`,
+        embeds: [
+          { id: "admin-feedback" },
+          {
+            id: "admin-feedback-detail-dialog",
+            caption: "反馈内容、附件、状态与回复详情",
+          },
+        ],
       },
       {
         id: "assignment-gap",
@@ -369,6 +476,17 @@ export const administrationArticles: WikiArticle[] = [
         id: "send",
         title: "草稿与发送",
         markdown: `消息类别为 system、promotion 或 transaction，发送范围为 all、batch、single 或 by_plan。只有 draft 可以发送，且 single/batch 不能缺少收件人；发送是同步且不可逆的状态推进。全体发送前端要求输入 SEND 确认，当前后台没有注册消息更新或删除路由。`,
+        embeds: [
+          { id: "admin-messaging" },
+          {
+            id: "admin-message-editor",
+            caption: "消息目标、正文与链接的草稿编辑器",
+          },
+          {
+            id: "admin-message-send-confirm",
+            caption: "不可撤回发送前的目标复核与输入确认",
+          },
+        ],
       },
       {
         id: "legacy-plan",
@@ -404,16 +522,35 @@ export const administrationArticles: WikiArticle[] = [
         id: "mailbox",
         title: "邮件中心",
         markdown: `邮件中心通过 IMAP 拉取和轮询客服邮箱，通过 SMTP 回复或新建邮件；富文本邮件在沙箱预览中展示，避免后台页面直接执行来信 HTML。它操作的是配置的支持邮箱，不是所有系统通知的统一重试队列。`,
+        embeds: [
+          { id: "admin-mail-support" },
+          {
+            id: "admin-mailbox-workspace",
+            caption: "筛选、阅读与回复一体的客服邮箱工作台",
+          },
+          {
+            id: "admin-mail-compose-dialog",
+            caption: "管理员主动发送客服邮件的编辑弹窗",
+          },
+        ],
       },
       {
         id: "support-config",
         title: "客服公开配置",
         markdown: `客服配置包含公开邮箱、说明、二维码、IMAP/SMTP，以及飞书 Webhook、签名和事件开关。二维码只接受 data URL 且最大 300 KiB；连接测试读取已保存配置，页面存在未保存改动时会禁用测试，避免把旧凭据的成功误认为新凭据有效。`,
+        embeds: [
+          { id: "admin-support-config" },
+          {
+            id: "admin-support-channel-config",
+            caption: "公开联系方式、IMAP、SMTP 与飞书通知配置",
+          },
+        ],
       },
       {
         id: "delivery-logs",
         title: "邮件与短信日志",
         markdown: `日志页按邮件和短信分栏，提供总数、成功、失败、分类、状态、搜索与原始错误。底层 email_logs 通过 channel 区分渠道；日志用于观察历史投递结果，不代表已经提供一键重发、死信队列或自动补偿。`,
+        embeds: [{ id: "admin-delivery-logs" }],
       },
     ],
   },
@@ -439,11 +576,32 @@ export const administrationArticles: WikiArticle[] = [
         id: "coverage",
         title: "覆盖范围与刷新",
         markdown: `页面覆盖 smart、claw、slides、draw、stat、prism 和 peer review。通用会话列表每页 20 条并每 30 秒刷新，可按搜索词、模型、轮次、重置状态和时间筛选；详情显示消息、工具调用、附件与产物，Peer Review 另提供偏调试用途的原始记录。`,
+        embeds: [
+          { id: "admin-session-monitoring" },
+          {
+            id: "admin-peer-review-monitor",
+            caption: "投稿检索、评审模式与执行状态总览",
+          },
+        ],
       },
       {
         id: "read-only",
         title: "只读与隐私边界",
         markdown: `该能力要求 analytics.view，只提供读取和排障，不提供修改会话或代替用户继续对话。记录可能包含未发表研究、上传附件和模型输出，应按敏感业务数据处理；有后台访问权不等于可以无目的浏览。`,
+        embeds: [
+          {
+            id: "admin-chat-session-detail",
+            caption: "包含消息与工具调用的只读会话抽屉",
+          },
+          {
+            id: "admin-peer-review-detail",
+            caption: "投稿信息、评审进度与原始记录详情",
+          },
+          {
+            id: "admin-file-preview",
+            caption: "会话附件的受控预览界面",
+          },
+        ],
       },
     ],
   },
@@ -469,6 +627,18 @@ export const administrationArticles: WikiArticle[] = [
         id: "umami",
         title: "站点指标",
         markdown: `Umami 以 website ID 为配置入口，提供访客、会话、页面浏览、跳出率、平均时长、实时活跃，以及按时间和维度拆分的数据。未配置时接口返回 configured: false，不能把这种状态解释为访问量为零或服务异常。`,
+        embeds: [
+          { id: "admin-site-analytics" },
+          {
+            id: "admin-site-analytics-trend",
+            caption: "站点 KPI 与 PV、Session 日趋势",
+          },
+          {
+            id: "admin-site-analytics-dimensions",
+            caption: "页面、来源、国家、浏览器、系统与设备排行",
+          },
+          { id: "admin-analytics-setup", caption: "未配置 Umami 时的空态" },
+        ],
       },
       {
         id: "crawlers",
@@ -499,6 +669,13 @@ export const administrationArticles: WikiArticle[] = [
         id: "events",
         title: "事件口径",
         markdown: `当前统计真源是 usage_events v2，可查看总量、今日量、登录与匿名用户、每日趋势及功能拆分。旧 usage_logs 表不再被当前读取链路使用，历史查询或临时报表不应把两个口径混合相加。`,
+        embeds: [
+          { id: "admin-feature-usage" },
+          {
+            id: "admin-feature-usage-trend",
+            caption: "登录用户、匿名访客与每日功能事件趋势",
+          },
+        ],
       },
       {
         id: "funnel",
@@ -509,13 +686,13 @@ export const administrationArticles: WikiArticle[] = [
   },
   {
     slug: "admin-token-cost",
-    title: "Token、积分与模型成本",
-    summary: "按功能、模型、提供商和用户核算 LLM token、积分与实际成本。",
+    title: "算力用量统计",
+    summary: "按功能、模型、提供商和用户核算 LLM 算力点、Token 与实际成本。",
     category: "administration",
     kind: "page",
     status: "current",
     audience: ["管理员", "财务运营", "AI 平台人员"],
-    aliases: ["Token Usage", "LLM 成本", "积分成本"],
+    aliases: ["Token Usage", "LLM 成本", "算力点成本"],
     sourcePaths: [
       "frontend-user/src/features/admin/pages/TokenUsageStatsPage.tsx",
       "frontend-user/src/features/admin/api/token-usage.ts",
@@ -532,12 +709,27 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "dimensions",
         title: "统计维度",
-        markdown: `llm_token_usage 支持按日期、功能、来源、模型、提供商、用户或匿名身份筛选，汇总积分、成本、输入输出 token、缓存读写、调用数、用户数和未定价调用。导出沿用当前筛选条件，最多 100000 条，并带 UTF-8 BOM 方便表格软件识别中文。`,
+        markdown: `llm_token_usage 支持按日期、功能、来源、模型、Provider、用户或匿名身份筛选，主口径为算力点，并同时汇总输入输出 Token、缓存读写、调用数、独立用户和未计价调用。页面的维度顺序为模型、功能、来源、Provider、Top 用户，横条长度表达算力点占比；导出沿用当前筛选条件，最多 100000 条，并带 UTF-8 BOM 方便表格软件识别中文。`,
+        embeds: [
+          { id: "admin-token-cost" },
+          {
+            id: "admin-token-usage-filters-chart",
+            caption: "算力筛选条件、核心指标与每日趋势",
+          },
+          {
+            id: "admin-token-usage-dimensions",
+            caption: "功能、模型、Provider 与用户维度拆分",
+          },
+          {
+            id: "admin-token-usage-logs",
+            caption: "单次调用的 Token、算力点与结果日志",
+          },
+        ],
       },
       {
         id: "pricing",
         title: "成本口径",
-        markdown: `系统中 1 积分 = 1000 微元 = ¥0.001。实际成本分别使用模型目录中的输入、输出、缓存读取和缓存写入价格计算；未定价调用会因缺少目录价格而把成本记为零，它表示成本未知，不表示模型免费或没有 token 消耗。`,
+        markdown: `系统中 1 算力点 = 1000 微元 = ¥0.001，与用户额度扣减同源同单位。实际成本分别使用模型目录中的输入、输出、缓存读取和缓存写入价格计算；未计价调用不会折算为算力点，并从总算力点中排除。它表示成本未知，不表示模型免费或没有 Token 消耗。`,
       },
     ],
   },
@@ -563,6 +755,7 @@ export const administrationArticles: WikiArticle[] = [
         id: "metrics",
         title: "关系与指标",
         markdown: `analytics.view 可读取邀请列表和 KPI，包括打开、注册、奖励和转化。关系详情展示来源、绑定方式、双方注册奖励、首个已支付订单返利，以及退款后的返利冲销和余额不足缺口；该页是分析视图，不负责修改活动配置。`,
+        embeds: [{ id: "admin-invite-analytics" }],
       },
       {
         id: "snapshots",
@@ -593,7 +786,8 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "invite-campaign",
         title: "邀请奖励规则",
-        markdown: `邀请活动要求 config.manage。单项奖励上限 10 亿积分；每日上限最高 100 万，0 表示不限；有效期为 1–3650 天；返利使用 0–10000 基点；跳转 URL 必须为 HTTP(S) 且不超过 500 字符。启用活动时至少一个奖励必须非零，新关系会快照当时规则。`,
+        markdown: `邀请活动 Tab 和配置接口都要求 config.manage。真实字段包括活动总开关、邀请人注册礼、被邀请人注册礼、每位邀请人的每日奖励人数上限、允许绑定时窗、首单返利比例、首单有效时窗和邀请码帮助链接。两种注册礼的单项上限为 10 亿经费；每日上限最高 100 万人，0 表示不限；绑定时窗与首单时窗分别为 1–3650 天，不能合并成一个“有效期”；返利使用 0–10000 基点；帮助链接必须为完整 HTTP(S) 地址且不超过 500 字符。启用活动时至少一种注册礼或首单返利非零，新关系会快照当时规则。`,
+        embeds: [{ id: "admin-campaigns-promo" }],
       },
       {
         id: "permissions",
@@ -603,19 +797,25 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "promo",
         title: "推广展示边界",
-        markdown: `Promo 配置控制启用、导航入口、首次访问或额度耗尽触发、标题副标题、权益文案、按钮、目标地址和二维码。后端只提供展示配置，没有 Promo 专属领取、发权益或领取审计接口；二维码仅接受 PNG、JPEG 或 WebP，解码后不超过 300 KiB。`,
+        markdown: `Promo 配置只保存启用状态、微信客服二维码、标题、副标题、福利点和按钮文案；用户端依据总开关决定是否显示“限时活动”入口，并在首屏或额度耗尽时弹窗。配置中没有目标地址字段，后端也没有 Promo 专属领取、发权益或领取审计接口；二维码仅接受 PNG、JPEG 或 WebP，解码后不超过 300 KiB。`,
+        embeds: [
+          {
+            id: "admin-promo-config-preview",
+            caption: "推广开关、文案与用户端弹窗预览",
+          },
+        ],
       },
     ],
   },
   {
     slug: "admin-billing-configuration",
     title: "AI 计费配置",
-    summary: "控制免费窗口、会员倍率、套餐价格和 Credit 换算的全局计费规则。",
+    summary: "控制免费窗口、会员倍率、套餐价格和经费换算的全局计费规则。",
     category: "administration",
     kind: "rule",
     status: "current",
     audience: ["管理员", "财务运营", "AI 平台人员"],
-    aliases: ["Billing Config", "计费倍率", "Credit 换算"],
+    aliases: ["Billing Config", "计费倍率", "经费换算"],
     sourcePaths: [
       "frontend-user/src/features/admin/pages/BillingConfigPage.tsx",
       "frontend-user/src/features/admin/api/billing-config.ts",
@@ -628,12 +828,13 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "switches",
         title: "计费开关与倍率",
-        markdown: `enabled 为 false 时，AI 调用不计费也不受该计费限制。配置包含免费窗口及天数、Pro 和 Max 倍率、月年价格、充值比例、Credit 到积分换算和最低充值；倍率小于等于零表示不限量，年度价格为零时隐藏年付选项。`,
+        markdown: `enabled 为 false 时，AI 调用不计费也不受该计费限制。配置包含免费窗口及天数、Pro 和 Max 倍率、月年价格、充值汇率、经费到算力点换算和最低充值；倍率小于等于零表示不限量，年度价格为零时隐藏年付选项。经费→重置次数换算率仍在表单中只读展示，只供历史迁移换算，不参与当前运行时判定。`,
+        embeds: [{ id: "admin-billing-configuration" }],
       },
       {
         id: "validation",
         title: "服务端约束",
-        markdown: `启用后免费窗口必须大于零，Credit 到积分换算必须为正；后端还要求按量付费严格贵于所有已配置套餐，防止价格倒挂。聚合配置缓存 30 秒，保存会主动失效缓存；前端以差异摘要和确认框降低误改风险。`,
+        markdown: `启用后免费窗口必须大于零，经费到算力点换算必须为正；后端还要求按量付费严格贵于所有已配置套餐，防止价格倒挂。聚合配置缓存 30 秒，保存会主动失效缓存；前端以差异摘要和确认框降低误改风险。`,
       },
     ],
   },
@@ -660,11 +861,28 @@ export const administrationArticles: WikiArticle[] = [
         id: "providers",
         title: "Provider",
         markdown: `系统预置 DeepSeek，并支持 Qwen、Kimi、智谱、豆包、MiniMax 和自定义 OpenAI 兼容上游。Provider 变更会向执行器推送并显示 pending、success 或 failed；仍有关联模型时不能删除，后台也会提示孤儿模型。`,
+        embeds: [
+          { id: "admin-model-catalog" },
+          {
+            id: "admin-provider-sections",
+            caption: "单个 Provider 的推送、计价与所属模型状态",
+          },
+          {
+            id: "admin-provider-editor",
+            caption: "模型端点、API 格式与推送配置编辑器",
+          },
+        ],
       },
       {
         id: "models",
         title: "模型目录与定价",
         markdown: `每个模型归属于一个 Provider，记录上下文长度、最大输出、输入/输出/缓存读/缓存写四类价格、允许档位、启用、用户可选和调用限制。后端禁止把四项价格全为零的模型同时设为 enabled 且 user_selectable，避免可选模型绕过成本核算。`,
+        embeds: [
+          {
+            id: "admin-model-editor",
+            caption: "模型参数、四类单价与可见范围编辑器",
+          },
+        ],
       },
     ],
   },
@@ -690,11 +908,18 @@ export const administrationArticles: WikiArticle[] = [
         id: "routing",
         title: "账号选择与健康",
         markdown: `账号类型包括 AI model 和 Minicod。可设置状态与优先级、测试、重置或删除，并观察成功数、失败数和延迟；选择时优先级数值越小越先使用，同优先级再参考使用次数。它与模型 Provider、用途绑定是不同配置层。`,
+        embeds: [{ id: "admin-third-party-accounts" }],
       },
       {
         id: "secrets",
         title: "敏感信息显示",
         markdown: `列表默认掩码，显式 show_sensitive 才请求明文，关闭对话框后应立即恢复隐藏。一次揭示响应可能包含该账号的完整相关密钥，屏幕共享、截图和浏览器日志均有泄露风险。历史 AI model 账号配置仍存在，但新功能也可能走模型目录与 Agent 执行器，排障时要先确认实际调用链。`,
+        embeds: [
+          {
+            id: "admin-third-party-editor",
+            caption: "按账号类型切换字段的敏感凭据编辑器",
+          },
+        ],
       },
     ],
   },
@@ -720,6 +945,7 @@ export const administrationArticles: WikiArticle[] = [
         id: "purposes",
         title: "封闭用途集合",
         markdown: `当前支持 system.main、system.fast，以及 project.smart、project.claw、project.prism、project.peerreview.meta、project.peerreview.methodology、project.translate、project.analysis、project.wechat_oa，共 10 个规范用途。绑定行的 key 不可改，只能更新目标模型。`,
+        embeds: [{ id: "admin-model-bindings" }],
       },
       {
         id: "aliases",
@@ -750,6 +976,13 @@ export const administrationArticles: WikiArticle[] = [
         id: "records",
         title: "系统维度",
         markdown: `维度来自动态 API，不能把页面注释中的固定数量当成产品契约。系统维度使用 user_id = -1；管理员可修改不超过 100 字符的名称、描述、排序与启用状态，但 key 锁定，用户自定义覆盖仍是另一层数据。`,
+        embeds: [
+          { id: "admin-analysis-dimensions" },
+          {
+            id: "admin-dimension-editor",
+            caption: "维度名称、AI 指示、排序与启用状态编辑器",
+          },
+        ],
       },
       {
         id: "prompt-impact",
@@ -780,6 +1013,7 @@ export const administrationArticles: WikiArticle[] = [
         id: "connection",
         title: "接入与加密",
         markdown: `配置包含 AppID、AppSecret、Token、EncodingAESKey，以及 plaintext、compatible、secure 三种加密模式。密钥默认掩码并支持保留原值；修改接入信息需要与微信公众平台回调配置同步，不能只在后台单边更新。`,
+        embeds: [{ id: "admin-wechat-official" }],
       },
       {
         id: "reply",
@@ -810,6 +1044,7 @@ export const administrationArticles: WikiArticle[] = [
         id: "ingestion",
         title: "验签、去重与写入",
         markdown: `公开接收器用共享密钥对原始请求体做 HMAC 校验，失败时拒绝。支持 created、updated、heat 事件；Redis 提供 24 小时投递锁，数据库保存 delivery 并执行 upsert，处理失败会释放锁。未知事件会被记录并返回 200，但不执行内容更新。`,
+        embeds: [{ id: "admin-news-webhook" }],
       },
       {
         id: "display-switch",
@@ -827,7 +1062,7 @@ export const administrationArticles: WikiArticle[] = [
     slug: "admin-system-code-snippets",
     title: "系统配置与代码片段",
     summary:
-      "管理站点级认证、维护、统计标签，以及可注入页面的 HTML/JavaScript。",
+      "管理站点级认证、通知通道、统计标签，以及可注入页面的 HTML/JavaScript。",
     category: "administration",
     kind: "rule",
     status: "current",
@@ -850,12 +1085,26 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "system",
         title: "站点级配置",
-        markdown: `系统页维护邮箱验证、维护模式、Turnstile、Google Analytics/GTM，以及邮件和短信配置与测试。修改要求 config.manage，多数保存是整行 PUT；ConfigPageGuard 能处理加载失败、未保存改动和离页提示，但它不是数据库级全局审计日志。`,
+        markdown: `系统页维护邮箱验证、Turnstile、Google Analytics/GTM，以及邮件和短信配置与测试。维护状态会出现在后台全局提醒中，但当前系统设置页没有维护模式编辑控件。修改要求 config.manage，多数保存是整行 PUT；ConfigPageGuard 能处理加载失败、未保存改动和离页提示，但它不是数据库级全局审计日志。`,
+        embeds: [
+          { id: "admin-system-config" },
+          {
+            id: "admin-system-channel-forms",
+            caption: "基础安全、邮件 SMTP 与短信网关配置面板",
+          },
+        ],
       },
       {
         id: "snippets",
         title: "代码片段",
         markdown: `片段类别为 SEO、analytics、ad、social 或 other，可放在 head、body-start、body-end，设置优先级、空闲加载、全局或路径范围和启用状态。内容允许任意 HTML/JavaScript，错误配置会造成 XSS、供应链或全站性能风险，应像发布代码一样评审和留存回滚文本。`,
+        embeds: [
+          { id: "admin-code-snippets" },
+          {
+            id: "admin-code-snippet-editor",
+            caption: "全站注入脚本的高风险编辑弹窗",
+          },
+        ],
       },
     ],
   },
@@ -881,7 +1130,14 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "providers",
         title: "支持范围",
-        markdown: `后台可配置 GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信网页登录；微信小程序是嵌入同页但独立保存的配置。公开配置只暴露启用状态等安全字段，客户端据此决定显示哪些登录入口。`,
+        markdown: `后台可配置 GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信网页登录；微信小程序是嵌入同页但独立保存的配置。公开配置只暴露启用状态等安全字段，客户端据此决定显示哪些登录入口。Google 启用时提供的是 GIS 登录所需 client_id；当前账户设置的新 Google 绑定链路仍未接通，不能把“启用登录”解释成“绑定入口可用”。`,
+        embeds: [
+          { id: "admin-oauth-config" },
+          {
+            id: "admin-oauth-miniprogram",
+            caption: "独立保存的微信小程序登录凭据",
+          },
+        ],
       },
       {
         id: "secrets",
@@ -917,16 +1173,36 @@ export const administrationArticles: WikiArticle[] = [
         id: "alipay",
         title: "支付宝",
         markdown: `支付宝支持多套商户配置但同一时刻只有一套 active，可选择沙箱或生产网关，并配置通知地址、返回地址、应用私钥和支付宝公钥。激活沙箱配置会额外警告，避免把测试环境误当成可收款生产渠道。`,
+        embeds: [
+          { id: "admin-payment-merchants" },
+          {
+            id: "admin-alipay-editor",
+            caption: "支付宝应用、网关、回调与密钥编辑器",
+          },
+        ],
       },
       {
         id: "wechat",
         title: "微信支付",
         markdown: `微信支付配置包含商户号、AppID、证书序列号、APIv3 密钥、商户私钥，以及平台公钥或平台证书模式；Native、H5、JSAPI 至少开启一种。回调地址与加密材料必须配套，单独开启能力开关不会让渠道可用。`,
+        embeds: [
+          { id: "admin-wechat-pay" },
+          {
+            id: "admin-wechatpay-editor",
+            caption: "微信支付证书、验签方式与支付场景编辑器",
+          },
+        ],
       },
       {
         id: "activation",
         title: "测试与激活",
         markdown: `修改关键凭据会使旧测试结果失效并取消激活，必须重新测试有效后才能激活；测试最长可能约 60 秒，只验证配置与渠道连通，不会创建真实交易。用户支付入口只使用 active 且 valid 的配置。这里管理渠道凭据，不负责订单履约、退款或对账。`,
+        embeds: [
+          {
+            id: "admin-payment-activation-confirm",
+            caption: "测试通过后切换生效商户的最终确认",
+          },
+        ],
       },
     ],
   },

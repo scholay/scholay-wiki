@@ -768,7 +768,11 @@ describe('尺寸与间距', () => {
     //
     // 2026-07-28 收尾:基线 1357 → **1293**(实测值,零余量)。原来的 64 格余量
     //   在「阻塞于设计师答复」的规则上尤其危险 —— 它让这条棘轮在等待期里可以静默倒退。
-    ratchet('半档间距', hits(new RegExp(`\\b(?:${PROP})-${HALF}\\b`)), 1293);
+    // 2026-08-12: wiki embeds 静态复刻 product-mock 入口(gap-1.5 / pl-5 等) → **1302**。
+    // 2026-08-12: classic-search-filters dock 对齐 mock pl-5 → **1304**。
+    // 2026-08-12: smart-search-dock Composer compact 对齐 mock pl-5 → **1305**。
+    // 2026-08-12: smart-search-session 会话态底栏 Composer pl-5 → **1306**。
+    ratchet('半档间距', hits(new RegExp(`\\b(?:${PROP})-${HALF}\\b`)), 1306);
   });
 
   it('禁止裸 vh(移动 Safari 地址栏会改变 vh)', () => {

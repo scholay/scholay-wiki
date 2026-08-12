@@ -13,7 +13,22 @@ export const WIKI_AUDIT_BASELINE = {
   coldStartTools: 201,
 } as const;
 
+/** 与 mock-surface-coverage.ts 的机械统计互相校验，避免把审计账本带进运行时 bundle。 */
+export const WIKI_MOCK_SURFACE_BASELINE = {
+  visible: 227,
+  migratedOrCorrected: 91,
+  existing: 136,
+  excluded: 14,
+  registeredFixtures: 210,
+} as const;
+
 export const WIKI_AUDIT_AREAS = [
+  {
+    title: "Mock 可见表面",
+    value: WIKI_MOCK_SURFACE_BASELINE.visible,
+    unit: "个稳定表面",
+    detail: `${WIKI_MOCK_SURFACE_BASELINE.migratedOrCorrected} 个本轮补齐或修正，${WIKI_MOCK_SURFACE_BASELINE.existing} 个沿用既有覆盖；${WIKI_MOCK_SURFACE_BASELINE.excluded} 个内部原子、重定向或动态协调器明确排除。`,
+  },
   {
     title: "Web 与后台页面",
     value: WIKI_AUDIT_BASELINE.renderedRoutes,

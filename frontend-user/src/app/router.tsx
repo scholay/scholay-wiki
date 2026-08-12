@@ -154,11 +154,9 @@ export const router = createBrowserRouter([
     },
     children: [
       {
+        // scholay-wiki 分支以写 Wiki 为主：首页直接进百科，产品壳仍保留可直达。
         index: true,
-        lazy: () =>
-          import('@/features/home/HomePage').then((m) => ({
-            Component: m.HomePage,
-          })),
+        loader: () => redirect('/wiki'),
       },
       ...searchRoutes,
       ...journalsRoutes,

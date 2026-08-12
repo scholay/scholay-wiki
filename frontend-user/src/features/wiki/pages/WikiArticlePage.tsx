@@ -1,32 +1,62 @@
-import { ArrowLeft, ArrowRight, BookOpen } from "lucide-react";
-import { useRef } from "react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, Copy } from "lucide-react";
+import { isValidElement, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { MermaidDiagram } from "@/shared/components/chat/MermaidDiagram";
 import { RouteSEO } from "@/shared/components/RouteSEO";
 import { TableOfContents } from "@/shared/components/TableOfContents";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import {
   WIKI_ARTICLE_BY_SLUG,
   WIKI_CATEGORIES,
   WIKI_KIND_LABEL,
+  articleNavTrail,
+  canViewWikiArticle,
   relatedArticles,
 } from "../content";
+import type { WikiArticle, WikiNavTrail } from "../types";
+import { WikiAdminOnlyBadge } from "../components/WikiAdminOnlyBadge";
+import { WikiMergedTable } from "../components/WikiMergedTable";
 import { WikiStatusBadge } from "../components/WikiStatusBadge";
+import { WikiEmbedList } from "../embeds/WikiEmbedList";
+import { WikiSpotSection } from "../embeds/WikiSpotSection";
+import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
+import type { WikiEmbedRef, WikiSectionTable } from "../types";
+
+const MERMAID_LANG_RE =
+  /language-(mermaid|flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram)\b/i;
+const MERMAID_HEAD_RE =
+  /^\s*(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(-v2)?|erDiagram)\b/;
+
+function extractCodeText(node: ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractCodeText).join("");
+  if (isValidElement(node)) {
+    return extractCodeText((node.props as { children?: ReactNode }).children);
+  }
+  return "";
+}
 
 export function WikiArticlePage() {
   const { articleSlug = "" } = useParams();
+  const canSeeAdmin = useCanSeeWikiAdmin();
   const article = WIKI_ARTICLE_BY_SLUG.get(articleSlug);
   const contentRef = useRef<HTMLElement>(null);
 
-  if (!article) {
+  if (!canViewWikiArticle(article, canSeeAdmin)) {
     return (
       <div className="mx-auto max-w-reading px-6 py-16 text-center">
         <BookOpen className="mx-auto size-icon text-faint" />
         <h1 className="mt-4 font-display text-28 font-bold text-foreground">
-          词条不存在
+          {article ? "词条仅管理员可见" : "词条不存在"}
         </h1>
         <p className="mt-3 text-12 text-muted-foreground">
-          它可能尚未收录，或地址已经发生变化。
+          {article
+            ? "该分类属于内部文档，需要管理员或运营身份才能查看。"
+            : "它可能尚未收录，或地址已经发生变化。"}
         </p>
         <Link
           to="/wiki/all"
@@ -41,7 +71,9 @@ export function WikiArticlePage() {
   const category = WIKI_CATEGORIES.find(
     (item) => item.slug === article.category,
   );
-  const related = relatedArticles(article);
+  const navTrail = articleNavTrail(article.slug);
+  const related = relatedArticles(article, canSeeAdmin);
+  const locator = buildWikiLocator(article, navTrail, category?.title);
 
   return (
     <>
@@ -53,35 +85,46 @@ export function WikiArticlePage() {
           ...(article.aliases ?? []),
           "Scholay Wiki",
         ].join(",")}
+        noindex={category?.adminOnly}
       />
 
       <div className="mx-auto grid w-full max-w-page grid-cols-1 gap-12 px-6 py-8 md:px-8 md:py-10 xl:grid-cols-[minmax(0,1fr)_var(--rail-w-sm)] xl:px-10">
         <article ref={contentRef} className="min-w-0">
           <header className="border-b border-border-hairline pb-8">
-            <nav
-              className="flex flex-wrap items-center gap-2 text-12 text-muted-foreground"
-              aria-label="面包屑"
-            >
-              <Link to="/wiki" className="hover:text-foreground">
-                Wiki
-              </Link>
-              <span aria-hidden>/</span>
-              {category && (
-                <Link
-                  to={`/wiki/category/${category.slug}`}
-                  className="hover:text-foreground"
-                >
-                  {category.title}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <nav
+                className="flex min-w-0 flex-wrap items-center gap-2 text-12 text-muted-foreground"
+                aria-label="面包屑"
+              >
+                <Link to="/wiki" className="hover:text-foreground">
+                  Wiki
                 </Link>
-              )}
-              <span aria-hidden>/</span>
-              <span className="font-medium text-foreground">
-                {article.title}
-              </span>
-            </nav>
+                <span aria-hidden>/</span>
+                {navTrail && (
+                  <Link
+                    to={`/wiki/category/${navTrail.category.slug}`}
+                    className="hover:text-foreground"
+                  >
+                    {navTrail.category.title}
+                  </Link>
+                )}
+                {navTrail?.nodes.slice(0, -1).map((node) => (
+                  <span key={node.id} className="contents">
+                    <span aria-hidden>/</span>
+                    <span>{node.title}</span>
+                  </span>
+                ))}
+                <span aria-hidden>/</span>
+                <span className="font-medium text-foreground">
+                  {article.title}
+                </span>
+              </nav>
+              <WikiLocatorCopyButton locator={locator} />
+            </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-12 text-muted-foreground">
               <WikiStatusBadge status={article.status} />
+              {category?.adminOnly && <WikiAdminOnlyBadge />}
               <span>{WIKI_KIND_LABEL[article.kind]}</span>
               <span>适用：{article.audience.join("、")}</span>
               <span>版本：0.0.80</span>
@@ -94,95 +137,42 @@ export function WikiArticlePage() {
             <p className="mt-4 text-16 leading-paragraph text-subtle">
               {article.summary}
             </p>
+            {article.headerEmbeds && article.headerEmbeds.length > 0 && (
+              <WikiEmbedList embeds={article.headerEmbeds} />
+            )}
           </header>
 
-          {article.sections.map((section) => (
-            <section
-              key={section.id}
-              className="border-b border-border-hairline py-8"
-            >
-              <h2
-                id={section.id}
-                className="scroll-mt-20 font-serif text-24 font-medium text-foreground"
+          {article.sections.map((section, sectionIndex) => {
+            const chapter = sectionIndex + 1;
+            return (
+              <section
+                key={section.id}
+                className="border-b border-border-hairline py-8"
               >
-                {section.title}
-              </h2>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  p: ({ children }) => (
-                    <p className="mt-4 text-14 leading-paragraph text-subtle">
-                      {children}
-                    </p>
-                  ),
-                  h3: ({ children }) => (
-                    <h3 className="mt-8 scroll-mt-20 font-serif text-18 font-medium text-foreground">
-                      {children}
-                    </h3>
-                  ),
-                  strong: ({ children }) => (
-                    <strong className="font-medium text-foreground">
-                      {children}
-                    </strong>
-                  ),
-                  ul: ({ children }) => (
-                    <ul className="mt-4 list-disc space-y-2 pl-6 text-14 leading-paragraph text-subtle">
-                      {children}
-                    </ul>
-                  ),
-                  ol: ({ children }) => (
-                    <ol className="mt-4 list-decimal space-y-2 pl-6 text-14 leading-paragraph text-subtle">
-                      {children}
-                    </ol>
-                  ),
-                  code: ({ children }) => (
-                    <code className="rounded-4 bg-surface-2 px-1 py-1 font-mono text-12 text-foreground">
-                      {children}
-                    </code>
-                  ),
-                  blockquote: ({ children }) => (
-                    <blockquote className="mt-6 border-l-2 border-brand-red bg-surface-1 px-4 py-3 text-14 leading-paragraph text-muted-foreground">
-                      {children}
-                    </blockquote>
-                  ),
-                  table: ({ children }) => (
-                    <div className="mt-6 overflow-x-auto rounded-8 border border-border">
-                      <table className="w-full border-collapse text-left text-12">
-                        {children}
-                      </table>
-                    </div>
-                  ),
-                  th: ({ children }) => (
-                    <th className="border-b border-border bg-surface-1 px-3 py-2 font-medium text-foreground">
-                      {children}
-                    </th>
-                  ),
-                  td: ({ children }) => (
-                    <td className="border-b border-border-hairline px-3 py-2 align-top leading-paragraph text-subtle">
-                      {children}
-                    </td>
-                  ),
-                  a: ({ children, href }) => (
-                    <a
-                      href={href}
-                      className="text-brand-red underline underline-offset-4"
-                    >
-                      {children}
-                    </a>
-                  ),
-                }}
-              >
-                {section.markdown}
-              </ReactMarkdown>
-            </section>
-          ))}
+                <h2
+                  id={section.id}
+                  className="scroll-mt-20 flex items-baseline gap-3 font-serif text-24 font-medium text-foreground"
+                >
+                  <ChapterNumber value={`${chapter}.`} />
+                  <span>{section.title}</span>
+                </h2>
+                <WikiSectionBody
+                  chapter={chapter}
+                  markdown={section.markdown}
+                  table={section.table}
+                  embeds={section.embeds}
+                />
+              </section>
+            );
+          })}
 
           <section className="py-8">
             <h2
               id="sources"
-              className="scroll-mt-20 font-serif text-24 font-medium text-foreground"
+              className="scroll-mt-20 flex items-baseline gap-3 font-serif text-24 font-medium text-foreground"
             >
-              来源
+              <ChapterNumber value={`${article.sections.length + 1}.`} />
+              <span>来源</span>
             </h2>
             <p className="mt-3 text-12 leading-paragraph text-muted-foreground">
               下列路径是本词条在代码基线中的主要事实来源。研究文档只补充背景，不覆盖运行时代码。
@@ -231,5 +221,223 @@ export function WikiArticlePage() {
         </aside>
       </div>
     </>
+  );
+}
+
+function ChapterNumber({ value }: { value: string }) {
+  return (
+    <span className="inline-flex shrink-0 select-none font-mono text-20 font-medium tabular-nums text-brand-red">
+      {value}
+    </span>
+  );
+}
+
+function buildWikiLocator(
+  article: WikiArticle,
+  navTrail: WikiNavTrail | undefined,
+  fallbackCategoryTitle?: string,
+): string {
+  const parts = ["Wiki"];
+  if (navTrail) {
+    parts.push(navTrail.category.title);
+    for (const node of navTrail.nodes.slice(0, -1)) {
+      parts.push(node.title);
+    }
+  } else if (fallbackCategoryTitle) {
+    parts.push(fallbackCategoryTitle);
+  }
+  parts.push(article.title);
+  return `${parts.join(" / ")}\n/wiki/${article.slug}`;
+}
+
+function WikiLocatorCopyButton({ locator }: { locator: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(locator);
+    if (!ok) {
+      toast.error("复制失败，请手动选择面包屑");
+      return;
+    }
+    setCopied(true);
+    toast.success("已复制定位路径");
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      className="inline-flex h-8 shrink-0 items-center gap-2 rounded-8 border border-border bg-surface-card px-3 text-12 font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+      aria-label="复制定位路径"
+      title="复制面包屑与词条路径，方便在对话里定位"
+    >
+      {copied ? (
+        <Check className="size-3.5 text-brand-green" aria-hidden />
+      ) : (
+        <Copy className="size-3.5" aria-hidden />
+      )}
+      {copied ? "已复制" : "复制定位"}
+    </button>
+  );
+}
+
+function WikiSectionBody({
+  chapter,
+  markdown,
+  table,
+  embeds,
+}: {
+  chapter: number;
+  markdown: string;
+  table?: WikiSectionTable;
+  embeds?: WikiEmbedRef[];
+}) {
+  const hasMermaid = /```mermaid/.test(markdown);
+  const hasEmbeds = Boolean(embeds?.length);
+
+  const body = (
+    <>
+      {hasMermaid ? (
+        <>
+          <div data-wiki-prose>
+            <WikiSectionMarkdown markdown={markdown} chapter={chapter} />
+          </div>
+          {table && (
+            <WikiMergedTable columns={table.columns} rows={table.rows} />
+          )}
+        </>
+      ) : (
+        <>
+          {table && (
+            <WikiMergedTable columns={table.columns} rows={table.rows} />
+          )}
+          <div data-wiki-prose>
+            <WikiSectionMarkdown markdown={markdown} chapter={chapter} />
+          </div>
+        </>
+      )}
+      {hasEmbeds && embeds ? <WikiEmbedList embeds={embeds} /> : null}
+    </>
+  );
+
+  if (!hasEmbeds) return body;
+  return <WikiSpotSection>{body}</WikiSpotSection>;
+}
+
+function WikiSectionMarkdown({
+  markdown,
+  chapter,
+}: {
+  markdown: string;
+  chapter: number;
+}) {
+  if (!markdown.trim()) return null;
+  // 单次 Markdown 渲染内按出现顺序编号；h3→1.1，h4→1.1.1
+  const counters = { h3: 0, h4: 0 };
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ children }) => (
+          <p className="mt-4 text-14 leading-paragraph text-subtle">
+            {children}
+          </p>
+        ),
+        h3: ({ children }) => {
+          counters.h3 += 1;
+          counters.h4 = 0;
+          return (
+            <h3 className="mt-8 flex scroll-mt-20 items-baseline gap-2 font-serif text-18 font-medium text-foreground">
+              <ChapterNumber value={`${chapter}.${counters.h3}`} />
+              <span>{children}</span>
+            </h3>
+          );
+        },
+        h4: ({ children }) => {
+          if (counters.h3 === 0) counters.h3 = 1;
+          counters.h4 += 1;
+          return (
+            <h4 className="mt-6 flex scroll-mt-20 items-baseline gap-2 font-serif text-16 font-medium text-foreground">
+              <ChapterNumber
+                value={`${chapter}.${counters.h3}.${counters.h4}`}
+              />
+              <span>{children}</span>
+            </h4>
+          );
+        },
+        strong: ({ children }) => (
+          <strong className="font-medium text-foreground">{children}</strong>
+        ),
+        ul: ({ children }) => (
+          <ul className="mt-4 list-disc space-y-2 pl-6 text-14 leading-paragraph text-subtle">
+            {children}
+          </ul>
+        ),
+        ol: ({ children }) => (
+          <ol className="mt-4 list-decimal space-y-2 pl-6 text-14 leading-paragraph text-subtle">
+            {children}
+          </ol>
+        ),
+        code: ({ children }) => (
+          <code className="rounded-4 border border-border bg-surface-card px-1 py-1 font-mono text-12 text-foreground">
+            {children}
+          </code>
+        ),
+        pre: ({ children }) => {
+          if (isValidElement(children)) {
+            const cls =
+              (children.props as { className?: string }).className ?? "";
+            const raw = extractCodeText(
+              (children.props as { children?: ReactNode }).children,
+            );
+            if (MERMAID_LANG_RE.test(cls) || MERMAID_HEAD_RE.test(raw)) {
+              return (
+                <div className="mt-6 overflow-x-auto rounded-8 border border-border bg-surface-card p-4">
+                  <MermaidDiagram code={raw} />
+                </div>
+              );
+            }
+          }
+          return (
+            <pre className="mt-4 overflow-x-auto rounded-8 border border-border bg-surface-card p-3 font-mono text-12 text-foreground">
+              {children}
+            </pre>
+          );
+        },
+        blockquote: ({ children }) => (
+          <blockquote className="mt-6 border-l-2 border-brand-red px-4 py-3 text-14 leading-paragraph text-muted-foreground">
+            {children}
+          </blockquote>
+        ),
+        table: ({ children }) => (
+          <div className="mt-6 overflow-x-auto rounded-8 border border-border">
+            <table className="w-full border-collapse text-left text-12">
+              {children}
+            </table>
+          </div>
+        ),
+        th: ({ children }) => (
+          <th className="border-b border-border px-3 py-2 font-medium text-foreground">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="border-b border-border-hairline px-3 py-2 align-top leading-paragraph text-subtle">
+            {children}
+          </td>
+        ),
+        a: ({ children, href }) => (
+          <a
+            href={href}
+            className="text-brand-red underline underline-offset-4"
+          >
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {markdown}
+    </ReactMarkdown>
   );
 }

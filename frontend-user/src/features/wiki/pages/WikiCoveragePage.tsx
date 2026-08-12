@@ -2,7 +2,12 @@ import { CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RouteSEO } from "@/shared/components/RouteSEO";
 import { WIKI_ARTICLES } from "../content";
-import { WIKI_AUDIT_AREAS, WIKI_AUDIT_BASELINE } from "../coverage";
+import {
+  WIKI_AUDIT_AREAS,
+  WIKI_AUDIT_BASELINE,
+  WIKI_MOCK_SURFACE_BASELINE,
+} from "../coverage";
+import { WIKI_EMBED_REGISTRY } from "../embeds/registry";
 
 export function WikiCoveragePage() {
   const sourceCount = new Set(
@@ -16,7 +21,7 @@ export function WikiCoveragePage() {
         description="查看 Scholay Wiki 对页面、后端模块、Agent、小程序、技能、迁移和工具数据的审计覆盖。"
         keywords="Scholay Wiki 覆盖,Scholay 审计,Scholay 版本"
       />
-      <section className="border-b border-border bg-surface-1">
+      <section className="border-b border-border bg-surface-card">
         <div className="mx-auto max-w-page px-6 py-10 md:py-14">
           <p className="text-12 font-medium text-brand-red">
             VERIFIED COVERAGE
@@ -31,6 +36,8 @@ export function WikiCoveragePage() {
             <span>{WIKI_ARTICLES.length} 篇词条</span>
             <span aria-hidden>·</span>
             <span>{sourceCount} 个代码来源</span>
+            <span aria-hidden>·</span>
+            <span>{Object.keys(WIKI_EMBED_REGISTRY).length} 个界面示意</span>
             <span aria-hidden>·</span>
             <span>
               {WIKI_AUDIT_BASELINE.version} / {WIKI_AUDIT_BASELINE.shortCommit}
@@ -81,6 +88,10 @@ export function WikiCoveragePage() {
             <li>
               后端一级模块、小程序页面、Agent feature 与 Skill 清单必须可从 Wiki
               检索。
+            </li>
+            <li>
+              product-mock 的 {WIKI_MOCK_SURFACE_BASELINE.visible}{" "}
+              个稳定可见表面必须逐组有注册、挂载和源文件证据；内部原子与动态宿主只可显式排除。
             </li>
             <li>类型检查、设计系统检查、Wiki 内容测试和生产构建必须通过。</li>
           </ul>

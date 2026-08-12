@@ -1,15 +1,19 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RouteSEO } from "@/shared/components/RouteSEO";
-import { WIKI_ARTICLES, WIKI_CATEGORIES } from "../content";
+import { visibleArticles, visibleNavCategories } from "../content";
 import { WikiArticleCard } from "../components/WikiArticleCard";
 import { WikiSearchForm } from "../components/WikiSearchForm";
+import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
 
 export function WikiHomePage() {
+  const canSeeAdmin = useCanSeeWikiAdmin();
+  const articles = visibleArticles(canSeeAdmin);
+  const categories = visibleNavCategories(canSeeAdmin);
   const sourceCount = new Set(
-    WIKI_ARTICLES.flatMap((article) => article.sourcePaths),
+    articles.flatMap((article) => article.sourcePaths),
   ).size;
-  const featured = WIKI_ARTICLES.filter((article) =>
+  const featured = articles.filter((article) =>
     [
       "scholay",
       "academic-search",
@@ -41,11 +45,11 @@ export function WikiHomePage() {
             <WikiSearchForm prominent />
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-3 text-12 text-faint">
-            <span>{WIKI_ARTICLES.length} 篇已核对词条</span>
+            <span>{articles.length} 篇已核对词条</span>
             <span aria-hidden>·</span>
             <span>{sourceCount} 个代码来源</span>
             <span aria-hidden>·</span>
-            <span>基线版本 0.0.80</span>
+            <span>按 XMind 框架组织</span>
           </div>
         </div>
       </section>
@@ -71,10 +75,7 @@ export function WikiHomePage() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-            {WIKI_CATEGORIES.map((category) => {
-              const count = WIKI_ARTICLES.filter(
-                (article) => article.category === category.slug,
-              ).length;
+            {categories.map((category, index) => {
               return (
                 <Link
                   key={category.slug}
@@ -82,11 +83,16 @@ export function WikiHomePage() {
                   className="group rounded-8 border border-border bg-surface-card p-4 transition-colors hover:border-border-strong"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <h3 className="font-serif text-18 font-medium text-foreground">
-                      {category.title}
-                    </h3>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="font-mono text-12 text-faint">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <h3 className="font-serif text-18 font-medium text-foreground">
+                        {category.title}
+                      </h3>
+                    </div>
                     <span className="shrink-0 text-12 text-faint">
-                      {count} 篇
+                      {category.children.length} 组
                     </span>
                   </div>
                   <p className="mt-2 max-w-reading text-12 leading-paragraph text-muted-foreground">

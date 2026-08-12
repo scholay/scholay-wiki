@@ -1,13 +1,31 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
 import {
   WIKI_ARTICLE_BY_SLUG,
   WIKI_ARTICLES,
   WIKI_CATEGORIES,
-} from '../src/features/wiki/content';
+  WIKI_NAV_CATEGORIES,
+  articleNavTrail,
+} from "../src/features/wiki/content";
+import { WIKI_EMBED_REGISTRY } from "../src/features/wiki/embeds/registry";
+import { WIKI_MOCK_SURFACE_BASELINE } from "../src/features/wiki/coverage";
+import {
+  ADMIN_MOCK_SURFACE_COVERAGE,
+  MOBILE_MOCK_SURFACE_COVERAGE,
+  MOCK_SURFACE_COVERAGE,
+  MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS,
+  MOCK_SURFACE_COVERAGE_STATS,
+  USER_MOCK_SURFACE_COVERAGE,
+} from "../src/features/wiki/embeds/mock-surface-coverage";
+import type {
+  WikiEmbedId,
+  WikiEmbedRef,
+  WikiNavNode,
+  WikiNavTarget,
+} from "../src/features/wiki/types";
 
-const repoRoot = path.resolve(process.cwd(), '..');
+const repoRoot = path.resolve(process.cwd(), "..");
 
 function walkFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -27,51 +45,321 @@ function wikiCorpus(): string {
     ...article.audience,
     ...(article.aliases ?? []),
     ...article.sourcePaths,
-    ...article.sections.flatMap((section) => [section.id, section.title, section.markdown]),
-  ]).join('\n').toLocaleLowerCase('zh-CN');
+    ...article.sections.flatMap((section) => [
+      section.id,
+      section.title,
+      section.markdown,
+      ...(section.table
+        ? [
+            ...section.table.columns.map((column) => column.header),
+            ...section.table.rows.flatMap((row) =>
+              Object.values(row).flatMap((cell) => {
+                if (typeof cell === "string") return [cell];
+                if (Array.isArray(cell))
+                  return cell.flatMap((item) => [item.label, item.href]);
+                return [cell.label, cell.href];
+              }),
+            ),
+          ]
+        : []),
+    ]),
+  ])
+    .join("\n")
+    .toLocaleLowerCase("zh-CN");
 }
 
-describe('Scholay Wiki 内容契约', () => {
-  it('词条 slug、标题与章节标识唯一', () => {
-    expect(new Set(WIKI_ARTICLES.map((article) => article.slug)).size).toBe(WIKI_ARTICLES.length);
-    expect(new Set(WIKI_ARTICLES.map((article) => article.title)).size).toBe(WIKI_ARTICLES.length);
+function walkNav(nodes: WikiNavNode[]): WikiNavNode[] {
+  return nodes.flatMap((node) => [node, ...walkNav(node.children ?? [])]);
+}
+
+function allEmbedRefs(): WikiEmbedRef[] {
+  return WIKI_ARTICLES.flatMap((article) => [
+    ...(article.headerEmbeds ?? []),
+    ...article.sections.flatMap((section) => section.embeds ?? []),
+  ]);
+}
+
+describe("Scholay Wiki 内容契约", () => {
+  it("词条 slug、标题与章节标识唯一", () => {
+    expect(new Set(WIKI_ARTICLES.map((article) => article.slug)).size).toBe(
+      WIKI_ARTICLES.length,
+    );
+    expect(new Set(WIKI_ARTICLES.map((article) => article.title)).size).toBe(
+      WIKI_ARTICLES.length,
+    );
 
     for (const article of WIKI_ARTICLES) {
       expect(article.slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-      expect(new Set(article.sections.map((section) => section.id)).size).toBe(article.sections.length);
+      expect(new Set(article.sections.map((section) => section.id)).size).toBe(
+        article.sections.length,
+      );
     }
   });
 
-  it('不存在无正文或无来源的占位词条', () => {
+  it("不存在无正文或无来源的占位词条", () => {
     expect(WIKI_ARTICLES.length).toBeGreaterThanOrEqual(100);
     for (const article of WIKI_ARTICLES) {
       expect(article.summary.trim().length, article.slug).toBeGreaterThan(20);
       expect(article.sections.length, article.slug).toBeGreaterThan(0);
       expect(article.sourcePaths.length, article.slug).toBeGreaterThan(0);
       for (const section of article.sections) {
-        expect(section.title.trim().length, `${article.slug}/${section.id}`).toBeGreaterThan(0);
-        expect(section.markdown.trim().length, `${article.slug}/${section.id}`).toBeGreaterThan(40);
+        expect(
+          section.title.trim().length,
+          `${article.slug}/${section.id}`,
+        ).toBeGreaterThan(0);
+        const hasEmbeds = (section.embeds?.length ?? 0) > 0;
+        const hasTable = Boolean(section.table);
+        // 纯对照图章节可只有 embeds / table，不必硬塞说明废话
+        if (!hasEmbeds && !hasTable) {
+          expect(
+            section.markdown.trim().length,
+            `${article.slug}/${section.id}`,
+          ).toBeGreaterThan(40);
+        }
       }
     }
   });
 
-  it('所有来源路径都存在于当前代码基线', () => {
+  it("所有来源路径都存在于当前代码基线", () => {
     for (const article of WIKI_ARTICLES) {
       for (const sourcePath of article.sourcePaths) {
-        expect(existsSync(path.resolve(repoRoot, sourcePath)), `${article.slug}: ${sourcePath}`).toBe(true);
+        expect(
+          existsSync(path.resolve(repoRoot, sourcePath)),
+          `${article.slug}: ${sourcePath}`,
+        ).toBe(true);
       }
     }
   });
 
-  it('所有相关词条都能解析', () => {
+  it("所有相关词条都能解析", () => {
     for (const article of WIKI_ARTICLES) {
       for (const related of article.related ?? []) {
-        expect(WIKI_ARTICLE_BY_SLUG.has(related), `${article.slug} -> ${related}`).toBe(true);
+        expect(
+          WIKI_ARTICLE_BY_SLUG.has(related),
+          `${article.slug} -> ${related}`,
+        ).toBe(true);
       }
     }
   });
 
-  it('每个顶层分类至少有一个已核对词条', () => {
+  it("每个 Wiki 演示都已登记并至少挂载到一个词条", () => {
+    const refs = allEmbedRefs();
+    const registered = Object.keys(WIKI_EMBED_REGISTRY) as WikiEmbedId[];
+    const used = new Set(refs.map((ref) => ref.id));
+
+    expect(registered).toHaveLength(210);
+    expect(new Set(registered).size).toBe(registered.length);
+    for (const ref of refs) {
+      expect(WIKI_EMBED_REGISTRY[ref.id], ref.id).toBeDefined();
+    }
+    for (const id of registered) {
+      expect(used.has(id), `${id} 未挂载`).toBe(true);
+      expect(WIKI_EMBED_REGISTRY[id].id).toBe(id);
+    }
+  });
+
+  it("Wiki fixture 保持静态，不接入生产状态或写操作", () => {
+    const embedRoot = path.join(
+      repoRoot,
+      "frontend-user/src/features/wiki/embeds",
+    );
+    const fixtureFiles = walkFiles(embedRoot).filter(
+      (file) =>
+        path.basename(file).startsWith("WikiEmbed") &&
+        !["WikiEmbedFrame.tsx", "WikiEmbedList.tsx"].includes(
+          path.basename(file),
+        ),
+    );
+    const forbidden = [
+      /from ["'][^"']*\/api(?:\/|["'])/,
+      /from ["'][^"']*\/stores?(?:\/|["'])/,
+      /from ["'][^"']*\/hooks?(?:\/|["'])/,
+      /\b(?:useQuery|useMutation|useState|useEffect|useStore)\s*\(/,
+      /\bon(?:Click|Submit|Change|CheckedChange|ValueChange)\s*=/,
+      /\b(?:fetch|axios|http)\s*\(/,
+    ];
+
+    expect(fixtureFiles.length).toBeGreaterThanOrEqual(100);
+    for (const file of fixtureFiles) {
+      const source = readFileSync(file, "utf8");
+      for (const pattern of forbidden) {
+        expect(source, `${path.basename(file)}: ${pattern}`).not.toMatch(
+          pattern,
+        );
+      }
+    }
+  });
+
+  it("文件夹外观选择器在暂存区与个人文献集复用同一静态示意", () => {
+    const staging = WIKI_ARTICLE_BY_SLUG.get("staging-area");
+    const library = WIKI_ARTICLE_BY_SLUG.get("literature-library");
+    const stagingEmbeds = staging?.sections.find(
+      (section) => section.id === "persistence",
+    )?.embeds;
+    const libraryEmbeds = library?.sections.find(
+      (section) => section.id === "organization",
+    )?.embeds;
+
+    expect(stagingEmbeds?.map((embed) => embed.id)).toContain(
+      "folder-icon-picker",
+    );
+    expect(libraryEmbeds?.map((embed) => embed.id)).toContain(
+      "folder-icon-picker",
+    );
+    expect(WIKI_EMBED_REGISTRY["folder-icon-picker"].defaultCaption).toContain(
+      "图标与背景色",
+    );
+
+    const fixture = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/embeds/WikiEmbedFolderIconPicker.tsx",
+      ),
+      "utf8",
+    );
+    expect(fixture).toContain('data-wiki-fixture="folder-icon-picker"');
+    expect(fixture).toContain('label: "浅灰"');
+    expect(fixture).toContain('label: "学历"');
+  });
+
+  it("牛犀犀助手使用真实位图，且不混淆移动端 AI Claw 龙虾品牌", () => {
+    const embedRoot = path.join(
+      repoRoot,
+      "frontend-user/src/features/wiki/embeds",
+    );
+    const rhinoFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedRhinoAssistant.tsx"),
+      "utf8",
+    );
+    const rhinoAsset = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/public/wiki/assets/rhino/pet-idle-frame-000.png",
+      ),
+    );
+    const clawIcon = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/shared/components/ClawBrandIcon.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(rhinoAsset.subarray(1, 4).toString()).toBe("PNG");
+    expect(rhinoFixture).toContain(
+      '"/wiki/assets/rhino/pet-idle-frame-000.png"',
+    );
+    expect(rhinoFixture).not.toContain("ClawBrandIcon");
+    expect(rhinoFixture).not.toContain("<svg");
+    expect(clawIcon).toContain("AI Claw 品牌图标(矢量龙虾)");
+
+    for (const id of [
+      "rhino-assistant-entry",
+      "rhino-assistant-help-panel",
+      "rhino-assistant-support-panels",
+    ] as const) {
+      expect(WIKI_EMBED_REGISTRY[id]).toBeDefined();
+      expect(allEmbedRefs().some((embed) => embed.id === id)).toBe(true);
+    }
+  });
+
+  it("账户与商业词条保留端差异、合法周期和正确演示归位", () => {
+    const profile = WIKI_ARTICLE_BY_SLUG.get("profile-settings");
+    const security = WIKI_ARTICLE_BY_SLUG.get("account-security-settings");
+    const connections = WIKI_ARTICLE_BY_SLUG.get("account-connections");
+    const subscription = WIKI_ARTICLE_BY_SLUG.get(
+      "membership-subscription-guide",
+    );
+    const giftCodes = WIKI_ARTICLE_BY_SLUG.get("gift-codes");
+    const paymentOrders = WIKI_ARTICLE_BY_SLUG.get("payment-orders");
+    const authentication = WIKI_ARTICLE_BY_SLUG.get(
+      "email-phone-authentication",
+    );
+    const inviteCampaign = WIKI_ARTICLE_BY_SLUG.get("invite-campaign");
+
+    expect(profile?.sections[0]?.markdown).toContain("昵称上限是 32");
+    expect(profile?.sections[0]?.markdown).toContain("不能在移动页修改");
+    expect(
+      security?.sections.find((section) => section.id === "boundary")?.markdown,
+    ).toContain("移动安全页只读");
+    expect(
+      connections?.sections.find((section) => section.id === "bind")?.markdown,
+    ).toContain("新绑定 Google");
+    expect(
+      subscription?.sections.find((section) => section.id === "purchase-cycle")
+        ?.markdown,
+    ).toContain("年付在期用户不能用月付续费");
+    expect(
+      giftCodes?.sections.find((section) => section.id === "grant")?.markdown,
+    ).toContain("每个账号对同一码只能成功一次");
+
+    expect(
+      giftCodes?.sections.find((section) => section.id === "preview")?.embeds,
+    ).toEqual([{ id: "redeem-preview", caption: "用户端 · 兑换预览" }]);
+    expect(
+      giftCodes?.sections
+        .find((section) => section.id === "grant")
+        ?.embeds?.map((embed) => embed.id),
+    ).toContain("admin-gift-codes");
+    expect(
+      paymentOrders?.sections
+        .find((section) => section.id === "quote")
+        ?.embeds?.map((embed) => embed.id),
+    ).not.toContain("admin-orders");
+    expect(
+      paymentOrders?.sections
+        .find((section) => section.id === "fulfillment")
+        ?.embeds?.map((embed) => embed.id),
+    ).toContain("admin-orders");
+    expect(allEmbedRefs().map((embed) => embed.id)).toContain(
+      "paper-favorite-flow",
+    );
+    expect(
+      authentication?.sections
+        .find((section) => section.id === "registration")
+        ?.embeds?.map((embed) => embed.id),
+    ).toContain("invite-code-field");
+    expect(
+      inviteCampaign?.sections
+        .find((section) => section.id === "binding")
+        ?.embeds?.map((embed) => embed.id),
+    ).toContain("invite-code-prompt");
+
+    const embedRoot = path.join(
+      repoRoot,
+      "frontend-user/src/features/wiki/embeds",
+    );
+    const profileFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedProfileSettings.tsx"),
+      "utf8",
+    );
+    const inviteFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedInviteShare.tsx"),
+      "utf8",
+    );
+    const membershipFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedMobileMembershipPurchase.tsx"),
+      "utf8",
+    );
+    const inviteRegistrationFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedInviteRegistration.tsx"),
+      "utf8",
+    );
+    expect(profileFixture).toContain('badge="3 项可编辑 · 昵称 40 字"');
+    expect(profileFixture).toContain('badge="2 项可编辑 · 昵称 32 字"');
+    expect(inviteFixture).toContain('const INVITE_CODE = "KQ9M2RT7"');
+    expect(inviteFixture).toContain("scholay.com/i/${INVITE_CODE}");
+    expect(membershipFixture).toContain("月付不可选");
+    expect(inviteRegistrationFixture).toContain("邀请码不是注册必填项");
+    expect(inviteRegistrationFixture).toContain("先校验有效性");
+    expect(inviteRegistrationFixture).toContain("暂不填写");
+    expect(inviteRegistrationFixture).toContain("不会在弹窗内直接绑定");
+    expect(WIKI_EMBED_REGISTRY["account-connections"].defaultCaption).toContain(
+      "Google 新绑定边界",
+    );
+  });
+
+  it("每个顶层分类至少有一个已核对词条", () => {
     for (const category of WIKI_CATEGORIES) {
       expect(
         WIKI_ARTICLES.some((article) => article.category === category.slug),
@@ -80,8 +368,97 @@ describe('Scholay Wiki 内容契约', () => {
     }
   });
 
-  it('覆盖全部 56 个后端一级业务模块', () => {
-    const internalRoot = path.join(repoRoot, 'backend/internal');
+  it("管理后台与平台与架构标记为仅管理员可见", () => {
+    const administration = WIKI_CATEGORIES.find(
+      (item) => item.slug === "administration",
+    );
+    const platform = WIKI_CATEGORIES.find((item) => item.slug === "platform");
+    expect(administration?.adminOnly).toBe(true);
+    expect(platform?.adminOnly).toBe(true);
+    expect(
+      WIKI_CATEGORIES.filter((item) => item.adminOnly)
+        .map((item) => item.slug)
+        .sort(),
+    ).toEqual(["administration", "platform"]);
+  });
+
+  it("读者目录与 XMind 的 15 个主栏目一致，并追加“其他”", () => {
+    expect(WIKI_NAV_CATEGORIES.map((item) => item.title)).toEqual([
+      "全站概览",
+      "常见场景",
+      "智能助手",
+      "文献搜索",
+      "期刊搜索",
+      "智能写作",
+      "智能审稿",
+      "学术情报",
+      "我的资源",
+      "使用限额",
+      "会员订阅",
+      "邀请返利",
+      "登录方式",
+      "开发计划",
+      "使用条款",
+      "其他",
+    ]);
+
+    const nodes = WIKI_NAV_CATEGORIES.flatMap((category) =>
+      walkNav(category.children),
+    );
+    expect(new Set(nodes.map((node) => node.id)).size).toBe(nodes.length);
+  });
+
+  it("导航目标、章节锚点与唯一主归位全部可解析", () => {
+    const nodes = WIKI_NAV_CATEGORIES.flatMap((category) =>
+      walkNav(category.children),
+    );
+    const targets = nodes
+      .map((node) => node.target)
+      .filter((target): target is WikiNavTarget => Boolean(target));
+
+    for (const target of targets) {
+      const article = WIKI_ARTICLE_BY_SLUG.get(target.articleSlug);
+      expect(article, target.articleSlug).toBeDefined();
+      if (target.sectionId) {
+        expect(
+          article?.sections.some((section) => section.id === target.sectionId),
+          `${target.articleSlug}#${target.sectionId}`,
+        ).toBe(true);
+      }
+    }
+
+    for (const article of WIKI_ARTICLES) {
+      const primaryTargets = targets.filter(
+        (target) =>
+          target.articleSlug === article.slug && target.shortcut !== true,
+      );
+      expect(primaryTargets, article.slug).toHaveLength(1);
+      expect(articleNavTrail(article.slug), article.slug).toBeDefined();
+    }
+  });
+
+  it("XMind 中未落地或无固定口径的节点保留但不冒充现行能力", () => {
+    expect(WIKI_ARTICLE_BY_SLUG.get("literature-graph-status")?.status).toBe(
+      "planned",
+    );
+    expect(WIKI_ARTICLE_BY_SLUG.get("roadmap-status")?.status).toBe("planned");
+    const guardedCorpus = [
+      WIKI_ARTICLE_BY_SLUG.get("membership-subscription-guide"),
+      WIKI_ARTICLE_BY_SLUG.get("invitation-rebate-guide"),
+      WIKI_ARTICLE_BY_SLUG.get("journal-update-cycle"),
+    ]
+      .flatMap(
+        (article) => article?.sections.map((section) => section.markdown) ?? [],
+      )
+      .join("\n");
+    expect(guardedCorpus).toContain("云闪付");
+    expect(guardedCorpus).toContain("不能写成已经上线");
+    expect(guardedCorpus).toContain("达人");
+    expect(guardedCorpus).toContain("固定");
+  });
+
+  it("覆盖全部 56 个后端一级业务模块", () => {
+    const internalRoot = path.join(repoRoot, "backend/internal");
     const modules = readdirSync(internalRoot)
       .filter((name) => statSync(path.join(internalRoot, name)).isDirectory())
       .sort();
@@ -89,13 +466,15 @@ describe('Scholay Wiki 内容契约', () => {
 
     expect(modules).toHaveLength(56);
     for (const module of modules) {
-      expect(corpus, `backend/internal/${module}`).toContain(`backend/internal/${module}`);
+      expect(corpus, `backend/internal/${module}`).toContain(
+        `backend/internal/${module}`,
+      );
     }
   });
 
-  it('覆盖小程序全部页面与 Agent 全部 feature', () => {
+  it("覆盖小程序全部页面与 Agent 全部 feature", () => {
     const appConfig = JSON.parse(
-      readFileSync(path.join(repoRoot, 'miniprogram/app.json'), 'utf8'),
+      readFileSync(path.join(repoRoot, "miniprogram/app.json"), "utf8"),
     ) as { pages: string[] };
     const corpus = wikiCorpus();
 
@@ -105,21 +484,21 @@ describe('Scholay Wiki 内容契约', () => {
     }
 
     for (const feature of [
-      'smart_search',
-      'claw',
-      'prism',
-      'peerreview',
-      'boltslides',
-      'sci_draw',
-      'stat_lab',
+      "smart_search",
+      "claw",
+      "prism",
+      "peerreview",
+      "boltslides",
+      "sci_draw",
+      "stat_lab",
     ]) {
       expect(corpus, feature).toContain(feature);
     }
   });
 
-  it('Agent 的 109 个技能名称全部可检索', () => {
-    const skillFiles = walkFiles(path.join(repoRoot, 'agent-skills'))
-      .filter((file) => path.basename(file) === 'SKILL.md')
+  it("Agent 的 109 个技能名称全部可检索", () => {
+    const skillFiles = walkFiles(path.join(repoRoot, "agent-skills"))
+      .filter((file) => path.basename(file) === "SKILL.md")
       .sort();
     const corpus = wikiCorpus();
 
@@ -130,48 +509,210 @@ describe('Scholay Wiki 内容契约', () => {
     }
   });
 
-  it('迁移与功能广场数据计数和当前基线一致', () => {
-    const migrations = readdirSync(path.join(repoRoot, 'docker/mysql/migrations'))
-      .filter((name) => name.endsWith('.sql'));
+  it("迁移与功能广场数据计数和当前基线一致", () => {
+    const migrations = readdirSync(
+      path.join(repoRoot, "docker/mysql/migrations"),
+    ).filter((name) => name.endsWith(".sql"));
     const tools = JSON.parse(
-      readFileSync(path.join(repoRoot, 'feature-tools-coldstart/feature-tools.json'), 'utf8'),
+      readFileSync(
+        path.join(repoRoot, "feature-tools-coldstart/feature-tools.json"),
+        "utf8",
+      ),
     ) as unknown[];
 
     expect(migrations).toHaveLength(128);
     expect(tools).toHaveLength(201);
-    expect(wikiCorpus()).toContain('chemcad52cracked');
+    expect(wikiCorpus()).toContain("chemcad52cracked");
   });
 
-  it('每个非 Wiki 路由的懒加载页面都有词条直接引用', () => {
+  it("每个非 Wiki 路由的懒加载页面都有词条直接引用", () => {
     const routeFiles = [
-      path.join(repoRoot, 'frontend-user/src/app/router.tsx'),
-      ...walkFiles(path.join(repoRoot, 'frontend-user/src/features'))
-        .filter((file) => file.endsWith('/routes.tsx') && !file.includes('/features/wiki/')),
+      path.join(repoRoot, "frontend-user/src/app/router.tsx"),
+      ...walkFiles(path.join(repoRoot, "frontend-user/src/features")).filter(
+        (file) =>
+          file.endsWith("/routes.tsx") && !file.includes("/features/wiki/"),
+      ),
     ];
     const targets = new Set<string>();
 
     for (const routeFile of routeFiles) {
-      const source = readFileSync(routeFile, 'utf8');
-      for (const match of source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const source = readFileSync(routeFile, "utf8");
+      for (const match of source.matchAll(
+        /import\(\s*['"]([^'"]+)['"]\s*\)/g,
+      )) {
         const specifier = match[1];
-        const unresolved = specifier.startsWith('@/')
-          ? path.join(repoRoot, 'frontend-user/src', specifier.slice(2))
+        const unresolved = specifier.startsWith("@/")
+          ? path.join(repoRoot, "frontend-user/src", specifier.slice(2))
           : path.resolve(path.dirname(routeFile), specifier);
         const resolved = [
           unresolved,
           `${unresolved}.tsx`,
           `${unresolved}.ts`,
-          path.join(unresolved, 'index.tsx'),
-          path.join(unresolved, 'index.ts'),
-        ].find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
+          path.join(unresolved, "index.tsx"),
+          path.join(unresolved, "index.ts"),
+        ].find(
+          (candidate) => existsSync(candidate) && statSync(candidate).isFile(),
+        );
         if (resolved) targets.add(path.relative(repoRoot, resolved));
       }
     }
 
-    const citedSources = new Set(WIKI_ARTICLES.flatMap((article) => article.sourcePaths));
-    expect(targets).toHaveLength(110);
+    const citedSources = new Set(
+      WIKI_ARTICLES.flatMap((article) => article.sourcePaths),
+    );
+    // scholay-wiki: `/` index 改为 redirect('/wiki')，不再懒加载 HomePage。
+    expect(targets).toHaveLength(109);
     for (const target of targets) {
       expect(citedSources.has(target), target).toBe(true);
+    }
+  });
+
+  it("后台算力用量的文章、导航、图注与 fixture 使用同一口径", () => {
+    const article = WIKI_ARTICLE_BY_SLUG.get("admin-token-cost");
+    expect(article?.title).toBe("算力用量统计");
+    expect(article?.summary).toContain("算力点、Token 与实际成本");
+    expect(JSON.stringify(article)).not.toContain("积分");
+
+    const adminTokenNav = WIKI_NAV_CATEGORIES.flatMap((category) =>
+      walkNav(category.children),
+    ).find((node) => node.id === "other-admin-token-cost");
+    expect(adminTokenNav?.title).toBe("算力用量统计");
+    expect(WIKI_EMBED_REGISTRY["admin-token-cost"].defaultCaption).toBe(
+      "后台 · 算力用量统计",
+    );
+
+    const source = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/embeds/WikiEmbedAdminAnalytics.tsx",
+      ),
+      "utf8",
+    );
+    const kpiOrder = ["总算力点", "调用次数", "总 Tokens", "独立用户"].map(
+      (label) => source.indexOf(`label: "${label}"`),
+    );
+    expect(kpiOrder.every((index) => index >= 0)).toBe(true);
+    expect(kpiOrder).toEqual([...kpiOrder].sort((a, b) => a - b));
+    expect(source).toContain(
+      'tabs={["模型", "功能", "来源", "Provider", "Top 用户"]}',
+    );
+  });
+
+  it("后台 fixture 保留批次、权限、订单退款和计费字段的真实约束", () => {
+    const embedRoot = path.join(
+      repoRoot,
+      "frontend-user/src/features/wiki/embeds",
+    );
+    const users = readFileSync(
+      path.join(embedRoot, "WikiEmbedAdminUsers.tsx"),
+      "utf8",
+    );
+    const overview = readFileSync(
+      path.join(embedRoot, "WikiEmbedAdminOverview.tsx"),
+      "utf8",
+    );
+    const analytics = readFileSync(
+      path.join(embedRoot, "WikiEmbedAdminAnalytics.tsx"),
+      "utf8",
+    );
+    const content = readFileSync(
+      path.join(embedRoot, "WikiEmbedAdminContent.tsx"),
+      "utf8",
+    );
+
+    expect(users).toMatch(/[A-Z0-9]{4}(?:-[A-Z0-9]{4}){3}/);
+    expect(users).toContain('searchPlaceholder="批次号 / 备注"');
+    expect(users).toContain('filters={["发放类型", "会员等级"]}');
+    expect(users).toContain('filters={["订单状态", "订单类型"]}');
+    expect(users).toContain('secondaryStatus: "已全额退款"');
+    expect(users).not.toContain('status: "已履约"');
+    expect(users).not.toContain('status: "已退款"');
+
+    expect(overview).not.toContain("支付配置");
+    expect(overview).not.toContain("系统设置");
+
+    expect(analytics).toContain("1 经费 = 3 算力点");
+    expect(analytics).toContain("经费→重置次数换算率（历史迁移用）");
+    expect(analytics).toContain('kind: "readonly"');
+    expect(analytics).not.toContain("订阅赠送");
+    expect(analytics).not.toContain("重置凭证");
+
+    expect(content).toContain('label: "config.manage", value: "允许"');
+    expect(content).toContain('label: "允许绑定时窗"');
+    expect(content).toContain('label: "首单有效时窗"');
+    expect(content).not.toContain('label: "config.manage", value: "禁止"');
+  });
+
+  it("product-mock 可见表面有逐组覆盖账本，且全部注册、挂载", () => {
+    const registered = new Set(Object.keys(WIKI_EMBED_REGISTRY));
+    const mounted = new Set(allEmbedRefs().map((ref) => ref.id));
+    const keys = MOCK_SURFACE_COVERAGE.map((entry) => entry.key);
+    const ledgerFixtureIds = new Set(
+      MOCK_SURFACE_COVERAGE.flatMap((entry) => entry.fixtureIds),
+    );
+
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(USER_MOCK_SURFACE_COVERAGE).toHaveLength(
+      MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS.user,
+    );
+    expect(MOBILE_MOCK_SURFACE_COVERAGE).toHaveLength(
+      MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS.mobile,
+    );
+    expect(ADMIN_MOCK_SURFACE_COVERAGE).toHaveLength(
+      MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS.admin,
+    );
+    expect(MOCK_SURFACE_COVERAGE).toHaveLength(
+      MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS.all,
+    );
+    expect(MOCK_SURFACE_COVERAGE_STATS.visibleTotal).toBe(
+      MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS.visibleTotal,
+    );
+    expect(MOCK_SURFACE_COVERAGE_STATS.visibleTotal).toBe(
+      WIKI_MOCK_SURFACE_BASELINE.visible,
+    );
+    expect(MOCK_SURFACE_COVERAGE_STATS.all.fixture).toBe(
+      WIKI_MOCK_SURFACE_BASELINE.migratedOrCorrected,
+    );
+    expect(MOCK_SURFACE_COVERAGE_STATS.all.covered).toBe(
+      WIKI_MOCK_SURFACE_BASELINE.existing,
+    );
+    expect(MOCK_SURFACE_COVERAGE_STATS.all.excluded).toBe(
+      WIKI_MOCK_SURFACE_BASELINE.excluded,
+    );
+    expect(ledgerFixtureIds.size).toBe(
+      WIKI_MOCK_SURFACE_BASELINE.registeredFixtures,
+    );
+    expect(ledgerFixtureIds).toEqual(registered);
+
+    for (const entry of MOCK_SURFACE_COVERAGE) {
+      expect(entry.reason.trim().length, entry.key).toBeGreaterThan(12);
+      expect(entry.mockSourcePaths.length, entry.key).toBeGreaterThan(0);
+      if (entry.disposition === "excluded") {
+        expect(entry.fixtureIds, entry.key).toHaveLength(0);
+        continue;
+      }
+      expect(entry.fixtureIds.length, entry.key).toBeGreaterThan(0);
+      for (const id of entry.fixtureIds) {
+        expect(registered.has(id), `${entry.key} -> ${id} 未注册`).toBe(true);
+        expect(
+          mounted.has(id as WikiEmbedId),
+          `${entry.key} -> ${id} 未挂载`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("本地存在 sibling mock 时，覆盖账本中的源文件全部可解析", () => {
+    const mockRoot = path.resolve(repoRoot, "../scholar-product-mock");
+    if (!existsSync(mockRoot)) return;
+
+    for (const entry of MOCK_SURFACE_COVERAGE) {
+      for (const sourcePath of entry.mockSourcePaths) {
+        expect(
+          existsSync(path.join(mockRoot, sourcePath)),
+          `${entry.key}: ${sourcePath}`,
+        ).toBe(true);
+      }
     }
   });
 });

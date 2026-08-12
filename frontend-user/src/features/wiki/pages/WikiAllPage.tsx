@@ -3,19 +3,22 @@ import { Link, useSearchParams } from "react-router-dom";
 import { RouteSEO } from "@/shared/components/RouteSEO";
 import { cn } from "@/shared/lib/utils";
 import {
-  WIKI_ARTICLES,
   WIKI_KIND_LABEL,
   WIKI_STATUS_LABEL,
   searchWikiArticles,
+  visibleArticles,
 } from "../content";
 import type { WikiArticleKind, WikiArticleStatus } from "../types";
 import { WikiArticleCard } from "../components/WikiArticleCard";
 import { WikiSearchForm } from "../components/WikiSearchForm";
+import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
 
 const KINDS = Object.keys(WIKI_KIND_LABEL) as WikiArticleKind[];
 const STATUSES = Object.keys(WIKI_STATUS_LABEL) as WikiArticleStatus[];
 
 export function WikiAllPage() {
+  const canSeeAdmin = useCanSeeWikiAdmin();
+  const articles = visibleArticles(canSeeAdmin);
   const [params] = useSearchParams();
   const query = params.get("q") ?? "";
   const rawKind = params.get("kind");
@@ -26,7 +29,7 @@ export function WikiAllPage() {
   const status = STATUSES.includes(rawStatus as WikiArticleStatus)
     ? (rawStatus as WikiArticleStatus)
     : null;
-  const searched = searchWikiArticles(query);
+  const searched = searchWikiArticles(query, canSeeAdmin);
   const results = searched.filter(
     (article) =>
       (!kind || article.kind === kind) &&
@@ -45,7 +48,7 @@ export function WikiAllPage() {
         keywords="Scholay Wiki,Scholay 功能索引,Scholay 规则"
         noindex={Boolean(query)}
       />
-      <section className="border-b border-border bg-surface-1">
+      <section className="border-b border-border bg-surface-card">
         <div className="mx-auto max-w-page px-6 py-10 md:py-14">
           <p className="text-12 font-medium text-brand-red">COMPLETE INDEX</p>
           <h1 className="mt-2 font-display text-32 font-bold leading-display-tight text-foreground">
@@ -70,10 +73,10 @@ export function WikiAllPage() {
             aria-current={!kind ? "page" : undefined}
             className={filterClass(!kind)}
           >
-            全部 {WIKI_ARTICLES.length}
+            全部 {articles.length}
           </Link>
           {KINDS.map((item) => {
-            const count = WIKI_ARTICLES.filter(
+            const count = articles.filter(
               (article) => article.kind === item,
             ).length;
             if (count === 0) return null;
@@ -102,7 +105,7 @@ export function WikiAllPage() {
             全部状态
           </Link>
           {STATUSES.map((item) => {
-            const count = WIKI_ARTICLES.filter(
+            const count = articles.filter(
               (article) => article.status === item,
             ).length;
             if (count === 0) return null;

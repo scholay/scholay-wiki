@@ -59,11 +59,13 @@ export const researchAiArticles: WikiArticle[] = [
         id: "difference",
         title: "与普通检索的区别",
         markdown: `普通检索把明确的查询与筛选条件转换为分页结果；智能搜索允许用户描述研究问题，由 Agent 规划检索、调用学术工具并组织解释。两者都返回论文，但智能搜索同时保留推理过程中的查询、来源和会话上下文。`,
+        embeds: [{ id: "smart-search-dock" }],
       },
       {
         id: "session",
         title: "会话与连接",
         markdown: `后端为用户取得或创建智能搜索会话，并签发短时、一次性的 WebSocket ticket。浏览器用该凭据建立实时连接；长期认证令牌不直接放进 WebSocket URL。`,
+        embeds: [{ id: "smart-search-session" }],
       },
       {
         id: "evidence",
@@ -101,6 +103,11 @@ export const researchAiArticles: WikiArticle[] = [
         id: "workspace",
         title: "会话工作区",
         markdown: `Claw 提供会话历史、消息流、输入框、附件、技能选择和右侧交付物预览。移动 Web 使用专门页面与抽屉布局，小程序也提供 Claw 会话入口。`,
+        embeds: [
+          { id: "claw-workspace" },
+          { id: "mobile-claw" },
+          { id: "mobile-claw-active-session" },
+        ],
       },
       {
         id: "skills",
@@ -111,6 +118,7 @@ export const researchAiArticles: WikiArticle[] = [
         id: "outputs",
         title: "产物与预览",
         markdown: `Claw 能在消息中展示论文、引用、图形和工具过程，并把可交付文件集中到 artifact 面板。文档与表格等格式有相应预览，其他格式至少提供稳定下载入口。`,
+        embeds: [{ id: "mobile-claw-artifact-preview" }],
       },
     ],
   },
@@ -142,16 +150,19 @@ export const researchAiArticles: WikiArticle[] = [
         id: "submission",
         title: "两类提交",
         markdown: `期刊论文与学位论文使用不同向导。主稿上限 50 MiB，附件每个最多 30 MiB、最多 10 个。期刊流程会收集稿件、目标期刊或领域、投稿信与必要元数据；学位论文流程按学校和论文场景组织信息。上传完成只形成草稿，不等于已经开始评审。`,
+        embeds: [{ id: "peer-review-entry" }],
       },
       {
         id: "review",
         title: "评审过程",
         markdown: `任务主状态按 draft → queued → reviewing → completed 或 failed 推进，只有 draft 可以编辑；failed 可以重试。评审内部还会出现 idle、computing_meta、computing_letter、computing_methodology、reviewing、failed 等计算阶段。后端有恢复与清扫机制处理被中断的任务，前端通过实时流更新阶段和结果。`,
+        embeds: [{ id: "peer-review-progress" }],
       },
       {
         id: "records",
         title: "记录与边界",
         markdown: `历史评审进入记录列表和详情页。智能审稿是投稿前的风险发现工具，不代表真实期刊决定，也不能替代领域专家、伦理审查或统计复核。`,
+        embeds: [{ id: "peer-review-records-list" }],
       },
     ],
   },
@@ -179,16 +190,19 @@ export const researchAiArticles: WikiArticle[] = [
         id: "workspace",
         title: "写作工作区",
         markdown: `现行 Prism 以数据库中的项目、结构树和文本版本为权威内容，以 MinIO 保存二进制文件和编译产物。新项目使用结构化 schema；旧项目保留冻结的 legacy 文件模型。当前 \`Project.ReadOnly()\` 对项目统一返回只读，因此旧文件 CRUD 不能当作现行主编辑链路。`,
+        embeds: [{ id: "prism-workspace" }],
       },
       {
         id: "writing-tools",
         title: "写作工具",
-        markdown: `现行界面包含引用、作者、数字、公式、质量、版本、修订、翻译和写作画像等专门入口。AI 回合先 prepare，再形成 pending diff；只有用户 apply 后变更才进入正文，reject 则放弃。界面出现的多人实时协作宣传没有对应的稳定产品入口。`,
+        markdown: `现行界面包含引用、作者、数字、公式、质量、版本、修订、翻译和写作画像等专门入口。AI 回合先 prepare，再形成 pending diff；默认模式会在回合结束后自动应用变更，只有打开“逐块审阅”时才等待用户 apply 或 reject。界面出现的多人实时协作宣传没有对应的稳定产品入口。`,
+        embeds: [{ id: "prism-writing-start" }],
       },
       {
         id: "compile",
         title: "编译与交付",
         markdown: `编译任务按 queued → running → success 或 error 推进；错误分 latex、infra、timeout，只有 LaTeX 错误会进入自动修复。后端把任务放入共享工作目录，LaTeX 辅助服务生成 PDF 或诊断结果，产物再进入稳定交付链路。`,
+        embeds: [{ id: "prism-compile-states" }],
       },
     ],
   },
@@ -215,6 +229,9 @@ export const researchAiArticles: WikiArticle[] = [
         id: "workflow",
         title: "工作流",
         markdown: `用户提供数据文件和研究问题后，Agent 先理解变量、数据质量与研究设计，再选择统计方法并执行分析。结果应同时包含方法说明、关键数值、诊断和可下载产物，而不只是自然语言结论。`,
+        embeds: [
+          { id: "claw-empty-state", caption: "智能助手 · 数据分析入口" },
+        ],
       },
       {
         id: "environment",
@@ -252,6 +269,9 @@ export const researchAiArticles: WikiArticle[] = [
         id: "figures",
         title: "科研绘图",
         markdown: `科研绘图会话面向图表、科学示意图和分子/生物图形等任务。前端可以直接展示 SVG 图形并提供缩放与导出；图中数据、标签和科学关系仍需用户核对。`,
+        embeds: [
+          { id: "claw-empty-state", caption: "智能助手 · 科研创作模板" },
+        ],
       },
       {
         id: "slides",

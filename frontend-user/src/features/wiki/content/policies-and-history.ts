@@ -50,6 +50,7 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       "frontend-user/src/features/help/pages/ContactPage.tsx",
       "backend/internal/feedback",
       "backend/internal/supportcenter",
+      "frontend-user/src/features/wiki/embeds/WikiEmbedRhinoAssistant.tsx",
     ],
     related: ["service-policies", "scholay", "admin-console"],
     sections: [
@@ -57,6 +58,14 @@ export const policyAndHistoryArticles: WikiArticle[] = [
         id: "channels",
         title: "入口",
         markdown: `反馈页用于问题报告、功能建议和产品意见；联系页补充技术支持与商务合作方式。反馈可以包含分类、描述和附件，进入后台工单处理表面。`,
+        embeds: [
+          { id: "feedback-form" },
+          { id: "contact-support" },
+          {
+            id: "rhino-assistant-support-panels",
+            caption: "牛犀犀助手 · 精简反馈二级入口",
+          },
+        ],
       },
       {
         id: "privacy",
@@ -87,6 +96,7 @@ export const policyAndHistoryArticles: WikiArticle[] = [
         id: "configuration",
         title: "配置",
         markdown: `推广活动使用单行后台配置控制启用状态、文案和微信二维码。公开摘要接口不包含大体积二维码数据，图片通过带内容版本的独立 URL 获取，替换图片后缓存地址也会变化。`,
+        embeds: [{ id: "promo-modal" }],
       },
       {
         id: "closed",
@@ -118,11 +128,18 @@ export const policyAndHistoryArticles: WikiArticle[] = [
         id: "preview",
         title: "先预览后确认",
         markdown: `用户输入代码后先向后端获取将获得的档位、期限或经费以及活动说明，再在确认弹窗中执行兑换。前端不能根据码的外观猜测权益。`,
+        embeds: [{ id: "redeem-preview", caption: "用户端 · 兑换预览" }],
       },
       {
         id: "grant",
         title: "发放规则",
-        markdown: `新码使用排除易混字符的 \`XXXX-XXXX-XXXX-XXXX\` 格式。代码可以发会员或经费；同一用户对同一码只能成功兑换一次，但单码可配置 1–100 次总使用次数，供多人核销。失败会区分 revoked、expired、exhausted 和 already redeemed。会员码不会把用户降级，期限从当前有效到期日顺延；只有确实升档且授予时长至少覆盖一个额度周期时才触发额度满血。`,
+        markdown: `新码使用排除易混字符的 \`XXXX-XXXX-XXXX-XXXX\` 格式。代码可以发会员或经费；兑换限制按账号判断：每个账号对同一码只能成功一次，不是某人兑换后该码就全局失效。单码仍可配置 1–100 次总使用次数，在总次数耗尽前供不同账号核销。失败会区分 revoked、expired、exhausted 和 already redeemed。会员码不会把用户降级，期限从当前有效到期日顺延；只有确实升档且授予时长至少覆盖一个额度周期时才触发额度满血。`,
+        embeds: [
+          { id: "admin-gift-codes", caption: "后台 · 兑换码生成与核销" },
+          { id: "admin-gift-code-generator" },
+          { id: "admin-gift-code-list" },
+          { id: "admin-gift-code-action-dialog" },
+        ],
       },
     ],
   },
@@ -157,11 +174,12 @@ export const policyAndHistoryArticles: WikiArticle[] = [
         id: "routes",
         title: "页面入口",
         markdown: `\`/features\` 汇总产品能力；搜索、文库、Prism、Claw、投稿和同行评审各有独立 \`/features/*\` 介绍页，\`/pricing\` 展示套餐比较。它们不执行核心研究任务，CTA 会把用户带到真实工作区、注册或定价流程。`,
+        embeds: [{ id: "marketing-landing-template" }],
       },
       {
         id: "known-drift",
         title: "已知宣传漂移",
-        markdown: `文库介绍中的多级目录、PDF 批注高亮、AI 标签、Zotero/EndNote 导入和平板同步尚未形成现行闭环；投稿页不向外部期刊发送稿件；同行评审是 AI 模拟，不是真人编辑部流程；Prism 没有已核实的多人实时协作入口；搜索页的语义图谱描述也不能替代当前 Auto、STC、OpenAlex、PubMed 行为。`,
+        markdown: `文库介绍中的多级目录、PDF 批注高亮、AI 标签、Zotero/EndNote 导入和平板同步尚未形成现行闭环；投稿页不向外部期刊发送稿件；同行评审是 AI 模拟，不是真人编辑部流程；Prism 没有已核实的多人实时协作入口；搜索页的语义图谱描述也不能替代当前综合、Graph、Discovery、Medicine 四种公开搜索入口。`,
       },
       {
         id: "numbers",
