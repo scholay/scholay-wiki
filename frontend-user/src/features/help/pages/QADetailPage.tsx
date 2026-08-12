@@ -77,7 +77,7 @@ export function QADetailPage() {
               <Link
                 key={r.slug}
                 to={`/qa/${r.slug}`}
-                className="group flex flex-col gap-1.5 p-4 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
+                className="group flex flex-col gap-1.5 p-4 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-colors"
               >
                 <p className="text-12 text-faint">{r.category}</p>
                 <p className="text-14 font-medium text-foreground line-clamp-2">
@@ -86,9 +86,9 @@ export function QADetailPage() {
                 <p className="text-12 text-muted-foreground leading-paragraph line-clamp-2">
                   {r.excerpt}
                 </p>
-                <span className="mt-1 inline-flex items-center gap-1 text-12 font-medium text-brand-red group-hover:gap-2 transition-all">
+                <span className="mt-1 inline-flex items-center gap-1 text-12 font-medium text-brand-red">
                   查看解答
-                  <ArrowRight className="size-3" />
+                  <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
                 </span>
               </Link>
             ))}

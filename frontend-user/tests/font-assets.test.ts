@@ -123,7 +123,8 @@ describe('唯一保留的 webfont:Noto Serif SC 资产', () => {
       expect(existsSync(publicPath(url)), `缺少字体分片: ${url}`).toBe(true);
 
     const manifest = JSON.parse(
-      readFileSync(join(PUBLIC, 'fonts', 'noto-serif-sc', 'manifest.json'), 'utf8'),
+      // manifest 在 scripts/(工具状态文件,2026-08-12 移出 public/ 免进发布产物)。
+      readFileSync(join(process.cwd(), 'scripts', 'noto-serif-sc.manifest.json'), 'utf8'),
     );
     expect(manifest.sourceVersion).toBe('v35');
     expect(manifest.fallbackDirectory).toBe(manifest.sourceVersion);
@@ -156,7 +157,8 @@ describe('唯一保留的 webfont:Noto Serif SC 资产', () => {
 
   it('全局 UI 常用字收敛为一个可控的关键请求,与兜底范围无重叠', () => {
     const manifest = JSON.parse(
-      readFileSync(join(PUBLIC, 'fonts', 'noto-serif-sc', 'manifest.json'), 'utf8'),
+      // manifest 在 scripts/(工具状态文件,2026-08-12 移出 public/ 免进发布产物)。
+      readFileSync(join(process.cwd(), 'scripts', 'noto-serif-sc.manifest.json'), 'utf8'),
     );
     expect(manifest.schemaVersion).toBe(4);
     expect(manifest.critical.file).toMatch(/^noto-serif-sc-ui-[a-f\d]{12}\.woff2$/);
@@ -207,7 +209,8 @@ describe('唯一保留的 webfont:Noto Serif SC 资产', () => {
 
   it('index 只 preload Noto 的首屏 UI 子集', () => {
     const manifest = JSON.parse(
-      readFileSync(join(PUBLIC, 'fonts', 'noto-serif-sc', 'manifest.json'), 'utf8'),
+      // manifest 在 scripts/(工具状态文件,2026-08-12 移出 public/ 免进发布产物)。
+      readFileSync(join(process.cwd(), 'scripts', 'noto-serif-sc.manifest.json'), 'utf8'),
     );
     expect(INDEX_HTML).toContain(`/fonts/noto-serif-sc/${manifest.critical.file}`);
     // preload 有且只有这一个字体

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Flame, TrendingUp } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -16,7 +16,10 @@ import {
  * PC 情报信息流卡片(纯展示,props-in)—— 首页情报区主流 + /news 列表页共用。
  * 整卡 Link → /news/:slug;不取正文(列表只展示卡片字段)。
  */
-export function NewsListItem({ item, deferDetails = false }: { item: NewsCard; deferDetails?: boolean }) {
+// memo:消费方 NewsListPage 是 useInfiniteQuery 无限列表,「加载更多」时 items 全量重建,
+// 但 react-query 结构共享保证旧 item 引用稳定 → memo 直接命中,已加载页不重渲
+// (移动端对应组件 NewsCard / JournalFeedCard / PaperFeedCard 均已同款 memo)。
+export const NewsListItem = memo(function NewsListItem({ item, deferDetails = false }: { item: NewsCard; deferDetails?: boolean }) {
   const linkRef = useRef<HTMLAnchorElement>(null);
   const [detailsVisible, setDetailsVisible] = useState(!deferDetails);
   // 父级取消延迟时应在当次 render 立即展示，不等 effect 再同步一份 state。
@@ -145,4 +148,4 @@ export function NewsListItem({ item, deferDetails = false }: { item: NewsCard; d
       )}
     </Link>
   );
-}
+});

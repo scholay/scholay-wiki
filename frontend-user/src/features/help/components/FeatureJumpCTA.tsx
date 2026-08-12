@@ -115,7 +115,7 @@ function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 p-4 rounded-12 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
+      className="group flex items-center gap-3 p-4 rounded-12 bg-surface-card border border-border-soft hover:border-foreground/40 transition-colors"
     >
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors shrink-0">
         <Icon

@@ -9,6 +9,7 @@ import { ResourceError } from '@/shared/components';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { isQuotaHandled, useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
 import { useSubmissionReports } from '../api/reports';
+import { useStreamingPartial } from '../api/stream';
 import {
   recBadgeClasses,
   recFillBg,
@@ -51,6 +52,17 @@ export function RecordDetailPage() {
   const { data: sub, isLoading: subLoading, isError: subError, error: subErr } = useSubmission(id);
   // failed 终态不会再产出报告 → 停止轮询(性能审计:失败但没凑齐 4 份时旧逻辑每 5s 永久空打后端)。
   const { data: reports, isLoading: reportsLoading } = useSubmissionReports(id, sub?.status === 'failed');
+
+  // 方法论阶段的控制通道(2026-08-12 推送化补盲区):computing_methodology 期间
+  // reviewer/chief 面板都不订阅 SSE(前者 preparing 停订、后者等 reviewersAllDone),
+  // 后端广播的 state 帧(→reviewing 转场)会全场落空、只剩 15s 慢轮询。
+  // 挂一条 methodology slot 的订阅:它天然能收到 BroadcastAll 的控制帧(收帧即
+  // invalidate,见 stream.ts),顺带把该阶段 agent 的实时输出流保持在线。返回值不渲染。
+  useStreamingPartial({
+    submissionId: id,
+    enabled: sub?.computeState === 'computing_methodology',
+    slot: 'methodology',
+  });
 
   const reportMap = useMemo(() => {
     const m = new Map<ReviewerRole, ReviewReport>();

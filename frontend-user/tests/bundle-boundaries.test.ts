@@ -14,6 +14,17 @@ describe('heavy frontend dependency boundaries', () => {
     );
   });
 
+  it('AdminTurnFigures mirrors the same lazy compose/ELK boundary (admin session monitor)', () => {
+    // 2026-08-12 审计:此文件曾静态 import composeFigure,把 1.44MB elk chunk 挂进
+    // SessionMonitorPage 静态闭包(+1.5MB raw)。与用户端 TurnFigures 同款契约钉死。
+    const source = readSource('src/features/admin/components/AdminTurnFigures.tsx');
+    expect(source).not.toMatch(/^import\s+\{\s*composeFigure\s*\}/m);
+    expect(source).toContain("import('@/features/claw/components/figure/compose')");
+    expect(source.indexOf('const spec = parseFigureSpec(text)')).toBeLessThan(
+      source.indexOf("import('@/features/claw/components/figure/compose')"),
+    );
+  });
+
   it('the route-visible MarkdownRenderer shell has no static heavy markdown imports', () => {
     const source = readSource('src/shared/components/chat/MarkdownRenderer.tsx');
     for (const packageName of [

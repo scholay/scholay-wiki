@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 /**
@@ -66,6 +66,8 @@ export interface HotStats {
 export function useHotKeywords(page = 1, pageSize = 50, days = 30, searchType?: SearchType) {
   return useQuery({
     queryKey: ['admin', 'hot-content', 'keywords', page, pageSize, days, searchType ?? 'all'],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { items: HotKeyword[]; total: number } }>(
         '/admin/hot-content/keywords',
@@ -87,6 +89,8 @@ export function useHotKeywords(page = 1, pageSize = 50, days = 30, searchType?: 
 export function useHotPapers(page = 1, pageSize = 50, days = 30) {
   return useQuery({
     queryKey: ['admin', 'hot-content', 'papers', page, pageSize, days],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { items: HotPaper[]; total: number } }>(
         '/admin/hot-content/papers',

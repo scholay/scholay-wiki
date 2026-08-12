@@ -296,6 +296,13 @@ export function SearchPage() {
     SEARCHER_DEFAULT_PX,
   );
   const draggingRef = useRef(false);
+  // 拖拽期的临时宽度:move 只走 useState 驱动渲染,释放时才持久化一次 ——
+  // useLocalStorage 的 set 每次都 JSON.stringify + localStorage.setItem + 派发全局
+  // CustomEvent('local-storage'),放在 pointermove 路径上是逐帧的同步 IO + 全局广播。
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  // 拖拽中途卸载(切路由)时把 document 级监听拆干净,否则残留到下一次全局 pointerup。
+  useEffect(() => () => dragCleanupRef.current?.(), []);
 
   const startDrag = useCallback(
     (e: React.PointerEvent) => {
@@ -303,24 +310,32 @@ export function SearchPage() {
       draggingRef.current = true;
       const startX = e.clientX;
       const startW = searcherWidth;
+      let last = startW;
       const onMove = (ev: PointerEvent) => {
         if (!draggingRef.current) return;
         const dx = ev.clientX - startX;
-        const next = Math.max(
+        last = Math.max(
           SEARCHER_MIN_PX,
           Math.min(SEARCHER_MAX_PX, startW + dx),
         );
-        setSearcherWidth(next);
+        setDragWidth(last);
       };
-      const onUp = () => {
+      const cleanup = () => {
         draggingRef.current = false;
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
         document.body.style.cursor = "";
+        dragCleanupRef.current = null;
+      };
+      const onUp = () => {
+        cleanup();
+        setSearcherWidth(last);
+        setDragWidth(null);
       };
       document.body.style.cursor = "col-resize";
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
+      dragCleanupRef.current = cleanup;
     },
     [searcherWidth, setSearcherWidth],
   );
@@ -362,7 +377,7 @@ export function SearchPage() {
       <div className="flex h-full min-h-0 bg-background">
         {/* 搜索器列 —— **px 固定宽度**,viewport 窄时不缩 */}
         <div
-          style={{ width: searcherWidth }}
+          style={{ width: dragWidth ?? searcherWidth }}
           className="shrink-0 h-full min-h-0 border-r border-border"
         >
           <SearcherColumn

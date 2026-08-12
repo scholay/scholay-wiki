@@ -20,7 +20,7 @@ import {
 } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
 import { http } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import { isPhoneDevice } from '@/shared/lib/device';
 import { quotaNavigate } from '@/shared/lib/quota-events';
@@ -47,11 +47,13 @@ export function UsageDialog({
   const reset = useResetQuotaMutation(() => setConfirmReset(false));
   const payg = usePaygMutation(() => setConfirmPayg(false));
 
+  // 响应式登录态门控(getAuthToken 非响应式,原地弹窗登录后查询不会自动启动)。
+  const authToken = useAuthStore((s) => s.token);
   const { data } = useQuery({
     queryKey: QUOTA_OVERVIEW_QUERY_KEY,
     queryFn: async () =>
       (await http.get<{ data: QuotaOverview }>('/user/billing/overview')).data.data,
-    enabled: open && !!getAuthToken(),
+    enabled: open && !!authToken,
     staleTime: 15_000,
   });
 

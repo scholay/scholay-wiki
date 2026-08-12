@@ -11,7 +11,7 @@
 // 字段 mirrors backend/internal/vip/quota.go Overview.token(P5:percent 是真值,绝对额度已抹除)。
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
 import { formatResetAt } from '@/shared/components/QuotaNotifier';
 
 interface OverviewLite {
@@ -23,10 +23,12 @@ interface OverviewLite {
 }
 
 export function SubmitQuotaHint() {
+  // 响应式登录态门控(getAuthToken 非响应式,原地弹窗登录后查询不会自动启动)。
+  const authToken = useAuthStore((s) => s.token);
   const { data } = useQuery({
     queryKey: ['settings', 'billing'],
     queryFn: async () => (await http.get<{ data: OverviewLite }>('/user/billing/overview')).data.data,
-    enabled: !!getAuthToken(),
+    enabled: !!authToken,
     staleTime: 15_000,
   });
 

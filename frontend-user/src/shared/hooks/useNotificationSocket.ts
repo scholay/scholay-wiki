@@ -3,6 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth.store';
 import { http } from '@/shared/lib/http';
+import {
+  dispatchPrismCompileStatus,
+  type PrismCompileStatusDetail,
+} from '@/shared/lib/compile-events';
 import { useAfterPageLoad } from './useAfterPageLoad';
 
 /**
@@ -38,7 +42,7 @@ function reconnectDelay(attempt: number): number {
 }
 
 interface ServerMessage<T = unknown> {
-  type: 'notification' | 'unread_count' | 'toast' | 'pong' | 'error';
+  type: 'notification' | 'unread_count' | 'toast' | 'compile_status' | 'pong' | 'error';
   data?: T;
 }
 
@@ -88,6 +92,8 @@ export function useNotificationSocket() {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const closedByUserRef = useRef(false);
+  // 退避预算耗尽后挂的一次性 visibilitychange 监听的卸载器(null = 未挂)。
+  const visibilityReviveRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     closedByUserRef.current = false;
@@ -108,6 +114,10 @@ export function useNotificationSocket() {
         wsRef.current.close();
         wsRef.current = null;
       }
+      if (visibilityReviveRef.current) {
+        visibilityReviveRef.current();
+        visibilityReviveRef.current = null;
+      }
     }
 
     if (!token || !backgroundReady) {
@@ -115,9 +125,43 @@ export function useNotificationSocket() {
       return;
     }
 
+    // 预算耗尽后的自愈路径:不再定时重试(死会话/长时间宕机不无限握手),但也**不永久失联**——
+    // 用户回到 tab 时(visibilitychange→visible)重置预算、拉起新一轮退避。
+    // 此前 onclose 注释声称的「聚焦重建」路径实际不存在:长挂 tab 经历一次约 4 分钟以上的
+    // 断连(后端部署/网络切换)后通知 WS 就永久哑掉,直到刷新(2026-08-12 审计)。
+    function armVisibilityRevive() {
+      if (visibilityReviveRef.current) return; // 已挂,幂等
+      // 三个唤醒源,谁先到谁触发(用户全程停在可见 tab 时 visibilitychange 永不发生,
+      // 靠 online 事件与 5min 慢计时器兜底 —— 频率低到不构成风暴,但保证最终自愈):
+      const revive = () => {
+        disarm();
+        if (closedByUserRef.current) return;
+        reconnectAttemptsRef.current = 0;
+        connect();
+      };
+      const onVisible = () => {
+        if (document.visibilityState !== 'visible') return;
+        revive();
+      };
+      const slowTimer = setTimeout(revive, 5 * 60_000);
+      const disarm = () => {
+        document.removeEventListener('visibilitychange', onVisible);
+        window.removeEventListener('online', revive);
+        clearTimeout(slowTimer);
+        visibilityReviveRef.current = null;
+      };
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('online', revive);
+      visibilityReviveRef.current = disarm;
+    }
+
     // scheduleReconnect 指数退避 + 抖动 + 次数上限重连(ticket 取失败 / WS 异常断开共用)。
     function scheduleReconnect() {
-      if (closedByUserRef.current || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) return;
+      if (closedByUserRef.current) return;
+      if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        armVisibilityRevive();
+        return;
+      }
       const delay = reconnectDelay(reconnectAttemptsRef.current);
       reconnectAttemptsRef.current += 1;
       reconnectTimerRef.current = setTimeout(connect, delay);
@@ -178,6 +222,15 @@ export function useNotificationSocket() {
             }
             break;
           }
+          case 'compile_status': {
+            // prism 编译状态推送 → 经 window 事件桥转给 prism 的 useCompile(setQueryData)。
+            // shared 层不认识 feature 的缓存键形状,只负责搬运(见 shared/lib/compile-events.ts)。
+            const d = msg.data as PrismCompileStatusDetail | undefined;
+            if (d && typeof d.id === 'number' && typeof d.project_id === 'number') {
+              dispatchPrismCompileStatus(d);
+            }
+            break;
+          }
           default:
             // pong / error / 未知 type 一律忽略,后端日志已记录
             break;
@@ -190,8 +243,8 @@ export function useNotificationSocket() {
           pingTimerRef.current = null;
         }
         wsRef.current = null;
-        // 异常断开 → 指数退避 + 抖动后重连; 超过上限放弃, 不再无限握手(死会话/长时间宕机)。
-        // 用户重新聚焦页面 / 下次 token 变化(登录态刷新)会重建连接。
+        // 异常断开 → 指数退避 + 抖动后重连;超过上限停表,由 armVisibilityRevive
+        // 在用户回到 tab 时重置预算再来一轮(或下次 token 变化重建)。
         if (!closedByUserRef.current) {
           scheduleReconnect();
         }

@@ -22,7 +22,7 @@ import { InviteNavButton } from '@/shared/components/InviteNavButton';
 import { ActivityNavMenu } from './ActivityNavMenu';
 import { UserMenuContent } from'@/shared/components/UserMenuContent';
 import { http } from'@/shared/lib/http';
-import { getAuthToken } from'@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
 import { resetInfo } from'@/shared/lib/quota-display';
 import { cn } from'@/shared/lib/utils';
 
@@ -148,11 +148,13 @@ interface QuotaOverviewLite {
  */
 function MenuQuotaSummary() {
   const navigate = useNavigate();
+  // 响应式登录态门控(getAuthToken 非响应式,原地弹窗登录后查询不会自动启动)。
+  const authToken = useAuthStore((s) => s.token);
   const { data } = useQuery({
     queryKey: ['settings', 'billing'],
     queryFn: async () =>
       (await http.get<{ data: QuotaOverviewLite }>('/user/billing/overview')).data.data,
-    enabled: !!getAuthToken(),
+    enabled: !!authToken,
     staleTime: 30_000,
   });
 

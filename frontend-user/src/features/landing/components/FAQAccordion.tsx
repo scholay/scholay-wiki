@@ -36,7 +36,9 @@ function FAQItem({
       </button>
       <div
         className={cn(
-          'overflow-hidden transition-all duration-200',
+          // 只过渡真正在变的两个属性(max-height/padding-bottom),不用 transition-all
+          // 兜所有属性;时长保持 duration-200 不迁 token(四档与默认档无一相等,迁=视觉变化)。
+          'overflow-hidden transition-[max-height,padding-bottom] duration-200',
           open ? 'max-h-96 pb-6' : 'max-h-0'
         )}
       >

@@ -809,6 +809,11 @@ func (h *Handler) SearchJournals(c *gin.Context) {
 			map[string]any{"keyword": req.Keyword})
 	}
 
+	// 字段投影(必须在 SEO 种子采集之后):full=1 或显式 fields= 的请求保留上游原样
+	//(调用方自己收口了字段,别替它二次裁剪),常规请求按白名单裁剪。
+	if req.Full != "1" && req.Fields == "" {
+		result = projectJournalRows(result)
+	}
 	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
@@ -832,6 +837,10 @@ func (h *Handler) ListJournals(c *gin.Context) {
 		return
 	}
 
+	// 字段投影:full=1 或显式 fields= 保留上游原样(seoingest 走 Go 层 Manager 不经这里,不受影响)。
+	if req.Full != "1" && req.Fields == "" {
+		result = projectJournalRows(result)
+	}
 	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
@@ -1118,6 +1127,73 @@ func (h *Handler) JournalsByNames(c *gin.Context) {
 // redactJournalSubmissionURLs 把 journal 响应里 submission.{guideline_url,latex_url}
 // 抹成 null,防止公开端点把上游可直链的下载地址泄漏给非会员。
 // 常见路径(无 full / 无 submission)零成本:先按子串探测,没命中就原样返回。
+// journalRowProjection —— /public/journals/{list,search} 行内 unified 对象的字段白名单。
+// 上游 /v1/jnl 的 unified 有 ~88 个字段,这两个公网端点的全部 HTTP 消费方
+// (web 桌面 RawJournal / 移动 web feed JournalFeedCard / 小程序 journals.ts /
+// 审稿 JournalPickerStep)合计只读下面这些;逐行白传其余字段 = 列表页每页 12-20 行的
+// 纯带宽浪费(2026-08-12 全消费方盘点)。详情页全字段走 /journals/get,不投影。
+// ⚠️ 三个注意点:
+//  1. 投影必须在 handler 层、SEO 种子采集(buildVerifiedJournalSearchSEOSeeds)之后 ——
+//     seoingest 走 Manager.ListJournals(Go 层)不经这里,manager/client 层投影会毁掉它;
+//  2. full=1 的请求跳过投影(保留既有全量能力);
+//  3. 前端要新消费字段,先加进这里再上线,否则拿到的是 undefined。
+var journalRowProjection = map[string]struct{}{
+	// 标识与名称
+	"id": {}, "canonical_name": {}, "wikidata_label_zh": {}, "seo_slug": {},
+	"issn_l": {}, "print_issn": {}, "electronic_issn": {}, "all_issns": {},
+	// 来源与出版方
+	"source_count": {}, "sources": {}, "crossref_publisher": {}, "doaj_publisher": {},
+	"openalex_country": {}, "doaj_country": {}, "country": {}, "type": {}, "openalex_type": {},
+	// OA 与体量
+	"is_oa": {}, "openalex_is_oa": {}, "doaj_is_in_doaj": {},
+	"openalex_works_count": {}, "openalex_cited_by_count": {}, "openalex_h_index": {},
+	// 分区与指标
+	"scimago_best_quartile": {}, "scimago_sjr": {},
+	"jcr_impact_factor": {}, "jcr_quartile": {},
+	"fqb_major_quartile": {}, "fqb_major_category": {}, "fqb_top": {},
+	"xr_major_quartile": {}, "xr_top": {}, "ccf_rank": {},
+	// 预警与投稿
+	"gjqk_year": {}, "gjqk_warning_level": {}, "has_submission": {},
+	"scirev_first_review_months": {},
+	// 展示资产
+	"cover": {},
+}
+
+// projectJournalRows 对 {rows:[{unified:...}]} 信封按白名单裁剪 unified 字段。
+// fail-open:信封/行形状不符合预期就原样返回 —— 投影是带宽优化,不承担正确性语义。
+func projectJournalRows(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return raw
+	}
+	rows, ok := envelope["rows"].([]any)
+	if !ok {
+		return raw
+	}
+	for _, r := range rows {
+		row, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		unified, ok := row["unified"].(map[string]any)
+		if !ok {
+			continue
+		}
+		for k := range unified {
+			if _, keep := journalRowProjection[k]; !keep {
+				delete(unified, k)
+			}
+		}
+	}
+	if b, err := json.Marshal(envelope); err == nil {
+		return b
+	}
+	return raw
+}
+
 func redactJournalSubmissionURLs(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 {
 		return raw

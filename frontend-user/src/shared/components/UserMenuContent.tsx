@@ -55,10 +55,12 @@ export function UserMenuContent() {
   const isAdmin = user ? canAccessAdmin(user.role) : false;
   // 会员档位 —— 复用 ['settings','billing'] 缓存(与 QuotaNotifier / 会员页同源,通常已是热的)。
   // shared 不能引 feature API,这里直接打同一个 overview 端点。管理员不展示会员档,故不查。
+  // 响应式登录态门控(getAuthToken 非响应式;user 订阅已让本组件跟随登录重渲,但 token 才是请求凭证真源)。
+  const authToken = useAuthStore((s) => s.token);
   const { data: billing } = useQuery({
     queryKey: ['settings', 'billing'],
     queryFn: async () => (await http.get<{ data: { tier: string } }>('/user/billing/overview')).data.data,
-    enabled: !!getAuthToken() && !isAdmin,
+    enabled: !!authToken && !isAdmin,
     staleTime: 30_000,
   });
 

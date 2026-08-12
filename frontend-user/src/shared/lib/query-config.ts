@@ -13,8 +13,21 @@ export const DEFAULT_STALE_TIME = 30_000;
 /** 5 分钟后才把无人订阅的缓存回收 */
 export const DEFAULT_GC_TIME = 5 * 60_000;
 
-/** 失败重试 1 次(默认 3 太多;auth/perm 错误 retry 反而越错越烦) */
-export const DEFAULT_RETRY = 1;
+/** 重试次数上限(默认 3 太多;确定性错误由 DEFAULT_RETRY 的谓词直接拦掉) */
+export const DEFAULT_RETRY_COUNT = 1;
+
+/**
+ * 全局默认 retry 谓词(providers.tsx 的 QueryClient defaults 用它):
+ * 4xx 是确定性失败 —— 参数错(400)/未登录(401)/越权(403)/不存在(404)重试只是
+ * 白打一次注定同样结果的请求;429 重试还会加剧限流。唯一例外 408(请求超时,
+ * 网关侧的瞬态),与网络错误/5xx 一样值得再试一次。
+ * (此前是纯次数 retry: 1,对 4xx 也盲重一次 —— 2026-08-12 审计改为谓词。)
+ */
+export function DEFAULT_RETRY(failureCount: number, error: unknown): boolean {
+  const status = toApiError(error).status;
+  if (status !== undefined && status >= 400 && status < 500 && status !== 408) return false;
+  return failureCount < DEFAULT_RETRY_COUNT;
+}
 
 /**
  * 详情类 query 的 retry 策略 —— 用在「按 id 取单个资源」的 useQuery 上。
@@ -22,14 +35,13 @@ export const DEFAULT_RETRY = 1;
  * 后端对「资源不存在」与「非本人(越权)」统一返回 404(防枚举,见 backend
  * repository 的 `WHERE id=? AND user_id=?`)。这类错误重试毫无意义,只会让
  * 详情页的「任务不存在」友好态推迟 ~1 个退避周期才出现(用户先盯一会 spinner)。
- * 因此 404 / 403 立即失败不重试;其余(网络抖动 / 5xx)仍重试 1 次。
- *
- * 用法:`useQuery({ ..., retry: retryDetailQuery })`。
+ * 语义现在与 DEFAULT_RETRY 一致(它已把全部 4xx 拦掉),保留此导出是为了
+ * 既有调用点不动 + 「详情类要豁免重试」的意图在调用点可见。
  */
 export function retryDetailQuery(failureCount: number, error: unknown): boolean {
   const status = toApiError(error).status;
   if (status === 404 || status === 403) return false;
-  return failureCount < DEFAULT_RETRY;
+  return failureCount < DEFAULT_RETRY_COUNT;
 }
 
 /** 切回 Tab 不自动 refetch —— 桌面用户来回切窗很频繁,refetch 视觉抖动 */

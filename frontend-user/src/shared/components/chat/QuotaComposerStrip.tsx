@@ -21,7 +21,7 @@ import { Coins, Info, RefreshCw, TrendingUp, X, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { http } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import { isPhoneDevice } from '@/shared/lib/device';
 import { QUOTA_RECOVERED_EVENT, quotaNavigate } from '@/shared/lib/quota-events';
@@ -96,11 +96,13 @@ export function QuotaComposerStrip({
     return () => useQuotaStore.getState().unregisterStrip(isBlocked);
   }, [isBlocked]);
 
+  // 响应式登录态门控(getAuthToken 非响应式,原地弹窗登录后查询不会自动启动)。
+  const authToken = useAuthStore((s) => s.token);
   const { data, dataUpdatedAt } = useQuery({
     queryKey: QUOTA_OVERVIEW_QUERY_KEY,
     queryFn: async () =>
       (await http.get<{ data: QuotaOverview }>('/user/billing/overview')).data.data,
-    enabled: authed && !!getAuthToken(),
+    enabled: authed && !!authToken,
     staleTime: 15_000,
     refetchOnWindowFocus: true,
     // 耗尽期间轻量轮询:跨页充值 / 跨端重置回来后能自动感知并重发。

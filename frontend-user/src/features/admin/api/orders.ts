@@ -1,6 +1,6 @@
 // 订单与营收(后台)—— 字段对齐 backend/internal/vip/admin_orders.go。
 // 数据真源:orders 表(vip 充值 recharge / 订阅 subscription;金额单位「元」)。
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 export interface AdminOrder {
@@ -126,6 +126,8 @@ export interface AdminOrderStats {
 export function useAdminOrders(params: AdminOrderListParams) {
   return useQuery({
     queryKey: ['admin', 'orders', 'list', params],
+    // params(含 page)在 key 里,翻页保留上一页数据,避免表格塌空闪白。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { items: AdminOrder[]; total: number } }>('/admin/billing/orders', {
         params,

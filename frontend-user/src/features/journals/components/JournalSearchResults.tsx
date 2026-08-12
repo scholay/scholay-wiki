@@ -341,7 +341,7 @@ function JournalCard({
     <div
       role="button"
       onClick={onOpen}
-      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-16 bg-surface-card border border-border hover:border-foreground hover:transition-all"
+      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-16 bg-surface-card border border-border hover:border-foreground transition-colors"
     >
       <JournalCover id={j.id} name={j.canonical_name} size="card" />
 

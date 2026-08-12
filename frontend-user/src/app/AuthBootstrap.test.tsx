@@ -61,7 +61,15 @@ vi.mock('sonner', () => ({
   },
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthBootstrap } from './AuthBootstrap';
+
+// AuthBootstrap 用 useQueryClient()(auth-token-swapped → qc.clear() 的缓存隔离),
+// 测试渲染必须包 Provider;每条用例独立实例,互不污染。
+function renderWithQueryClient(ui: React.ReactElement) {
+  const qc = new QueryClient();
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+}
 
 beforeEach(() => {
   mocks.profile = undefined;
@@ -79,7 +87,7 @@ afterEach(() => cleanup());
 
 describe('AuthBootstrap auth eviction', () => {
   it('用户端会话失效时先关闭邀请弹窗，再清会话并打开登录弹窗', () => {
-    render(<AuthBootstrap />);
+    renderWithQueryClient(<AuthBootstrap />);
 
     act(() => {
       window.dispatchEvent(

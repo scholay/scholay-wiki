@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 /**
@@ -61,6 +61,8 @@ export interface FeedbackListResponse {
 export function useFeedbackList(params: FeedbackListParams) {
   return useQuery({
     queryKey: ['admin', 'feedback', 'list', params],
+    // params(含 page)在 key 里,翻页保留上一页数据,避免表格塌空闪白。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: FeedbackListResponse }>('/admin/feedbacks', { params });
       return r.data.data;

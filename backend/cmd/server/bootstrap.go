@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/url"
 	"os"
@@ -758,6 +759,17 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	prism.SetTitleSink(prismService)            // agent 回传标题落库的反查入口(见 handleAgentTitle)
 	prism.SetProfileSink(prismService)          // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
 	prism.SetModelResolver(modelCatalogService) // planner 选择轮按 prism.planner 绑定取便宜模型(P1)
+	// 编译状态推送(2026-08-12):经全站常连的通知 WS 按 userID 下发 compile_status 帧,
+	// 前端收帧 setQueryData,把 1s 编译轮询降级为 5s 兜底。best-effort:序列化/发送失败静默,
+	// DB 是真源。用通知 WS 而非 prism 的 agent pipe:编译是 project 维度、pipe 是 session 维度,
+	// 一项目多对话会漏推(见 internal/prism/compile_notify.go)。
+	prism.SetCompileNotifier(func(userID uint, cm *prism.Compile) {
+		data, err := json.Marshal(cm)
+		if err != nil {
+			return
+		}
+		_ = plat.wsHub.SendToUser(userID, &websocket.Message{Type: websocket.MessageTypeCompileStatus, Data: data})
+	})
 	prismService.StartBackgroundGC()            // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)

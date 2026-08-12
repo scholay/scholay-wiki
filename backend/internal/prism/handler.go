@@ -286,7 +286,7 @@ func (h *Handler) Compile(c *gin.Context) {
 		Engine string `json:"engine"`
 	}
 	_ = c.ShouldBindJSON(&req)
-	cm, err := h.svc.StartCompile(p.ID, p.MainFile, req.Engine)
+	cm, err := h.svc.StartCompile(p.ID, p.UserID, p.MainFile, req.Engine)
 	if err != nil {
 		utils.InternalError(c, 500, "发起编译失败,请稍后重试", err)
 		return

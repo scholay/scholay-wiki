@@ -1,6 +1,6 @@
 // 会员 / 计费 / 账户资产 —— 用户端 hooks。字段对齐 backend/internal/vip
 // (quota.go Overview / wallet.go BalanceView / order.go Order / billing_handler.go)。
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import { type SubQuote, type BillingCycle } from '@/shared/components';
 
@@ -204,6 +204,8 @@ export function useUsageCalendar() {
 export function useTransactions(params: { type?: string; page?: number; page_size?: number }) {
   return useQuery({
     queryKey: ['settings', 'billing', 'txns', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () =>
       (await http.get<{ data: { items: CreditTxn[]; total: number } }>('/user/billing/transactions', { params }))
         .data.data,

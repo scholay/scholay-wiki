@@ -71,7 +71,7 @@ export function FeaturedPapersCol({
                   if (isModifiedClick(e)) return;
                   openPaper.prepare(p);
                 }}
-                className="group w-full text-left flex items-start gap-4 rounded-16 bg-surface-card border border-border p-5 hover:border-foreground hover:transition-all"
+                className="group w-full text-left flex items-start gap-4 rounded-16 bg-surface-card border border-border p-5 hover:border-foreground transition-colors"
               >
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <h3 className="text-14 font-medium text-foreground group-hover:text-brand-red transition-colors line-clamp-2">

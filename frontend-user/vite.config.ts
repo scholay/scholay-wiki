@@ -72,6 +72,9 @@ export default defineConfig(({ command }) => ({
         },
       },
     },
-    chunkSizeWarningLimit: 700,
+    // 1500:elk(1.44MB)/mathlive(816KB)是刻意的独立 lazy 巨块(上面 manualChunks 手工命名),
+    // 700 时它们每次构建都恒超线 —— 永远黄灯只会训练大家忽略构建警告。
+    // 真正的体积闸在 bundle-budgets.json 的 largestJsChunkGzipBytes(npm run ci:bundle)。
+    chunkSizeWarningLimit: 1500,
   },
 }));

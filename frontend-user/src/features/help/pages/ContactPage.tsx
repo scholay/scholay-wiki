@@ -179,7 +179,7 @@ function ChannelCard({ channel }: { channel: Channel }) {
   const { icon: Icon, title, desc, cta, href } = channel;
   const isInternal = href.startsWith('/');
   const inner = (
-    <div className="group flex flex-col gap-2.5 p-5 rounded-16 bg-surface-card border border-border hover:border-foreground/40 transition-all hover:h-full">
+    <div className="group flex flex-col gap-2.5 p-5 rounded-16 bg-surface-card border border-border hover:border-foreground/40 transition-colors">
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors">
         <Icon
           className="size-4 text-subtle group-hover:text-brand-red transition-colors"
@@ -188,9 +188,9 @@ function ChannelCard({ channel }: { channel: Channel }) {
       </span>
       <p className="text-12 font-medium text-foreground">{title}</p>
       <p className="text-12 text-muted-foreground leading-paragraph">{desc}</p>
-      <span className="mt-auto inline-flex items-center gap-1 text-12 font-medium text-brand-red group-hover:gap-2 transition-all">
+      <span className="mt-auto inline-flex items-center gap-1 text-12 font-medium text-brand-red">
         {cta}
-        <ArrowRight className="size-3" />
+        <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
       </span>
     </div>
   );

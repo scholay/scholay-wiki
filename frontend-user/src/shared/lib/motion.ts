@@ -1,4 +1,4 @@
-import type { Transition, Variants } from 'framer-motion';
+import type { Transition } from 'framer-motion';
 
 /**
  * 移动端动画统一预设 —— 一处定义所有 spring / 时长 / 缓动,杜绝各页面手搓不一致的 transition。
@@ -47,24 +47,8 @@ export const FADE: Transition = { duration: 0.16, ease: [0, 0, 0.2, 1] };
 /** 页面 / 路由转场时长与缓动。0.28 = --duration-base,ease = --ease-emphasized。 */
 export const PAGE_TRANSITION: Transition = { duration: 0.28, ease: [0.22, 1, 0.36, 1] };
 
-/** 按压微反馈:配合 `whileTap` 用在可点元素上(也可用纯 CSS active:scale 替代)。 */
-export const TAP_SCALE = { scale: 0.97 } as const;
-
-/** 蒙层进出场 variants。 */
-export const overlayVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
-
-/** 底部 sheet 进出场 variants(配合 SHEET_SPRING)。 */
-export const sheetVariants: Variants = {
-  hidden: { y: '100%' },
-  visible: { y: 0 },
-};
-
-/** 路由页淡入 + 轻微上移 variants(配合 PAGE_TRANSITION)。 */
-export const pageVariants: Variants = {
-  initial: { opacity: 0, y: 8 },
-  enter: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-};
+// ⚠️ 采用现状(2026-08-12 审计):FADE / PAGE_TRANSITION 当前零消费,但它们是
+// design-system-guard「动效 token 跨语言对齐」规则的锚点(要求 ≥3 个带绑定声明的
+// 固定时长预设),保留作为新代码的既定入口。曾导出的 TAP_SCALE / overlayVariants /
+// sheetVariants / pageVariants 同样零消费且不携带 token 绑定,已删除。
+// 新动画:优先复用上面的预设;不要在组件里 inline 手搓四档之外的第五个时长。

@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react
 import { useAgentSocket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
 import type { AgentClaimAudit, AgentErrorFrame, AgentDisplacedFrame } from '@/shared/lib/agent-stream';
 import { http, toApiError } from '@/shared/lib/http';
+import { takeFirstConnectTicket } from '@/shared/lib/agent-first-ticket';
 import { attachmentUrl } from '@/shared/lib/agent-attachment';
 import type { AttachmentDTO, ReferenceItemDTO } from '@/shared/types/chat';
 import { useAuthStore } from '@/stores/auth.store';
@@ -328,6 +329,10 @@ interface WSTicket {
  * 调用方 (useSmartSearchSocket connect 闭包) 直接 await 就够了。
  */
 async function fetchWSTicket(sessionId?: string | null): Promise<WSTicket> {
+  // 首连快路径:建会话/切会话的响应里已附带一张一次性 ticket(agent-sessions 工厂入栈),
+  // 命中省一跳 POST;未命中/重连走标准取票,行为与旧版一致。
+  const stashed = takeFirstConnectTicket('/user/smart-search', sessionId);
+  if (stashed) return stashed;
   const url = sessionId
     ? `/user/smart-search/session/ws-ticket?session_id=${encodeURIComponent(sessionId)}`
     : '/user/smart-search/session/ws-ticket';

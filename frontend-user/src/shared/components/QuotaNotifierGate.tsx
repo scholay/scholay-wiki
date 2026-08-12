@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
 import { localDateKey } from '@/shared/lib/daily-trend';
 import { isPhoneDevice } from '@/shared/lib/device';
 import {
@@ -48,11 +48,14 @@ export function QuotaNotifierGate() {
   const everOpened = useRef(false);
   const dataRef = useRef<QuotaOverview | undefined>(undefined);
 
+  // 响应式登录态门控:本组件常驻 Providers 层、不订阅 auth store 时,原地弹窗登录后
+  // 50%/80% 额度预警与 overview 轮询要等到窗口 focus/刷新才启动(2026-08-12 审计)。
+  const authToken = useAuthStore((s) => s.token);
   const { data } = useQuery({
     queryKey: QUOTA_OVERVIEW_QUERY_KEY,
     queryFn: async () =>
       (await http.get<{ data: QuotaOverview }>('/user/billing/overview')).data.data,
-    enabled: !!getAuthToken(),
+    enabled: !!authToken,
     staleTime: 15_000,
     refetchOnWindowFocus: true,
   });

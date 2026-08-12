@@ -10,7 +10,7 @@
  *        - 超过 MAX_BYTES 的仍跳过(控 chunk 体积)
  * 运行:  cd frontend-user && node scripts/gen-bioicons.mjs   (需联网)
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -23,7 +23,9 @@ try {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RAW_BASE = 'https://raw.githubusercontent.com/duerrsimon/bioicons/main/';
-const OUT = join(__dirname, '../src/features/claw/components/figure-canvas/icon-pack.bioicons.ts');
+// ⚠️ 运行时消费方在 figure/(figure-canvas 是改名前的旧目录,2026-08-12 修正 ——
+// 指错目录时重跑生成器会把图标包生成到没人 import 的位置,现网包悄悄失联)。
+const OUT = join(__dirname, '../src/features/claw/components/figure/icon-pack.bioicons.ts');
 const MAX_BYTES = 14 * 1024; // 优化后单图上限
 const CONCURRENCY = 8;
 
@@ -131,6 +133,11 @@ ${entries}
 };
 `;
 
+// 目录不存在 = OUT 又指向了被改名/删除的位置,直接报错退出,不要静默生成孤儿文件。
+if (!existsSync(dirname(OUT))) {
+  console.error(`❌ 输出目录不存在:${dirname(OUT)} —— figure/ 目录被移动了?先更新 OUT 再跑。`);
+  process.exit(1);
+}
 writeFileSync(OUT, header);
 console.log(`✅ 写入 ${OUT}`);
 console.log(`   收录 ${ok.length}/${manifest.length},优化后合计 ~${Math.round(totalBytes / 1024)}KB(gzip 约 1/3)`);

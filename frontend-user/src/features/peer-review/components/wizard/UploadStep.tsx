@@ -33,10 +33,10 @@ export interface UploadHandlers {
  * Step1 上传文件 —— 期刊 / 毕业 共用(对照 .pen `xV7Lb` 主稿件 + `x5OLD` 附属材料)。
  *
  * 主要交互:
- *   - 稿件正文:必传 1 份 .docx/.pdf,≤ 200MB
+ *   - 稿件正文:必传 1 份 .docx/.pdf,≤ 50MB(MAIN_MAX,与后端 MaxManuscriptBytes 一致)
  *     - 未上传:红描边大 dropzone (220px),"选择文件" 红按钮 + "从云盘导入"(预留)
  *     - 已上传:浅绿色卡片显示文件名 + 解析进度,右侧"重新上传"红字 + ✕ 删除
- *   - 附属材料:**只有主稿件传完后才显示**,0-10 份,任意类型 ≤ 200MB
+ *   - 附属材料:**只有主稿件传完后才显示**,0-10 份,任意类型 ≤ 30MB(ATT_MAX)
  *     - dropzone (120px,灰色细描边)
  *     - 已上传列表,每行 icon + 文件名 + chip(类型)+ 大小,右侧 ✕ 删除
  */
@@ -76,6 +76,8 @@ export interface UploadStepProps extends UploadHandlers {
   /** 期刊 / 毕业 文案差异由父组件传 */
   mainHint: string;
   attachmentHint: string;
+  /** 上传中的百分比(0-100),null/undefined = 无进行中上传。50MB 稿件慢网要传数分钟,无进度用户会当卡死刷新。 */
+  uploadProgress?: number | null;
 }
 
 export function UploadStep({
@@ -87,6 +89,7 @@ export function UploadStep({
   onReplaceManuscript,
   mainHint,
   attachmentHint,
+  uploadProgress,
 }: UploadStepProps) {
   const manuscript = assets.find((a) => a.role === 'manuscript');
   const attachments = assets.filter((a) => a.role === 'attachment');
@@ -124,6 +127,7 @@ export function UploadStep({
         ) : (
           <ManuscriptDropZone
             uploading={uploadPending}
+            progress={uploadProgress}
             onFile={(f) => onUpload({ file: f, role: 'manuscript' })}
           />
         )}
@@ -190,9 +194,11 @@ export function UploadStep({
 
 function ManuscriptDropZone({
   uploading,
+  progress,
   onFile,
 }: {
   uploading: boolean;
+  progress?: number | null;
   onFile: (f: File) => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
@@ -242,7 +248,11 @@ function ManuscriptDropZone({
         )}
       </span>
       <p className="text-14 font-medium text-foreground">
-        把稿件拖到这里 · 或点击下方按钮上传
+        {uploading
+          ? progress != null
+            ? `上传中 ${progress}%`
+            : '上传中…'
+          : '把稿件拖到这里 · 或点击下方按钮上传'}
       </p>
       <p className="text-12 text-muted-foreground">
         支持 {MAIN_TYPES.join(' / ')} · 建议提交脱敏盲审版本

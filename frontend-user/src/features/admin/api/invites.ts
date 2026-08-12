@@ -1,7 +1,7 @@
 // 邀请监控(后台)—— mirrors backend/internal/invite(契约冻结,三方共同遵守)。
 // 数据真源:邀请码 get-or-create(/user/invite)+ 落地页打开计数(/invite/open)
 // + 注册归因(新用户创建成功时消费 X-Invite-Code 请求头)。
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 /** GET /admin/invites/summary —— 全站邀请 KPI。 */
@@ -74,6 +74,8 @@ export function useInviteSummary() {
 export function useInviteList(params: InviteListParams) {
   return useQuery({
     queryKey: ['admin', 'invites', 'list', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { items: InviteListItem[]; total: number } }>(
         '/admin/invites',
@@ -91,6 +93,8 @@ export function useInviteRegistrations(
 ) {
   return useQuery({
     queryKey: ['admin', 'invites', 'registrations', inviterId, params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { items: InviteRegistration[]; total: number } }>(
         `/admin/invites/${inviterId}/registrations`,

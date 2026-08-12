@@ -47,6 +47,14 @@ export function RouteCommitWatchdog() {
 
   useEffect(() => {
     const id = window.setInterval(() => {
+      // desync 只在用户看着页面时有意义;后台 tab 不比对(路由也不会在后台变),纯省电。
+      // ⚠️ 必须同时清零计时起点:若只 return,后台期间 desyncSince 仍在走表,
+      // 回前台首个 tick 的 elapsed 可能直接越过硬自愈阈值 —— 软自愈(无损)窗口被吞,
+      // 上来就整页 reload(2026-08-12 对抗审查确认)。清零 = 回前台后从头走软→硬阶梯。
+      if (document.visibilityState !== 'visible') {
+        desyncSinceRef.current = 0;
+        return;
+      }
       const addressBar = window.location.pathname;
       if (addressBar === renderedRef.current) {
         desyncSinceRef.current = 0;

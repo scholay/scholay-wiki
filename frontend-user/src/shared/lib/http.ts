@@ -44,6 +44,14 @@ http.interceptors.request.use((config) => {
     // 仅当未显式指定超时(默认 30s 或 undefined,取决于 axios 何时合并实例默认)才豁免;显式传的超时尊重不动。
     if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 0;
   }
+  // FormData 上传同款豁免:axios 的 timeout 是含上传传输的总预算,30s 套在 50MB 稿件 /
+  // 30MB agent 附件上要求 >8~14Mbps 持续上行,弱上行(热点/校园网/跨境)确定性中断且被
+  // 报成「网络连接失败」误导重试。此前只有 library PDF 一个站点手补过(features/library/api/pdf.ts,
+  // 2026-08-07 事故),这里一处收口覆盖现存+未来所有上传站点。
+  // 不用 0(不限时):真挂死时用户永远转圈无反馈;600s 对齐后端 object-serve 的 10min 预算。
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 600_000;
+  }
   return config;
 }, undefined, {
   // 必须同步冻结调用时会话：Axios 默认用 microtask 跑 request interceptor。

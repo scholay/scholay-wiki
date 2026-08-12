@@ -179,7 +179,7 @@ describe("InviteEntryDialog", () => {
     const poster = screen.getByRole("img", {
       name: "邀请有礼活动海报",
     });
-    expect(poster).toHaveAttribute("src", "/images/invite-reward-poster.png");
+    expect(poster).toHaveAttribute("src", "/images/invite-reward-poster-v2.webp");
     expect(
       screen.getByText("邀请人获得 20 经费，受邀好友获得 10 经费。"),
     ).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("InviteEntryDialog", () => {
     ).not.toBeInTheDocument();
 
     const poster = screen.getByRole("img", { name: "邀请有礼活动海报" });
-    expect(poster).toHaveAttribute("src", "/images/invite-reward-poster.png");
+    expect(poster).toHaveAttribute("src", "/images/invite-reward-poster-v2.webp");
 
     expect(screen.queryByLabelText("邀请奖励")).not.toBeInTheDocument();
     expect(mocks.renderShareMethods).toHaveBeenCalledWith({

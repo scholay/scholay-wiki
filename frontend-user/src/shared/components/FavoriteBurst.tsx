@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useFavoriteBurst } from '@/stores/favorite-burst.store';
@@ -42,8 +42,15 @@ export function FavoriteBurst({ anchorRef }: FavoriteBurstProps) {
 
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
-  // anchor 屏幕坐标 —— 初始 + 每次有新 burst + 滚动/resize 都重新测一遍
-  useEffect(() => {
+  // anchor 屏幕坐标 —— 初始 + 每次有新 burst + 滚动/resize 都重新测一遍。
+  // useLayoutEffect:零 burst 时监听已卸(下面的早退),pos 是上一轮的陈旧坐标;
+  // 新 burst 到来须在 paint 前重测,否则首帧 portal 渲染在旧位置(用户滚动过就是错位)。
+  useLayoutEffect(() => {
+    // 零 burst 时不挂任何监听:capture 级 scroll 会接收全页所有内层容器的滚动
+    // (含聊天流式贴底的程序化滚动),每次回调一次 getBoundingClientRect 强制布局读。
+    // 本组件常驻搜索/文献库等重页面侧栏,监听只该活在 burst 动画的 ~1s 窗口内
+    // (deps 含 bursts.length:burst 出现自动重跑挂上,清零自动卸载)。
+    if (bursts.length === 0) return;
     const recompute = () => {
       const el = anchorRef.current;
       if (!el) {

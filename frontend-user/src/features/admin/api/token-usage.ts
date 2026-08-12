@@ -9,7 +9,7 @@
 //   token 是次要口径,保留是因为缓存命中率 / 上下文规模这类运维视角只有 token 能表达。
 //
 // 换算刻意放在前端:后端 DTO 一律传整数微元(无精度损失),避免「后端已折算 + 前端再折算」的双重除法。
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import { localDateKey } from '@/shared/lib/daily-trend';
 
@@ -151,6 +151,8 @@ export interface TokenLogParams extends TokenUsageFilters {
 export function useTokenUsageSummary(params: TokenUsageFilters, enabled = true) {
   return useQuery({
     queryKey: ['admin', 'token-usage', 'summary', params],
+    // summary 无分页,不做 keepPreviousData:切换 days 区间时保留旧区间的 KPI 数字
+    // 而无任何加载指示,比短暂转圈更误导(2026-08-12 对抗审查)。
     enabled,
     queryFn: async () =>
       (await http.get<{ data: TokenUsageOverview }>('/admin/llm-token-usage/summary', { params })).data.data,
@@ -162,6 +164,8 @@ export function useTokenUsageSummary(params: TokenUsageFilters, enabled = true) 
 export function useTokenUsageLogs(params: TokenLogParams) {
   return useQuery({
     queryKey: ['admin', 'token-usage', 'logs', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { logs: TokenLog[]; total: number } }>(
         '/admin/llm-token-usage/logs',

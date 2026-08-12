@@ -22,9 +22,10 @@ const (
 	MessageTypeError MessageType = "error"
 
 	// 业务消息类型
-	MessageTypeNotification MessageType = "notification" // 站内信通知
-	MessageTypeUnreadCount  MessageType = "unread_count" // 未读消息数量更新
-	MessageTypeToast        MessageType = "toast"        // 纯 toast 提示
+	MessageTypeNotification  MessageType = "notification"   // 站内信通知
+	MessageTypeUnreadCount   MessageType = "unread_count"   // 未读消息数量更新
+	MessageTypeToast         MessageType = "toast"          // 纯 toast 提示
+	MessageTypeCompileStatus MessageType = "compile_status" // prism 编译状态推送(payload = prism.Compile 序列化)
 )
 
 // Message WebSocket 消息基础结构

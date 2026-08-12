@@ -10,7 +10,7 @@
  * 用法: node scripts/sync-noto-serif-sc.mjs
  * 产物:
  *   public/fonts/noto-serif-sc/vNN/*.woff2   (unicode-range 分片，需提交)
- *   public/fonts/noto-serif-sc/manifest.json (来源 URL、大小和 SHA-256)
+ *   scripts/noto-serif-sc.manifest.json      (来源 URL、大小和 SHA-256;工具状态,不进发布产物)
  *   public/fonts/noto-serif-sc/OFL.txt       (Google Fonts 官方许可证)
  *   src/styles/fonts/noto-serif-sc.css       (自动生成，请勿手改)
  *
@@ -32,7 +32,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const FONT_DIR = join(ROOT, 'public', 'fonts', 'noto-serif-sc');
 const CSS_OUT = join(ROOT, 'src', 'styles', 'fonts', 'noto-serif-sc.css');
-const MANIFEST_OUT = join(FONT_DIR, 'manifest.json');
+// manifest 是 fonts:sync 的工具状态文件(来源 URL/sha256),浏览器永不请求 ——
+// 放 public/ 会随构建产物进镜像与 nginx 缓存(122KB 纯死重),2026-08-12 移到 scripts/。
+const MANIFEST_OUT = join(ROOT, 'scripts', 'noto-serif-sc.manifest.json');
 const LICENSE_OUT = join(FONT_DIR, 'OFL.txt');
 const INDEX_OUT = join(ROOT, 'index.html');
 

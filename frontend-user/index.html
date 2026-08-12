@@ -39,7 +39,7 @@
       字体(2026-08-11 用户两段指令):UI/正文 = 系统字体零下载;
       标题层中文 = 自托管 Noto Serif SC(唯一保留的 webfont,swap 分片按需加载)。
       Google Sans / Playfair Display 的 preload 与资产已移除,不得回流。
-      这里只 preload Noto 的首屏 UI 常用字小子集(~33KB,覆盖侧栏/页面标题的
+      这里只 preload Noto 的首屏 UI 常用字小子集(~55KB,覆盖侧栏/页面标题的
       高频字,避免首屏标题先宋体后切换的闪动);其余 101 个分片按需加载。
       栈定义与两条实现铁律见 src/styles/globals.css 文件头「字体策略」。
       KaTeX 数学字体保留(build 产物内,数学页按需加载)。

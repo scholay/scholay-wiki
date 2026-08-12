@@ -106,6 +106,22 @@ export function notifyAuthLost(detail?: { code?: number; message?: string }): vo
   }
 }
 
+/**
+ * 同步 token 的**非持久化**副作用(cookie 跟上 + 401 去重锁复位)—— 专供跨 tab 的
+ * storage 监听使用。刻意不写 localStorage:storage 事件是异步排队投递的,监听器里
+ * 回写(setAuthToken/clearAuthToken)会向发起 tab 反射新事件,发起 tab 两次相邻写
+ * (如登录响应落地前一个并行 401 先清了 token)即可点燃两 tab 间的无限回环 ——
+ * 登录态反复翻转 + 每轮 auth-token-swapped → qc.clear() 的请求风暴(2026-08-12 对抗审查确认)。
+ */
+export function syncAuthSideEffects(token: string | null): void {
+  if (token) {
+    writeSessionCookie(token);
+    authLostDispatched = false; // 拿回 token → 解除去重锁,下次会话失效能再次引导
+  } else {
+    clearSessionCookie();
+  }
+}
+
 // ─── cookie(仅 iframe / 跨页签共享会话用;主流请求仍走 Authorization header)─────
 // SameSite=Strict:同站同源加载,够用且免 CSRF。无 HttpOnly:token 在 localStorage 本就 XSS 可读,
 // 不损失安全等级,换取「前端任意 login 入口都能写」。Max-Age 24h ≈ 后端 JWT TTL,过期由 401 清。

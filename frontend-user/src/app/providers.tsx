@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { ConfirmDialogRoot, ToastHost } from '@/shared/components';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
@@ -8,30 +8,16 @@ import { QuotaNotifierGate } from '@/shared/components/QuotaNotifierGate';
 import { AttachmentManagerDialogGate } from '@/shared/components/AttachmentManagerDialogGate';
 import { PromoModalGate } from '@/shared/components/PromoModalGate';
 import { useCollectPicker } from '@/stores/collect-picker.store';
-import {
-  DEFAULT_GC_TIME,
-  DEFAULT_REFETCH_ON_WINDOW_FOCUS,
-  DEFAULT_RETRY,
-  DEFAULT_STALE_TIME,
-} from '@/shared/lib/query-config';
+import { queryClient } from '@/shared/lib/query-client';
+import { markAppMounted } from '@/shared/lib/app-boot';
 
 /**
  * React 19 原生支持把 <title>/<meta>/<link> 渲染到 <head>,
  * 不再需要 react-helmet-async,直接在页面组件里写即可。
  *
- * Query 默认值从 shared/lib/query-config 引,所有 feature 想覆盖个别 query
- * 直接在 useQuery 选项里传 staleTime / gcTime 等,避免散落硬编码。
+ * QueryClient 实例与默认值在 shared/lib/query-client(可 import 单例,route loader
+ * 的 prefetch 也用同一个);想覆盖个别 query 直接在 useQuery 选项里传 staleTime 等。
  */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: DEFAULT_STALE_TIME,
-      gcTime: DEFAULT_GC_TIME,
-      retry: DEFAULT_RETRY,
-      refetchOnWindowFocus: DEFAULT_REFETCH_ON_WINDOW_FOCUS,
-    },
-  },
-});
 
 // 「收藏到文件夹」选择器懒加载 —— 它(经 MobileBottomSheet / LazyMotion)是首屏**唯一**把
 // framer-motion(~42KB gz)拉进关键路径的 eager 组件。改成「仅当用户真正点收藏(store 有 request)
@@ -65,6 +51,11 @@ function CollectFolderPickerGate() {
 const isEmbedPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mp/');
 
 export function Providers({ children }: { children: ReactNode }) {
+  // 首屏 commit 后置位「SPA 已挂载」—— browser 详情 loader 据此只在冷进入时做数据 prefetch
+  // (站内导航走 store 传实体,prefetch 无消费方,见 shared/lib/app-boot.ts)。
+  useEffect(() => {
+    markAppMounted();
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={150}>

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
 import { notifyBillingChanged } from '@/shared/lib/quota-events';
 import { type SubQuote, type BillingCycle } from '@/shared/components';
 
@@ -55,11 +56,14 @@ export function useCurrentTier(): 'free' | 'pro' | 'max' | undefined {
 /** 当前会员档 + 计费周期。周期用于把购买弹窗里的「续期」在跨周期时说成「转为年付」——
  *  月付会员选年付时,后端 renew 分支会把 vip_cycle 一并改写,CTA 得如实反映这件事。 */
 export function useCurrentMembership(): { tier?: 'free' | 'pro' | 'max'; cycle?: 'monthly' | 'yearly' } {
+  // 响应式登录态门控:getAuthToken() 读 localStorage 非响应式 —— 用户在定价页经顶栏
+  // 弹窗登录后,本 hook 不重渲、查询停在 disabled,「当前档」徽标不亮(2026-08-12 审计)。
+  const authToken = useAuthStore((s) => s.token);
   const { data } = useQuery({
     queryKey: ['settings', 'billing'],
     queryFn: async () =>
       (await http.get<{ data: { tier: string; cycle?: string } }>('/user/billing/overview')).data.data,
-    enabled: !!getAuthToken(),
+    enabled: !!authToken,
     staleTime: 30_000,
   });
   const t = data?.tier;

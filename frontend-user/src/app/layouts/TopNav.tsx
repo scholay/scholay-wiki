@@ -1,4 +1,5 @@
 import { lazy, Suspense, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { BrandSection } from './topnav/BrandSection';
 import { RailLinks } from './topnav/RailLinks';
 import { UserSection } from './topnav/UserSection';
@@ -53,7 +54,16 @@ const CompactNavMenu = lazy(() =>
  * 返回 false → Googlebot-smartphone 永远落 PC 路径，移动优先索引看到的就是这个版面。
  */
 export function TopNav() {
-  const { rail, expanded, hasPanel, toggle } = useSidebar();
+  // useShallow 只订阅消费的 4 个字段:整 store 订阅会连 flashedSection 一起订,
+  // rail chip 点击(设值 + 1800ms 清空共 set 两次)让含 MenuDock 的 TopNav 白重渲两轮。
+  const { rail, expanded, hasPanel, toggle } = useSidebar(
+    useShallow((s) => ({
+      rail: s.rail,
+      expanded: s.expanded,
+      hasPanel: s.hasPanel,
+      toggle: s.toggle,
+    }))
+  );
   const showRail = !expanded && rail.length > 0;
   // CSS hidden 只隐藏像素，不会阻止 React 挂载、query observer 和 effect。
   // 首访只挂当前分支，同时把 MenuDock/Motion 留在宽屏按需 chunk；

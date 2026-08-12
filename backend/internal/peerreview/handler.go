@@ -806,6 +806,10 @@ func (h *Handler) StreamPartial(c *gin.Context) {
 				evtName = "error"
 			} else if evt.Phase == StreamPhaseStatus {
 				evtName = "status" // 瞬时进度提示 (note), 不进 text
+			} else if evt.Phase == StreamPhaseState {
+				evtName = "state" // 控制帧: computeState 翻转 (不关流)
+			} else if evt.Phase == StreamPhaseReportReady {
+				evtName = "report_ready" // 控制帧: 报告已落库 (不关流)
 			}
 			if err := writeSSE(c.Writer, evtName, evt); err != nil {
 				return

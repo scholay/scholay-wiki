@@ -4,6 +4,7 @@ import {
   clearAuthToken,
   getAuthToken,
   setAuthToken,
+  syncAuthSideEffects,
 } from '@/shared/lib/auth-token';
 
 /**
@@ -133,10 +134,28 @@ export const useAuthStore = create<AuthState>()(
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key === 'auth_token') {
-      const t = e.newValue || null;
+      // 以**处理时刻的真值**为同步源,不用 e.newValue:storage 事件异步排队,
+      // 处理时存储可能已被后续写入推进,按过期快照行动会与真值打架。
+      const t = getAuthToken();
+      const prev = useAuthStore.getState().token;
+      // syncAuthSideEffects 只做 cookie 跟上 + 401 去重锁复位,**绝不回写 localStorage**:
+      //   1. 锁不复位 → 本 tab 经历过一次 401 后,用户在别的 tab 重新登录,本 tab 拿回
+      //      token 但锁仍为 true,下次会话失效时没有任何登录引导(幽灵登录态)。
+      //   2. cookie 不跟 → 登出后 iframe/PDF 带着已吊销 cookie 继续请求。
+      //   3. 在监听器里回写 localStorage(早前版本调 setAuthToken/clearAuthToken)会向
+      //      发起 tab 反射新事件,发起 tab 两次相邻写(登录响应前一个并行 401 先清 token)
+      //      即点燃跨 tab 无限回环 + qc.clear() 请求风暴 —— 2026-08-12 对抗审查确认,勿回退。
+      syncAuthSideEffects(t);
       // token 与 user **同生同灭**:别的 tab 清了 token(登出/吊销),本 tab 必须把 user 一起清,
       // 否则本 tab UI 仍按 user 判断显示"已登录"——这正是「退出登录后状态残留」的根因之一。
       useAuthStore.setState(t ? { token: t } : { token: null, user: null });
+      // 换号/登出的缓存隔离:本 tab 的 react-query 缓存仍是上一账号的私有数据(绝大多数
+      // queryKey 不含用户身份),staleTime 窗口内会原样展示给新账号。store 层拿不到
+      // QueryClient(分层约束),广播给 AuthBootstrap(app 层)执行 qc.clear()。
+      // 以 in-memory prev 判变化(而非 e.oldValue):监听器零写入,事件不再回射,无回环通道。
+      if (prev !== t) {
+        window.dispatchEvent(new CustomEvent('auth-token-swapped'));
+      }
     }
   });
 }

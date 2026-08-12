@@ -1,6 +1,11 @@
 // 智能写作 (Prism) —— 用户端 react-query hooks。字段对齐 backend/internal/prism。
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import {
+  PRISM_COMPILE_STATUS_EVENT,
+  type PrismCompileStatusDetail,
+} from '@/shared/lib/compile-events';
 import { retryDetailQuery } from '@/shared/lib/query-config';
 import { getAuthToken } from '@/shared/lib/auth-token';
 import { attachmentUrl } from '@/shared/lib/agent-attachment';
@@ -171,8 +176,32 @@ export function useStartCompile(projectId: number) {
   });
 }
 
-/** 轮询编译状态 —— queued/running 时每 1s 刷新,终态停。 */
+/**
+ * 编译状态 —— 推送为主、轮询兜底(2026-08-12 推送化)。
+ * 后端每次状态翻转经通知 WS 下发 compile_status(帧即 GET 响应体的 compile 对象),
+ * 这里监听事件桥直接 setQueryData,终态即时可见;queued/running 的轮询从 1s 降到 5s,
+ * 只兜 WS 断连/丢帧(单次编译 5-60 个请求 → ~1-12 个)。
+ * 注意:缓存命中路径是 queued→success 直跳,不能假设一定有 running 帧。
+ */
 export function useCompile(projectId?: number, compileId?: number) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!projectId || !compileId) return;
+    const handler = (evt: Event) => {
+      const d = (evt as CustomEvent<PrismCompileStatusDetail>).detail;
+      if (d?.project_id === projectId && d?.id === compileId) {
+        const key = ['prism', 'compile', projectId, compileId] as const;
+        // 先杀在途轮询再写(乐观更新标准姿势):不 cancel 的话,一个读到 running 的
+        // 在途 GET 会在推送帧之后 resolve,把 success/error 覆盖回 running —— 状态回翻
+        // 且 workspace 的 success effect 二次触发 pdfKey+1 → PdfViewer 整树重挂、PDF 双下载。
+        void qc.cancelQueries({ queryKey: key }).then(() => {
+          qc.setQueryData(key, d as unknown as PrismCompile);
+        });
+      }
+    };
+    window.addEventListener(PRISM_COMPILE_STATUS_EVENT, handler);
+    return () => window.removeEventListener(PRISM_COMPILE_STATUS_EVENT, handler);
+  }, [projectId, compileId, qc]);
   return useQuery({
     queryKey: ['prism', 'compile', projectId, compileId],
     enabled: !!projectId && !!compileId,
@@ -180,7 +209,7 @@ export function useCompile(projectId?: number, compileId?: number) {
       (await http.get<{ data: { compile: PrismCompile } }>(`/user/prism/projects/${projectId}/compile/${compileId}`)).data.data.compile,
     refetchInterval: (q) => {
       const s = q.state.data?.status;
-      return s === 'queued' || s === 'running' ? 1000 : false;
+      return s === 'queued' || s === 'running' ? 5_000 : false;
     },
   });
 }

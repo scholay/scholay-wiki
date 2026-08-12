@@ -125,8 +125,8 @@ function FeatureCard({ feature }: { feature: FeatureEntry }) {
       <p className="text-12 text-muted-foreground leading-paragraph flex-1">
         {feature.desc}
       </p>
-      <span className="inline-flex items-center gap-1 text-12 text-brand-red font-medium group-hover:gap-2 transition-all">
-        了解更多 <ArrowRight className="size-3" />
+      <span className="inline-flex items-center gap-1 text-12 text-brand-red font-medium">
+        了解更多 <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
       </span>
     </Link>
   );

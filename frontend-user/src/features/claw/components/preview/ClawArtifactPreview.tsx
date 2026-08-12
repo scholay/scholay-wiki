@@ -208,6 +208,15 @@ function BytesPreview({
     return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
   }, [category, bytes]);
 
+  // json/code 的围栏文本同样 memo:面板挂在 ConversationWorkspace 内,对话流式期间父级按
+  // rAF 批量重渲,大 JSON 的 parse+stringify 若放在渲染体里会按帧全量重算。
+  const fenced = useMemo(() => {
+    if (category !== 'json' && category !== 'code') return null;
+    const lang = category === 'json' ? 'json' : artifactCodeLang(name);
+    const body = category === 'json' ? safePrettyJson(text) : text;
+    return '```' + lang + '\n' + body + '\n```';
+  }, [category, name, text]);
+
   if (category === 'spreadsheet')
     return (
       <Suspense fallback={<PreviewLoading />}>
@@ -250,10 +259,7 @@ function BytesPreview({
       </div>
     );
   }
-  if (category === 'json' || category === 'code') {
-    const lang = category === 'json' ? 'json' : artifactCodeLang(name);
-    const body = category === 'json' ? safePrettyJson(text) : text;
-    const fenced = '```' + lang + '\n' + body + '\n```';
+  if (fenced !== null) {
     return (
       <div className="h-full overflow-auto px-4 py-3">
         <MarkdownRenderer text={fenced} />

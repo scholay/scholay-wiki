@@ -1,5 +1,5 @@
 // 发送记录(邮件 + 短信)—— admin hooks。字段对齐 backend/internal/emaillog。
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 export type SendChannel = 'email' | 'sms';
@@ -35,6 +35,8 @@ export interface EmailLogParams {
 export function useEmailLogs(params: EmailLogParams) {
   return useQuery({
     queryKey: ['admin', 'email-logs', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { logs: EmailLog[]; total: number; stats: EmailLogStats } }>(
         '/admin/email-logs',
