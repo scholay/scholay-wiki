@@ -102,11 +102,13 @@ export function NewsDetailPage() {
           {item.original_date && <span>事件原始日期 {item.original_date}</span>}
         </div>
 
-        {/* 封面图 */}
+        {/* 封面图 —— 详情页保留原图(经 /img-remote 代理,webhook 时后端已预热 nginx 缓存);
+            decoding=async 防大图解码卡主线程 */}
         {item.cover_image && (
           <img
             src={item.cover_image}
             alt=""
+            decoding="async"
             className="mt-6 w-full rounded-16 object-cover"
           />
         )}

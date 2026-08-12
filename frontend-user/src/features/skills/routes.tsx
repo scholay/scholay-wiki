@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * Skills 市场(用户上传/分享 skill + claw 动态加载)。
@@ -16,23 +17,14 @@ export const skillsRoutes: RouteObject[] = [
   },
   {
     path: 'skills/mine',
-    lazy: () =>
-      import('./pages/MySkillsPage').then((m) => ({
-        Component: m.MySkillsPage,
-      })),
+    element: lazyRoute(() => import('./pages/MySkillsPage'), 'MySkillsPage'),
   },
   {
     path: 'skills/new',
-    lazy: () =>
-      import('./pages/SkillCreatePage').then((m) => ({
-        Component: m.SkillCreatePage,
-      })),
+    element: lazyRoute(() => import('./pages/SkillCreatePage'), 'SkillCreatePage'),
   },
   {
     path: 'skills/:idOrSlug',
-    lazy: () =>
-      import('./pages/SkillDetailPage').then((m) => ({
-        Component: m.SkillDetailPage,
-      })),
+    element: lazyRoute(() => import('./pages/SkillDetailPage'), 'SkillDetailPage'),
   },
 ];

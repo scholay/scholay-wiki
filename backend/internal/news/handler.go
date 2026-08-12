@@ -23,6 +23,7 @@ import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -202,6 +203,37 @@ func (h *Handler) GetDetailPublic(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"item": detail, "related": related})
+}
+
+// PublicCoverThumb GET /api/v1/public/news/cover/:file —— 从 MinIO 流式服务封面缩略图。
+// file = "<id>-<8位src哈希>"(= 对象 key 去 news-covers/ 前缀与 .jpg 后缀;URL 不带扩展名
+// 的原因见 coverThumbURL 注释)。URL 内嵌原图哈希,上游换图 → 新 key/新 URL,所以这里
+// 可以放心 immutable 长缓存(nginx /api/ 无边缘缓存,靠浏览器缓存已足够)。
+func (h *Handler) PublicCoverThumb(c *gin.Context) {
+	file := c.Param("file")
+	if file == "" || strings.Contains(file, "/") || strings.Contains(file, ".") || !storage.IsEnabled() {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=2592000, immutable")
+	err := storage.ServeObject(c.Writer, c.Request, storage.NewsCoversBucket(), newsCoverKeyPrefix+file+".jpg", "image/jpeg")
+	if err != nil {
+		// ServeObject 在写出任何字节【之前】出错时不会动响应 —— 但 handler 若就此返回,
+		// net/http 会隐式补一个空体 200,并带上面已设的 immutable 头 → MinIO 瞬时抖动的
+		// 那一刻,任何访客都会把「空图 200」缓存 30 天(缓存投毒)。必须按「是否已写」分流。
+		if !c.Writer.Written() {
+			c.Header("Cache-Control", "no-store")
+			if errors.Is(err, storage.ErrNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			} else {
+				slog.Warn("news: 缩略图读取失败", "file", file, "err", err)
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "temporarily unavailable"})
+			}
+			return
+		}
+		// 已开始写流后的错误(客户端断开等)只记 debug,无法再改状态码
+		slog.Debug("news: 缩略图下发中断", "file", file, "err", err)
+	}
 }
 
 // ServeNewsSitemap GET /sitemap-news.xml —— 全部已发布情报(/news/{slug});功能关闭则空。

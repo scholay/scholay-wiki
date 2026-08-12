@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * Auth feature 路由 —— 主要是各 OAuth provider 的前端 callback 中转页。
@@ -12,10 +13,7 @@ const providers = ['github', 'google', 'apple', 'orcid', 'microsoft', 'discourse
 
 export const authRoutes: RouteObject[] = providers.map((p) => ({
   path: `${p}/callback`,
-  lazy: () =>
-    import('./pages/OAuthCallbackPage').then((m) => ({
-      Component: m.OAuthCallbackPage,
-    })),
+  element: lazyRoute(() => import('./pages/OAuthCallbackPage'), 'OAuthCallbackPage'),
 }));
 
 /**
@@ -36,10 +34,9 @@ export const authRoutes: RouteObject[] = providers.map((p) => ({
 export const wechatCallbackRoutes: RouteObject[] = [
   {
     path: 'wechat/callback',
-    lazy: () =>
-      import('./pages/WeChatCallbackPage').then((m) => ({
-        Component: m.WeChatCallbackPage,
-      })),
+    element: lazyRoute(() => import('./pages/WeChatCallbackPage'), 'WeChatCallbackPage', {
+      full: true,
+    }),
   },
 ];
 
@@ -50,9 +47,6 @@ export const wechatCallbackRoutes: RouteObject[] = [
 export const authMobileRoutes: RouteObject[] = [
   {
     path: 'auth',
-    lazy: () =>
-      import('./pages/mobile/MobileAuthPage').then((m) => ({
-        Component: m.MobileAuthPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileAuthPage'), 'MobileAuthPage'),
   },
 ];

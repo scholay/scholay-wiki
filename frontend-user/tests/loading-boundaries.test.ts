@@ -45,9 +45,12 @@ describe('route and overlay loading boundaries', () => {
   it('shows a lightweight router bootstrap fallback and contains global lazy failures', () => {
     const app = readSource('src/app/App.tsx');
     expect(app).toContain('useSyncExternalStore');
-    expect(app).toContain('!routerInitialized && <RouteLoadingFallback />');
-    expect(app).toContain('function RouteLoadingFallback()');
-    expect(app).not.toMatch(/RouteLoadingFallback[\s\S]*?<(?:[A-Z][A-Za-z]+Icon|img)\b/);
+    // 首次初始化占位改用共享 RouteFallback(shared/components/LazyRoute):
+    // 同一个组件也是全站 element-lazy 路由的 Suspense 骨架,必须保持零依赖轻量。
+    expect(app).toContain('!routerInitialized && <RouteFallback full />');
+    const lazyRouteSource = readSource('src/shared/components/LazyRoute.tsx');
+    expect(lazyRouteSource).toContain('export function RouteFallback');
+    expect(lazyRouteSource).not.toMatch(/<(?:[A-Z][A-Za-z]+Icon|img)\b/);
     expect(app.match(/<ErrorBoundary fallback=\{\(\) => null\}>/g)).toHaveLength(3);
   });
 
@@ -93,8 +96,9 @@ describe('route and overlay loading boundaries', () => {
     const providers = readSource('src/app/providers.tsx');
     const mobileRoutes = readSource('src/features/mobile/routes.tsx');
     expect(providers).not.toContain('FeedPrefetcher');
-    expect(mobileRoutes).toContain("import('./components/FeedPrefetcher')");
-    expect(mobileRoutes).toContain('Component: m.FeedPrefetchLayout');
+    expect(mobileRoutes).toContain(
+      "lazyRoute(() => import('./components/FeedPrefetcher'), 'FeedPrefetchLayout')",
+    );
 
     const adminShell = readSource('src/features/admin/layouts/AdminShell.tsx');
     const detailProvider = readSource(

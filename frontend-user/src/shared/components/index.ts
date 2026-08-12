@@ -6,6 +6,7 @@ export { EmptyState } from './EmptyState';
 export { ErrorBoundary } from './ErrorBoundary';
 export { Footer } from './Footer';
 export { IconButton } from './IconButton';
+export { lazyRoute, RouteFallback } from './LazyRoute';
 export { ListSkeleton, LoadingState } from './LoadingState';
 export { PageHeader } from './PageHeader';
 export { ResourceError } from './ResourceError';

@@ -65,11 +65,26 @@ export function NewsListItem({ item, deferDetails = false }: { item: NewsCard; d
         </>
       ) : (
         <>
-          {item.cover_image && (
+          {(item.cover_thumb || item.cover_image) && (
+            /* 优先本站缩略图(后端生成,~640px JPEG);fetchPriority=low:列表配图
+               永远让位于导航/正文请求 —— 首页曾因原图抢带宽把全站点击拖死(2026-08)。
+               onError:上游换图后旧 thumb 对象会被后端删除,拿着 5min staleTime 旧 DTO
+               的用户会 404 —— 运行时降级回原图,不留空白占位框。 */
             <img
-              src={item.cover_image}
+              src={item.cover_thumb || item.cover_image}
               alt=""
+              width={96}
+              height={96}
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (item.cover_image && !img.dataset.fellBack) {
+                  img.dataset.fellBack = '1';
+                  img.src = item.cover_image;
+                }
+              }}
               className="hidden size-24 shrink-0 rounded-12 object-cover sm:block"
             />
           )}

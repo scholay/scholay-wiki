@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 浏览器(论文 / 期刊 / 学者 / PDF 详情承载路由)。
@@ -17,36 +18,39 @@ import type { RouteObject } from 'react-router-dom';
  *
  * 三类详情共用同一个 BrowserPage shell(tabs 条 + 详情 pane);
  * 入口:tabs 非空时 TopNav 的 Globe 按钮 / 详情 deep link 都行。
+ *
+ * ⚠️ 五条路由必须【共用同一个 element 实例】(下面的常量):lazyRoute 每次调用
+ * 产生独立的 React 身份,若各写各的,paper↔journal↔pdf 页签互切会整页
+ * unmount/remount(BrowserTabsBar 等壳件重挂 + 闪一帧骨架);共用同一 element
+ * → 同 key 同类型 → React 跨兄弟路由保留实例,只有详情 pane 按 pathname 重放
+ * (BrowserPage 内部本来的行为)。2026-08-12 对抗审查确认项。
  */
+const browserPage = lazyRoute(() => import('./pages/BrowserPage'), 'BrowserPage');
+
 export const browserRoutes: RouteObject[] = [
   {
     path: 'paper/:source/:paperId',
-    lazy: () =>
-      import('./pages/BrowserPage').then((m) => ({ Component: m.BrowserPage })),
+    element: browserPage,
   },
   {
     path: 'journal/:id',
-    lazy: () =>
-      import('./pages/BrowserPage').then((m) => ({ Component: m.BrowserPage })),
+    element: browserPage,
   },
   {
     // SEO canonical 形态 /journal/{id}/{slug}, slug 仅做 URL 关键词增益,
     // 组件读 id 渲染, 完全不用 slug —— slug 不匹配也由后端 SSR 层 301 校正。
     path: 'journal/:id/:slug',
-    lazy: () =>
-      import('./pages/BrowserPage').then((m) => ({ Component: m.BrowserPage })),
+    element: browserPage,
   },
   {
     path: 'author/:source/:authorId',
-    lazy: () =>
-      import('./pages/BrowserPage').then((m) => ({ Component: m.BrowserPage })),
+    element: browserPage,
   },
   {
     // PDF 单独成 tab —— libPaperId = 文件夹 row.id(用户上传 PDF 绑在 row 上,
     // 与上游 source/paperId 解耦)。父级 BrowserPage 看到 /pdf/* 时
     // 渲染 PdfBrowserPane 替代 paper detail pane。
     path: 'pdf/:libPaperId',
-    lazy: () =>
-      import('./pages/BrowserPage').then((m) => ({ Component: m.BrowserPage })),
+    element: browserPage,
   },
 ];

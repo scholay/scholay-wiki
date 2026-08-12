@@ -21,6 +21,8 @@ export interface NewsCard {
   section_label: string;
   report_type: string; // hourly=快讯 | daily=今日要览
   cover_image?: string;
+  /** 本站落地的缩略图(后端 webhook 时生成,~640px JPEG);列表优先用它,原图只留详情页 */
+  cover_thumb?: string;
   sources: NewsSource[];
   is_featured: boolean;
   score: number;

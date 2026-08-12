@@ -72,6 +72,7 @@ type MinIOConfig struct {
 	BucketAgentArtifacts      string // 存 agent (claw 等) 成果交付物字节的 bucket
 	BucketAgentAttachments    string // 存 agent 输入框**上传附件**字节的 bucket (0112;与产出物分桶,生命周期完全不同)
 	BucketSkillBundles        string // 存 skill 市场用户上传的 skill 原始 bundle (tarball) 的 bucket
+	BucketNewsCovers          string // 存情报封面缩略图 (webhook 后台生成的 ~640px JPEG) 的 bucket
 	UseSSL                    bool
 
 	// AttachmentReaperDelete —— 输入框附件孤儿对象 reaper 是否**真删**(默认 false = dry-run)。
@@ -253,6 +254,7 @@ func Load() *Config {
 		BucketAgentArtifacts:      getEnv("MINIO_BUCKET_AGENT_ARTIFACTS", "scholar-agent-artifacts"),
 		BucketAgentAttachments:    getEnv("MINIO_BUCKET_AGENT_ATTACHMENTS", "scholar-agent-attachments"),
 		BucketSkillBundles:        getEnv("MINIO_BUCKET_SKILL_BUNDLES", "scholar-skill-bundles"),
+		BucketNewsCovers:          getEnv("MINIO_BUCKET_NEWS_COVERS", "scholar-news-covers"),
 		UseSSL:                    getEnvAsBool("MINIO_USE_SSL", false),
 		AttachmentReaperDelete:    getEnvAsBool("AGENT_ATTACHMENT_REAPER_DELETE", false),
 	}

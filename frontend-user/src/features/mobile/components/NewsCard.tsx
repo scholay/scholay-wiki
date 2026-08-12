@@ -23,6 +23,10 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
   const source = newsSourceLabel(item.sources?.[0]?.label);
   const surging = isNewsSurging(item.heat_trend);
   const reportLabel = newsReportLabel(item.report_type);
+  // 封面判定单点化:图片渲染与摘要密度分支必须同源 —— 「有 thumb 无 cover_image」
+  // 是真实可达状态(上游撤图后 thumb 列要等异步清理/回填收敛),两处各判会出现
+  // 「图渲染了、摘要却按无图排 12 行」被 overflow 硬裁的错位。
+  const hasCover = !!(item.cover_thumb || item.cover_image);
 
   return (
     <article
@@ -45,12 +49,21 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
         )}
       </div>
 
-      {/* 可选封面图(上游链接直用) */}
-      {item.cover_image && (
+      {/* 可选封面图 —— 优先本站缩略图(~640px,秒开),没有再回落上游原图;
+          onError 兜换图窗口(旧 thumb 已删、DTO 还在 5min staleTime 内)的 404 */}
+      {hasCover && (
         <img
-          src={item.cover_image}
+          src={item.cover_thumb || item.cover_image}
           alt=""
           loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (item.cover_image && !img.dataset.fellBack) {
+              img.dataset.fellBack = '1';
+              img.src = item.cover_image;
+            }
+          }}
           className="h-44 w-full shrink-0 rounded-16 object-cover"
         />
       )}
@@ -65,7 +78,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
         <p
           className={cn(
             'leading-paragraph text-muted-foreground',
-            item.cover_image ? 'line-clamp-[6] text-12' : 'line-clamp-[12] text-14',
+            hasCover ? 'line-clamp-[6] text-12' : 'line-clamp-[12] text-14',
           )}
         >
           {item.summary}

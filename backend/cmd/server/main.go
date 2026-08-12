@@ -80,6 +80,7 @@ func main() {
 		BucketAgentArtifacts:      cfg.MinIO.BucketAgentArtifacts,
 		BucketAgentAttachments:    cfg.MinIO.BucketAgentAttachments,
 		BucketSkillBundles:        cfg.MinIO.BucketSkillBundles,
+		BucketNewsCovers:          cfg.MinIO.BucketNewsCovers,
 		UseSSL:                    cfg.MinIO.UseSSL,
 	}); err != nil {
 		log.Fatalf("Failed to initialize object storage: %v", err)
@@ -174,6 +175,8 @@ func main() {
 	seosubmit.RegisterKeyFileRoute(router, svc.seoSubmitService)
 
 	startBackgroundTasks(bgCtx, svc.seoService, svc.seoIngestService)
+	// 情报封面缩略图回填:补历史行 + 重试失败行(webhook 即时钩子的兜底;MinIO 未启用时 no-op)
+	svc.newsService.StartCoverThumbBackfill(bgCtx)
 
 	// (已移除)跨实例「多窗口接管」订阅 —— 抢占模型已被「多端实时同步扇出 Hub」取代
 	// (见 internal/agentbridge/hub.go);同一 session 的多个浏览器现在共享一条上游 agent WS,不再互踢。

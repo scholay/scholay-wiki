@@ -768,7 +768,9 @@ describe('尺寸与间距', () => {
     //
     // 2026-07-28 收尾:基线 1357 → **1293**(实测值,零余量)。原来的 64 格余量
     //   在「阻塞于设计师答复」的规则上尤其危险 —— 它让这条棘轮在等待期里可以静默倒退。
-    ratchet('半档间距', hits(new RegExp(`\\b(?:${PROP})-${HALF}\\b`)), 1293);
+    // 2026-08-12 收口 1 处:App.tsx 旧 RouteLoadingFallback 的 gap-5 随组件迁入
+    // shared/components/LazyRoute(新实现用 gap-4),1293 → 1292,当场压基线。
+    ratchet('半档间距', hits(new RegExp(`\\b(?:${PROP})-${HALF}\\b`)), 1292);
   });
 
   it('禁止裸 vh(移动 Safari 地址栏会改变 vh)', () => {

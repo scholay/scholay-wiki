@@ -57,6 +57,7 @@ type Config struct {
 	BucketAgentArtifacts      string
 	BucketAgentAttachments    string
 	BucketSkillBundles        string
+	BucketNewsCovers          string
 	UseSSL                    bool
 }
 
@@ -137,6 +138,12 @@ func Init(cfg Config) error {
 	if cfg.BucketFeatureTools != "" {
 		if err := ensureBucket(ctx, c, cfg.BucketFeatureTools); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketFeatureTools, err)
+		}
+	}
+	// 情报封面缩略图(0127)—— 永久资源, 不挂 tmp lifecycle;换图/撤图由 news 管线显式删旧 key。
+	if cfg.BucketNewsCovers != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketNewsCovers); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketNewsCovers, err)
 		}
 	}
 	if cfg.BucketAgentArtifacts != "" {
@@ -337,6 +344,13 @@ func SkillBundlesBucket() string {
 	mu.RLock()
 	defer mu.RUnlock()
 	return config.BucketSkillBundles
+}
+
+// NewsCoversBucket 暴露情报封面缩略图 bucket 名。
+func NewsCoversBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketNewsCovers
 }
 
 // PutOptions Put 时的可选参数

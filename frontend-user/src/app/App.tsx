@@ -11,6 +11,8 @@ import { useShareSheet } from '@/stores/share.store';
 import { useInviteEntry } from '@/stores/invite-entry.store';
 import { InviteFlowController } from './InviteFlowController';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { RouteFallback } from '@/shared/components/LazyRoute';
+import { scheduleRouteWarmup } from './route-warmup';
 
 // 诊断:把 data router 挂到 window,卡住时可在控制台读 `__appRouter.state.location.pathname`
 // (RR 已提交的路由)/ `.state.navigation.state`(idle/loading)与地址栏对比。配合 RouteCommitWatchdog。
@@ -90,6 +92,10 @@ function usePayReturnPath() {
 function ShellRoot() {
   useCloseGlobalModalsOnNavigate();
   usePayReturnPath();
+  // 空闲预热高频路由 chunk + 鉴权弹窗(见 route-warmup.ts;load 后 idle 才跑,不抢首屏)
+  useEffect(() => {
+    scheduleRouteWarmup();
+  }, []);
   const routerInitialized = useSyncExternalStore(
     (onStoreChange) => router.subscribe(() => onStoreChange()),
     () => router.state.initialized,
@@ -110,10 +116,13 @@ function ShellRoot() {
         (现象:切菜单地址栏变了、页面卡旧路由、navigation.state 还是 idle、控制台不报错、需刷新;
         诊断快照见 RouteCommitWatchdog/后端 route-commit-desync 日志:routerCommitted 已到新路由、
         reactRendered 仍是旧的)。改成同步提交(urgent)后导航不再被饿死,从根上消除。
-        本项目路由层无 render-suspense(用 RR `lazy:` 在导航阶段加载 + 普通 useQuery,非 Suspense),
-        故关掉过渡无副作用。RouteCommitWatchdog 保留作安全网 + 回归探针(理论上此后永不触发)。
+        2026-08 起路由层改为 element 级 React.lazy + Suspense(见 shared/components/LazyRoute):
+        同步提交 + Suspense 的组合是【有意的】——点击瞬间切走旧页、目标页 chunk 未到就先渲染
+        骨架(「交互最高优先级,页面渲染异步」),正是要的行为,不要因为出现了 Suspense 就把
+        useTransitions 改回默认(那会退回「旧页卡住等 chunk」)。
+        RouteCommitWatchdog 保留作安全网 + 回归探针(理论上此后永不触发)。
       */}
-      {!routerInitialized && <RouteLoadingFallback />}
+      {!routerInitialized && <RouteFallback full />}
       <RouterProvider router={router} useTransitions={false} />
       {/* 全局鉴权弹窗 — 任何位置通过 useAuthDialog.openDialog 触发。懒加载(性能审计 #2):AuthDialog 全家桶
           (zod+react-hook-form+turnstile+微信扫码 ~105KB)此前 eager 常驻入口 chunk。改成首次打开才拉,
@@ -125,31 +134,6 @@ function ShellRoot() {
         <InviteEntryDialogGate />
       </ErrorBoundary>
     </>
-  );
-}
-
-/**
- * Data Router 首次解析 route-lazy 时的零依赖占位。不引入图标、动画库
- * 或任何 feature，避免为消除空白反而抬高入口闭包。
- */
-function RouteLoadingFallback() {
-  return (
-    <main
-      role="status"
-      aria-label="页面加载中"
-      className="flex min-h-dvh items-center justify-center bg-background px-6"
-    >
-      <div className="flex w-full max-w-sm flex-col items-center gap-5">
-        <span className="font-brand text-24 font-medium tracking-brand text-foreground">
-          Scholay
-        </span>
-        <div aria-hidden className="flex w-full flex-col gap-2.5">
-          <span className="h-3 w-full animate-pulse rounded-pill bg-surface-2" />
-          <span className="h-3 w-4/5 animate-pulse rounded-pill bg-surface-2" />
-          <span className="h-3 w-2/3 animate-pulse rounded-pill bg-surface-2" />
-        </div>
-      </div>
-    </main>
   );
 }
 

@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 智能审稿(`/peer-review`)路由:
@@ -15,52 +16,31 @@ import type { RouteObject } from 'react-router-dom';
 export const peerReviewRoutes: RouteObject[] = [
   {
     path: 'peer-review',
-    lazy: () =>
-      import('./layouts/PeerReviewShell').then((m) => ({
-        Component: m.PeerReviewShell,
-      })),
+    element: lazyRoute(() => import('./layouts/PeerReviewShell'), 'PeerReviewShell'),
     children: [
       {
         index: true,
-        lazy: () =>
-          import('./pages/SubmissionLandingPage').then((m) => ({
-            Component: m.SubmissionLandingPage,
-          })),
+        element: lazyRoute(() => import('./pages/SubmissionLandingPage'), 'SubmissionLandingPage'),
       },
       {
         path: 'journal',
-        lazy: () =>
-          import('./pages/JournalWizardPage').then((m) => ({
-            Component: m.JournalWizardPage,
-          })),
+        element: lazyRoute(() => import('./pages/JournalWizardPage'), 'JournalWizardPage'),
       },
       {
         path: 'thesis',
-        lazy: () =>
-          import('./pages/ThesisWizardPage').then((m) => ({
-            Component: m.ThesisWizardPage,
-          })),
+        element: lazyRoute(() => import('./pages/ThesisWizardPage'), 'ThesisWizardPage'),
       },
       {
         path: 'records',
-        lazy: () =>
-          import('./pages/RecordsPage').then((m) => ({
-            Component: m.RecordsPage,
-          })),
+        element: lazyRoute(() => import('./pages/RecordsPage'), 'RecordsPage'),
       },
       {
         path: 'records/:id',
-        lazy: () =>
-          import('./pages/RecordDetailPage').then((m) => ({
-            Component: m.RecordDetailPage,
-          })),
+        element: lazyRoute(() => import('./pages/RecordDetailPage'), 'RecordDetailPage'),
       },
       {
         path: 'submitted/:id',
-        lazy: () =>
-          import('./pages/SubmitSuccessPage').then((m) => ({
-            Component: m.SubmitSuccessPage,
-          })),
+        element: lazyRoute(() => import('./pages/SubmitSuccessPage'), 'SubmitSuccessPage'),
       },
     ],
   },

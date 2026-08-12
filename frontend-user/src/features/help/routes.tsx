@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 帮助中心 + 静态/法律页 + 学术资源中心 路由总入口。
@@ -12,62 +13,59 @@ import { Navigate, type RouteObject } from 'react-router-dom';
  *   /resources/:slug       ResourceDetailPage / /blog/:slug BlogDetailPage(详情独立)
  *   /about /contact /feedback /privacy /terms /disclaimer  信息/法律页
  */
+// /resources ↔ /blog 同实例互切(页内 tab 直接 navigate),必须共用 element
+const resourceCenterPage = lazyRoute(
+  () => import('./pages/ResourceCenterPage'),
+  'ResourceCenterPage',
+  { full: true },
+);
+
 export const helpRoutes: RouteObject[] = [
   {
     path: 'help',
-    lazy: () =>
-      import('./pages/HelpCenterPage').then((m) => ({ Component: m.HelpCenterPage })),
+    element: lazyRoute(() => import('./pages/HelpCenterPage'), 'HelpCenterPage', { full: true }),
   },
   {
     path: 'about',
-    lazy: () =>
-      import('./pages/AboutPage').then((m) => ({ Component: m.AboutPage })),
+    element: lazyRoute(() => import('./pages/AboutPage'), 'AboutPage', { full: true }),
   },
   {
     path: 'contact',
-    lazy: () =>
-      import('./pages/ContactPage').then((m) => ({ Component: m.ContactPage })),
+    element: lazyRoute(() => import('./pages/ContactPage'), 'ContactPage', { full: true }),
   },
   {
     path: 'feedback',
-    lazy: () =>
-      import('./pages/FeedbackPage').then((m) => ({ Component: m.FeedbackPage })),
+    element: lazyRoute(() => import('./pages/FeedbackPage'), 'FeedbackPage', { full: true }),
   },
   {
     path: 'privacy',
-    lazy: () =>
-      import('./pages/PrivacyPage').then((m) => ({ Component: m.PrivacyPage })),
+    element: lazyRoute(() => import('./pages/PrivacyPage'), 'PrivacyPage', { full: true }),
   },
   {
     path: 'terms',
-    lazy: () =>
-      import('./pages/TermsPage').then((m) => ({ Component: m.TermsPage })),
+    element: lazyRoute(() => import('./pages/TermsPage'), 'TermsPage', { full: true }),
   },
   {
     path: 'disclaimer',
-    lazy: () =>
-      import('./pages/DisclaimerPage').then((m) => ({ Component: m.DisclaimerPage })),
+    element: lazyRoute(() => import('./pages/DisclaimerPage'), 'DisclaimerPage', { full: true }),
   },
-  // 学术资源中心 —— /resources 与 /blog 都进同一个 tab 化中心(SEO 两 URL 都保留)
+  // 学术资源中心 —— /resources 与 /blog 都进同一个 tab 化中心(SEO 两 URL 都保留)。
+  // 共用同一 element:两 URL 靠页内 TabButton navigate 互切,各写各的会整页重挂(见 browser/routes.tsx 同注)。
   {
     path: 'resources',
-    lazy: () =>
-      import('./pages/ResourceCenterPage').then((m) => ({ Component: m.ResourceCenterPage })),
+    element: resourceCenterPage,
   },
   {
     path: 'blog',
-    lazy: () =>
-      import('./pages/ResourceCenterPage').then((m) => ({ Component: m.ResourceCenterPage })),
+    element: resourceCenterPage,
   },
   {
     path: 'blog/:slug',
-    lazy: () =>
-      import('./pages/BlogDetailPage').then((m) => ({ Component: m.BlogDetailPage })),
+    element: lazyRoute(() => import('./pages/BlogDetailPage'), 'BlogDetailPage', { full: true }),
   },
   {
     path: 'resources/:slug',
-    lazy: () =>
-      import('./pages/ResourceDetailPage').then((m) => ({ Component: m.ResourceDetailPage })),
+    element: lazyRoute(() => import('./pages/ResourceDetailPage'), 'ResourceDetailPage', { full: true }),
   },
   // 帮助中心 = 学术问答:/qa 裸列表重定向到 /help(详情 /qa/:slug 保持)
   {
@@ -76,7 +74,6 @@ export const helpRoutes: RouteObject[] = [
   },
   {
     path: 'qa/:slug',
-    lazy: () =>
-      import('./pages/QADetailPage').then((m) => ({ Component: m.QADetailPage })),
+    element: lazyRoute(() => import('./pages/QADetailPage'), 'QADetailPage', { full: true }),
   },
 ];

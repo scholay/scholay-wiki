@@ -109,6 +109,7 @@ type services struct {
 	seoService        *seo.Service
 	seoSubmitService  *seosubmit.Service
 	seoIngestService  *seoingest.Service // 期刊全量摄取(background.go 注册每日增量检查)
+	newsService       *news.Service      // 情报(background.go 启动封面缩略图回填)
 	wsHub             *websocket.Hub
 	// supportCenter 客服与联系中心(IMAP 收件轮询在 startBackgroundTasks 启动)
 	supportCenterService *supportcenter.Service
@@ -653,6 +654,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// ---- 情报(学术新闻):上游 webhook 接收/落库 + 公开读 + admin 配置 ----
 	newsService := news.NewService(news.NewRepository(db))
 	newsHandler := news.NewHandler(newsService)
+	// 封面缩略图管线取 minicod 原图时优先经内部 nginx 的 /img-remote —— 同一次回源
+	// 顺带预热 30d proxy_cache(详情页大图受益)。容器外裸跑连不上 nginx 时自动回落直连。
+	nginxInternalURL := os.Getenv("NGINX_INTERNAL_URL")
+	if nginxInternalURL == "" {
+		nginxInternalURL = "http://nginx"
+	}
+	newsService.SetCoverProxyBase(nginxInternalURL)
 	// 情报详情/列表页 /news SSR 元数据(NewsArticle JSON-LD + 全文 noscript;功能关闭时 provider 返回 nil)
 	core.configHandler.SetNewsSEOProvider(newsService)
 	// 情报内容首发/更新 → 主动推送该 URL 入收录队列(freshness 闭环;队列未启用时 no-op)
@@ -852,6 +860,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		seoService:           plat.seoService,
 		seoSubmitService:     plat.seoSubmitService,
 		seoIngestService:     seoIngestService,
+		newsService:          newsService,
 		wsHub:                plat.wsHub,
 		supportCenterService: supportCenterService,
 		agentBridge:          agentBridge,

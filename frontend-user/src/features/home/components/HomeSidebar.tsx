@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -38,7 +38,6 @@ function useLibrarySubtitle(): string {
 }
 
 export function HomeSidebar() {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const toggleSidebar = useSidebar((s) => s.toggle);
   const librarySubtitle = useLibrarySubtitle();
@@ -57,7 +56,7 @@ export function HomeSidebar() {
             {g.items.map((m) => (
               <SidebarRichItem
                 key={m.id}
-                onClick={() => navigate(m.href)}
+                to={m.href}
                 icon={<m.icon />}
                 label={m.label}
                 description={subtitleFor(m.id)}
