@@ -139,7 +139,7 @@ function RouteLoadingFallback() {
       aria-label="页面加载中"
       className="flex min-h-dvh items-center justify-center bg-background px-6"
     >
-      <div className="flex w-full max-w-sm flex-col items-center gap-5">
+      <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <span className="font-brand text-24 font-medium tracking-brand text-foreground">
           Scholay
         </span>

@@ -13,6 +13,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { PRISM_MOCK_THEME } from "./WikiEmbedPrismSurfaces";
 
 const OUTLINE = ["摘要", "1 引言", "2 方法", "3 实验", "4 讨论"] as const;
 
@@ -23,7 +24,8 @@ const OUTLINE = ["摘要", "1 引言", "2 方法", "3 实验", "4 讨论"] as co
 export function WikiEmbedPrismWorkspace() {
   return (
     <div
-      className="w-[min(100%,54rem)] overflow-hidden rounded-12 border border-border bg-surface-card"
+      className="w-[min(100%,72rem)] overflow-hidden bg-background"
+      style={PRISM_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="prism-workspace"
     >
@@ -43,7 +45,7 @@ export function WikiEmbedPrismWorkspace() {
         </span>
       </header>
 
-      <div className="grid min-h-96 md:grid-cols-[11rem_minmax(0,1fr)] lg:grid-cols-[9rem_15rem_minmax(0,1fr)]">
+      <div className="grid min-h-[34rem] md:grid-cols-[15rem_minmax(0,1fr)] lg:grid-cols-[13rem_20rem_minmax(0,1fr)]">
         <aside className="hidden border-r border-border-soft bg-surface-1 p-3 lg:block">
           <p className="px-2 py-2 text-12 font-medium text-foreground">
             文章大纲

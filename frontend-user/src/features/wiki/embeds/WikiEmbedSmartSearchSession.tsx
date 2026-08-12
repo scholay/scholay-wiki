@@ -16,10 +16,22 @@ const ASSISTANT_TEXT =
   "我已完成跨方向检索。下面 4 篇分别代表生成、检索增强、注意力和结构预测，可作为比较技术范式与证据边界的起点。";
 
 const PAPERS = [
-  "Denoising Diffusion Probabilistic Models",
-  "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
-  "Attention Is All You Need",
-  "Highly accurate protein structure prediction with AlphaFold",
+  {
+    title: "Denoising Diffusion Probabilistic Models",
+    meta: "NeurIPS · Jonathan Ho, Pieter Abbeel · 2020",
+  },
+  {
+    title: "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+    meta: "NeurIPS · Patrick Lewis, Douwe Kiela · 2020",
+  },
+  {
+    title: "Attention Is All You Need",
+    meta: "NeurIPS · Ashish Vaswani, Noam Shazeer · 2017",
+  },
+  {
+    title: "Highly accurate protein structure prediction with AlphaFold",
+    meta: "Nature · John Jumper, Demis Hassabis · 2021",
+  },
 ] as const;
 
 /**
@@ -74,12 +86,20 @@ export function WikiEmbedSmartSearchSession() {
                 </span>
               </header>
               <ul className="divide-y divide-border-hairline">
-                {PAPERS.map((title) => (
+                {PAPERS.map((paper) => (
                   <li
-                    key={title}
-                    className="truncate px-3 py-2 text-12 text-subtle"
+                    key={paper.title}
+                    className="flex items-start gap-2 px-3 py-3"
                   >
-                    {title}
+                    <span className="mt-1 inline-flex size-4 shrink-0 rounded-4 border border-border bg-surface-card" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-14 font-medium text-foreground">
+                        {paper.title}
+                      </span>
+                      <span className="mt-1 block truncate text-12 text-faint">
+                        {paper.meta}
+                      </span>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -115,7 +135,7 @@ export function WikiEmbedSmartSearchSession() {
           </div>
 
           <div className="relative flex flex-col overflow-hidden rounded-16 border border-border-strong bg-surface-card shadow-raised">
-            <div className="flex h-12 items-center gap-3 px-4 pr-2">
+            <div className="flex h-12 items-center gap-3 pl-5 pr-2">
               <MockModeToggle label="智能搜索" tone="smart" />
               <div className="relative min-w-0 flex-1">
                 <span className="block truncate text-16 text-faint">

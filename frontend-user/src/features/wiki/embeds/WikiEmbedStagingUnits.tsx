@@ -1,4 +1,4 @@
-import { Plus, X } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 const PAPERS = [
@@ -69,37 +69,40 @@ export function WikiEmbedStagingUnits() {
         </span>
       </div>
 
-      <div className="py-2">
+      <div>
         {PAPERS.map((paper) => (
           <div
             key={paper.title}
-            className={cn(
-              "group/unit relative mx-2 mb-2 rounded-8 border px-3 py-2 text-left",
-              paper.selected
-                ? "border-brand-red/40 bg-danger-soft"
-                : "border-border bg-surface-card",
-            )}
+            className="flex min-h-10 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-3 py-2"
           >
-            <span className="absolute right-2 top-2 inline-flex size-5 items-center justify-center rounded-4 text-faint opacity-40">
-              <X className="size-3" />
+            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-4 text-brand-green">
+              <span className="inline-flex size-4 items-center justify-center rounded-4 border border-brand-green bg-brand-green text-on-brand">
+                <Check className="size-3" strokeWidth={3} />
+              </span>
             </span>
-            <div
-              className={cn(
-                "line-clamp-2 pr-6 text-12 font-medium leading-sans",
-                paper.selected ? "text-brand-red" : "text-foreground",
-              )}
-            >
-              {paper.title}
+            <div className="min-w-0 flex-1">
+              <div
+                className={cn(
+                  "line-clamp-2 text-12 leading-sans",
+                  paper.selected ? "text-foreground" : "text-subtle",
+                )}
+              >
+                {paper.title}
+              </div>
+              <div className="mt-1 flex min-w-0 items-center gap-2 text-12 text-faint">
+                <span className="shrink-0 tabular-nums">{paper.year}</span>
+                <span className="min-w-0 truncate">{paper.authors}</span>
+              </div>
             </div>
-            <div className="mt-1 flex min-w-0 items-center gap-2 text-12 text-faint">
-              <span className="shrink-0 tabular-nums">{paper.year}</span>
-              <span className="min-w-0 truncate">{paper.authors}</span>
-            </div>
+            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-4 text-muted-foreground">
+              <ChevronDown className="size-3" />
+            </span>
           </div>
         ))}
-        <p className="px-3 pb-1 text-12 leading-paragraph text-faint">
-          最多 5 个暂存区，按当前位置显示 A–E；空区切走后会自动移除。
-        </p>
+        <div className="flex items-center justify-between bg-surface-1 px-3 py-2 text-12 text-faint">
+          <span>当前 A 区 · 3 篇</span>
+          <span>最多 5 个暂存区</span>
+        </div>
       </div>
     </div>
   );

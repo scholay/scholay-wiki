@@ -87,7 +87,7 @@ export const backendDomainArticles: WikiArticle[] = [
     slug: "content-seo-pipeline",
     title: "内容、SEO 与发现管线",
     summary:
-      "博客、资源、新闻、热门内容、公开学术实体、站点地图和搜索引擎提交如何从内容真源流向公开页面。",
+      "博客、资源、新闻、热门内容、公开学术实体、站点地图和搜索引擎提交如何从各自来源流向公开页面。",
     category: "platform",
     kind: "architecture",
     status: "current",
@@ -107,8 +107,8 @@ export const backendDomainArticles: WikiArticle[] = [
     sections: [
       {
         id: "sources",
-        title: "内容真源",
-        markdown: `content 使用 go:embed 保存博客与资源文章并渲染 Markdown；news 接收带 HMAC 的 MiniCod 情报并只向公开端返回 published；hotcontent 记录热搜、论文曝光与点击。seo 保存论文、作者、期刊的公开实体、slug、SSR、目录页与 sitemap 数据。`,
+        title: "内容来源",
+        markdown: `不同公开内容由不同模块维护：content 通过 go:embed 保存博客与资源文章并渲染 Markdown；news 接收带 HMAC 的 MiniCod 情报，只向公开端返回 published 记录；hotcontent 记录热搜、论文曝光与点击；seo 保存论文、作者、期刊的公开实体，以及 slug、SSR、目录页和 sitemap 数据。排查内容缺失时，应先确认它属于哪条管线。`,
       },
       {
         id: "publication",
@@ -152,12 +152,12 @@ export const backendDomainArticles: WikiArticle[] = [
       {
         id: "boundaries",
         title: "当前边界",
-        markdown: `公告模块只有受 content.manage 保护的后台 CRUD，没有公开读取路由，因此不能把后台启用状态等同于用户已收到。消息模板运行层已下线，现行站内信仍活跃。后台按会员计划发消息仍引用旧 subscription_plan 字段，在修复和验证前不应承诺该受众选择可靠。`,
+        markdown: `公告模块目前只有受 content.manage 保护的后台增删改查，没有公开读取路由，因此后台显示“已启用”不代表用户端已经收到。消息模板执行层已经下线，但站内信本身仍在使用。后台按会员计划发送消息时仍读取旧 subscription_plan 字段；修复并验证前，不应承诺这种受众选择可靠。`,
       },
       {
         id: "privacy",
         title: "隐私与留痕",
-        markdown: `反馈附件、收件箱正文、发送失败原文和用户消息都可能含个人或研究信息，只能由相应权限读取。实时推送不是耐久真源；最终已读、发送、工单与邮件状态以数据库记录为准。`,
+        markdown: `反馈附件、收件箱正文、发送失败原文和用户消息都可能包含个人或研究信息，只能由具备相应权限的人员读取。实时推送只负责及时提醒；最终的已读、发送、工单和邮件状态应以数据库记录为准。`,
       },
     ],
   },
@@ -207,12 +207,12 @@ export const backendDomainArticles: WikiArticle[] = [
       {
         id: "durability",
         title: "耐久状态",
-        markdown: `agentbridge 保存 session、turn 和 event journal，并桥接 WebSocket、计费与后台监控；agentattach 与 agentattachstore 管理耐久附件；agentartifact 把工作区交付物收割到 MinIO；agentrun 用 Run、Step 和租约表达可恢复长任务。Executor 进程内历史和临时工作区都不是产品唯一真源。`,
+        markdown: `agentbridge 保存 session、turn 和 event journal，并连接 WebSocket、计费与后台监控；agentattach 与 agentattachstore 管理长期附件；agentartifact 把工作区交付物收集到 MinIO；agentrun 用 Run、Step 和租约表示可恢复的长任务。Executor 进程内历史与临时工作区只能用于执行，不能作为产品状态的唯一依据。`,
       },
       {
         id: "conditional",
         title: "条件装配",
-        markdown: `通用附件与 Run 路由带装配 nil guard；目标部署是否真的开放取决于 bootstrap、内部 token、Executor feature 集合和启动健康状态。代码中存在 handler 只能证明能力可装配，Wiki 的运行状态仍需以目标环境 route smoke test 为准。`,
+        markdown: `通用附件与 Run 路由只有在所需依赖非 nil 时才会装配。目标部署是否真正开放，还取决于 bootstrap、内部 token、Executor feature 集合和启动健康状态。代码中存在 handler 只能说明该能力可以被装配；确认可用性仍需对目标环境执行路由 smoke test。`,
       },
     ],
   },
@@ -253,7 +253,7 @@ export const backendDomainArticles: WikiArticle[] = [
       {
         id: "commerce",
         title: "账户与商业状态",
-        markdown: `user 是身份和管理员用户管理真源；vip 负责会员、周期额度、钱包、重置次数、订单、兑换码和退款登记；payment 对接支付宝与微信建单、回调和微信查单；invite 保存归因快照、奖励与退款反冲；promo 只管理推广展示，不授予权益。`,
+        markdown: `商业状态按职责拆分：user 保存身份与后台用户管理记录；vip 负责会员、周期额度、钱包、重置次数、订单、兑换码和退款登记；payment 对接支付宝与微信建单、回调和微信查单；invite 保存邀请归因快照、奖励与退款冲销；promo 只管理推广展示，不授予任何权益。`,
       },
       {
         id: "ai-governance",

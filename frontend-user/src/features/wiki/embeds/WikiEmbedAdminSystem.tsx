@@ -1,236 +1,454 @@
-import { Code2, CreditCard, KeyRound, Settings } from "lucide-react";
+import type { ReactNode } from "react";
+import { Code2, KeyRound, Save, ShieldAlert } from "lucide-react";
 import {
-  AdminSettingsFixture,
-  AdminTableFixture,
+  AdminMockBadge,
+  AdminMockButton,
+  AdminMockPage,
+  AdminMockTabs,
 } from "./WikiEmbedAdminShared";
 
 /** 站点基础配置、邮件、短信与代码片段入口 · 纯样式 fixture。 */
 export function WikiEmbedAdminSystemConfig() {
   return (
-    <AdminSettingsFixture
+    <AdminMockPage
       fixture="admin-system-config"
-      icon={Settings}
       title="系统设置"
-      description="站点基础认证、通知通道与全局注入脚本按标签页维护。"
-      tabs={["基础", "邮件", "短信", "代码片段库"]}
-      activeTab="基础"
-      notice="保存通常是整行配置写入；维护状态仅在后台全局提醒中展示，不是本页可编辑项。"
-      sections={[
-        {
-          title: "平台基础配置",
-          description: "邮箱验证与 Cloudflare Turnstile 人机校验。",
-          fields: [
-            { label: "邮箱验证", value: "启用", kind: "enabled" },
-            { label: "Turnstile", value: "启用", kind: "enabled" },
-            { label: "Site Key", value: "0x4AAAA••••" },
-            { label: "Secret Key", value: "", kind: "secret" },
-          ],
-        },
-        {
-          title: "统计接入",
-          description: "Google 分析 ID 按前缀识别 GA4 或 Google Tag Manager。",
-          fields: [
-            {
-              label: "Google 分析 ID（GA4 / GTM）",
-              value: "G-ABCD1234",
-            },
-          ],
-        },
-        {
-          title: "邮件通道",
-          description: "SMTP 配置单独保存并支持测试。",
-          fields: [
-            { label: "SMTP 主机", value: "smtp.example.com" },
-            { label: "密码", value: "", kind: "secret" },
-            { label: "测试状态", value: "通过", kind: "enabled" },
-          ],
-        },
-        {
-          title: "短信通道",
-          description: "短信网关凭据与模板参数。",
-          fields: [
-            { label: "网关状态", value: "启用", kind: "enabled" },
-            { label: "Access Secret", value: "", kind: "secret" },
-          ],
-        },
-      ]}
-    />
+      description="平台基础配置 · 通知通道 · 注入脚本"
+    >
+      <AdminMockTabs
+        items={["基础", "邮件", "短信", "代码片段库"]}
+        active="基础"
+      />
+      <section className="mt-4 max-w-3xl space-y-4 rounded-8 border border-border bg-background p-4 sm:p-6">
+        <header className="border-b border-border-hairline pb-3">
+          <h3 className="text-24 font-medium text-foreground">平台基础配置</h3>
+          <p className="mt-1 text-14 text-muted-foreground">
+            邮件验证开关 · Cloudflare Turnstile 人机校验
+          </p>
+        </header>
+        {["注册时必须验证邮箱", "启用 Cloudflare Turnstile"].map((label) => (
+          <div key={label} className="flex items-center gap-2">
+            <span className="inline-flex size-4 items-center justify-center rounded-4 border border-foreground bg-foreground text-12 text-on-dark">
+              ✓
+            </span>
+            <span className="text-16 text-foreground">{label}</span>
+          </div>
+        ))}
+        <SystemField label="Turnstile Site Key" value="0x4AAAA••••" />
+        <SystemField label="Turnstile Secret Key" value="••••••••••••　　◉" />
+        <SystemField label="Google 分析 ID" value="G-ABCD1234" />
+        <p className="-mt-2 text-12 leading-paragraph text-faint">
+          GA4 衡量 ID（G- 开头）或 GTM 容器 ID（GTM-
+          开头），前端按前缀加载对应脚本。
+        </p>
+        <div className="border-t border-border-hairline pt-3">
+          <AdminMockButton>
+            <Save className="size-4" /> 保存配置
+          </AdminMockButton>
+        </div>
+      </section>
+      <div className="mt-4 rounded-8 border border-brand-amber/30 bg-brand-amber-soft px-3 py-2 text-14 leading-paragraph text-muted-foreground">
+        保存通常是整行配置写入；维护状态只在后台全局提醒中展示，不是本页可编辑项。
+      </div>
+    </AdminMockPage>
+  );
+}
+
+function SystemField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-16 font-medium text-foreground">{label}</p>
+      <div className="flex h-9 items-center rounded-8 border border-border bg-background px-3 text-16 text-muted-foreground">
+        {value}
+      </div>
+    </div>
   );
 }
 
 /** 可注入页面的 HTML / JavaScript 片段库 · 纯样式 fixture。 */
 export function WikiEmbedAdminCodeSnippets() {
   return (
-    <AdminTableFixture
+    <AdminMockPage
       fixture="admin-code-snippets"
-      icon={Code2}
-      title="代码片段库"
-      description="按类别、注入位置、优先级与路径范围管理全站脚本。"
-      action="新建片段"
-      filters={["SEO / analytics / ad / social", "head / body", "启用状态"]}
-      rows={[
-        {
-          title: "Umami Analytics",
-          detail: "analytics · head · 全站 · 空闲加载关闭 · priority 10",
-          meta: "今天 09:20",
-          status: "已启用",
-          tone: "green",
-        },
-        {
-          title: "Search Console Verification",
-          detail: "SEO · head · 全站 · priority 20",
-          meta: "8 月 8 日",
-          status: "已启用",
-          tone: "green",
-        },
-        {
-          title: "Legacy Campaign Pixel",
-          detail: "ad · body-end · /membership · 已保留回滚文本",
-          meta: "7 月 16 日",
-          status: "已停用",
-          tone: "neutral",
-        },
-      ]}
-      notice="片段允许任意 HTML / JavaScript，属于全站高风险发布，应像代码变更一样评审。"
-    />
+      title="系统设置"
+      description="平台基础配置 · 通知通道 · 注入脚本"
+      tabs={
+        <AdminMockTabs
+          items={["基础", "邮件", "短信", "代码片段库"]}
+          active="代码片段库"
+        />
+      }
+    >
+      <div className="mb-4 flex items-start gap-2 rounded-8 border border-brand-amber/30 bg-brand-amber-soft p-3">
+        <ShieldAlert className="size-4 shrink-0 text-brand-amber" />
+        <div className="text-12 leading-paragraph text-muted-foreground">
+          <p className="font-medium text-foreground">
+            每一条启用记录都会原样注入全站页面
+          </p>
+          <p className="mt-1">
+            权限等同站点代码，可读取登录凭证、改写页面或支付跳转；第三方脚本必须先在测试环境评审。
+          </p>
+        </div>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-20 font-medium text-foreground">
+            <Code2 className="size-5" /> 代码片段库
+          </h2>
+          <p className="mt-1 text-14 text-muted-foreground">
+            共 3 条 · 给用户端注入的 SEO / 统计 / 广告 / 社交脚本
+          </p>
+        </div>
+        <AdminMockButton>＋ 新建片段</AdminMockButton>
+      </div>
+      <SystemTable
+        columns={["名称", "分类", "注入位置", "优先级", "全站生效"]}
+        template="minmax(260px,1fr) 110px 120px 80px 110px"
+        minWidth={760}
+        rows={[
+          [
+            <SystemIdentity
+              key="snippet"
+              title="Umami Analytics"
+              detail="umami_analytics"
+              mono
+            />,
+            <AdminMockBadge key="category">统计分析</AdminMockBadge>,
+            <AdminMockBadge key="position">head 头部</AdminMockBadge>,
+            "10",
+            <SystemToggle key="state" label="注入中" />,
+          ],
+          [
+            <SystemIdentity
+              key="snippet"
+              title="Search Console Verification"
+              detail="search_console_verify"
+              mono
+            />,
+            <AdminMockBadge key="category">SEO</AdminMockBadge>,
+            <AdminMockBadge key="position">head 头部</AdminMockBadge>,
+            "20",
+            <SystemToggle key="state" label="注入中" />,
+          ],
+          [
+            <SystemIdentity
+              key="snippet"
+              title="Legacy Campaign Pixel"
+              detail="legacy_campaign_pixel"
+              mono
+            />,
+            <AdminMockBadge key="category">广告</AdminMockBadge>,
+            <AdminMockBadge key="position">body 结束</AdminMockBadge>,
+            "30",
+            <SystemToggle key="state" label="未注入" active={false} />,
+          ],
+        ]}
+      />
+    </AdminMockPage>
   );
 }
 
 /** OAuth / SSO Provider 与微信小程序登录配置 · 纯样式 fixture。 */
 export function WikiEmbedAdminOAuthConfig() {
   return (
-    <AdminSettingsFixture
+    <AdminMockPage
       fixture="admin-oauth-config"
-      icon={KeyRound}
       title="OAuth / SSO"
-      description="第三方登录 Provider 与微信小程序按各自真实字段独立配置。"
-      tabs={[
-        "GitHub",
-        "Google",
-        "Apple",
-        "ORCID",
-        "Microsoft",
-        "Discourse",
-        "微信",
-        "微信小程序",
-      ]}
-      activeTab="GitHub"
-      notice="启用 Provider 只决定是否展示入口；账号绑定、冲突与合并仍由后端认证流程处理。"
-      sections={[
-        {
-          title: "GitHub 登录",
-          description: "密钥默认掩码，保存时保留未修改的真值。",
-          fields: [
-            { label: "登录入口", value: "启用", kind: "enabled" },
-            { label: "Client ID", value: "Ov23li••••" },
-            { label: "Client Secret", value: "", kind: "secret" },
-            {
-              label: "Callback URL",
-              value: "https://scholay.com/github/callback",
-            },
-          ],
-        },
-        {
-          title: "公开配置语义",
-          description: "客户端只能读取安全的启用状态等字段。",
-          fields: [
-            { label: "公开启用状态", value: "是", kind: "enabled" },
-            { label: "公开密钥", value: "否", kind: "disabled" },
-          ],
-        },
-      ]}
-    />
+      description="第三方登录 Provider + 微信小程序一键登录 · 每个按自己的真实字段配置"
+    >
+      <AdminMockTabs
+        items={[
+          "GitHub ●",
+          "Google ●",
+          "Apple ○",
+          "ORCID ●",
+          "Microsoft ○",
+          "恩特学术社区 ●",
+          "微信 ○",
+          "微信小程序",
+        ]}
+        active="GitHub ●"
+      />
+      <section className="mt-4 max-w-3xl space-y-4 rounded-16 border border-border bg-background p-4 sm:p-6">
+        <header className="border-b border-border-hairline pb-3">
+          <h2 className="flex items-center gap-2 text-16 font-medium text-foreground">
+            <KeyRound className="size-4" /> GitHub
+          </h2>
+          <p className="mt-1 text-12 text-muted-foreground">
+            GitHub Developer Settings · OAuth Apps · 最后更新 2026-08-10 16:42
+          </p>
+        </header>
+        <SystemField label="Client ID" value="Ov23li••••" />
+        <SystemField label="Client Secret" value="••••••••••••　◉" />
+        <SystemField
+          label="Redirect URI"
+          value="https://scholay.com/github/callback"
+        />
+        <SystemToggle label="启用 GitHub 登录" />
+        <div className="border-t border-border-hairline pt-3">
+          <AdminMockButton>
+            <Save className="size-4" /> 保存 GitHub 配置
+          </AdminMockButton>
+        </div>
+      </section>
+      <p className="mt-4 text-14 leading-paragraph text-muted-foreground">
+        Tab
+        右侧状态点来自用户端公开配置，代表登录入口是否真实可见；凭据仍只在管理端按需揭示。
+      </p>
+    </AdminMockPage>
   );
 }
 
 /** 支付宝与微信支付商户、能力、测试与激活 · 纯样式 fixture。 */
 export function WikiEmbedAdminPaymentMerchants() {
   return (
-    <AdminTableFixture
+    <AdminMockPage
       fixture="admin-payment-merchants"
-      icon={CreditCard}
       title="支付配置"
-      description="支付宝与微信支付支持多商户配置，但每个渠道只使用有效且激活的配置。"
-      action="新增商户"
-      tabs={["支付宝", "微信支付"]}
-      activeTab="支付宝"
-      filters={["生产 / 沙箱", "激活状态", "测试结果"]}
-      rows={[
-        {
-          title: "2021002188•••• · 生产商户",
-          detail: "Gateway 官方生产地址 · Notify / Return 已配置 · 密钥已掩码",
-          meta: "测试通过",
-          status: "已激活",
-          tone: "green",
-        },
-        {
-          title: "2021002199•••• · 沙箱商户",
-          detail: "沙箱网关 · 仅用于联调 · 密钥已掩码",
-          meta: "测试通过",
-          status: "未激活",
-          tone: "amber",
-        },
-        {
-          title: "2021002100•••• · 旧生产商户",
-          detail: "关键凭据已变更 · 旧测试结果失效",
-          meta: "待重测",
-          status: "不可激活",
-          tone: "red",
-        },
-      ]}
-      notice="修改关键凭据会使测试结果失效并取消激活；测试只验证配置与连通性，不创建真实交易。"
-    />
+      description="支付宝 + 微信支付 · 多商户切换"
+    >
+      <AdminMockTabs items={["支付宝", "微信支付"]} active="支付宝" />
+      <div className="my-4 rounded-8 border border-brand-green/40 bg-brand-green-soft px-4 py-3">
+        <p className="text-14 font-medium text-foreground">
+          支付宝已生效 —— 用户端会显示支付宝入口
+        </p>
+        <p className="mt-1 font-mono text-12 text-muted-foreground">
+          App ID 2021002188•••• · https://openapi.alipay.com/gateway.do
+        </p>
+      </div>
+      <div className="mb-3 flex justify-end">
+        <AdminMockButton>＋ 新增支付宝配置</AdminMockButton>
+      </div>
+      <SystemTable
+        columns={["App ID", "环境", "活动", "创建时间", ""]}
+        template="minmax(280px,1fr) 80px 110px 120px 110px"
+        minWidth={720}
+        rows={[
+          [
+            <SystemIdentity
+              key="merchant"
+              title="2021002188••••"
+              detail="https://openapi.alipay.com/gateway.do"
+              mono
+            />,
+            <AdminMockBadge key="env">生产</AdminMockBadge>,
+            <SystemToggle key="active" label="活动" />,
+            "2026-05-18",
+            <span key="ops" className="text-faint">
+              编辑　删除
+            </span>,
+          ],
+          [
+            <SystemIdentity
+              key="merchant"
+              title="2021002199••••"
+              detail="https://openapi-sandbox.dl.alipaydev.com/gateway.do"
+              mono
+            />,
+            <AdminMockBadge key="env" tone="amber">
+              沙箱
+            </AdminMockBadge>,
+            <SystemToggle key="active" label="未激活" active={false} />,
+            "2026-04-03",
+            <span key="ops" className="text-faint">
+              编辑　删除
+            </span>,
+          ],
+        ]}
+      />
+      <p className="mt-4 text-14 leading-paragraph text-muted-foreground">
+        每个渠道仅使用一条活动配置；删除活动商户会让对应用户端支付入口立即消失。
+      </p>
+    </AdminMockPage>
   );
 }
 
 /** 微信支付商户的能力与加密材料 · 纯样式 fixture。 */
 export function WikiEmbedAdminWechatPay() {
   return (
-    <AdminSettingsFixture
+    <AdminMockPage
       fixture="admin-wechat-pay"
-      icon={CreditCard}
-      title="微信支付商户"
-      description="商户号、AppID、APIv3 密钥、证书和支付能力必须成套配置。"
-      sections={[
-        {
-          title: "商户身份",
-          description: "基本身份与回调地址。",
-          fields: [
-            { label: "商户号", value: "190000••••" },
-            { label: "AppID", value: "wx8f2a••••" },
-            {
-              label: "通知地址",
-              value: "https://scholay.com/api/v1/payment/wechat/notify",
-            },
+      title="支付配置"
+      description="支付宝 + 微信支付 · 多商户切换"
+    >
+      <AdminMockTabs items={["支付宝", "微信支付"]} active="微信支付" />
+      <div className="my-4 rounded-8 border border-brand-green/40 bg-brand-green-soft px-4 py-3">
+        <p className="text-14 font-medium text-foreground">
+          微信支付已生效 —— 当前活动配置已通过校验
+        </p>
+        <p className="mt-1 text-12 text-muted-foreground">
+          商户号 190000•••• · 用户端显示 Native / H5 支付入口
+        </p>
+      </div>
+      <div className="mb-3 flex justify-end">
+        <AdminMockButton>＋ 新增微信支付配置</AdminMockButton>
+      </div>
+      <SystemTable
+        columns={[
+          "商户号 / AppID",
+          "验签模式",
+          "支付方式",
+          "校验状态",
+          "活动",
+          "",
+        ]}
+        template="minmax(220px,1fr) 110px 180px 240px 110px 190px"
+        minWidth={1050}
+        rows={[
+          [
+            <SystemIdentity
+              key="merchant"
+              title="190000••••"
+              detail="AppID wx8f2a••••"
+              mono
+            />,
+            "平台公钥",
+            <div key="modes" className="flex gap-1">
+              <AdminMockBadge>Native</AdminMockBadge>
+              <AdminMockBadge>H5</AdminMockBadge>
+            </div>,
+            <MetricState
+              key="valid"
+              status="校验通过"
+              detail="上次测试 2026-08-12 09:20"
+            />,
+            <SystemToggle key="active" label="活动" />,
+            <span key="ops" className="text-faint">
+              测试配置　编辑　删除
+            </span>,
           ],
-        },
-        {
-          title: "加密材料",
-          description: "APIv3、商户私钥和平台验证材料配套使用。",
-          fields: [
-            { label: "APIv3 密钥", value: "", kind: "secret" },
-            { label: "商户私钥", value: "", kind: "secret" },
-            { label: "证书序列号", value: "7A2C••••" },
+          [
+            <SystemIdentity
+              key="merchant"
+              title="190001••••"
+              detail="AppID wx7a31••••"
+              mono
+            />,
+            "平台证书",
+            <AdminMockBadge key="modes">JSAPI</AdminMockBadge>,
+            <MetricState
+              key="valid"
+              status="待测试"
+              detail="从未测试"
+              tone="amber"
+            />,
+            <SystemToggle key="active" label="未激活" active={false} />,
+            <span key="ops" className="text-faint">
+              测试配置　编辑　删除
+            </span>,
           ],
-        },
-        {
-          title: "支付能力",
-          description: "Native、H5、JSAPI 至少开启一种。",
-          fields: [
-            { label: "Native", value: "开启", kind: "enabled" },
-            { label: "H5", value: "开启", kind: "enabled" },
-            { label: "JSAPI", value: "关闭", kind: "disabled" },
-          ],
-        },
-        {
-          title: "测试与激活",
-          description: "有效测试结果是激活的前置条件。",
-          fields: [
-            { label: "测试状态", value: "通过", kind: "enabled" },
-            { label: "激活状态", value: "已激活", kind: "enabled" },
-          ],
-        },
-      ]}
-    />
+        ]}
+      />
+      <p className="mt-4 text-14 leading-paragraph text-muted-foreground">
+        修改
+        APIv3、私钥、证书或支付方式后，后端会清空校验状态并强制下线；必须重新测试通过才能激活。
+      </p>
+    </AdminMockPage>
+  );
+}
+
+function SystemTable({
+  columns,
+  template,
+  minWidth,
+  rows,
+}: {
+  columns: readonly string[];
+  template: string;
+  minWidth: number;
+  rows: readonly (readonly ReactNode[])[];
+}) {
+  return (
+    <div className="overflow-x-auto rounded-8 border border-border bg-background">
+      <div
+        className="grid border-b border-border bg-surface-1 text-12 font-medium text-faint"
+        style={{ gridTemplateColumns: template, minWidth }}
+      >
+        {columns.map((column) => (
+          <span key={column} className="flex h-9 items-center px-3">
+            {column}
+          </span>
+        ))}
+      </div>
+      {rows.map((row, rowIndex) => (
+        <div
+          key={rowIndex}
+          className={`grid ${rowIndex < rows.length - 1 ? "border-b border-border-hairline" : ""}`}
+          style={{ gridTemplateColumns: template, minWidth }}
+        >
+          {row.map((cell, cellIndex) => (
+            <div
+              key={cellIndex}
+              className="flex min-h-12 min-w-0 items-center px-3 text-14 text-muted-foreground"
+            >
+              {cell}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SystemIdentity({
+  title,
+  detail,
+  mono = false,
+}: {
+  title: string;
+  detail: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <p
+        className={`truncate text-14 font-medium text-foreground ${mono ? "font-mono" : ""}`}
+      >
+        {title}
+      </p>
+      <p className={`truncate text-12 text-faint ${mono ? "font-mono" : ""}`}>
+        {detail}
+      </p>
+    </div>
+  );
+}
+
+function SystemToggle({
+  label,
+  active = true,
+}: {
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 text-12 ${active ? "text-brand-green" : "text-faint"}`}
+    >
+      <span
+        className={`relative inline-flex h-5 w-9 rounded-pill ${active ? "bg-brand-green" : "bg-surface-2"}`}
+      >
+        <span
+          className={`absolute top-1 size-3 rounded-pill bg-background ${active ? "right-1" : "left-1"}`}
+        />
+      </span>
+      {label}
+    </div>
+  );
+}
+
+function MetricState({
+  status,
+  detail,
+  tone = "green",
+}: {
+  status: string;
+  detail: string;
+  tone?: "green" | "amber";
+}) {
+  return (
+    <div>
+      <AdminMockBadge tone={tone}>{status}</AdminMockBadge>
+      <p className="mt-1 text-12 text-faint">{detail}</p>
+    </div>
   );
 }

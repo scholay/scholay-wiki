@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 const SOURCES = ["综合", "Graph", "Discovery", "Medicine"] as const;
@@ -11,10 +11,15 @@ const TIME_OPTIONS = ["不限", "近 1 年", "近 3 年", "近 5 年"] as const;
 export function WikiEmbedClassicSearchFilters() {
   return (
     <div
-      className="w-[min(100%,24rem)] overflow-hidden rounded-8 border border-border bg-surface-card shadow-overlay"
+      className="w-[min(100%,20rem)] overflow-hidden rounded-8 border border-border bg-surface-card shadow-overlay"
       aria-hidden
       data-wiki-fixture="classic-search-filters"
     >
+      <div className="flex items-center justify-end border-b border-border px-2 py-1">
+        <span className="inline-flex size-7 items-center justify-center rounded-4 text-subtle">
+          <X className="size-4" />
+        </span>
+      </div>
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <span className="text-14 font-medium text-foreground">筛选器</span>
       </div>
@@ -28,7 +33,7 @@ export function WikiEmbedClassicSearchFilters() {
               <div
                 key={label}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-1",
+                  "flex items-center gap-2 px-4 py-1.5",
                   active && "bg-foreground/5",
                 )}
               >

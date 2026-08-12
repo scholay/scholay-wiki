@@ -127,7 +127,7 @@ function AnonymousInviteContent({
 
       <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="flex min-w-0 items-start gap-2 rounded-12 border border-brand-green/30 bg-brand-green/5 p-3 text-12 text-subtle">
-          <Gift className="mt-0.5 size-4 shrink-0 text-brand-green" />
+          <Gift className="mt-px size-4 shrink-0 text-brand-green" />
           <span>
             {bothReceiveRegistrationGift
               ? `邀请人获得 ${inviterRegistrationCredits} 经费，受邀好友获得 ${inviteeRegistrationCredits} 经费。`
@@ -135,7 +135,7 @@ function AnonymousInviteContent({
           </span>
         </div>
         <div className="flex min-w-0 items-start gap-2 rounded-12 border border-brand-green/30 bg-brand-green/5 p-3 text-12 text-subtle">
-          <TicketCheck className="mt-0.5 size-4 shrink-0 text-brand-green" />
+          <TicketCheck className="mt-px size-4 shrink-0 text-brand-green" />
           <span>
             没有邀请码也可以先注册，注册后 {bindWindowDays} 天内仍可补填邀请码。
           </span>

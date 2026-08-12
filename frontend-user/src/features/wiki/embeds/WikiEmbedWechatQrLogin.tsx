@@ -1,46 +1,72 @@
-import { MessageCircle, ScanLine, ShieldCheck } from "lucide-react";
+import { X } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 
 /**
- * 微信扫码登录 · 纯样式 fixture。
- * 来源：product-mock auth/components/WeChatQRDialog.tsx + WeChatQRPanel.tsx。
+ * 微信扫码登录 Dialog 的等待扫码态 · 纯样式 fixture。
+ * 来源：current auth/components/WeChatQRDialog.tsx + WeChatQRPanel.tsx。
  */
 export function WikiEmbedWechatQrLogin() {
   return (
     <div
-      className="w-[min(100%,24rem)] overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay"
+      className="relative w-[24rem] max-w-full overflow-hidden rounded-16 border border-border bg-surface-card shadow-overlay"
       aria-hidden
       data-wiki-fixture="wechat-qr-login"
     >
-      <div className="flex flex-col items-center border-b border-border px-6 pb-4 pt-6 text-center">
-        <span className="inline-flex size-9 items-center justify-center rounded-pill bg-brand-green-soft text-brand-green">
-          <MessageCircle className="size-4" />
-        </span>
-        <p className="mt-3 text-16 font-medium text-foreground">
-          使用微信扫一扫
-        </p>
-        <p className="mt-1 text-12 text-muted-foreground">
-          扫码后请在手机端确认授权
+      <X className="absolute right-4 top-4 size-4 text-foreground opacity-70" />
+      <div className="flex flex-col items-center gap-1 border-b border-border-soft px-6 pb-3 pt-6">
+        <p className="text-16 font-medium text-foreground">使用微信扫一扫</p>
+        <p className="text-12 text-muted-foreground">
+          打开微信,扫描下方二维码完成登录
         </p>
       </div>
 
-      <div className="flex flex-col items-center px-6 py-6">
-        <div className="rounded-8 border border-border bg-on-dark p-3">
-          <QRCodeCanvas
-            value="https://scholay.com/wiki/wechat-demo"
-            size={180}
-            level="M"
-            marginSize={1}
-          />
+      <div className="py-4">
+        <div className="flex flex-col items-center justify-center py-2">
+          <div className="flex h-[240px] w-[220px] items-start justify-center overflow-hidden bg-surface-card">
+            <QRCodeCanvas
+              value="https://scholay.com/wechat/callback?code=wiki-preview&state=wechat-login"
+              size={200}
+              level="M"
+              marginSize={0}
+            />
+          </div>
+          <span className="mt-3 block h-4 text-12 text-faint">
+            扫码后请在手机端确认授权
+          </span>
         </div>
-        <span className="mt-3 inline-flex items-center gap-1 rounded-pill bg-surface-1 px-3 py-1 text-12 text-faint">
-          <ScanLine className="size-3" /> 演示二维码 · 不连接微信服务
-        </span>
-        <div className="mt-4 flex items-start gap-2 rounded-8 border border-border bg-surface-1 p-3">
-          <ShieldCheck className="mt-1 size-4 shrink-0 text-brand-green" />
-          <p className="text-12 leading-paragraph text-muted-foreground">
-            登录与绑定共用扫码面板；授权成功后由回调页确认结果。
-          </p>
+      </div>
+    </div>
+  );
+}
+
+/** 同一 WeChatQRDialog 在账户连接页中的绑定等待态。 */
+export function WikiEmbedWechatQrBinding() {
+  return (
+    <div
+      className="relative w-[24rem] max-w-full overflow-hidden rounded-16 border border-border bg-surface-card shadow-overlay"
+      aria-hidden
+      data-wiki-fixture="wechat-qr-binding"
+    >
+      <X className="absolute right-4 top-4 size-4 text-foreground opacity-70" />
+      <div className="flex flex-col items-center gap-1 border-b border-border-soft px-6 pb-3 pt-6">
+        <p className="text-16 font-medium text-foreground">绑定微信</p>
+        <p className="text-12 text-muted-foreground">
+          打开微信，扫描下方二维码完成绑定
+        </p>
+      </div>
+      <div className="py-4">
+        <div className="flex flex-col items-center justify-center py-2">
+          <div className="flex h-[240px] w-[220px] items-start justify-center overflow-hidden bg-surface-card">
+            <QRCodeCanvas
+              value="https://scholay.com/wechat/callback?code=wiki-preview&state=wechat-bind"
+              size={200}
+              level="M"
+              marginSize={0}
+            />
+          </div>
+          <span className="mt-3 block h-4 text-12 text-faint">
+            扫码后请在手机端确认授权
+          </span>
         </div>
       </div>
     </div>

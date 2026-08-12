@@ -1,104 +1,128 @@
-import {
-  CheckCircle2,
-  CircleSlash2,
-  Github,
-  Mail,
-  Plus,
-  Smartphone,
-} from "lucide-react";
+import { CheckCircle2, Mail, Plus, Smartphone } from "lucide-react";
+import { ProviderLogo, type Provider } from "@/shared/components/ProviderLogo";
 
-const CONNECTIONS = [
+const CONNECTIONS: Array<{
+  provider: "email" | "phone" | Provider;
+  label: string;
+  detail: string;
+  bound: boolean;
+  date?: string;
+}> = [
   {
+    provider: "email",
     label: "邮箱",
     detail: "researcher@example.edu",
-    state: "bound",
-    action: "解绑",
-    Icon: Mail,
+    bound: true,
+    date: "2026-03-18",
   },
   {
+    provider: "phone",
     label: "手机号",
     detail: "未绑定",
-    state: "unbound",
-    action: "绑定",
-    Icon: Smartphone,
+    bound: false,
   },
   {
+    provider: "github",
     label: "GitHub",
-    detail: "已连接 · 示例账号",
-    state: "bound",
-    action: "解绑",
-    Icon: Github,
+    detail: "scholay-researcher",
+    bound: true,
+    date: "2026-05-06",
   },
   {
+    provider: "google",
     label: "Google",
-    detail: "GIS 登录可配置；设置页新绑定链路未接通",
-    state: "unavailable",
-    action: "不可新绑",
-    Icon: CircleSlash2,
+    detail: "researcher@example.edu",
+    bound: true,
+    date: "2026-06-21",
   },
-] as const;
+];
 
-/**
- * 已连接账号 · 纯样式 fixture。
- * Google 登录与新绑定不是同一条链路；移动端页面当前只展示连接状态。
- */
+/** ConnectionsPage 已加载状态；Google 行采用“既有绑定”而非未接通的新绑定入口。 */
 export function WikiEmbedAccountConnections() {
   return (
     <div
-      className="w-[min(100%,42rem)] rounded-12 border border-border bg-surface-card p-4 md:p-6"
+      className="flex w-[min(100%,48rem)] flex-col gap-6"
       aria-hidden
       data-wiki-fixture="account-connections"
     >
-      <p className="text-16 font-medium text-foreground">已连接的账号</p>
-      <p className="mt-1 text-12 leading-paragraph text-muted-foreground">
-        第三方行只在当前配置已启用或账号已绑定时显示；至少保留一种登录方式。
-      </p>
-
-      <div className="mt-4 space-y-2">
-        {CONNECTIONS.map(({ label, detail, state, action, Icon }) => {
-          const bound = state === "bound";
-          const unavailable = state === "unavailable";
-          return (
-            <div
-              key={label}
-              className="flex items-center gap-3 rounded-8 border border-border bg-surface-card p-3"
-            >
-              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-8 bg-surface-1 text-muted-foreground">
-                <Icon className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-14 font-medium text-foreground">
-                    {label}
-                  </span>
-                  {bound ? (
-                    <CheckCircle2 className="size-3 text-brand-green" />
-                  ) : null}
-                  {unavailable ? (
-                    <span className="rounded-pill bg-surface-2 px-2 py-1 text-12 text-faint">
-                      当前边界
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 truncate text-12 text-faint">{detail}</p>
-              </div>
-              <span
-                className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-8 border border-border px-3 text-12 ${
-                  unavailable ? "text-faint" : "text-subtle"
-                }`}
-              >
-                {state === "unbound" ? <Plus className="size-3" /> : null}
-                {action}
-              </span>
-            </div>
-          );
-        })}
+      <div className="flex flex-col gap-1">
+        <h2 className="text-16 font-medium text-foreground">已连接的账号</h2>
+        <p className="text-12 leading-paragraph text-muted-foreground">
+          管理你登录这个账号的方式。为了安全，至少要保留 1
+          种，避免下次登不进来。目前共有
+          <span className="mx-1 font-medium text-foreground">3</span>
+          种登录方式。
+        </p>
       </div>
 
-      <div className="mt-4 rounded-8 bg-surface-1 px-3 py-3 text-12 leading-paragraph text-muted-foreground">
-        移动端只读展示绑定状态，且隐藏微信；绑定或解绑第三方账号请使用桌面端。Google
-        若已有绑定仍可识别和解绑，但当前设置页不能发起新的 Google 绑定。
+      <div className="flex flex-col gap-2">
+        {CONNECTIONS.map((connection) => (
+          <div
+            key={connection.provider}
+            className="flex items-center gap-4 rounded-16 border border-border bg-surface-card p-4"
+          >
+            <span
+              className={`inline-flex size-10 shrink-0 items-center justify-center rounded-8 ${
+                connection.bound ? "bg-prism-badge-bg" : "bg-surface-1"
+              }`}
+            >
+              <ConnectionIcon
+                provider={connection.provider}
+                bound={connection.bound}
+              />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-14 font-medium text-foreground">
+                  {connection.label}
+                </span>
+                {connection.bound ? (
+                  <CheckCircle2
+                    className="size-4 text-brand-green"
+                    strokeWidth={2.5}
+                  />
+                ) : null}
+              </div>
+              <p className="truncate text-12 text-muted-foreground">
+                {connection.detail}
+                {connection.date ? (
+                  <span className="ml-2 text-faint">
+                    · 绑定于 {connection.date}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+
+            {connection.bound ? (
+              <span className="inline-flex h-9 shrink-0 items-center rounded-8 border border-border px-3 text-12 text-subtle">
+                解绑
+              </span>
+            ) : (
+              <span className="inline-flex h-9 shrink-0 items-center gap-1 rounded-8 bg-foreground px-3 text-12 font-medium text-on-dark">
+                <Plus className="size-3" />
+                绑定
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
+}
+
+function ConnectionIcon({
+  provider,
+  bound,
+}: {
+  provider: "email" | "phone" | Provider;
+  bound: boolean;
+}) {
+  const className = `size-4 ${
+    bound ? "text-foreground" : "text-muted-foreground"
+  }`;
+
+  if (provider === "email") return <Mail className={className} />;
+  if (provider === "phone") return <Smartphone className={className} />;
+  return <ProviderLogo provider={provider} className={className} />;
 }

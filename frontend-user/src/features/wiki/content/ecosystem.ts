@@ -20,7 +20,7 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "purpose",
         title: "用途",
-        markdown: `引用生成器是一个独立、响应式工具页。用户输入或选择论文后，可以按目标格式生成参考文献文本并复制到写作环境。`,
+        markdown: `打开引用生成器后，输入 DOI 自动解析论文，或手动填写题名、作者、年份等信息；再选择 GB/T 7714、APA、MLA、Chicago 或 BibTeX 并复制结果。下图展示的是已解析论文并生成多种格式后的状态。`,
         embeds: [{ id: "citation-generator" }],
       },
       {
@@ -57,7 +57,7 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "catalog",
         title: "目录",
-        markdown: `功能广场提供分类侧栏、关键词搜索、形式与价格筛选、分页卡片和工具详情。详情可以描述使用场景、功能、FAQ、厂商、价格、获取方式、替代品和教程。`,
+        markdown: `进入功能广场后，你可以按分类浏览工具卡片，也可以搜索关键词，再用形式与价格条件筛选。手机端从工具首页进入目录，筛选条件会在底部面板中展开。下方四张图依次展示桌面目录、移动工具首页、移动目录和移动筛选面板。`,
         embeds: [
           { id: "feature-plaza" },
           { id: "mobile-tools" },
@@ -68,7 +68,9 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "access",
         title: "访问方式",
-        markdown: `工具可以是在线网站、下载资源或同时提供两种方式。外部工具由各自提供者负责，Scholay 的收录信息不构成安全、有效性或持续可用性的保证。`,
+        markdown: `点击工具卡片后，你会看到使用场景、功能、价格、获取方式、替代品、教程和常见问题；再按页面按钮访问网站或下载资源。下图分别展示桌面详情、移动详情，以及手机遇到仅支持电脑的工具时出现的引导页。
+
+外部工具由各自提供者负责，Scholay 的收录不代表对其安全性、效果或持续可用性作出保证。`,
         embeds: [
           { id: "feature-tool-detail" },
           { id: "mobile-tool-detail" },
@@ -78,7 +80,9 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "operations",
         title: "内容运营",
-        markdown: `管理员可以维护条目、批量导入数据并配置变更 webhook。导入任务按 pending → running → succeeded、partial 或 failed 推进；published 只表示产品可见，seo_indexable 是独立人工审核位，批量导入不会自动获得搜索引擎索引资格。工具图片进入对象存储，缺图时以前端回退样式呈现。`,
+        markdown: `管理员可以维护工具条目、批量导入数据，并设置内容变化通知。导入页面会依次显示等待处理、处理中、成功、部分成功或失败，便于发现需要补录的条目。
+
+工具在产品里公开后，还要经过单独审核才会被搜索引擎收录；批量导入不会跳过这一步。工具图片统一保存，暂时没有图片时会显示默认样式。`,
       },
     ],
   },
@@ -106,7 +110,9 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "lifecycle",
         title: "技能生命周期",
-        markdown: `社区浏览入口统一在功能广场的社区技能分区。技能可见性为 private、unlisted 或 public，审核状态为 draft、pending、approved、rejected 或 flagged，生命周期为 active、disabled_by_admin 或 deleted。只有 public + approved + active 的版本可在公共市场发现和安装；提交公开发布后要等待审核。`,
+        markdown: `在功能广场的“社区技能”中，你可以浏览详情并安装公开技能；如果你是作者，还可以创建版本、提交发布并在“我的技能”中查看状态。下方三张图依次展示浏览与安装、提交发布和版本管理。
+
+技能可设为私有、仅链接可见或公开；公开提交后需要审核。只有“公开、已通过、启用中”的版本会出现在市场并允许安装，草稿、待审核、被拒绝、被标记、被停用或已删除的版本不会公开分发。`,
         embeds: [
           { id: "community-skill" },
           { id: "community-skill-publish" },
@@ -116,7 +122,9 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "loading",
         title: "会话加载",
-        markdown: `启用的技能在创建 Claw 会话时由后端筛选并作为受限的会话指南交给 Agent。Free 最多持有 10 个技能，付费账户最多 50 个；每个技能最多保留 20 个版本，每个会话最多启用 5 个。用户内容不直接成为最高优先级系统指令，实际工具权限仍由执行器策略裁决。`,
+        markdown: `创建 Claw 会话时，系统会把你已启用的技能作为本次对话的做事指南。Free 账户最多持有 10 个技能，付费账户最多 50 个；每个技能最多保留 20 个版本，每个会话最多启用 5 个。
+
+技能可以说明步骤和输出要求，但不能改变账户权限，也不能要求助手执行原本无权执行的操作。`,
       },
       {
         id: "trust",
@@ -145,7 +153,7 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "pages",
         title: "页面",
-        markdown: `学术资讯包含列表和详情路由。列表组织最新内容与分页，详情保留稳定链接、正文和来源信息，并可在 Web 与小程序中打开对应内容。`,
+        markdown: `进入学术资讯后，你会先看到按时间排列的文章列表；点击卡片即可阅读正文、查看来源并继续翻页。下图分别展示资讯列表和文章详情。每篇文章都有稳定链接，可以在 Web 或小程序中再次打开。`,
         embeds: [
           { id: "academic-intel-list" },
           { id: "academic-intel-detail" },
@@ -154,20 +162,21 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "publishing",
         title: "发布与来源",
-        markdown: `公开端只读取 published 新闻。情报 webhook 要求 HMAC 签名，并用 Redis 24 小时锁与 MySQL delivery 记录双层去重；后台还负责采集配置和 SEO 数据。转载或汇编内容必须保留来源和权利信息，生成摘要不能替代原文。`,
+        markdown: `公开页面只显示已经完成发布的资讯；采集、审核和发布状态由内容后台管理，同一条来源信息会经过重复检查，避免反复出现。
+
+转载或汇编内容必须保留来源和权利信息。页面上的生成摘要用于帮助判断是否值得阅读，不能替代原文。`,
       },
     ],
   },
   {
     slug: "mobile-web",
     title: "移动 Web",
-    summary:
-      "以独立 MobileShell 和四项底部导航承载浏览、Claw、功能与账户页面。",
+    summary: "通过四项底部导航进入浏览、Claw、功能与账户页面。",
     category: "mobile",
     kind: "overview",
     status: "current",
     audience: ["手机用户"],
-    aliases: ["移动版", "手机网页版", "/m"],
+    aliases: ["移动版", "手机网页版"],
     sourcePaths: [
       "frontend-user/src/features/mobile/routes.tsx",
       "frontend-user/src/features/mobile/layouts/MobileShell.tsx",
@@ -187,13 +196,15 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "navigation",
         title: "移动导航",
-        markdown: `移动 Web 使用独立壳和“浏览 / AI Claw / 功能 / 我的”四项底部 Tab，不把桌面侧栏压缩进窄屏。文献集不是独立底部 Tab，而是从“我的”等入口进入；搜索使用覆盖式移动搜索页。`,
+        markdown: `手机网页底部有“浏览 / AI Claw / 功能 / 我的”四个入口。点击“浏览”查看论文信息流，点击“我的”进入账户、文献集和设置；下图分别展示这两个页面的常见状态。搜索会打开独立的移动搜索页，文献集则从“我的”等入口进入。`,
         embeds: [{ id: "mobile-feed" }, { id: "mobile-me" }],
       },
       {
         id: "parity",
         title: "能力差异",
-        markdown: `移动端优先覆盖高频浏览、对话和账户动作。Prism、完整审稿和矩阵等高密度工作区目前以电脑端为主；移动入口会给出对等页或使用电脑的引导，而不是假装已经完整支持。`,
+        markdown: `点击移动端搜索入口后，输入关键词即可查看论文结果，并从筛选面板调整时间、来源等条件；下方三张图依次展示搜索页、结果列表和筛选面板。
+
+移动端优先覆盖浏览、对话和账户等高频动作。Prism、完整审稿和矩阵等需要大屏的工作区目前以电脑端为主，手机上会提供对应入口或明确提示改用电脑。`,
         embeds: [
           { id: "mobile-search" },
           { id: "mobile-search-paper-results" },
@@ -227,7 +238,7 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "pages",
         title: "页面范围",
-        markdown: `现行页面还包括登录、搜索、论文、期刊、作者、新闻、工具详情、文献集、计费、资料编辑和修改密码。小程序通过自己的请求与认证服务访问 Scholay 后端。`,
+        markdown: `小程序还提供登录、搜索、论文、期刊、作者、新闻、工具详情、文献集、计费、资料编辑和修改密码页面。在 Claw 回答中遇到图表或科学示意图时，点击图形可以进入独立查看页进行缩放和检查；下图展示的就是这个图形查看状态。`,
         embeds: [{ id: "mp-diagram-viewer" }],
       },
       {

@@ -29,7 +29,7 @@
 ### Hierarchy and chrome
 
 - Passed: the Wiki uses one persistent left document tree, one content column, and an optional on-page outline. The former redundant top navigation was removed.
-- Passed: embedded examples now sit on a flat neutral canvas with one border instead of stacked shadows and nested cards.
+- Passed: embedded examples sit inside a recessed demonstration well with a visible caption outside the well; the inset wall and raised inner canvas restore the document-to-product hierarchy without changing the source component chrome.
 - Passed: every fixture has a visible caption that distinguishes an interface example, sample data, or a stitched state from live product data.
 
 ### Fidelity to product surfaces
@@ -56,7 +56,7 @@
 
 ## Automated verification
 
-- Wiki content and migration contract: 23/23 passed.
+- Wiki content and migration contract: 28/28 passed.
 - Design system guard: 119/119 passed.
 - TypeScript: passed.
 - Prettier and ESLint for Wiki sources/tests: passed.
@@ -67,4 +67,4 @@
 
 **passed**
 
-No unresolved P0 or P1 design mismatch remains in the reviewed Wiki migration scope. The final registry contains 210 unique fixture IDs and 254 article references; every fixture is registered and mounted at least once. The product-mock coverage ledger audits 241 groups: all 227 stable visible surfaces are covered, while 14 internal atoms, redirects, dead-code hosts, or runtime-only coordinators are explicitly excluded with reasons. Conceptual, policy, architecture, history, and compatibility articles intentionally do not invent product screenshots when no stable visible product surface exists.
+No unresolved P0 or P1 design mismatch remains in the reviewed Wiki migration scope. The final registry contains 226 unique fixture IDs and 273 article references; every fixture is registered and mounted at least once. The product-mock coverage ledger audits 257 groups: all 240 stable visible surfaces are covered, while 17 internal atoms, redirects, dead-code hosts, or runtime-only coordinators are explicitly excluded with reasons. Conceptual, policy, architecture, history, and compatibility articles intentionally do not invent product screenshots when no stable visible product surface exists.

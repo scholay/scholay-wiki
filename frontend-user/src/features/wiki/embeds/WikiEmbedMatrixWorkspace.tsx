@@ -1,4 +1,4 @@
-import { Download, Grid3X3, Settings2 } from "lucide-react";
+import { Download, Grid3X3, Inbox, Settings2, X } from "lucide-react";
 
 const ROWS = [
   {
@@ -31,37 +31,58 @@ const ROWS = [
 export function WikiEmbedMatrixWorkspace() {
   return (
     <div
-      className="w-[min(100%,48rem)] overflow-hidden rounded-16 border border-border bg-surface-card"
+      className="w-[min(100%,56rem)] overflow-hidden rounded-8 border border-border bg-surface-card"
       aria-hidden
       data-wiki-fixture="matrix-workspace"
     >
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Grid3X3 className="size-4 text-brand-red" />
-          <span className="text-16 font-medium text-foreground">矩阵分析</span>
-          <span className="text-12 text-faint">3 篇 · 4 维度</span>
+      <header className="flex h-14 border-b border-border bg-background">
+        <div className="flex w-80 shrink-0 items-center gap-2 border-r border-border px-4">
+          <Inbox className="size-4 text-brand-red" />
+          <span className="font-serif text-16 font-medium text-foreground">
+            工作区
+          </span>
         </div>
-        <div className="flex gap-2">
-          <span className="inline-flex h-7 items-center gap-1 rounded-8 border border-border px-3 text-12 text-subtle">
-            <Settings2 className="size-3" />
-            设置列
-          </span>
-          <span className="inline-flex h-7 items-center gap-1 rounded-8 bg-foreground px-3 text-12 font-medium text-on-dark">
-            <Download className="size-3" />
-            导出
-          </span>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <Grid3X3 className="size-4 shrink-0 text-brand-red" />
+            <span className="font-serif text-16 font-medium text-foreground">
+              矩阵分析
+            </span>
+            <span className="truncate text-12 text-faint">3 篇 · 4 维度</span>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <span className="inline-flex h-7 items-center gap-1 rounded-8 border border-border px-3 text-12 text-subtle">
+              <Settings2 className="size-3" />
+              设置列
+            </span>
+            <span className="inline-flex h-7 items-center gap-1 rounded-8 bg-foreground px-3 text-12 font-medium text-on-dark">
+              <Download className="size-3" />
+              导出
+            </span>
+          </div>
         </div>
       </header>
 
       <div className="overflow-x-auto" data-wiki-spot="矩阵维度">
-        <table className="min-w-[44rem] border-separate border-spacing-0 text-left text-12">
+        <table className="min-w-[54rem] border-separate border-spacing-0 text-left text-12">
           <thead>
             <tr className="bg-surface-1 text-muted-foreground">
-              <th className="w-52 border-b border-r border-border px-4 py-3 font-medium">
-                <span className="rounded-4 bg-foreground px-2 py-1 text-on-dark">
-                  A
-                </span>
-                <span className="ml-2">论文</span>
+              <th className="w-80 border-b border-r border-border bg-background p-0 font-medium">
+                <div className="flex h-9 items-center gap-1 px-3">
+                  <span className="relative inline-flex h-full items-center gap-2 px-2 font-medium text-foreground">
+                    A
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 text-on-brand">
+                      3
+                    </span>
+                    <span className="absolute inset-x-2 bottom-0 h-px rounded-pill bg-brand-red" />
+                  </span>
+                  <span className="inline-flex h-full items-center gap-2 px-2 text-faint">
+                    B
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-surface-2 px-1 text-12">
+                      1
+                    </span>
+                  </span>
+                </div>
               </th>
               {["研究方法", "数据集", "关键指标", "结论"].map((label) => (
                 <th
@@ -76,11 +97,14 @@ export function WikiEmbedMatrixWorkspace() {
           <tbody>
             {ROWS.map((row) => (
               <tr key={row.title}>
-                <td className="border-b border-r border-border px-4 py-3 align-top">
-                  <p className="line-clamp-2 text-14 font-medium leading-sans text-foreground">
+                <td className="relative w-80 border-b border-r border-border px-4 py-3 align-top">
+                  <X className="absolute right-2 top-2 size-3 text-faint" />
+                  <p className="line-clamp-2 pr-5 text-14 font-medium leading-sans text-foreground">
                     {row.title}
                   </p>
-                  <p className="mt-2 text-12 text-faint">工作区 A</p>
+                  <p className="mt-2 line-clamp-2 text-12 leading-paragraph text-subtle">
+                    {row.conclusion}
+                  </p>
                 </td>
                 <MatrixCell tag="方法" value={row.method} />
                 <MatrixCell tag="数据" value={row.dataset} />

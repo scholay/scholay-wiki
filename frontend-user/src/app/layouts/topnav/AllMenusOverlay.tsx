@@ -52,14 +52,14 @@ export function AllMenusOverlay({
       >
         {/* 头部 */}
         <header className="h-12 flex items-center justify-between px-4 border-b border-border-soft">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <LayoutGrid className="size-4 text-faint" />
             <span className="text-12 font-medium text-foreground">全站功能</span>
           </div>
           <button
             type="button"
             onClick={() => setView((v) => (v === 'list' ? 'grid' : 'list'))}
-            className="inline-flex items-center gap-1.5 text-12 text-faint hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 text-12 text-faint hover:text-foreground transition-colors"
           >
             {view === 'list' ? (
               <>
@@ -99,9 +99,9 @@ function ListView({
   activeIndex: number;
 }) {
   return (
-    <div className="py-1.5">
+    <div className="py-2">
       {groups.map((g, gi) => (
-        <section key={g.category} className={cn(gi > 0 && 'border-t border-border-soft', 'py-1.5')}>
+        <section key={g.category} className={cn(gi > 0 && 'border-t border-border-soft', 'py-2')}>
           <header className="h-7 flex items-center justify-between px-4">
             <span className="text-12 font-medium text-subtle">{g.label}</span>
             <span className="text-12 text-faint">查看全部</span>
@@ -140,7 +140,7 @@ function ListItem({
       </span>
       {/* 双行 文字 */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <span className="text-14 font-medium text-foreground truncate inline-flex items-center gap-1.5">
+        <span className="text-14 font-medium text-foreground truncate inline-flex items-center gap-2">
           {menu.label}
         </span>
         <span className="text-12 text-faint truncate mt-px">
@@ -164,14 +164,14 @@ function GridView({
   activeIndex: number;
 }) {
   return (
-    <div className="px-4 py-3.5 space-y-3.5 max-h-[480px] overflow-y-auto">
+    <div className="px-4 py-4 space-y-4 max-h-[480px] overflow-y-auto">
       {groups.map((g) => (
         <section key={g.category}>
           <header className="h-7 flex items-center justify-between px-1">
             <span className="text-12 font-medium text-subtle">{g.label}</span>
             <span className="text-12 text-faint">查看全部</span>
           </header>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-3 gap-2">
             {g.items.map((m) => {
               const Icon = m.icon;
               const flatIdx = MENUS.findIndex((x) => x.id === m.id);
@@ -191,7 +191,7 @@ function GridView({
                   </span>
                   <div className="flex flex-col">
                     <span className="text-14 font-medium text-foreground">{m.label}</span>
-                    <span className="text-12 text-faint mt-0.5">{m.englishName}</span>
+                    <span className="text-12 text-faint mt-1">{m.englishName}</span>
                   </div>
                 </Link>
               );

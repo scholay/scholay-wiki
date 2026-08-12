@@ -147,7 +147,7 @@ describe("Scholay Wiki 内容契约", () => {
     const registered = Object.keys(WIKI_EMBED_REGISTRY) as WikiEmbedId[];
     const used = new Set(refs.map((ref) => ref.id));
 
-    expect(registered).toHaveLength(210);
+    expect(registered).toHaveLength(226);
     expect(new Set(registered).size).toBe(registered.length);
     for (const ref of refs) {
       expect(WIKI_EMBED_REGISTRY[ref.id], ref.id).toBeDefined();
@@ -156,6 +156,34 @@ describe("Scholay Wiki 内容契约", () => {
       expect(used.has(id), `${id} 未挂载`).toBe(true);
       expect(WIKI_EMBED_REGISTRY[id].id).toBe(id);
     }
+  });
+
+  it("Wiki 演示壳保持凹进井层级，不能退化为平面边框", () => {
+    const embedRoot = path.join(
+      repoRoot,
+      "frontend-user/src/features/wiki/embeds",
+    );
+    const frame = readFileSync(
+      path.join(embedRoot, "WikiEmbedFrame.tsx"),
+      "utf8",
+    );
+    const globals = readFileSync(
+      path.join(repoRoot, "frontend-user/src/styles/globals.css"),
+      "utf8",
+    );
+    const stageRule = globals.match(/\.wiki-embed-stage\s*\{([^}]+)\}/)?.[1];
+    const canvasRule = globals.match(/\.wiki-embed-canvas\s*\{([^}]+)\}/)?.[1];
+
+    expect(frame).toContain('className="mt-6 w-fit max-w-full scroll-mt-20"');
+    expect(frame).toContain(
+      'className="wiki-embed-stage w-fit max-w-full rounded-16 p-3 md:p-4"',
+    );
+    expect(stageRule).toBeDefined();
+    expect(stageRule).not.toMatch(/box-shadow\s*:\s*none/);
+    expect(stageRule?.match(/\binset\b/g)).toHaveLength(5);
+    expect(canvasRule).toBeDefined();
+    expect(canvasRule).not.toMatch(/filter\s*:\s*none/);
+    expect(canvasRule?.match(/drop-shadow\s*\(/g)).toHaveLength(2);
   });
 
   it("Wiki fixture 保持静态，不接入生产状态或写操作", () => {
@@ -188,6 +216,42 @@ describe("Scholay Wiki 内容契约", () => {
         );
       }
     }
+  });
+
+  it("Wiki fixture 只使用能实际编译的现行字号档", () => {
+    const embedRoot = path.join(
+      repoRoot,
+      "frontend-user/src/features/wiki/embeds",
+    );
+    const fixtureFiles = walkFiles(embedRoot).filter((file) =>
+      path.basename(file).startsWith("WikiEmbed"),
+    );
+    const retiredNumericText = /\btext-(?:9|10|11|13)\b/g;
+
+    for (const file of fixtureFiles) {
+      const source = readFileSync(file, "utf8");
+      const matches = source.match(retiredNumericText) ?? [];
+      expect(
+        matches,
+        `${path.basename(file)} 使用了 Tailwind 已封闭、不会生成 CSS 的字号类`,
+      ).toHaveLength(0);
+    }
+  });
+
+  it("Claw 新对话只展示当前已经开放的三类模板", () => {
+    const fixture = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/embeds/WikiEmbedClawEmptyState.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(fixture).toContain('title: "制作PPT"');
+    expect(fixture).toContain('title: "科研绘图"');
+    expect(fixture).toContain('title: "数据分析"');
+    expect(fixture).not.toContain('title: "智能选刊"');
+    expect(fixture).not.toContain('title: "PDF-Chat"');
   });
 
   it("文件夹外观选择器在暂存区与个人文献集复用同一静态示意", () => {
@@ -255,12 +319,59 @@ describe("Scholay Wiki 内容契约", () => {
 
     for (const id of [
       "rhino-assistant-entry",
+      "rhino-assistant-dock",
       "rhino-assistant-help-panel",
       "rhino-assistant-support-panels",
+      "rhino-assistant-feedback-panel",
     ] as const) {
       expect(WIKI_EMBED_REGISTRY[id]).toBeDefined();
       expect(allEmbedRefs().some((embed) => embed.id === id)).toBe(true);
     }
+  });
+
+  it("单态 Wiki 演示的图注与冻结界面一致", () => {
+    const embedRoot = path.join(
+      repoRoot,
+      "frontend-user/src/features/wiki/embeds",
+    );
+    const rhinoFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedRhinoAssistant.tsx"),
+      "utf8",
+    );
+    const prismHomeFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedPrismHome.tsx"),
+      "utf8",
+    );
+    const authRegistrationFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedAuthBillingMarketingSurfaces.tsx"),
+      "utf8",
+    );
+    const mobileTruthFixture = readFileSync(
+      path.join(embedRoot, "WikiEmbedMobileTruthSurfaces.tsx"),
+      "utf8",
+    );
+
+    expect(
+      WIKI_EMBED_REGISTRY["rhino-assistant-help-panel"].defaultCaption,
+    ).toContain("「拖点」");
+    expect(rhinoFixture).not.toContain("开始“首页导览”");
+    expect(WIKI_EMBED_REGISTRY["wechat-qr-login"].defaultCaption).toBe(
+      "微信扫码登录 · 等待扫码",
+    );
+    expect(WIKI_EMBED_REGISTRY["mobile-auth-surfaces"].defaultCaption).toBe(
+      "移动认证 · 从「我的」页打开的登录 Sheet",
+    );
+    expect(
+      WIKI_EMBED_REGISTRY["prism-compile-states"].defaultCaption,
+    ).toContain("编译失败");
+    expect(WIKI_EMBED_REGISTRY["prism-home"].defaultCaption).toContain(
+      "未选中项目",
+    );
+    expect(prismHomeFixture).not.toContain("active: true");
+    expect(authRegistrationFixture).not.toContain('label="邀请码（选填）"');
+    expect(mobileTruthFixture).toContain("登录即表示同意");
+    expect(mobileTruthFixture).toContain("服务条款");
+    expect(mobileTruthFixture).toContain("隐私政策");
   });
 
   it("账户与商业词条保留端差异、合法周期和正确演示归位", () => {
@@ -345,18 +456,65 @@ describe("Scholay Wiki 内容契约", () => {
       path.join(embedRoot, "WikiEmbedInviteRegistration.tsx"),
       "utf8",
     );
-    expect(profileFixture).toContain('badge="3 项可编辑 · 昵称 40 字"');
-    expect(profileFixture).toContain('badge="2 项可编辑 · 昵称 32 字"');
+    expect(profileFixture).toContain("个人资料");
+    expect(profileFixture).toContain('label="昵称"');
+    expect(profileFixture).toContain('label="简介"');
+    expect(profileFixture).toContain('label="头像图片地址"');
+    expect(profileFixture).toContain("保存");
+    expect(profileFixture).not.toContain("Mobile");
     expect(inviteFixture).toContain('const INVITE_CODE = "KQ9M2RT7"');
-    expect(inviteFixture).toContain("scholay.com/i/${INVITE_CODE}");
+    expect(inviteFixture).toContain("/?invite=");
     expect(membershipFixture).toContain("月付不可选");
-    expect(inviteRegistrationFixture).toContain("邀请码不是注册必填项");
-    expect(inviteRegistrationFixture).toContain("先校验有效性");
-    expect(inviteRegistrationFixture).toContain("暂不填写");
-    expect(inviteRegistrationFixture).toContain("不会在弹窗内直接绑定");
-    expect(WIKI_EMBED_REGISTRY["account-connections"].defaultCaption).toContain(
-      "Google 新绑定边界",
+    expect(inviteRegistrationFixture).toContain("填写好友邀请码");
+    expect(inviteRegistrationFixture).toContain("确认");
+    expect(inviteRegistrationFixture).toContain("填写邀请码，领取邀请礼");
+    expect(inviteRegistrationFixture).toContain("获取邀请码");
+    expect(inviteRegistrationFixture).toContain("立即填写");
+    expect(WIKI_EMBED_REGISTRY["account-connections"].defaultCaption).toBe(
+      "账户设置 · 已连接账号",
     );
+  });
+
+  it("分享接收与论文收藏示意图只说明当前单态", () => {
+    const sharing = WIKI_ARTICLE_BY_SLUG.get("library-sharing");
+    const sharingSection = sharing?.sections.find(
+      (section) => section.id === "receive",
+    );
+    const favorites = WIKI_ARTICLE_BY_SLUG.get("paper-favorites");
+    const favoriteSection = favorites?.sections.find(
+      (section) => section.id === "favorite",
+    );
+    const unfavoriteSection = favorites?.sections.find(
+      (section) => section.id === "unfavorite",
+    );
+    const shareFixture = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/embeds/WikiEmbedLibrarySurfaces.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(sharingSection?.embeds?.map((embed) => embed.id)).toEqual([
+      "library-share-receive",
+      "share-receive-variants",
+    ]);
+    expect(sharingSection?.markdown).toContain(
+      "第二张图只展示受保护合集的提取码输入状态",
+    );
+    expect(sharingSection?.markdown).not.toContain("已过期");
+    expect(shareFixture.match(/<SharePhone/g)).toHaveLength(1);
+    expect(shareFixture).not.toContain('<SharePhone title="论文详情">');
+    expect(shareFixture).not.toContain('<SharePhone title="期刊详情">');
+
+    expect(WIKI_EMBED_REGISTRY["paper-favorite-flow"].defaultCaption).toBe(
+      "收藏论文 · 选择目标文献集",
+    );
+    expect(favoriteSection?.markdown).toContain(
+      "下图只展示确认收藏前的文献集选择界面",
+    );
+    expect(favoriteSection?.markdown).not.toContain("保存完成");
+    expect(unfavoriteSection?.markdown).toContain("这一步不在上图中");
   });
 
   it("每个顶层分类至少有一个已核对词条", () => {
@@ -620,27 +778,40 @@ describe("Scholay Wiki 内容契约", () => {
       "utf8",
     );
 
-    expect(users).toMatch(/[A-Z0-9]{4}(?:-[A-Z0-9]{4}){3}/);
-    expect(users).toContain('searchPlaceholder="批次号 / 备注"');
-    expect(users).toContain('filters={["发放类型", "会员等级"]}');
-    expect(users).toContain('filters={["订单状态", "订单类型"]}');
-    expect(users).toContain('secondaryStatus: "已全额退款"');
-    expect(users).not.toContain('status: "已履约"');
-    expect(users).not.toContain('status: "已退款"');
+    expect(users).toContain("K7Q9-2XMP-R4TV-8WCD");
+    expect(users).toMatch(/4×4\s+格式/);
+    for (const label of ["批次搜索", "批次号 / 备注", "发放类型", "会员等级"]) {
+      expect(users).toContain(label);
+    }
+    for (const status of ["已支付", "待支付", "已过期", "已全额退款"]) {
+      expect(users).toContain(status);
+    }
+    expect(users).toContain(
+      "主状态只使用已支付、待支付、已过期；退款作为已支付订单的附加记录展示",
+    );
+    expect(users).not.toContain("已履约");
 
     expect(overview).not.toContain("支付配置");
     expect(overview).not.toContain("系统设置");
 
-    expect(analytics).toContain("1 经费 = 3 算力点");
-    expect(analytics).toContain("经费→重置次数换算率（历史迁移用）");
-    expect(analytics).toContain('kind: "readonly"');
+    for (const field of [
+      "充值汇率",
+      "1 元 = 100 经费",
+      "经费兑换率",
+      "1 经费 = 3 算力点",
+      "经费→重置次数换算率（历史迁移用）",
+      "60 经费 / 次 · 只读",
+    ]) {
+      expect(analytics).toContain(field);
+    }
     expect(analytics).not.toContain("订阅赠送");
     expect(analytics).not.toContain("重置凭证");
 
-    expect(content).toContain('label: "config.manage", value: "允许"');
-    expect(content).toContain('label: "允许绑定时窗"');
-    expect(content).toContain('label: "首单有效时窗"');
-    expect(content).not.toContain('label: "config.manage", value: "禁止"');
+    expect(content).toContain("具备 config.manage 权限");
+    expect(content).toContain("operations");
+    expect(content).toContain("允许绑定时窗");
+    expect(content).toContain("首单有效时窗");
+    expect(content).not.toContain("config.manage 权限：禁止");
   });
 
   it("product-mock 可见表面有逐组覆盖账本，且全部注册、挂载", () => {

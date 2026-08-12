@@ -1578,7 +1578,9 @@
 }
 
 /**
- * Wiki 嵌入演示框 —— 恢复产品 surface 色阶，以单层边界传达文档层级。
+ * Wiki 嵌入演示井 —— 凹进衬底 + 恢复产品 surface 色阶。
+ * wiki-doc-surface 把正文树压成纯白；演示井内重新挂回米白 / 弱卡片色阶。
+ * 五向内阴影建立井壁，canvas 的轻微投影让产品截面浮在井底上方。
  */
 .wiki-embed-stage {
   --background: #f6f4ee;
@@ -1587,12 +1589,19 @@
   --surface-3: #f1efe8;
   --surface-card: #ffffff;
   background-color: var(--surface-1);
-  box-shadow: none;
+  box-shadow:
+    inset 0 4px 10px color-mix(in srgb, var(--foreground) 18%, transparent),
+    inset 0 2px 4px color-mix(in srgb, var(--foreground) 12%, transparent),
+    inset 2px 0 6px color-mix(in srgb, var(--foreground) 6%, transparent),
+    inset -2px 0 6px color-mix(in srgb, var(--foreground) 4%, transparent),
+    inset 0 -2px 0 color-mix(in srgb, var(--surface-card) 55%, transparent);
 }
 .wiki-embed-canvas {
   background-color: transparent;
   color: var(--foreground);
-  filter: none;
+  filter:
+    drop-shadow(0 2px 4px color-mix(in srgb, var(--foreground) 12%, transparent))
+    drop-shadow(0 8px 16px color-mix(in srgb, var(--foreground) 8%, transparent));
 }
 
 /**

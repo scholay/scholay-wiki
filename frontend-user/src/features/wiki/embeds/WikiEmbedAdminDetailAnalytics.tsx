@@ -15,6 +15,98 @@ import {
   DetailTabs,
 } from "./WikiEmbedAdminDetailPrimitives";
 
+function AnalyticsAreaChart({ dual = false }: { dual?: boolean }) {
+  return (
+    <div>
+      <svg
+        className="h-48 w-full"
+        viewBox="0 0 720 192"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="冻结的面积趋势图"
+      >
+        {[38, 76, 114, 152].map((y) => (
+          <line
+            key={y}
+            x1="0"
+            x2="720"
+            y1={y}
+            y2={y}
+            stroke="var(--color-border)"
+            strokeDasharray="3 3"
+          />
+        ))}
+        <path
+          d="M0 158 L72 144 L144 149 L216 119 L288 128 L360 94 L432 102 L504 62 L576 76 L648 42 L720 55 L720 192 L0 192 Z"
+          fill="var(--color-brand-green)"
+          opacity="0.12"
+        />
+        <polyline
+          points="0,158 72,144 144,149 216,119 288,128 360,94 432,102 504,62 576,76 648,42 720,55"
+          fill="none"
+          stroke="var(--color-brand-green)"
+          strokeWidth="3"
+        />
+        {dual ? (
+          <polyline
+            points="0,171 72,162 144,164 216,146 288,151 360,128 432,133 504,105 576,116 648,88 720,96"
+            fill="none"
+            stroke="var(--color-cat-blue)"
+            strokeWidth="3"
+          />
+        ) : null}
+      </svg>
+      <div className="mt-2 flex items-center justify-center gap-4 text-12 text-faint">
+        <span>
+          <span className="mr-1 inline-block size-2 bg-brand-green" />
+          {dual ? "PV" : "使用次数"}
+        </span>
+        {dual ? (
+          <span>
+            <span className="mr-1 inline-block size-2 bg-cat-blue" />
+            会话
+          </span>
+        ) : null}
+        <span>— — 今日（进行中）</span>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsStackedBars() {
+  return (
+    <div>
+      <div className="flex h-48 items-end gap-3 border-b border-border px-3 pt-4">
+        {[44, 58, 52, 72, 64, 86, 76, 94, 82, 100].map((height, index) => (
+          <div
+            key={index}
+            className="flex flex-1 flex-col justify-end"
+            style={{ height: `${height}%` }}
+          >
+            <span className="block bg-brand-amber" style={{ height: "24%" }} />
+            <span className="block bg-cat-blue" style={{ height: "31%" }} />
+            <span className="block flex-1 bg-brand-green" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex justify-center gap-4 text-12 text-faint">
+        <span>
+          <span className="mr-1 inline-block size-2 bg-brand-green" />
+          输入
+        </span>
+        <span>
+          <span className="mr-1 inline-block size-2 bg-cat-blue" />
+          输出
+        </span>
+        <span>
+          <span className="mr-1 inline-block size-2 bg-brand-amber" />
+          缓存
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** AnalyticsPage：Umami 的 KPI 和访问趋势。 */
 export function WikiEmbedAdminSiteAnalyticsTrend() {
   return (
@@ -42,53 +134,20 @@ export function WikiEmbedAdminSiteAnalyticsTrend() {
             note: "较上期 −1.4%",
             tone: "blue",
           },
+          { label: "平均访问时长", value: "4m 28s", note: "会话口径" },
+          {
+            label: "实时访客",
+            value: "186",
+            note: "最近 5 分钟",
+            tone: "green",
+          },
         ]}
       />
       <DetailSection
         title="访问趋势 · 按天聚合"
         description="PV 与 Session 使用同一时间窗口。"
       >
-        <div className="grid gap-4 lg:grid-cols-[1fr_14rem]">
-          <DetailBars
-            bars={[
-              {
-                label: "8 月 8 日",
-                value: "PV 2,804 · Session 1,162",
-                width: "three-fifths",
-                tone: "blue",
-              },
-              {
-                label: "8 月 9 日",
-                value: "PV 3,218 · Session 1,284",
-                width: "two-thirds",
-                tone: "blue",
-              },
-              {
-                label: "8 月 10 日",
-                value: "PV 3,046 · Session 1,226",
-                width: "three-fifths",
-                tone: "blue",
-              },
-              {
-                label: "8 月 11 日",
-                value: "PV 3,642 · Session 1,438",
-                width: "four-fifths",
-                tone: "green",
-              },
-              {
-                label: "8 月 12 日",
-                value: "PV 4,106 · Session 1,604",
-                width: "full",
-                tone: "green",
-              },
-            ]}
-          />
-          <div className="rounded-8 bg-surface-1 p-3 text-12 text-subtle">
-            <p className="font-medium text-foreground">平均访问时长</p>
-            <p className="mt-2 text-20 tabular-nums">4m 28s</p>
-            <p className="mt-1 text-faint">较上期 +18s</p>
-          </div>
-        </div>
+        <AnalyticsAreaChart dual />
       </DetailSection>
     </AdminDetailFrame>
   );
@@ -104,7 +163,7 @@ export function WikiEmbedAdminSiteAnalyticsDimensions() {
       description="页面、来源、国家、浏览器、操作系统和设备六个维度独立排行。"
       eyebrow="数据统计"
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-2">
         {[
           [
             "TOP 页面",
@@ -210,43 +269,10 @@ export function WikiEmbedAdminFeatureUsageTrend() {
           },
         ]}
       />
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_.6fr]">
-        <DetailSection title="每日使用趋势">
-          <DetailBars
-            bars={[
-              {
-                label: "8 月 8 日",
-                value: "6,842",
-                width: "two-thirds",
-                tone: "blue",
-              },
-              {
-                label: "8 月 9 日",
-                value: "7,106",
-                width: "three-fourths",
-                tone: "blue",
-              },
-              {
-                label: "8 月 10 日",
-                value: "6,920",
-                width: "two-thirds",
-                tone: "blue",
-              },
-              {
-                label: "8 月 11 日",
-                value: "7,426",
-                width: "four-fifths",
-                tone: "green",
-              },
-              {
-                label: "8 月 12 日",
-                value: "7,842",
-                width: "full",
-                tone: "green",
-              },
-            ]}
-          />
-        </DetailSection>
+      <DetailSection title="每日使用趋势">
+        <AnalyticsAreaChart />
+      </DetailSection>
+      <div className="grid gap-6 lg:grid-cols-2">
         <DetailSection title="功能使用排行">
           <DetailTable
             columns={["功能", "次数"]}
@@ -254,6 +280,36 @@ export function WikiEmbedAdminFeatureUsageTrend() {
               { id: "feature-search", cells: ["智能搜索", "48,260"] },
               { id: "feature-pdf", cells: ["论文对话", "36,842"] },
               { id: "feature-review", cells: ["智能审稿", "18,406"] },
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="智能审稿漏斗">
+          <DetailBars
+            bars={[
+              {
+                label: "开始投稿",
+                value: "2,486",
+                width: "full",
+                tone: "green",
+              },
+              {
+                label: "上传稿件",
+                value: "2,164",
+                width: "five-sixths",
+                tone: "green",
+              },
+              {
+                label: "提交评审",
+                value: "1,906",
+                width: "three-fourths",
+                tone: "green",
+              },
+              {
+                label: "完成评审",
+                value: "1,742",
+                width: "two-thirds",
+                tone: "green",
+              },
             ]}
           />
         </DetailSection>
@@ -273,17 +329,24 @@ export function WikiEmbedAdminTokenUsageFiltersChart() {
       eyebrow="算力用量统计"
       action="导出"
     >
-      <div className="grid gap-2 rounded-8 border border-border bg-surface-card p-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="flex flex-wrap items-end gap-3 rounded-16 border border-border-soft bg-surface-1 p-3">
+        <div>
+          <p className="mb-1 text-12 text-faint">时间范围</p>
+          <DetailTabs
+            tabs={["今天", "7 天", "30 天", "90 天"]}
+            active="30 天"
+          />
+        </div>
         {[
-          "最近 30 天",
-          "全部功能",
-          "全部模型",
-          "全部提供方",
+          "功能 · 全部",
+          "来源 · 全部",
+          "模型 · 全部",
+          "Provider · 全部",
           "用户 ID / 邮箱",
         ].map((filter) => (
           <div
             key={filter}
-            className="rounded-8 border border-border bg-surface-1 px-3 py-2 text-12 text-subtle"
+            className="h-8 rounded-8 border border-border bg-background px-3 py-2 text-12 text-subtle"
           >
             {filter}
           </div>
@@ -302,44 +365,14 @@ export function WikiEmbedAdminTokenUsageFiltersChart() {
           { label: "独立用户", value: "18,206", note: "当前区间" },
         ]}
       />
-      <DetailSection
-        title="每日算力点"
-        description="柱长表示统一算力点，不直接等同于 Token 数。"
-      >
-        <DetailBars
-          bars={[
-            {
-              label: "8 月 8 日",
-              value: "3,842.4 点",
-              width: "half",
-              tone: "red",
-            },
-            {
-              label: "8 月 9 日",
-              value: "4,920.8 点",
-              width: "three-fifths",
-              tone: "red",
-            },
-            {
-              label: "8 月 10 日",
-              value: "5,216.1 点",
-              width: "two-thirds",
-              tone: "red",
-            },
-            {
-              label: "8 月 11 日",
-              value: "6,482.6 点",
-              width: "four-fifths",
-              tone: "red",
-            },
-            {
-              label: "8 月 12 日",
-              value: "7,810.3 点",
-              width: "full",
-              tone: "red",
-            },
-          ]}
-        />
+      <DetailSection title="每日用量" description="单位算力点 · 当前按模型堆叠">
+        <div className="mb-2 flex justify-end">
+          <DetailTabs
+            tabs={["按模型", "按功能", "调用次数", "Token 构成"]}
+            active="Token 构成"
+          />
+        </div>
+        <AnalyticsStackedBars />
       </DetailSection>
     </AdminDetailFrame>
   );
@@ -416,60 +449,57 @@ export function WikiEmbedAdminTokenUsageLogs() {
       eyebrow="算力用量统计"
     >
       <DetailTable
-        columns={["用户 / 功能", "模型", "Tokens", "算力点 / 状态"]}
+        columns={[
+          "时间",
+          "用户",
+          "功能 / 来源",
+          "模型 / Provider",
+          "算力点",
+          "输入 / 输出",
+          "状态",
+        ]}
+        columnsTemplate=".9fr 1.1fr 1fr 1.4fr .7fr 1fr .6fr"
         rows={[
           {
             id: "log-1",
             cells: [
-              <span key="u">
-                <strong className="font-medium text-foreground">
-                  林晓舟 #28461
-                </strong>
-                <br />
-                智能搜索 · 今天 10:24
-              </span>,
+              "今天 10:24",
+              "林晓舟 · ID 28461",
+              "智能搜索 · house",
               "glm-4.5 · 智谱",
-              "18,420 → 2,106",
-              <span key="c" className="flex flex-col gap-1">
-                <span>1.8426</span>
-                <DetailBadge tone="green">成功</DetailBadge>
-              </span>,
+              "1.8426",
+              "18,420 / 2,106",
+              <DetailBadge key="s" tone="green">
+                成功
+              </DetailBadge>,
             ],
           },
           {
             id: "log-2",
             cells: [
-              <span key="u">
-                <strong className="font-medium text-foreground">
-                  周奕辰 #28177
-                </strong>
-                <br />
-                论文对话 · 今天 10:18
-              </span>,
+              "今天 10:18",
+              "周奕辰 · ID 28177",
+              "论文对话 · web",
               "claude-sonnet-4 · Anthropic",
-              "12,860 → 1,842",
-              <span key="c" className="flex flex-col gap-1">
-                <span>2.1840</span>
-                <DetailBadge tone="green">成功</DetailBadge>
-              </span>,
+              "2.1840",
+              "12,860 / 1,842",
+              <DetailBadge key="s" tone="green">
+                成功
+              </DetailBadge>,
             ],
           },
           {
             id: "log-3",
             cells: [
-              <span key="u">
-                <strong className="font-medium text-foreground">
-                  吴谨言 #27602
-                </strong>
-                <br />
-                智能审稿 · 今天 09:52
-              </span>,
+              "今天 09:52",
+              "吴谨言 · ID 27602",
+              "智能审稿 · agent",
               "deepseek-v3.2 · DeepSeek",
-              "8,420 → 0",
-              <span key="c" className="flex flex-col gap-1">
-                <span>0.6315</span>
-                <DetailBadge tone="red">失败</DetailBadge>
-              </span>,
+              "0.6315",
+              "8,420 / 0",
+              <DetailBadge key="s" tone="red">
+                失败
+              </DetailBadge>,
             ],
           },
         ]}

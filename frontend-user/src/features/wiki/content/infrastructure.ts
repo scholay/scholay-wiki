@@ -224,7 +224,7 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       {
         id: "loading",
         title: "Always-on 与按需加载",
-        markdown: `Loader 会直接读取每个 addDir 的 CLAUDE.md 和 .claude/skills/*/SKILL.md，形成 always-on 上下文；guides/*/SKILL.md 只进入短菜单，模型调用 Skill 后才加载正文。平台市场技能每个会话最多启用 5 个，每份输入最多 20,000 字节，物化为会话 guide 后仍受工具权限约束。`,
+        markdown: `Loader 会直接读取每个 addDir 的 CLAUDE.md 和 .claude/skills/*/SKILL.md，组成 always-on 上下文；guides/*/SKILL.md 只先进入短菜单，模型调用 Skill 后才加载正文。平台市场技能每个会话最多启用 5 个，每份输入最多 20,000 字节；加入会话 guide 后仍然受原有工具权限约束。`,
       },
       {
         id: "limits",
@@ -573,7 +573,7 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       {
         id: "coverage",
         title: "当前备份覆盖",
-        markdown: `backup-all 导出 MySQL，并归档 data/agent、data/agent-sessions 和 MinIO。data/agent 是旧迁移归档，不再是所有转录的真相源；当前可恢复对话依赖 MySQL durable journal，而会话文件还涉及 agent-sessions 和对象存储。`,
+        markdown: `backup-all 会导出 MySQL，并归档 data/agent、data/agent-sessions 和 MinIO。data/agent 只是旧迁移归档，不能单独恢复全部对话；当前可恢复会话依赖 MySQL durable journal，相关文件还分布在 agent-sessions 与对象存储中。`,
       },
       {
         id: "missing",
@@ -583,7 +583,7 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       {
         id: "restore",
         title: "恢复文档兼容性",
-        markdown: `RESTORE.md 仍把旧 Agent .claude/JSONL 目录当作主要恢复对象，不能代表现行 durable journal 架构。恢复顺序应重新定义 MySQL、对象、redis-persist、Agent 工作区和服务配置的一致点，并用真实会话、交付物和配额状态验证 RPO/RTO。`,
+        markdown: `RESTORE.md 仍把旧 Agent .claude/JSONL 目录当作主要恢复对象，已经不能完整描述当前 durable journal 架构。恢复顺序需要重新定义 MySQL、对象存储、redis-persist、Agent 工作区和服务配置的一致点，并用真实会话、交付物和配额状态验证 RPO/RTO。`,
       },
       {
         id: "logs",
@@ -594,9 +594,9 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
   },
   {
     slug: "design-source-of-truth",
-    title: "设计真相源与历史交互资料",
+    title: "设计依据与历史交互资料",
     summary:
-      "运行时 CSS 是当前界面 token 的可执行真相源；外部 Pen、仓库 Pencil、Remotion 和日期型 interaction specs 具有不同权威级别。",
+      "运行时 CSS 决定当前界面 token；外部 Pen、仓库 Pencil、Remotion 和日期型 interaction specs 分别承担不同层级的设计依据。",
     category: "history",
     kind: "architecture",
     status: "current",
@@ -620,7 +620,7 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       {
         id: "authority",
         title: "权威顺序",
-        markdown: `根 CLAUDE.md 指定外部 dev.pen 为上游设计源，Web 的 frontend-user/src/styles/globals.css 为运行时 token 真相源，miniprogram/app.wxss 与 Agent 幻灯片资源是镜像。发生冲突时，当前代码、配置和测试优先于说明文档；用户实际运行样式以 globals.css 为准。`,
+        markdown: `根 CLAUDE.md 把外部 dev.pen 指定为上游设计源；Web 实际使用的 token 来自 frontend-user/src/styles/globals.css，miniprogram/app.wxss 与 Agent 幻灯片资源是对应镜像。发生冲突时，当前代码、配置和测试优先于说明文档；用户最终看到的 Web 样式以 globals.css 为准。`,
       },
       {
         id: "reproducibility",

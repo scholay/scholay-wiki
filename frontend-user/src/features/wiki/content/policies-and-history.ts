@@ -57,13 +57,15 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       {
         id: "channels",
         title: "入口",
-        markdown: `反馈页用于问题报告、功能建议和产品意见；联系页补充技术支持与商务合作方式。反馈可以包含分类、描述和附件，进入后台工单处理表面。`,
+        markdown: `遇到产品问题或想提出建议时，进入反馈页，选择分类、填写说明并按需添加附件；需要技术支持或商务合作时，改用联系页列出的对应渠道。牛犀犀助手里也有一份更精简的反馈表单。下方三张图依次展示完整反馈表单、联系渠道和助手里的精简表单。
+
+提交后的反馈会进入后台处理列表，但它不是即时在线聊天；紧急程度和预计响应时间以联系页当前说明为准。`,
         embeds: [
           { id: "feedback-form" },
           { id: "contact-support" },
           {
-            id: "rhino-assistant-support-panels",
-            caption: "牛犀犀助手 · 精简反馈二级入口",
+            id: "rhino-assistant-feedback-panel",
+            caption: "牛犀犀助手 · 精简反馈表单",
           },
         ],
       },
@@ -95,7 +97,9 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       {
         id: "configuration",
         title: "配置",
-        markdown: `推广活动使用单行后台配置控制启用状态、文案和微信二维码。公开摘要接口不包含大体积二维码数据，图片通过带内容版本的独立 URL 获取，替换图片后缓存地址也会变化。`,
+        markdown: `活动开启时，用户会在首页或额度不足场景看到带标题、福利说明、微信二维码和关闭按钮的推广弹窗；下图展示的是配置已经生效的一种代表状态。运营人员在后台控制启用状态、文案和二维码。
+
+公开摘要 API 不直接返回大体积二维码数据，客户端会通过带内容版本的独立 URL 读取图片；替换图片后地址随版本变化，避免继续显示旧缓存。`,
         embeds: [{ id: "promo-modal" }],
       },
       {
@@ -127,13 +131,17 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       {
         id: "preview",
         title: "先预览后确认",
-        markdown: `用户输入代码后先向后端获取将获得的档位、期限或经费以及活动说明，再在确认弹窗中执行兑换。前端不能根据码的外观猜测权益。`,
+        markdown: `在兑换页输入代码并提交预览后，你会先看到可获得的会员档位、期限或经费，以及活动说明；核对无误再点击确认兑换。下图展示的是代码有效、权益已解析但尚未最终兑换的状态。
+
+权益以预览结果为准，客户端不能根据兑换码的外观自行猜测。`,
         embeds: [{ id: "redeem-preview", caption: "用户端 · 兑换预览" }],
       },
       {
         id: "grant",
         title: "发放规则",
-        markdown: `新码使用排除易混字符的 \`XXXX-XXXX-XXXX-XXXX\` 格式。代码可以发会员或经费；兑换限制按账号判断：每个账号对同一码只能成功一次，不是某人兑换后该码就全局失效。单码仍可配置 1–100 次总使用次数，在总次数耗尽前供不同账号核销。失败会区分 revoked、expired、exhausted 和 already redeemed。会员码不会把用户降级，期限从当前有效到期日顺延；只有确实升档且授予时长至少覆盖一个额度周期时才触发额度满血。`,
+        markdown: `管理员在兑换码后台选择会员或经费权益、生成批次，再进入批次查看和导出单码；需要时可以通过操作弹窗延期、增加总次数或调整会员授予时长。下方四张图依次展示批次总览、生成面板、单码列表和后续操作弹窗。
+
+新码使用排除易混字符的 \`XXXX-XXXX-XXXX-XXXX\` 格式。每个账号对同一码只能成功一次，但一组码仍可设置 1–100 次总使用次数，供不同账号在耗尽前核销。失败状态区分已撤销（revoked）、已过期（expired）、次数耗尽（exhausted）和本账号已兑换（already redeemed）。会员码不会降低现有档位，期限从当前有效到期日顺延；只有确实升档且授予时长至少覆盖一个额度周期时，才会恢复满额。`,
         embeds: [
           { id: "admin-gift-codes", caption: "后台 · 兑换码生成与核销" },
           { id: "admin-gift-code-generator" },
@@ -173,7 +181,9 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       {
         id: "routes",
         title: "页面入口",
-        markdown: `\`/features\` 汇总产品能力；搜索、文库、Prism、Claw、投稿和同行评审各有独立 \`/features/*\` 介绍页，\`/pricing\` 展示套餐比较。它们不执行核心研究任务，CTA 会把用户带到真实工作区、注册或定价流程。`,
+        markdown: `访问 \`/features\` 会先看到产品能力总览，再进入搜索、文库、Prism、Claw、投稿或同行评审的独立介绍页；\`/pricing\` 用于比较套餐。下图展示的是一类功能落地页的典型结构：先说明适用场景和价值，再通过 CTA 前往真实工作区、注册或定价流程。
+
+这些页面只负责介绍与导航，不会在原地执行检索、写作或审稿任务。`,
         embeds: [{ id: "marketing-landing-template" }],
       },
       {
@@ -184,7 +194,7 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       {
         id: "numbers",
         title: "数字与语言声明",
-        markdown: `Pricing 中的功能次数是静态估算，真实额度取决于动态 points、倍率、模型价格和计费开关。页面出现 English 或 Japanese 选择项不代表全站已经具备完整 i18n 资源与路由。Wiki 在冲突时以运行时代码和后端规则为准，并把愿景保留为营销语境。`,
+        markdown: `Pricing 页面列出的功能次数只是静态估算，实际可用额度取决于动态 points、倍率、模型价格和计费开关。页面出现 English 或 Japanese 选项，也不代表全站已经具备完整的 i18n 文案和对应路由。营销说明与产品行为冲突时，应以当前代码、配置和后端规则为准。`,
       },
     ],
   },
@@ -208,7 +218,7 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       {
         id: "current",
         title: "当前状态",
-        markdown: `现行后端没有 coupon handler、service 或路由，订单报价与履约也不会读取 coupon_id。数据库基线里的 coupon_templates、coupon_batches、user_coupons、coupon_usage_logs 和订单关联字段属于搁置结构，不能据此宣传“可用优惠券”。`,
+        markdown: `当前后端没有注册 coupon handler、service 或路由，订单报价与履约也不会读取 coupon_id。数据库基线虽然保留 coupon_templates、coupon_batches、user_coupons、coupon_usage_logs 和订单关联字段，但这些只是搁置结构，不能据此宣传“优惠券可用”。`,
       },
       {
         id: "distinctions",
@@ -241,7 +251,7 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       {
         id: "compatibility",
         title: "保留痕迹",
-        markdown: `经费模型仍保留 \`task\` 来源常量，数据库基线的 feature_configs 也仍把 user_checkin 标为 enabled，但当前没有消费者、路由或现行签到表。这些孤立痕迹不能被解释为任务中心已经上线；本词条的“未来”只来自界面预告，并非已确认路线图。任何重启都必须重新定义迁移、服务和前端入口。`,
+        markdown: `经费模型仍保留 \`task\` 来源常量，数据库基线的 feature_configs 也仍把 user_checkin 标为 enabled，但当前没有使用这些值的处理流程、路由或签到表。孤立字段不能证明任务中心已经上线；这里的“未来”只来自界面预告，不是已确认路线图。若重新启动该功能，仍需重新定义迁移、服务和前端入口。`,
       },
     ],
   },

@@ -8,11 +8,11 @@ import { MockModeToggle } from "./fixtures/mock-chrome";
 export function WikiEmbedClassicSearchDock() {
   return (
     <div
-      className="w-[min(100%,40rem)] border-t border-border bg-surface-card pb-3 pt-2 pl-6 pr-3"
+      className="w-[min(100%,48rem)] border-t border-border bg-background pb-3 pl-5 pr-3 pt-2"
       aria-hidden
       data-wiki-fixture="classic-search-dock"
     >
-      <div className="flex h-12 items-center gap-3 rounded-4 border border-foreground bg-surface-card pl-6 pr-2">
+      <div className="flex h-12 items-center gap-3 rounded-4 border border-foreground bg-surface-card pl-5 pr-2">
         <MockModeToggle label="搜索引擎" tone="engine" />
         <div className="relative min-w-0 flex-1">
           <span className="block truncate text-16 text-faint">

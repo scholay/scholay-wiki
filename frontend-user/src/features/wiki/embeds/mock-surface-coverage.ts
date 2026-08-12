@@ -1,8 +1,10 @@
 /**
  * product-mock → Wiki 静态表面覆盖账本。
  *
- * 这里按“可被独立验收的视觉表面”计数，而不是按 React 文件或路由计数：同一组
- * mock 源文件可以合并成一个 fixture，一份 fixture 也可以覆盖同组的多个稳定状态。
+ * 这里按“可被独立验收的视觉表面”计数，而不是按 React 文件或路由计数。同一组
+ * mock 源文件只有在同一个实际界面状态中同时可见时才能合并为一个 fixture；互斥状态
+ * 必须拆开登记，不能拼成源产品里不存在的说明图。fixture 只冻结数据和写操作，视觉
+ * 结构、尺寸、色板、圆角、阴影、图表类型与页面 chrome 以 mock 同状态为准。
  * `covered` 表示本轮盘点前已有 fixture；`fixture` 表示本轮盘点补齐或修正；
  * `excluded` 只允许用于没有稳定独立视觉状态的内部宿主、重定向或动态协调器。
  */
@@ -129,20 +131,20 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "wechat-qr-login",
-    [
-      "frontend-user/src/features/auth/components/WeChatQRDialog.tsx",
-      "frontend-user/src/features/auth/components/WeChatQRPanel.tsx",
-    ],
-    "微信扫码登录与绑定状态已有 fixture。",
+    ["frontend-user/src/features/auth/components/WeChatQRPanel.tsx"],
+    "微信扫码登录的等待扫码单一状态已有 fixture。",
   ),
   covered(
     "user",
     "oauth-callback-states",
-    [
-      "frontend-user/src/features/auth/pages/OAuthCallbackPage.tsx",
-      "frontend-user/src/features/auth/pages/WeChatCallbackPage.tsx",
-    ],
-    "OAuth 回调成功、失败和处理中状态已有 fixture。",
+    ["frontend-user/src/features/auth/pages/OAuthCallbackPage.tsx"],
+    "OAuth 回调正在完成登录的单一状态已有 fixture。",
+  ),
+  fixture(
+    "user",
+    "wechat-callback-state",
+    ["frontend-user/src/features/auth/pages/WeChatCallbackPage.tsx"],
+    "微信扫码回调独立中转页的处理中状态由本轮补齐为独立 fixture。",
   ),
   covered(
     "user",
@@ -192,11 +194,14 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "rhino-assistant-entry",
-    [
-      "frontend-user/src/shared/components/FloatingRhinoAssistant.tsx",
-      "frontend-user/src/shared/components/RhinoDockChip.tsx",
-    ],
-    "牛犀犀悬浮入口与顶栏入口已有 fixture。",
+    ["frontend-user/src/shared/components/FloatingRhinoAssistant.tsx"],
+    "牛犀犀悬浮角色的指针停留入口已有 fixture。",
+  ),
+  covered(
+    "user",
+    "rhino-assistant-dock",
+    ["frontend-user/src/shared/components/RhinoDockChip.tsx"],
+    "牛犀犀隐藏后出现的顶栏恢复入口已有独立 fixture。",
   ),
   covered(
     "user",
@@ -205,16 +210,19 @@ const USER_EXISTING_SURFACES = [
       "frontend-user/src/shared/components/RhinoPanelStage.tsx",
       "frontend-user/src/shared/components/RhinoHelpBody.tsx",
     ],
-    "牛犀犀展开帮助面板已有 fixture。",
+    "牛犀犀帮助面板的默认「拖点」标签已有 fixture。",
   ),
   covered(
     "user",
     "rhino-assistant-support-panels",
-    [
-      "frontend-user/src/shared/components/RhinoNotificationsBody.tsx",
-      "frontend-user/src/shared/components/RhinoFeedbackBody.tsx",
-    ],
-    "牛犀犀通知与反馈面板已有 fixture。",
+    ["frontend-user/src/shared/components/RhinoNotificationsBody.tsx"],
+    "牛犀犀通知列表已有独立 fixture。",
+  ),
+  covered(
+    "user",
+    "rhino-assistant-feedback-panel",
+    ["frontend-user/src/shared/components/RhinoFeedbackBody.tsx"],
+    "牛犀犀精简反馈表单已有独立 fixture。",
   ),
   covered(
     "user",
@@ -240,8 +248,13 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "auth-dialog",
-    ["frontend-user/src/features/auth/components/AuthDialog.tsx"],
-    "桌面登录入口和方式选择已有 fixture。",
+    [
+      "frontend-user/src/features/auth/components/AuthDialog.tsx",
+      "frontend-user/src/features/auth/components/LoginForm.tsx",
+      "frontend-user/src/features/auth/components/OAuthRow.tsx",
+      "frontend-user/src/features/auth/components/GoogleSignInButton.tsx",
+    ],
+    "桌面登录表单与同屏的动态第三方入口已有 fixture。",
   ),
   covered(
     "user",
@@ -296,23 +309,30 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "claw-empty-state",
-    ["frontend-user/src/features/claw/components/chat/ClawEmptyState.tsx"],
-    "Claw 会话空态已有 fixture；真实五张模板卡另记修正项。",
+    [
+      "frontend-user/src/features/claw/components/chat/ClawEmptyState.tsx",
+      "frontend-user/src/features/claw/components/chat/ClawHero.tsx",
+    ],
+    "Claw 会话空态与同屏入口已有 fixture；模板卡另记修正项。",
   ),
   covered(
     "user",
     "claw-hero-smart-entry",
-    ["frontend-user/src/features/claw/components/chat/ClawHero.tsx"],
-    "Claw 首页智能任务入口已有 fixture。",
+    [
+      "frontend-user/src/features/search/components/smart-search/SmartSearchHero.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartComposer.tsx",
+    ],
+    "智能搜索空态与输入入口已有 fixture。",
   ),
   covered(
     "user",
     "claw-run-states",
     [
-      "frontend-user/src/features/claw/components/chat/MessageTurn.tsx",
-      "frontend-user/src/features/claw/components/chat/ConnectionBadge.tsx",
+      "frontend-user/src/features/claw/components/chat/ConversationWorkspace.tsx",
+      "frontend-user/src/shared/components/chat/StallNotice.tsx",
+      "frontend-user/src/shared/components/chat/StreamingIndicator.tsx",
     ],
-    "执行、流式、异常和恢复状态已有 fixture。",
+    "长任务仍在运行但暂时没有新进展的单一停滞状态已有 fixture。",
   ),
   covered(
     "user",
@@ -328,8 +348,9 @@ const USER_EXISTING_SURFACES = [
     "claw-workspace",
     [
       "frontend-user/src/features/claw/components/chat/ConversationWorkspace.tsx",
+      "frontend-user/src/features/claw/components/chat/MessageTurn.tsx",
     ],
-    "Claw 对话工作区整体层级已有 fixture。",
+    "Claw 对话工作区与同屏消息轮次已有 fixture。",
   ),
   covered(
     "user",
@@ -358,7 +379,9 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "folder-icon-picker",
-    ["frontend-user/src/shared/components/folder-appearance/index.ts"],
+    [
+      "frontend-user/src/shared/components/folder-appearance/FolderIconPicker.tsx",
+    ],
     "文件夹图标与颜色选择已有 fixture。",
   ),
   covered(
@@ -468,9 +491,10 @@ const USER_EXISTING_SURFACES = [
     "pdf-reader",
     [
       "frontend-user/src/shared/components/PdfViewer.tsx",
+      "frontend-user/src/shared/components/pdf-viewer/PdfViewerToolbar.tsx",
       "frontend-user/src/shared/components/pdf-viewer/PdfViewerContent.tsx",
     ],
-    "PDF 阅读器和工具栏已有 fixture。",
+    "PDF 阅读工具栏与页码沿用现行界面，页面画布使用无真实作者、邮箱或 DOI 的脱敏演示稿。",
   ),
   covered(
     "user",
@@ -530,17 +554,14 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "prism-compile-states",
-    [
-      "frontend-user/src/features/prism/components/PrismLivePreview.tsx",
-      "frontend-user/src/features/prism/components/LatexDiffEditor.tsx",
-    ],
-    "编译、预览和差异状态已有 fixture。",
+    ["frontend-user/src/features/prism/components/PrismWorkspaceV2.tsx"],
+    "Prism 编译失败后的可恢复单一状态已有 fixture。",
   ),
   covered(
     "user",
     "prism-home",
     ["frontend-user/src/features/prism/components/PrismHome.tsx"],
-    "Prism 项目首页已有 fixture。",
+    "Prism 项目首页未选中项目的状态已有 fixture。",
   ),
   covered(
     "user",
@@ -557,11 +578,8 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "profile-settings",
-    [
-      "frontend-user/src/features/settings/pages/ProfilePage.tsx",
-      "frontend-user/src/features/settings/pages/mobile/MobileProfilePage.tsx",
-    ],
-    "桌面与移动个人资料字段已有 fixture。",
+    ["frontend-user/src/features/settings/pages/ProfilePage.tsx"],
+    "桌面个人资料字段已有 fixture；移动页另行登记。",
   ),
   covered(
     "user",
@@ -635,6 +653,56 @@ const USER_EXISTING_SURFACES = [
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
 const USER_GAP_SURFACES = [
+  fixture(
+    "user",
+    "wechat-qr-binding",
+    ["frontend-user/src/features/auth/components/WeChatQRDialog.tsx"],
+    "账户连接页中的微信绑定等待扫码态是独立弹窗，本轮补齐。",
+  ),
+  fixture(
+    "user",
+    "auth-password-recovery-email",
+    ["frontend-user/src/features/auth/components/ForgotPasswordForm.tsx"],
+    "邮箱找回密码的初始表单是稳定认证表面，本轮补齐单一状态。",
+  ),
+  fixture(
+    "user",
+    "prism-live-preview",
+    ["frontend-user/src/features/prism/components/PrismLivePreview.tsx"],
+    "AI 写入后的整篇只读预览是稳定写作表面，本轮补齐。",
+  ),
+  fixture(
+    "user",
+    "prism-writing-profile-dialog",
+    [
+      "frontend-user/src/features/prism/components/PrismWritingProfileDialog.tsx",
+    ],
+    "写作画像是独立稳定弹窗，本轮冻结一个学科写作状态。",
+  ),
+  fixture(
+    "user",
+    "prism-revision-dialog",
+    ["frontend-user/src/features/prism/components/PrismRevisionDialog.tsx"],
+    "逐条回应修改意见是独立稳定弹窗，本轮补齐。",
+  ),
+  fixture(
+    "user",
+    "prism-translate-dialog",
+    ["frontend-user/src/features/prism/components/PrismTranslateDialog.tsx"],
+    "整篇翻译与翻译纪律是独立稳定弹窗，本轮补齐。",
+  ),
+  fixture(
+    "user",
+    "prism-numbers-dialog",
+    ["frontend-user/src/features/prism/components/PrismNumbersDialog.tsx"],
+    "正文数字校验结果是独立稳定弹窗，本轮补齐。",
+  ),
+  fixture(
+    "user",
+    "prism-math-editor-dialog",
+    ["frontend-user/src/features/prism/components/MathEditorDialog.tsx"],
+    "公式插入编辑器是独立稳定弹窗，本轮补齐。",
+  ),
   fixture(
     "user",
     "home-research-entry",
@@ -744,34 +812,20 @@ const USER_GAP_SURFACES = [
   fixture(
     "user",
     "prism-writing-tools-dialogs",
-    [
-      "frontend-user/src/features/prism/components/PrismWritingProfileDialog.tsx",
-      "frontend-user/src/features/prism/components/PrismRevisionDialog.tsx",
-      "frontend-user/src/features/prism/components/PrismTranslateDialog.tsx",
-      "frontend-user/src/features/prism/components/PrismNumbersDialog.tsx",
-      "frontend-user/src/features/prism/components/PrismQualityDialog.tsx",
-    ],
-    "写作画像、改写、翻译、数字和质量工具合并为一组稳定弹窗，本轮补齐。",
+    ["frontend-user/src/features/prism/components/PrismQualityDialog.tsx"],
+    "质量检查是稳定写作工具，本轮冻结单一弹窗。",
   ),
   fixture(
     "user",
     "prism-document-insert-dialogs",
-    [
-      "frontend-user/src/features/prism/components/PrismAuthorsDialog.tsx",
-      "frontend-user/src/features/prism/components/PrismCitationDialog.tsx",
-      "frontend-user/src/features/prism/components/MathEditorDialog.tsx",
-    ],
-    "作者、引用和公式插入合并为一组稳定弹窗，本轮补齐。",
+    ["frontend-user/src/features/prism/components/PrismCitationDialog.tsx"],
+    "从个人文献集插入引用是稳定弹窗，本轮冻结单一状态。",
   ),
   fixture(
     "user",
     "prism-history-inline-edit",
-    [
-      "frontend-user/src/features/prism/components/PrismVersionsDialog.tsx",
-      "frontend-user/src/features/prism/components/PrismSelectionToolbar.tsx",
-      "frontend-user/src/features/prism/components/PrismInlineEditPrompt.tsx",
-    ],
-    "版本历史、选区工具条和行内改写是稳定编辑表面，本轮补齐。",
+    ["frontend-user/src/features/prism/components/PrismVersionsDialog.tsx"],
+    "版本历史是稳定编辑表面，本轮冻结单一弹窗。",
   ),
   fixture(
     "user",
@@ -797,12 +851,8 @@ const USER_GAP_SURFACES = [
   fixture(
     "user",
     "auth-register-recovery",
-    [
-      "frontend-user/src/features/auth/components/RegisterForm.tsx",
-      "frontend-user/src/features/auth/components/ForgotPasswordForm.tsx",
-      "frontend-user/src/features/auth/components/LoginForm.tsx",
-    ],
-    "注册、找回与登录状态是稳定认证表面，本轮补齐。",
+    ["frontend-user/src/features/auth/components/RegisterForm.tsx"],
+    "注册表单是稳定认证表面，本轮冻结邮箱注册单态。",
   ),
   fixture(
     "user",
@@ -839,6 +889,28 @@ const USER_GAP_SURFACES = [
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
 const USER_EXCLUDED_SURFACES = [
+  excluded(
+    "user",
+    "claw-unused-connection-badge",
+    ["frontend-user/src/features/claw/components/chat/ConnectionBadge.tsx"],
+    "该连接徽章在 mock 中没有调用点，不构成可到达的独立产品表面。",
+  ),
+  excluded(
+    "user",
+    "prism-unused-authors-dialog",
+    ["frontend-user/src/features/prism/components/PrismAuthorsDialog.tsx"],
+    "作者弹窗在 mock 中没有渲染入口，不把未接线代码登记为可见界面。",
+  ),
+  excluded(
+    "user",
+    "prism-retired-legacy-editing-controls",
+    [
+      "frontend-user/src/features/prism/components/LatexDiffEditor.tsx",
+      "frontend-user/src/features/prism/components/PrismSelectionToolbar.tsx",
+      "frontend-user/src/features/prism/components/PrismInlineEditPrompt.tsx",
+    ],
+    "这些控件只属于 legacy 工作台编辑链；现行 legacy 项目恒为只读，因此用户不可到达。",
+  ),
   excluded(
     "user",
     "user-shared-display-primitives",
@@ -885,7 +957,7 @@ const USER_EXCLUDED_SURFACES = [
   ),
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
-/** 普通用户域：73 个既有覆盖 + 24 个新增 fixture + 1 个既有 fixture 修正。 */
+/** 普通用户域：75 个既有覆盖 + 34 个本轮补齐或修正的 fixture，另有 8 个明确排除组。 */
 export const USER_MOCK_SURFACE_COVERAGE = [
   ...USER_EXISTING_SURFACES,
   ...USER_GAP_SURFACES,
@@ -949,9 +1021,9 @@ const MOBILE_EXISTING_SURFACES = [
     "mobile",
     "mobile-auth-page",
     ["frontend-user/src/features/auth/pages/mobile/MobileAuthPage.tsx"],
-    "covered",
-    ["mobile-auth-surfaces"],
-    "独立移动认证页已合并到认证表面 fixture。",
+    "fixture",
+    ["mobile-auth-page"],
+    "独立移动认证页使用专属全页 fixture，不再由底部 Sheet 代替。",
   ),
   visibleGroup(
     "mobile",
@@ -959,7 +1031,7 @@ const MOBILE_EXISTING_SURFACES = [
     ["frontend-user/src/features/auth/components/MobileAuthSheet.tsx"],
     "covered",
     ["mobile-auth-surfaces"],
-    "就地登录底部弹层已合并到认证表面 fixture。",
+    "从未登录「我的」页就地打开的登录底部 Sheet 已有 fixture。",
   ),
   visibleGroup(
     "mobile",
@@ -989,9 +1061,9 @@ const MOBILE_EXISTING_SURFACES = [
     "mobile",
     "mobile-library-folder",
     ["frontend-user/src/features/library/pages/mobile/MobileFolderPage.tsx"],
-    "covered",
-    ["mobile-library-flow"],
-    "移动文件夹钻取已由文献库流程 fixture 覆盖。",
+    "fixture",
+    ["mobile-library-folder"],
+    "移动文件夹详情的论文列表和整本分享已有独立 fixture。",
   ),
   visibleGroup(
     "mobile",
@@ -1018,17 +1090,17 @@ const MOBILE_EXISTING_SURFACES = [
     "mobile",
     "mobile-profile-settings",
     ["frontend-user/src/features/settings/pages/mobile/MobileProfilePage.tsx"],
-    "covered",
-    ["mobile-me"],
-    "移动个人资料子页已合并到个人中心 fixture。",
+    "fixture",
+    ["mobile-profile-settings"],
+    "移动个人资料编辑与只读账户信息已有独立 fixture。",
   ),
   visibleGroup(
     "mobile",
     "mobile-security-settings",
     ["frontend-user/src/features/settings/pages/mobile/MobileSecurityPage.tsx"],
-    "covered",
-    ["mobile-me"],
-    "移动安全设置子页已合并到个人中心 fixture。",
+    "fixture",
+    ["mobile-security-settings"],
+    "移动绑定状态与修改密码表面已有独立 fixture。",
   ),
   visibleGroup(
     "mobile",
@@ -1036,9 +1108,9 @@ const MOBILE_EXISTING_SURFACES = [
     [
       "frontend-user/src/features/settings/pages/mobile/MobileConnectionsPage.tsx",
     ],
-    "covered",
-    ["mobile-me"],
-    "移动第三方连接子页已合并到个人中心 fixture。",
+    "fixture",
+    ["mobile-connection-settings"],
+    "移动第三方连接只读列表已有独立 fixture。",
   ),
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
@@ -1153,13 +1225,18 @@ const GLOBAL_CROSS_SURFACES = [
   visibleGroup(
     "mobile",
     "global-rhino-assistant-entry",
-    [
-      "frontend-user/src/shared/components/FloatingRhinoAssistant.tsx",
-      "frontend-user/src/shared/components/RhinoDockChip.tsx",
-    ],
+    ["frontend-user/src/shared/components/FloatingRhinoAssistant.tsx"],
     "covered",
     ["rhino-assistant-entry"],
-    "全局牛犀犀悬浮入口和 Dock 已由普通用户 fixture 覆盖。",
+    "全局牛犀犀悬浮入口已由普通用户 fixture 覆盖。",
+  ),
+  visibleGroup(
+    "mobile",
+    "global-rhino-assistant-dock",
+    ["frontend-user/src/shared/components/RhinoDockChip.tsx"],
+    "covered",
+    ["rhino-assistant-dock"],
+    "全局牛犀犀顶栏恢复入口已由普通用户 fixture 覆盖。",
   ),
   visibleGroup(
     "mobile",
@@ -1175,13 +1252,18 @@ const GLOBAL_CROSS_SURFACES = [
   visibleGroup(
     "mobile",
     "global-rhino-assistant-support",
-    [
-      "frontend-user/src/shared/components/RhinoNotificationsBody.tsx",
-      "frontend-user/src/shared/components/RhinoFeedbackBody.tsx",
-    ],
+    ["frontend-user/src/shared/components/RhinoNotificationsBody.tsx"],
     "covered",
     ["rhino-assistant-support-panels"],
-    "全局牛犀犀通知与反馈面板已由普通用户 fixture 覆盖。",
+    "全局牛犀犀通知列表已由普通用户 fixture 覆盖。",
+  ),
+  visibleGroup(
+    "mobile",
+    "global-rhino-assistant-feedback",
+    ["frontend-user/src/shared/components/RhinoFeedbackBody.tsx"],
+    "covered",
+    ["rhino-assistant-feedback-panel"],
+    "全局牛犀犀精简反馈表单已由普通用户 fixture 覆盖。",
   ),
   visibleGroup(
     "mobile",
@@ -1301,7 +1383,7 @@ const MOBILE_EXCLUDED_SURFACES = [
   ),
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
-/** 移动/跨端域：31 个移动表面（16 已覆盖 + 15 补齐）+ 11 个全局表面。 */
+/** 移动/跨端域：23 个既有覆盖 + 21 个本轮补齐或修正的 fixture，另有 4 个明确排除组。 */
 export const MOBILE_MOCK_SURFACE_COVERAGE = [
   ...MOBILE_EXISTING_SURFACES,
   ...MOBILE_GAP_SURFACES,
@@ -1958,11 +2040,11 @@ export const MOCK_SURFACE_COVERAGE_STATS = {
   visibleTotal: VISIBLE_MOCK_SURFACE_COVERAGE.length,
 } as const;
 
-/** 本轮审计冻结值：227 个稳定可见表面，另加 14 个明确排除组。 */
+/** 本轮审计冻结值：240 个稳定可见表面，另加 17 个明确排除组。 */
 export const MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS = {
-  user: 103,
-  mobile: 46,
+  user: 117,
+  mobile: 48,
   admin: 92,
-  all: 241,
-  visibleTotal: 227,
+  all: 257,
+  visibleTotal: 240,
 } as const;

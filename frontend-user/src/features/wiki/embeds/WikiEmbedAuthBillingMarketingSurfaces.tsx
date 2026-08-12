@@ -1,231 +1,201 @@
 import {
   ArrowRight,
-  BarChart3,
-  BookOpen,
   Check,
-  CheckCircle2,
-  ChevronDown,
+  ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
-  ExternalLink,
+  Coins,
+  Crown,
   FileText,
-  Gem,
   Gift,
-  Globe2,
-  GraduationCap,
-  HelpCircle,
-  KeyRound,
-  Library,
-  LockKeyhole,
+  Github,
+  Gauge,
+  Gem,
+  Info,
+  LayoutGrid,
+  Link2,
+  Lock,
   LogOut,
-  Menu,
+  MessageCircle,
+  RefreshCw,
   Search,
-  ShieldCheck,
+  Share2,
+  Shield,
   Sparkles,
+  Ticket,
   UserRound,
-  WalletCards,
+  UsersRound,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { BrandLogo } from "@/shared/components/BrandLogo";
+import { ClawBrandIcon } from "@/shared/components/ClawBrandIcon";
 
-/** 首页的搜索入口、功能快捷入口与三段研究能力叙事。 */
+/** HomeAgentHero 首屏：智能输入、Claw 主推卡与下一段能力总起。 */
 export function WikiEmbedHomeResearchEntry() {
   return (
     <div
-      className="w-[min(100%,54rem)] overflow-hidden rounded-16 border border-border bg-surface-card"
+      className="relative h-[48rem] w-[min(100%,60rem)] overflow-hidden bg-background"
       aria-hidden
       data-wiki-fixture="home-research-entry"
     >
-      <section className="bg-brand-green-soft px-6 py-8 text-center">
-        <BrandLogo size="xl" />
-        <p className="mt-3 text-12 text-subtle">
-          从一个问题开始，连接检索、阅读、写作与评议
-        </p>
-        <div className="mx-auto mt-5 flex max-w-2xl items-center gap-2 rounded-12 border border-foreground bg-surface-card px-4 py-3 shadow-raised">
-          <span className="inline-flex items-center gap-1 rounded-4 bg-surface-2 px-2 py-1 text-10 text-subtle">
-            综合搜索 <ChevronDown className="size-3" />
-          </span>
-          <span className="min-w-0 flex-1 text-left text-12 text-faint">
-            搜索论文、期刊、作者，或切换智能搜索…
-          </span>
-          <span className="inline-flex size-8 items-center justify-center rounded-8 bg-brand-red text-on-dark">
-            <Search className="size-4" />
-          </span>
-        </div>
-        <div className="mx-auto mt-4 grid max-w-2xl gap-2 sm:grid-cols-4">
-          {(
-            [
-              ["智能搜索", Sparkles, "green"],
-              ["个人文献集", Library, "amber"],
-              ["Prism 写作", FileText, "red"],
-              ["智能审稿", ShieldCheck, "neutral"],
-            ] as Array<[string, LucideIcon, string]>
-          ).map(([label, Icon, tone]) => (
-            <div
-              key={String(label)}
-              className="flex items-center gap-2 rounded-8 border border-border bg-surface-card px-3 py-2 text-left"
-            >
-              <Icon
-                className={
-                  tone === "green"
-                    ? "size-4 text-brand-green"
-                    : tone === "amber"
-                      ? "size-4 text-brand-amber"
-                      : tone === "red"
-                        ? "size-4 text-brand-red"
-                        : "size-4 text-subtle"
-                }
-              />
-              <span className="text-10 font-medium text-foreground">
-                {label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="pointer-events-none absolute -left-28 -top-24 size-[36rem] rounded-pill bg-brand-green/14 blur-3xl" />
+      <div className="pointer-events-none absolute -right-32 top-8 size-[38rem] rounded-pill bg-brand-amber/14 blur-3xl" />
+      <div className="relative z-raised flex flex-col items-center px-6 py-10">
+        <div className="flex w-full max-w-3xl flex-col items-center">
+          <BrandLogo size="xl" />
 
-      <section className="grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        {(
-          [
-            [
-              "发现与筛选",
-              "从多来源搜索进入论文、作者与期刊关系，再把候选放入暂存区。",
-              Search,
-              "01",
-            ],
-            [
-              "阅读与组织",
-              "在个人文献集中维护元数据与 PDF，并通过矩阵和 PDF Chat 比较证据。",
-              BookOpen,
-              "02",
-            ],
-            [
-              "形成与核对",
-              "把材料带入 Prism 写作或智能审稿；AI 输出始终需要回到原始证据检查。",
-              GraduationCap,
-              "03",
-            ],
-          ] as Array<[string, string, LucideIcon, string]>
-        ).map(([title, body, Icon, number]) => (
-          <article key={String(title)} className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex size-8 items-center justify-center rounded-8 bg-surface-1">
-                <Icon className="size-4 text-brand-green" />
+          <div className="mt-8 w-full max-w-[40rem]">
+            <div className="flex h-12 items-center gap-3 rounded-16 border border-border-strong bg-background pl-4 pr-2 shadow-raised">
+              <span className="inline-flex h-7 items-center rounded-8 bg-surface-2 p-1 text-12 text-subtle">
+                <span className="inline-flex h-5 items-center rounded-4 bg-background px-2 text-foreground shadow-raised">
+                  智能
+                </span>
+                <span className="px-2">文献</span>
               </span>
-              <span className="font-serif text-18 text-border-strong">
-                {number}
+              <span className="min-w-0 flex-1 truncate text-14 text-faint">
+                帮我找 3 篇 Transformer 可解释性方向的代表作
+              </span>
+              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-8 bg-foreground text-on-dark">
+                <ArrowRight className="size-4 -rotate-90" strokeWidth={2.5} />
               </span>
             </div>
-            <h3 className="mt-4 text-12 font-medium text-foreground">
-              {title}
-            </h3>
-            <p className="mt-2 text-10 leading-paragraph text-subtle">{body}</p>
-            <p className="mt-3 inline-flex items-center gap-1 text-10 text-brand-red">
-              进入能力 <ArrowRight className="size-3" />
-            </p>
-          </article>
-        ))}
+          </div>
+
+          <div className="mt-6 w-full max-w-3xl">
+            <article className="relative flex w-full overflow-hidden rounded-16 border border-border bg-background sm:items-stretch">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_20%,hsl(var(--brand-amber)/0.16),transparent_55%),radial-gradient(ellipse_at_10%_90%,hsl(var(--brand-green)/0.1),transparent_50%)]" />
+              <div className="relative flex min-w-0 flex-1 flex-col justify-center gap-3 px-8 py-8">
+                <div className="inline-flex items-center gap-2">
+                  <span className="inline-flex size-8 items-center justify-center rounded-8 bg-brand-amber/15 text-brand-amber">
+                    <ClawBrandIcon className="size-5" />
+                  </span>
+                  <span className="text-12 font-medium text-brand-amber">
+                    智能助手 · Claw
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-serif text-24 font-medium text-foreground">
+                    一个能跟你一起想问题的学术搭档
+                  </h3>
+                  <p className="max-w-md text-14 leading-paragraph text-subtle">
+                    读文献、写摘要、做演示提纲——用对话推进科研任务，把重复劳动交给助手。
+                  </p>
+                </div>
+                <span className="mt-1 inline-flex w-fit items-center gap-2 rounded-8 bg-foreground px-4 py-2 text-14 font-medium text-on-dark">
+                  打开智能助手 <ArrowRight className="size-3.5" />
+                </span>
+              </div>
+              <div className="relative flex w-56 shrink-0 items-center justify-center px-8">
+                <div className="relative flex size-28 items-center justify-center rounded-16 bg-brand-amber/12 text-brand-amber ring-1 ring-brand-amber/20">
+                  <ClawBrandIcon className="size-14" />
+                  <span className="absolute -right-1 -top-1 rounded-pill bg-brand-red px-2 py-1 text-12 font-medium text-on-brand">
+                    HOT
+                  </span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <section className="relative z-raised mt-2 border-t border-border bg-surface-1/60 px-6 py-16">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-12 font-medium text-brand-green">
+            PRODUCT CAPABILITIES
+          </p>
+          <h2 className="mt-3 font-display text-28 font-medium text-foreground">
+            从检索到写作、审稿，一整条学术工作流
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-14 leading-paragraph text-subtle">
+            Scholay 把文献发现、智能对话、写作与预审收在同一产品里。
+          </p>
+        </div>
       </section>
     </div>
   );
 }
 
-/** 注册、验证码登录切换和找回密码三种鉴权表单。 */
+/** AuthDialog 的注册态；登录和找回密码分别由其它章节说明。 */
 export function WikiEmbedAuthRegisterRecovery() {
   return (
     <div
-      className="grid w-[min(100%,54rem)] gap-3 lg:grid-cols-3"
+      className="flex w-[min(100%,28rem)] justify-center"
       aria-hidden
       data-wiki-fixture="auth-register-recovery"
     >
-      <AuthPanel
-        title="验证码登录"
-        subtitle="可切换邮箱 / 手机"
-        icon={<KeyRound className="size-4" />}
-      >
-        <AuthField label="邮箱" value="you@university.edu" />
-        <AuthCodeField />
-        <AuthSubmit label="登录" />
-        <p className="text-center text-9 text-faint">
-          使用密码登录 · 还没有账号？立即注册
-        </p>
-      </AuthPanel>
-
-      <AuthPanel
-        title="注册 Scholay"
-        subtitle="验证码与密码均需校验"
-        icon={<UserRound className="size-4" />}
-      >
-        <AuthField label="邮箱" value="name@example.edu" />
-        <AuthCodeField />
-        <AuthField
-          label="设置密码"
-          value="至少 8 位，建议含字母和数字"
-          secret
-        />
-        <p className="flex items-start gap-2 text-9 leading-paragraph text-subtle">
-          <span className="mt-1 inline-flex size-3 items-center justify-center rounded-4 bg-brand-green text-on-dark">
-            <Check className="size-2" />
-          </span>
-          我已阅读服务条款和隐私政策
-        </p>
-        <AuthSubmit label="注册并登录" />
-      </AuthPanel>
-
-      <AuthPanel
-        title="找回密码"
-        subtitle="验证账号后设置新密码"
-        icon={<LockKeyhole className="size-4" />}
-      >
-        <AuthField label="邮箱" value="you@university.edu" />
-        <AuthCodeField />
-        <AuthField label="新密码" value="至少 8 位" secret />
-        <AuthSubmit label="重置密码" />
-        <p className="text-center text-9 text-brand-red">返回登录</p>
-      </AuthPanel>
+      <AuthDialogStatic title="创建账号" description="免费开始使用 Scholay">
+        <div className="space-y-4">
+          <AccountTabs />
+          <AuthField label="邮箱" value="you@example.com" />
+          <AuthCodeField />
+          <AuthField label="密码" value="至少 8 位，建议字母+数字" />
+          <p className="flex items-start gap-2 text-12 leading-paragraph text-subtle">
+            <span className="mt-1 inline-flex size-4 shrink-0 items-center justify-center rounded-4 border border-border bg-background">
+              <Check className="size-3 text-brand-green" />
+            </span>
+            我已阅读并同意 服务条款 与 隐私政策
+          </p>
+          <AuthPrimary>注册并登录</AuthPrimary>
+          <p className="text-center text-12 text-subtle">已有账号？ 返回登录</p>
+        </div>
+      </AuthDialogStatic>
     </div>
   );
 }
 
-function AuthPanel({
+function AuthDialogStatic({
   title,
-  subtitle,
-  icon,
+  description,
   children,
 }: {
   title: string;
-  subtitle: string;
-  icon: React.ReactNode;
+  description: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-12 border border-border bg-surface-card shadow-raised">
-      <header className="border-b border-border bg-surface-1 px-4 py-3">
-        <div className="flex items-center gap-2 text-12 font-medium text-foreground">
-          {icon}
-          {title}
-        </div>
-        <p className="mt-1 text-9 text-faint">{subtitle}</p>
+    <section className="relative w-[28rem] shrink-0 overflow-hidden rounded-8 border border-border bg-background shadow-overlay">
+      <X className="absolute right-4 top-4 size-4 text-faint" />
+      <header className="flex flex-col items-center gap-1 border-b border-border-hairline px-6 pb-4 pt-8">
+        <BrandLogo size="md" />
+        <h3 className="mt-2 text-16 font-medium text-foreground">{title}</h3>
+        <p className="text-12 text-subtle">{description}</p>
       </header>
-      <div className="space-y-3 p-4">{children}</div>
+      <div className="px-6 py-4">{children}</div>
+      <footer className="px-6 pb-6">
+        <div className="my-3 flex items-center">
+          <span className="h-px flex-1 bg-border-hairline" />
+          <span className="px-3 text-12 uppercase text-faint">或继续使用</span>
+          <span className="h-px flex-1 bg-border-hairline" />
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <OAuthIcon icon={Github} label="GitHub" />
+          <OAuthIcon icon={MessageCircle} label="微信" />
+          <OAuthIcon icon={UserRound} label="ORCID" />
+        </div>
+      </footer>
     </section>
   );
 }
 
-function AuthField({
-  label,
-  value,
-  secret,
-}: {
-  label: string;
-  value: string;
-  secret?: boolean;
-}) {
+function AccountTabs() {
+  return (
+    <div className="inline-flex items-center rounded-8 bg-surface-2 p-1 text-12">
+      <span className="inline-flex h-7 items-center rounded-4 bg-background px-3 text-foreground shadow-raised">
+        邮箱
+      </span>
+      <span className="inline-flex h-7 items-center px-3 text-subtle">
+        手机号
+      </span>
+    </div>
+  );
+}
+
+function AuthField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-9 font-medium text-faint">{label}</p>
-      <div className="mt-1 flex h-8 items-center rounded-8 border border-border px-3 text-10 text-subtle">
-        {secret ? "••••••••" : value}
+      <p className="mb-1 text-12 font-medium text-subtle">{label}</p>
+      <div className="flex h-10 items-center rounded-8 border border-border bg-background px-3 text-12 text-faint">
+        {value}
       </div>
     </div>
   );
@@ -234,10 +204,12 @@ function AuthField({
 function AuthCodeField() {
   return (
     <div>
-      <p className="text-9 font-medium text-faint">验证码</p>
-      <div className="mt-1 flex h-8 items-center rounded-8 border border-border pl-3 text-10 text-faint">
-        <span className="flex-1">6 位数字</span>
-        <span className="border-l border-border px-2 text-brand-red">
+      <p className="mb-1 text-12 font-medium text-subtle">验证码</p>
+      <div className="flex gap-2">
+        <div className="flex h-10 min-w-0 flex-1 items-center rounded-8 border border-border px-3 text-12 text-faint">
+          6 位数字
+        </div>
+        <span className="inline-flex h-10 shrink-0 items-center rounded-8 border border-border px-3 text-12 font-medium text-subtle">
           发送验证码
         </span>
       </div>
@@ -245,325 +217,457 @@ function AuthCodeField() {
   );
 }
 
-function AuthSubmit({ label }: { label: string }) {
+function AuthPrimary({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex h-8 w-full items-center justify-center rounded-8 bg-brand-red text-10 font-medium text-on-dark">
-      {label}
+    <span className="inline-flex h-10 w-full items-center justify-center rounded-8 bg-brand-red text-12 font-medium text-on-brand">
+      {children}
     </span>
   );
 }
 
-/** 账户资产页总览中的近期流水与月度用量热力图。 */
+function OAuthIcon({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <span
+      title={label}
+      className="inline-flex size-9 items-center justify-center rounded-8 border border-border text-subtle"
+    >
+      <Icon className="size-4" />
+    </span>
+  );
+}
+
+const BILLING_TABS: Array<[string, LucideIcon]> = [
+  ["总览", LayoutGrid],
+  ["经费充值", Coins],
+  ["兑换码激活", Ticket],
+  ["推广/邀请", UsersRound],
+  ["明细查看", FileText],
+  ["经费领取", Gift],
+];
+
+/** MembershipPage 的账户资产卡、分段导航与 OverviewContent。 */
 export function WikiEmbedBillingOverviewUsage() {
-  const heat = [
-    0, 1, 2, 0, 3, 4, 1, 0, 2, 1, 4, 3, 0, 0, 1, 2, 3, 4, 2, 1, 0, 3, 2, 4, 1,
-    0, 2, 3, 1, 4, 2,
+  const weeks: Array<Array<number | null>> = [
+    [null, null, null, null, null, null, 1],
+    [0, 2, 1, 0, 3, 1, 0],
+    [2, 4, 3, 0, 1, 2, 3],
+    [1, 0, 4, 2, 1, 3, 0],
+    [0, 2, 1, 4, 2, 0, 3],
+    [1, 0, 2, 0, 4, 1, 0],
   ];
   return (
     <div
-      className="grid w-[min(100%,50rem)] gap-4 lg:grid-cols-[1fr_18rem]"
+      className="flex w-[min(100%,60rem)] flex-col gap-4"
       aria-hidden
       data-wiki-fixture="billing-overview-usage"
     >
-      <section className="overflow-hidden rounded-12 border border-border bg-surface-card">
-        <header className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div>
-            <h3 className="text-13 font-medium text-foreground">近期流水</h3>
-            <p className="mt-1 text-9 text-faint">
-              经费余额的充值、活动与 AI 扣费
+      <section className="rounded-8 border border-border bg-background p-4">
+        <header className="mb-4 flex items-center justify-between gap-2">
+          <h3 className="text-12 font-medium text-foreground">账户资产</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-12 text-faint">Free</span>
+            <span className="inline-flex h-7 items-center gap-1 rounded-4 bg-brand-red px-3 text-12 font-medium text-on-brand">
+              <Sparkles className="size-3.5" /> 升级会员
+            </span>
+          </div>
+        </header>
+
+        <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="inline-flex h-6 shrink-0 items-center rounded-4 border border-border bg-surface-2 px-2 text-12 font-medium text-subtle">
+              FREE
+            </span>
+            <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-12 text-faint">
+              ?
+            </span>
+            <span className="shrink-0 text-12 font-medium text-subtle">
+              Free 剩余额度
+            </span>
+            <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
+              <div className="h-full w-3/4 rounded-pill bg-brand-green" />
+            </div>
+            <span className="w-9 shrink-0 text-right text-12 tabular-nums text-faint">
+              75%
+            </span>
+            <span className="flex shrink-0 items-center gap-1 text-12 text-faint">
+              <RefreshCw className="size-3" /> 3 天后重置
+            </span>
+            <span className="inline-flex size-7 items-center justify-center rounded-8 border border-border text-faint">
+              <RefreshCw className="size-3.5" />
+            </span>
+          </div>
+          <span className="h-10 w-px shrink-0 bg-border" />
+          <div className="flex w-36 shrink-0 flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Coins className="size-3.5 text-faint" />
+              <span className="text-20 font-medium tabular-nums text-foreground">
+                3,300
+              </span>
+              <span className="text-12 text-faint">经费</span>
+            </div>
+            <span className="text-12 text-faint">300 临时 · 08-31 失效</span>
+          </div>
+        </div>
+
+        <div className="my-3 h-px bg-border-hairline" />
+        <div className="flex flex-col gap-2">
+          <LockedQuota icon={Gem} label="Pro 额度" tone="amber" />
+          <LockedQuota icon={Crown} label="Max 额度" tone="red" />
+        </div>
+
+        <div className="mt-4 flex items-center gap-3 rounded-8 border border-border-hairline bg-surface-1 p-3">
+          <span className="inline-flex size-8 items-center justify-center rounded-pill bg-surface-2 text-faint">
+            <Gauge className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-12 font-medium text-foreground">额度区别</p>
+            <p className="mt-1 text-12 leading-paragraph text-subtle">
+              Free 为基础周期额度（7 天），Pro 是 Free 的 5 倍，Max 是 Pro 的 5
+              倍。
             </p>
           </div>
-          <span className="text-10 text-brand-red">查看全部</span>
-        </header>
-        <div className="divide-y divide-border-hairline">
-          {(
-            [
-              [
-                "AI 使用 · Prism 编译修复",
-                "今天 14:28",
-                "− 4.2",
-                "red",
-                Sparkles,
-              ],
-              ["充值到账", "8 月 10 日", "+ 3,000", "green", CircleDollarSign],
-              ["邀请活动奖励", "8 月 8 日", "+ 300", "green", Gift],
-              ["AI 使用 · 智能审稿", "8 月 7 日", "− 18.6", "red", ShieldCheck],
-            ] as Array<[string, string, string, string, LucideIcon]>
-          ).map(([title, date, amount, tone, Icon]) => (
-            <div
-              key={String(title)}
-              className="flex items-center gap-3 px-4 py-3"
-            >
-              <span className="inline-flex size-8 items-center justify-center rounded-8 bg-surface-1">
-                <Icon
-                  className={
-                    tone === "green"
-                      ? "size-4 text-brand-green"
-                      : "size-4 text-brand-red"
-                  }
-                />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-10 font-medium text-foreground">
-                  {title}
-                </p>
-                <p className="mt-1 text-9 text-faint">{date}</p>
-              </div>
-              <span
-                className={
-                  tone === "green"
-                    ? "text-11 font-medium tabular-nums text-brand-green"
-                    : "text-11 font-medium tabular-nums text-brand-red"
-                }
-              >
-                {amount}
-              </span>
-            </div>
-          ))}
+          <span className="text-12 tabular-nums text-faint">1/4</span>
+          <ChevronLeft className="size-3.5 text-faint" />
+          <ChevronRight className="size-3.5 text-faint" />
         </div>
       </section>
 
-      <section className="rounded-12 border border-border bg-surface-card p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-12 font-medium text-foreground">
-              本月每日用量
-            </h3>
-            <p className="mt-1 text-9 text-faint">相对活跃度，不显示绝对额度</p>
-          </div>
-          <BarChart3 className="size-4 text-brand-green" />
-        </div>
-        <div className="mt-5 grid grid-cols-7 gap-1">
-          {heat.map((level, index) => (
-            <span
-              key={index}
-              className={
-                level === 0
-                  ? "aspect-square rounded-4 bg-surface-2"
-                  : level === 1
-                    ? "aspect-square rounded-4 bg-brand-green/20"
-                    : level === 2
-                      ? "aspect-square rounded-4 bg-brand-green/40"
-                      : level === 3
-                        ? "aspect-square rounded-4 bg-brand-green/70"
-                        : "aspect-square rounded-4 bg-brand-green"
-              }
-            />
-          ))}
-        </div>
-        <div className="mt-3 flex items-center justify-between text-9 text-faint">
-          <span>8 月</span>
-          <span className="flex items-center gap-1">
-            少 <span className="size-3 rounded-4 bg-surface-2" />
-            <span className="size-3 rounded-4 bg-brand-green/40" />
-            <span className="size-3 rounded-4 bg-brand-green" /> 多
+      <div className="flex items-center gap-1 rounded-8 border border-border bg-surface-1 p-1">
+        {BILLING_TABS.map(([label, Icon], index) => (
+          <span
+            key={label}
+            className={
+              index === 0
+                ? "flex h-9 flex-1 items-center justify-center gap-2 rounded-4 bg-background text-12 font-medium text-brand-red shadow-raised"
+                : "flex h-9 flex-1 items-center justify-center gap-2 rounded-4 text-12 font-medium text-subtle"
+            }
+          >
+            <Icon className="size-3.5" /> {label}
           </span>
-        </div>
-        <div className="mt-4 rounded-8 bg-brand-green-soft p-3">
-          <p className="text-10 font-medium text-foreground">AI 周期额度</p>
-          <div className="mt-2 h-2 overflow-hidden rounded-pill bg-surface-card">
-            <div className="h-full w-3/4 rounded-pill bg-brand-green" />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <section className="rounded-8 border border-border bg-background p-4">
+          <header className="mb-3 flex items-center justify-between">
+            <h3 className="text-12 font-medium text-foreground">近期流水</h3>
+            <span className="text-12 text-subtle">查看全部</span>
+          </header>
+          <div className="flex flex-col gap-1">
+            {[
+              ["充值到账", "2026-08-10 09:32", "+3,000 经费", true],
+              ["任务奖励", "2026-08-08 17:05", "+300 经费", true],
+              ["重置消耗", "2026-08-07 14:28", "−100 经费", false],
+              ["礼品码", "2026-08-02 11:46", "+200 经费", true],
+            ].map(([title, date, amount, positive]) => (
+              <div
+                key={String(title)}
+                className="flex items-center justify-between border-b border-border-hairline py-2 last:border-0"
+              >
+                <div className="flex flex-col">
+                  <span className="text-12 text-subtle">{title}</span>
+                  <span className="text-12 text-faint">{date}</span>
+                </div>
+                <span
+                  className={
+                    positive
+                      ? "text-12 font-medium tabular-nums text-brand-green"
+                      : "text-12 font-medium tabular-nums text-brand-red"
+                  }
+                >
+                  {amount}
+                </span>
+              </div>
+            ))}
           </div>
-          <p className="mt-2 text-9 text-subtle">
-            剩余 75% · 周期结束后读取时恢复
-          </p>
-        </div>
-      </section>
+        </section>
+
+        <section className="rounded-8 border border-border bg-background p-4">
+          <header className="mb-3 flex items-center justify-between">
+            <h3 className="text-12 font-medium text-foreground">
+              本月每日活跃
+            </h3>
+            <span className="text-12 tabular-nums text-faint">19 天有使用</span>
+          </header>
+          <div className="flex gap-1">
+            <div className="flex flex-col gap-1 pr-1">
+              {["", "一", "", "三", "", "五", ""].map((day, index) => (
+                <span
+                  key={index}
+                  className="flex h-4 items-center text-12 text-faint"
+                >
+                  {day}
+                </span>
+              ))}
+            </div>
+            {weeks.map((week, weekIndex) => (
+              <div key={weekIndex} className="flex flex-col gap-1">
+                {week.map((level, dayIndex) => (
+                  <span
+                    key={dayIndex}
+                    className={
+                      level == null
+                        ? "size-4"
+                        : level === 0
+                          ? "size-4 rounded-4 bg-surface-2"
+                          : level === 1
+                            ? "size-4 rounded-4 bg-brand-green/25"
+                            : level === 2
+                              ? "size-4 rounded-4 bg-brand-green/50"
+                              : level === 3
+                                ? "size-4 rounded-4 bg-brand-green/75"
+                                : "size-4 rounded-4 bg-brand-green"
+                    }
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-1 text-12 text-faint">
+            少
+            <span className="size-3 rounded-4 bg-surface-2" />
+            <span className="size-3 rounded-4 bg-brand-green/25" />
+            <span className="size-3 rounded-4 bg-brand-green/50" />
+            <span className="size-3 rounded-4 bg-brand-green/75" />
+            <span className="size-3 rounded-4 bg-brand-green" />多
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
 
-/** 头像下拉中的会员状态、账户设置入口与退出操作。 */
+function LockedQuota({
+  icon: Icon,
+  label,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  tone: "amber" | "red";
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={
+          tone === "amber"
+            ? "inline-flex size-5 items-center justify-center rounded-4 bg-brand-amber/10 text-brand-amber"
+            : "inline-flex size-5 items-center justify-center rounded-4 bg-brand-red/10 text-brand-red"
+        }
+      >
+        <Icon className="size-3" />
+      </span>
+      <span className="text-12 font-medium text-faint">{label}</span>
+      <span className="h-2 flex-1 rounded-pill bg-surface-2" />
+      <span className="inline-flex items-center gap-1 rounded-pill border border-brand-red/40 px-2 py-1 text-12 font-medium text-brand-red">
+        <Lock className="size-3" /> 升级解锁
+      </span>
+    </div>
+  );
+}
+
+/** DropdownMenuContent + UserMenuContent 的真实 240px 布局。 */
 export function WikiEmbedUserAccountMenu() {
   return (
     <div
-      className="w-[min(100%,20rem)] overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay"
+      className="w-60 overflow-hidden rounded-12 border border-border bg-popover p-1 text-popover-foreground shadow-overlay"
       aria-hidden
       data-wiki-fixture="user-account-menu"
     >
-      <header className="flex items-center gap-3 border-b border-border p-4">
-        <span className="inline-flex size-10 items-center justify-center rounded-pill bg-brand-green-soft font-serif text-16 text-brand-green">
+      <header className="flex flex-col items-center gap-1 px-4 py-4">
+        <span className="mb-1 inline-flex size-13 items-center justify-center rounded-pill bg-primary text-16 font-medium text-primary-foreground">
           L
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-12 font-medium text-foreground">
-            Lin Chen
-          </p>
-          <p className="mt-1 truncate text-9 text-faint">
-            lin.chen@example.edu
-          </p>
-        </div>
-        <ChevronDown className="size-3 text-faint" />
+        <span className="text-14 font-medium text-foreground">Lin Chen</span>
+        <span className="text-12 text-faint">lin.chen@example.edu</span>
+        <span className="mt-1 inline-flex items-center rounded-pill bg-brand-green/10 px-3 py-1 text-12 font-medium text-brand-green">
+          Free
+        </span>
       </header>
-      <div className="border-b border-border p-3">
-        <div className="flex items-center gap-3 rounded-8 bg-brand-amber-soft p-3">
-          <Gem className="size-5 text-brand-amber" />
-          <div className="flex-1">
-            <p className="text-10 font-medium text-foreground">Free 会员</p>
-            <p className="mt-1 text-9 text-subtle">升级获得更高 AI 周期额度</p>
-          </div>
-          <span className="rounded-4 bg-brand-red px-2 py-1 text-9 font-medium text-on-dark">
-            升级
-          </span>
+      <div className="px-3 pb-3">
+        <div className="flex w-full items-center justify-center gap-2 rounded-8 bg-brand-red px-3 py-2 text-on-brand">
+          <Sparkles className="size-3.5" />
+          <span className="text-12 font-medium">升级会员</span>
         </div>
       </div>
+      <div className="-mx-1 my-1 h-px bg-border-hairline" />
       <nav className="p-2">
         {(
           [
             ["个人资料", UserRound],
-            ["账户资产", WalletCards],
-            ["安全设置", ShieldCheck],
-            ["第三方连接", Globe2],
-            ["帮助中心", HelpCircle],
+            ["账户资产", Crown],
+            ["安全设置", Shield],
+            ["已连接账号", Link2],
+            ["帮助中心", Info],
           ] as Array<[string, LucideIcon]>
-        ).map(([label, Icon], index) => (
+        ).map(([label, Icon]) => (
           <div
-            key={String(label)}
-            className={
-              index === 1
-                ? "flex items-center gap-3 rounded-8 bg-surface-1 px-3 py-2"
-                : "flex items-center gap-3 rounded-8 px-3 py-2"
-            }
+            key={label}
+            className="flex items-center gap-2 rounded-8 px-3 py-2"
           >
-            <Icon className="size-4 text-faint" />
-            <span className="flex-1 text-10 text-subtle">{label}</span>
-            <ChevronRight className="size-3 text-faint" />
+            <Icon className="size-3.5 text-faint" />
+            <span className="text-12 text-subtle">{label}</span>
           </div>
         ))}
       </nav>
-      <footer className="border-t border-border p-2">
-        <div className="flex items-center gap-3 rounded-8 px-3 py-2 text-10 text-brand-red">
-          <LogOut className="size-4" />
-          退出登录
+      <div className="-mx-1 my-1 h-px bg-border-hairline" />
+      <footer className="p-2">
+        <div className="flex items-center gap-2 rounded-8 px-3 py-2 text-brand-red">
+          <LogOut className="size-3.5" />
+          <span className="text-12">退出登录</span>
         </div>
       </footer>
     </div>
   );
 }
 
-/** 功能总览与共用营销落地页的内容模板，不含顶部营销导航。 */
+const MARKETING_ROWS = [
+  ["A12", "Attention Is All You Need", "2017 · 142k 引用"],
+  [
+    "B07",
+    "BERT: Pre-training of Deep Bidirectional Transformers",
+    "2019 · 89k 引用",
+  ],
+  ["C03", "GPT-3: Language Models are Few-Shot Learners", "2020 · 32k 引用"],
+  [
+    "D24",
+    "LLaMA: Open and Efficient Foundation Language Models",
+    "2023 · 12k 引用",
+  ],
+] as const;
+
+/** LandingTemplate 的 Search landing 首个同视口：Hero → TrustStrip → FeatureGrid 起点。 */
 export function WikiEmbedMarketingLandingTemplate() {
   return (
     <div
-      className="w-[min(100%,54rem)] overflow-hidden rounded-16 border border-border bg-surface-card"
+      className="h-[52rem] w-[min(100%,80rem)] overflow-hidden bg-background"
       aria-hidden
       data-wiki-fixture="marketing-landing-template"
     >
-      <section className="bg-foreground px-6 py-8 text-on-dark">
-        <p className="text-10 font-medium uppercase text-brand-green">
-          Scholay features
-        </p>
-        <div className="mt-3 grid gap-5 md:grid-cols-[1fr_18rem] md:items-end">
-          <div>
-            <h2 className="font-serif text-28 font-medium leading-display">
-              把研究材料，变成可核对的工作流
-            </h2>
-            <p className="mt-3 max-w-xl text-11 leading-paragraph text-on-dark-muted">
-              功能介绍页解释愿景与入口；真正的限制、数据与外部动作，以产品工作区和即时提示为准。
+      <section className="bg-background">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-12 py-20 lg:grid-cols-[1fr_35rem] lg:gap-16 lg:py-24">
+          <div className="flex flex-col gap-8">
+            <span className="inline-flex w-fit items-center gap-2 rounded-pill bg-surface-2 px-3 py-1 text-12 font-medium text-subtle">
+              <span className="text-brand-red">●</span> 全新发布 · 文献搜索 2.0
+            </span>
+            <h1 className="font-display text-32 font-medium text-foreground lg:text-display-64">
+              <span className="block leading-display-tight">用一句中文，</span>
+              <span className="block italic leading-display-tight">
+                读懂一整个研究领域。
+              </span>
+            </h1>
+            <p className="text-16 leading-paragraph text-subtle">
+              Scholay
+              文献搜索基于自然语言理解，跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索，让你像与同行对话一样发现关联文献。
             </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex h-11 items-center gap-2 rounded-8 bg-brand-red px-6 text-14 font-medium text-on-brand">
+                开始免费检索 <ArrowRight className="size-4" />
+              </span>
+              <span className="inline-flex h-11 items-center rounded-8 border border-border px-6 text-14 font-medium text-subtle">
+                观看 2 分钟演示
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-6">
+              {["无需信用卡", "支持中英文", "学生免费"].map((item) => (
+                <span
+                  key={item}
+                  className="inline-flex items-center gap-2 text-14 text-subtle"
+                >
+                  <Check className="size-3.5 text-brand-green" /> {item}
+                </span>
+              ))}
+            </div>
           </div>
-          <div className="rounded-12 border border-border-strong bg-surface-inverse p-4">
-            <p className="text-10 text-on-dark-muted">本页 CTA</p>
-            <span className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1 rounded-8 bg-brand-red text-10 font-medium text-on-dark">
-              进入真实工作区 <ArrowRight className="size-3" />
+
+          <div className="flex flex-col gap-4 rounded-12 border border-border bg-surface-1 p-4 shadow-overlay">
+            <div className="flex items-center gap-2">
+              <span className="size-2.5 rounded-pill bg-brand-red" />
+              <span className="size-2.5 rounded-pill bg-brand-amber" />
+              <span className="size-2.5 rounded-pill bg-brand-green" />
+              <span className="flex-1" />
+              <span className="text-12 text-faint">scholay.ai/search</span>
+            </div>
+            <div className="flex items-center gap-3 rounded-8 border border-border-hairline bg-background px-4 py-3">
+              <Search className="size-4 shrink-0 text-subtle" />
+              <span className="min-w-0 flex-1 truncate text-14 text-foreground">
+                大语言模型在低资源语言上的对齐方法有哪些进展？
+              </span>
+              <span className="rounded-4 bg-prism-badge-bg px-2 py-1 text-12 font-medium text-prism-badge-fg">
+                Enter
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {["语义", "引文矩阵", "图谱", "2022–2025"].map((chip, index) => (
+                <span
+                  key={chip}
+                  className={
+                    index === 0
+                      ? "rounded-pill bg-foreground px-3 py-1 text-12 text-on-dark"
+                      : "rounded-pill border border-border-hairline bg-background px-3 py-1 text-12 text-subtle"
+                  }
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+            <div className="overflow-hidden rounded-8 border border-border-hairline bg-background">
+              <header className="flex items-center justify-between border-b border-border-hairline bg-surface-1 px-4 py-2">
+                <span className="text-12 font-medium text-foreground">
+                  引文矩阵
+                </span>
+                <span className="text-12 tabular-nums text-subtle">
+                  12 篇结果
+                </span>
+              </header>
+              <ul className="divide-y divide-border-hairline">
+                {MARKETING_ROWS.map(([tag, title, meta]) => (
+                  <li key={tag} className="flex items-center gap-3 px-4 py-2">
+                    <span className="inline-flex w-12 items-center justify-center rounded-4 bg-prism-badge-bg px-2 py-1 text-12 font-medium tabular-nums text-prism-badge-fg">
+                      {tag}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-14 font-medium text-foreground">
+                        {title}
+                      </p>
+                      <p className="text-12 text-subtle">{meta}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <span className="inline-flex w-fit items-center gap-2 rounded-8 border border-border-hairline bg-background px-3 py-2 text-12 font-medium text-subtle">
+              <Share2 className="size-3.5 text-brand-green" /> 已检测到 3
+              条跨论文关联 →
             </span>
           </div>
         </div>
       </section>
 
-      <section className="p-5">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="text-10 font-medium text-brand-red">功能总览</p>
-            <h3 className="mt-1 font-serif text-20 font-medium text-foreground">
-              选择你的下一步
-            </h3>
+      <section className="border-y border-border-hairline bg-surface-1">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-12 py-10">
+          <span className="text-12 font-medium uppercase text-subtle">
+            已被全球 280+ 实验室与研究小组使用
+          </span>
+          <div className="flex flex-wrap items-center justify-center gap-12 text-18 font-medium text-subtle">
+            <span className="font-display italic">Tsinghua</span>
+            <span>PEKING UNIV.</span>
+            <span className="font-display">复旦大学</span>
+            <span className="font-display italic">Nature</span>
+            <span>NeurIPS</span>
+            <span className="font-display">arXiv</span>
           </div>
-          <span className="text-9 text-faint">6 个产品工作区</span>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {(
-            [
-              ["学术搜索", Search, "检索、筛选与暂存"],
-              ["个人文献集", Library, "整理、分享与 PDF"],
-              ["Prism", FileText, "结构化写作与编译"],
-              ["Claw", Sparkles, "研究对话与交付物"],
-              ["智能审稿", ShieldCheck, "投稿前风险检查"],
-              ["功能广场", Menu, "工具与社区 Skills"],
-            ] as Array<[string, LucideIcon, string]>
-          ).map(([title, Icon, body], index) => (
-            <article
-              key={String(title)}
-              className={
-                index === 3
-                  ? "rounded-12 bg-foreground p-3 text-on-dark"
-                  : "rounded-12 border border-border bg-surface-1 p-3"
-              }
-            >
-              <Icon
-                className={
-                  index === 3
-                    ? "size-5 text-brand-green"
-                    : "size-5 text-brand-red"
-                }
-              />
-              <h4
-                className={
-                  index === 3
-                    ? "mt-3 text-11 font-medium text-on-dark"
-                    : "mt-3 text-11 font-medium text-foreground"
-                }
-              >
-                {title}
-              </h4>
-              <p
-                className={
-                  index === 3
-                    ? "mt-1 text-9 text-on-dark-muted"
-                    : "mt-1 text-9 text-faint"
-                }
-              >
-                {body}
-              </p>
-            </article>
-          ))}
         </div>
       </section>
 
-      <section className="grid border-t border-border bg-brand-amber-soft md:grid-cols-[1fr_1fr]">
-        <div className="border-b border-border p-5 md:border-b-0 md:border-r">
-          <p className="text-10 font-medium text-brand-amber">标准落地页结构</p>
-          <ol className="mt-3 space-y-2">
-            {[
-              "价值主张与 CTA",
-              "信任条与核心能力",
-              "工作流与使用场景",
-              "比较、数字、FAQ 与底部 CTA",
-            ].map((item, index) => (
-              <li
-                key={item}
-                className="flex items-center gap-2 text-10 text-subtle"
-              >
-                <span className="inline-flex size-5 items-center justify-center rounded-pill bg-surface-card text-9 text-brand-amber">
-                  {index + 1}
-                </span>
-                {item}
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div className="p-5">
-          <p className="text-10 font-medium text-brand-red">实装边界</p>
-          <p className="mt-3 text-10 leading-paragraph text-subtle">
-            Zotero / EndNote
-            等占位、真实投稿、多人实时协作与静态宣传数字不能因落地页出现就视为已实装。Wiki
-            应把愿景留在营销语境，并指向现行工作区事实。
+      <section className="bg-surface-1 px-12 py-20">
+        <div className="mx-auto max-w-7xl text-center">
+          <p className="text-12 font-medium uppercase text-subtle">
+            为什么选择 SCHOLAY 搜索
           </p>
-          <div className="mt-4 flex items-center gap-2 text-9 text-faint">
-            <CheckCircle2 className="size-3 text-brand-green" /> 真实入口可验证{" "}
-            <span>·</span>
-            <ExternalLink className="size-3" /> 外部动作需另行确认
-          </div>
+          <h2 className="mt-4 font-display text-32 font-medium text-foreground">
+            不是关键词搜索，是研究语义搜索。
+          </h2>
         </div>
       </section>
     </div>

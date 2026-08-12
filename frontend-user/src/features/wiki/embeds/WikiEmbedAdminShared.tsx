@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,6 +11,181 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+
+/**
+ * Admin screenshots come from the sibling mock, whose neutral palette, radii
+ * and compact type scale predate the current Scholar application theme. Keep
+ * those tokens local to the frozen Wiki surface so the source utility roles
+ * render with the same visual values without leaking into the article shell.
+ */
+export const ADMIN_MOCK_THEME = {
+  "--wiki-admin-background": "0 0% 100%",
+  "--wiki-admin-surface-1": "0 0% 98%",
+  "--wiki-admin-surface-2": "0 0% 96.1%",
+  "--wiki-admin-surface-3": "0 0% 97.3%",
+  "--wiki-admin-foreground": "0 0% 6.7%",
+  "--wiki-admin-subtle": "0 0% 26.7%",
+  "--wiki-admin-muted": "0 0% 40%",
+  "--wiki-admin-faint": "0 0% 60%",
+  "--wiki-admin-border-soft": "0 0% 93.3%",
+  "--wiki-admin-border": "0 0% 91.4%",
+  "--wiki-admin-border-strong": "0 0% 84.7%",
+  "--wiki-admin-red": "0 71% 47%",
+  "--wiki-admin-green": "120 49% 32%",
+  "--wiki-admin-amber": "41 84% 47%",
+  "--background": "hsl(var(--wiki-admin-background))",
+  "--surface-card": "hsl(var(--wiki-admin-background))",
+  "--surface-1": "hsl(var(--wiki-admin-surface-1))",
+  "--surface-2": "hsl(var(--wiki-admin-surface-2))",
+  "--surface-3": "hsl(var(--wiki-admin-surface-3))",
+  "--foreground": "hsl(var(--wiki-admin-foreground))",
+  "--subtle-foreground": "hsl(var(--wiki-admin-subtle))",
+  "--muted-foreground": "hsl(var(--wiki-admin-muted))",
+  "--faint-foreground": "hsl(var(--wiki-admin-faint))",
+  "--border-hairline": "hsl(var(--wiki-admin-border-soft))",
+  "--border": "hsl(var(--wiki-admin-border))",
+  "--border-strong": "hsl(var(--wiki-admin-border-strong))",
+  "--brand-red": "hsl(var(--wiki-admin-red))",
+  "--brand-green": "hsl(var(--wiki-admin-green))",
+  "--brand-amber": "hsl(var(--wiki-admin-amber))",
+  "--brand-red-soft":
+    "color-mix(in srgb, hsl(var(--wiki-admin-red)) 6%, hsl(var(--wiki-admin-background)))",
+  "--brand-green-soft":
+    "color-mix(in srgb, hsl(var(--wiki-admin-green)) 10%, hsl(var(--wiki-admin-background)))",
+  "--brand-amber-soft":
+    "color-mix(in srgb, hsl(var(--wiki-admin-amber)) 12%, hsl(var(--wiki-admin-background)))",
+  "--radius-4": "0.25rem",
+  "--radius-8": "0.375rem",
+  "--radius-12": "0.5rem",
+  "--radius-16": "0.75rem",
+  "--radius-20": "1rem",
+  "--text-12": "0.625rem",
+  "--text-14": "0.6875rem",
+  "--text-16": "0.75rem",
+  "--text-18": "0.8125rem",
+  "--text-20": "0.875rem",
+  "--text-24": "1rem",
+  "--text-28": "1.25rem",
+  "--text-32": "1.5rem",
+  "--font-weight-medium": "700",
+} as CSSProperties;
+
+export function AdminMockPage({
+  fixture,
+  title,
+  description,
+  actions,
+  tabs,
+  children,
+}: {
+  fixture: string;
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  tabs?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="w-full max-w-5xl overflow-hidden rounded-12 border border-border bg-surface-1"
+      style={ADMIN_MOCK_THEME}
+      aria-hidden
+      data-wiki-fixture={fixture}
+    >
+      <header className="border-b border-border-hairline bg-background px-6 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-28 font-medium text-foreground">
+              {title}
+            </h2>
+            {description ? (
+              <p className="mt-1 text-20 text-muted-foreground">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          {actions ? (
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+              {actions}
+            </div>
+          ) : null}
+        </div>
+        {tabs ? <div className="mt-3">{tabs}</div> : null}
+      </header>
+      <div className="p-3 sm:p-4 lg:p-6">{children}</div>
+    </div>
+  );
+}
+
+export function AdminMockTabs({
+  items,
+  active,
+}: {
+  items: readonly string[];
+  active: string;
+}) {
+  return (
+    <div className="inline-flex h-8 items-center rounded-8 bg-surface-2 p-1">
+      {items.map((item) => (
+        <span
+          key={item}
+          className={cn(
+            "inline-flex h-6 items-center rounded-4 px-3 text-14 font-medium",
+            item === active
+              ? "bg-background text-foreground shadow-raised"
+              : "text-muted-foreground",
+          )}
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function AdminMockButton({
+  children,
+  tone = "primary",
+}: {
+  children: ReactNode;
+  tone?: "primary" | "outline" | "ghost";
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-8 px-3 text-14 font-medium",
+        tone === "primary" && "bg-foreground text-on-dark",
+        tone === "outline" &&
+          "border border-border bg-background text-foreground",
+        tone === "ghost" && "text-muted-foreground",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function AdminMockBadge({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "green" | "amber" | "red";
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 items-center rounded-4 border px-2 text-12 font-medium",
+        tone === "neutral" && "border-border text-muted-foreground",
+        tone === "green" && "border-brand-green text-brand-green",
+        tone === "amber" && "border-brand-amber text-brand-amber",
+        tone === "red" && "border-brand-red text-brand-red",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
 
 export type AdminTone = "neutral" | "green" | "amber" | "red" | "blue";
 
@@ -207,6 +383,7 @@ export function AdminTableFixture({
   return (
     <div
       className="w-full max-w-5xl overflow-hidden rounded-12 border border-border bg-surface-1"
+      style={ADMIN_MOCK_THEME}
       aria-hidden
       data-wiki-fixture={fixture}
     >
@@ -348,6 +525,7 @@ export function AdminSettingsFixture({
   return (
     <div
       className="w-full max-w-5xl overflow-hidden rounded-12 border border-border bg-surface-1"
+      style={ADMIN_MOCK_THEME}
       aria-hidden
       data-wiki-fixture={fixture}
     >
@@ -459,6 +637,7 @@ export function AdminAnalyticsFixture({
   return (
     <div
       className="w-full max-w-5xl overflow-hidden rounded-12 border border-border bg-surface-1"
+      style={ADMIN_MOCK_THEME}
       aria-hidden
       data-wiki-fixture={fixture}
     >

@@ -1,90 +1,119 @@
-import { Download, ReceiptText } from "lucide-react";
+import { ChevronDown, Download, Undo2 } from "lucide-react";
 
 const ORDERS = [
   {
     time: "2026-08-08 14:20",
     type: "订阅",
-    tone: "bg-brand-green-soft text-brand-green",
     desc: "Pro 月度会员",
     amount: "¥59.00",
   },
   {
     time: "2026-07-21 09:10",
     type: "充值",
-    tone: "bg-brand-amber-soft text-brand-amber",
-    desc: "科研经费充值",
+    desc: "经费充值",
     amount: "¥100.00",
   },
   {
     time: "2026-07-08 14:16",
     type: "订阅",
-    tone: "bg-brand-green-soft text-brand-green",
     desc: "Pro 月度会员",
     amount: "¥59.00",
+    refund: "已退款",
   },
 ] as const;
 
-/**
- * 用户订单明细 · 纯样式 fixture。
- * 来源：product-mock settings/components/billing-panels.tsx::OrdersTable；行数据为示例。
- */
+/** OrdersTable 的已支付订单代表态，包含当前退款叠加标记。 */
 export function WikiEmbedBillingOrders() {
   return (
-    <div
-      className="w-[min(100%,44rem)] rounded-12 border border-border bg-surface-card p-4 md:p-6"
+    <section
+      className="w-[min(100%,48rem)] rounded-16 border border-border bg-surface-card p-[var(--orders-card-pad)] [--orders-card-pad:1.25rem]"
       aria-hidden
       data-wiki-fixture="billing-orders"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ReceiptText className="size-4 text-subtle" />
-          <div>
-            <p className="text-14 font-medium text-foreground">订单明细</p>
-            <p className="text-12 text-faint">示例订单 · 支持订阅 / 充值筛选</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-12">
-          <span className="rounded-8 bg-foreground px-3 py-2 text-on-dark">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1">
+          <span className="inline-flex h-7 items-center rounded-8 bg-foreground px-3 text-12 text-on-dark">
             全部
           </span>
-          <span className="rounded-8 bg-surface-1 px-3 py-2 text-subtle">
+          <span className="inline-flex h-7 items-center rounded-8 bg-surface-2 px-3 text-12 text-subtle">
             订阅
           </span>
-          <span className="rounded-8 bg-surface-1 px-3 py-2 text-subtle">
+          <span className="inline-flex h-7 items-center rounded-8 bg-surface-2 px-3 text-12 text-subtle">
             充值
           </span>
-          <span className="inline-flex items-center gap-1 rounded-8 border border-border px-3 py-2 text-subtle">
-            <Download className="size-3" /> 导出
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-9 items-center gap-3 rounded-8 border border-border bg-surface-card px-3 text-12 text-subtle">
+            全部月份
+            <ChevronDown className="size-3 text-faint" />
+          </span>
+          <span className="inline-flex h-9 items-center gap-1 rounded-8 border border-border px-3 text-12 text-subtle">
+            <Download className="size-3" />
+            导出
           </span>
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-8 border border-border">
-        <div className="grid grid-cols-[1.2fr_0.6fr_1.4fr] border-b border-border bg-surface-1 px-3 py-2 text-12 text-faint">
-          <span>时间</span>
-          <span>类型</span>
-          <span className="text-right">说明 / 金额</span>
-        </div>
-        {ORDERS.map((order) => (
-          <div
-            key={`${order.time}-${order.type}`}
-            className="grid grid-cols-[1.2fr_0.6fr_1.4fr] items-center border-b border-border px-3 py-3 text-12 last:border-b-0"
-          >
-            <span className="tabular-nums text-subtle">{order.time}</span>
-            <span
-              className={`w-fit rounded-pill px-2 py-1 font-medium ${order.tone}`}
-            >
-              {order.type}
-            </span>
-            <span className="text-right text-subtle">
-              {order.desc}
-              <strong className="ml-2 font-medium tabular-nums text-foreground">
-                {order.amount}
-              </strong>
-            </span>
-          </div>
-        ))}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[34rem] text-12">
+          <thead>
+            <tr className="border-b border-border text-faint">
+              <th className="py-2 text-left font-medium">时间</th>
+              <th className="py-2 text-left font-medium">类型</th>
+              <th className="py-2 text-right font-medium">说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ORDERS.map((order) => (
+              <tr
+                key={`${order.time}-${order.type}`}
+                className="border-b border-border-soft last:border-0"
+              >
+                <td className="py-3 tabular-nums text-subtle">{order.time}</td>
+                <td className="py-3">
+                  <span
+                    className={`rounded-pill px-2 py-1 font-medium ${
+                      order.type === "订阅"
+                        ? "bg-brand-green/10 text-brand-green"
+                        : "bg-warning-soft text-brand-amber"
+                    }`}
+                  >
+                    {order.type}
+                  </span>
+                </td>
+                <td className="py-3 text-right text-subtle">
+                  <span className="inline-flex items-center justify-end gap-2">
+                    <span>{order.desc}</span>
+                    {"refund" in order ? (
+                      <span className="inline-flex items-center gap-1 rounded-pill bg-surface-2 px-2 py-1 text-faint">
+                        <Undo2 className="size-3" />
+                        {order.refund}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`font-medium tabular-nums ${
+                        "refund" in order
+                          ? "text-muted-foreground"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {order.amount}
+                    </span>
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </div>
+
+      <p className="mt-3 text-12 leading-paragraph text-faint">
+        “用经费继续”的扣费按天合并成一条记录，当天用多少就累加多少。
+      </p>
+      <p className="mt-1 text-12 leading-paragraph text-faint">
+        已退款订单保留原实付金额，并单独标出退款状态与退回金额。
+      </p>
+    </section>
   );
 }

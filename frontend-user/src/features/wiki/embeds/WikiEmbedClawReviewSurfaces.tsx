@@ -1,150 +1,228 @@
+import type { CSSProperties } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
-  CheckCircle2,
+  ChevronLeft,
   ChevronRight,
-  Clock3,
   Download,
   Eye,
   FileSpreadsheet,
   FileText,
   FolderArchive,
   Image,
-  Loader2,
-  MoreHorizontal,
-  ShieldCheck,
+  Info,
+  Plus,
   Sparkles,
-  UploadCloud,
+  Trash2,
 } from "lucide-react";
 
+const MOCK_THEME = {
+  "--wiki-mock-background": "0 0% 100%",
+  "--wiki-mock-surface-1": "0 0% 98%",
+  "--wiki-mock-surface-2": "0 0% 96.1%",
+  "--wiki-mock-surface-3": "0 0% 97.3%",
+  "--wiki-mock-foreground": "0 0% 6.7%",
+  "--wiki-mock-subtle": "0 0% 26.7%",
+  "--wiki-mock-muted": "0 0% 40%",
+  "--wiki-mock-faint": "0 0% 60%",
+  "--wiki-mock-border-soft": "0 0% 93.3%",
+  "--wiki-mock-border": "0 0% 91.4%",
+  "--wiki-mock-border-strong": "0 0% 84.7%",
+  "--wiki-mock-red": "0 71% 47%",
+  "--wiki-mock-green": "120 49% 32%",
+  "--wiki-mock-amber": "41 84% 47%",
+  "--wiki-mock-danger-soft": "0 100% 98%",
+  "--wiki-mock-warning-soft": "41 47% 90%",
+  "--wiki-mock-shadow": "0 0 0",
+  "--wiki-mock-space-2": "0.125rem",
+  "--wiki-mock-space-6": "0.375rem",
+  "--wiki-mock-space-10": "0.625rem",
+  "--wiki-mock-space-14": "0.875rem",
+  "--wiki-mock-space-20": "1.25rem",
+  "--wiki-mock-space-28": "1.75rem",
+  "--background": "hsl(var(--wiki-mock-background))",
+  "--surface-card": "hsl(var(--wiki-mock-background))",
+  "--surface-1": "hsl(var(--wiki-mock-surface-1))",
+  "--surface-2": "hsl(var(--wiki-mock-surface-2))",
+  "--surface-3": "hsl(var(--wiki-mock-surface-3))",
+  "--foreground": "hsl(var(--wiki-mock-foreground))",
+  "--subtle-foreground": "hsl(var(--wiki-mock-subtle))",
+  "--muted-foreground": "hsl(var(--wiki-mock-muted))",
+  "--faint-foreground": "hsl(var(--wiki-mock-faint))",
+  "--border-hairline": "hsl(var(--wiki-mock-border-soft))",
+  "--border": "hsl(var(--wiki-mock-border))",
+  "--border-strong": "hsl(var(--wiki-mock-border-strong))",
+  "--brand-red": "hsl(var(--wiki-mock-red))",
+  "--brand-green": "hsl(var(--wiki-mock-green))",
+  "--brand-amber": "hsl(var(--wiki-mock-amber))",
+  "--brand-red-soft": "hsl(var(--wiki-mock-danger-soft))",
+  "--brand-green-soft":
+    "color-mix(in srgb, hsl(var(--wiki-mock-green)) 10%, hsl(var(--wiki-mock-background)))",
+  "--brand-amber-soft": "hsl(var(--wiki-mock-warning-soft))",
+  "--status-error": "hsl(var(--wiki-mock-red))",
+  "--status-error-soft": "hsl(var(--wiki-mock-danger-soft))",
+  "--destructive": "hsl(var(--wiki-mock-red))",
+  "--on-brand": "hsl(var(--wiki-mock-background))",
+  "--radius-4": "0.25rem",
+  "--radius-8": "0.375rem",
+  "--radius-12": "0.5rem",
+  "--radius-16": "0.75rem",
+  "--radius-20": "1rem",
+  "--text-12": "0.625rem",
+  "--text-14": "0.6875rem",
+  "--text-16": "0.75rem",
+  "--text-18": "0.8125rem",
+  "--text-20": "0.875rem",
+  "--text-24": "1rem",
+  "--text-28": "1.25rem",
+  "--text-32": "1.5rem",
+  "--font-weight-medium": "700",
+  "--shadow-raised": "0 1px 2px 0 rgb(var(--wiki-mock-shadow) / 0.05)",
+  "--shadow-overlay":
+    "0 10px 15px -3px rgb(var(--wiki-mock-shadow) / 0.1), 0 4px 6px -4px rgb(var(--wiki-mock-shadow) / 0.1)",
+} as CSSProperties;
+
 const ARTIFACTS = [
-  ["literature-review.md", "Markdown · 18 KB", "preview"],
-  ["evidence-matrix.xlsx", "表格 · 42 KB", "preview"],
-  ["references.zip", "文件夹 · 打包下载", "download"],
+  {
+    name: "literature-review.md",
+    description: "Markdown · 18 KB",
+    icon: FileText,
+    preview: true,
+  },
+  {
+    name: "evidence-matrix.xlsx",
+    description: "表格 · 42 KB",
+    icon: FileSpreadsheet,
+    preview: true,
+  },
+  {
+    name: "references",
+    description: "文件夹 · 打包为 zip 下载",
+    icon: FolderArchive,
+    preview: false,
+  },
 ] as const;
 
-/** Claw 一轮回答的交付文件、科研图与右侧预览区。 */
+/** Claw 回答区文件卡、图像生成态与右侧表格预览的同状态静态截面。 */
 export function WikiEmbedClawArtifactOutput() {
   return (
     <div
-      className="grid w-[min(100%,54rem)] overflow-hidden rounded-12 border border-border bg-surface-card lg:grid-cols-[1fr_22rem]"
+      className="grid min-h-[28rem] w-[min(100%,58rem)] overflow-hidden bg-background lg:grid-cols-[1fr_22rem]"
+      style={MOCK_THEME}
       aria-hidden
       data-wiki-fixture="claw-artifact-output"
     >
-      <main className="min-w-0 border-b border-border p-4 lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2 text-12 font-medium text-brand-green">
-          <Sparkles className="size-4" /> AI 交付
-        </div>
-        <p className="mt-2 text-12 leading-paragraph text-subtle">
-          已整理关键论点、证据矩阵和可复核的参考文献包。文件交付物与消息摘要分别保存。
+      <main className="min-w-0 p-4 lg:border-r lg:border-border">
+        <p className="mb-3 text-18 leading-paragraph text-subtle">
+          已整理关键论点、证据矩阵和可复核的参考文献包。
         </p>
 
-        <div className="mt-4 overflow-hidden rounded-12 border border-brand-green/30 bg-brand-green-soft">
-          {ARTIFACTS.map(([name, meta, action], index) => (
-            <div
-              key={name}
-              className="flex items-center gap-3 border-b border-brand-green/20 p-3 last:border-0"
-            >
-              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-card text-brand-green">
-                {index === 0 ? (
-                  <FileText className="size-4" />
-                ) : index === 1 ? (
-                  <FileSpreadsheet className="size-4" />
-                ) : (
-                  <FolderArchive className="size-4" />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-12 font-medium text-foreground">
-                  {name}
-                </p>
-                <p className="mt-1 text-10 text-faint">{meta}</p>
-              </div>
-              <span className="inline-flex h-7 items-center gap-1 rounded-4 border border-brand-green/30 bg-surface-card px-2 text-10 text-brand-green">
-                {action === "preview" ? (
-                  <Eye className="size-3" />
-                ) : (
-                  <Download className="size-3" />
-                )}
-                {action === "preview" ? "预览" : "下载"}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <figure className="mt-4 overflow-hidden rounded-12 border border-border">
-          <div className="flex items-center justify-between border-b border-border bg-surface-1 px-3 py-2">
-            <figcaption className="flex items-center gap-1 text-11 font-medium text-foreground">
-              <Image className="size-4 text-brand-amber" /> evidence-flow.svg
-            </figcaption>
-            <span className="text-10 text-faint">科研绘图 · 可下载 SVG</span>
+        <section className="rounded-12 border border-brand-green/30 bg-brand-green/5 p-[var(--wiki-mock-space-10)]">
+          <div className="mb-2 flex items-center gap-[var(--wiki-mock-space-6)] px-[var(--wiki-mock-space-2)] text-12 font-medium text-brand-green">
+            <Sparkles className="size-[var(--wiki-mock-space-14)]" />
+            生成的文件
           </div>
-          <div className="grid h-28 grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 bg-surface-card px-4">
-            {[
-              ["检索", "2,483 篇"],
-              ["筛选", "126 篇"],
-              ["综合", "18 条证据"],
-            ].map(([label, meta], index) => (
-              <div key={label} className="contents">
-                <div
-                  className={
-                    index === 1
-                      ? "rounded-8 border border-brand-amber bg-brand-amber-soft p-3 text-center"
-                      : "rounded-8 border border-brand-green bg-brand-green-soft p-3 text-center"
-                  }
-                >
-                  <p className="text-11 font-medium text-foreground">{label}</p>
-                  <p className="mt-1 text-10 text-faint">{meta}</p>
+          <div className="flex flex-col gap-[var(--wiki-mock-space-6)]">
+            {ARTIFACTS.map(({ name, description, icon: Icon, preview }) => (
+              <div
+                key={name}
+                className="flex items-center gap-[var(--wiki-mock-space-10)] rounded-8 border border-border bg-background px-3 py-2"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-8 bg-brand-green/10">
+                  <Icon className="size-4 text-brand-green" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-16 font-medium text-foreground">
+                    {name}
+                    {!preview ? "/" : ""}
+                  </div>
+                  <div className="truncate text-12 text-muted-foreground">
+                    {description}
+                  </div>
                 </div>
-                {index < 2 ? (
-                  <ArrowRight className="size-4 text-faint" />
+                {preview ? (
+                  <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-8 border border-border px-2 text-12 text-subtle">
+                    <Eye className="size-[var(--wiki-mock-space-14)]" /> 预览
+                  </span>
                 ) : null}
+                <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-8 bg-brand-green px-2 text-12 font-medium text-on-brand">
+                  <Download className="size-[var(--wiki-mock-space-14)]" />
+                  {preview ? "下载" : "打包下载"}
+                </span>
               </div>
             ))}
           </div>
+        </section>
+
+        <figure className="mt-3 rounded-12 border border-brand-green/25 bg-brand-green/[0.03] p-[var(--wiki-mock-space-10)]">
+          <div className="flex h-40 w-full items-center justify-center rounded-8 border border-border bg-background text-12 text-muted-foreground">
+            <Image className="mr-2 size-4 text-brand-green" />
+            图像生成中…
+          </div>
+          <figcaption className="mt-[var(--wiki-mock-space-6)] px-[var(--wiki-mock-space-2)] text-12 text-muted-foreground">
+            evidence-flow
+          </figcaption>
         </figure>
       </main>
 
-      <aside className="min-w-0 bg-surface-1">
-        <header className="flex h-11 items-center gap-2 border-b border-border px-3">
-          <ArrowLeft className="size-4 text-faint" />
-          <span className="min-w-0 flex-1 truncate text-12 font-medium text-foreground">
-            evidence-matrix.xlsx
-          </span>
-          <Download className="size-4 text-faint" />
-        </header>
-        <div className="p-3">
-          <div className="overflow-hidden rounded-8 border border-border bg-surface-card">
-            <div className="grid grid-cols-[2rem_1.2fr_1fr] bg-brand-green-soft text-10 font-medium text-foreground">
-              <span className="border-r border-border p-2">#</span>
-              <span className="border-r border-border p-2">研究</span>
-              <span className="p-2">核心发现</span>
+      <aside className="flex min-h-0 min-w-0 flex-col bg-background">
+        <div className="flex h-9 shrink-0 items-center gap-[var(--wiki-mock-space-6)] border-b border-border px-3">
+          <ArrowLeft className="size-[var(--wiki-mock-space-14)] text-muted-foreground" />
+          <span className="text-16 text-muted-foreground">返回成果列表</span>
+        </div>
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-16 font-medium text-foreground">
+              evidence-matrix.xlsx
             </div>
-            {[
-              ["1", "Lewis 2020", "检索增强减少知识错误"],
-              ["2", "Guu 2020", "预训练阶段接入语料库"],
-              ["3", "Izacard 2021", "多文档融合提升问答"],
-              ["4", "Gao 2024", "评估需覆盖检索与生成"],
-            ].map((row) => (
-              <div
-                key={row[0]}
-                className="grid grid-cols-[2rem_1.2fr_1fr] border-t border-border-hairline text-9 text-subtle"
-              >
-                {row.map((cell, index) => (
-                  <span
-                    key={cell}
-                    className={index < 2 ? "border-r border-border p-2" : "p-2"}
-                  >
-                    {cell}
-                  </span>
-                ))}
-              </div>
-            ))}
+            <div className="truncate text-12 text-muted-foreground">
+              证据矩阵 · 42 KB
+            </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-10 text-faint">
-            <span>工作表 1 / 2</span>
-            <span>100%</span>
+          <span className="inline-flex h-7 shrink-0 items-center gap-1 px-2 text-14 text-muted-foreground">
+            <Download className="size-[var(--wiki-mock-space-14)]" /> 下载
+          </span>
+        </header>
+
+        <div className="flex min-h-0 flex-1 flex-col bg-surface-1">
+          <div className="flex shrink-0 items-center gap-1 overflow-hidden border-b border-border bg-surface-1 px-2 py-1">
+            <span className="inline-flex items-center rounded-4 bg-foreground px-2 py-1 text-12 text-on-dark">
+              Sheet1
+            </span>
+            <span className="inline-flex items-center rounded-4 px-2 py-1 text-12 text-muted-foreground">
+              Notes
+            </span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden p-3">
+            <table className="w-full border-collapse text-14 tabular-nums">
+              <tbody>
+                {[
+                  ["研究", "样本", "核心发现"],
+                  ["Lewis 2020", "1,024", "检索增强减少知识错误"],
+                  ["Guu 2020", "845", "预训练阶段接入语料库"],
+                  ["Izacard 2021", "1,632", "多文档融合提升问答"],
+                  ["Gao 2024", "2,483", "评估覆盖检索与生成"],
+                ].map((row, rowIndex) => (
+                  <tr
+                    key={row[0]}
+                    className={rowIndex === 0 ? "bg-surface-1 font-medium" : ""}
+                  >
+                    <td className="border border-border bg-surface-2 px-[var(--wiki-mock-space-6)] py-1 text-center text-12 text-faint">
+                      {rowIndex + 1}
+                    </td>
+                    {row.map((cell) => (
+                      <td
+                        key={cell}
+                        className="border border-border px-2 py-1 align-top text-subtle"
+                      >
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </aside>
@@ -155,191 +233,272 @@ export function WikiEmbedClawArtifactOutput() {
 const REVIEW_RECORDS = [
   {
     title: "A Multimodal Framework for Early Disease Detection",
-    target: "Nature Medicine · Journal",
-    status: "审稿中",
-    tone: "amber",
-    progress: "审稿人 B 正在评议",
-    date: "8 月 12 日",
+    mode: "期刊投稿",
+    target: "Nature Medicine",
+    submittedAt: "2026/8/12",
+    percent: 60,
+    progressTone: "bg-brand-amber",
+    progressLabel: "60%",
+    decision: "进行中",
+    decisionClass: "bg-warning-soft text-brand-amber",
+    action: "查看进度",
   },
   {
     title: "Responsible Deployment of Clinical Language Models",
-    target: "The Lancet Digital Health · Journal",
-    status: "已完成",
-    tone: "green",
-    progress: "建议：大修后重审",
-    date: "8 月 9 日",
+    mode: "期刊投稿",
+    target: "The Lancet Digital Health",
+    submittedAt: "2026/8/9",
+    percent: 100,
+    progressTone: "bg-brand-green",
+    progressLabel: "100%",
+    decision: "返修",
+    decisionClass: "bg-danger-soft text-brand-red",
+    action: "查看评议",
   },
   {
     title: "人工智能辅助科研写作的证据边界研究",
-    target: "博士学位论文 · Thesis",
-    status: "草稿",
-    tone: "neutral",
-    progress: "材料待确认",
-    date: "8 月 7 日",
+    mode: "毕业审稿",
+    target: "—",
+    submittedAt: "—",
+    percent: 0,
+    progressTone: "bg-surface-2",
+    progressLabel: "草稿中",
+    decision: "—",
+    decisionClass: "text-faint",
+    action: "继续投稿",
   },
 ] as const;
 
-/** 智能审稿记录的筛选、状态与行级动作。 */
+/** 同行评审记录页默认「全部」态：完整页面头、状态 tabs 与六列表格。 */
 export function WikiEmbedPeerReviewRecordsList() {
   return (
     <div
-      className="w-[min(100%,50rem)] overflow-hidden rounded-12 border border-border bg-surface-card"
+      className="flex w-[min(100%,64rem)] flex-col bg-surface-1"
+      style={MOCK_THEME}
       aria-hidden
       data-wiki-fixture="peer-review-records-list"
     >
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 pt-4">
-        <div className="pb-3">
-          <p className="text-10 font-medium uppercase text-brand-red">
-            Peer Review
-          </p>
-          <h3 className="mt-1 font-serif text-18 font-medium text-foreground">
-            审稿记录
-          </h3>
-        </div>
-        <span className="mb-3 inline-flex h-8 items-center gap-1 rounded-8 bg-brand-red px-3 text-11 font-medium text-on-dark">
-          <UploadCloud className="size-4" /> 新建审稿
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-8">
+        <h3 className="text-28 font-medium text-foreground">我的审稿</h3>
+        <span className="inline-flex h-9 items-center gap-[var(--wiki-mock-space-6)] rounded-8 bg-brand-red px-4 text-16 font-medium text-on-brand">
+          <Plus className="size-[var(--wiki-mock-space-14)]" /> 新建审稿
         </span>
-        <nav className="order-last flex w-full gap-4">
-          {[
-            ["全部", "3"],
-            ["待处理", "1"],
-            ["进行中", "1"],
-            ["已完成", "1"],
-          ].map(([label, count], index) => (
-            <span
-              key={label}
-              className={
-                index === 0
-                  ? "border-b-2 border-brand-red pb-3 text-11 font-medium text-brand-red"
-                  : "pb-3 text-11 text-faint"
-              }
-            >
-              {label} <span className="tabular-nums">{count}</span>
-            </span>
-          ))}
-        </nav>
       </header>
 
-      <div className="divide-y divide-border-hairline">
-        {REVIEW_RECORDS.map((record) => (
-          <article
-            key={record.title}
-            className="grid gap-3 p-4 md:grid-cols-[1fr_10rem_8rem_auto] md:items-center"
+      <nav className="flex h-11 shrink-0 items-center border-b border-border bg-background px-6">
+        {[
+          ["全部", "3"],
+          ["草稿", "1"],
+          ["进行中", "1"],
+          ["已完成", "1"],
+        ].map(([label, count], index) => (
+          <span
+            key={label}
+            className={
+              index === 0
+                ? "inline-flex h-full items-center gap-[var(--wiki-mock-space-6)] border-b-2 border-brand-red px-4 text-16 font-medium text-brand-red"
+                : "inline-flex h-full items-center gap-[var(--wiki-mock-space-6)] border-b-2 border-transparent px-4 text-16 text-muted-foreground"
+            }
           >
-            <div className="min-w-0">
-              <p className="line-clamp-1 text-13 font-medium text-foreground">
-                {record.title}
-              </p>
-              <p className="mt-1 text-10 text-faint">{record.target}</p>
-            </div>
-            <div>
-              <span
-                className={
-                  record.tone === "green"
-                    ? "inline-flex items-center gap-1 rounded-pill bg-brand-green-soft px-2 py-1 text-10 text-brand-green"
-                    : record.tone === "amber"
-                      ? "inline-flex items-center gap-1 rounded-pill bg-brand-amber-soft px-2 py-1 text-10 text-brand-amber"
-                      : "inline-flex items-center gap-1 rounded-pill bg-surface-2 px-2 py-1 text-10 text-faint"
-                }
-              >
-                {record.tone === "green" ? (
-                  <CheckCircle2 className="size-3" />
-                ) : record.tone === "amber" ? (
-                  <Loader2 className="size-3" />
-                ) : (
-                  <FileText className="size-3" />
-                )}
-                {record.status}
-              </span>
-              <p className="mt-1 truncate text-10 text-faint">
-                {record.progress}
-              </p>
-            </div>
-            <p className="inline-flex items-center gap-1 text-10 text-faint">
-              <Clock3 className="size-3" /> {record.date}
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <span className="inline-flex h-7 items-center gap-1 rounded-4 border border-border px-2 text-10 text-subtle">
-                {record.status === "已完成"
-                  ? "查看结果"
-                  : record.status === "草稿"
-                    ? "继续填写"
-                    : "查看进度"}
-                <ChevronRight className="size-3" />
-              </span>
-              <MoreHorizontal className="size-4 text-faint" />
-            </div>
-          </article>
+            {label}
+            <span className={index === 0 ? "text-brand-red" : "text-faint"}>
+              {count}
+            </span>
+          </span>
         ))}
+      </nav>
+
+      <div className="overflow-x-auto px-6 py-[var(--wiki-mock-space-20)]">
+        <div className="min-w-[54rem] overflow-hidden rounded-8 border border-border bg-background">
+          <table className="w-full text-16">
+            <thead className="border-b border-border bg-surface-1">
+              <tr className="text-left text-14 text-faint">
+                <th className="px-4 py-3 font-normal">标题</th>
+                <th className="w-36 px-4 py-3 font-normal">投递目标</th>
+                <th className="w-28 px-4 py-3 font-normal">提交时间</th>
+                <th className="w-40 px-4 py-3 font-normal">审稿进度</th>
+                <th className="w-24 px-4 py-3 font-normal">决议</th>
+                <th className="w-32 px-4 py-3 text-right font-normal">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {REVIEW_RECORDS.map((record) => (
+                <tr
+                  key={record.title}
+                  className="border-b border-border-hairline last:border-0"
+                >
+                  <td className="px-4 py-4">
+                    <p className="line-clamp-1 text-16 font-medium text-foreground">
+                      {record.title}
+                    </p>
+                    <p className="mt-1 text-12 text-faint">{record.mode}</p>
+                  </td>
+                  <td className="px-4 py-4 text-14 text-muted-foreground">
+                    <span className="line-clamp-1">{record.target}</span>
+                  </td>
+                  <td className="px-4 py-4 text-14 text-muted-foreground">
+                    {record.submittedAt}
+                  </td>
+                  <td className="px-4 py-4">
+                    {record.percent > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="h-[var(--wiki-mock-space-6)] flex-1 overflow-hidden rounded-pill bg-surface-2">
+                          <span
+                            className={`block h-full ${record.progressTone}`}
+                            style={{ width: `${record.percent}%` }}
+                          />
+                        </span>
+                        <span className="shrink-0 text-12 text-muted-foreground">
+                          {record.progressLabel}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-12 text-faint">
+                        {record.progressLabel}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
+                    <span
+                      className={`rounded-pill px-[var(--wiki-mock-space-10)] py-[var(--wiki-mock-space-2)] text-12 font-medium ${record.decisionClass}`}
+                    >
+                      {record.decision}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 text-right">
+                    <div className="inline-flex items-center justify-end gap-[var(--wiki-mock-space-6)]">
+                      <span
+                        className={
+                          record.action === "继续投稿"
+                            ? "inline-flex h-7 items-center rounded-8 border border-brand-red bg-background px-3 text-12 font-medium text-brand-red"
+                            : "inline-flex h-7 items-center rounded-8 border border-border bg-background px-3 text-12 font-medium text-subtle"
+                        }
+                      >
+                        {record.action}
+                      </span>
+                      <span className="inline-flex size-7 items-center justify-center rounded-8 border border-border text-faint">
+                        <Trash2 className="size-[var(--wiki-mock-space-14)]" />
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-14 text-muted-foreground">
+          <span>共 23 条 · 第 1 / 2 页</span>
+          <div className="flex items-center gap-[var(--wiki-mock-space-6)]">
+            <span className="inline-flex h-7 items-center gap-[var(--wiki-mock-space-2)] rounded-8 border border-border bg-background pl-[var(--wiki-mock-space-6)] pr-[var(--wiki-mock-space-10)] font-medium text-faint">
+              <ChevronLeft className="size-[var(--wiki-mock-space-14)]" />{" "}
+              上一页
+            </span>
+            <span className="inline-flex h-7 items-center gap-[var(--wiki-mock-space-2)] rounded-8 border border-border bg-background pl-[var(--wiki-mock-space-10)] pr-[var(--wiki-mock-space-6)] font-medium text-subtle">
+              下一页{" "}
+              <ChevronRight className="size-[var(--wiki-mock-space-14)]" />
+            </span>
+          </div>
+        </div>
       </div>
-      <footer className="flex items-center justify-between border-t border-border bg-surface-1 px-4 py-3 text-10 text-faint">
-        <span>共 3 条 · 第 1 / 1 页</span>
-        <span>失败记录可保留已完成意见并重试</span>
-      </footer>
     </div>
   );
 }
 
-/** 智能审稿材料确认后的产品内成功回执。 */
+/** 同行评审投递成功 splash，保持 720px 白卡、104px 成功环和双按钮。 */
 export function WikiEmbedPeerReviewSubmitSuccess() {
   return (
     <div
-      className="w-[min(100%,38rem)] overflow-hidden rounded-16 border border-border bg-surface-card shadow-raised"
+      className="flex w-[min(100%,49rem)] items-center justify-center bg-surface-3 px-8 py-10"
+      style={MOCK_THEME}
       aria-hidden
       data-wiki-fixture="peer-review-submit-success"
     >
-      <div className="bg-brand-green-soft px-6 py-6 text-center">
-        <span className="mx-auto inline-flex size-14 items-center justify-center rounded-pill bg-brand-green text-on-dark">
-          <Check className="size-7" />
-        </span>
-        <h3 className="mt-4 font-serif text-22 font-medium text-foreground">
-          材料已确认，AI 评议已启动
-        </h3>
-        <p className="mx-auto mt-2 max-w-md text-12 leading-paragraph text-subtle">
-          这是 Scholay 内部模拟评议回执，不代表稿件已发送给期刊或学校。
-        </p>
-      </div>
-
-      <div className="p-4">
-        <div className="overflow-hidden rounded-12 border border-border">
-          {[
-            ["稿件标题", "A Multimodal Framework for Early Disease Detection"],
-            ["目标期刊", "Nature Medicine"],
-            ["评议编号", "PR-20260812-7F3A"],
-            ["提交时间", "2026-08-12 14:32 (UTC+8)"],
-            ["通讯作者", "Lin Chen · lin.chen@example.edu"],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="grid grid-cols-[6rem_1fr] border-b border-border-hairline last:border-0"
-            >
-              <span className="bg-surface-1 px-3 py-2 text-10 text-faint">
-                {label}
-              </span>
-              <span className="min-w-0 truncate px-3 py-2 text-11 text-foreground">
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 flex items-start gap-3 rounded-8 bg-brand-amber-soft p-3">
-          <ShieldCheck className="size-4 shrink-0 text-brand-amber" />
-          <p className="text-11 leading-paragraph text-subtle">
-            系统会依次完成方法论编排、三位 AI
-            审稿人与主审报告。可以关闭页面，稍后回到记录查看。
+      <article className="flex w-full max-w-[45rem] flex-col gap-6 rounded-12 border border-border bg-background px-14 py-12">
+        <header className="flex flex-col items-center gap-2">
+          <span className="flex size-26 items-center justify-center rounded-pill bg-brand-green/10">
+            <span className="flex size-20 items-center justify-center rounded-pill bg-brand-green">
+              <Check className="size-10 text-on-brand" strokeWidth={3.5} />
+            </span>
+          </span>
+          <h3 className="mt-2 font-serif text-32 font-medium leading-display-tight text-foreground">
+            恭喜！稿件已成功投递
+          </h3>
+          <p className="max-w-[30rem] text-center text-20 leading-paragraph text-muted-foreground">
+            您的稿件已成功投递至期刊编辑部，编辑团队已收到投稿并进入处理流程。
           </p>
-        </div>
+        </header>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <span className="inline-flex h-9 items-center justify-center gap-1 rounded-8 border border-border text-11 text-subtle">
-            <ArrowLeft className="size-3" /> 返回投稿管理
+        <section className="rounded-12 border border-border bg-surface-3 px-6 py-[var(--wiki-mock-space-20)]">
+          <div className="flex items-center justify-between">
+            <h4 className="text-24 font-medium text-foreground">投稿信息</h4>
+            <span className="rounded-pill bg-danger-soft px-3 py-[var(--wiki-mock-space-2)] text-14 font-medium text-brand-red">
+              已提交 · 待初审
+            </span>
+          </div>
+          <div className="my-3 h-px bg-border-hairline" />
+          <dl className="flex flex-col gap-3">
+            <InfoRow
+              label="稿件标题"
+              value="A Multimodal Framework for Early Disease Detection"
+              emphasized
+            />
+            <InfoRow label="投稿期刊" value="Nature Medicine" />
+            <InfoRow label="投稿编号" value="SCY-2026-0812-7F3A" />
+            <InfoRow label="提交时间" value="2026-08-12 14:32" />
+            <InfoRow label="通讯作者" value="本账户作者" />
+          </dl>
+        </section>
+
+        <aside className="flex gap-3 rounded-12 border border-brand-amber/40 bg-warning-soft px-4 py-[var(--wiki-mock-space-14)]">
+          <span className="mt-[var(--wiki-mock-space-2)] flex size-6 shrink-0 items-center justify-center rounded-pill bg-brand-amber">
+            <Info
+              className="size-[var(--wiki-mock-space-14)] text-foreground"
+              strokeWidth={3}
+            />
           </span>
-          <span className="inline-flex h-9 items-center justify-center gap-1 rounded-8 bg-brand-red text-11 font-medium text-on-dark">
-            前往审稿记录 <ArrowRight className="size-3" />
+          <div className="flex flex-col gap-1">
+            <p className="text-24 font-medium text-brand-amber">
+              接下来会发生什么？
+            </p>
+            <p className="text-16 leading-paragraph text-brand-amber/80">
+              投递后系统会立即启动 AI 审稿流程：编辑部初审 →
+              通读全文并匹配合适的审稿人 → 三位审稿人依次给出结构化意见 →
+              主审综合三方意见做出决议。整个过程通常十分钟左右，可以关掉页面，稍后回来查看完整结果。
+            </p>
+          </div>
+        </aside>
+
+        <footer className="flex items-center justify-center gap-3">
+          <span className="inline-flex h-11 items-center rounded-8 border border-foreground/80 px-6 text-24 font-medium text-foreground">
+            返回投稿管理
           </span>
-        </div>
-      </div>
+          <span className="inline-flex h-11 items-center gap-2 rounded-8 bg-brand-red px-[var(--wiki-mock-space-28)] text-24 font-medium text-on-brand">
+            前往审稿记录 <ArrowRight className="size-4" />
+          </span>
+        </footer>
+      </article>
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <div className="flex gap-3">
+      <dt className="w-24 shrink-0 text-16 text-faint">{label}</dt>
+      <dd
+        className={`flex-1 text-24 text-subtle ${emphasized ? "leading-sans" : ""}`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

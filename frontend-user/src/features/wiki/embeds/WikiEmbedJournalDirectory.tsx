@@ -1,118 +1,193 @@
-import { BookOpen, Globe, Layers, Unlock } from "lucide-react";
+import { ArrowUpRight, BookOpen, Sparkles, TrendingUp } from "lucide-react";
+import { DISCOVERY_MOCK_THEME } from "./WikiEmbedJournalSearch";
 
-const KPIS = [
-  { label: "总期刊", value: "26,481", icon: BookOpen, tone: "red" },
-  { label: "开放获取", value: "8,906", icon: Unlock, tone: "green" },
-  { label: "覆盖国家", value: "126", icon: Globe, tone: "amber" },
-  { label: "数据源", value: "9", icon: Layers, tone: "ink" },
+const DIRECTORY_JOURNALS = [
+  {
+    abbreviation: "NMI",
+    title: "Nature Machine Intelligence",
+    publisher: "Springer Nature · United Kingdom · OA",
+    impact: "18.8",
+    cas: "1区",
+    ccf: "—",
+    cover: "bg-cat-1",
+  },
+  {
+    abbreviation: "TNNLS",
+    title: "IEEE Transactions on Neural Networks and Learning Systems",
+    publisher: "IEEE · United States",
+    impact: "14.3",
+    cas: "1区",
+    ccf: "B",
+    cover: "bg-cat-5",
+  },
 ] as const;
 
-const RANKINGS = [
-  ["SCI 一区", "JCR Q1 · 6,214 本期刊"],
-  ["中科院一区", "基础版 1 区 · 1,382 本期刊"],
-  ["CCF A 类", "计算机领域 · 87 本期刊"],
-  ["高影响因子", "IF ≥ 10 · 642 本期刊"],
-] as const;
-
-/**
- * 期刊榜单与分类目录 · 纯样式 fixture。
- * 对齐 product-mock JournalExploreOverview + JournalCollectionPage。
- */
+/** 四个预设榜单中的 SCI Q1 落地页代表状态。 */
 export function WikiEmbedJournalDirectory() {
   return (
     <section
-      className="w-[min(100%,48rem)] rounded-16 border border-border bg-surface-card p-6"
+      className="w-full max-w-6xl space-y-6 rounded-8 border border-border bg-background p-6 sm:p-8"
+      style={DISCOVERY_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="journal-directory"
     >
-      <header>
-        <p className="text-12 font-medium text-faint">期刊榜单</p>
-        <h2 className="mt-1 font-display text-24 font-medium leading-display text-foreground">
-          从评价体系进入期刊目录
+      <header className="space-y-2">
+        <p className="text-12 font-medium uppercase text-faint">期刊榜单</p>
+        <h2 className="font-display text-32 font-medium leading-display-tight text-foreground">
+          SCI 一区（JCR Q1）期刊
         </h2>
-        <p className="mt-2 max-w-2xl text-14 leading-paragraph text-muted-foreground">
-          榜单是带预设筛选的入口；进入后仍可继续核对学科、出版方和投稿信息。
+        <p className="max-w-3xl text-20 leading-paragraph text-muted-foreground">
+          JCR 分区中的 Q1 代表各学科领域影响力最高的前 25%
+          期刊。下方按影响因子排序， 可继续打开详情核对分区、趋势与投稿信息。
         </p>
+        <nav
+          className="flex flex-wrap items-center gap-2 pt-1"
+          data-wiki-spot="期刊目录入口"
+        >
+          {["中科院一区", "CCF A 类", "高影响因子", "全部期刊检索"].map(
+            (label) => (
+              <span
+                key={label}
+                className="inline-flex h-7 items-center rounded-pill border border-border px-3 text-16 font-medium text-subtle"
+              >
+                {label}
+              </span>
+            ),
+          )}
+        </nav>
+      </header>
+
+      <div className="h-px bg-border" />
+
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h3 className="font-display text-28 font-medium leading-display-tight text-foreground">
+            期刊列表
+          </h3>
+          <p className="text-16 text-faint">按影响因子排序</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Sort icon={Sparkles} label="相关度" />
+          <Sort icon={TrendingUp} label="影响因子" active />
+          <Sort icon={BookOpen} label="最新" />
+        </div>
       </header>
 
       <div
-        className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-4"
-        data-wiki-spot="期刊概览"
+        className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+        data-wiki-spot="榜单期刊卡片"
       >
-        {KPIS.map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="rounded-12 border border-border p-3">
-            <span
-              className={
-                tone === "red"
-                  ? "flex size-7 items-center justify-center rounded-8 bg-brand-red-soft text-brand-red"
-                  : tone === "green"
-                    ? "flex size-7 items-center justify-center rounded-8 bg-brand-green-soft text-brand-green"
-                    : tone === "amber"
-                      ? "flex size-7 items-center justify-center rounded-8 bg-brand-amber-soft text-brand-amber"
-                      : "flex size-7 items-center justify-center rounded-8 bg-surface-2 text-subtle"
-              }
-            >
-              <Icon className="size-4" />
-            </span>
-            <p className="mt-3 font-display text-20 font-medium tabular-nums text-foreground">
-              {value}
-            </p>
-            <p className="mt-1 text-12 text-faint">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        {RANKINGS.map(([title, detail], index) => (
-          <div
-            key={title}
-            className="flex items-center gap-3 rounded-12 border border-border p-4"
+        {DIRECTORY_JOURNALS.map((journal) => (
+          <article
+            key={journal.title}
+            className="flex min-h-48 items-stretch gap-4 rounded-8 border border-border bg-background p-4"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-8 bg-surface-1 font-display text-16 font-medium text-foreground">
-              {index + 1}
-            </span>
-            <div className="min-w-0">
-              <p className="text-14 font-medium text-foreground">{title}</p>
-              <p className="mt-1 truncate text-12 text-faint">{detail}</p>
+            <div
+              className={`flex w-28 shrink-0 flex-col justify-between rounded-8 p-3 text-on-brand ${journal.cover}`}
+            >
+              <span className="text-28 font-medium leading-display-tight">
+                {journal.abbreviation}
+              </span>
+              <span className="line-clamp-3 text-12 text-on-brand/85">
+                {journal.title}
+              </span>
             </div>
-          </div>
-        ))}
-      </div>
+            <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-start gap-2">
+                  <h4 className="min-w-0 flex-1 truncate font-display text-18 font-medium text-foreground">
+                    {journal.title}
+                  </h4>
+                  <span className="inline-flex h-6 shrink-0 items-center rounded-4 bg-brand-green-soft px-2 text-12 font-medium text-brand-green">
+                    新锐 1 区
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-16 text-faint">
+                  {journal.publisher}
+                </p>
+              </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <Distribution
-          title="JCR 分区分布"
-          values={["Q1  31%", "Q2  27%", "Q3  24%", "Q4  18%"]}
-        />
-        <Distribution
-          title="中科院分区分布"
-          values={["1 区  12%", "2 区  22%", "3 区  34%", "4 区  32%"]}
-        />
+              <div className="grid grid-cols-3 overflow-hidden rounded-8 border border-border-hairline">
+                <Cell label="影响因子" value={journal.impact} hint="JCR Q1" />
+                <Cell
+                  label="中科院分区"
+                  value={journal.cas}
+                  hint="Top"
+                  bordered
+                />
+                <Cell
+                  label="CCF 等级"
+                  value={journal.ccf}
+                  hint={journal.ccf === "—" ? "—" : `CCF ${journal.ccf}`}
+                  bordered
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="inline-flex h-5 items-center rounded-4 bg-foreground px-2 text-12 font-medium text-on-dark">
+                    JOURNAL
+                  </span>
+                  <span className="inline-flex h-5 items-center rounded-4 bg-surface-2 px-2 text-12 text-subtle">
+                    7 个数据源
+                  </span>
+                </div>
+                <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-8 border border-border px-2 text-16 font-medium text-foreground">
+                  查看详情 <ArrowUpRight className="size-3" />
+                </span>
+              </div>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );
 }
 
-function Distribution({
-  title,
-  values,
+function Sort({
+  icon: Icon,
+  label,
+  active = false,
 }: {
-  title: string;
-  values: readonly string[];
+  icon: typeof Sparkles;
+  label: string;
+  active?: boolean;
 }) {
   return (
-    <div className="rounded-12 border border-border bg-surface-1 p-4">
-      <h3 className="text-12 font-medium text-faint">{title}</h3>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        {values.map((value) => (
-          <span
-            key={value}
-            className="rounded-8 bg-surface-card px-3 py-2 text-12 text-subtle"
-          >
-            {value}
-          </span>
-        ))}
-      </div>
+    <span
+      className={
+        active
+          ? "inline-flex h-7 items-center gap-1 rounded-8 bg-foreground px-3 text-16 font-medium text-on-dark"
+          : "inline-flex h-7 items-center gap-1 rounded-8 border border-border px-3 text-16 text-subtle"
+      }
+    >
+      <Icon className="size-3" /> {label}
+    </span>
+  );
+}
+
+function Cell({
+  label,
+  value,
+  hint,
+  bordered = false,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  bordered?: boolean;
+}) {
+  return (
+    <div
+      className={`min-w-0 space-y-1 px-3 py-2 ${bordered ? "border-l border-border-hairline" : ""}`}
+    >
+      <p className="truncate text-12 font-medium uppercase text-faint">
+        {label}
+      </p>
+      <p className="truncate font-display text-28 font-medium leading-display-tight tabular-nums text-foreground">
+        {value}
+      </p>
+      <p className="truncate text-12 text-faint">{hint}</p>
     </div>
   );
 }

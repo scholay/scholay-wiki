@@ -1,53 +1,39 @@
-import { AlertCircle, CheckCircle2, LoaderCircle } from "lucide-react";
-
-const STATES = [
-  {
-    label: "处理中",
-    copy: "正在完成 GitHub 登录…",
-    icon: LoaderCircle,
-    iconTone: "text-muted-foreground",
-    badge: "回调校验",
-  },
-  {
-    label: "成功",
-    copy: "登录成功，正在跳转…",
-    icon: CheckCircle2,
-    iconTone: "text-brand-green",
-    badge: "会话已建立",
-  },
-  {
-    label: "失败",
-    copy: "回调参数不完整",
-    icon: AlertCircle,
-    iconTone: "text-brand-red",
-    badge: "可返回首页重试",
-  },
-] as const;
+import { Loader2 } from "lucide-react";
 
 /**
- * OAuth / 微信登录回调状态 · 纯样式 fixture。
- * 来源：product-mock auth/pages/OAuthCallbackPage.tsx + WeChatCallbackPage.tsx。
+ * OAuth 回调页的初始处理中状态 · 纯样式 fixture。
+ * 来源：current auth/pages/OAuthCallbackPage.tsx；互斥的成功、失败与账号合并状态不并排拼接。
  */
 export function WikiEmbedOAuthCallbackStates() {
   return (
     <div
-      className="grid w-[min(100%,44rem)] gap-3 md:grid-cols-3"
+      className="flex h-80 w-[min(100%,42rem)] items-center justify-center bg-background px-6"
       aria-hidden
       data-wiki-fixture="oauth-callback-states"
     >
-      {STATES.map(({ label, copy, icon: Icon, iconTone, badge }) => (
-        <section
-          key={label}
-          className="flex min-h-44 flex-col items-center justify-center rounded-12 border border-border bg-surface-card p-6 text-center"
-        >
-          <Icon className={`size-7 ${iconTone}`} />
-          <p className="mt-3 text-14 font-medium text-foreground">{label}</p>
-          <p className="mt-1 text-12 text-muted-foreground">{copy}</p>
-          <span className="mt-4 rounded-pill bg-surface-1 px-2 py-1 text-12 text-faint">
-            {badge}
-          </span>
-        </section>
-      ))}
+      <div className="flex max-w-md flex-col items-center gap-4 text-center">
+        <Loader2 className="size-8 text-muted-foreground" />
+        <p className="text-12 text-muted-foreground">正在完成 GitHub 登录…</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 微信 callback 独立中转页的初始处理态 · 纯样式 fixture。
+ * 来源：current auth/pages/WeChatCallbackPage.tsx；iframe 成功态与独立访问错误态互斥。
+ */
+export function WikiEmbedWechatCallbackState() {
+  return (
+    <div
+      className="flex h-80 w-[min(100%,42rem)] items-center justify-center bg-background px-6"
+      aria-hidden
+      data-wiki-fixture="wechat-callback-state"
+    >
+      <div className="flex max-w-md flex-col items-center gap-4 text-center">
+        <Loader2 className="size-8 text-muted-foreground" />
+        <p className="text-12 text-muted-foreground">正在完成微信扫码…</p>
+      </div>
     </div>
   );
 }

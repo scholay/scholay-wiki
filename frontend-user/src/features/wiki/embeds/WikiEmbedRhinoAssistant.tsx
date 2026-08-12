@@ -2,10 +2,8 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
-  BookOpen,
   CheckCheck,
   CircleHelp,
-  Compass,
   EyeOff,
   GripHorizontal,
   Headphones,
@@ -16,6 +14,7 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { DISCOVERY_MOCK_THEME } from "./WikiEmbedJournalSearch";
 
 const RHINO_FRAME = "/wiki/assets/rhino/pet-idle-frame-000.png";
 
@@ -35,18 +34,18 @@ const PANEL_MODES: ReadonlyArray<{
   { id: "notifications", label: "通知", icon: Bell, badge: "2" },
 ];
 
-/** product-mock 悬浮小犀牛的展开前入口；只呈现 hover 与收纳两种静态状态。 */
+/** product-mock 悬浮小犀牛的展开前入口；冻结已登录、有 2 条未读的 hover 状态。 */
 export function WikiEmbedRhinoAssistantEntry() {
   return (
     <div
-      className="grid w-[min(100%,48rem)] gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)]"
+      className="relative flex min-h-56 w-[min(100%,32rem)] items-end justify-center overflow-hidden px-4 pb-4 pt-24"
+      style={DISCOVERY_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="rhino-assistant-entry"
     >
-      <section className="relative flex min-h-72 flex-col overflow-hidden rounded-12 border border-border bg-surface-card p-4">
-        <p className="text-12 font-medium text-faint">悬浮入口 · 指针停留态</p>
-        <div className="flex flex-1 flex-col items-center justify-center pt-3">
-          <div className="rounded-12 border border-border bg-surface-1 p-1">
+      <div className="relative size-28">
+        <div className="absolute bottom-full left-1/2 z-raised mb-1 flex -translate-x-1/2 items-center justify-center">
+          <div className="flex flex-col gap-1 whitespace-nowrap rounded-16 border border-border bg-surface-card p-1 shadow-overlay">
             <div className="flex items-center justify-center gap-1">
               <RhinoMenuItem icon={MessageCircle} label="对话" />
               <RhinoMenuItem icon={LayoutGrid} label="功能" />
@@ -58,38 +57,33 @@ export function WikiEmbedRhinoAssistantEntry() {
               <RhinoMenuItem icon={EyeOff} label="隐藏" />
             </div>
           </div>
-          <RhinoSprite className="mt-1 size-36" />
         </div>
-        <p className="text-center text-12 leading-paragraph text-muted-foreground">
-          单击互动，双击打开对话；角色和菜单可一起拖动。
-        </p>
-      </section>
-
-      <section className="flex min-h-72 flex-col rounded-12 border border-border bg-surface-card p-4">
-        <p className="text-12 font-medium text-faint">收纳入口 · 顶栏 Dock</p>
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
-          <div className="flex h-12 w-full items-center gap-3 rounded-8 border border-border bg-surface-1 px-3">
-            <span className="text-14 font-medium text-foreground">Scholay</span>
-            <span className="ml-auto flex size-8 items-center justify-center rounded-8 bg-surface-2">
-              <RhinoSprite className="size-8" />
-            </span>
-            <span className="flex size-8 items-center justify-center rounded-pill bg-foreground text-12 font-medium text-on-dark">
-              研
-            </span>
-          </div>
-          <div className="rounded-8 border border-border bg-surface-1 px-3 py-2 text-12 text-muted-foreground">
-            放出牛犀犀
-          </div>
-        </div>
-        <p className="text-center text-12 leading-paragraph text-muted-foreground">
-          “隐藏”不会删除助手，顶栏头像旁会保留恢复入口。
-        </p>
-      </section>
+        <RhinoSprite className="size-28" />
+        <span className="absolute right-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-pill bg-brand-red px-2 text-12 font-medium text-on-dark shadow-raised">
+          2
+        </span>
+      </div>
     </div>
   );
 }
 
-/** 展开后的 560 × 420 帮助面板；复刻模式侧栏、帮助二级 Tab 和外置角色。 */
+/** `hidden === true` 时才出现的顶栏恢复入口；与悬浮角色互斥。 */
+export function WikiEmbedRhinoAssistantDock() {
+  return (
+    <div
+      className="flex min-h-32 w-[min(100%,16rem)] items-center justify-center"
+      style={DISCOVERY_MOCK_THEME}
+      aria-hidden
+      data-wiki-fixture="rhino-assistant-dock"
+    >
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-12 bg-surface-2">
+        <RhinoSprite className="size-7" />
+      </span>
+    </div>
+  );
+}
+
+/** 展开后的 560 × 420 帮助面板；冻结在默认的「拖点」Tab。 */
 export function WikiEmbedRhinoAssistantHelpPanel() {
   return (
     <div
@@ -139,25 +133,6 @@ export function WikiEmbedRhinoAssistantHelpPanel() {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2 rounded-8 border border-dashed border-border p-3">
-                <BookOpen className="mt-1 size-4 shrink-0 text-faint" />
-                <p className="text-12 leading-paragraph text-muted-foreground">
-                  上方可切换其它玩法说明，或开始“首页导览”。
-                </p>
-              </div>
-              <div className="flex items-center gap-3 rounded-8 border border-border bg-surface-card p-3">
-                <span className="flex size-8 items-center justify-center rounded-8 bg-success-soft text-brand-green">
-                  <Compass className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-12 font-medium text-foreground">
-                    首页导览
-                  </p>
-                  <p className="mt-1 text-12 text-faint">
-                    目前只覆盖首页；其他页面会提示先返回首页。
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -167,94 +142,102 @@ export function WikiEmbedRhinoAssistantHelpPanel() {
   );
 }
 
-/** 小犀牛助手内的通知与反馈代表态；两者沿用同一模式侧栏。 */
-export function WikiEmbedRhinoAssistantSupportPanels() {
+/** 小犀牛助手内的通知列表；冻结已登录、有 2 条未读的单一状态。 */
+export function WikiEmbedRhinoAssistantNotificationsPanel() {
   return (
-    <div
-      className="grid w-[min(100%,60rem)] gap-4 lg:grid-cols-2"
-      aria-hidden
-      data-wiki-fixture="rhino-assistant-support-panels"
+    <RhinoServicePanel
+      fixtureId="rhino-assistant-support-panels"
+      title="通知"
+      active="notifications"
     >
-      <RhinoServicePanel title="通知" active="notifications">
-        <div className="flex h-10 items-center gap-1 border-b border-border-soft px-3">
-          <span className="relative inline-flex h-full items-center px-3 text-12 font-medium text-foreground">
-            全部
-            <span className="absolute inset-x-2 bottom-0 h-px rounded-pill bg-brand-red" />
+      <div className="flex h-10 items-center gap-1 border-b border-border-soft px-3">
+        <span className="relative inline-flex h-full items-center px-3 text-12 font-medium text-foreground">
+          全部
+          <span className="absolute inset-x-2 bottom-0 h-px rounded-pill bg-brand-red" />
+        </span>
+        <span className="inline-flex h-full items-center gap-1 px-3 text-12 text-muted-foreground">
+          未读
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 font-medium text-on-dark">
+            2
           </span>
-          <span className="inline-flex h-full items-center gap-1 px-3 text-12 text-muted-foreground">
-            未读
-            <span className="rounded-pill bg-brand-red px-2 py-1 text-12 font-medium text-on-dark">
-              2
-            </span>
-          </span>
-          <span className="ml-auto inline-flex items-center gap-1 text-12 text-muted-foreground">
-            <CheckCheck className="size-3" />
-            全部已读
-          </span>
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <Notice
-            title="智能搜索任务已完成"
-            copy="已整理 18 篇候选论文，可以继续核对并加入暂存区。"
-            time="刚刚"
-            unread
-          />
-          <Notice
-            title="文献集分享已被接收"
-            copy="对方已经打开你分享的文献集。"
-            time="2 小时前"
-          />
-        </div>
-      </RhinoServicePanel>
+        </span>
+        <span className="ml-auto inline-flex items-center gap-1 text-12 text-muted-foreground">
+          <CheckCheck className="size-3" />
+          全部已读
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <Notice
+          title="智能搜索任务已完成"
+          copy="已整理 18 篇候选论文，可以继续核对并加入暂存区。"
+          time="刚刚"
+          unread
+        />
+        <Notice
+          title="文献集分享已被接收"
+          copy="对方已经打开你分享的文献集。"
+          time="2 小时前"
+          unread
+        />
+      </div>
+    </RhinoServicePanel>
+  );
+}
 
-      <RhinoServicePanel title="反馈" active="feedback">
-        <div className="flex h-10 items-center gap-1 border-b border-border-soft px-3">
-          {[
-            ["建议", true],
-            ["Bug", false],
-            ["其他", false],
-          ].map(([label, active]) => (
-            <span
-              key={String(label)}
-              className={`relative inline-flex h-full items-center px-3 text-12 font-medium ${active ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              {label}
-              {active ? (
-                <span className="absolute inset-x-2 bottom-0 h-px rounded-pill bg-brand-red" />
-              ) : null}
-            </span>
-          ))}
-        </div>
-        <div className="min-h-0 flex-1 space-y-3 overflow-hidden p-3">
-          <p className="text-12 text-muted-foreground">
-            说说想法或问题，我们会认真看每一条。
-          </p>
-          <div>
-            <p className="text-12 font-medium text-foreground">内容</p>
-            <div className="mt-1 min-h-24 rounded-8 border border-border bg-surface-1 p-3 text-12 leading-paragraph text-faint">
-              遇到的问题、改进想法，写清楚一点更好……
-            </div>
-            <div className="mt-1 flex justify-between text-12 text-faint">
-              <span>至少 10 字</span>
-              <span>0/2000</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-12 font-medium text-foreground">回复邮箱</p>
-            <div className="mt-1 flex h-10 items-center gap-2 rounded-8 border border-border bg-surface-1 px-3 text-12 text-faint">
-              <Mail className="size-4" />
-              name@example.com
-            </div>
-          </div>
-        </div>
-        <div className="shrink-0 border-t border-border p-3">
-          <span className="flex h-10 items-center justify-center gap-2 rounded-8 bg-foreground text-12 font-medium text-on-dark">
-            <Send className="size-4" />
-            提交反馈
+/** 小犀牛助手内的精简反馈表单；只冻结尚未填写、尚未提交的状态。 */
+export function WikiEmbedRhinoAssistantFeedbackPanel() {
+  return (
+    <RhinoServicePanel
+      fixtureId="rhino-assistant-feedback-panel"
+      title="反馈"
+      active="feedback"
+    >
+      <div className="flex h-10 items-center gap-1 border-b border-border-soft px-3">
+        {[
+          ["建议", true],
+          ["Bug", false],
+          ["其他", false],
+        ].map(([label, active]) => (
+          <span
+            key={String(label)}
+            className={`relative inline-flex h-full items-center px-3 text-12 font-medium ${active ? "text-foreground" : "text-muted-foreground"}`}
+          >
+            {label}
+            {active ? (
+              <span className="absolute inset-x-2 bottom-0 h-px rounded-pill bg-brand-red" />
+            ) : null}
           </span>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-hidden p-3">
+        <p className="text-12 text-muted-foreground">
+          说说想法或问题，我们会认真看每一条。
+        </p>
+        <div>
+          <p className="text-12 font-medium text-foreground">内容</p>
+          <div className="mt-1 min-h-24 rounded-8 border border-border bg-surface-1 p-3 text-12 leading-paragraph text-faint">
+            遇到的问题、改进想法，写清楚一点更好…
+          </div>
+          <div className="mt-1 flex justify-between text-12 text-faint">
+            <span>至少 10 字</span>
+            <span>0/2000</span>
+          </div>
         </div>
-      </RhinoServicePanel>
-    </div>
+        <div>
+          <p className="text-12 font-medium text-foreground">回复邮箱</p>
+          <div className="mt-1 flex h-10 items-center gap-2 rounded-8 border border-border bg-surface-1 px-3 text-12 text-faint">
+            <Mail className="size-4" />
+            name@example.com
+          </div>
+        </div>
+      </div>
+      <div className="shrink-0 border-t border-border p-3">
+        <span className="flex h-10 items-center justify-center gap-2 rounded-8 bg-foreground text-12 font-medium text-on-dark">
+          <Send className="size-4" />
+          提交反馈
+        </span>
+      </div>
+    </RhinoServicePanel>
   );
 }
 
@@ -281,8 +264,8 @@ function RhinoMenuItem({
   badge?: string;
 }) {
   return (
-    <span className="inline-flex h-8 items-center gap-1 rounded-pill px-2 text-12 font-medium text-foreground">
-      <Icon className="size-3" />
+    <span className="inline-flex h-7 items-center gap-1 rounded-pill px-2 text-12 font-medium text-foreground">
+      <Icon className="size-3.5" strokeWidth={2} />
       {label}
       {badge ? (
         <span className="rounded-pill bg-brand-red px-2 py-1 text-12 text-on-dark">
@@ -339,24 +322,32 @@ function RhinoModeRail({
 }
 
 function RhinoServicePanel({
+  fixtureId,
   title,
   active,
   children,
 }: {
+  fixtureId:
+    "rhino-assistant-support-panels" | "rhino-assistant-feedback-panel";
   title: string;
   active: "notifications" | "feedback";
   children: ReactNode;
 }) {
   return (
-    <section className="relative min-h-[26.25rem] overflow-hidden rounded-12 border border-border bg-surface-2 p-3 pb-10 pl-10">
-      <div className="flex h-[24rem] min-w-0 flex-col overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay">
+    <section
+      className="relative w-[min(100%,44rem)] overflow-hidden p-4 pb-12 md:pl-24"
+      style={DISCOVERY_MOCK_THEME}
+      aria-hidden
+      data-wiki-fixture={fixtureId}
+    >
+      <div className="ml-auto flex h-[26.25rem] w-[35rem] max-w-full min-w-0 flex-col overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay">
         <PanelHeader title={title} />
         <div className="flex min-h-0 flex-1">
-          <RhinoModeRail active={active} compact />
+          <RhinoModeRail active={active} />
           <div className="flex min-w-0 flex-1 flex-col">{children}</div>
         </div>
       </div>
-      <RhinoSprite className="absolute bottom-0 left-0 size-20" />
+      <RhinoSprite className="absolute bottom-1 left-1 size-28 md:left-3" />
     </section>
   );
 }

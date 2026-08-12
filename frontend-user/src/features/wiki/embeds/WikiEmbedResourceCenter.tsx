@@ -33,87 +33,89 @@ const RESOURCE_SECTIONS = [
   },
 ] as const;
 
-/**
- * 学术资源 / 产品博客中心 · 纯样式 fixture。
- * 来源：product-mock help/pages/ResourceCenterPage.tsx；卡片文字为内容服务示例。
- */
+/** 对齐 ResourceCenterPage 的资源 tab 已加载状态。 */
 export function WikiEmbedResourceCenter() {
   return (
     <div
-      className="w-[min(100%,48rem)] rounded-12 border border-border bg-surface-card p-4 md:p-6"
+      className="w-[min(100%,64rem)] bg-background"
       aria-hidden
       data-wiki-fixture="resource-center"
     >
-      <div>
-        <p className="text-12 font-medium text-brand-red">ACADEMIC RESOURCES</p>
-        <p className="mt-2 font-serif text-24 font-medium text-foreground">
+      <header className="border-b border-border-soft bg-surface-1 px-6 py-10">
+        <div className="flex items-center gap-2">
+          <span className="h-px w-6 bg-brand-red" />
+          <p className="text-12 font-medium uppercase text-brand-red">
+            ACADEMIC RESOURCES
+          </p>
+        </div>
+        <h1 className="mt-3 text-32 font-medium leading-display-tight text-foreground">
           学术资源中心
+        </h1>
+        <p className="mt-4 max-w-3xl text-14 leading-paragraph text-muted-foreground">
+          Scholay 的博客与学术指南合集——产品观察、AI
+          与科研思考，以及文献检索、论文写作和研究方法长文。
         </p>
-        <p className="mt-2 text-14 leading-paragraph text-muted-foreground">
-          产品观察、AI 与科研思考，以及文献检索、论文写作与研究方法指南。
-        </p>
-        <p className="mt-2 text-12 text-faint">
-          内容示例 · 实际文章由内容服务提供
-        </p>
-      </div>
+      </header>
 
-      <div className="mt-6 flex border-b border-border">
-        <span className="border-b-2 border-brand-red px-4 py-3 text-14 font-medium text-foreground">
-          学术资源
-        </span>
-        <span className="px-4 py-3 text-14 font-medium text-muted-foreground">
-          产品博客
-        </span>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {RESOURCE_SECTIONS.map((section) => (
-          <span
-            key={section.category}
-            className="inline-flex items-center gap-2 rounded-pill bg-surface-1 px-3 py-2 text-12 font-medium text-muted-foreground"
-          >
-            {section.category}
-            <span className="text-faint">{section.articles.length}</span>
+      <main className="px-6 py-10">
+        <div className="mb-8 flex border-b border-border">
+          <span className="border-b-2 border-brand-red px-4 py-3 text-14 font-medium text-foreground">
+            学术资源
           </span>
-        ))}
-      </div>
+          <span className="px-4 py-3 text-14 font-medium text-muted-foreground">
+            产品博客
+          </span>
+        </div>
 
-      <div className="mt-6 space-y-8">
-        {RESOURCE_SECTIONS.map((section) => (
-          <section key={section.category}>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="flex items-center gap-2 text-16 font-medium text-foreground">
-                <FolderOpen className="size-4 text-brand-red" />
-                {section.category}
-              </p>
-              <span className="text-12 text-faint">
-                {section.articles.length} 篇
-              </span>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {section.articles.map((article) => (
-                <article
-                  key={article.title}
-                  className="flex flex-col rounded-8 border border-border p-4"
-                >
-                  <p className="text-14 font-medium leading-paragraph text-foreground">
-                    {article.title}
-                  </p>
-                  <p className="mt-2 flex-1 text-12 leading-paragraph text-muted-foreground">
-                    {article.excerpt}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-12 text-faint">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock3 className="size-3" /> {article.time}
-                    </span>
-                    <ArrowRight className="size-3" />
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+        <div className="mb-8 flex flex-wrap items-center gap-2">
+          {RESOURCE_SECTIONS.map((section) => (
+            <span
+              key={section.category}
+              className="inline-flex h-7 items-center rounded-pill bg-surface-1 px-3 text-12 font-medium text-muted-foreground"
+            >
+              {section.category}
+              <span className="ml-2 text-faint">{section.articles.length}</span>
+            </span>
+          ))}
+        </div>
+
+        <div className="space-y-12">
+          {RESOURCE_SECTIONS.map((section) => (
+            <section key={section.category}>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="inline-flex items-center gap-2 text-18 font-medium text-foreground">
+                  <FolderOpen className="size-4 text-brand-red" />
+                  {section.category}
+                </h2>
+                <span className="text-12 text-faint">
+                  {section.articles.length} 篇
+                </span>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {section.articles.map((article) => (
+                  <article
+                    key={article.title}
+                    className="flex min-h-36 flex-col rounded-8 border border-border-soft bg-background p-6"
+                  >
+                    <h3 className="text-16 font-medium leading-sans text-foreground">
+                      {article.title}
+                    </h3>
+                    <p className="mt-2 text-12 leading-paragraph text-muted-foreground">
+                      {article.excerpt}
+                    </p>
+                    <div className="mt-auto flex items-center justify-between pt-3 text-12 text-faint">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock3 className="size-3" /> {article.time}
+                      </span>
+                      <ArrowRight className="size-3" />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }

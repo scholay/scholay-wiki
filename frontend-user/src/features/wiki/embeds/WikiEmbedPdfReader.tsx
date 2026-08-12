@@ -8,84 +8,51 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { DISCOVERY_MOCK_THEME } from "./WikiEmbedJournalSearch";
 
-/**
- * PDF 阅读器 · 纯样式 fixture。
- * 对齐 product-mock PdfBrowserPane + PdfViewerToolbar + PdfViewerContent。
- */
+/** 已载入 PDF 的单页阅读态：真实工具栏与脱敏演示论文首页。 */
 export function WikiEmbedPdfReader() {
   return (
     <div
-      className="w-[min(100%,48rem)] overflow-hidden rounded-16 border border-border bg-surface-2"
+      className="flex h-[36rem] w-full max-w-4xl flex-col overflow-hidden bg-surface-2"
+      style={DISCOVERY_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="pdf-reader"
     >
-      <header className="border-b border-border bg-surface-card px-4 py-3">
-        <p className="truncate text-14 font-medium text-foreground">
-          Attention Is All You Need.pdf
-        </p>
-      </header>
-
       <div
-        className="grid gap-2 border-b border-border bg-surface-card px-4 py-2 md:grid-cols-3 md:items-center"
+        className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border-hairline bg-background px-4"
         data-wiki-spot="PDF 工具栏"
       >
-        <div className="flex items-center gap-2 text-12 text-subtle">
-          <ToolbarIcon icon={ChevronLeft} />
-          <span className="min-w-14 text-center tabular-nums">1 / 15</span>
+        <div className="flex items-center gap-2 text-16">
+          <ToolbarIcon icon={ChevronLeft} muted />
+          <span className="min-w-14 text-center tabular-nums text-muted-foreground">
+            1 / 15
+          </span>
           <ToolbarIcon icon={ChevronRight} />
         </div>
 
-        <div className="flex items-center justify-center gap-1 rounded-8 bg-surface-2 p-1">
-          <Mode icon={File} label="单页" active />
-          <Mode icon={Rows3} label="连续" />
-          <Mode icon={Columns2} label="双页" />
+        <div className="inline-flex items-center gap-1 rounded-4 bg-surface-2 p-1">
+          <ModeIcon icon={File} active />
+          <ModeIcon icon={Rows3} />
+          <ModeIcon icon={Columns2} />
         </div>
 
-        <div className="flex items-center justify-end gap-2 text-12 text-subtle">
+        <div className="flex items-center gap-2 text-16">
           <ToolbarIcon icon={ZoomOut} />
-          <span className="min-w-12 text-center">自适应</span>
+          <span className="min-w-14 text-center text-muted-foreground">
+            自适应
+          </span>
           <ToolbarIcon icon={ZoomIn} />
           <ToolbarIcon icon={Maximize2} active />
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="mx-auto w-[min(100%,34rem)] border border-border bg-surface-card px-8 py-8">
-          <header className="border-b border-border-hairline pb-6 text-center">
-            <h3 className="font-display text-20 font-medium leading-display text-foreground">
-              Attention Is All You Need
-            </h3>
-            <p className="mt-2 text-12 text-subtle">
-              Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit
-            </p>
-            <p className="mt-1 text-12 text-faint">NeurIPS · 2017</p>
-          </header>
-
-          <section className="mt-6 space-y-3">
-            <h4 className="text-12 font-medium text-foreground">Abstract</h4>
-            <p className="text-12 leading-paragraph text-subtle">
-              We propose a new simple network architecture, the Transformer,
-              based solely on attention mechanisms, dispensing with recurrence
-              and convolutions entirely.
-            </p>
-            <div className="grid grid-cols-3 items-center gap-3 rounded-8 border border-border bg-surface-1 p-4 text-center text-12">
-              <span className="rounded-4 border border-border bg-surface-card px-2 py-2">
-                Input
-              </span>
-              <span className="rounded-4 bg-brand-red-soft px-2 py-2 text-brand-red">
-                Transformer
-              </span>
-              <span className="rounded-4 border border-border bg-surface-card px-2 py-2">
-                Output
-              </span>
-            </div>
-          </section>
-
-          <footer className="mt-6 border-t border-border-hairline pt-3 text-center text-12 text-faint">
-            Page 1 of 15
-          </footer>
-        </div>
+      <div className="min-h-0 flex flex-1 justify-center overflow-hidden bg-surface-2 p-4">
+        <img
+          src="/wiki/assets/pdf-reader-sample-page.png"
+          alt=""
+          className="h-auto max-h-full w-auto max-w-full bg-surface-card object-contain shadow-raised"
+        />
       </div>
     </div>
   );
@@ -94,16 +61,20 @@ export function WikiEmbedPdfReader() {
 function ToolbarIcon({
   icon: Icon,
   active = false,
+  muted = false,
 }: {
   icon: typeof ChevronLeft;
   active?: boolean;
+  muted?: boolean;
 }) {
   return (
     <span
       className={
         active
-          ? "inline-flex size-7 items-center justify-center rounded-8 bg-surface-2 text-foreground"
-          : "inline-flex size-7 items-center justify-center rounded-8 text-subtle"
+          ? "inline-flex size-7 items-center justify-center rounded-4 bg-surface-2 text-foreground"
+          : muted
+            ? "inline-flex size-7 items-center justify-center rounded-4 text-faint opacity-40"
+            : "inline-flex size-7 items-center justify-center rounded-4 text-subtle"
       }
     >
       <Icon className="size-4" />
@@ -111,25 +82,22 @@ function ToolbarIcon({
   );
 }
 
-function Mode({
+function ModeIcon({
   icon: Icon,
-  label,
   active = false,
 }: {
   icon: typeof File;
-  label: string;
   active?: boolean;
 }) {
   return (
     <span
       className={
         active
-          ? "inline-flex h-7 items-center gap-1 rounded-4 bg-surface-card px-2 text-12 font-medium text-foreground"
-          : "inline-flex h-7 items-center gap-1 rounded-4 px-2 text-12 text-faint"
+          ? "inline-flex h-6 w-7 items-center justify-center rounded-4 bg-background text-foreground shadow-raised"
+          : "inline-flex h-6 w-7 items-center justify-center rounded-4 text-subtle"
       }
     >
-      <Icon className="size-3" />
-      {label}
+      <Icon className="size-4" />
     </span>
   );
 }

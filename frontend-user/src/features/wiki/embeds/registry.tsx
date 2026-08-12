@@ -56,7 +56,10 @@ import {
   WikiEmbedAdminUserDirectory,
   WikiEmbedAdminUserLifecycle,
 } from "./WikiEmbedAdminUsers";
-import { WikiEmbedAuthDialog } from "./WikiEmbedAuthDialog";
+import {
+  WikiEmbedAuthDialog,
+  WikiEmbedForgotPasswordEmail,
+} from "./WikiEmbedAuthDialog";
 import { WikiEmbedAuthorProfile } from "./WikiEmbedAuthorProfile";
 import { WikiEmbedCitationDialog } from "./WikiEmbedCitationDialog";
 import { WikiEmbedCitationGenerator } from "./WikiEmbedCitationGenerator";
@@ -100,9 +103,19 @@ import { WikiEmbedMobileMe } from "./WikiEmbedMobileMe";
 import { WikiEmbedMobileSearch } from "./WikiEmbedMobileSearch";
 import { WikiEmbedMobileMembershipPurchase } from "./WikiEmbedMobileMembershipPurchase";
 import { WikiEmbedMobileTools } from "./WikiEmbedMobileTools";
+import {
+  WikiEmbedMobileAuthPage,
+  WikiEmbedMobileConnectionSettings,
+  WikiEmbedMobileLibraryFolder,
+  WikiEmbedMobileProfileSettings,
+  WikiEmbedMobileSecuritySettings,
+} from "./WikiEmbedMobileTruthSurfaces";
 import { WikiEmbedNotificationInbox } from "./WikiEmbedNotificationInbox";
 import { WikiEmbedOAuthAccountMerge } from "./WikiEmbedOAuthAccountMerge";
-import { WikiEmbedOAuthCallbackStates } from "./WikiEmbedOAuthCallbackStates";
+import {
+  WikiEmbedOAuthCallbackStates,
+  WikiEmbedWechatCallbackState,
+} from "./WikiEmbedOAuthCallbackStates";
 import { WikiEmbedPaperDetail } from "./WikiEmbedPaperDetail";
 import { WikiEmbedPaperFavoriteFlow } from "./WikiEmbedPaperFavoriteFlow";
 import { WikiEmbedPdfChatWorkspace } from "./WikiEmbedPdfChatWorkspace";
@@ -116,6 +129,14 @@ import { WikiEmbedPeerReviewResultOverview } from "./WikiEmbedPeerReviewResultOv
 import { WikiEmbedPeerReviewWizard } from "./WikiEmbedPeerReviewWizard";
 import { WikiEmbedPrismCompileStates } from "./WikiEmbedPrismCompileStates";
 import { WikiEmbedPrismHome } from "./WikiEmbedPrismHome";
+import {
+  WikiEmbedPrismLivePreview,
+  WikiEmbedPrismMathEditorDialog,
+  WikiEmbedPrismNumbersDialog,
+  WikiEmbedPrismRevisionDialog,
+  WikiEmbedPrismTranslateDialog,
+  WikiEmbedPrismWritingProfileDialog,
+} from "./WikiEmbedPrismMissingSurfaces";
 import { WikiEmbedPrismWorkspace } from "./WikiEmbedPrismWorkspace";
 import { WikiEmbedPrismWritingStart } from "./WikiEmbedPrismWritingStart";
 import { WikiEmbedProfileSettings } from "./WikiEmbedProfileSettings";
@@ -125,9 +146,11 @@ import { WikiEmbedRedeemPreview } from "./WikiEmbedRedeemPreview";
 import { WikiEmbedReviewAndStage } from "./WikiEmbedReviewAndStage";
 import { WikiEmbedResourceCenter } from "./WikiEmbedResourceCenter";
 import {
+  WikiEmbedRhinoAssistantDock,
   WikiEmbedRhinoAssistantEntry,
+  WikiEmbedRhinoAssistantFeedbackPanel,
   WikiEmbedRhinoAssistantHelpPanel,
-  WikiEmbedRhinoAssistantSupportPanels,
+  WikiEmbedRhinoAssistantNotificationsPanel,
 } from "./WikiEmbedRhinoAssistant";
 import { WikiEmbedSearchAutocomplete } from "./WikiEmbedSearchAutocomplete";
 import { WikiEmbedShareSheet } from "./WikiEmbedShareSheet";
@@ -137,7 +160,10 @@ import { WikiEmbedSmartSearchSession } from "./WikiEmbedSmartSearchSession";
 import { WikiEmbedStagingUnits } from "./WikiEmbedStagingUnits";
 import { WikiEmbedSubscriptionCheckout } from "./WikiEmbedSubscriptionCheckout";
 import { WikiEmbedWalletRecharge } from "./WikiEmbedWalletRecharge";
-import { WikiEmbedWechatQrLogin } from "./WikiEmbedWechatQrLogin";
+import {
+  WikiEmbedWechatQrBinding,
+  WikiEmbedWechatQrLogin,
+} from "./WikiEmbedWechatQrLogin";
 import {
   WikiEmbedAuthorCollaborationTrends,
   WikiEmbedBrowserTabsQuickOpen,
@@ -298,7 +324,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "account-connections": {
     id: "account-connections",
-    defaultCaption: "桌面连接管理、移动只读与 Google 新绑定边界",
+    defaultCaption: "账户设置 · 已连接账号",
     Component: WikiEmbedAccountConnections,
   },
   "account-security": {
@@ -308,13 +334,23 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "wechat-qr-login": {
     id: "wechat-qr-login",
-    defaultCaption: "微信扫码登录与绑定",
+    defaultCaption: "微信扫码登录 · 等待扫码",
     Component: WikiEmbedWechatQrLogin,
   },
+  "wechat-qr-binding": defineWikiEmbed(
+    "wechat-qr-binding",
+    "微信账号绑定 · 等待扫码",
+    WikiEmbedWechatQrBinding,
+  ),
   "oauth-callback-states": {
     id: "oauth-callback-states",
-    defaultCaption: "OAuth 与微信回调状态",
+    defaultCaption: "OAuth 回调 · 正在完成登录",
     Component: WikiEmbedOAuthCallbackStates,
+  },
+  "wechat-callback-state": {
+    id: "wechat-callback-state",
+    defaultCaption: "微信扫码回调 · 正在完成处理",
+    Component: WikiEmbedWechatCallbackState,
   },
   "oauth-account-merge": {
     id: "oauth-account-merge",
@@ -358,18 +394,28 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "rhino-assistant-entry": {
     id: "rhino-assistant-entry",
-    defaultCaption: "牛犀犀助手 · 悬浮入口与顶栏 Dock",
+    defaultCaption: "牛犀犀助手 · 悬浮角色的指针停留入口",
     Component: WikiEmbedRhinoAssistantEntry,
+  },
+  "rhino-assistant-dock": {
+    id: "rhino-assistant-dock",
+    defaultCaption: "牛犀犀助手 · 隐藏后的顶栏恢复入口",
+    Component: WikiEmbedRhinoAssistantDock,
   },
   "rhino-assistant-help-panel": {
     id: "rhino-assistant-help-panel",
-    defaultCaption: "牛犀犀助手 · 展开帮助面板",
+    defaultCaption: "牛犀犀助手 · 帮助面板的「拖点」标签",
     Component: WikiEmbedRhinoAssistantHelpPanel,
   },
   "rhino-assistant-support-panels": {
     id: "rhino-assistant-support-panels",
-    defaultCaption: "牛犀犀助手 · 通知与反馈面板",
-    Component: WikiEmbedRhinoAssistantSupportPanels,
+    defaultCaption: "牛犀犀助手 · 通知面板",
+    Component: WikiEmbedRhinoAssistantNotificationsPanel,
+  },
+  "rhino-assistant-feedback-panel": {
+    id: "rhino-assistant-feedback-panel",
+    defaultCaption: "牛犀犀助手 · 精简反馈面板",
+    Component: WikiEmbedRhinoAssistantFeedbackPanel,
   },
   "resource-center": {
     id: "resource-center",
@@ -391,6 +437,11 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
     defaultCaption: "登录弹窗",
     Component: WikiEmbedAuthDialog,
   },
+  "auth-password-recovery-email": defineWikiEmbed(
+    "auth-password-recovery-email",
+    "账户 · 邮箱找回密码初始表单",
+    WikiEmbedForgotPasswordEmail,
+  ),
   "author-profile": {
     id: "author-profile",
     defaultCaption: "作者详情",
@@ -438,7 +489,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "claw-run-states": {
     id: "claw-run-states",
-    defaultCaption: "Claw · 运行与异常状态",
+    defaultCaption: "Claw · 长任务停滞提示",
     Component: WikiEmbedClawRunStates,
   },
   "claw-session-history": {
@@ -528,9 +579,14 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "mobile-auth-surfaces": {
     id: "mobile-auth-surfaces",
-    defaultCaption: "移动认证 · 整页与就地 Sheet",
+    defaultCaption: "移动认证 · 从「我的」页打开的登录 Sheet",
     Component: WikiEmbedMobileAuthSurfaces,
   },
+  "mobile-auth-page": defineWikiEmbed(
+    "mobile-auth-page",
+    "移动认证 · 独立登录页",
+    WikiEmbedMobileAuthPage,
+  ),
   "mobile-claw": {
     id: "mobile-claw",
     defaultCaption: "移动 Claw · 新对话工作区",
@@ -551,11 +607,31 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
     defaultCaption: "移动文献集 · 文件夹列表到详情",
     Component: WikiEmbedMobileLibraryFlow,
   },
+  "mobile-library-folder": defineWikiEmbed(
+    "mobile-library-folder",
+    "移动文献集 · 文件夹详情",
+    WikiEmbedMobileLibraryFolder,
+  ),
   "mobile-me": {
     id: "mobile-me",
     defaultCaption: "移动账户 · 我的",
     Component: WikiEmbedMobileMe,
   },
+  "mobile-profile-settings": defineWikiEmbed(
+    "mobile-profile-settings",
+    "移动账户 · 个人资料",
+    WikiEmbedMobileProfileSettings,
+  ),
+  "mobile-security-settings": defineWikiEmbed(
+    "mobile-security-settings",
+    "移动账户 · 安全设置",
+    WikiEmbedMobileSecuritySettings,
+  ),
+  "mobile-connection-settings": defineWikiEmbed(
+    "mobile-connection-settings",
+    "移动账户 · 已连接账号",
+    WikiEmbedMobileConnectionSettings,
+  ),
   "mobile-search": {
     id: "mobile-search",
     defaultCaption: "移动端搜索",
@@ -578,7 +654,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "paper-favorite-flow": {
     id: "paper-favorite-flow",
-    defaultCaption: "论文收藏 · 选择文件夹与取消确认",
+    defaultCaption: "收藏论文 · 选择目标文献集",
     Component: WikiEmbedPaperFavoriteFlow,
   },
   "pdf-chat-workspace": {
@@ -628,12 +704,12 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "prism-compile-states": {
     id: "prism-compile-states",
-    defaultCaption: "Prism 编译与交付",
+    defaultCaption: "Prism 编译失败 · 可恢复状态",
     Component: WikiEmbedPrismCompileStates,
   },
   "prism-home": {
     id: "prism-home",
-    defaultCaption: "Prism 项目首页",
+    defaultCaption: "Prism 项目首页 · 未选中项目",
     Component: WikiEmbedPrismHome,
   },
   "prism-workspace": {
@@ -648,7 +724,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "profile-settings": {
     id: "profile-settings",
-    defaultCaption: "桌面与移动个人资料字段差异",
+    defaultCaption: "账户设置 · 桌面端个人资料",
     Component: WikiEmbedProfileSettings,
   },
   "quota-recovery": {
@@ -933,7 +1009,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "share-receive-variants": defineWikiEmbed(
     "share-receive-variants",
-    "分享接收 · 论文、期刊与受保护合集",
+    "分享接收 · 受保护合集的提取码",
     WikiEmbedShareReceiveVariants,
   ),
   "claw-artifact-output": defineWikiEmbed(
@@ -953,18 +1029,48 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "prism-writing-tools-dialogs": defineWikiEmbed(
     "prism-writing-tools-dialogs",
-    "Prism · 写作工具与确定性检查",
+    "Prism · 质量检查窗口",
     WikiEmbedPrismWritingToolsDialogs,
   ),
   "prism-document-insert-dialogs": defineWikiEmbed(
     "prism-document-insert-dialogs",
-    "Prism · 作者、引用与公式",
+    "Prism · 从个人文献集插入引用",
     WikiEmbedPrismDocumentInsertDialogs,
   ),
   "prism-history-inline-edit": defineWikiEmbed(
     "prism-history-inline-edit",
-    "Prism · 版本与选区编辑",
+    "Prism · 版本历史",
     WikiEmbedPrismHistoryInlineEdit,
+  ),
+  "prism-live-preview": defineWikiEmbed(
+    "prism-live-preview",
+    "Prism · AI 写作实时预览",
+    WikiEmbedPrismLivePreview,
+  ),
+  "prism-writing-profile-dialog": defineWikiEmbed(
+    "prism-writing-profile-dialog",
+    "Prism · 写作画像",
+    WikiEmbedPrismWritingProfileDialog,
+  ),
+  "prism-revision-dialog": defineWikiEmbed(
+    "prism-revision-dialog",
+    "Prism · 修改意见逐条回应",
+    WikiEmbedPrismRevisionDialog,
+  ),
+  "prism-translate-dialog": defineWikiEmbed(
+    "prism-translate-dialog",
+    "Prism · 整篇翻译",
+    WikiEmbedPrismTranslateDialog,
+  ),
+  "prism-numbers-dialog": defineWikiEmbed(
+    "prism-numbers-dialog",
+    "Prism · 数字校验结果",
+    WikiEmbedPrismNumbersDialog,
+  ),
+  "prism-math-editor-dialog": defineWikiEmbed(
+    "prism-math-editor-dialog",
+    "Prism · 插入公式",
+    WikiEmbedPrismMathEditorDialog,
   ),
   "feature-tool-detail": defineWikiEmbed(
     "feature-tool-detail",
@@ -983,7 +1089,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "auth-register-recovery": defineWikiEmbed(
     "auth-register-recovery",
-    "账户 · 注册、验证码登录与找回密码",
+    "账户 · 邮箱注册表单",
     WikiEmbedAuthRegisterRecovery,
   ),
   "billing-overview-usage": defineWikiEmbed(
@@ -1013,7 +1119,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "mobile-feed-states": defineWikiEmbed(
     "mobile-feed-states",
-    "移动 Feed · 加载、空白与异常状态",
+    "移动 Feed · 加载失败与重试",
     WikiEmbedMobileFeedStates,
   ),
   "mobile-claw-session-drawer": defineWikiEmbed(

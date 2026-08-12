@@ -1,32 +1,23 @@
 import {
+  Activity,
   BarChart3,
   Bell,
+  CheckCircle2,
+  Coins,
+  Gift,
   LayoutDashboard,
   LockKeyhole,
+  MessageSquare,
   Shield,
+  ShoppingCart,
   Users,
+  Wallet,
 } from "lucide-react";
 import {
-  AdminAnalyticsFixture,
+  ADMIN_MOCK_THEME,
+  AdminMockPage,
   AdminPermissionNotice,
 } from "./WikiEmbedAdminShared";
-
-const SETTLED_ACTIVITY = [
-  {
-    title: "数据聚合完成",
-    detail: "",
-    meta: "今天 10:20",
-    status: "已完成",
-    tone: "green" as const,
-  },
-  {
-    title: "日报快照已生成",
-    detail: "",
-    meta: "昨天 23:55",
-    status: "已归档",
-    tone: "neutral" as const,
-  },
-] as const;
 
 const ADMIN_NAV_GROUPS = [
   {
@@ -47,19 +38,21 @@ const ADMIN_NAV_GROUPS = [
 export function WikiEmbedAdminConsole() {
   return (
     <div
-      className="w-full max-w-5xl overflow-hidden rounded-12 border border-border bg-surface-1"
+      className="w-full max-w-5xl overflow-hidden rounded-12 border border-border bg-background"
+      style={ADMIN_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="admin-console"
     >
       <div className="flex min-h-96">
-        <aside className="hidden w-48 shrink-0 border-r border-border bg-surface-card sm:block">
-          <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-            <span className="inline-flex size-8 items-center justify-center rounded-8 bg-foreground text-on-dark">
+        <aside className="hidden w-56 shrink-0 border-r border-border bg-background sm:block">
+          <div className="flex h-12 items-center justify-between border-b border-border px-3">
+            <span className="inline-flex size-8 items-center justify-center rounded-8 border border-border bg-background text-foreground">
               <Shield className="size-4" />
             </span>
-            <span className="text-14 font-medium text-foreground">
+            <span className="text-16 font-medium text-foreground">
               管理员后台
             </span>
+            <span className="size-8" />
           </div>
 
           <nav className="space-y-4 p-3">
@@ -72,8 +65,8 @@ export function WikiEmbedAdminConsole() {
                       key={label}
                       className={
                         active
-                          ? "flex h-8 items-center gap-2 rounded-8 bg-danger-soft px-2 text-12 font-medium text-brand-red"
-                          : "flex h-8 items-center gap-2 rounded-8 px-2 text-12 text-subtle"
+                          ? "flex h-8 items-center gap-2 rounded-8 bg-brand-red-soft px-2 text-14 font-medium text-brand-red"
+                          : "flex h-8 items-center gap-2 rounded-8 px-2 text-14 text-subtle"
                       }
                     >
                       <Icon className="size-3" />
@@ -87,21 +80,21 @@ export function WikiEmbedAdminConsole() {
         </aside>
 
         <main className="min-w-0 flex-1">
-          <header className="border-b border-border bg-surface-card p-4 sm:p-6">
+          <header className="border-b border-border-hairline bg-background px-6 py-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-18 font-medium text-foreground">看板</p>
-                <p className="mt-1 text-12 leading-paragraph text-subtle">
-                  管理入口、权限菜单与运营工作区位于同一套用户端 SPA。
+                <p className="text-28 font-medium text-foreground">看板</p>
+                <p className="mt-1 text-20 text-muted-foreground">
+                  平台核心指标 · 用户 / 订单 / 营收一屏直观
                 </p>
               </div>
-              <span className="inline-flex h-8 items-center rounded-pill bg-success-soft px-3 text-12 text-brand-green">
+              <span className="inline-flex h-7 items-center rounded-pill border border-brand-green px-3 text-12 text-brand-green">
                 operations
               </span>
             </div>
           </header>
 
-          <div className="space-y-4 p-4 sm:p-6">
+          <div className="space-y-4 p-3 sm:p-4 lg:p-6">
             <div className="grid gap-3 sm:grid-cols-3">
               {[
                 ["待处理反馈", "12"],
@@ -156,6 +149,7 @@ export function WikiEmbedAdminAccessControl() {
   return (
     <div
       className="w-full max-w-4xl overflow-hidden rounded-12 border border-border bg-surface-card"
+      style={ADMIN_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="admin-access-control"
     >
@@ -211,41 +205,190 @@ export function WikiEmbedAdminAccessControl() {
 /** 后台核心指标、趋势与运行检查 · 纯样式 fixture。 */
 export function WikiEmbedAdminDashboard() {
   return (
-    <AdminAnalyticsFixture
+    <AdminMockPage
       fixture="admin-dashboard"
-      icon={LayoutDashboard}
       title="看板"
-      description="平台核心指标与今日检查；聚合结果显示独立更新时间。"
-      metrics={[
-        { label: "总用户", value: "28,640", note: "今日 +86", tone: "blue" },
-        {
-          label: "净收入",
-          value: "¥126,580",
-          note: "已扣除退款",
-          tone: "green",
-        },
-        {
-          label: "已支付订单",
-          value: "1,284",
-          note: "待支付 72",
-          tone: "neutral",
-        },
-        { label: "AI 成本", value: "¥18,420", note: "本周期", tone: "amber" },
-      ]}
-      tabs={["核心指标", "今日检查"]}
-      activeTab="核心指标"
-      bars={[
-        { label: "新增用户", value: "3,280", width: "full", tone: "blue" },
-        {
-          label: "付费用户",
-          value: "1,920",
-          width: "three-fourths",
-          tone: "green",
-        },
-        { label: "兑换码核销", value: "860", width: "half", tone: "amber" },
-        { label: "退款订单", value: "38", width: "third", tone: "red" },
-      ]}
-      activity={SETTLED_ACTIVITY}
-    />
+      description="平台核心指标 · 用户 / 订单 / 营收一屏直观；在线 / DAU / 漏斗移至数据统计"
+    >
+      <section className="rounded-8 border border-border bg-background">
+        <header className="flex items-center justify-between border-b border-border-hairline px-4 py-3">
+          <h3 className="text-16 font-medium text-foreground">今日待办</h3>
+          <span className="text-12 text-faint">3 项</span>
+        </header>
+        {[
+          {
+            label: "待处理反馈",
+            hint: "点击查看 →",
+            value: "12 条",
+            Icon: MessageSquare,
+            tone: "red",
+          },
+          {
+            label: "第三方账号失败率高",
+            hint: "失败率 > 10%",
+            value: "2 个",
+            Icon: Activity,
+            tone: "red",
+          },
+          {
+            label: "草稿消息未发送",
+            hint: "点击查看 →",
+            value: "3 条",
+            Icon: Bell,
+            tone: "neutral",
+          },
+        ].map(({ label, hint, value, Icon, tone }, index) => (
+          <div
+            key={label}
+            className={`flex h-12 items-center gap-3 px-4 ${index < 2 ? "border-b border-border-hairline" : ""}`}
+          >
+            <span
+              className={`inline-flex size-7 shrink-0 items-center justify-center rounded-8 ${tone === "red" ? "bg-brand-red-soft text-brand-red" : "bg-surface-2 text-faint"}`}
+            >
+              <Icon className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1 leading-sans">
+              <p className="text-16 font-medium text-foreground">{label}</p>
+              <p className="mt-px truncate text-12 text-faint">{hint}</p>
+            </div>
+            <span
+              className={`text-16 font-medium tabular-nums ${tone === "red" ? "text-brand-red" : "text-subtle"}`}
+            >
+              {value}
+            </span>
+          </div>
+        ))}
+      </section>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          ["总用户", "28,640", "今日新增 86 · 30 日 3,280", Users],
+          ["30 日营收", "¥126,580", "今日 ¥8,420 · 累计 ¥829,600", Wallet],
+          ["已支付订单", "1,284", "待支付 72 · 总 1,356", ShoppingCart],
+          ["付费用户", "4,280", "Free 24,360", CheckCircle2],
+          [
+            "今日 AI 成本",
+            "¥614.00",
+            "30 日 ¥18,420 · 明细见 Token 用量",
+            Coins,
+          ],
+          ["兑换码已核销", "860", "总生成 1,200", Gift],
+        ].map(([label, value, hint, Icon]) => {
+          const MetricIcon = Icon as typeof Users;
+          return (
+            <section
+              key={label as string}
+              className="flex flex-col gap-2 rounded-8 border border-border bg-background p-4"
+            >
+              <div className="flex items-center justify-between text-faint">
+                <span className="text-20">{label as string}</span>
+                <MetricIcon className="size-4" />
+              </div>
+              <strong className="text-32 font-medium tabular-nums text-foreground">
+                {value as string}
+              </strong>
+              <span className="text-14 text-muted-foreground">
+                {hint as string}
+              </span>
+            </section>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <DashboardTrend
+          title="新增用户 · 30 天"
+          value="3,280 人"
+          color="green"
+          points="0,92 30,74 60,84 90,46 120,60 150,24 180,42 210,14 240,30 270,8 300,20"
+        />
+        <DashboardTrend
+          title="营收(¥) · 30 天"
+          value="¥126,580"
+          color="red"
+          area
+          points="0,82 30,68 60,74 90,52 120,60 150,34 180,40 210,18 240,28 270,10 300,16"
+        />
+        <DashboardTrend
+          title="AI 成本(¥) · 30 天"
+          value="¥18,420"
+          color="amber"
+          area
+          points="0,86 30,76 60,80 90,66 120,58 150,64 180,40 210,48 240,26 270,34 300,18"
+        />
+      </div>
+    </AdminMockPage>
+  );
+}
+
+function DashboardTrend({
+  title,
+  value,
+  points,
+  color,
+  area = false,
+}: {
+  title: string;
+  value: string;
+  points: string;
+  color: "green" | "red" | "amber";
+  area?: boolean;
+}) {
+  const stroke =
+    color === "green"
+      ? "hsl(var(--brand-green))"
+      : color === "red"
+        ? "hsl(var(--brand-red))"
+        : "hsl(var(--brand-amber))";
+  return (
+    <section className="rounded-8 border border-border bg-background p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-16 font-medium text-foreground">{title}</h3>
+        <BarChart3 className="size-4 text-faint" />
+      </div>
+      <p className="mt-1 text-14 tabular-nums text-muted-foreground">{value}</p>
+      <svg
+        viewBox="0 0 300 110"
+        className="mt-3 h-48 w-full overflow-visible"
+        preserveAspectRatio="none"
+      >
+        {[20, 50, 80].map((y) => (
+          <line
+            key={y}
+            x1="0"
+            y1={y}
+            x2="300"
+            y2={y}
+            stroke="var(--border)"
+            strokeDasharray="3 3"
+          />
+        ))}
+        {area ? (
+          <polygon
+            points={`${points} 300,100 0,100`}
+            fill={stroke}
+            fillOpacity="0.1"
+          />
+        ) : null}
+        <polyline
+          points={points}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+        />
+        {points.split(" ").map((point) => {
+          const [cx, cy] = point.split(",");
+          return area ? null : (
+            <circle key={point} cx={cx} cy={cy} r="2" fill={stroke} />
+          );
+        })}
+      </svg>
+      <div className="flex justify-between text-12 text-faint">
+        <span>07-14</span>
+        <span>07-29</span>
+        <span>08-12</span>
+      </div>
+    </section>
   );
 }

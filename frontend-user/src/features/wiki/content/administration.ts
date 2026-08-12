@@ -22,7 +22,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "roles",
         title: "入口与角色",
-        markdown: `访问 /admin 必须持有登录令牌，且角色为 operations、admin 或 super_admin。operations 拥有 analytics.view、content.manage、users.view；admin 追加 users.manage、config.manage、finance.refund；super_admin 再追加 users.role.assign。普通 user 不能进入后台外壳。`,
+        markdown: `登录后访问 \`/admin\`，后台会按你的角色显示可用菜单与操作；下图展示的是 operations、admin 和 super_admin 三类角色的权限矩阵。普通 user 不能进入后台外壳。
+
+operations 拥有 analytics.view、content.manage、users.view；admin 再增加 users.manage、config.manage、finance.refund；super_admin 额外拥有 users.role.assign。`,
         embeds: [{ id: "admin-access-control" }],
       },
       {
@@ -52,7 +54,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "metrics",
         title: "核心指标",
-        markdown: `总览展示总用户与新增用户、总收入减退款后的净收入、已支付与待支付订单、付费与免费用户、AI 成本、兑换码核销以及 30 天趋势。后台将聚合结果缓存 30 秒，页面同时展示数据更新时间，因此它适合运营巡视，不是逐笔实时账本。`,
+        markdown: `进入后台总览后，你会先看到用户、净收入、订单、会员、AI 成本和兑换码核销等汇总，再通过趋势卡比较最近 30 天与上一周期。下图依次展示总览页面和关键指标趋势卡。
+
+汇总结果会缓存 30 秒，页面也会标明数据更新时间；这里适合日常巡视，不是逐笔实时账本。`,
         embeds: [
           { id: "admin-dashboard" },
           {
@@ -64,7 +68,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "checks",
         title: "今日检查与降级",
-        markdown: `检查项覆盖待处理反馈、草稿消息、第三方账号健康、维护模式、支付宝和微信支付。只有两个支付渠道都不可用时才形成支付告警；请求失败会标为降级，而 operations 因无 config.manage 读取配置得到的 403 不会被误报为系统故障。`,
+        markdown: `“今日检查”会把待处理反馈、草稿消息、第三方账号健康、维护模式和支付渠道分成正常、降级或阻断事项；下图展示的是三种结果并列时的代表状态。点击事项后再进入对应后台页面处理。
+
+只有支付宝和微信支付都不可用时才形成支付告警。检查请求失败会标为降级；operations 因没有 config.manage 权限而读取配置失败时，不会被误报为系统故障。`,
         embeds: [
           {
             id: "admin-dashboard-today-panel",
@@ -95,7 +101,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "search",
         title: "查询范围",
-        markdown: `列表可按用户 ID、用户名、邮箱或手机号搜索，并按角色、会员档位、状态、邮箱验证状态和注册日期过滤、排序。前端每页固定 20 条；批量动作只作用于当前已经选中的可见记录，不代表全量搜索结果。`,
+        markdown: `进入用户目录后，可以按用户 ID、用户名、邮箱或手机号搜索，再用角色、会员档位、状态、邮箱验证和注册日期筛选、排序；页面还提供注册、活跃、来源与活跃时段指标。下图依次展示用户列表和用户指标面板。
+
+列表每页固定 20 条。批量动作只会处理当前明确选中的记录，不会自动覆盖整个搜索结果。`,
         embeds: [
           { id: "admin-user-directory" },
           {
@@ -107,7 +115,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "detail",
         title: "聚合详情",
-        markdown: `详情抽屉分别读取身份与 OAuth 连接、登录和 IP 信息、订单、钱包、兑换记录、VIP、额度与 reset pass，以及功能使用和 LLM 消耗。各面板独立处理加载失败，所以单个统计接口异常不应被解释为账号不存在。`,
+        markdown: `点击用户行会打开详情抽屉，再分别查看身份与 OAuth 连接、登录与 IP、会员、额度、Reset Pass、功能使用、AI 算力、订单、经费流水和兑换记录。下方三张图依次展示聚合详情、单用户用量，以及订单与资产历史。
+
+这些面板分别加载数据；某一个统计请求失败时，应按面板提示排查，不能据此判断账号不存在。`,
         embeds: [
           {
             id: "admin-user-detail-drawer",
@@ -146,7 +156,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "freeze",
         title: "冻结与解冻",
-        markdown: `users.manage 可冻结普通账号，原因要求 1–255 个字符；admin 和 super_admin 不能由该操作冻结。冻结会把账号状态改为 frozen 并撤销其全部访问令牌；解冻只恢复账号状态，已经撤销的旧令牌不会复活，用户需要重新登录。`,
+        markdown: `从用户详情打开高风险操作面板，可以按权限冻结、解冻、删除账号或调整角色；下图展示的是这些动作及确认提示的代表状态。执行冻结前请核对用户 ID，并填写原因。
+
+users.manage 可冻结普通账号，原因要求 1–255 个字符；admin 和 super_admin 不能通过该操作冻结。冻结会把状态改为 frozen 并撤销全部访问令牌；解冻只恢复账号状态，旧令牌不会复活，用户需要重新登录。`,
         embeds: [{ id: "admin-user-lifecycle" }],
       },
       {
@@ -182,7 +194,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "membership",
         title: "会员发放与撤销",
-        markdown: `users.manage 可按天、月或年发放 Pro 或 Max，单次上限分别为 3650 天、120 月和 10 年；超过一年时前端增加二次确认。撤销会员只把档位恢复为 Free，不会顺带清空 Credit 或 Reset Pass。`,
+        markdown: `在用户详情的权益区域，可以分别发放会员、科研经费或重置次数；选择会员时，再设置 Pro/Max、按天/月/年计时和授予长度。下图依次展示权益概览和单用户发放面板。提交前请再次核对用户、权益种类与期限。
+
+users.manage 单次最多发放 3650 天、120 月或 10 年，超过一年会增加二次确认。撤销会员只把档位恢复为 Free，不会同时清空 Credit 或 Reset Pass。`,
         embeds: [
           { id: "admin-entitlement-grants" },
           {
@@ -224,7 +238,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "model",
         title: "公告模型",
-        markdown: `类型为 banner、popup 或 maintenance_note；级别为 info、warning、danger 或 success；受众可选 all、logged_in 或 paid。记录还包含起止时间、是否可关闭、启用状态和优先级，前端据此派生草稿、待生效、直播中或已过期等展示状态。`,
+        markdown: `公告页先列出已有记录及草稿、待生效、直播中或已过期状态；点击新建或编辑后，再设置形式、级别、受众、起止时间、是否可关闭、启用状态和优先级。下图依次展示公告列表和编辑器。
+
+类型值为 banner、popup 或 maintenance_note，级别为 info、warning、danger 或 success，受众为 all、logged_in 或 paid；页面状态由排期和启用信息共同计算。`,
         embeds: [
           { id: "admin-announcements" },
           {
@@ -261,13 +277,17 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "signals",
         title: "热度信号",
-        markdown: `论文与期刊搜索热度使用 search_count；论文内容另统计 impression_count、click_count 和 seo_view_count。历史 view_count 字段仍可能存在，但当前写入链路已经不再更新它，分析时不能把它当作实时浏览量。`,
+        markdown: `进入热门内容页，可以在热搜词、热门论文和热门期刊之间切换，并按时间范围比较搜索、曝光和点击；下图展示的是已有热度数据时的列表状态。
+
+论文与期刊搜索热度使用 search_count；论文另统计 impression_count、click_count 和 seo_view_count。历史 view_count 字段可能仍存在，但当前已不再更新，不能当作实时浏览量。`,
         embeds: [{ id: "admin-hot-content" }],
       },
       {
         id: "retention",
         title: "保留与清理",
-        markdown: `列表查询时间窗最多 180 天。保留天数可配置为 1–3650 天，最大记录量可配置为 100 到 1000 万；系统每天 04:30 自动清理，也可由 config.manage 手动触发。analytics.view 仅能读取，不具备修改策略或清理权限。`,
+        markdown: `打开清理设置，可以调整热词和热门论文的保留天数、最大记录量，并查看自动清理时间；下图展示的是策略已载入、可以编辑的状态。保存或手动清理前应确认影响范围。
+
+查询时间窗最多 180 天；保留天数可设为 1–3650 天，最大记录量为 100 到 1000 万。系统每天 04:30 自动清理，config.manage 也可手动触发；analytics.view 只能读取。`,
         embeds: [
           {
             id: "admin-hot-cleanup-config",
@@ -298,7 +318,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "states",
         title: "同步状态机",
-        markdown: `任务状态为 running、paused、done、failed 或 cancelled；同一时间只允许一个 running 或 paused 的活跃任务。后台支持开始、暂停、继续和取消，页面在活跃时每 5 秒轮询、空闲时每 30 秒轮询。取消会停止后续抓取，但已经暂存的数据仍会保留。`,
+        markdown: `在期刊同步页可以开始新任务，并对当前任务执行暂停、继续或取消；页面会显示抓取、暂存和发布进度。下图展示的是已有活跃任务和历史记录时的代表状态。
+
+状态为 running、paused、done、failed 或 cancelled，同一时间只能有一个 running 或 paused 任务。活跃时页面每 5 秒刷新，空闲时每 30 秒刷新；取消只停止后续抓取，已暂存数据仍会保留。`,
         embeds: [{ id: "admin-journal-sync" }],
       },
       {
@@ -331,7 +353,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "catalog",
         title: "工具内容生命周期",
-        markdown: `工具状态为 draft、pending、published 或 archived。published 控制用户可见性，seo_indexable 则是独立的 SEO 审核结果；公开可见不自动代表允许被搜索引擎收录。`,
+        markdown: `进入工具管理后，可以按状态浏览目录并打开条目编辑器，修改内容、访问方式和 SEO 信息；下图依次展示工具列表和编辑弹窗。保存前应分别确认用户可见性与搜索收录设置。
+
+工具状态为 draft、pending、published 或 archived。published 控制用户是否可见，seo_indexable 是另一项 SEO 审核结果；公开可见不等于已经允许搜索引擎收录。`,
         embeds: [
           { id: "admin-tool-operations" },
           {
@@ -343,7 +367,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "imports",
         title: "批量导入与任务",
-        markdown: `可导入顶层数组，或带 items/tools 字段的 JSON 与 ZIP；ZIP 最多处理 5000 项。系统优先用 source_topic_id、其次用 slug 做幂等识别。后台任务依次进入 pending、running，再结束为 succeeded、partial 或 failed，并保留逐项结果。`,
+        markdown: `批量导入时，先上传或粘贴 JSON/ZIP 并查看校验结果，确认后再创建异步任务；任务详情会显示进度、成功与失败数量以及逐条错误。下图依次展示导入入口和任务详情。
+
+JSON 可以是顶层数组，也可以使用 items 或 tools 字段；ZIP 最多处理 5000 项。系统优先按 source_topic_id、其次按 slug 识别重复项。任务从 pending、running 推进到 succeeded、partial 或 failed，并保留逐项结果。`,
         embeds: [
           {
             id: "admin-tool-import",
@@ -358,7 +384,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "webhooks",
         title: "Webhook 投递边界",
-        markdown: `工具 created、updated、deleted 事件可发送到配置地址，签名密钥可选；安全 HTTP 客户端限制 SSRF，后台可测试并查看响应与错误。当前实现把 Attempt 固定为 1 并单次派发，没有自动重试循环；失败后应查看投递记录并人工重测。`,
+        markdown: `Webhook 页面先列出订阅及最近投递；新建或编辑时填写地址、可选签名密钥和 created、updated、deleted 事件，再用测试功能检查响应。打开投递详情可以查看成功响应或失败原因。下方三张图依次展示订阅列表、编辑器和投递记录。
+
+出站请求会限制 SSRF 风险。当前 Attempt 固定为 1，每次事件只派发一次，没有自动重试循环；失败后需要查看记录并人工重测。`,
         embeds: [
           {
             id: "admin-tool-webhook-list",
@@ -397,7 +425,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "moderation",
         title: "审核状态",
-        markdown: `审核状态为 pending、approved、rejected 或 flagged。只有同时满足公开、approved 和 active 的 Skill 才能被其他用户查看与安装；作者修改已公开版本的内容后会重新进入 pending。举报只提供人工判断依据，当前服务明确不会因举报数自动改变审核状态或自动下架。`,
+        markdown: `进入社区 Skill 审核后，可以先处理待审核内容，再切到举报队列核对理由和上下文；如果列表加载失败，页面会显示可重试的错误态，而不是把它伪装成空队列。下方三张图依次展示审核列表、举报队列和加载失败状态。
+
+审核状态为 pending、approved、rejected 或 flagged。只有公开、approved 且 active 的 Skill 才能被其他用户查看和安装；作者修改已公开版本后会重新进入 pending。举报只提供人工判断依据，不会按数量自动改状态或下架。`,
         embeds: [
           { id: "admin-skill-moderation" },
           {
@@ -438,7 +468,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "workflow",
         title: "处理状态与详情",
-        markdown: `反馈状态为 pending、processed、replied 或 closed。后台支持搜索、查看提交 IP 和附件并更新状态；回复会发送邮件，若反馈来自登录用户，还会同时创建站内通知，并将记录推进为 replied。`,
+        markdown: `反馈后台可以搜索和筛选记录；点击一条反馈后，在详情弹窗中查看正文、提交 IP、附件与当前状态，再选择处理、回复或关闭。下图依次展示反馈列表和详情/回复弹窗。
+
+状态为 pending、processed、replied 或 closed。回复会发送邮件；反馈来自登录用户时，还会创建站内通知，并把记录推进为 replied。`,
         embeds: [
           { id: "admin-feedback" },
           {
@@ -475,7 +507,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "send",
         title: "草稿与发送",
-        markdown: `消息类别为 system、promotion 或 transaction，发送范围为 all、batch、single 或 by_plan。只有 draft 可以发送，且 single/batch 不能缺少收件人；发送是同步且不可逆的状态推进。全体发送前端要求输入 SEND 确认，当前后台没有注册消息更新或删除路由。`,
+        markdown: `站内消息页先列出草稿与已发送记录；新建时选择类别、收件范围、正文和链接，保存草稿后再进入发送确认。全体发送还需要输入 SEND。下方三张图依次展示消息列表、草稿编辑器和最终确认弹窗。
+
+类别为 system、promotion 或 transaction，范围为 all、batch、single 或 by_plan。只有 draft 可以发送，single/batch 必须有收件人；发送会同步推进到不可逆状态。当前后台没有消息更新或删除路由。`,
         embeds: [
           { id: "admin-messaging" },
           {
@@ -521,7 +555,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "mailbox",
         title: "邮件中心",
-        markdown: `邮件中心通过 IMAP 拉取和轮询客服邮箱，通过 SMTP 回复或新建邮件；富文本邮件在沙箱预览中展示，避免后台页面直接执行来信 HTML。它操作的是配置的支持邮箱，不是所有系统通知的统一重试队列。`,
+        markdown: `进入邮件中心后，可以在客服邮箱工作台筛选来信、阅读正文并直接回复，也可以打开新建邮件弹窗主动发信。下方三张图依次展示邮件模块总览、收件箱工作台和新建邮件弹窗。
+
+邮件中心通过 IMAP 拉取并轮询支持邮箱，通过 SMTP 回复或发信；富文本来信在沙箱中预览，避免直接执行 HTML。这里操作的是配置的客服邮箱，不是所有系统通知的统一重试队列。`,
         embeds: [
           { id: "admin-mail-support" },
           {
@@ -537,7 +573,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "support-config",
         title: "客服公开配置",
-        markdown: `客服配置包含公开邮箱、说明、二维码、IMAP/SMTP，以及飞书 Webhook、签名和事件开关。二维码只接受 data URL 且最大 300 KiB；连接测试读取已保存配置，页面存在未保存改动时会禁用测试，避免把旧凭据的成功误认为新凭据有效。`,
+        markdown: `客服配置页先概览公开联系方式和通道状态，再分别编辑邮箱说明、二维码、IMAP、SMTP 与飞书通知。下图依次展示配置总览和完整通道表单。保存后再执行连接测试；页面有未保存改动时，测试按钮会禁用，避免把旧凭据的成功误认为新凭据有效。
+
+二维码只接受 data URL，最大 300 KiB。飞书配置还包含 Webhook、签名和事件开关。`,
         embeds: [
           { id: "admin-support-config" },
           {
@@ -549,7 +587,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "delivery-logs",
         title: "邮件与短信日志",
-        markdown: `日志页按邮件和短信分栏，提供总数、成功、失败、分类、状态、搜索与原始错误。底层 email_logs 通过 channel 区分渠道；日志用于观察历史投递结果，不代表已经提供一键重发、死信队列或自动补偿。`,
+        markdown: `进入发送日志后，先查看总数、成功与失败汇总，再在邮件和短信页签之间切换，并按分类、状态或关键词查找记录；失败行会保留原始错误。下图展示的是成功和失败结果并存的代表状态。
+
+底层 email_logs 通过 channel 区分渠道。日志只能用于回看历史投递结果，不表示已经提供一键重发、死信队列或自动补偿。`,
         embeds: [{ id: "admin-delivery-logs" }],
       },
     ],
@@ -575,7 +615,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "coverage",
         title: "覆盖范围与刷新",
-        markdown: `页面覆盖 smart、claw、slides、draw、stat、prism 和 peer review。通用会话列表每页 20 条并每 30 秒刷新，可按搜索词、模型、轮次、重置状态和时间筛选；详情显示消息、工具调用、附件与产物，Peer Review 另提供偏调试用途的原始记录。`,
+        markdown: `AI 会话监控可以在 smart、claw、slides、draw、stat、prism 和 peer review 之间切换；通用会话按搜索词、模型、轮次、重置状态和时间筛选，Peer Review 则提供投稿检索、评审模式与执行状态。下图依次展示通用会话总览和 Peer Review 监控面板。
+
+通用列表每页 20 条并每 30 秒刷新。详情可查看消息、工具调用、附件与产物；Peer Review 还保留偏调试用途的原始记录。`,
         embeds: [
           { id: "admin-session-monitoring" },
           {
@@ -587,7 +629,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "read-only",
         title: "只读与隐私边界",
-        markdown: `该能力要求 analytics.view，只提供读取和排障，不提供修改会话或代替用户继续对话。记录可能包含未发表研究、上传附件和模型输出，应按敏感业务数据处理；有后台访问权不等于可以无目的浏览。`,
+        markdown: `点击监控记录后，可以只读查看对话与工具调用、智能审稿的投稿和进度，并在受控预览器中打开附件。下方三张图依次展示通用会话详情、Peer Review 详情和文件预览。
+
+这些页面要求 analytics.view，只用于排障，不能修改会话或代替用户继续对话。记录可能包含未发表研究、附件和模型输出，应按敏感业务数据处理；拥有后台权限不代表可以无目的浏览。`,
         embeds: [
           {
             id: "admin-chat-session-detail",
@@ -626,7 +670,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "umami",
         title: "站点指标",
-        markdown: `Umami 以 website ID 为配置入口，提供访客、会话、页面浏览、跳出率、平均时长、实时活跃，以及按时间和维度拆分的数据。未配置时接口返回 configured: false，不能把这种状态解释为访问量为零或服务异常。`,
+        markdown: `配置 Umami website ID 后，站点分析页会显示访客、会话、页面浏览、跳出率、平均时长与实时活跃，并可继续查看日趋势和页面、来源、国家、浏览器、系统、设备排行。下方前 3 张图依次展示分析总览、趋势和维度排行；第 4 张图是尚未配置 Umami 时的设置空态。
+
+未配置时 API 返回 configured: false，这不表示访问量为零，也不应被当作统计服务故障。`,
         embeds: [
           { id: "admin-site-analytics" },
           {
@@ -668,7 +714,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "events",
         title: "事件口径",
-        markdown: `当前统计真源是 usage_events v2，可查看总量、今日量、登录与匿名用户、每日趋势及功能拆分。旧 usage_logs 表不再被当前读取链路使用，历史查询或临时报表不应把两个口径混合相加。`,
+        markdown: `功能使用页会先汇总总量、今日量、登录用户和匿名访客，再按日期与功能查看趋势；下图依次展示功能总览和每日事件趋势。筛选或对比时应保持同一时间范围与用户口径。
+
+当前读取的是 usage_events v2。旧 usage_logs 表不再进入这套统计，历史查询或临时报表不能把两种口径直接相加。`,
         embeds: [
           { id: "admin-feature-usage" },
           {
@@ -709,7 +757,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "dimensions",
         title: "统计维度",
-        markdown: `llm_token_usage 支持按日期、功能、来源、模型、Provider、用户或匿名身份筛选，主口径为算力点，并同时汇总输入输出 Token、缓存读写、调用数、独立用户和未计价调用。页面的维度顺序为模型、功能、来源、Provider、Top 用户，横条长度表达算力点占比；导出沿用当前筛选条件，最多 100000 条，并带 UTF-8 BOM 方便表格软件识别中文。`,
+        markdown: `进入算力统计后，先按日期、功能、来源、模型、Provider、用户或匿名身份筛选，再查看核心指标与每日趋势；继续向下可以比较功能、模型、Provider 和用户占比，最后检查单次调用日志。下方四张图依次展示页面总览、筛选与趋势、维度拆分和调用明细。
+
+数据来自 llm_token_usage，主口径是算力点，同时汇总输入/输出 Token、缓存读写、调用数、独立用户和未计价调用。维度顺序为模型、功能、来源、Provider、Top 用户，横条长度表示算力点占比。导出沿用当前筛选，最多 100000 条，并附 UTF-8 BOM 以便表格软件正确识别中文。`,
         embeds: [
           { id: "admin-token-cost" },
           {
@@ -754,7 +804,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "metrics",
         title: "关系与指标",
-        markdown: `analytics.view 可读取邀请列表和 KPI，包括打开、注册、奖励和转化。关系详情展示来源、绑定方式、双方注册奖励、首个已支付订单返利，以及退款后的返利冲销和余额不足缺口；该页是分析视图，不负责修改活动配置。`,
+        markdown: `进入邀请分析后，可以查看打开、注册、奖励和转化 KPI，再从列表打开单条关系，核对来源、绑定方式、双方注册奖励、首个已支付订单返利，以及退款后的冲销和余额不足缺口。下图展示的是指标与关系列表同时有数据的状态。
+
+该页面要求 analytics.view，只用于分析，不负责修改活动配置。`,
         embeds: [{ id: "admin-invite-analytics" }],
       },
       {
@@ -786,7 +838,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "invite-campaign",
         title: "邀请奖励规则",
-        markdown: `邀请活动 Tab 和配置接口都要求 config.manage。真实字段包括活动总开关、邀请人注册礼、被邀请人注册礼、每位邀请人的每日奖励人数上限、允许绑定时窗、首单返利比例、首单有效时窗和邀请码帮助链接。两种注册礼的单项上限为 10 亿经费；每日上限最高 100 万人，0 表示不限；绑定时窗与首单时窗分别为 1–3650 天，不能合并成一个“有效期”；返利使用 0–10000 基点；帮助链接必须为完整 HTTP(S) 地址且不超过 500 字符。启用活动时至少一种注册礼或首单返利非零，新关系会快照当时规则。`,
+        markdown: `活动管理页把邀请奖励与推广展示分成两个页签；在邀请页签中，可以设置总开关、双方注册礼、每日计奖人数、绑定时窗、首单返利与有效时窗，以及邀请码帮助链接。下图只展示具备相应权限时的“邀请有礼”页签。
+
+邀请页签和保存 API 都要求 config.manage。两种注册礼单项上限为 10 亿经费；每日上限最高 100 万人，0 表示不限；绑定时窗与首单时窗分别为 1–3650 天，不能合成一个“有效期”；返利为 0–10000 基点；帮助链接必须是完整 HTTP(S) 地址且不超过 500 字符。启用时至少一种注册礼或首单返利非零，新关系会保存当时规则的快照。`,
         embeds: [{ id: "admin-campaigns-promo" }],
       },
       {
@@ -797,7 +851,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "promo",
         title: "推广展示边界",
-        markdown: `Promo 配置只保存启用状态、微信客服二维码、标题、副标题、福利点和按钮文案；用户端依据总开关决定是否显示“限时活动”入口，并在首屏或额度耗尽时弹窗。配置中没有目标地址字段，后端也没有 Promo 专属领取、发权益或领取审计接口；二维码仅接受 PNG、JPEG 或 WebP，解码后不超过 300 KiB。`,
+        markdown: `切到推广配置后，可以编辑启用状态、微信客服二维码、标题、副标题、福利点和按钮文案，并在同页预览用户弹窗；下图展示的是配置表单与预览同时可见的状态。用户端会按总开关显示“限时活动”入口，并可能在首屏或额度耗尽时弹出。
+
+配置中没有目标地址字段，也没有 Promo 专属的领取、发权益或领取审计 API；扫码或点击本身不会自动发放会员或经费。二维码只接受 PNG、JPEG 或 WebP，解码后不超过 300 KiB。`,
         embeds: [
           {
             id: "admin-promo-config-preview",
@@ -828,7 +884,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "switches",
         title: "计费开关与倍率",
-        markdown: `enabled 为 false 时，AI 调用不计费也不受该计费限制。配置包含免费窗口及天数、Pro 和 Max 倍率、月年价格、充值汇率、经费到算力点换算和最低充值；倍率小于等于零表示不限量，年度价格为零时隐藏年付选项。经费→重置次数换算率仍在表单中只读展示，只供历史迁移换算，不参与当前运行时判定。`,
+        markdown: `AI 计费页集中展示总开关、免费窗口、Pro/Max 倍率、月年价格、充值汇率、经费到算力点换算和最低充值；修改后先核对差异摘要，再确认保存。下图展示的是各组配置已载入的代表状态。
+
+enabled 为 false 时，AI 调用不计费，也不受这套计费限制。倍率小于等于零表示不限量，年度价格为零会隐藏年付选项。经费→重置次数换算率仍只读显示，用于历史迁移换算，不参与当前计费判断。`,
         embeds: [{ id: "admin-billing-configuration" }],
       },
       {
@@ -860,7 +918,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "providers",
         title: "Provider",
-        markdown: `系统预置 DeepSeek，并支持 Qwen、Kimi、智谱、豆包、MiniMax 和自定义 OpenAI 兼容上游。Provider 变更会向执行器推送并显示 pending、success 或 failed；仍有关联模型时不能删除，后台也会提示孤儿模型。`,
+        markdown: `模型目录先按 Provider 展示端点、推送状态、计价和所属模型；点击新建或编辑后，可以配置名称、API 端点、兼容格式与推送选项。下方三张图依次展示目录总览、单个 Provider 区块和编辑器。
+
+系统预置 DeepSeek，并支持 Qwen、Kimi、智谱、豆包、MiniMax 和自定义 OpenAI 兼容上游。Provider 变更会向执行器推送，并显示 pending、success 或 failed；仍有关联模型时不能删除，页面也会提示孤儿模型。`,
         embeds: [
           { id: "admin-model-catalog" },
           {
@@ -876,7 +936,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "models",
         title: "模型目录与定价",
-        markdown: `每个模型归属于一个 Provider，记录上下文长度、最大输出、输入/输出/缓存读/缓存写四类价格、允许档位、启用、用户可选和调用限制。后端禁止把四项价格全为零的模型同时设为 enabled 且 user_selectable，避免可选模型绕过成本核算。`,
+        markdown: `在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输出、输入/输出/缓存读/缓存写四类价格、允许档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。
+
+每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。`,
         embeds: [
           {
             id: "admin-model-editor",
@@ -907,13 +969,17 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "routing",
         title: "账号选择与健康",
-        markdown: `账号类型包括 AI model 和 Minicod。可设置状态与优先级、测试、重置或删除，并观察成功数、失败数和延迟；选择时优先级数值越小越先使用，同优先级再参考使用次数。它与模型 Provider、用途绑定是不同配置层。`,
+        markdown: `第三方账号池会列出 AI model 和 Minicod 账号的状态、优先级、成功数、失败数与延迟，并提供测试、重置、编辑或删除动作；下图展示的是多账号及健康状态并存的列表。
+
+选择账号时，优先级数值越小越先使用，同优先级再参考使用次数。账号池与模型 Provider、用途绑定属于不同配置层，排障时不要混为一项。`,
         embeds: [{ id: "admin-third-party-accounts" }],
       },
       {
         id: "secrets",
         title: "敏感信息显示",
-        markdown: `列表默认掩码，显式 show_sensitive 才请求明文，关闭对话框后应立即恢复隐藏。一次揭示响应可能包含该账号的完整相关密钥，屏幕共享、截图和浏览器日志均有泄露风险。历史 AI model 账号配置仍存在，但新功能也可能走模型目录与 Agent 执行器，排障时要先确认实际调用链。`,
+        markdown: `打开账号编辑器后，字段会按 AI model 或 Minicod 类型变化，敏感值默认保持掩码；只有主动选择显示敏感信息时才请求明文。下图展示的是凭据编辑状态。
+
+关闭对话框后应立即恢复隐藏。一次显示可能返回该账号的完整相关密钥，屏幕共享、截图和浏览器日志都可能造成泄露。历史 AI model 账号仍存在，但新功能也可能使用模型目录与 Agent 执行器，排障前应先确认实际调用链。`,
         embeds: [
           {
             id: "admin-third-party-editor",
@@ -944,7 +1010,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "purposes",
         title: "封闭用途集合",
-        markdown: `当前支持 system.main、system.fast，以及 project.smart、project.claw、project.prism、project.peerreview.meta、project.peerreview.methodology、project.translate、project.analysis、project.wechat_oa，共 10 个规范用途。绑定行的 key 不可改，只能更新目标模型。`,
+        markdown: `模型用途页按固定 key 列出每个系统或产品用途及当前目标模型；选择一行后只能更换模型，不能改用途 key。下图展示的是多项用途已经完成绑定的状态。
+
+当前共 10 个规范用途：system.main、system.fast、project.smart、project.claw、project.prism、project.peerreview.meta、project.peerreview.methodology、project.translate、project.analysis 和 project.wechat_oa。`,
         embeds: [{ id: "admin-model-bindings" }],
       },
       {
@@ -975,7 +1043,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "records",
         title: "系统维度",
-        markdown: `维度来自动态 API，不能把页面注释中的固定数量当成产品契约。系统维度使用 user_id = -1；管理员可修改不超过 100 字符的名称、描述、排序与启用状态，但 key 锁定，用户自定义覆盖仍是另一层数据。`,
+        markdown: `矩阵维度页列出系统维度及排序、描述和启用状态；打开编辑器后，可以修改名称、AI 指示、排序和启用状态。下图依次展示维度列表和编辑器。
+
+维度来自动态 API，不能把页面注释中的固定数量当作产品契约。系统维度使用 user_id = -1；名称和描述不超过 100 字符，key 锁定，用户自定义维度仍属于另一层数据。`,
         embeds: [
           { id: "admin-analysis-dimensions" },
           {
@@ -1012,7 +1082,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "connection",
         title: "接入与加密",
-        markdown: `配置包含 AppID、AppSecret、Token、EncodingAESKey，以及 plaintext、compatible、secure 三种加密模式。密钥默认掩码并支持保留原值；修改接入信息需要与微信公众平台回调配置同步，不能只在后台单边更新。`,
+        markdown: `公众号配置页会显示接入状态、加密模式和 AI 自动回复开关；编辑时填写 AppID、AppSecret、Token、EncodingAESKey，并在 plaintext、compatible、secure 中选择模式。下图展示的是接入信息已填写的代表状态。
+
+密钥默认掩码，未修改时可以保留原值。更新接入信息必须同步修改微信公众平台的回调配置，不能只改 Scholay 后台。`,
         embeds: [{ id: "admin-wechat-official" }],
       },
       {
@@ -1043,7 +1115,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "ingestion",
         title: "验签、去重与写入",
-        markdown: `公开接收器用共享密钥对原始请求体做 HMAC 校验，失败时拒绝。支持 created、updated、heat 事件；Redis 提供 24 小时投递锁，数据库保存 delivery 并执行 upsert，处理失败会释放锁。未知事件会被记录并返回 200，但不执行内容更新。`,
+        markdown: `研究新闻 Webhook 页面会显示接收地址、共享密钥的掩码、展示开关和事件说明，管理员可以复制地址并按需显示密钥；下图展示的是配置已载入的状态。
+
+接收器对原始请求体做 HMAC 校验，失败即拒绝。支持 created、updated、heat 事件；Redis 提供 24 小时投递锁，数据库保存 delivery 并执行 upsert，处理失败会释放锁。未知事件会被记录并返回 200，但不会更新内容。`,
         embeds: [{ id: "admin-news-webhook" }],
       },
       {
@@ -1085,7 +1159,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "system",
         title: "站点级配置",
-        markdown: `系统页维护邮箱验证、Turnstile、Google Analytics/GTM，以及邮件和短信配置与测试。维护状态会出现在后台全局提醒中，但当前系统设置页没有维护模式编辑控件。修改要求 config.manage，多数保存是整行 PUT；ConfigPageGuard 能处理加载失败、未保存改动和离页提示，但它不是数据库级全局审计日志。`,
+        markdown: `系统设置页先概览站点安全与通知通道，再分别编辑邮箱验证、Turnstile、Google Analytics/GTM、邮件 SMTP 和短信网关，并执行连接测试。下图依次展示系统总览和基础/邮件/短信表单。
+
+修改要求 config.manage，多数配置以整行 PUT 保存。页面会处理加载失败、未保存改动和离页提醒，但这不等于数据库级全局审计日志。维护状态会显示在后台全局提醒中，不过当前系统设置页没有维护模式编辑控件。`,
         embeds: [
           { id: "admin-system-config" },
           {
@@ -1097,7 +1173,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "snippets",
         title: "代码片段",
-        markdown: `片段类别为 SEO、analytics、ad、social 或 other，可放在 head、body-start、body-end，设置优先级、空闲加载、全局或路径范围和启用状态。内容允许任意 HTML/JavaScript，错误配置会造成 XSS、供应链或全站性能风险，应像发布代码一样评审和留存回滚文本。`,
+        markdown: `代码片段页列出已配置脚本及启用、位置和作用范围；打开编辑器后，再填写类别、注入位置、优先级、加载时机、全局或路径范围，以及 HTML/JavaScript 内容。下图依次展示片段列表和高风险编辑弹窗。
+
+类别为 SEO、analytics、ad、social 或 other，位置为 head、body-start 或 body-end。内容允许任意 HTML/JavaScript，错误配置可能造成 XSS、供应链或全站性能风险；应像发布代码一样评审，并留存可回滚文本。`,
         embeds: [
           { id: "admin-code-snippets" },
           {
@@ -1130,7 +1208,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "providers",
         title: "支持范围",
-        markdown: `后台可配置 GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信网页登录；微信小程序是嵌入同页但独立保存的配置。公开配置只暴露启用状态等安全字段，客户端据此决定显示哪些登录入口。Google 启用时提供的是 GIS 登录所需 client_id；当前账户设置的新 Google 绑定链路仍未接通，不能把“启用登录”解释成“绑定入口可用”。`,
+        markdown: `OAuth 设置页会列出 GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信网页登录，并在同页提供独立保存的微信小程序配置。先选择提供方、填写凭据并启用，再核对公开登录入口。下图依次展示网页提供方列表和微信小程序凭据面板。
+
+公开配置只暴露启用状态等安全字段，客户端据此显示入口。Google 启用时提供 GIS 登录所需 client_id；当前账户设置中的“新绑定 Google”仍未接通，因此启用登录不等于绑定入口可用。`,
         embeds: [
           { id: "admin-oauth-config" },
           {
@@ -1172,7 +1252,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "alipay",
         title: "支付宝",
-        markdown: `支付宝支持多套商户配置但同一时刻只有一套 active，可选择沙箱或生产网关，并配置通知地址、返回地址、应用私钥和支付宝公钥。激活沙箱配置会额外警告，避免把测试环境误当成可收款生产渠道。`,
+        markdown: `支付配置页先汇总支付宝和微信商户及测试、激活状态；打开支付宝编辑器后，可以选择沙箱或生产网关，并填写通知地址、返回地址、应用私钥和支付宝公钥。下图依次展示渠道总览和支付宝编辑器。
+
+支付宝可以保存多套商户配置，但同一时间只有一套 active。激活沙箱配置时会额外警告，避免把测试环境误当成可收款生产渠道。`,
         embeds: [
           { id: "admin-payment-merchants" },
           {
@@ -1184,7 +1266,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "wechat",
         title: "微信支付",
-        markdown: `微信支付配置包含商户号、AppID、证书序列号、APIv3 密钥、商户私钥，以及平台公钥或平台证书模式；Native、H5、JSAPI 至少开启一种。回调地址与加密材料必须配套，单独开启能力开关不会让渠道可用。`,
+        markdown: `切到微信支付后，先查看商户与能力状态，再在编辑器中填写商户号、AppID、证书序列号、APIv3 密钥、商户私钥，并选择平台公钥或平台证书模式。下图依次展示微信支付概览和证书/支付场景编辑器。
+
+Native、H5、JSAPI 至少开启一种。回调地址与加密材料必须配套，单独打开能力开关不会让渠道真正可用。`,
         embeds: [
           { id: "admin-wechat-pay" },
           {
@@ -1196,7 +1280,9 @@ export const administrationArticles: WikiArticle[] = [
       {
         id: "activation",
         title: "测试与激活",
-        markdown: `修改关键凭据会使旧测试结果失效并取消激活，必须重新测试有效后才能激活；测试最长可能约 60 秒，只验证配置与渠道连通，不会创建真实交易。用户支付入口只使用 active 且 valid 的配置。这里管理渠道凭据，不负责订单履约、退款或对账。`,
+        markdown: `保存商户配置后先运行连接测试；测试通过再打开激活确认，核对渠道、环境和商户后切换生效配置。下图展示的是最终激活确认状态。
+
+修改关键凭据会使旧测试结果失效并取消激活，必须重新测试。测试最长约 60 秒，只验证配置与渠道连通，不创建真实交易。用户支付入口只使用 active 且 valid 的配置；这里不负责订单履约、退款或对账。`,
         embeds: [
           {
             id: "admin-payment-activation-confirm",

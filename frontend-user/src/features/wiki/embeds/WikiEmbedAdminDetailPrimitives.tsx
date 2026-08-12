@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { AlertTriangle, Check, ChevronRight, X } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { ADMIN_MOCK_THEME } from "./WikiEmbedAdminShared";
 
 export type DetailTone = "neutral" | "green" | "amber" | "red" | "blue";
 
@@ -42,14 +43,6 @@ export interface DetailBar {
   tone?: DetailTone;
 }
 
-const TONE_CLASS: Record<DetailTone, string> = {
-  neutral: "bg-surface-2 text-subtle",
-  green: "bg-success-soft text-brand-green",
-  amber: "bg-warning-soft text-brand-amber",
-  red: "bg-danger-soft text-brand-red",
-  blue: "bg-cat-blue-soft text-cat-blue",
-};
-
 const TEXT_TONE_CLASS: Record<DetailTone, string> = {
   neutral: "text-foreground",
   green: "text-brand-green",
@@ -79,15 +72,7 @@ const BAR_WIDTH_CLASS: Record<DetailBar["width"], string> = {
   quarter: "w-1/4",
 };
 
-export function AdminDetailFrame({
-  fixture,
-  icon: Icon,
-  title,
-  description,
-  eyebrow = "后台管理",
-  action,
-  children,
-}: {
+export function AdminDetailFrame(props: {
   fixture: string;
   icon: LucideIcon;
   title: string;
@@ -99,33 +84,28 @@ export function AdminDetailFrame({
   return (
     <div
       className="w-full max-w-5xl overflow-hidden rounded-12 border border-border bg-surface-1"
+      style={ADMIN_MOCK_THEME}
       aria-hidden
-      data-wiki-fixture={fixture}
+      data-wiki-fixture={props.fixture}
     >
-      <header className="border-b border-border bg-surface-card px-4 py-4 sm:px-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-subtle">
-              <Icon className="size-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-12 font-medium text-brand-red">{eyebrow}</p>
-              <h2 className="mt-1 text-18 font-medium text-foreground">
-                {title}
-              </h2>
-              <p className="mt-1 text-12 leading-paragraph text-subtle">
-                {description}
-              </p>
-            </div>
+      <header className="border-b border-border-hairline bg-background px-6 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-28 font-medium text-foreground">
+              {props.title}
+            </h2>
+            <p className="mt-1 text-20 text-muted-foreground">
+              {props.description}
+            </p>
           </div>
-          {action ? (
-            <span className="inline-flex h-8 shrink-0 items-center justify-center self-start rounded-8 bg-foreground px-3 text-12 font-medium text-on-dark sm:self-center">
-              {action}
+          {props.action ? (
+            <span className="inline-flex h-8 shrink-0 items-center justify-center rounded-8 bg-foreground px-3 text-14 font-medium text-on-dark">
+              {props.action}
             </span>
           ) : null}
         </div>
       </header>
-      <div className="space-y-4 p-4 sm:p-6">{children}</div>
+      <div className="space-y-4 p-3 sm:p-4 lg:p-6">{props.children}</div>
     </div>
   );
 }
@@ -136,21 +116,29 @@ export function DetailSection({
   action,
   children,
   className,
+  variant = "card",
 }: {
   title: string;
   description?: string;
   action?: string;
   children: ReactNode;
   className?: string;
+  variant?: "card" | "plain";
 }) {
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-8 border border-border bg-surface-card",
+        variant === "card" &&
+          "overflow-hidden rounded-8 border border-border bg-background",
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-border-soft px-4 py-3">
+      <div
+        className={cn(
+          "flex items-start justify-between gap-3",
+          variant === "card" ? "border-b border-border-soft px-4 py-3" : "mb-2",
+        )}
+      >
         <div>
           <h3 className="text-14 font-medium text-foreground">{title}</h3>
           {description ? (
@@ -165,7 +153,7 @@ export function DetailSection({
           </span>
         ) : null}
       </div>
-      <div className="p-4">{children}</div>
+      <div className={cn(variant === "card" && "p-4")}>{children}</div>
     </section>
   );
 }
@@ -178,15 +166,15 @@ export function DetailTabs({
   active: string;
 }) {
   return (
-    <div className="flex gap-1 overflow-hidden border-b border-border">
+    <div className="inline-flex h-8 items-center gap-1 overflow-hidden rounded-8 bg-surface-2 p-1">
       {tabs.map((tab) => (
         <span
           key={tab}
           className={cn(
-            "shrink-0 border-b-2 px-3 py-2.5 text-12",
+            "inline-flex h-6 shrink-0 items-center rounded-4 px-3 text-14 font-medium",
             tab === active
-              ? "border-brand-red font-medium text-brand-red"
-              : "border-transparent text-faint",
+              ? "bg-background text-foreground shadow-raised"
+              : "text-muted-foreground",
           )}
         >
           {tab}
@@ -198,20 +186,27 @@ export function DetailTabs({
 
 export function DetailMetricStrip({
   metrics,
+  columns = 4,
 }: {
   metrics: readonly DetailMetric[];
+  columns?: 3 | 4;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div
+      className={cn(
+        "grid gap-3 sm:grid-cols-2",
+        columns === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4",
+      )}
+    >
       {metrics.map((metric) => (
         <div
           key={metric.label}
-          className="rounded-8 border border-border bg-surface-card p-3"
+          className="rounded-8 border border-border bg-background p-4"
         >
           <p className="text-12 text-faint">{metric.label}</p>
           <p
             className={cn(
-              "mt-2 text-20 font-medium tabular-nums",
+              "mt-2 text-24 font-medium tabular-nums",
               TEXT_TONE_CLASS[metric.tone ?? "neutral"],
             )}
           >
@@ -236,8 +231,12 @@ export function DetailBadge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-pill px-2 py-1 text-12",
-        TONE_CLASS[tone],
+        "inline-flex h-5 shrink-0 items-center rounded-4 border px-2 text-12 font-medium",
+        tone === "neutral" && "border-border text-muted-foreground",
+        tone === "green" && "border-brand-green text-brand-green",
+        tone === "amber" && "border-brand-amber text-brand-amber",
+        tone === "red" && "border-brand-red text-brand-red",
+        tone === "blue" && "border-cat-blue text-cat-blue",
       )}
     >
       {children}
@@ -342,17 +341,20 @@ export function DetailFields({
 export function DetailTable({
   columns,
   rows,
+  columnsTemplate,
 }: {
   columns: readonly string[];
   rows: readonly DetailRow[];
+  columnsTemplate?: string;
 }) {
+  const gridTemplateColumns =
+    columnsTemplate ?? `repeat(${columns.length}, minmax(0, 1fr))`;
+
   return (
     <div className="overflow-hidden rounded-8 border border-border">
       <div
         className="hidden gap-3 border-b border-border bg-surface-1 px-3 py-2 text-12 text-faint sm:grid"
-        style={{
-          gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`,
-        }}
+        style={{ gridTemplateColumns }}
       >
         {columns.map((column) => (
           <span key={column}>{column}</span>
@@ -362,9 +364,7 @@ export function DetailTable({
         <div
           key={row.id}
           className="grid gap-2 border-b border-border-soft px-3 py-3 text-12 last:border-b-0 sm:gap-3"
-          style={{
-            gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`,
-          }}
+          style={{ gridTemplateColumns }}
         >
           {row.cells.map((cell, index) => (
             <div
@@ -416,6 +416,7 @@ export function DetailDialog({
   primary = "确认",
   secondary = "取消",
   destructive = false,
+  size = "md",
 }: {
   title: string;
   description?: string;
@@ -423,10 +424,22 @@ export function DetailDialog({
   primary?: string;
   secondary?: string;
   destructive?: boolean;
+  size?: "sm" | "compact" | "md" | "lg" | "wide" | "xl" | "max";
 }) {
   return (
     <div className="rounded-8 bg-surface-2 p-3 sm:p-6">
-      <div className="mx-auto max-w-xl overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay">
+      <div
+        className={cn(
+          "mx-auto overflow-hidden rounded-12 border border-border bg-background shadow-overlay",
+          size === "sm" && "max-w-sm",
+          size === "compact" && "max-w-lg",
+          size === "md" && "max-w-xl",
+          size === "lg" && "max-w-2xl",
+          size === "wide" && "max-w-3xl",
+          size === "xl" && "max-w-4xl",
+          size === "max" && "max-w-5xl",
+        )}
+      >
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div>
             <h3 className="text-16 font-medium text-foreground">{title}</h3>
@@ -461,14 +474,21 @@ export function DetailDrawer({
   title,
   meta,
   children,
+  size = "md",
 }: {
   title: string;
   meta: string;
   children: ReactNode;
+  size?: "md" | "wide";
 }) {
   return (
     <div className="flex min-h-112 justify-end overflow-hidden rounded-8 bg-surface-2 p-2 sm:p-3">
-      <aside className="w-full max-w-2xl overflow-hidden rounded-8 border border-border bg-surface-card shadow-overlay">
+      <aside
+        className={cn(
+          "w-full overflow-hidden rounded-8 border border-border bg-background shadow-overlay",
+          size === "md" ? "max-w-2xl" : "max-w-5xl",
+        )}
+      >
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div>
             <h3 className="text-16 font-medium text-foreground">{title}</h3>

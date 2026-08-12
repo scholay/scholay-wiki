@@ -5,7 +5,7 @@ export const researchAiArticles: WikiArticle[] = [
     slug: "ai-research-workflows",
     title: "AI 科研工作流",
     summary:
-      "Scholay 将同一 Agent 基础设施包装成检索、通用研究、审稿、写作、分析、绘图和演示等专门工作流。",
+      "Scholay 为检索、通用研究、审稿、写作、分析、绘图和演示提供不同的 AI 工作流。",
     category: "research-ai",
     kind: "overview",
     status: "current",
@@ -22,7 +22,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "features",
         title: "能力集合",
-        markdown: `现行 Agent feature 包括智能搜索、Claw、Prism、智能审稿、演示文稿、科研绘图和数据分析。它们共享会话、模型路由、配额记账、附件与交付物协议，但使用不同的系统提示、技能目录和前端工作区。`,
+        markdown: `当前可以使用智能搜索、Claw、Prism、智能审稿、演示文稿、科研绘图和数据分析。它们都支持会话、附件、额度记录和文件交付，但会根据任务使用不同的工作区和处理方法。`,
       },
       {
         id: "boundaries",
@@ -32,7 +32,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "delivery",
         title: "交付物",
-        markdown: `除对话文本外，Agent 可以产生图片、文档、表格、演示文件或其他 artifact。交付物在后端完成收集和持久化，前端根据格式提供下载或预览；临时工作路径不是面向用户的下载地址。`,
+        markdown: `除对话文字外，助手还可以生成图片、文档、表格、演示文件等交付物。支持的格式可以直接预览，其他格式会提供下载入口；只有页面中的预览或下载按钮是正式交付入口。`,
       },
     ],
   },
@@ -58,13 +58,17 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "difference",
         title: "与普通检索的区别",
-        markdown: `普通检索把明确的查询与筛选条件转换为分页结果；智能搜索允许用户描述研究问题，由 Agent 规划检索、调用学术工具并组织解释。两者都返回论文，但智能搜索同时保留推理过程中的查询、来源和会话上下文。`,
+        markdown: `在智能搜索输入框中直接写下完整的研究问题，例如研究对象、方法和时间范围，再发送即可；下图展示的是等待输入时的状态。智能搜索会围绕问题规划检索、整理来源并给出说明，普通检索则更适合明确关键词和筛选条件。
+
+两种方式都能找到论文，但智能搜索还会保留这一轮对话中的查询过程和来源线索。`,
         embeds: [{ id: "smart-search-dock" }],
       },
       {
         id: "session",
         title: "会话与连接",
-        markdown: `后端为用户取得或创建智能搜索会话，并签发短时、一次性的 WebSocket ticket。浏览器用该凭据建立实时连接；长期认证令牌不直接放进 WebSocket URL。`,
+        markdown: `发送问题后，页面会在同一会话中依次显示检索进度、正在使用的来源和最终回答；下图展示的是搜索进行中的会话状态。连接短暂中断时，页面会提示并尝试恢复，你不需要重新复制已经送达的问题。
+
+实时连接使用一次性的短期凭据，不会把长期登录信息直接放进连接地址。`,
         embeds: [{ id: "smart-search-session" }],
       },
       {
@@ -102,7 +106,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "workspace",
         title: "会话工作区",
-        markdown: `Claw 提供会话历史、消息流、输入框、附件、技能选择和右侧交付物预览。移动 Web 使用专门页面与抽屉布局，小程序也提供 Claw 会话入口。`,
+        markdown: `进入 Claw 后，桌面端左侧是文献工作区，主对话区顶部可以打开会话历史，中间显示消息与输入框，右侧用于查看生成的文件；你还可以在输入框中添加附件或选择 Skill。手机端把会话历史收进抽屉，并在独立页面中显示当前对话。下方三张图依次展示桌面工作区、移动端入口和移动端正在进行的会话。`,
         embeds: [
           { id: "claw-workspace" },
           { id: "mobile-claw" },
@@ -117,7 +121,9 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "outputs",
         title: "产物与预览",
-        markdown: `Claw 能在消息中展示论文、引用、图形和工具过程，并把可交付文件集中到 artifact 面板。文档与表格等格式有相应预览，其他格式至少提供稳定下载入口。`,
+        markdown: `当回答生成文档、表格、图片或其他文件时，消息中会出现产物卡片。手机上点击卡片即可打开预览，再返回对话或下载文件；下图展示的是移动端产物预览。论文、引用、图形和工具过程也会保留在对应消息中。
+
+支持的格式会直接预览，其他格式至少提供下载入口。`,
         embeds: [{ id: "mobile-claw-artifact-preview" }],
       },
     ],
@@ -149,19 +155,23 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "submission",
         title: "两类提交",
-        markdown: `期刊论文与学位论文使用不同向导。主稿上限 50 MiB，附件每个最多 30 MiB、最多 10 个。期刊流程会收集稿件、目标期刊或领域、投稿信与必要元数据；学位论文流程按学校和论文场景组织信息。上传完成只形成草稿，不等于已经开始评审。`,
+        markdown: `进入智能审稿后，先选择“期刊论文”或“学位论文”；下图展示的是两类任务的起始入口。按向导上传主稿并填写目标期刊、研究领域或学校等信息，确认提交后才会开始评审。
+
+主稿上限为 50 MiB，附件每个最多 30 MiB、最多 10 个。仅上传完成时任务仍是草稿，你还可以继续检查和修改。`,
         embeds: [{ id: "peer-review-entry" }],
       },
       {
         id: "review",
         title: "评审过程",
-        markdown: `任务主状态按 draft → queued → reviewing → completed 或 failed 推进，只有 draft 可以编辑；failed 可以重试。评审内部还会出现 idle、computing_meta、computing_letter、computing_methodology、reviewing、failed 等计算阶段。后端有恢复与清扫机制处理被中断的任务，前端通过实时流更新阶段和结果。`,
+        markdown: `提交后，进度页会显示任务正在排队、分析稿件信息、检查投稿信与方法、生成评审结果等阶段；下图展示的是评审进行中的状态。任务会从草稿进入排队、评审，最后变为完成或失败，失败后可以重试。
+
+只有草稿可以编辑。评审中断时系统会尝试恢复，页面会持续更新当前阶段，不需要手动刷新来判断是否完成。`,
         embeds: [{ id: "peer-review-progress" }],
       },
       {
         id: "records",
         title: "记录与边界",
-        markdown: `历史评审进入记录列表和详情页。智能审稿是投稿前的风险发现工具，不代表真实期刊决定，也不能替代领域专家、伦理审查或统计复核。`,
+        markdown: `打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。`,
         embeds: [{ id: "peer-review-records-list" }],
       },
     ],
@@ -189,19 +199,25 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "workspace",
         title: "写作工作区",
-        markdown: `现行 Prism 以数据库中的项目、结构树和文本版本为权威内容，以 MinIO 保存二进制文件和编译产物。新项目使用结构化 schema；旧项目保留冻结的 legacy 文件模型。当前 \`Project.ReadOnly()\` 对项目统一返回只读，因此旧文件 CRUD 不能当作现行主编辑链路。`,
+        markdown: `打开 Prism 项目后，你会看到论文结构、正文编辑区、预览和 AI 助手；选择章节即可开始阅读或写作。下图展示的是一个已打开项目的工作区，结构树中的章节对应正文的不同部分。
+
+新项目按结构化章节保存。较早版本创建的旧式文件项目会保留，但目前以只读方式打开，不能按旧流程继续改写。`,
         embeds: [{ id: "prism-workspace" }],
       },
       {
         id: "writing-tools",
         title: "写作工具",
-        markdown: `现行界面包含引用、作者、数字、公式、质量、版本、修订、翻译和写作画像等专门入口。AI 回合先 prepare，再形成 pending diff；默认模式会在回合结束后自动应用变更，只有打开“逐块审阅”时才等待用户 apply 或 reject。界面出现的多人实时协作宣传没有对应的稳定产品入口。`,
+        markdown: `新建或进入空项目时，可以从写作起始页选择引用、作者、数字、公式、质量检查、修订或翻译等任务；下图展示的就是这个起始状态。提交 AI 修改后，默认会在本轮结束时应用变化；如果打开“逐块审阅”，你可以逐项接受或拒绝。
+
+页面里关于多人实时协作的介绍目前没有稳定入口，请不要把它当作已经可以使用的功能。`,
         embeds: [{ id: "prism-writing-start" }],
       },
       {
         id: "compile",
         title: "编译与交付",
-        markdown: `编译任务按 queued → running → success 或 error 推进；错误分 latex、infra、timeout，只有 LaTeX 错误会进入自动修复。后端把任务放入共享工作目录，LaTeX 辅助服务生成 PDF 或诊断结果，产物再进入稳定交付链路。`,
+        markdown: `点击编译后，页面会依次显示排队、编译中、成功或失败。下图只冻结一次 LaTeX 内容编译失败的状态：错误提示会出现在工作区上方，右侧预览区也会说明 PDF 尚未生成。成功时则可以直接预览或下载 PDF。
+
+只有 LaTeX 内容错误会尝试自动修复；其他错误需要稍后重试或根据提示处理。`,
         embeds: [{ id: "prism-compile-states" }],
       },
     ],
@@ -228,7 +244,9 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "workflow",
         title: "工作流",
-        markdown: `用户提供数据文件和研究问题后，Agent 先理解变量、数据质量与研究设计，再选择统计方法并执行分析。结果应同时包含方法说明、关键数值、诊断和可下载产物，而不只是自然语言结论。`,
+        markdown: `在 Claw 新对话页选择“数据分析”，再附上数据文件并写清研究问题；下图中的模板卡就是这一入口。助手会先理解变量、数据质量和研究设计，再选择统计方法并执行分析。
+
+结果应同时包含方法说明、关键数值、诊断和可下载产物，而不只是自然语言结论。`,
         embeds: [
           { id: "claw-empty-state", caption: "智能助手 · 数据分析入口" },
         ],
@@ -268,7 +286,9 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "figures",
         title: "科研绘图",
-        markdown: `科研绘图会话面向图表、科学示意图和分子/生物图形等任务。前端可以直接展示 SVG 图形并提供缩放与导出；图中数据、标签和科学关系仍需用户核对。`,
+        markdown: `在 Claw 新对话页选择“科研绘图”模板，再说明图形类型、数据、标签和用途；下图展示的是包含科研创作模板的起始页。生成的 SVG 可以直接预览、缩放和导出。
+
+如果你要制作演示文稿，也可以从同一模板区选择对应入口。无论是图形还是幻灯片，其中的数据、标签与科学关系都需要你再次核对。`,
         embeds: [
           { id: "claw-empty-state", caption: "智能助手 · 科研创作模板" },
         ],
@@ -281,7 +301,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "shared",
         title: "共同机制",
-        markdown: `两项能力使用独立 feature 会话和技能目录，但共用 Agent 连接、会话历史、额度和 artifact 交付体系。`,
+        markdown: `科研绘图和演示文稿会分别保存自己的会话与任务设置，但都使用同一套会话历史、额度和文件交付方式。`,
       },
     ],
   },

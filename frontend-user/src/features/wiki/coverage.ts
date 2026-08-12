@@ -15,11 +15,11 @@ export const WIKI_AUDIT_BASELINE = {
 
 /** 与 mock-surface-coverage.ts 的机械统计互相校验，避免把审计账本带进运行时 bundle。 */
 export const WIKI_MOCK_SURFACE_BASELINE = {
-  visible: 227,
-  migratedOrCorrected: 91,
-  existing: 136,
-  excluded: 14,
-  registeredFixtures: 210,
+  visible: 240,
+  migratedOrCorrected: 105,
+  existing: 135,
+  excluded: 17,
+  registeredFixtures: 226,
 } as const;
 
 export const WIKI_AUDIT_AREAS = [

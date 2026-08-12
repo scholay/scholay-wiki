@@ -1,26 +1,15 @@
-import { Check, ExternalLink, Info, Plus, X } from "lucide-react";
+import {
+  Check,
+  Download,
+  ExternalLink,
+  FileText,
+  Languages,
+  MessageSquare,
+  Minimize2,
+  Quote,
+  Star,
+} from "lucide-react";
 import { cn } from "@/shared/lib/utils";
-
-const STAGED_PAPERS = [
-  {
-    title: "Denoising Diffusion Probabilistic Models",
-    year: 2020,
-    authors: "Jonathan Ho, Pieter Abbeel",
-    selected: false,
-  },
-  {
-    title: "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
-    year: 2020,
-    authors: "Patrick Lewis, Douwe Kiela",
-    selected: false,
-  },
-  {
-    title: "Highly accurate protein structure prediction with AlphaFold",
-    year: 2021,
-    authors: "John Jumper, Demis Hassabis",
-    selected: true,
-  },
-] as const;
 
 const PAPER_TAGS = [
   { label: "JCR Q1", tone: "green" },
@@ -34,74 +23,23 @@ const PAPER_TAGS = [
 
 /**
  * 传统搜索 · 核对结果并加入暂存区 · 纯样式 fixture。
- * 对齐 product-mock DefaultCard(已暂存) + WorkspaceFolderTree 暂存区手风琴。
+ * 单一截面保留 DefaultCard 已暂存态与右侧论文详情页签，避免把暂存侧栏拼成第二状态。
  */
 export function WikiEmbedReviewAndStage() {
   return (
     <div
-      className="w-[min(100%,42rem)] overflow-hidden rounded-8 border border-border bg-surface-card"
+      className="w-[min(100%,58rem)] overflow-hidden rounded-8 border border-border bg-surface-card"
       aria-hidden
       data-wiki-fixture="review-and-stage"
     >
-      <div className="flex items-center gap-2 border-b border-border bg-surface-1 px-4 py-2 text-12 text-muted-foreground">
-        <Info className="size-3.5 shrink-0" />
-        示例论文与指标；实际值随论文数据源更新。
-      </div>
-      <div className="flex min-h-0 flex-col md:flex-row">
-        <aside className="w-full shrink-0 border-b border-border md:w-[240px] md:border-b-0 md:border-r">
-          <div className="flex flex-col pb-2">
-            <div className="flex h-9 items-center gap-1 border-b border-border bg-background px-3">
-              <span className="relative inline-flex h-full items-center gap-2 px-2 text-12 font-medium text-foreground">
-                A
-                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 font-medium text-on-brand tabular-nums">
-                  3
-                </span>
-                <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-pill bg-brand-red" />
-              </span>
-              <span className="inline-flex h-full items-center gap-2 px-2 text-12 text-faint">
-                B
-                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-surface-2 px-1 text-12 font-medium text-muted-foreground tabular-nums">
-                  1
-                </span>
-              </span>
-              <span className="ml-auto inline-flex size-6 items-center justify-center rounded-8 border border-border-strong text-subtle">
-                <Plus className="size-3" strokeWidth={2.5} />
-              </span>
-            </div>
-
-            <div className="flex flex-col pb-1 pt-1">
-              {STAGED_PAPERS.map((paper) => (
-                <div
-                  key={paper.title}
-                  className={cn(
-                    "group/unit relative mx-2 mb-2 rounded-8 border px-3 py-2 text-left",
-                    paper.selected
-                      ? "border-brand-red/40 bg-danger-soft"
-                      : "border-border bg-surface-card",
-                  )}
-                >
-                  <span className="absolute right-2 top-2 inline-flex size-5 items-center justify-center rounded-4 text-faint opacity-40">
-                    <X className="size-3" />
-                  </span>
-                  <div
-                    className={cn(
-                      "line-clamp-2 pr-6 text-12 font-medium leading-sans",
-                      paper.selected ? "text-brand-red" : "text-foreground",
-                    )}
-                  >
-                    {paper.title}
-                  </div>
-                  <div className="mt-1 flex min-w-0 items-center gap-2 text-12 text-faint">
-                    <span className="shrink-0 tabular-nums">{paper.year}</span>
-                    <span className="min-w-0 truncate">{paper.authors}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div className="grid min-h-0 md:grid-cols-[minmax(0,1fr)_minmax(22rem,0.9fr)]">
+        <div className="min-w-0 border-b border-border md:border-b-0 md:border-r">
+          <div className="flex h-11 items-center justify-between border-b border-border bg-surface-1 px-3 text-12 text-muted-foreground">
+            <span>找到 12,480 篇相关文献</span>
+            <span className="inline-flex h-6 items-center gap-1 rounded-8 px-2 text-subtle">
+              <Check className="size-3" /> 全选本页 20 篇
+            </span>
           </div>
-        </aside>
-
-        <div className="min-w-0 flex-1">
           <article
             data-paper-id="paper-alphafold"
             className="group flex items-start gap-2 border-b border-border bg-brand-green/5 px-4 py-4"
@@ -156,9 +94,74 @@ export function WikiEmbedReviewAndStage() {
                 from amino-acid sequence with accuracy competitive with
                 experimental methods in many cases.
               </p>
+              <div className="mt-3 flex items-center gap-2 text-12 text-subtle">
+                <span className="inline-flex h-6 items-center gap-1 rounded-4 border border-border px-2">
+                  <Star className="size-3" /> 收藏
+                </span>
+                <span className="inline-flex h-6 items-center gap-1 rounded-4 border border-border px-2">
+                  <Languages className="size-3" /> 翻译
+                </span>
+                <span className="ml-auto inline-flex h-6 items-center gap-1 rounded-4 border border-border px-2">
+                  <Minimize2 className="size-3" /> 折叠
+                </span>
+              </div>
             </div>
           </article>
         </div>
+
+        <aside className="min-w-0 bg-background">
+          <div className="flex h-11 items-center gap-1 border-b border-border bg-surface-1 px-2">
+            {[
+              { label: "PDF 对话", icon: MessageSquare },
+              { label: "引用图谱", icon: Quote },
+            ].map(({ label, icon: Icon }) => (
+              <span
+                key={label}
+                className="inline-flex h-8 items-center gap-1 rounded-4 px-2 text-12 text-subtle"
+              >
+                <Icon className="size-3" /> {label}
+              </span>
+            ))}
+            <span className="inline-flex h-8 min-w-0 flex-1 items-center gap-1 rounded-4 border border-border bg-background px-2 text-12 font-medium text-foreground shadow-raised">
+              <FileText className="size-3 shrink-0" />
+              <span className="truncate">
+                Highly accurate protein structure…
+              </span>
+            </span>
+          </div>
+          <div className="p-5">
+            <p className="text-12 font-medium uppercase text-faint">
+              Nature · Biology · 2021
+            </p>
+            <h3 className="mt-4 font-serif text-24 font-medium leading-title text-foreground">
+              Highly accurate protein structure prediction with AlphaFold
+            </h3>
+            <p className="mt-3 text-14 text-subtle">
+              John Jumper, Demis Hassabis et al.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 border-b border-border pb-4 text-12 text-muted-foreground">
+              <span>41.2k citations</span>
+              <span>·</span>
+              <span>DOI 10.1038/s41586-021-03819-2</span>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <span className="inline-flex h-8 items-center gap-1 rounded-8 bg-foreground px-3 text-12 text-on-dark">
+                <ExternalLink className="size-3" /> 打开原文
+              </span>
+              <span className="inline-flex h-8 items-center gap-1 rounded-8 border border-border px-3 text-12 text-subtle">
+                <Download className="size-3" /> PDF
+              </span>
+            </div>
+            <h4 className="mt-7 font-serif text-20 italic text-muted-foreground">
+              Abstract
+            </h4>
+            <p className="mt-3 text-14 leading-paragraph text-subtle">
+              We greatly improve the accuracy of protein structure prediction
+              with a new neural network architecture based on the evolutionary,
+              physical and geometric constraints of protein structures.
+            </p>
+          </div>
+        </aside>
       </div>
     </div>
   );

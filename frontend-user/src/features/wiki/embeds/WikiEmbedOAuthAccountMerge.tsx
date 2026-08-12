@@ -1,62 +1,59 @@
-import { ArrowRight, Clock3, LogIn, ShieldCheck } from "lucide-react";
+import { ArrowRight, LogIn } from "lucide-react";
 
 /**
- * OAuth 邮箱冲突合并确认 · 纯样式 fixture。
- * 来源：product-mock auth/components/OAuthMergeConfirmDialog.tsx。
+ * OAuth 邮箱冲突后的未登录确认态 · 纯样式 fixture。
+ * 来源：current auth/components/OAuthMergeConfirmDialog.tsx；该组件实际为回调页内容，不是 Dialog 卡片。
  */
 export function WikiEmbedOAuthAccountMerge() {
   return (
     <div
-      className="w-[min(100%,32rem)] rounded-12 border border-border bg-surface-card p-4 md:p-6"
+      className="flex w-full max-w-md flex-col items-center"
+      style={{ gap: 20 }}
       aria-hidden
       data-wiki-fixture="oauth-account-merge"
     >
-      <div className="text-center">
-        <span className="mx-auto inline-flex size-10 items-center justify-center rounded-pill bg-brand-amber-soft text-brand-amber">
-          <ShieldCheck className="size-5" />
-        </span>
-        <p className="mt-3 font-serif text-24 font-medium italic text-foreground">
-          发现已存在的账号
-        </p>
-        <p className="mx-auto mt-2 max-w-md text-12 leading-paragraph text-muted-foreground">
-          GitHub 账号邮箱{" "}
-          <span className="font-medium text-foreground">l***@example.edu</span>
-          已被 Scholay 上的账号注册，请选择处理方式。
-        </p>
-      </div>
+      <h1 className="font-display text-24 font-medium italic text-foreground">
+        发现已存在的账号
+      </h1>
+      <p className="max-w-md text-center text-12 leading-paragraph text-subtle">
+        你的 <span className="font-medium text-foreground">GitHub</span>{" "}
+        账号邮箱{" "}
+        <span className="font-medium text-foreground">liang@example.edu</span>{" "}
+        已被 Scholay 上一个账号注册。请选择:
+      </p>
 
-      <div className="mt-6 space-y-3">
-        <div className="rounded-8 border-2 border-foreground bg-surface-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-14 font-medium text-foreground">
-              登录该账号后绑定
-              <span className="ml-1 text-brand-amber">（推荐）</span>
-            </p>
-            <LogIn className="size-4 shrink-0 text-foreground" />
+      <div className="flex w-full max-w-md flex-col gap-3">
+        <div className="flex flex-col items-start gap-2 rounded-16 border-2 border-foreground bg-surface-card p-4 text-left">
+          <div className="flex w-full items-center justify-between">
+            <span className="text-14 font-medium text-foreground">
+              登录该账号后绑定 <span className="text-brand-amber">(推荐)</span>
+            </span>
+            <LogIn className="size-4 text-foreground" />
           </div>
-          <p className="mt-2 text-12 leading-paragraph text-muted-foreground">
-            出于安全，需要先登录目标邮箱对应的账号，确认它确实属于你，再绑定
-            GitHub。
+          <p className="text-12 leading-paragraph text-muted-foreground">
+            出于安全,需先登录邮箱为{" "}
+            <span className="text-foreground">liang@example.edu</span>{" "}
+            的账号,确认它确实属于你,再绑定 GitHub。
           </p>
         </div>
 
-        <div className="rounded-8 border border-border bg-surface-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-14 font-medium text-foreground">
+        <div className="flex flex-col items-start gap-2 rounded-16 border border-border bg-surface-card p-4 text-left">
+          <div className="flex w-full items-center justify-between">
+            <span className="text-14 font-medium text-foreground">
               新建一个独立账号
-            </p>
-            <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+            </span>
+            <ArrowRight className="size-4 text-muted-foreground" />
           </div>
-          <p className="mt-2 text-12 leading-paragraph text-muted-foreground">
-            新账号只能使用 GitHub 登录；两个账号互不相干，数据不共享。
+          <p className="text-12 leading-paragraph text-muted-foreground">
+            创建一个新的 Scholay 账号,只能用 GitHub
+            登录(没有邮箱)。两个账号互不相干,数据不共享。
           </p>
         </div>
       </div>
 
-      <div className="mt-4 flex items-start gap-2 rounded-8 bg-surface-1 p-3 text-12 text-faint">
-        <Clock3 className="mt-1 size-3 shrink-0" />
-        合并链接 10 分钟后失效；仅持有合并链接不能直接接管已有账号。
-      </div>
+      <span className="inline-flex h-7 items-center rounded-8 px-3 text-12 text-muted-foreground">
+        取消并返回首页
+      </span>
     </div>
   );
 }

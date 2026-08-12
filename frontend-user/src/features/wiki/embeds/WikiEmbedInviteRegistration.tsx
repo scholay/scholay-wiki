@@ -1,120 +1,101 @@
-import {
-  CheckCircle2,
-  ExternalLink,
-  Gift,
-  Ticket,
-  TicketCheck,
-  X,
-} from "lucide-react";
+import { ExternalLink, Gift, TicketCheck, X } from "lucide-react";
 
 /**
- * 注册邀请码的两个静态表面。
- * 视觉来源：product-mock 的 InvitationCodeField / InviteCodePromptDialog；
- * 语义按现行 InviteAuthNotice / PostRegisterInviteDialog / InviteFlowController 校正。
+ * 注册壳内展开的邀请码输入态 · 纯样式 fixture。
+ * 来源：current auth/components/InviteAuthNotice.tsx；活动奖励数据已冻结。
  */
 export function WikiEmbedInviteCodeField() {
   return (
     <div
-      className="w-[min(100%,34rem)] rounded-12 border border-border bg-surface-card p-4 md:p-6"
+      className="relative w-[28rem] max-w-full min-w-0 overflow-hidden rounded-12 border border-brand-green/30 bg-brand-green/5 p-3 pl-4"
       aria-hidden
       data-wiki-fixture="invite-code-field"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-14 font-medium text-foreground">注册时填写</p>
-          <p className="mt-1 text-12 leading-paragraph text-muted-foreground">
-            邀请码不是注册必填项，可以直接跳过。
-          </p>
-        </div>
-        <span className="rounded-pill bg-surface-2 px-2 py-1 text-12 text-faint">
-          选填
+      <span className="absolute inset-y-0 left-0 w-1 bg-brand-green" />
+      <div className="flex items-start gap-2">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-brand-green/10 text-brand-green">
+          <TicketCheck className="size-4" />
         </span>
-      </div>
-
-      <div className="mt-4">
-        <div className="mb-2 flex items-center gap-2 text-12 font-medium text-foreground">
-          <Ticket className="size-4 text-faint" />
-          邀请码
-          <span className="font-normal text-muted-foreground">（选填）</span>
-        </div>
-        <div className="flex min-w-0 gap-2">
-          <span className="flex h-control-lg min-w-0 flex-1 items-center rounded-8 border border-border px-3 font-mono text-12 tracking-code text-faint">
-            输入好友邀请码
-          </span>
-          <span className="inline-flex h-control-lg shrink-0 items-center rounded-8 bg-brand-green px-4 text-12 font-medium text-on-brand">
-            确认
-          </span>
-        </div>
-        <p className="mt-2 text-12 leading-paragraph text-faint">
-          先校验有效性；校验成功后才保存为本次注册的候选码。
-        </p>
-      </div>
-
-      <div className="mt-4 flex min-w-0 items-center gap-2 rounded-8 border border-brand-green/30 bg-brand-green/5 px-3 py-3">
-        <CheckCircle2 className="size-4 shrink-0 text-brand-green" />
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-12 tracking-code text-foreground">
-            KQ9M2RT7
-          </p>
-          <p className="mt-1 text-12 text-brand-green">
-            已验证 · 注册成功后再尝试建立关联
+          <p className="text-14 font-medium text-foreground">填写好友邀请码</p>
+          <p
+            className="text-14 font-medium text-brand-green"
+            style={{ marginTop: 2 }}
+          >
+            获得 20 经费
           </p>
         </div>
-        <span className="inline-flex items-center gap-1 text-12 text-muted-foreground">
-          <X className="size-4" /> 取消
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-8 text-faint">
+          <X className="size-3.5" />
         </span>
       </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <div className="flex h-9 min-w-0 flex-1 items-center rounded-8 border border-border bg-surface-card px-3 font-mono text-12 tracking-code text-faint">
+          输入邀请码
+        </div>
+        <span className="inline-flex h-9 shrink-0 items-center rounded-pill border border-brand-green bg-brand-green px-4 text-14 font-medium text-on-brand">
+          确认
+        </span>
+      </div>
+      <span className="mt-2 inline-flex items-center gap-1 text-12 font-medium text-brand-green">
+        没有邀请码？查看获取方式
+        <ExternalLink className="size-3" />
+      </span>
     </div>
   );
 }
 
+/**
+ * 注册完成后一次性补填提示 · 纯样式 fixture。
+ * 来源：current auth/components/PostRegisterInviteDialog.tsx。
+ */
 export function WikiEmbedInviteCodePrompt() {
   return (
     <div
-      className="w-[min(100%,32rem)] overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay"
+      className="relative w-[28rem] max-w-full overflow-hidden rounded-16 border border-border bg-surface-card p-6 shadow-overlay"
       aria-hidden
       data-wiki-fixture="invite-code-prompt"
     >
-      <div className="flex items-start gap-3 px-6 pb-4 pt-6">
+      <X className="absolute right-4 top-4 size-4 text-muted-foreground" />
+
+      <div className="flex min-w-0 items-start gap-3 pr-8">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-12 bg-brand-red/10 text-brand-red">
           <Gift className="size-5" />
         </span>
-        <div className="min-w-0 pt-1">
-          <p className="text-18 font-medium text-foreground">
+        <div className="min-w-0" style={{ paddingTop: 2 }}>
+          <p className="text-20 font-medium text-foreground">
             填写邀请码，领取邀请礼
           </p>
           <p className="mt-1 text-12 leading-paragraph text-muted-foreground">
-            新账户没有候选码时，可在当期活动规定的绑定窗口内补填。
+            注册后 7 天内仍可补填并完成关联。
           </p>
         </div>
       </div>
 
-      <div className="mx-6 rounded-8 bg-surface-1 px-3 py-3 text-12 leading-paragraph text-muted-foreground">
-        <div className="flex items-start gap-2">
-          <TicketCheck className="mt-1 size-4 shrink-0 text-brand-green" />
-          <span>
-            此处只提醒补录，不会在弹窗内直接绑定；进入“邀请好友”后仍需本人确认。
-          </span>
+      <div className="mt-4 flex min-w-0 items-center justify-between gap-3 rounded-12 border border-brand-green/25 bg-brand-green/5 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2 text-brand-green">
+          <TicketCheck className="size-4 shrink-0" />
+          <span className="text-12 font-medium">你可领取</span>
         </div>
+        <strong className="shrink-0 text-20 font-medium tabular-nums text-foreground">
+          20
+          <span className="ml-1 text-12 font-normal text-muted-foreground">
+            经费
+          </span>
+        </strong>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 px-6 py-6">
-        <span className="inline-flex items-center gap-1 text-12 text-muted-foreground">
-          获取邀请码 <ExternalLink className="size-3" />
+      <div className="mt-4 flex min-w-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <span className="inline-flex h-9 items-center justify-center gap-2 rounded-8 px-3 text-14 font-medium text-foreground">
+          获取邀请码
+          <ExternalLink className="size-3.5" />
         </span>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 items-center rounded-8 px-3 text-12 text-muted-foreground">
-            暂不填写
-          </span>
-          <span className="inline-flex h-9 items-center gap-2 rounded-8 bg-foreground px-4 text-12 font-medium text-on-dark">
-            <TicketCheck className="size-4" /> 立即填写
-          </span>
-        </div>
+        <span className="inline-flex h-9 items-center justify-center gap-2 rounded-pill bg-foreground px-3 text-14 font-medium text-on-brand">
+          <TicketCheck className="size-4" />
+          立即填写
+        </span>
       </div>
-
-      <p className="border-t border-border bg-surface-1 px-6 py-3 text-12 leading-paragraph text-faint">
-        仅在活动开启、受邀礼有效且新账号没有候选码时提示一次；旧账号不会静默绑定。
-      </p>
     </div>
   );
 }

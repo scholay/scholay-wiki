@@ -16,10 +16,8 @@ import {
   DetailBadge,
   DetailDialog,
   DetailFields,
-  DetailMetricStrip,
   DetailNotice,
   DetailSection,
-  DetailSteps,
   DetailTable,
   DetailTabs,
 } from "./WikiEmbedAdminDetailPrimitives";
@@ -46,7 +44,16 @@ export function WikiEmbedAdminProviderSections() {
           <DetailBadge>3 个模型</DetailBadge>
         </div>
         <DetailTable
-          columns={["模型", "上下文 / 输出", "价格（元 / 1M）", "状态"]}
+          columns={[
+            "模型",
+            "上下文 / 输出",
+            "价格 入/出（元 / 1M）",
+            "速度",
+            "用户可选",
+            "状态",
+            "",
+          ]}
+          columnsTemplate="1.6fr .8fr 1.1fr .6fr .9fr .6fr .35fr"
           rows={[
             {
               id: "model-v32",
@@ -59,11 +66,15 @@ export function WikiEmbedAdminProviderSections() {
                   deepseek-v3.2 · 均衡
                 </span>,
                 "128K / 8K",
-                "输入 2 · 输出 3",
-                <span key="s" className="flex flex-wrap gap-1">
-                  <DetailBadge tone="green">启用</DetailBadge>
-                  <DetailBadge tone="blue">用户可选</DetailBadge>
-                </span>,
+                "2 / 3",
+                <DetailBadge key="speed">均衡</DetailBadge>,
+                <DetailBadge key="select" tone="green">
+                  可选 · Pro+
+                </DetailBadge>,
+                <DetailBadge key="status" tone="green">
+                  启用
+                </DetailBadge>,
+                "•••",
               ],
             },
             {
@@ -77,11 +88,13 @@ export function WikiEmbedAdminProviderSections() {
                   deepseek-r1 · 强推理
                 </span>,
                 "128K / 16K",
-                "输入 4 · 输出 16",
-                <span key="s" className="flex flex-wrap gap-1">
-                  <DetailBadge tone="green">启用</DetailBadge>
-                  <DetailBadge>Max</DetailBadge>
-                </span>,
+                "4 / 16",
+                <DetailBadge key="speed">强推理</DetailBadge>,
+                <DetailBadge key="select">可选 · Max+</DetailBadge>,
+                <DetailBadge key="status" tone="green">
+                  启用
+                </DetailBadge>,
+                "•••",
               ],
             },
             {
@@ -95,10 +108,15 @@ export function WikiEmbedAdminProviderSections() {
                   deepseek-experimental
                 </span>,
                 "64K / 4K",
-                "输入 0 · 输出 0",
-                <DetailBadge key="s" tone="red">
-                  零价告警
+                <DetailBadge key="price" tone="red">
+                  未计价
                 </DetailBadge>,
+                <DetailBadge key="speed">均衡</DetailBadge>,
+                <DetailBadge key="select">隐藏</DetailBadge>,
+                <DetailBadge key="s" tone="red">
+                  停用
+                </DetailBadge>,
+                "•••",
               ],
             },
           ]}
@@ -126,9 +144,9 @@ export function WikiEmbedAdminModelEditor() {
         title="编辑模型"
         description="价格用于成本核算；上下文预算满足输入 + 输出不超过窗口。"
         primary="保存"
+        size="lg"
       >
         <DetailFields
-          columns={3}
           fields={[
             { label: "模型 ID（上游真实 id）", value: "deepseek-v3.2" },
             { label: "对外展示名", value: "DeepSeek V3.2" },
@@ -173,6 +191,7 @@ export function WikiEmbedAdminProviderEditor() {
         title="编辑端点"
         description="端点名称用于后台识别，不展示给普通用户。"
         primary="保存"
+        size="compact"
       >
         <DetailFields
           fields={[
@@ -207,7 +226,7 @@ export function WikiEmbedAdminThirdPartyEditor() {
       description="账号池按优先级调度；类型决定动态字段，敏感值默认脱敏。"
       eyebrow="三方账号池"
     >
-      <DetailDialog title="编辑账号" primary="保存">
+      <DetailDialog title="编辑账号" primary="保存" size="lg">
         <DetailFields
           fields={[
             { label: "名称", value: "MiniCod 主账号" },
@@ -240,6 +259,7 @@ export function WikiEmbedAdminDimensionEditor() {
         title="编辑维度"
         description="research_method · key 不可修改，避免破坏 paper_analysis 缓存。"
         primary="保存"
+        size="md"
       >
         <DetailFields
           fields={[
@@ -259,28 +279,36 @@ export function WikiEmbedAdminDimensionEditor() {
   );
 }
 
-/** SystemConfigPage：基础、邮件和短信三个配置面板。 */
+/** SystemConfigPage：带通道状态点的单一活动配置面板。 */
 export function WikiEmbedAdminSystemChannelForms() {
   return (
     <AdminDetailFrame
       fixture="admin-system-channel-forms"
       icon={PanelTop}
       title="系统通道配置"
-      description="基础安全、邮件 SMTP 和短信网关是三个独立配置资源，分别保存和测试。"
+      description="页签状态点概览邮件与短信通道；当前冻结基础配置这一单一状态。"
       eyebrow="系统设置"
     >
       <DetailTabs
         tabs={["基础", "邮件 · 已启用", "短信 · 已启用", "代码片段库"]}
         active="基础"
       />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <DetailSection title="平台基础配置" description="注册验证与人机校验。">
+      <div className="max-w-3xl">
+        <DetailSection
+          title="平台基础配置"
+          description="邮件验证开关 · Cloudflare Turnstile 人机校验"
+          action="保存配置"
+        >
           <DetailFields
             columns={1}
             fields={[
-              { label: "注册时必须验证邮箱", value: "已启用", kind: "toggle" },
               {
-                label: "Cloudflare Turnstile",
+                label: "注册时必须验证邮箱 · 生效中",
+                value: "已启用",
+                kind: "toggle",
+              },
+              {
+                label: "启用 Cloudflare Turnstile · 生效中",
                 value: "已启用",
                 kind: "toggle",
               },
@@ -291,40 +319,6 @@ export function WikiEmbedAdminSystemChannelForms() {
                 kind: "secret",
               },
               { label: "Google 分析 ID", value: "G-8ABC123XYZ" },
-            ]}
-          />
-        </DetailSection>
-        <DetailSection
-          title="邮件 SMTP"
-          description="注册验证码、找回密码和通知邮件。"
-          action="发送测试"
-        >
-          <DetailFields
-            columns={1}
-            fields={[
-              { label: "Host / Port", value: "smtp.exmail.qq.com · 587" },
-              { label: "SMTP User", value: "noreply@scholay.com" },
-              { label: "SMTP Password", value: "secret", kind: "secret" },
-              { label: "From", value: "Scholay · noreply@scholay.com" },
-              { label: "启用邮件通道", value: "已启用", kind: "toggle" },
-              { label: "测试接收地址", value: "ops@example.edu" },
-            ]}
-          />
-        </DetailSection>
-        <DetailSection
-          title="短信网关"
-          description="手机号验证码登录与手机绑定。"
-          action="发送测试"
-        >
-          <DetailFields
-            columns={1}
-            fields={[
-              { label: "Access Key ID", value: "LTAI5tExample" },
-              { label: "Access Secret", value: "secret", kind: "secret" },
-              { label: "签名 / 模板", value: "Scholay · SMS_284601" },
-              { label: "Endpoint", value: "dysmsapi.aliyuncs.com" },
-              { label: "启用短信通道", value: "已启用", kind: "toggle" },
-              { label: "测试接收手机号", value: "13800138000" },
             ]}
           />
         </DetailSection>
@@ -346,7 +340,7 @@ export function WikiEmbedAdminCodeSnippetEditor() {
       <DetailNotice tone="red">
         启用的代码会原样注入所有访客页面，权限等同站点自身代码；只使用来源可信的内容。
       </DetailNotice>
-      <DetailDialog title="编辑片段 · Umami Analytics" primary="保存">
+      <DetailDialog title="编辑片段 · Umami Analytics" primary="保存" size="lg">
         <DetailFields
           fields={[
             { label: "名称", value: "Umami Analytics" },
@@ -411,31 +405,32 @@ export function WikiEmbedAdminAlipayEditor() {
       description="商户应用、网关、回调和密钥作为一条配置记录维护。"
       eyebrow="支付配置"
     >
-      <DetailDialog title="编辑支付宝配置" primary="保存">
+      <DetailDialog title="编辑支付宝配置" primary="保存" size="lg">
         <DetailFields
           fields={[
-            { label: "配置名称", value: "支付宝正式商户" },
             { label: "App ID", value: "2021004186XXXXXX" },
             {
-              label: "Gateway URL",
-              value: "https://openapi.alipay.com/gateway.do",
-            },
-            {
-              label: "支付回调 Notify URL",
+              label: "Notify URL",
               value: "https://api.scholay.com/payment/alipay/notify",
             },
             {
-              label: "同步返回 Return URL",
+              label: "Return URL",
               value: "https://scholay.com/payment/result",
             },
-            { label: "商户私钥", value: "secret", kind: "secret" },
-            { label: "支付宝公钥", value: "secret", kind: "secret" },
-            { label: "状态", value: "已启用", kind: "toggle" },
+            {
+              label: "商户私钥（Private Key）",
+              value: "secret",
+              kind: "secret",
+            },
+            {
+              label: "支付宝公钥（Alipay Public Key）",
+              value: "secret",
+              kind: "secret",
+            },
+            { label: "沙箱环境", value: "未启用", kind: "toggle" },
           ]}
         />
-        <DetailNotice>
-          “启用”只允许测试；只有通过验证并激活的配置才会出现在用户支付入口。
-        </DetailNotice>
+        <DetailNotice>网关由沙箱开关派生，不能在表单中直接修改。</DetailNotice>
       </DetailDialog>
     </AdminDetailFrame>
   );
@@ -455,31 +450,62 @@ export function WikiEmbedAdminWechatPayEditor() {
         title="编辑微信支付配置"
         description="未填写的新密钥会保留已配置值。"
         primary="保存"
+        size="lg"
       >
-        <DetailTabs
-          tabs={["基础", "密钥", "验签模式", "回调", "支付方式", "状态"]}
-          active="基础"
-        />
-        <DetailFields
-          columns={3}
-          fields={[
-            { label: "商户号 MchID", value: "1900008XXX" },
-            { label: "AppID", value: "wx4f8c2a19d3e6b701" },
-            { label: "商户证书序列号", value: "5B1F2C8D…" },
-            { label: "APIv3 密钥", value: "secret", kind: "secret" },
-            { label: "商户 API 私钥", value: "secret", kind: "secret" },
-            { label: "商户 API 证书（可选）", value: "secret", kind: "secret" },
-            { label: "微信支付公钥 ID", value: "PUB_KEY_ID_011…" },
-            { label: "微信支付公钥", value: "secret", kind: "secret" },
-            {
-              label: "支付回调地址",
-              value: "https://api.scholay.com/payment/wechat/notify",
-            },
-            { label: "退款回调地址", value: "自动推导", kind: "readonly" },
-            { label: "支付方式", value: "Native · JSAPI" },
-            { label: "配置状态", value: "已启用", kind: "toggle" },
-          ]}
-        />
+        <DetailSection title="基础">
+          <DetailFields
+            fields={[
+              { label: "商户号（MchID）", value: "1900008XXX" },
+              { label: "AppID", value: "wx4f8c2a19d3e6b701" },
+              { label: "商户 API 证书序列号", value: "5B1F2C8D…" },
+            ]}
+          />
+        </DetailSection>
+        <DetailSection
+          title="密钥"
+          description="脱敏显示；原样提交不会覆盖库里的原值。"
+        >
+          <DetailFields
+            fields={[
+              { label: "APIv3 密钥", value: "secret", kind: "secret" },
+              { label: "商户 API 私钥", value: "secret", kind: "secret" },
+              {
+                label: "商户 API 证书（可选）",
+                value: "secret",
+                kind: "secret",
+              },
+            ]}
+          />
+        </DetailSection>
+        <DetailSection
+          title="验签模式"
+          description="公钥 ID 与公钥都留空时使用平台证书模式。"
+        >
+          <DetailFields
+            fields={[
+              { label: "微信支付公钥 ID", value: "PUB_KEY_ID_011…" },
+              { label: "微信支付公钥", value: "secret", kind: "secret" },
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="回调">
+          <DetailFields
+            fields={[
+              {
+                label: "支付回调地址",
+                value: "https://api.scholay.com/payment/wechat/notify",
+              },
+              { label: "退款回调地址", value: "留空自动推导" },
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="支付方式" description="至少选择一项。">
+          <div className="flex flex-wrap gap-4 text-12 text-subtle">
+            <span>☑ 扫码（native）</span>
+            <span>☐ 手机浏览器（h5）</span>
+            <span>☑ 微信内（jsapi）</span>
+          </div>
+        </DetailSection>
       </DetailDialog>
     </AdminDetailFrame>
   );
@@ -496,65 +522,15 @@ export function WikiEmbedAdminPaymentActivationConfirm() {
       eyebrow="支付配置"
     >
       <DetailDialog
-        title="激活“微信支付正式商户”？"
-        description="激活后用户端会立即显示微信支付入口。"
-        primary="确认激活"
+        title="切换活动微信支付商户？"
+        description="商户号：1900008XXX"
+        primary="切换"
         destructive
+        size="sm"
       >
-        <DetailMetricStrip
-          metrics={[
-            { label: "渠道", value: "微信支付", note: "Native · JSAPI" },
-            { label: "商户号", value: "1900008XXX", note: "已脱敏" },
-            {
-              label: "最近验证",
-              value: "成功",
-              note: "今天 10:06",
-              tone: "green",
-            },
-            {
-              label: "当前生效",
-              value: "旧配置",
-              note: "将自动停用",
-              tone: "amber",
-            },
-          ]}
-        />
-        <DetailSteps
-          items={[
-            {
-              label: "验证凭据",
-              detail: "APIv3 密钥、商户私钥与微信支付公钥验证成功。",
-              status: "通过",
-              tone: "green",
-            },
-            {
-              label: "切换生效项",
-              detail: "原“微信支付备用商户”将自动取消激活。",
-              status: "将执行",
-              tone: "amber",
-            },
-            {
-              label: "开放用户入口",
-              detail: "充值与订阅结算将出现微信支付选项。",
-              status: "即时",
-              tone: "red",
-            },
-          ]}
-        />
-        <DetailFields
-          fields={[
-            {
-              label: "确认对象",
-              value: "微信支付正式商户 · 1900008XXX",
-              kind: "readonly",
-            },
-            {
-              label: "验证结果",
-              value: "签名与下单参数均通过",
-              kind: "readonly",
-            },
-          ]}
-        />
+        <p className="text-14 leading-paragraph text-subtle">
+          其他微信支付配置会自动停用，所有后续订单都将走该商户。
+        </p>
       </DetailDialog>
     </AdminDetailFrame>
   );

@@ -5,63 +5,91 @@ const NOTICES = [
     title: "智能搜索任务已完成",
     body: "已整理 18 篇候选论文，可以继续核对并加入暂存区。",
     time: "刚刚",
+    linkText: "查看结果",
     unread: true,
   },
   {
-    title: "文献集分享已被接收",
-    body: "对方已经打开你分享的文献集。",
+    title: "文件夹分享已被接收",
+    body: "对方已经打开你分享的文件夹。",
     time: "2 小时前",
     unread: false,
   },
 ] as const;
 
-/** 站内通知列表 · 纯样式 fixture。来源：product-mock NotificationInbox。 */
+/**
+ * 顶栏通知 Popover 的列表成功态 · 纯样式 fixture。
+ * 来源：current shared/components/NotificationBell.tsx；mock NotificationInbox 仅用于核对原始层级。
+ */
 export function WikiEmbedNotificationInbox() {
   return (
     <div
-      className="w-[min(100%,28rem)] overflow-hidden rounded-12 border border-border bg-surface-card"
+      className="flex w-96 max-w-full flex-col overflow-hidden rounded-12 border border-border bg-surface-card"
       aria-hidden
       data-wiki-fixture="notification-inbox"
     >
-      <div className="flex h-10 items-center border-b border-border px-3">
+      <header className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border-soft px-3">
         <span className="text-14 font-medium text-foreground">通知</span>
-      </div>
-      <div className="flex h-10 items-center gap-1 border-b border-border px-3">
-        <span className="inline-flex h-full items-center border-b-2 border-brand-red px-3 text-12 font-medium text-foreground">
-          全部
+        <span className="inline-flex h-7 items-center gap-1 rounded-8 px-2 text-12 text-muted-foreground">
+          <CheckCheck className="size-3" strokeWidth={2.5} />
+          全部已读
         </span>
-        <span className="inline-flex h-full items-center gap-1 px-3 text-12 text-muted-foreground">
+      </header>
+
+      <div className="flex shrink-0 items-center gap-1 border-b border-border-soft px-3">
+        <span className="relative inline-flex h-8 items-center px-3 text-12 font-medium text-foreground">
+          全部
+          <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-pill bg-brand-red" />
+        </span>
+        <span className="inline-flex h-8 items-center px-3 text-12 font-medium text-muted-foreground">
           未读
-          <span className="rounded-pill bg-brand-red px-2 py-1 text-12 font-medium text-on-dark">
+          <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 font-medium tabular-nums text-on-brand">
             1
           </span>
         </span>
-        <span className="ml-auto inline-flex items-center gap-1 text-12 text-muted-foreground">
-          <CheckCheck className="size-3" />
-          全部已读
-        </span>
       </div>
-      <div>
+
+      <ul>
         {NOTICES.map((notice) => (
-          <div
+          <li
             key={notice.title}
-            className={`flex gap-2 border-b border-border px-4 py-3 last:border-b-0 ${notice.unread ? "bg-danger-soft/40" : ""}`}
+            className={`relative flex flex-col gap-1 border-b border-border-soft px-3 py-3 last:border-b-0 ${notice.unread ? "bg-danger-soft/40" : ""}`}
           >
-            <span
-              className={`mt-2 size-2 shrink-0 rounded-pill ${notice.unread ? "bg-brand-red" : "bg-transparent"}`}
-            />
-            <div className="min-w-0">
-              <p className="text-14 font-medium text-foreground">
-                {notice.title}
-              </p>
-              <p className="mt-1 text-12 leading-paragraph text-subtle">
-                {notice.body}
-              </p>
-              <p className="mt-1 text-12 text-faint">{notice.time}</p>
+            <div className="flex items-start gap-2 text-left">
+              {notice.unread ? (
+                <span
+                  className="inline-block shrink-0 rounded-pill bg-brand-red"
+                  style={{ width: 6, height: 6, marginTop: 6 }}
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-1 text-14 font-medium text-foreground">
+                  {notice.title}
+                </p>
+                <p
+                  className="line-clamp-3 text-12 leading-paragraph text-subtle"
+                  style={{ marginTop: 2 }}
+                >
+                  {notice.body}
+                </p>
+                <div
+                  className="flex items-center gap-2 text-12 text-faint"
+                  style={{ marginTop: 6 }}
+                >
+                  <span>{notice.time}</span>
+                  {"linkText" in notice ? (
+                    <span className="font-medium text-brand-red">
+                      {notice.linkText} →
+                    </span>
+                  ) : null}
+                </div>
+              </div>
             </div>
-          </div>
+            <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-4 text-faint opacity-0">
+              ×
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

@@ -1,76 +1,69 @@
-import { Copy, ImageDown, Link2, QrCode, ShieldCheck } from "lucide-react";
+import { Copy, ImageDown, Link2, QrCode, X } from "lucide-react";
+import { ShareCard } from "@/shared/components/share/ShareCard";
 
-/** 文献集分享面板 · 纯样式 fixture。来源：product-mock ShareSheet。 */
+/**
+ * 桌面端文件夹分享抽屉的链接已生成状态 · 纯样式 fixture。
+ * 来源：current shared/components/share/ShareSheet.tsx + ShareCard.tsx。
+ */
 export function WikiEmbedShareSheet() {
   return (
-    <div
-      className="w-[min(100%,28rem)] rounded-12 border border-border bg-surface-card p-4"
+    <aside
+      className="relative flex h-[42rem] max-h-[82dvh] w-[28rem] max-w-full flex-col overflow-y-auto border-l border-border bg-surface-card shadow-overlay"
       aria-hidden
       data-wiki-fixture="share-sheet"
     >
-      <p className="text-16 font-medium text-foreground">分享文献集</p>
-      <div className="mt-4 rounded-8 border border-border bg-surface-1 p-4">
-        <p className="text-14 font-medium text-foreground">
-          Transformer 研究资料
-        </p>
-        <p className="mt-1 text-12 text-faint">24 篇文献 · 示例预览</p>
-        <div className="mt-3 space-y-2">
-          {[
-            "Attention Is All You Need",
-            "BERT: Pre-training of Deep Bidirectional Transformers",
-          ].map((title) => (
-            <div
-              key={title}
-              className="truncate rounded-4 bg-surface-card px-3 py-2 text-12 text-subtle"
-            >
-              {title}
-            </div>
-          ))}
-        </div>
-      </div>
+      <header className="shrink-0 border-b border-border-soft px-4 py-3 pr-10">
+        <h2 className="text-14 font-medium text-foreground">分享文件夹</h2>
+      </header>
+      <X className="absolute right-4 top-4 size-4 text-foreground opacity-70" />
 
-      <div className="mt-4 rounded-8 border border-border bg-surface-1 p-3">
-        <div className="flex items-center justify-between gap-3 text-12 text-subtle">
-          <span className="inline-flex items-center gap-2">
-            <ShieldCheck className="size-4" />
-            提取码保护
-          </span>
-          <span className="rounded-pill bg-brand-red px-2 py-1 font-medium text-on-dark">
-            已开启
+      <div className="flex flex-col gap-4 p-4">
+        <ShareCard
+          data={{
+            kind: "collection",
+            title: "Transformer 研究资料",
+            paperCount: 24,
+            sampleTitles: [
+              "Attention Is All You Need",
+              "BERT: Pre-training of Deep Bidirectional Transformers",
+              "Language Models are Few-Shot Learners",
+            ],
+            qrValue: "https://scholay.com/",
+            urlLabel: "scholay.com/s/M8Q7K2",
+          }}
+        />
+
+        <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-3 py-2">
+          <span className="text-12 text-subtle">提取码</span>
+          <span className="font-mono text-16 font-medium text-brand-red">
+            H7K9
           </span>
         </div>
-        <div className="mt-3 flex items-center justify-between text-12 text-subtle">
-          <span>有效期</span>
-          <div className="flex gap-2">
-            {["永久", "7 天", "30 天"].map((label) => (
+
+        <div>
+          <p className="mb-2 text-12 text-faint">分享渠道</p>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: "复制链接", Icon: Link2 },
+              { label: "复制口令", Icon: Copy },
+              { label: "保存图片", Icon: ImageDown },
+              { label: "二维码", Icon: QrCode },
+            ].map(({ label, Icon }) => (
               <span
                 key={label}
-                className={`rounded-4 border px-2 py-1 ${label === "永久" ? "border-brand-red bg-danger-soft text-brand-red" : "border-border text-muted-foreground"}`}
+                className="flex flex-col items-center gap-1 rounded-8 border border-border bg-surface-card py-2 text-muted-foreground"
               >
-                {label}
+                <Icon className="size-5" />
+                <span className="text-12 text-subtle">{label}</span>
               </span>
             ))}
           </div>
         </div>
-      </div>
 
-      <p className="mb-2 mt-4 text-12 text-faint">分享渠道</p>
-      <div className="grid grid-cols-4 gap-2">
-        {[
-          { label: "复制链接", Icon: Link2 },
-          { label: "复制口令", Icon: Copy },
-          { label: "保存图片", Icon: ImageDown },
-          { label: "二维码", Icon: QrCode },
-        ].map(({ label, Icon }) => (
-          <span
-            key={label}
-            className="flex min-w-0 flex-col items-center gap-2 rounded-8 border border-border py-3 text-muted-foreground"
-          >
-            <Icon className="size-4" />
-            <span className="text-center text-12 text-subtle">{label}</span>
-          </span>
-        ))}
+        <p className="text-12 leading-paragraph text-faint">
+          “复制口令”会同时带上链接和提取码；对方打开链接后输入提取码即可查看并转存。
+        </p>
       </div>
-    </div>
+    </aside>
   );
 }

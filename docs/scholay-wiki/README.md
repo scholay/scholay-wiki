@@ -9,7 +9,7 @@ Scholay Wiki 是本仓库产品事实的可浏览知识层。它不是营销页�
 - 产品版本：`0.0.80`
 - Wiki 入口：`/wiki`
 - 内容语言：简体中文；技术标识、路由和协议名保留原文
-- 当前内容：144 篇词条、630 个唯一仓库来源路径、210 个静态界面示意
+- 当前内容：144 篇词条、635 个唯一仓库来源路径、226 个静态界面示意
 
 ## 收录范围
 
@@ -78,11 +78,11 @@ Scholay Wiki 是本仓库产品事实的可浏览知识层。它不是营销页�
 - `audit/frontend-pages-and-features.md`：120 个现行页面、29 个兼容跳转与前端功能规则。
 - `audit/backend-and-rules.md`：56 个后端模块、API 权限、业务状态机与数据实体。
 - `audit/agents-miniapp-infra.md`：Agent、109 个技能、15 个小程序页面、基础设施与运维边界。
-- `audit/mock-component-migration.md`：product-mock 的 227 个稳定可见表面、210 个 Wiki fixture 与 14 个明确排除组。
+- `audit/mock-component-migration.md`：product-mock 的 240 个稳定可见表面、226 个 Wiki fixture 与 17 个明确排除组。
 - `content-model.md`：信息架构、导航与内容字段设计。
 - `frontend-user/src/features/wiki/`：可运行的 Wiki 页面与词条数据。
 - `frontend-user/tests/wiki-content.test.ts`：词条、关联、分类与来源路径完整性检查。
-- `npm run test:wiki`：内容契约与覆盖门禁；会核对 109 个非 Wiki 懒加载页面、56 个后端模块、15 个小程序页面、7 个 Agent feature、109 个技能、128 个迁移、201 条工具数据，并验证 227 个 mock 稳定可见表面全部有已注册、已挂载的 Wiki 组件。
+- `npm run test:wiki`：内容契约与覆盖门禁；会核对 109 个非 Wiki 懒加载页面、56 个后端模块、15 个小程序页面、7 个 Agent feature、109 个技能、128 个迁移、201 条工具数据，并验证 240 个 mock 稳定可见表面全部有已注册、已挂载的 Wiki 组件。
 
 ## 当前核验边界
 

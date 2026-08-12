@@ -21,14 +21,11 @@ import {
   AdminDetailFrame,
   DetailBadge,
   DetailDialog,
-  DetailEmpty,
   DetailFields,
   DetailMetricStrip,
   DetailNotice,
   DetailSection,
-  DetailSteps,
   DetailTable,
-  DetailTabs,
 } from "./WikiEmbedAdminDetailPrimitives";
 
 /** PromoConfigPage：推广配置与用户端弹窗预览。 */
@@ -115,6 +112,7 @@ export function WikiEmbedAdminAnnouncementEditor() {
         title="新建公告"
         description="留空开始时间表示立即，留空结束时间表示长期。"
         primary="创建公告"
+        size="lg"
       >
         <DetailFields
           columns={3}
@@ -172,17 +170,6 @@ export function WikiEmbedAdminHotCleanupConfig() {
           ]}
         />
       </DetailSection>
-      <DetailMetricStrip
-        metrics={[
-          { label: "热搜词条数", value: "3,842", note: "低于上限" },
-          { label: "热门论文数", value: "8,106", note: "低于上限" },
-          { label: "待清理", value: "246", note: "超过 90 天", tone: "amber" },
-          { label: "上次清理", value: "02:10", note: "今天", tone: "green" },
-        ]}
-      />
-      <DetailNotice tone="red">
-        立即清理属于物化数据维护；运行前先确认保留天数与数量上限。
-      </DetailNotice>
     </AdminDetailFrame>
   );
 }
@@ -197,7 +184,7 @@ export function WikiEmbedAdminToolEditor() {
       description="基础信息、访问方式、公开来源、使用场景和发布状态在同一弹窗维护。"
       eyebrow="功能广场"
     >
-      <DetailDialog title="编辑工具 · 文献相似度检测" primary="保存">
+      <DetailDialog title="编辑工具 · 文献相似度检测" primary="保存" size="lg">
         <DetailFields
           fields={[
             { label: "名称", value: "文献相似度检测" },
@@ -247,10 +234,17 @@ export function WikiEmbedAdminToolImport() {
       eyebrow="功能广场"
       action="提交导入"
     >
-      <div className="grid gap-4 lg:grid-cols-[1.3fr_.7fr]">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex h-8 items-center rounded-8 border border-border bg-background px-3 text-12 text-subtle">
+            选择 .json / .zip 文件
+          </span>
+          <span className="text-12 text-faint">tools-2026-08-12.json</span>
+        </div>
         <DetailSection
-          title="JSON 数据"
+          title="或粘贴 JSON（工具对象数组）"
           description="每个对象至少包含 name、slug、category、access 和 spec。"
+          variant="plain"
         >
           <pre className="overflow-hidden whitespace-pre-wrap rounded-8 border border-border bg-surface-1 p-3 font-mono text-12 leading-paragraph text-subtle">{`[
   {
@@ -262,37 +256,17 @@ export function WikiEmbedAdminToolImport() {
   }
 ]`}</pre>
         </DetailSection>
-        <div className="space-y-4">
-          <DetailSection title="校验结果">
-            <DetailSteps
-              items={[
-                {
-                  label: "JSON 语法",
-                  detail: "数组结构可解析",
-                  status: "通过",
-                  tone: "green",
-                },
-                {
-                  label: "必填字段",
-                  detail: "1 / 1 条完整",
-                  status: "通过",
-                  tone: "green",
-                },
-                {
-                  label: "slug 冲突",
-                  detail: "发现已有同名工具，将按策略更新",
-                  status: "提醒",
-                  tone: "amber",
-                },
-              ]}
-            />
-          </DetailSection>
-          <DetailFields
-            fields={[
-              { label: "冲突策略", value: "更新已有记录", kind: "select" },
-              { label: "导入方式", value: "异步任务", kind: "readonly" },
-            ]}
-          />
+        <p className="text-14 text-brand-green">✓ 已识别 1 条工具</p>
+        <div className="flex flex-col gap-3 rounded-8 border border-border bg-surface-1 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-14 text-subtle">
+            ☑ 导入时通知下游 webhook 同步
+            <span className="ml-2 text-12 text-faint">
+              冷数据首次导入建议关闭
+            </span>
+          </span>
+          <span className="inline-flex h-8 items-center rounded-8 bg-foreground px-3 text-12 font-medium text-on-dark">
+            导入 1 条 →
+          </span>
         </div>
       </div>
     </AdminDetailFrame>
@@ -314,6 +288,7 @@ export function WikiEmbedAdminToolImportJobDetail() {
         description="创建于 2026-08-12 10:18 · 用时 18 秒"
         primary="关闭"
         secondary="下载结果"
+        size="lg"
       >
         <DetailMetricStrip
           metrics={[
@@ -329,7 +304,7 @@ export function WikiEmbedAdminToolImportJobDetail() {
             {
               id: "job-7",
               cells: [
-                "#7",
+                "序号 7",
                 "poster-maker",
                 <DetailBadge key="s" tone="green">
                   新增
@@ -340,7 +315,7 @@ export function WikiEmbedAdminToolImportJobDetail() {
             {
               id: "job-34",
               cells: [
-                "#34",
+                "序号 34",
                 "citation-map",
                 <DetailBadge key="s" tone="amber">
                   更新
@@ -351,7 +326,7 @@ export function WikiEmbedAdminToolImportJobDetail() {
             {
               id: "job-82",
               cells: [
-                "#82",
+                "序号 82",
                 "bad-entry",
                 <DetailBadge key="s" tone="red">
                   失败
@@ -379,6 +354,7 @@ export function WikiEmbedAdminToolWebhookList() {
     >
       <DetailTable
         columns={["名称 / URL", "订阅事件", "最近投递", "状态"]}
+        columnsTemplate="1.8fr 1fr 1.1fr .6fr"
         rows={[
           {
             id: "hook-search",
@@ -448,7 +424,7 @@ export function WikiEmbedAdminToolWebhookEditor() {
       description="密钥可选；订阅事件全不选时表示接收全部工具事件。"
       eyebrow="功能广场"
     >
-      <DetailDialog title="编辑 webhook" primary="保存">
+      <DetailDialog title="编辑 webhook" primary="保存" size="compact">
         <DetailFields
           fields={[
             { label: "名称", value: "搜索索引同步" },
@@ -487,6 +463,7 @@ export function WikiEmbedAdminToolWebhookDeliveries() {
         title="投递记录 · 搜索索引同步"
         primary="关闭"
         secondary="刷新"
+        size="lg"
       >
         <DetailTable
           columns={["事件", "响应", "尝试", "时间"]}
@@ -555,6 +532,7 @@ export function WikiEmbedAdminSkillReportQueue() {
       />
       <DetailTable
         columns={["技能 / 举报人", "原因", "详情", "时间"]}
+        columnsTemplate="1.3fr .8fr 1.5fr .7fr"
         rows={[
           {
             id: "report-301",
@@ -564,7 +542,7 @@ export function WikiEmbedAdminSkillReportQueue() {
                   文献批量下载
                 </strong>
                 <br />
-                用户 #28177
+                用户 ID 28177
               </span>,
               <DetailBadge key="s" tone="red">
                 版权风险
@@ -581,7 +559,7 @@ export function WikiEmbedAdminSkillReportQueue() {
                   英文润色助手
                 </strong>
                 <br />
-                用户 #28461
+                用户 ID 28461
               </span>,
               <DetailBadge key="s" tone="amber">
                 描述不实
@@ -598,7 +576,7 @@ export function WikiEmbedAdminSkillReportQueue() {
                   DOI 导出器
                 </strong>
                 <br />
-                用户 #27602
+                用户 ID 27602
               </span>,
               <DetailBadge key="s">功能失效</DetailBadge>,
               "目标接口持续 404",
@@ -630,10 +608,6 @@ export function WikiEmbedAdminSkillReviewError() {
           重试
         </span>
       </div>
-      <DetailEmpty
-        title="这不是空队列"
-        description="只有请求成功且 items 数组为空时，才显示“暂无待审核技能”。"
-      />
     </AdminDetailFrame>
   );
 }
@@ -649,9 +623,10 @@ export function WikiEmbedAdminFeedbackDetailDialog() {
       eyebrow="用户反馈"
     >
       <DetailDialog
-        title="反馈单 #FB-260812-019"
+        title="反馈详情 · 林晓舟"
         description="林晓舟 · lin.xz@example.edu · 今天 09:18"
         primary="保存回复"
+        size="lg"
       >
         <div className="flex flex-wrap gap-2">
           <DetailBadge tone="red">高优先级</DetailBadge>
@@ -701,7 +676,7 @@ export function WikiEmbedAdminMessageEditor() {
       description="消息先保存为草稿，再按全体、会员等级或指定用户发送。"
       eyebrow="站内消息"
     >
-      <DetailDialog title="新建消息" primary="保存草稿">
+      <DetailDialog title="新建消息" primary="保存草稿" size="lg">
         <DetailFields
           fields={[
             { label: "标题", value: "同行评审功能更新" },
@@ -741,6 +716,7 @@ export function WikiEmbedAdminMessageSendConfirm() {
         description="发送后不可撤回，也不能修改已到达用户的内容。"
         primary="确认发送"
         destructive
+        size="sm"
       >
         <DetailMetricStrip
           metrics={[
@@ -758,7 +734,7 @@ export function WikiEmbedAdminMessageSendConfirm() {
             { label: "确认文本", value: "SEND" },
             {
               label: "目标摘要",
-              value: "用户 #28461、#28177、#27602",
+              value: "用户 ID 28461、28177、27602",
               kind: "readonly",
             },
           ]}
@@ -779,7 +755,7 @@ export function WikiEmbedAdminMailboxWorkspace() {
       eyebrow="邮件中心"
       action="写邮件"
     >
-      <div className="grid min-h-112 overflow-hidden rounded-8 border border-border bg-surface-card lg:grid-cols-[19rem_1fr]">
+      <div className="grid min-h-112 overflow-hidden rounded-8 border border-border bg-background lg:grid-cols-[22rem_1fr]">
         <aside className="border-b border-border lg:border-r lg:border-b-0">
           <div className="space-y-2 border-b border-border p-3">
             <div className="rounded-8 border border-border bg-surface-1 px-3 py-2 text-12 text-faint">
@@ -903,15 +879,11 @@ export function WikiEmbedAdminSupportChannelConfig() {
       title="客服渠道配置"
       description="用户端联系方式、客服邮箱收发信和飞书通知分别配置并单独测试。"
       eyebrow="客服配置"
-      action="保存配置"
+      action="保存全部"
     >
-      <DetailTabs
-        tabs={["联系方式", "邮箱收信", "邮箱发信", "飞书通知"]}
-        active="联系方式"
-      />
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="max-w-3xl space-y-6">
         <DetailSection
-          title="联系方式展示"
+          title="联系方式展示（用户端 /contact）"
           description="显示在用户端 /contact 页面。"
         >
           <DetailFields
@@ -937,36 +909,53 @@ export function WikiEmbedAdminSupportChannelConfig() {
             ))}
           </div>
         </DetailSection>
-        <div className="space-y-4">
-          <DetailSection title="客服邮箱收件（IMAP）" action="测试收信">
-            <DetailFields
-              fields={[
-                { label: "服务器 / 端口", value: "imap.exmail.qq.com · 993" },
-                { label: "邮箱账号", value: "support@scholay.com" },
-                { label: "密码 / 授权码", value: "secret", kind: "secret" },
-                { label: "TLS / 轮询", value: "开启 · 每 5 分钟" },
-              ]}
-            />
-          </DetailSection>
-          <DetailSection title="客服邮箱发信（SMTP）" action="发送测试邮件">
-            <DetailFields
-              fields={[
-                { label: "服务器 / 端口", value: "smtp.exmail.qq.com · 465" },
-                { label: "发信账号", value: "support@scholay.com" },
-                { label: "密码 / 授权码", value: "secret", kind: "secret" },
-                { label: "发信人显示名", value: "Scholay 客服" },
-              ]}
-            />
-          </DetailSection>
-          <DetailSection title="飞书通知" action="测试通知">
-            <DetailFields
-              fields={[
-                { label: "Webhook 地址", value: "secret", kind: "secret" },
-                { label: "签名 Secret", value: "secret", kind: "secret" },
-              ]}
-            />
-          </DetailSection>
-        </div>
+        <DetailSection
+          title="客服邮箱收件（IMAP）"
+          description="启用后定时拉取新邮件到邮件中心；测试按钮使用已保存配置。"
+          action="测试连接"
+        >
+          <DetailFields
+            fields={[
+              { label: "启用拉取", value: "已启用", kind: "toggle" },
+              { label: "IMAP 服务器", value: "imap.exmail.qq.com" },
+              { label: "端口", value: "993" },
+              { label: "邮箱账号", value: "support@scholay.com" },
+              { label: "密码 / 授权码", value: "secret", kind: "secret" },
+              { label: "轮询间隔（分钟）", value: "5" },
+              { label: "TLS（993 端口必开）", value: "已启用", kind: "toggle" },
+            ]}
+          />
+        </DetailSection>
+        <DetailSection
+          title="客服邮箱发信（SMTP）"
+          description="邮件中心的回信和写信从该客服邮箱发出；留空则回落全站发信配置。"
+          action="发送测试邮件"
+        >
+          <DetailFields
+            fields={[
+              { label: "SMTP 服务器", value: "smtp.exmail.qq.com" },
+              { label: "端口（465=SSL / 587=TLS）", value: "465" },
+              { label: "发信账号", value: "support@scholay.com" },
+              { label: "密码 / 授权码", value: "secret", kind: "secret" },
+              { label: "发信人显示名（可空）", value: "Scholay 客服" },
+              { label: "TLS", value: "已启用", kind: "toggle" },
+            ]}
+          />
+        </DetailSection>
+        <DetailSection
+          title="飞书通知（群自定义机器人）"
+          description="用户提交反馈或客服邮箱收到新邮件时推送到群。"
+          action="发送测试通知"
+        >
+          <DetailFields
+            fields={[
+              { label: "Webhook 地址", value: "secret", kind: "secret" },
+              { label: "签名 Secret", value: "secret", kind: "secret" },
+              { label: "在线反馈通知", value: "已启用", kind: "toggle" },
+              { label: "新邮件通知", value: "已启用", kind: "toggle" },
+            ]}
+          />
+        </DetailSection>
       </div>
     </AdminDetailFrame>
   );

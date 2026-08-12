@@ -4,8 +4,12 @@ import {
   CalendarClock,
   ChartNoAxesCombined,
   CircleDollarSign,
+  CreditCard,
   Gift,
   LayoutDashboard,
+  MessageSquare,
+  Plug,
+  Settings,
   ShieldAlert,
   UserRoundSearch,
   WalletCards,
@@ -20,34 +24,162 @@ import {
   DetailMetricStrip,
   DetailNotice,
   DetailSection,
-  DetailSteps,
   DetailTable,
   DetailTabs,
 } from "./WikiEmbedAdminDetailPrimitives";
+
+function MiniTrendChart({
+  tone = "green",
+  secondTone,
+  area = false,
+}: {
+  tone?: "green" | "amber" | "red" | "blue";
+  secondTone?: "green" | "amber" | "red" | "blue";
+  area?: boolean;
+}) {
+  const color = {
+    green: "var(--color-brand-green)",
+    amber: "var(--color-brand-amber)",
+    red: "var(--color-brand-red)",
+    blue: "var(--color-cat-blue)",
+  }[tone];
+  const secondColor = secondTone
+    ? {
+        green: "var(--color-brand-green)",
+        amber: "var(--color-brand-amber)",
+        red: "var(--color-brand-red)",
+        blue: "var(--color-cat-blue)",
+      }[secondTone]
+    : undefined;
+
+  return (
+    <svg
+      className="h-40 w-full"
+      viewBox="0 0 520 160"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="冻结的趋势图预览"
+    >
+      {[32, 64, 96, 128].map((y) => (
+        <line
+          key={y}
+          x1="0"
+          x2="520"
+          y1={y}
+          y2={y}
+          stroke="var(--color-border)"
+          strokeDasharray="3 3"
+        />
+      ))}
+      {area ? (
+        <path
+          d="M0 132 L58 126 L116 118 L174 124 L232 95 L290 102 L348 78 L406 84 L464 45 L520 55 L520 160 L0 160 Z"
+          fill={color}
+          opacity="0.12"
+        />
+      ) : null}
+      <polyline
+        points="0,132 58,126 116,118 174,124 232,95 290,102 348,78 406,84 464,45 520,55"
+        fill="none"
+        stroke={color}
+        strokeWidth="3"
+      />
+      {secondColor ? (
+        <polyline
+          points="0,110 58,104 116,112 174,91 232,96 290,74 348,82 406,58 464,64 520,36"
+          fill="none"
+          stroke={secondColor}
+          strokeWidth="3"
+        />
+      ) : null}
+    </svg>
+  );
+}
+
+function MiniDonut() {
+  return (
+    <div className="flex h-40 items-center justify-center gap-6">
+      <svg className="size-32 -rotate-90" viewBox="0 0 100 100" aria-hidden>
+        <circle
+          cx="50"
+          cy="50"
+          r="34"
+          fill="none"
+          stroke="var(--color-surface-2)"
+          strokeWidth="16"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="34"
+          fill="none"
+          stroke="var(--color-brand-green)"
+          strokeDasharray="107 214"
+          strokeWidth="16"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="34"
+          fill="none"
+          stroke="var(--color-cat-blue)"
+          strokeDasharray="60 214"
+          strokeDashoffset="-107"
+          strokeWidth="16"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="34"
+          fill="none"
+          stroke="var(--color-brand-amber)"
+          strokeDasharray="30 214"
+          strokeDashoffset="-167"
+          strokeWidth="16"
+        />
+      </svg>
+      <div className="space-y-2 text-12 text-subtle">
+        <p>
+          <span className="mr-2 inline-block size-2 bg-brand-green" />
+          邮箱 50%
+        </p>
+        <p>
+          <span className="mr-2 inline-block size-2 bg-cat-blue" />
+          微信 28%
+        </p>
+        <p>
+          <span className="mr-2 inline-block size-2 bg-brand-amber" />
+          Google 14%
+        </p>
+        <p>
+          <span className="mr-2 inline-block size-2 bg-foreground" />
+          其他 8%
+        </p>
+      </div>
+    </div>
+  );
+}
 
 /** AdminSidebar + SidebarBadges：菜单级提醒与全局状态。 */
 export function WikiEmbedAdminSidebarAlerts() {
   const groups = [
     {
       label: "总览",
-      items: [
-        ["仪表盘", "3", "red"],
-        ["用户管理", "", "neutral"],
-      ],
+      items: [["看板", "", "neutral"]],
     },
     {
       label: "内容与运营",
       items: [
-        ["技能审核", "7", "amber"],
         ["反馈处理", "12", "red"],
-        ["邮件中心", "4", "blue"],
+        ["站内消息", "3", "neutral"],
+        ["第三方账号", "2", "red"],
       ],
     },
     {
       label: "系统",
       items: [
-        ["支付配置", "!", "amber"],
-        ["系统配置", "!", "amber"],
+        ["支付配置", "dot", "amber"],
+        ["系统配置", "dot", "amber"],
       ],
     },
   ] as const;
@@ -60,27 +192,32 @@ export function WikiEmbedAdminSidebarAlerts() {
       description="计数徽标表示待处理记录；状态点表示需要管理员关注的系统配置。"
       eyebrow="后台框架"
     >
-      <div className="grid gap-4 lg:grid-cols-[17rem_1fr]">
-        <aside className="rounded-8 border border-border bg-surface-card p-3">
-          <div className="border-b border-border-soft px-2 pb-3">
-            <p className="text-14 font-medium text-foreground">
-              Scholay 管理后台
-            </p>
-            <p className="mt-1 text-12 text-faint">super_admin</p>
+      <div className="flex min-h-112 overflow-hidden rounded-8 border border-border bg-surface-2">
+        <aside className="w-64 shrink-0 border-r border-border bg-background p-3">
+          <div className="flex h-10 items-center justify-between border-b border-border-soft px-2">
+            <span className="text-12 text-faint">←</span>
+            <p className="text-14 font-medium text-foreground">管理员后台</p>
+            <ShieldAlert className="size-4 text-faint" />
           </div>
           <div className="mt-3 space-y-4">
             {groups.map((group) => (
               <div key={group.label}>
                 <p className="px-2 text-12 text-faint">{group.label}</p>
                 <div className="mt-1 space-y-1">
-                  {group.items.map(([label, badge, tone]) => (
+                  {group.items.map(([label, badge, tone], index) => (
                     <div
                       key={label}
-                      className="flex h-8 items-center justify-between rounded-8 px-2 text-12 text-subtle"
+                      className={`flex h-8 items-center justify-between rounded-8 px-2 text-12 ${group.label === "总览" && index === 0 ? "bg-surface-2 text-foreground" : "text-subtle"}`}
                     >
                       <span>{label}</span>
-                      {badge ? (
-                        <DetailBadge tone={tone}>{badge}</DetailBadge>
+                      {badge === "dot" ? (
+                        <span className="size-2 rounded-pill bg-brand-amber" />
+                      ) : badge ? (
+                        <span
+                          className={`inline-flex h-5 min-w-5 items-center justify-center rounded-pill px-1 text-12 font-medium ${tone === "red" ? "bg-brand-red text-on-dark" : "bg-surface-2 text-faint"}`}
+                        >
+                          {badge}
+                        </span>
                       ) : null}
                     </div>
                   ))}
@@ -89,40 +226,13 @@ export function WikiEmbedAdminSidebarAlerts() {
             ))}
           </div>
         </aside>
-        <div className="space-y-3">
-          <DetailNotice>
-            支付宝与微信支付均未启用，用户当前无法完成支付。
-          </DetailNotice>
-          <DetailNotice tone="red">
-            维护模式已开启，全站处于只读保护状态。
-          </DetailNotice>
-          <DetailSection
-            title="提醒含义"
-            description="侧栏只负责聚合入口，记录状态仍以对应页面和后端权限为准。"
-          >
-            <DetailSteps
-              items={[
-                {
-                  label: "数字徽标",
-                  detail: "显示待审核技能、未处理反馈或未读邮件的数量。",
-                  status: "待处理",
-                  tone: "red",
-                },
-                {
-                  label: "黄色状态点",
-                  detail: "表示支付通道缺失或其他需要注意的配置。",
-                  status: "注意",
-                  tone: "amber",
-                },
-                {
-                  label: "权限过滤",
-                  detail: "无对应权限的菜单组不会显示，但后端仍单独校验。",
-                  status: "已生效",
-                  tone: "green",
-                },
-              ]}
-            />
-          </DetailSection>
+        <div className="flex flex-1 items-start p-6">
+          <div className="w-full rounded-8 border border-border bg-background p-4">
+            <p className="text-16 font-medium text-foreground">看板</p>
+            <p className="mt-1 text-12 text-faint">
+              数字徽标只显示真实待办数量；支付和维护状态用圆点提醒。
+            </p>
+          </div>
         </div>
       </div>
     </AdminDetailFrame>
@@ -131,6 +241,44 @@ export function WikiEmbedAdminSidebarAlerts() {
 
 /** TodayPanel：仪表盘今日待办的正常、降级和失败检查。 */
 export function WikiEmbedAdminDashboardTodayPanel() {
+  const items = [
+    {
+      icon: MessageSquare,
+      label: "待处理反馈",
+      hint: "点击查看 →",
+      value: "12 条",
+      tone: "red",
+    },
+    {
+      icon: Plug,
+      label: "三方账号失败率高",
+      hint: "失败率 > 10%",
+      value: "2 个",
+      tone: "red",
+    },
+    {
+      icon: CreditCard,
+      label: "支付配置缺失",
+      hint: "当前无激活商户，用户无法支付",
+      value: "支付宝 · 微信支付",
+      tone: "amber",
+    },
+    {
+      icon: Settings,
+      label: "维护模式已开启",
+      hint: "记得关闭",
+      value: "全站只读",
+      tone: "amber",
+    },
+    {
+      icon: BellRing,
+      label: "草稿消息未发送",
+      hint: "点击查看 →",
+      value: "3 条",
+      tone: "neutral",
+    },
+  ] as const;
+
   return (
     <AdminDetailFrame
       fixture="admin-dashboard-today-panel"
@@ -140,43 +288,42 @@ export function WikiEmbedAdminDashboardTodayPanel() {
       eyebrow="仪表盘"
       action="重新检查"
     >
-      <DetailNotice>
-        部分检查使用最近一次成功结果：邮件发送服务当前处于降级状态。
-      </DetailNotice>
-      <DetailSteps
-        items={[
-          {
-            label: "处理 7 条技能举报",
-            detail: "举报队列包含安全、版权与内容质量三类原因。",
-            status: "7 条",
-            tone: "red",
-          },
-          {
-            label: "回复 12 条用户反馈",
-            detail: "其中 3 条已标记高优先级，最早等待 19 小时。",
-            status: "12 条",
-            tone: "amber",
-          },
-          {
-            label: "配置支付通道",
-            detail: "支付宝和微信支付均未启用，充值与订阅结算不可用。",
-            status: "阻断",
-            tone: "red",
-          },
-          {
-            label: "检查邮件服务",
-            detail: "SMTP 最近一次探测延迟 2.8 秒，发送功能仍可用。",
-            status: "降级",
-            tone: "amber",
-          },
-          {
-            label: "OAuth 回调检查",
-            detail: "Google、GitHub 与微信开放平台回调地址均通过。",
-            status: "正常",
-            tone: "green",
-          },
-        ]}
-      />
+      <section className="overflow-hidden rounded-8 border border-border bg-background">
+        <header className="flex items-center justify-between border-b border-border-soft px-4 py-3">
+          <h3 className="text-14 font-medium text-foreground">今日待办</h3>
+          <span className="text-12 text-faint">{items.length} 项</span>
+        </header>
+        <ul>
+          {items.map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <li
+                key={item.label}
+                className={`flex h-12 items-center gap-3 px-4 ${index < items.length - 1 ? "border-b border-border-soft" : ""}`}
+              >
+                <span
+                  className={`inline-flex size-7 shrink-0 items-center justify-center rounded-8 ${item.tone === "red" ? "bg-danger-soft text-brand-red" : item.tone === "amber" ? "bg-warning-soft text-brand-amber" : "bg-surface-2 text-faint"}`}
+                >
+                  <Icon className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-14 font-medium text-foreground">
+                    {item.label}
+                  </span>
+                  <span className="block truncate text-12 text-faint">
+                    {item.hint}
+                  </span>
+                </span>
+                <span
+                  className={`shrink-0 text-14 font-medium tabular-nums ${item.tone === "red" ? "text-brand-red" : item.tone === "amber" ? "text-brand-amber" : "text-subtle"}`}
+                >
+                  {item.value}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </AdminDetailFrame>
   );
 }
@@ -192,100 +339,52 @@ export function WikiEmbedAdminDashboardTrendCards() {
       eyebrow="仪表盘"
     >
       <DetailMetricStrip
+        columns={3}
         metrics={[
           {
-            label: "今日新增用户",
-            value: "86",
-            note: "较昨日 +12.4%",
-            tone: "green",
+            label: "总用户",
+            value: "28,461",
+            note: "今日新增 86 · 30 日 2,486",
           },
           {
-            label: "今日活跃用户",
-            value: "3,218",
-            note: "较昨日 +4.8%",
-            tone: "green",
+            label: "30 日营收",
+            value: "¥126,580",
+            note: "今日 ¥8,642 · 累计 ¥824,610",
+            tone: "red",
           },
           {
-            label: "今日净收入",
-            value: "¥8,642",
-            note: "毛收入减退款",
-            tone: "blue",
+            label: "已支付订单",
+            value: "1,284",
+            note: "待支付 46 · 总订单 1,492",
           },
           {
-            label: "待处理事项",
-            value: "19",
-            note: "较昨日 -6",
+            label: "付费用户",
+            value: "3,806",
+            note: "Free 24,655",
+          },
+          {
+            label: "今日 AI 成本",
+            value: "¥428.16",
+            note: "30 日 ¥9,842.60 · 明细见算力用量",
             tone: "amber",
+          },
+          {
+            label: "兑换码已核销",
+            value: "842",
+            note: "总生成 1,240",
+            tone: "green",
           },
         ]}
       />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DetailSection
-          title="近 7 天用户趋势"
-          description="新增与活跃采用自然日口径。"
-        >
-          <DetailBars
-            bars={[
-              {
-                label: "8 月 6 日",
-                value: "2,880",
-                width: "three-fifths",
-                tone: "blue",
-              },
-              {
-                label: "8 月 7 日",
-                value: "3,042",
-                width: "two-thirds",
-                tone: "blue",
-              },
-              {
-                label: "8 月 8 日",
-                value: "3,106",
-                width: "three-fourths",
-                tone: "blue",
-              },
-              {
-                label: "8 月 9 日",
-                value: "3,218",
-                width: "four-fifths",
-                tone: "green",
-              },
-            ]}
-          />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DetailSection title="新增用户 · 30 天">
+          <MiniTrendChart tone="green" />
         </DetailSection>
-        <DetailSection
-          title="指标解释"
-          description="趋势卡只显示汇总，不替代明细页。"
-        >
-          <DetailTable
-            columns={["指标", "本期", "对比"]}
-            rows={[
-              {
-                id: "dashboard-reg",
-                cells: [
-                  "注册",
-                  "486",
-                  <DetailBadge tone="green">+8.1%</DetailBadge>,
-                ],
-              },
-              {
-                id: "dashboard-order",
-                cells: [
-                  "已支付订单",
-                  "214",
-                  <DetailBadge tone="green">+5.6%</DetailBadge>,
-                ],
-              },
-              {
-                id: "dashboard-refund",
-                cells: [
-                  "退款金额",
-                  "¥620",
-                  <DetailBadge tone="red">+2.2%</DetailBadge>,
-                ],
-              },
-            ]}
-          />
+        <DetailSection title="营收（¥）· 30 天">
+          <MiniTrendChart tone="red" area />
+        </DetailSection>
+        <DetailSection title="AI 成本（¥）· 30 天">
+          <MiniTrendChart tone="amber" area />
         </DetailSection>
       </div>
     </AdminDetailFrame>
@@ -302,89 +401,42 @@ export function WikiEmbedAdminUserMetrics() {
       description="在 7、30、90 天窗口间查看注册、活跃、来源与时段分布。"
       eyebrow="用户管理"
     >
-      <DetailTabs
-        tabs={["最近 7 天", "最近 30 天", "最近 90 天"]}
-        active="最近 30 天"
-      />
-      <DetailMetricStrip
-        metrics={[
-          { label: "新增注册", value: "2,486", note: "日均 82.9" },
-          {
-            label: "活跃用户",
-            value: "12,840",
-            note: "去重账号",
-            tone: "green",
-          },
-          {
-            label: "月活 MAU",
-            value: "18,206",
-            note: "滚动 30 天",
-            tone: "blue",
-          },
-          { label: "邮箱验证率", value: "91.2%", note: "新注册用户" },
-        ]}
-      />
+      <DetailTabs tabs={["7 天", "30 天", "90 天"]} active="30 天" />
       <div className="grid gap-4 lg:grid-cols-2">
         <DetailSection
-          title="注册渠道占比"
-          description="以账号首次注册来源归因。"
+          title="注册量 · 活跃用户 · 最近 30 天"
+          description="面积=当日新注册；折线=当日去重活跃用户。"
         >
-          <DetailBars
-            bars={[
-              {
-                label: "邮箱",
-                value: "1,244 · 50%",
-                width: "full",
-                tone: "green",
-              },
-              {
-                label: "微信",
-                value: "696 · 28%",
-                width: "three-fifths",
-                tone: "blue",
-              },
-              {
-                label: "Google",
-                value: "348 · 14%",
-                width: "third",
-                tone: "amber",
-              },
-              { label: "GitHub", value: "198 · 8%", width: "quarter" },
-            ]}
-          />
+          <div className="mb-2 flex justify-end gap-3 text-12 tabular-nums">
+            <span className="text-brand-green">注册 2,486</span>
+            <span className="text-brand-amber">活跃 12,840</span>
+          </div>
+          <MiniTrendChart tone="green" secondTone="amber" area />
         </DetailSection>
-        <DetailSection
-          title="24h 活跃时段"
-          description="按本地时区 Asia/Shanghai 汇总。"
-        >
-          <DetailBars
-            bars={[
-              {
-                label: "08:00–12:00",
-                value: "22%",
-                width: "two-fifths",
-                tone: "blue",
-              },
-              {
-                label: "12:00–18:00",
-                value: "31%",
-                width: "three-fifths",
-                tone: "blue",
-              },
-              {
-                label: "18:00–24:00",
-                value: "39%",
-                width: "four-fifths",
-                tone: "green",
-              },
-              {
-                label: "00:00–08:00",
-                value: "8%",
-                width: "quarter",
-                tone: "amber",
-              },
-            ]}
-          />
+        <DetailSection title="注册渠道占比">
+          <MiniDonut />
+        </DetailSection>
+        <DetailSection title="24h 活跃时段分布">
+          <div className="flex h-40 items-end gap-2 border-b border-border px-2 pt-4">
+            {[28, 35, 46, 38, 52, 65, 58, 82, 74, 92, 68, 44].map(
+              (height, index) => (
+                <div
+                  key={index}
+                  className="flex-1 rounded-t-4 bg-brand-green"
+                  style={{ height: `${height}%` }}
+                />
+              ),
+            )}
+          </div>
+          <div className="mt-2 flex justify-between text-12 text-faint">
+            <span>00:00</span>
+            <span>08:00</span>
+            <span>16:00</span>
+            <span>23:00</span>
+          </div>
+        </DetailSection>
+        <DetailSection title="MAU · 最近 12 个月">
+          <MiniTrendChart tone="red" />
         </DetailSection>
       </div>
     </AdminDetailFrame>
@@ -401,7 +453,7 @@ export function WikiEmbedAdminUserDetailDrawer() {
       description="从用户列表打开；固定信息、账户状态、资产与使用概况分别加载。"
       eyebrow="用户管理"
     >
-      <DetailDrawer title="林晓舟" meta="用户 ID #28461 · lin.xz@example.edu">
+      <DetailDrawer title="林晓舟" meta="用户 ID 28461 · lin.xz@example.edu">
         <div className="flex flex-wrap gap-2">
           <DetailBadge tone="green">账号正常</DetailBadge>
           <DetailBadge tone="blue">Pro</DetailBadge>
@@ -508,66 +560,70 @@ export function WikiEmbedAdminUserBillingHistory() {
       fixture="admin-user-billing-history"
       icon={WalletCards}
       title="账户与财务记录"
-      description="用户详情中的三个独立分页面板：订单、经费流水与经费兑换。"
+      description="用户详情中顺序展示订单、经费流水与经费兑换三个独立区块。"
       eyebrow="用户详情"
     >
-      <DetailTabs tabs={["订单", "经费流水", "经费兑换"]} active="订单" />
-      <DetailTable
-        columns={["订单 / 交易号", "类型", "金额", "状态"]}
-        rows={[
-          {
-            id: "order-S2608120019",
-            cells: [
-              <span key="id" className="font-mono text-foreground">
-                S2608120019
-              </span>,
-              "Pro 年付",
-              "¥299.00",
-              <DetailBadge key="status" tone="green">
-                已支付
-              </DetailBadge>,
-            ],
-          },
-          {
-            id: "order-S2607280064",
-            cells: [
-              <span key="id" className="font-mono text-foreground">
-                S2607280064
-              </span>,
-              "经费充值",
-              "¥100.00",
-              <span key="status" className="flex items-center gap-1">
-                <DetailBadge tone="green">已支付</DetailBadge>
-                <DetailBadge tone="amber">已退 ¥20</DetailBadge>
-              </span>,
-            ],
-          },
-          {
-            id: "order-S2607010021",
-            cells: [
-              <span key="id" className="font-mono text-foreground">
-                S2607010021
-              </span>,
-              "Max 月付",
-              "¥59.00",
-              <DetailBadge key="status">已过期</DetailBadge>,
-            ],
-          },
-        ]}
-      />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DetailSection title="经费流水（充值 / 消费）">
+      <DetailSection title="订单" variant="plain">
+        <DetailTable
+          columns={["订单 / 交易号", "类型", "金额", "状态"]}
+          columnsTemplate="1.5fr 1fr .7fr .8fr"
+          rows={[
+            {
+              id: "order-S2608120019",
+              cells: [
+                <span key="id" className="font-mono text-foreground">
+                  S2608120019
+                </span>,
+                "Pro 年付",
+                "¥299.00",
+                <DetailBadge key="status" tone="green">
+                  已支付
+                </DetailBadge>,
+              ],
+            },
+            {
+              id: "order-S2607280064",
+              cells: [
+                <span key="id" className="font-mono text-foreground">
+                  S2607280064
+                </span>,
+                "经费充值",
+                "¥100.00",
+                <span key="status" className="flex items-center gap-1">
+                  <DetailBadge tone="green">已支付</DetailBadge>
+                  <DetailBadge tone="amber">已退 ¥20</DetailBadge>
+                </span>,
+              ],
+            },
+            {
+              id: "order-S2607010021",
+              cells: [
+                <span key="id" className="font-mono text-foreground">
+                  S2607010021
+                </span>,
+                "Max 月付",
+                "¥59.00",
+                <DetailBadge key="status">已过期</DetailBadge>,
+              ],
+            },
+          ]}
+        />
+      </DetailSection>
+      <div className="space-y-4">
+        <DetailSection title="经费流水（充值 / 消费）" variant="plain">
           <DetailTable
             columns={["变动", "余额", "归因"]}
+            columnsTemplate=".7fr .7fr 1.6fr"
             rows={[
               { id: "credit-1", cells: ["−12.6", "368.0", "智能搜索"] },
               { id: "credit-2", cells: ["+100", "380.6", "后台补发"] },
             ]}
           />
         </DetailSection>
-        <DetailSection title="经费兑换">
+        <DetailSection title="经费兑换" variant="plain">
           <DetailTable
             columns={["兑换码", "权益", "时间"]}
+            columnsTemplate="1.4fr 1fr .8fr"
             rows={[
               {
                 id: "redeem-1",
@@ -596,8 +652,8 @@ export function WikiEmbedAdminUserGrantPanel() {
       eyebrow="用户详情"
     >
       <DetailNotice>
-        当前对象：林晓舟 ·
-        #28461。长周期会员、扣减经费和大额重置次数需再次确认。
+        当前对象：林晓舟 · 用户 ID
+        28461。长周期会员、扣减经费和大额重置次数需再次确认。
       </DetailNotice>
       <div className="grid gap-4 lg:grid-cols-3">
         <DetailSection
@@ -875,6 +931,7 @@ export function WikiEmbedAdminGiftCodeActionDialog() {
         title="延长兑换码有效期"
         description="ABCD-EFGH-JKMP-2345 · 当前有效至 2026-08-19"
         primary="确认延期"
+        size="sm"
       >
         <DetailFields
           fields={[
@@ -886,24 +943,6 @@ export function WikiEmbedAdminGiftCodeActionDialog() {
           该操作只影响兑换码本身的有效期，不改变兑换后会员权益的授予时长。
         </DetailNotice>
       </DetailDialog>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DetailSection title="其他可独立操作">
-          <DetailFields
-            fields={[
-              { label: "增加兑换次数", value: "+2" },
-              { label: "修改会员授予时长", value: "90 天", kind: "select" },
-            ]}
-          />
-        </DetailSection>
-        <DetailSection title="当前状态">
-          <DetailFields
-            fields={[
-              { label: "已使用 / 上限", value: "0 / 1", kind: "readonly" },
-              { label: "停用状态", value: "未停用", kind: "readonly" },
-            ]}
-          />
-        </DetailSection>
-      </div>
     </AdminDetailFrame>
   );
 }

@@ -7,6 +7,7 @@ import {
   PenLine,
   RefreshCw,
 } from "lucide-react";
+import { PRISM_MOCK_THEME } from "./WikiEmbedPrismSurfaces";
 
 const WRITING_TOOLS = [
   { label: "生成摘要", icon: FileText, tone: "green" },
@@ -21,7 +22,8 @@ const WRITING_TOOLS = [
 export function WikiEmbedPrismWritingStart() {
   return (
     <div
-      className="w-[min(100%,28rem)] rounded-12 border border-border bg-surface-card p-4"
+      className="w-[min(100%,32rem)] bg-background p-6"
+      style={PRISM_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="prism-writing-start"
     >

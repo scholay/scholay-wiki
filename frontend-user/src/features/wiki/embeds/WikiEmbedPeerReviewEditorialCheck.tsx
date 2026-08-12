@@ -1,70 +1,106 @@
-import { AlertTriangle, Check, FileWarning } from "lucide-react";
+import { DISCOVERY_MOCK_THEME } from "./WikiEmbedJournalSearch";
 
 const CHECKS = [
-  { label: "查重率", value: "6.2%", threshold: "≤ 15%" },
-  { label: "AIGC 率", value: "4.1%", threshold: "≤ 20%" },
-  { label: "排版规范", value: "96%", threshold: "≥ 90%" },
-  { label: "选题匹配", value: "88%", threshold: "≥ 70%" },
+  {
+    name: "查重率",
+    indicator: "6.2%",
+    threshold: "≤ 15%",
+    comment: "重复内容集中在通用方法学描述，已识别为合理引用；未发现整段抄袭。",
+  },
+  {
+    name: "AIGC 率",
+    indicator: "4.1%",
+    threshold: "≤ 20%",
+    comment: "比例处于演示安全区间，主要分布于摘要润色与图注表述。",
+  },
+  {
+    name: "排版规范",
+    indicator: "模板符合度 96%",
+    threshold: "≥ 90%",
+    comment: "字号、行距与参考文献样式符合当前演示模板。",
+  },
+  {
+    name: "选题与期刊定位",
+    indicator: "匹配度 88%",
+    threshold: "≥ 70%",
+    comment: "主题契合目标期刊的近期方向，达到产品演示中的送审基线。",
+  },
 ] as const;
 
-/** 编辑部初审固定演示层 · 纯样式 fixture，显式标注数值不是检测结果。 */
+/**
+ * 编辑部初审页的冻结代表状态。
+ * 视觉来源：EditorialCheckPanel；数值为产品前端固定演示，不是检测结果。
+ */
 export function WikiEmbedPeerReviewEditorialCheck() {
   return (
-    <div
-      className="w-[min(100%,46rem)] rounded-12 border border-border bg-surface-card p-4"
+    <article
+      className="flex w-[min(100%,68rem)] flex-col gap-7 bg-background px-8 py-7"
+      style={DISCOVERY_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="peer-review-editorial-check"
     >
-      <div className="flex items-start gap-3">
-        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-8 bg-brand-green/10 text-brand-green">
-          <Check className="size-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-12 text-faint">编辑部初审</p>
-          <h2 className="mt-1 font-serif text-20 font-medium text-foreground">
-            四项基础检查 · 全部通过
-          </h2>
-        </div>
-        <span className="rounded-pill bg-brand-green/10 px-3 py-1 text-12 text-brand-green">
-          固定演示层
-        </span>
-      </div>
+      <header className="flex flex-col gap-2">
+        <p className="text-12 font-medium text-faint">编辑部初审</p>
+        <h2 className="font-serif text-24 font-medium text-foreground">
+          四项基础检查 · 全部通过
+        </h2>
+        <p className="text-16 leading-paragraph text-muted-foreground">
+          编辑部初审仅做基础性合规检查；只有本环节通过，稿件才会被送往三位匿名审稿人。
+        </p>
+      </header>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {CHECKS.map((item) => (
-          <section
-            key={item.label}
-            className="rounded-8 border border-border-soft bg-surface-1 p-3"
-          >
-            <p className="text-12 font-medium text-foreground">{item.label}</p>
-            <p className="mt-2 font-serif text-20 font-medium text-foreground">
-              {item.value}
+      <section className="border-l-2 border-foreground py-4 pl-6">
+        <p className="mb-2 text-12 font-medium text-faint">初审结论</p>
+        <p className="font-serif text-18 italic font-medium leading-paragraph text-foreground">
+          稿件四项检查全部达标，已自动转入同行评审环节，分配三位匿名 AI 审稿人 A
+          / B / C 并行评分。
+        </p>
+      </section>
+
+      <section className="min-w-[52rem]">
+        <header className="flex items-end justify-between border-b-2 border-foreground pb-1">
+          <h3 className="font-serif text-18 font-medium text-foreground">
+            检查明细
+          </h3>
+          <p className="text-12 text-faint">4 项 · 通过 4 · 警示 0 · 失败 0</p>
+        </header>
+        <div className="grid grid-cols-[10.625rem_7.5rem_7.5rem_5rem_1fr] gap-3 py-2">
+          {["检查项", "指标", "阈值", "结论", "说明"].map((heading) => (
+            <p key={heading} className="text-12 font-medium text-faint">
+              {heading}
             </p>
-            <div className="mt-2 flex items-center justify-between gap-2 text-12">
-              <span className="text-faint">阈值 {item.threshold}</span>
-              <span className="text-brand-green">通过</span>
-            </div>
-          </section>
+          ))}
+        </div>
+        {CHECKS.map((item) => (
+          <div
+            key={item.name}
+            className="grid grid-cols-[10.625rem_7.5rem_7.5rem_5rem_1fr] gap-3 border-t border-border-hairline py-3 last:border-b"
+          >
+            <p className="text-16 font-medium text-foreground">{item.name}</p>
+            <p className="text-16 text-subtle">{item.indicator}</p>
+            <p className="text-16 text-muted-foreground">{item.threshold}</p>
+            <p className="text-16 font-medium text-foreground">通过</p>
+            <p className="text-16 leading-paragraph text-subtle">
+              {item.comment}
+            </p>
+          </div>
         ))}
-      </div>
+      </section>
 
-      <div className="mt-4 flex items-start gap-3 rounded-8 border border-brand-amber/30 bg-warning-soft p-3">
-        <AlertTriangle className="mt-1 size-4 shrink-0 text-brand-amber" />
-        <div>
-          <p className="text-12 font-medium text-foreground">
-            这些数值不是本稿件的测量结果
+      <footer className="flex items-center gap-4 border-t border-foreground pt-4">
+        <p className="w-24 shrink-0 text-12 font-medium text-faint">
+          编辑部签署
+        </p>
+        <div className="flex-1">
+          <p className="text-16 font-medium text-subtle">
+            AI 编辑部初审 · 自动检查通过 · 8-13 14:30
           </p>
-          <p className="mt-1 text-12 leading-paragraph text-subtle">
-            当前提交成功即按产品约定显示通过；6.2%、4.1%、96% 与 88%
-            均来自前端预设展示。
+          <p className="mt-1 text-14 italic text-muted-foreground">
+            四项检查全部达标 ·
+            稿件已送往三位匿名审稿人，进入下一环节后本页结果归档不再变动。
           </p>
         </div>
-      </div>
-
-      <p className="mt-3 flex items-start gap-2 text-12 leading-paragraph text-faint">
-        <FileWarning className="mt-1 size-3.5 shrink-0" />
-        不能把本页当作查重报告、AIGC 检测证明、排版验收或正式送审凭证。
-      </p>
-    </div>
+      </footer>
+    </article>
   );
 }

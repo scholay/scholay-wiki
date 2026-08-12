@@ -1,191 +1,297 @@
-import { Search, SlidersHorizontal, Sparkles, TrendingUp } from "lucide-react";
+import type { CSSProperties } from "react";
+import {
+  ArrowUpRight,
+  BookOpen,
+  Filter,
+  Search,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
+
+/**
+ * The product mock predates the current token scales. Keep its white/gray
+ * palette and compact type/radius geometry local to these frozen Wiki scenes.
+ */
+export const DISCOVERY_MOCK_THEME = {
+  "--wiki-discovery-background": "0 0% 100%",
+  "--wiki-discovery-surface-1": "0 0% 98%",
+  "--wiki-discovery-surface-2": "0 0% 96.1%",
+  "--wiki-discovery-surface-3": "0 0% 97.3%",
+  "--wiki-discovery-foreground": "0 0% 6.7%",
+  "--wiki-discovery-subtle": "0 0% 26.7%",
+  "--wiki-discovery-muted": "0 0% 40%",
+  "--wiki-discovery-faint": "0 0% 60%",
+  "--wiki-discovery-border-soft": "0 0% 93.3%",
+  "--wiki-discovery-border": "0 0% 91.4%",
+  "--wiki-discovery-border-strong": "0 0% 84.7%",
+  "--wiki-discovery-red": "0 71% 47%",
+  "--wiki-discovery-green": "120 49% 32%",
+  "--wiki-discovery-amber": "41 84% 47%",
+  "--background": "hsl(var(--wiki-discovery-background))",
+  "--surface-card": "hsl(var(--wiki-discovery-background))",
+  "--surface-1": "hsl(var(--wiki-discovery-surface-1))",
+  "--surface-2": "hsl(var(--wiki-discovery-surface-2))",
+  "--surface-3": "hsl(var(--wiki-discovery-surface-3))",
+  "--foreground": "hsl(var(--wiki-discovery-foreground))",
+  "--subtle-foreground": "hsl(var(--wiki-discovery-subtle))",
+  "--muted-foreground": "hsl(var(--wiki-discovery-muted))",
+  "--faint-foreground": "hsl(var(--wiki-discovery-faint))",
+  "--border-hairline": "hsl(var(--wiki-discovery-border-soft))",
+  "--border": "hsl(var(--wiki-discovery-border))",
+  "--border-strong": "hsl(var(--wiki-discovery-border-strong))",
+  "--brand-red": "hsl(var(--wiki-discovery-red))",
+  "--brand-green": "hsl(var(--wiki-discovery-green))",
+  "--brand-amber": "hsl(var(--wiki-discovery-amber))",
+  "--brand-red-soft":
+    "color-mix(in srgb, hsl(var(--wiki-discovery-red)) 8%, hsl(var(--wiki-discovery-background)))",
+  "--brand-green-soft":
+    "color-mix(in srgb, hsl(var(--wiki-discovery-green)) 10%, hsl(var(--wiki-discovery-background)))",
+  "--brand-amber-soft":
+    "color-mix(in srgb, hsl(var(--wiki-discovery-amber)) 12%, hsl(var(--wiki-discovery-background)))",
+  "--on-dark": "hsl(var(--wiki-discovery-background))",
+  "--on-brand": "hsl(var(--wiki-discovery-background))",
+  "--radius-4": "0.25rem",
+  "--radius-8": "0.375rem",
+  "--radius-12": "0.5rem",
+  "--radius-16": "0.75rem",
+  "--radius-20": "1rem",
+  "--text-12": "0.625rem",
+  "--text-14": "0.6875rem",
+  "--text-16": "0.75rem",
+  "--text-18": "0.8125rem",
+  "--text-20": "0.875rem",
+  "--text-24": "1rem",
+  "--text-28": "1.25rem",
+  "--text-32": "2rem",
+  "--font-weight-medium": "700",
+} as CSSProperties;
 
 const JOURNALS = [
   {
-    monogram: "NMI",
+    abbreviation: "NMI",
     title: "Nature Machine Intelligence",
-    publisher: "Springer Nature · United Kingdom",
-    badges: ["JCR Q1", "中科院 1 区", "IF 18.8"],
+    publisher: "Springer Nature · United Kingdom · OA",
+    impact: "18.8",
+    jcr: "JCR Q1",
+    cas: "1区",
+    ccf: "—",
+    sources: "7 个数据源",
+    submission: true,
+    cover: "bg-cat-1",
   },
   {
-    monogram: "JMLR",
+    abbreviation: "JMLR",
     title: "Journal of Machine Learning Research",
-    publisher: "Microtome Publishing · United States",
-    badges: ["JCR Q1", "CCF A", "Open Access"],
+    publisher: "Microtome Publishing · United States · OA",
+    impact: "6.0",
+    jcr: "JCR Q1",
+    cas: "2区",
+    ccf: "A",
+    sources: "6 个数据源",
+    submission: false,
+    cover: "bg-cat-4",
   },
 ] as const;
 
-/**
- * 期刊搜索与筛选 · 纯样式 fixture。
- * 对齐 product-mock JournalSearchResults + JournalFiltersPanel。
- */
+/** 期刊搜索结果页：默认 Hero、排序栏、双列结果卡与关闭态悬浮筛选器。 */
 export function WikiEmbedJournalSearch() {
   return (
     <div
-      className="w-[min(100%,48rem)] overflow-hidden rounded-16 border border-border bg-surface-card"
+      className="relative w-full max-w-6xl overflow-hidden rounded-8 border border-border bg-background"
+      style={DISCOVERY_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="journal-search"
     >
-      <section className="border-b border-border bg-surface-1 p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="font-display text-24 font-medium leading-display text-foreground">
-              期刊搜索
-            </h2>
-            <p className="mt-1 text-12 text-faint">
-              按刊名、ISSN、主办机构与评价信号检索
-            </p>
-          </div>
-          <div className="flex gap-6 text-right text-12 text-faint">
-            <p>
-              <span className="block text-18 font-medium tabular-nums text-foreground">
-                26,481
-              </span>
-              收录期刊
-            </p>
-            <p>
-              <span className="block text-18 font-medium text-foreground">
-                实时
-              </span>
-              同步状态
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
-          <div className="flex h-11 min-w-0 flex-1 items-center gap-3 rounded-12 border border-border-strong bg-surface-card px-4">
-            <Search className="size-4 shrink-0 text-faint" />
-            <span className="truncate text-14 text-subtle">
-              machine learning
-            </span>
-          </div>
-          <span className="inline-flex h-11 shrink-0 items-center gap-2 rounded-12 bg-foreground px-4 text-14 font-medium text-on-dark">
-            <Search className="size-4" />
-            搜索期刊
-          </span>
-        </div>
-      </section>
-
-      <div className="grid md:grid-cols-[12rem_1fr]">
-        <aside className="border-b border-border p-4 md:border-b-0 md:border-r">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-2 text-14 font-medium text-foreground">
-              <SlidersHorizontal className="size-4" />
-              筛选器
-            </span>
-            <span className="text-12 text-brand-red">清空</span>
-          </div>
-
-          <FilterGroup
-            title="JCR 分区"
-            options={["不限", "Q1", "Q2", "Q3 / Q4"]}
-            active="Q1"
-          />
-          <FilterGroup
-            title="中科院分区"
-            options={["不限", "1 区", "2 区", "3 / 4 区"]}
-          />
-          <FilterGroup title="影响因子" options={["不限", "≥ 5", "≥ 10"]} />
-        </aside>
-
-        <main className="min-w-0 p-4">
-          <header className="flex flex-wrap items-center justify-between gap-3 pb-3">
-            <div>
-              <h3 className="text-16 font-medium text-foreground">
-                “machine learning” 的搜索结果
-              </h3>
-              <p className="mt-1 text-12 text-faint">按相关度排序</p>
+      <div className="space-y-6 p-6 sm:p-8">
+        <section className="space-y-4 rounded-8 border border-border-hairline bg-surface-1 p-6">
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div className="space-y-1">
+              <h2 className="font-display text-32 font-medium leading-display-tight text-foreground">
+                期刊搜索
+              </h2>
+              <p className="text-24 text-faint">
+                Journal Search ·
+                检索全球期刊与顶会，按学科、分区、影响因子精准筛选
+              </p>
             </div>
-            <div className="flex gap-1">
-              <span className="inline-flex h-7 items-center gap-1 rounded-8 bg-foreground px-3 text-12 text-on-dark">
-                <Sparkles className="size-3" />
-                相关度
-              </span>
-              <span className="inline-flex h-7 items-center gap-1 rounded-8 border border-border px-3 text-12 text-subtle">
-                <TrendingUp className="size-3" />
-                影响因子
+            <div className="hidden shrink-0 items-end gap-6 md:flex">
+              <Kpi value="26,481" label="收录期刊" />
+              <Kpi value="184,706" label="数据源覆盖" />
+              <Kpi value="实时" label="同步状态" />
+            </div>
+          </div>
+
+          <div className="flex h-13 items-center gap-2">
+            <div className="flex h-13 min-w-0 flex-1 items-center gap-3 rounded-8 border border-border-strong bg-background px-4">
+              <Search className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate text-18 text-foreground">
+                machine learning
               </span>
             </div>
-          </header>
+            <span className="inline-flex h-13 shrink-0 items-center gap-2 rounded-8 bg-foreground px-6 text-24 font-medium text-on-dark">
+              <Search className="size-4" />
+              搜索期刊
+            </span>
+          </div>
+        </section>
 
-          <ul className="space-y-3" data-wiki-spot="期刊结果">
-            {JOURNALS.map((journal) => (
-              <li
-                key={journal.title}
-                className="flex gap-3 rounded-12 border border-border p-3"
-              >
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-8 bg-brand-amber-soft font-display text-12 font-medium text-brand-amber">
-                  {journal.monogram}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-14 font-medium leading-sans text-foreground">
-                    {journal.title}
-                  </p>
-                  <p className="mt-1 truncate text-12 text-faint">
-                    {journal.publisher}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {journal.badges.map((badge, index) => (
-                      <span
-                        key={badge}
-                        className={
-                          index === 0
-                            ? "rounded-pill bg-brand-green-soft px-2 py-1 text-12 font-medium text-brand-green"
-                            : "rounded-pill bg-surface-2 px-2 py-1 text-12 text-subtle"
-                        }
-                      >
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </main>
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="font-display text-28 font-medium leading-display-tight text-foreground">
+              关键词 “machine learning” 的搜索结果
+            </h3>
+            <p className="text-16 text-faint">按相关度排序</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <SortChip icon={Sparkles} label="相关度" active />
+            <SortChip icon={TrendingUp} label="影响因子" />
+            <SortChip icon={BookOpen} label="最新" />
+          </div>
+        </header>
+
+        <div
+          className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+          data-wiki-spot="期刊结果"
+        >
+          {JOURNALS.map((journal) => (
+            <JournalCard key={journal.title} journal={journal} />
+          ))}
+        </div>
       </div>
+
+      <span className="absolute right-4 top-4 inline-flex h-10 items-center gap-2 rounded-pill border border-border bg-background/95 px-4 text-16 font-medium text-foreground shadow-raised">
+        <Filter className="size-4" />
+        筛选
+        <span className="inline-flex size-5 items-center justify-center rounded-pill bg-brand-red text-12 text-on-brand">
+          1
+        </span>
+      </span>
     </div>
   );
 }
 
-function FilterGroup({
-  title,
-  options,
-  active = "不限",
+function Kpi({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <span className="font-display text-28 font-medium leading-display-tight tabular-nums text-foreground">
+        {value}
+      </span>
+      <span className="text-12 font-medium uppercase text-faint">{label}</span>
+    </div>
+  );
+}
+
+function SortChip({
+  icon: Icon,
+  label,
+  active = false,
 }: {
-  title: string;
-  options: readonly string[];
-  active?: string;
+  icon: typeof Sparkles;
+  label: string;
+  active?: boolean;
 }) {
   return (
-    <section className="mt-4 border-t border-border-hairline pt-3">
-      <h4 className="text-12 font-medium text-faint">{title}</h4>
-      <div className="mt-2 space-y-1">
-        {options.map((option) => (
-          <div key={option} className="flex items-center gap-2 py-1 text-12">
-            <span
-              className={
-                option === active
-                  ? "flex size-3 items-center justify-center rounded-pill border border-brand-red"
-                  : "size-3 rounded-pill border border-border"
-              }
-            >
-              {option === active ? (
-                <span className="size-1 rounded-pill bg-brand-red" />
-              ) : null}
-            </span>
-            <span
-              className={
-                option === active
-                  ? "font-medium text-foreground"
-                  : "text-subtle"
-              }
-            >
-              {option}
-            </span>
-          </div>
-        ))}
+    <span
+      className={
+        active
+          ? "inline-flex h-7 items-center gap-1 rounded-8 bg-foreground px-3 text-16 font-medium text-on-dark"
+          : "inline-flex h-7 items-center gap-1 rounded-8 border border-border bg-background px-3 text-16 text-subtle"
+      }
+    >
+      <Icon className="size-3" />
+      {label}
+    </span>
+  );
+}
+
+function JournalCard({ journal }: { journal: (typeof JOURNALS)[number] }) {
+  return (
+    <article className="flex min-h-48 items-stretch gap-4 rounded-8 border border-border bg-background p-4">
+      <div
+        className={`flex w-28 shrink-0 flex-col justify-between overflow-hidden rounded-8 p-3 text-on-brand ${journal.cover}`}
+      >
+        <span className="text-28 font-medium leading-display-tight">
+          {journal.abbreviation}
+        </span>
+        <span className="line-clamp-3 text-12 text-on-brand/85">
+          {journal.title}
+        </span>
       </div>
-    </section>
+
+      <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1 space-y-1">
+            <h4 className="truncate font-display text-18 font-medium text-foreground">
+              {journal.title}
+            </h4>
+            <p className="truncate text-16 text-faint">{journal.publisher}</p>
+          </div>
+          <span className="inline-flex h-6 shrink-0 items-center rounded-4 bg-brand-green-soft px-2 text-12 font-medium text-brand-green">
+            新锐 1 区
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 overflow-hidden rounded-8 border border-border-hairline">
+          <Metric label="影响因子" value={journal.impact} sub={journal.jcr} />
+          <Metric
+            label="中科院分区"
+            value={journal.cas}
+            sub="大类分区"
+            bordered
+          />
+          <Metric
+            label="CCF 等级"
+            value={journal.ccf}
+            sub={journal.ccf === "—" ? "—" : `CCF ${journal.ccf}`}
+            bordered
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="inline-flex h-5 items-center rounded-4 bg-foreground px-2 text-12 font-medium uppercase text-on-dark">
+              JOURNAL
+            </span>
+            <span className="inline-flex h-5 items-center rounded-4 bg-surface-2 px-2 text-12 text-subtle">
+              {journal.sources}
+            </span>
+            {journal.submission ? (
+              <span className="inline-flex h-5 items-center rounded-4 bg-brand-amber-soft px-2 text-12 text-brand-amber">
+                投稿资源
+              </span>
+            ) : null}
+          </div>
+          <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-8 border border-border px-2 text-16 font-medium text-foreground">
+            查看详情 <ArrowUpRight className="size-3" />
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  sub,
+  bordered = false,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  bordered?: boolean;
+}) {
+  return (
+    <div
+      className={`min-w-0 space-y-1 px-3 py-2 ${bordered ? "border-l border-border-hairline" : ""}`}
+    >
+      <p className="truncate text-12 font-medium uppercase text-faint">
+        {label}
+      </p>
+      <p className="truncate font-display text-28 font-medium leading-display-tight tabular-nums text-foreground">
+        {value}
+      </p>
+      <p className="truncate text-12 text-faint">{sub}</p>
+    </div>
   );
 }

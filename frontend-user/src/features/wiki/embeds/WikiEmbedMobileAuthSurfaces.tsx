@@ -1,60 +1,114 @@
 import { Compass, LayoutGrid, User, X } from "lucide-react";
 import { BrandLogo } from "@/shared/components/BrandLogo";
 import { ClawBrandIcon } from "@/shared/components/ClawBrandIcon";
+import { ProviderLogo, type Provider } from "@/shared/components/ProviderLogo";
 
-/** /m/auth 整页与 MobileAuthSheet 就地登录的并列代表态。 */
+const PROVIDERS: Array<{ key: Provider; label: string }> = [
+  { key: "github", label: "GitHub" },
+  { key: "google", label: "Google" },
+  { key: "orcid", label: "ORCID" },
+];
+
+/** MobileAuthSheet 在未登录「我的」页上的登录冻结态。 */
 export function WikiEmbedMobileAuthSurfaces() {
   return (
     <div
-      className="grid w-[min(100%,50rem)] gap-4 md:grid-cols-2"
+      className="relative flex w-[min(100%,24rem)] flex-col overflow-hidden bg-background"
+      style={{ height: 704 }}
       aria-hidden
       data-wiki-fixture="mobile-auth-surfaces"
     >
-      <section className="overflow-hidden rounded-20 border border-border bg-surface-card">
-        <SurfaceLabel label="整页认证" route="/m/auth" />
-        <div className="flex min-h-[38rem] flex-col">
-          <div className="flex flex-1 flex-col overflow-hidden px-6 pb-8">
-            <div className="flex flex-col items-center pb-8 pt-10 text-center">
-              <BrandLogo size="lg" />
-              <h2 className="mt-6 text-24 font-medium text-foreground">
-                欢迎回来
-              </h2>
-              <p className="mt-2 text-14 text-muted-foreground">
-                继续你的学术之旅
-              </p>
-            </div>
-            <AuthForm />
-            <OAuthDivider />
-          </div>
-          <MobileNav />
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center">
+        <BrandLogo size="lg" />
+        <h2
+          className="text-20 font-medium text-foreground"
+          style={{ marginTop: 20 }}
+        >
+          登录 Scholay
+        </h2>
+        <p className="mt-2 text-12 leading-paragraph text-muted-foreground">
+          登录后查看你的会员、科研经费、文件夹与设置
+        </p>
+        <div
+          className="flex w-full max-w-xs flex-col gap-3"
+          style={{ marginTop: 28 }}
+        >
+          <span className="flex h-12 items-center justify-center rounded-8 bg-brand-red text-14 font-medium text-on-brand">
+            登录
+          </span>
+          <span className="flex h-12 items-center justify-center rounded-8 border border-border-button bg-surface-card text-14 text-foreground">
+            注册新账号
+          </span>
         </div>
-      </section>
+      </main>
+      <MobileNav />
 
-      <section className="overflow-hidden rounded-20 border border-border bg-surface-1">
-        <SurfaceLabel label="就地登录 Sheet" route="MobileAuthSheet" />
-        <div className="relative flex min-h-[38rem] flex-col overflow-hidden">
-          <div className="flex flex-1 flex-col items-center justify-center bg-surface-1 px-8 text-center opacity-60">
-            <BrandLogo size="lg" />
-            <h2 className="mt-6 text-20 font-medium text-foreground">
-              登录 Scholay
-            </h2>
-            <p className="mt-2 text-12 leading-paragraph text-muted-foreground">
-              登录后查看会员、科研经费、文献集与设置
+      <div className="absolute inset-0 bg-foreground/40" />
+      <section className="absolute inset-x-0 bottom-0 flex max-h-[92%] flex-col rounded-t-16 bg-surface-card shadow-overlay">
+        <div className="flex shrink-0 justify-center pb-1 pt-3">
+          <span className="h-1 w-9 rounded-pill bg-border-strong" />
+        </div>
+
+        <div className="relative flex shrink-0 flex-col items-center gap-1 px-6 pb-3 pt-1 text-center">
+          <span className="absolute right-0 top-0 flex size-8 items-center justify-center rounded-pill text-muted-foreground">
+            <X className="size-5" />
+          </span>
+          <BrandLogo size="md" />
+          <h2 className="mt-2 text-16 font-medium text-foreground">欢迎回来</h2>
+          <p className="text-12 text-muted-foreground">继续你的学术之旅</p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden px-6 pb-8">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="inline-flex items-center rounded-12 bg-surface-2 p-1 text-12">
+                <span className="flex h-7 items-center rounded-8 bg-surface-card px-3 text-foreground shadow-raised">
+                  邮箱
+                </span>
+                <span className="flex h-7 items-center px-3 text-muted-foreground">
+                  手机号
+                </span>
+              </div>
+              <span className="text-12 text-muted-foreground">
+                使用验证码登录
+              </span>
+            </div>
+
+            <Field label="邮箱" placeholder="you@example.com" />
+            <Field label="密码" placeholder="至少 8 位" secret />
+
+            <span className="flex h-12 items-center justify-center rounded-12 bg-brand-red text-14 font-medium text-on-brand">
+              登录
+            </span>
+
+            <p className="text-center text-12 leading-paragraph text-faint">
+              登录即表示同意 <span className="underline">服务条款</span> 与{` `}
+              <span className="underline">隐私政策</span>
             </p>
-          </div>
-          <div className="absolute inset-0 bg-foreground/30" />
-          <div className="absolute inset-x-0 bottom-0 rounded-t-20 bg-surface-card px-6 pb-8 pt-3 shadow-overlay">
-            <div className="mx-auto mb-3 h-1 w-10 rounded-pill bg-border-strong" />
-            <div className="relative flex flex-col items-center pb-3 text-center">
-              <X className="absolute right-0 top-0 size-5 text-muted-foreground" />
-              <BrandLogo size="md" />
-              <h2 className="mt-2 text-18 font-medium text-foreground">
-                欢迎回来
-              </h2>
-              <p className="text-12 text-muted-foreground">继续你的学术之旅</p>
+
+            <div className="flex items-center justify-between text-12 text-muted-foreground">
+              <span>忘记密码?</span>
+              <span>还没有账号? 立即注册</span>
             </div>
-            <AuthForm compact />
-            <OAuthDivider compact />
+          </div>
+
+          <div className="mt-6">
+            <div className="flex items-center">
+              <span className="h-px flex-1 bg-border" />
+              <span className="px-3 text-12 text-faint">或继续使用</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {PROVIDERS.map((provider) => (
+                <span
+                  key={provider.key}
+                  title={provider.label}
+                  className="inline-flex size-9 items-center justify-center rounded-8 border border-border text-subtle"
+                >
+                  <ProviderLogo provider={provider.key} className="size-4" />
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -62,116 +116,48 @@ export function WikiEmbedMobileAuthSurfaces() {
   );
 }
 
-function SurfaceLabel({ label, route }: { label: string; route: string }) {
+function Field({
+  label,
+  placeholder,
+  secret = false,
+}: {
+  label: string;
+  placeholder: string;
+  secret?: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between border-b border-border bg-surface-2 px-3 py-2 text-12">
-      <span className="font-medium text-subtle">{label}</span>
-      <code className="text-faint">{route}</code>
-    </div>
-  );
-}
-
-function AuthForm({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={compact ? "space-y-3" : "space-y-4"}>
-      <div className="flex items-center justify-between">
-        <div className="flex rounded-pill bg-surface-2 p-1 text-12">
-          <span className="rounded-pill bg-surface-card px-3 py-1 font-medium text-foreground shadow-raised">
-            邮箱
-          </span>
-          <span className="px-3 py-1 text-muted-foreground">手机</span>
-        </div>
-        <span className="text-12 text-muted-foreground">使用验证码登录</span>
-      </div>
-
-      <label className="block space-y-2">
-        <span className="text-12 text-subtle">邮箱</span>
-        <span className="flex h-12 items-center rounded-12 border border-border px-3 text-14 text-faint">
-          you@example.com
-        </span>
-      </label>
-      <label className="block space-y-2">
-        <span className="text-12 text-subtle">密码</span>
-        <span className="flex h-12 items-center rounded-12 border border-border px-3 text-14 text-faint">
-          ••••••••
-        </span>
-      </label>
-      <span className="flex h-12 items-center justify-center rounded-12 bg-brand-red text-16 font-medium text-on-dark">
-        登录
+    <label className="block space-y-2">
+      <span className="block text-12 text-subtle">{label}</span>
+      <span className="flex h-12 items-center rounded-12 border border-border px-3 text-14 text-faint">
+        {secret ? "••••••••" : placeholder}
       </span>
-      {!compact ? (
-        <>
-          <p className="text-center text-12 leading-paragraph text-faint">
-            登录即表示同意服务条款与隐私政策
-          </p>
-          <div className="flex justify-between text-12 text-muted-foreground">
-            <span>忘记密码?</span>
-            <span>还没有账号? 立即注册</span>
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function OAuthDivider({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={compact ? "mt-4" : "mt-8"}>
-      <div className="flex items-center">
-        <span className="h-px flex-1 bg-border" />
-        <span className="px-3 text-12 text-faint">或继续使用</span>
-        <span className="h-px flex-1 bg-border" />
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-12 text-subtle">
-        {["GitHub", "Google", "ORCID"].map((provider) => (
-          <span
-            key={provider}
-            className="rounded-8 border border-border px-2 py-2"
-          >
-            {provider}
-          </span>
-        ))}
-      </div>
-      <p className="mt-2 text-center text-12 text-faint">
-        移动端不提供微信扫码入口
-      </p>
-    </div>
+    </label>
   );
 }
 
 function MobileNav() {
+  const items = [
+    [Compass, "浏览"],
+    [ClawBrandIcon, "AI Claw"],
+    [LayoutGrid, "功能"],
+    [User, "我的"],
+  ] as const;
   return (
-    <footer className="grid h-16 grid-cols-4 border-t border-border px-2">
-      <MobileNavItem icon={Compass} label="浏览" />
-      <MobileNavItem icon={ClawBrandIcon} label="AI Claw" />
-      <MobileNavItem icon={LayoutGrid} label="功能" />
-      <MobileNavItem icon={User} label="我的" active />
+    <footer className="grid h-16 shrink-0 grid-cols-4 border-t border-border bg-background px-2">
+      {items.map(([Icon, label]) => (
+        <span
+          key={label}
+          className={`relative flex flex-col items-center justify-center gap-1 ${label === "我的" ? "text-foreground" : "text-faint"}`}
+        >
+          {label === "我的" ? (
+            <span className="absolute top-0 h-0.5 w-8 rounded-pill bg-brand-red" />
+          ) : null}
+          <Icon className="size-5" />
+          <span className={`text-12 ${label === "我的" ? "font-medium" : ""}`}>
+            {label}
+          </span>
+        </span>
+      ))}
     </footer>
-  );
-}
-
-function MobileNavItem({
-  icon: Icon,
-  label,
-  active = false,
-}: {
-  icon: typeof Compass;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <div className="relative flex flex-col items-center justify-center gap-1">
-      {active ? (
-        <span className="absolute top-0 h-0.5 w-8 rounded-pill bg-brand-red" />
-      ) : null}
-      <Icon className="size-5" />
-      <span
-        className={
-          active ? "text-12 font-medium text-foreground" : "text-12 text-faint"
-        }
-      >
-        {label}
-      </span>
-    </div>
   );
 }

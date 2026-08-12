@@ -188,7 +188,7 @@ function Row({
         // ① Figma §4.2 Badge padding 就是 4–8,8 在集合内、6 不在;
         // ② 护栏「半档间距」棘轮当前是 **零余量**(1293/1293),新增一个 px-1.5 会直接把
         //    构建打红。往回收口的方向是 6→8,不是再添一处 6。
-        <span className="ml-auto inline-flex h-4 items-center rounded-pill bg-brand-amber px-2 text-12 font-medium leading-none text-foreground">
+        <span className="ml-auto inline-flex h-4 items-center rounded-pill bg-brand-amber px-2 text-12 font-medium text-foreground">
           {badge}
         </span>
       )}
