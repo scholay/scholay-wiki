@@ -31,11 +31,13 @@ interface TableOfContentsProps {
   contentRef: RefObject<HTMLElement | null>;
   /** 标题(默认"目录") */
   title?: string;
+  /** 文档站使用品牌色强调当前章节；默认保持既有页面外观。 */
+  tone?: 'default' | 'brand';
   className?: string;
 }
 
 export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
-  ({ contentRef, title = '目录', className }, ref) => {
+  ({ contentRef, title = '目录', tone = 'default', className }, ref) => {
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -75,6 +77,11 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
         });
       });
       setHeadings(list);
+      setActiveId((current) =>
+        current && list.some((heading) => heading.id === current)
+          ? current
+          : (list[0]?.id ?? null)
+      );
     };
 
     scan();
@@ -142,7 +149,7 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
   return (
     <nav
       ref={ref}
-      aria-label="目录"
+      aria-label={title}
       className={cn('text-12', className)}
     >
       <p className="text-12 font-medium uppercase text-faint mb-3">
@@ -158,7 +165,9 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
                 'block py-0.5 -ml-px border-l-2 transition-colors',
                 h.level === 2 ? 'pl-3' : 'pl-6',
                 activeId === h.id
-                  ? 'border-foreground text-foreground font-medium'
+                  ? tone === 'brand'
+                    ? 'border-brand-red text-foreground font-medium'
+                    : 'border-foreground text-foreground font-medium'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >

@@ -1,0 +1,210 @@
+import type { WikiArticle } from "../types";
+
+export const ecosystemArticles: WikiArticle[] = [
+  {
+    slug: "citation-generator",
+    title: "引用生成器",
+    summary:
+      "把论文元数据转换为可复制的常用引文格式，并保留回到原始论文核对的入口。",
+    category: "knowledge",
+    kind: "page",
+    status: "current",
+    audience: ["研究者", "学生"],
+    aliases: ["引文生成", "参考文献格式", "Citation Generator"],
+    sourcePaths: [
+      "frontend-user/src/features/citation/routes.tsx",
+      "frontend-user/src/features/citation/pages/CitationGeneratorPage.tsx",
+    ],
+    related: ["paper", "literature-library"],
+    sections: [
+      {
+        id: "purpose",
+        title: "用途",
+        markdown: `引用生成器是一个独立、响应式工具页。用户输入或选择论文后，可以按目标格式生成参考文献文本并复制到写作环境。`,
+      },
+      {
+        id: "limits",
+        title: "核对边界",
+        markdown: `引文质量取决于题名、作者、年份、期刊、卷期、页码和标识符等元数据。自动格式化不能修复错误元数据，也不能保证满足每一本期刊的局部变体，提交前仍应对照官方格式。`,
+      },
+    ],
+  },
+  {
+    slug: "feature-tools",
+    title: "功能广场",
+    summary:
+      "收录 Scholay 站内能力和外部科研工具的可搜索目录，并提供分类、筛选和详情。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["所有访客", "研究者", "内容运营"],
+    aliases: ["功能大全", "科研工具黄页", "Tools"],
+    sourcePaths: [
+      "frontend-user/src/features/tools/routes.tsx",
+      "frontend-user/src/features/tools/pages/ToolsLayout.tsx",
+      "frontend-user/src/features/tools/pages/ToolsCatalogPage.tsx",
+      "frontend-user/src/features/tools/pages/ToolDetailPage.tsx",
+      "frontend-user/src/features/tools/pages/mobile/MobileToolsHomePage.tsx",
+      "frontend-user/src/features/tools/pages/mobile/MobileToolsPage.tsx",
+      "frontend-user/src/features/tools/pages/mobile/MobileToolDetailPage.tsx",
+      "frontend-user/src/features/tools/pages/mobile/MobilePcOnlyPage.tsx",
+      "backend/internal/featuretool",
+      "feature-tools-coldstart/feature-tools.json",
+    ],
+    related: ["community-skills", "mobile-web", "admin-console"],
+    sections: [
+      {
+        id: "catalog",
+        title: "目录",
+        markdown: `功能广场提供分类侧栏、关键词搜索、形式与价格筛选、分页卡片和工具详情。详情可以描述使用场景、功能、FAQ、厂商、价格、获取方式、替代品和教程。`,
+      },
+      {
+        id: "access",
+        title: "访问方式",
+        markdown: `工具可以是在线网站、下载资源或同时提供两种方式。外部工具由各自提供者负责，Scholay 的收录信息不构成安全、有效性或持续可用性的保证。`,
+      },
+      {
+        id: "operations",
+        title: "内容运营",
+        markdown: `管理员可以维护条目、批量导入数据并配置变更 webhook。导入任务按 pending → running → succeeded、partial 或 failed 推进；published 只表示产品可见，seo_indexable 是独立人工审核位，批量导入不会自动获得搜索引擎索引资格。工具图片进入对象存储，缺图时以前端回退样式呈现。`,
+      },
+    ],
+  },
+  {
+    slug: "community-skills",
+    title: "社区技能",
+    summary:
+      "用户创建、发布、安装和管理的 SKILL.md 能力，可按需注入 Claw 会话。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["Claw 用户", "技能作者", "管理员"],
+    aliases: ["Skills 市场", "Skill Marketplace", "我的 Skills"],
+    sourcePaths: [
+      "frontend-user/src/features/skills/routes.tsx",
+      "frontend-user/src/features/tools/pages/ToolsSkillsPage.tsx",
+      "frontend-user/src/features/skills/pages/SkillDetailPage.tsx",
+      "frontend-user/src/features/skills/pages/MySkillsPage.tsx",
+      "frontend-user/src/features/skills/pages/SkillCreatePage.tsx",
+      "backend/internal/skillmarket",
+      "backend/internal/agentbridge/spec.go",
+    ],
+    related: ["claw", "feature-tools", "agent-runtime"],
+    sections: [
+      {
+        id: "lifecycle",
+        title: "技能生命周期",
+        markdown: `社区浏览入口统一在功能广场的社区技能分区。技能可见性为 private、unlisted 或 public，审核状态为 draft、pending、approved、rejected 或 flagged，生命周期为 active、disabled_by_admin 或 deleted。只有 public + approved + active 的版本可在公共市场发现和安装；提交公开发布后要等待审核。`,
+      },
+      {
+        id: "loading",
+        title: "会话加载",
+        markdown: `启用的技能在创建 Claw 会话时由后端筛选并作为受限的会话指南交给 Agent。Free 最多持有 10 个技能，付费账户最多 50 个；每个技能最多保留 20 个版本，每个会话最多启用 5 个。用户内容不直接成为最高优先级系统指令，实际工具权限仍由执行器策略裁决。`,
+      },
+      {
+        id: "trust",
+        title: "信任与举报",
+        markdown: `公开技能可能包含不准确或不安全的步骤。作者不能举报自己的技能；同一用户对同一技能只能保留一份举报，举报不会自动下架内容，而是进入管理员审查。执行器仍需用权限、工作目录和工具策略限制实际动作。安装表示允许会话参考该技能，不代表 Scholay 对内容背书。`,
+      },
+    ],
+  },
+  {
+    slug: "research-news",
+    title: "学术资讯",
+    summary: "面向公开访问的学术新闻列表与详情，并由后台维护采集和发布状态。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["所有访客", "内容运营"],
+    aliases: ["资讯", "News", "学术新闻"],
+    sourcePaths: [
+      "frontend-user/src/features/news/routes.tsx",
+      "frontend-user/src/features/news/pages/NewsListPage.tsx",
+      "frontend-user/src/features/news/pages/NewsDetailPage.tsx",
+      "backend/internal/news",
+    ],
+    related: ["product-map", "admin-console", "wechat-mini-program"],
+    sections: [
+      {
+        id: "pages",
+        title: "页面",
+        markdown: `学术资讯包含列表和详情路由。列表组织最新内容与分页，详情保留稳定链接、正文和来源信息，并可在 Web 与小程序中打开对应内容。`,
+      },
+      {
+        id: "publishing",
+        title: "发布与来源",
+        markdown: `公开端只读取 published 新闻。情报 webhook 要求 HMAC 签名，并用 Redis 24 小时锁与 MySQL delivery 记录双层去重；后台还负责采集配置和 SEO 数据。转载或汇编内容必须保留来源和权利信息，生成摘要不能替代原文。`,
+      },
+    ],
+  },
+  {
+    slug: "mobile-web",
+    title: "移动 Web",
+    summary:
+      "以独立 MobileShell 和底部导航承载浏览、Claw、工具、文献集与账户页面。",
+    category: "mobile",
+    kind: "overview",
+    status: "current",
+    audience: ["手机用户"],
+    aliases: ["移动版", "手机网页版", "/m"],
+    sourcePaths: [
+      "frontend-user/src/features/mobile/routes.tsx",
+      "frontend-user/src/features/mobile/layouts/MobileShell.tsx",
+      "frontend-user/src/features/mobile/components/FeedPrefetcher.tsx",
+      "frontend-user/src/app/router.tsx",
+      "frontend-user/src/shared/lib/device.ts",
+    ],
+    related: [
+      "device-routing",
+      "wechat-mini-program",
+      "claw",
+      "literature-library",
+    ],
+    sections: [
+      {
+        id: "navigation",
+        title: "移动导航",
+        markdown: `移动 Web 使用独立壳和底部 Tab，不把桌面侧栏压缩进窄屏。首页信息流、功能、Claw、文献集和“我的”分别使用为触控场景设计的页面。`,
+      },
+      {
+        id: "parity",
+        title: "能力差异",
+        markdown: `移动端优先覆盖高频浏览、对话和账户动作。Prism、完整审稿和矩阵等高密度工作区目前以电脑端为主；移动入口会给出对等页或使用电脑的引导，而不是假装已经完整支持。`,
+      },
+    ],
+  },
+  {
+    slug: "wechat-mini-program",
+    title: "微信小程序",
+    summary: "围绕浏览、Claw、工具与个人账户构建的独立微信端产品表面。",
+    category: "mobile",
+    kind: "overview",
+    status: "current",
+    audience: ["微信用户"],
+    aliases: ["小程序", "WeChat Mini Program"],
+    sourcePaths: [
+      "miniprogram/app.json",
+      "miniprogram/README.md",
+      "miniprogram/pages",
+      "backend/internal/wechat",
+    ],
+    related: ["mobile-web", "device-routing", "claw", "research-news"],
+    sections: [
+      {
+        id: "tabs",
+        title: "四个主入口",
+        markdown: `自定义 Tab Bar 提供“浏览”“AI Claw”“功能”“我的”四个入口。它们对应信息流、研究对话、工具目录和账户中心，而不是把桌面站完整嵌入 web-view。`,
+      },
+      {
+        id: "pages",
+        title: "页面范围",
+        markdown: `现行页面还包括登录、搜索、论文、期刊、作者、新闻、工具详情、文献集、计费、资料编辑和修改密码。小程序通过自己的请求与认证服务访问 Scholay 后端。`,
+      },
+      {
+        id: "limits",
+        title: "端能力边界",
+        markdown: `微信登录、分享、剪贴板和内容安全受小程序平台能力与审核规则约束。需要复杂编辑器、大屏对比或本地文件能力的流程仍以 Web 为主。`,
+      },
+    ],
+  },
+];

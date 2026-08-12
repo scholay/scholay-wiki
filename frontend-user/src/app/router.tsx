@@ -19,6 +19,7 @@ import { skillsRoutes } from '@/features/skills/routes';
 import { newsRoutes } from '@/features/news/routes';
 import { landingRoutes } from '@/features/landing/routes';
 import { helpRoutes } from '@/features/help/routes';
+import { wikiRoutes } from '@/features/wiki/routes';
 import { mobileRoutes } from '@/features/mobile/routes';
 import {
   adminLegacyRedirectRoutes,
@@ -69,6 +70,13 @@ export const router = createBrowserRouter([
   // 帮助中心 / 关于 / 联系 / 反馈 / 法律 / 博客 / 资源 —— 同样不挂 AppShell,
   // 自带 HelpLayout(顶部返回 + 面包屑 + Footer)。路径与旧 frontend-user 保持一致。
   ...helpRoutes.map((r) => ({
+    ...r,
+    path: `/${r.path}`,
+    errorElement: <RouteErrorBoundary />,
+  })),
+  // Scholay Wiki —— 公开、免登录、自带知识导航壳。与帮助中心分开，
+  // 因为 Wiki 的分类 / 词条 / 来源索引是独立的多层信息架构。
+  ...wikiRoutes.map((r) => ({
     ...r,
     path: `/${r.path}`,
     errorElement: <RouteErrorBoundary />,

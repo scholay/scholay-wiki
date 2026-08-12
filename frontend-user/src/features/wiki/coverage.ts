@@ -1,0 +1,53 @@
+export const WIKI_AUDIT_BASELINE = {
+  commit: "f23d00032af9718f1fd31189e317a5622549f8cc",
+  shortCommit: "f23d0003",
+  version: "0.0.80",
+  verifiedOn: "2026-08-12",
+  renderedRoutes: 120,
+  redirectRoutes: 29,
+  backendModules: 56,
+  agentFeatures: 7,
+  agentSkills: 109,
+  miniProgramPages: 15,
+  migrations: 128,
+  coldStartTools: 201,
+} as const;
+
+export const WIKI_AUDIT_AREAS = [
+  {
+    title: "Web 与后台页面",
+    value: WIKI_AUDIT_BASELINE.renderedRoutes,
+    unit: "个现行页面",
+    detail: `另核对 ${WIKI_AUDIT_BASELINE.redirectRoutes} 个兼容跳转；Wiki 自身路由不计入基线。`,
+  },
+  {
+    title: "Go 后端",
+    value: WIKI_AUDIT_BASELINE.backendModules,
+    unit: "个一级模块",
+    detail: "覆盖公开、登录用户、后台和内部服务边界，以及关键状态机与实体。",
+  },
+  {
+    title: "Agent 能力",
+    value: WIKI_AUDIT_BASELINE.agentFeatures,
+    unit: "个 feature",
+    detail: `同时盘点 ${WIKI_AUDIT_BASELINE.agentSkills} 个 SKILL.md、工具、沙箱与证据协议。`,
+  },
+  {
+    title: "微信小程序",
+    value: WIKI_AUDIT_BASELINE.miniProgramPages,
+    unit: "个页面",
+    detail: "逐页核对发现、Claw、工具、文库、账户、账单与 Web 能力差异。",
+  },
+  {
+    title: "数据与迁移",
+    value: WIKI_AUDIT_BASELINE.migrations,
+    unit: "个现行 SQL",
+    detail: "包含重复 0011 编号；archive 不属于当前 schema-sync 执行集。",
+  },
+  {
+    title: "工具冷启动集",
+    value: WIKI_AUDIT_BASELINE.coldStartTools,
+    unit: "条记录",
+    detail: "数量不等于安全背书；下载来源、版权和发布门禁另行标注风险。",
+  },
+] as const;

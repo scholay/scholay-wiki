@@ -1,0 +1,287 @@
+import type { WikiArticle } from "../types";
+
+export const discoveryArticles: WikiArticle[] = [
+  {
+    slug: "academic-search",
+    title: "论文检索",
+    summary:
+      "以关键词、筛选条件和分页结果发现论文，并把候选资料送入后续研究工作流。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["研究者", "学生"],
+    aliases: ["普通搜索", "学术搜索", "Search"],
+    sourcePaths: [
+      "frontend-user/src/features/search/routes.tsx",
+      "frontend-user/src/features/search/pages/SearchPage.tsx",
+      "frontend-user/src/features/search/api/papers.ts",
+      "backend/internal/minicod/handler.go",
+    ],
+    related: ["paper", "staging-area", "smart-search", "literature-library"],
+    sections: [
+      {
+        id: "overview",
+        title: "概览",
+        markdown: `论文检索是 Scholay 发现工作流的结构化入口。用户提交检索词和筛选条件后，结果以论文列表呈现，并可继续打开详情、查看 PDF、暂存、收藏或进入分析。`,
+      },
+      {
+        id: "workspace",
+        title: "搜索工作区",
+        markdown: `桌面搜索页由搜索器、暂存区和矩阵分析组成。URL 保存检索与筛选状态，使结果页可以被刷新和分享；服务端数据由查询缓存管理，页面不会把搜索结果复制进全局客户端状态。`,
+      },
+      {
+        id: "source",
+        title: "学术数据来源",
+        markdown: `当前论文、作者和期刊查询统一通过后端 Minicod 客户端及账号池访问学术数据服务。旧资料中的 Semantic Scholar 专用模块已经不再是现行实现。`,
+      },
+    ],
+  },
+  {
+    slug: "paper",
+    title: "论文",
+    summary:
+      "Scholay 中连接检索结果、详情、PDF、引用、文献集和 AI 工作流的核心学术实体。",
+    category: "discovery",
+    kind: "entity",
+    status: "current",
+    audience: ["所有访客", "研究者"],
+    aliases: ["学术论文", "Paper", "文献"],
+    sourcePaths: [
+      "backend/internal/minicod/models.go",
+      "frontend-user/src/features/browser/pages/BrowserPage.tsx",
+      "frontend-user/src/features/browser/components/PaperDetailPane.tsx",
+      "frontend-user/src/features/browser/components/paper-detail/PaperMetadataBlock.tsx",
+      "frontend-user/src/features/browser/components/paper-detail/PaperReferences.tsx",
+    ],
+    related: [
+      "academic-search",
+      "pdf-reader",
+      "literature-library",
+      "citation-generator",
+    ],
+    sections: [
+      {
+        id: "identity",
+        title: "实体信息",
+        markdown: `论文条目以稳定标识连接标题、作者、发表时间、来源期刊、摘要、引用与参考文献、开放获取状态和 PDF 线索。不同数据源字段会在后端和前端模型中归一化。`,
+      },
+      {
+        id: "detail",
+        title: "详情页",
+        markdown: `论文详情可以展示摘要、元数据、作者、引用关系、参考文献及可用操作。详情在桌面浏览器工作区中以可保持上下文的面板打开，窄屏使用对应的移动详情头与布局。`,
+      },
+      {
+        id: "actions",
+        title: "相关动作",
+        markdown: `用户可以把论文送入暂存区或个人文献集、尝试打开全文、用于矩阵分析，并在支持论文上下文的 AI 会话中继续提问。具体可用动作取决于登录状态、数据完整度和全文可用性。`,
+      },
+    ],
+  },
+  {
+    slug: "pdf-reader",
+    title: "PDF 阅读器",
+    summary:
+      "在浏览器工作区中预览学术 PDF，并为文献管理和 AI 对话提供全文上下文。",
+    category: "discovery",
+    kind: "page",
+    status: "current",
+    audience: ["研究者"],
+    aliases: ["PDF 预览", "全文阅读"],
+    sourcePaths: [
+      "frontend-user/src/features/browser/components/PdfBrowserPane.tsx",
+      "frontend-user/src/features/browser/api/open-access.ts",
+      "backend/internal/pdfparse",
+      "backend/internal/openaccess",
+    ],
+    related: ["paper", "literature-library", "claw"],
+    sections: [
+      {
+        id: "rendering",
+        title: "阅读与渲染",
+        markdown: `阅读器使用浏览器端 PDF 渲染能力展示文件，并随应用打包 CMap 资源以支持中日韩文字。PDF 标签与论文详情共用浏览器工作区，用户可以在多个对象之间切换。`,
+      },
+      {
+        id: "availability",
+        title: "全文可用性",
+        markdown: `系统会结合论文记录、开放获取查询和用户文献集中的上传文件判断可用全文。找不到可合法访问的文件时，不应把元数据链接当作可下载 PDF。`,
+      },
+      {
+        id: "parsing",
+        title: "解析与后续使用",
+        markdown: `后端提供 PDF 文本解析和对象存储能力。解析结果可支持元数据识别、AI 上下文和文献管理，但原始文件、解析文本与第三方链接是不同的数据对象。`,
+      },
+    ],
+  },
+  {
+    slug: "authors-and-journals",
+    title: "作者与期刊",
+    summary:
+      "围绕作者画像、合作关系、代表作，以及期刊搜索、学科聚合和收录信息展开的发现页面。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["所有访客", "研究者"],
+    aliases: ["学者", "作者详情", "期刊详情", "期刊导航"],
+    sourcePaths: [
+      "frontend-user/src/features/browser/components/AuthorDetailPane.tsx",
+      "frontend-user/src/features/browser/components/JournalDetailPane.tsx",
+      "frontend-user/src/features/journals/routes.tsx",
+      "frontend-user/src/features/journals/pages/JournalSearchPage.tsx",
+      "backend/internal/minicod/handler.go",
+    ],
+    related: ["paper", "academic-search", "citation-generator"],
+    sections: [
+      {
+        id: "authors",
+        title: "作者页面",
+        markdown: `作者详情围绕身份信息、研究主题、代表论文、年度产出和合作作者组织内容。作者名可能存在同名和数据源归并问题，因此页面展示不能等同于人工验证的唯一身份。`,
+      },
+      {
+        id: "journals",
+        title: "期刊页面",
+        markdown: `期刊能力包括搜索、详情以及按领域组织的期刊集合。期刊条目可以连接名称、标识、出版与收录信息、影响指标和论文列表；具体字段随数据源可用性变化。`,
+      },
+      {
+        id: "navigation",
+        title: "关系导航",
+        markdown: `论文、作者与期刊之间使用真实站内链接相互跳转。稳定实体链接既支持用户打开新标签，也构成公开学术内容的内链网络。`,
+      },
+    ],
+  },
+  {
+    slug: "staging-area",
+    title: "检索暂存区",
+    summary: "在检索过程中临时收集候选论文，并把它们组织成矩阵分析输入。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["登录用户", "研究者"],
+    aliases: ["暂存区", "工作区", "Staging area"],
+    sourcePaths: [
+      "frontend-user/src/features/search/components/StagingTabs.tsx",
+      "frontend-user/src/features/search/hooks/useStagingActions.ts",
+      "frontend-user/src/features/search/api/staging-areas.ts",
+      "backend/internal/stagingarea",
+    ],
+    related: ["academic-search", "matrix-analysis", "literature-library"],
+    sections: [
+      {
+        id: "purpose",
+        title: "用途",
+        markdown: `暂存区服务于“先筛选、后整理”的检索阶段。它允许用户把搜索结果中的候选论文快速加入当前工作区，而不必立即决定长期文件夹和正式收藏结构。`,
+      },
+      {
+        id: "persistence",
+        title: "状态与同步",
+        markdown: `每个账户最多有 5 个暂存区，每区最多 100 篇；界面以 A–E 五个固定区呈现。匿名状态先保存在本机，登录用户的内容可由后端保存并由前端同步，但现有代码没有保证所有匿名数据在登录后都完整上云。暂存区是检索任务的短期集合，个人文献集才是长期知识资产。`,
+      },
+      {
+        id: "matrix",
+        title: "进入矩阵",
+        markdown: `暂存论文可以作为矩阵的列，用户选择或自定义分析维度作为行。系统随后逐篇生成维度结果，并支持检查和导出。`,
+      },
+    ],
+  },
+  {
+    slug: "matrix-analysis",
+    title: "论文矩阵分析",
+    summary: "把多篇候选论文与一组分析维度交叉排列，用于结构化比较和导出。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["研究者", "学生"],
+    aliases: ["矩阵分析", "文献对比", "Analysis matrix"],
+    sourcePaths: [
+      "frontend-user/src/features/search/components/MatrixColumn.tsx",
+      "frontend-user/src/features/search/components/matrix/DimensionCell.tsx",
+      "frontend-user/src/features/search/components/matrix/ExportMenu.tsx",
+      "frontend-user/src/features/search/api/analysis/matrix.ts",
+      "backend/internal/ai",
+    ],
+    related: ["staging-area", "paper", "ai-usage-quota"],
+    sections: [
+      {
+        id: "model",
+        title: "矩阵模型",
+        markdown: `每篇论文形成一列，每个分析维度形成一行，交叉单元格保存针对该论文的维度分析。维度既可以来自系统模板，也可以由用户在设置弹窗中增加、编辑或删除。`,
+      },
+      {
+        id: "generation",
+        title: "生成与核对",
+        markdown: `矩阵结果由 AI 分析生成，因此仍需回到论文原文核对。批量生成会受到可用论文内容、模型状态和账户额度影响；失败单元格可以与已完成结果分开处理。`,
+      },
+      {
+        id: "export",
+        title: "导出",
+        markdown: `矩阵提供面向后续整理的导出入口。导出结果是研究辅助材料，不自动成为可引用证据，引用仍应指向原论文。`,
+      },
+    ],
+  },
+  {
+    slug: "literature-library",
+    title: "个人文献集",
+    summary:
+      "以文件夹长期保存论文、PDF 与补充元数据，并支持导入、整理、分享和重新关联。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["登录用户", "研究者"],
+    aliases: ["文献库", "我的文献", "Library"],
+    sourcePaths: [
+      "frontend-user/src/features/library/routes.tsx",
+      "frontend-user/src/features/library/pages/LibraryPage.tsx",
+      "frontend-user/src/features/library/pages/mobile/MobileLibraryPage.tsx",
+      "frontend-user/src/features/library/pages/mobile/MobileFolderPage.tsx",
+      "frontend-user/src/features/library/api/folders.ts",
+      "frontend-user/src/features/library/api/papers.ts",
+      "backend/internal/library",
+    ],
+    related: ["paper", "pdf-reader", "staging-area", "library-sharing"],
+    sections: [
+      {
+        id: "organization",
+        title: "组织方式",
+        markdown: `文献集使用单层文件夹组织长期收藏；每个账户最多 50 个文件夹、1,000 篇论文。论文行展示基本信息、PDF 与处理状态，并支持批量选择和批量操作，单次批处理最多 500 篇。桌面端使用文献侧栏，移动端提供文件夹列表和文件夹详情。`,
+      },
+      {
+        id: "import",
+        title: "导入与识别",
+        markdown: `用户可以从在线检索加入论文，也可以上传 PDF；单个 PDF 上限为 50 MiB。上传流程会检查扩展名与文件头、尝试识别论文，并让用户决定采用匹配结果或补充元数据；“文件存在”和“已正确关联学术记录”是两个独立状态。Zotero 与 EndNote 导入目前只显示“即将上线”。`,
+      },
+      {
+        id: "maintenance",
+        title: "维护能力",
+        markdown: `文献管理包括编辑元数据、管理 PDF、重新关联论文、移动与删除等动作。重新关联用于修复错误识别或缺少学术标识的记录，不应悄悄覆盖用户已经确认的内容。`,
+      },
+    ],
+  },
+  {
+    slug: "library-sharing",
+    title: "文献集分享与接收",
+    summary: "通过公开分享令牌把一组文献交给其他人查看或接收。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["登录用户", "分享接收者"],
+    aliases: ["分享文件夹", "接收分享", "文献分享"],
+    sourcePaths: [
+      "frontend-user/src/features/library/pages/SharedReceivePage.tsx",
+      "frontend-user/src/features/library/routes.tsx",
+      "backend/internal/library/share_handler.go",
+      "backend/internal/library/share_model.go",
+    ],
+    related: ["literature-library", "paper"],
+    sections: [
+      {
+        id: "link",
+        title: "分享链接",
+        markdown: `分享方创建带令牌的链接，接收页使用 \`/s/:token\` 公开路由打开，不依赖桌面或移动应用壳。令牌标识一份分享，不等同于分享方的登录凭据。每个账户最多保留 200 份有效分享，每份集合最多包含 500 篇论文。`,
+      },
+      {
+        id: "receive",
+        title: "接收行为",
+        markdown: `访客可以先查看分享内容；分享可设置过期、撤销、提取码和是否允许保存。提取码按 token + IP 统计，连续错误 5 次会被锁定。把文献复制进自己的文献集属于账户写操作，需要登录并选择目标位置；接收端按 source + source_id 去重，源集合和副本后续各自维护。`,
+      },
+    ],
+  },
+];

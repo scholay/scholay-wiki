@@ -44,6 +44,7 @@ const BRAND_LINKS: { label: string; to: string }[] = [
   { label: '关于我们', to: '/about' },
   { label: '定价', to: '/pricing' },
   { label: '学术资源', to: '/resources' },
+  { label: '产品百科', to: '/wiki' },
   { label: '帮助中心', to: '/help' },
   { label: '隐私政策', to: '/privacy' },
   { label: '服务条款', to: '/terms' },

@@ -1,0 +1,1011 @@
+import type { WikiArticle } from "../types";
+
+/**
+ * 用户端细粒度体验词条。
+ *
+ * foundations / discovery / research-ai 等文件解释产品概念与总览；本文件聚焦
+ * “用户在具体页面怎么操作、会遇到什么状态、现行限制是多少”。
+ */
+export const userExperienceArticles: WikiArticle[] = [
+  {
+    slug: "email-phone-authentication",
+    title: "邮箱与手机号注册、登录和找回密码",
+    summary:
+      "使用邮箱或中国大陆手机号完成密码登录、验证码登录、注册和密码重置。",
+    category: "getting-started",
+    kind: "feature",
+    status: "current",
+    audience: ["访客", "新用户", "无法登录的用户"],
+    aliases: ["注册登录", "验证码登录", "忘记密码", "手机登录"],
+    sourcePaths: [
+      "frontend-user/src/features/auth/components/LoginForm.tsx",
+      "frontend-user/src/features/auth/components/RegisterForm.tsx",
+      "frontend-user/src/features/auth/components/ForgotPasswordForm.tsx",
+      "frontend-user/src/features/auth/pages/mobile/MobileAuthPage.tsx",
+      "frontend-user/src/features/auth/api/auth.ts",
+    ],
+    related: ["account", "oauth-wechat-login", "account-security-settings"],
+    sections: [
+      {
+        id: "entry-and-methods",
+        title: "入口与登录方式",
+        markdown: `桌面端在需要身份的动作上打开认证弹窗，移动端可进入 /m/auth。邮箱和手机号都支持密码或验证码登录；切换登录方式不会把“页面可浏览”误变成“动作已获授权”，收藏、AI 发送和私有数据仍要等登录成功。`,
+      },
+      {
+        id: "registration",
+        title: "注册规则",
+        markdown: `注册密码为 8–64 位。启用注册验证码时必须输入 6 位数字；是否要求邮箱验证和 Cloudflare Turnstile 由公开系统配置决定。提交前必须同意服务条款与隐私政策。验证码按钮有 60 秒倒计时，倒计时结束只表示可以再次请求，不表示旧验证码一定仍有效。`,
+      },
+      {
+        id: "recovery",
+        title: "找回密码",
+        markdown: `找回密码支持邮箱和手机号，两条路径都使用 6 位验证码，并要求新密码为 8–64 位。页面会分别显示发送中、倒计时、提交中和接口错误；验证码、账户归属与尝试次数的最终判断由服务端执行。`,
+      },
+    ],
+  },
+  {
+    slug: "oauth-wechat-login",
+    title: "OAuth 与微信扫码登录",
+    summary:
+      "通过管理员启用的第三方身份提供方登录，并理解微信二维码与普通 OAuth 回调的差异。",
+    category: "getting-started",
+    kind: "feature",
+    status: "current",
+    audience: ["访客", "第三方账号用户"],
+    aliases: ["第三方登录", "微信扫码登录", "GitHub 登录", "ORCID 登录"],
+    sourcePaths: [
+      "frontend-user/src/features/auth/components/OAuthRow.tsx",
+      "frontend-user/src/features/auth/components/WeChatQRPanel.tsx",
+      "frontend-user/src/features/auth/pages/OAuthCallbackPage.tsx",
+      "frontend-user/src/features/auth/pages/WeChatCallbackPage.tsx",
+      "frontend-user/src/features/auth/routes.tsx",
+    ],
+    related: [
+      "email-phone-authentication",
+      "oauth-account-merge",
+      "account-connections",
+    ],
+    sections: [
+      {
+        id: "providers",
+        title: "可用提供方",
+        markdown: `现行身份提供方共 7 个：GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信。按钮只在后台启用且公开配置可用时出现；普通 OAuth 使用各自的整页 callback，微信使用登录弹窗内的二维码与独立 /wechat/callback。`,
+      },
+      {
+        id: "wechat-flow",
+        title: "微信二维码流程",
+        markdown: `桌面微信登录在约 220×240 的 iframe 中加载二维码。扫码后授权 code 只能兑换一次，回调页通过同源 postMessage 把 code 交给父窗口；处理中用状态层盖住 iframe，而不是提前卸载它。移动 Web 的认证页主动隐藏微信二维码入口。`,
+      },
+      {
+        id: "callback-state",
+        title: "回调与失败状态",
+        markdown: `OAuth 回调会处理加载、成功、错误与需要合并四种状态。除微信外的回调保留在桌面应用壳内，以便登录完成后触发本地暂存同步；回调失败不会创建半登录会话，用户需要回到认证入口重试。`,
+      },
+    ],
+  },
+  {
+    slug: "oauth-account-merge",
+    title: "OAuth 邮箱冲突与账号合并",
+    summary:
+      "第三方邮箱命中已有 Scholay 账户时，由用户验证目标账户后决定合并或新建独立账户。",
+    category: "getting-started",
+    kind: "rule",
+    status: "current",
+    audience: ["遇到第三方登录冲突的用户", "支持人员"],
+    aliases: ["账号合并", "邮箱冲突", "merge token"],
+    sourcePaths: [
+      "frontend-user/src/features/auth/components/OAuthMergeConfirmDialog.tsx",
+      "frontend-user/src/features/auth/pages/OAuthCallbackPage.tsx",
+      "frontend-user/src/features/auth/api/oauth-merge.ts",
+    ],
+    related: ["oauth-wechat-login", "account-connections", "account"],
+    sections: [
+      {
+        id: "why",
+        title: "为什么不会自动合并",
+        markdown: `第三方返回的邮箱与现有账户相同时，系统返回一次性 merge token，而不是仅凭同邮箱自动绑定。这样可以避免攻击者只控制第三方身份就接管已有账户。页面会展示提供方、第三方邮箱和目标邮箱，供用户核对。`,
+      },
+      {
+        id: "choices",
+        title: "两种选择",
+        markdown: `选择合并时，用户必须先以目标 Scholay 账户本人身份登录，受保护的确认接口还会核对当前用户。选择不合并时，可用第三方资料创建独立账户；该账户可能没有邮箱，只能先用对应提供方登录，之后再到安全设置增加其他方式。`,
+      },
+      {
+        id: "cancellation",
+        title: "取消与邀请隔离",
+        markdown: `pending、confirm 和 cancel 是三条不同接口。取消不会把第三方身份悄悄绑定到旧账户；合并流程中的目标账户登录会抑制普通邀请注册流程，避免身份确认被误算成一次新用户邀请。`,
+      },
+    ],
+  },
+  {
+    slug: "profile-settings",
+    title: "个人资料设置",
+    summary: "在桌面或移动设置中维护昵称、简介和头像图片地址。",
+    category: "getting-started",
+    kind: "page",
+    status: "current",
+    audience: ["登录用户"],
+    aliases: ["修改昵称", "头像设置", "个人简介"],
+    sourcePaths: [
+      "frontend-user/src/features/settings/pages/ProfilePage.tsx",
+      "frontend-user/src/features/settings/pages/mobile/MobileProfilePage.tsx",
+      "frontend-user/src/shared/api/profile.ts",
+    ],
+    related: ["account", "account-security-settings"],
+    sections: [
+      {
+        id: "fields",
+        title: "可编辑字段",
+        markdown: `桌面入口是 /settings/profile，移动入口是 /m/me/profile。昵称最多 40 个字符，简介最多 200 个字符；头像字段接收图片 URL，不是本页本地文件上传。页面先拉取现有 profile，再把三个字段一起提交保存。`,
+      },
+      {
+        id: "states",
+        title: "保存状态",
+        markdown: `资料加载中显示轻量加载文本，提交时禁用保存按钮。保存成功后刷新账户 profile 缓存并提示“资料已保存”；失败保留当前输入，用户可以检查网络后重试。页面文案说明资料可能用于公开展示和评论，因此不应填写敏感信息。`,
+      },
+    ],
+  },
+  {
+    slug: "account-security-settings",
+    title: "密码、邮箱与手机号安全设置",
+    summary:
+      "修改密码或换绑邮箱、手机号，并通过旧、新联系方式的验证码保护账户。",
+    category: "getting-started",
+    kind: "page",
+    status: "current",
+    audience: ["登录用户", "账号支持人员"],
+    aliases: ["安全设置", "换绑邮箱", "换绑手机", "修改密码"],
+    sourcePaths: [
+      "frontend-user/src/features/settings/pages/SecurityPage.tsx",
+      "frontend-user/src/features/settings/pages/mobile/MobileSecurityPage.tsx",
+      "frontend-user/src/features/auth/components/SendCodeButton.tsx",
+      "frontend-user/src/features/auth/api/profile.ts",
+    ],
+    related: [
+      "email-phone-authentication",
+      "account-connections",
+      "profile-settings",
+    ],
+    sections: [
+      {
+        id: "password",
+        title: "修改密码",
+        markdown: `修改密码要求当前密码、新密码和二次确认。前端要求新密码至少 8 位并核对两次输入；这个页面没有设置与注册页相同的 64 位客户端上限，因此最终长度规则仍以后端响应为准。成功后清空输入，下一次登录使用新密码。`,
+      },
+      {
+        id: "rebind",
+        title: "换绑联系方式",
+        markdown: `首次绑定邮箱或手机号只验证新联系方式；已有绑定时，必须同时提供旧联系方式验证码和新联系方式的 6 位验证码，降低登录会话被盗后直接换绑的风险。手机号前端按中国大陆 11 位规则校验。`,
+      },
+      {
+        id: "boundary",
+        title: "当前边界",
+        markdown: `本页的主流程是绑定或覆盖换绑，没有独立的“直接解绑邮箱/手机号”按钮。第三方连接页也会把邮箱和手机用户引导回这里；至少保留一种登录方式的最终约束由后端执行。`,
+      },
+    ],
+  },
+  {
+    slug: "account-connections",
+    title: "第三方账号连接与解绑",
+    summary:
+      "查看所有登录方式，绑定已启用的 OAuth 提供方，并在保留至少一种登录方式的前提下解绑。",
+    category: "getting-started",
+    kind: "page",
+    status: "current",
+    audience: ["登录用户"],
+    aliases: ["已连接账号", "绑定 GitHub", "解绑微信", "登录方式"],
+    sourcePaths: [
+      "frontend-user/src/features/settings/pages/ConnectionsPage.tsx",
+      "frontend-user/src/features/settings/pages/mobile/MobileConnectionsPage.tsx",
+      "frontend-user/src/features/settings/api/connections.ts",
+      "frontend-user/src/shared/lib/oauth-bind.ts",
+    ],
+    related: [
+      "oauth-wechat-login",
+      "oauth-account-merge",
+      "account-security-settings",
+    ],
+    sections: [
+      {
+        id: "list",
+        title: "连接列表",
+        markdown: `连接页展示邮箱、手机号以及后台启用的 GitHub、Google、微信、Apple、ORCID、Microsoft、Discourse。已经绑定但后来被管理员关闭的第三方方式仍会显示，方便用户识别和解绑。每一行显示绑定状态、显示名或提供方 ID，以及可用时的绑定时间。`,
+      },
+      {
+        id: "bind",
+        title: "绑定方式",
+        markdown: `普通 OAuth 进入提供方授权流程，微信打开二维码绑定弹窗；Apple 的绑定 URL 由后端用 state nonce 中继。邮箱和手机号不在本页直接处理，而是转到安全设置完成验证码换绑。已经绑定的提供方不会重复绑定。`,
+      },
+      {
+        id: "unbind",
+        title: "解绑保护",
+        markdown: `第三方解绑前显示破坏性确认。login_methods_count 小于等于 1 时按钮禁用，因为最后一种登录方式不能移除；前端禁用只是体验提示，后端还会再次执行同一保护。解绑后无法再用该提供方登录，但可以在仍有其他登录方式时重新绑定。`,
+      },
+    ],
+  },
+  {
+    slug: "notification-center",
+    title: "站内通知中心",
+    summary:
+      "从顶部铃铛读取系统、活动与交易通知，管理已读状态并安全打开附带链接。",
+    category: "getting-started",
+    kind: "feature",
+    status: "current",
+    audience: ["登录用户"],
+    aliases: ["消息通知", "通知铃铛", "未读消息"],
+    sourcePaths: [
+      "frontend-user/src/shared/components/NotificationBell.tsx",
+      "frontend-user/src/shared/api/notifications.ts",
+      "frontend-user/src/shared/hooks/useNotificationSocket.ts",
+    ],
+    related: ["account", "promotion-banner"],
+    sections: [
+      {
+        id: "unread-and-list",
+        title: "未读数与列表",
+        markdown: `通知铃铛只在登录后出现。徽标最多显示为 99+；弹层提供“全部”和“未读”两个 Tab，以及一键全部已读。列表每次读取 20 条并支持加载更多，加载中、请求失败、没有通知和没有未读通知都有独立状态。`,
+      },
+      {
+        id: "actions",
+        title: "阅读、跳转与删除",
+        markdown: `点击未读通知会标记已读；有 link_url 时再跳转。站内路径先经过当前路由白名单检查，已下线的路径会提示链接失效；外链用新窗口和 noopener 打开。每条通知还可单独删除，删除与标记已读都会刷新未读数。`,
+      },
+      {
+        id: "realtime",
+        title: "实时更新",
+        markdown: `未读数通常在页面 load 或空闲后查询，用户主动打开通知时会立即提升优先级。登录会话还建立通知 WebSocket，新消息到达后刷新 REST 缓存；WebSocket 负责及时性，REST 列表仍是可翻页的读取来源。`,
+      },
+    ],
+  },
+  {
+    slug: "quota-block-and-recovery",
+    title: "AI 额度阻断与恢复",
+    summary:
+      "AI 消息因额度不足未发送时，保留输入并通过重置、经费续用或升级恢复原任务。",
+    category: "membership",
+    kind: "rule",
+    status: "current",
+    audience: ["使用 AI 的登录用户", "会员用户"],
+    aliases: ["额度耗尽", "被拦消息", "用经费继续", "额度重置"],
+    sourcePaths: [
+      "frontend-user/src/stores/quota.store.ts",
+      "frontend-user/src/shared/components/chat/QuotaComposerStrip.tsx",
+      "frontend-user/src/shared/components/quota-recovery.tsx",
+      "frontend-user/src/shared/components/QuotaNotifier.tsx",
+      "frontend-user/src/features/claw/hooks/makeAgentConversationHook.ts",
+    ],
+    related: ["ai-usage-quota", "wallet-payg", "claw-stream-tool-states"],
+    sections: [
+      {
+        id: "blocked-message",
+        title: "被拦消息不会假装已发送",
+        markdown: `后端在把消息交给 Agent 之前发现额度不足时，前端把本轮标为 blocked，并按会话保留文本、引用和可持久化附件信息。Claw、智能搜索和 Prism 在输入框上方显示额度条；矩阵、翻译和审稿等非对话功能使用带动作的额度提示。`,
+      },
+      {
+        id: "recovery-actions",
+        title: "恢复方式",
+        markdown: `有重置次数时可消耗 1 次，立即恢复满额并重新计算周期；开启“用经费继续”后，只从永久 credit 支付超出周期额度的部分，而且可以在账户资产中关闭。两项操作都要求二次确认；没有可用资产时可进入会员升级。`,
+      },
+      {
+        id: "resume",
+        title: "恢复原任务",
+        markdown: `重置或开启经费续用成功后会广播 quota recovered、刷新额度概览，并让仍在页面中的额度条重发被拦消息。用户也可以忽略该消息。刷新后的恢复能力取决于服务端额度，前端不会仅通过关闭提示把 blocked 状态当成成功。`,
+      },
+    ],
+  },
+  {
+    slug: "paper-search-sources",
+    title: "论文检索数据源",
+    summary:
+      "理解 Auto、STC、OpenAlex 与 PubMed 的覆盖范围、品牌显示和能力差异。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["访客", "研究者", "学生"],
+    aliases: ["搜索源", "STC", "OpenAlex", "PubMed", "Auto 搜索"],
+    sourcePaths: [
+      "frontend-user/src/features/search/api/papers.ts",
+      "frontend-user/src/features/search/components/SearchSidebar.tsx",
+      "frontend-user/src/shared/lib/search-filters.ts",
+      "frontend-user/src/shared/lib/source.ts",
+    ],
+    related: ["academic-search", "paper-search-filters-and-pages", "paper"],
+    sections: [
+      {
+        id: "choices",
+        title: "四种选择",
+        markdown: `经典搜索提供 Auto、STC、OpenAlex 和 PubMed。Auto 让服务端按 STC → OpenAlex → PubMed 的顺序寻找可用结果；手动选择则只查询指定来源。结果论文保留自己的真实 source，Auto 只是检索选择，不会成为收藏记录的数据源。`,
+      },
+      {
+        id: "differences",
+        title: "能力并不完全相同",
+        markdown: `STC 适合作为综合默认源，但普通端点只提供有效的相关度排序。OpenAlex 支持引用量和日期排序，但学科筛选只取一个概念；PubMed 面向医学，主要支持查询、时间、期刊或会议名及相关度/日期排序，不支持页面中的学科、文献类型、OA 和最低引用筛选。`,
+      },
+      {
+        id: "normalization",
+        title: "归一化与来源标识",
+        markdown: `前端把不同源的论文映射到统一 Paper 结构，但标题、摘要、作者 ID、引用数和全文线索仍可能缺失。页面用统一来源品牌辅助识别，详情、收藏和作者跳转继续携带 source，避免把不同系统的相同 ID 当成同一篇论文。`,
+      },
+    ],
+  },
+  {
+    slug: "paper-search-filters-and-pages",
+    title: "论文筛选、排序与分页",
+    summary:
+      "在经典检索中使用来源联动的时间、学科、类型和开放获取筛选，并理解分页上限。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["访客", "研究者", "学生"],
+    aliases: ["搜索筛选器", "检索分页", "文献排序", "1000 条上限"],
+    sourcePaths: [
+      "frontend-user/src/features/search/components/SearchSidebar.tsx",
+      "frontend-user/src/features/search/components/SearcherColumn.tsx",
+      "frontend-user/src/features/search/components/SearcherPagination.tsx",
+      "frontend-user/src/features/search/hooks/useUrlFilters.ts",
+      "frontend-user/src/shared/lib/search-filters.ts",
+    ],
+    related: ["academic-search", "paper-search-sources", "staging-area"],
+    sections: [
+      {
+        id: "filters",
+        title: "筛选条件",
+        markdown: `时间范围可选全部、近 1/3/5 年或自定义起止年；另有 23 个学科、文献类型和开放获取。筛选状态写入 URL，切换数据源时会自动剪掉新来源不支持的条件，避免界面看似选中、实际请求被忽略。OpenAlex 学科强制单选，PubMed 隐藏不支持的组。`,
+      },
+      {
+        id: "sort",
+        title: "排序按来源变化",
+        markdown: `STC 和 Auto 只显示相关度；OpenAlex 可选相关度、引用数、最新和最早；PubMed 可选相关度与最新。切换到不支持当前排序的来源时会回到相关度。状态模型虽然保留 venues 和 minCitations，但当前页面没有稳定、完整的可见入口，不能把它们写成已开放筛选器。`,
+      },
+      {
+        id: "pages",
+        title: "分页与选择范围",
+        markdown: `每页只能选择 20 或 50 条。即使上游报告更多结果，页面最多允许浏览前 1,000 条；需要更深结果时应收紧关键词或筛选。整页暂存和选择只针对当前页，不会自动选中其他分页。`,
+      },
+    ],
+  },
+  {
+    slug: "paper-detail-and-actions",
+    title: "论文详情与页面动作",
+    summary:
+      "从公开论文路由查看元数据、作者、摘要和参考文献，并进入 PDF、引用、收藏和分享流程。",
+    category: "discovery",
+    kind: "page",
+    status: "current",
+    audience: ["所有访客", "研究者"],
+    aliases: ["论文详情页", "Paper Detail", "论文元数据"],
+    sourcePaths: [
+      "frontend-user/src/features/browser/components/PaperDetailPane.tsx",
+      "frontend-user/src/features/browser/components/paper-detail/PaperHeader.tsx",
+      "frontend-user/src/features/browser/components/paper-detail/PaperActionRow.tsx",
+      "frontend-user/src/features/browser/components/paper-detail/PaperMetadataBlock.tsx",
+      "frontend-user/src/features/browser/components/paper-detail/PaperReferences.tsx",
+    ],
+    related: [
+      "paper",
+      "open-access-and-paper-translation",
+      "paper-favorites",
+      "citation-dialog",
+    ],
+    sections: [
+      {
+        id: "route-and-data",
+        title: "路由与数据来源",
+        markdown: `公开入口是 /paper/:source/:paperId。若浏览器标签已有论文快照则立即显示，否则按 source 和 paperId 拉取详情；文库中的私有记录还可补充用户上传 PDF 和编辑过的元数据。加载失败、页签失效与找不到论文分别显示可解释状态。`,
+      },
+      {
+        id: "content",
+        title: "页面内容",
+        markdown: `页首展示标题、年份、来源和作者，作者链接最多直接铺开 12 位，更多作者以总数收起。元数据按实际可用字段展示 DOI、发表日期、被引/参考文献计数、OA 和最多 12 个学科标签；摘要关键词最多显示 8 个。参考文献单独请求，返回为空不代表论文一定没有引用。`,
+      },
+      {
+        id: "actions",
+        title: "可用动作",
+        markdown: `动作行可打开用户上传 PDF、合法 OA 原文、上游原始链接，跳到引用区，收藏论文或翻译标题与摘要。上传 PDF 只在文库记录确实有私有文件时出现；本地自由文件没有上游来源，因此不会显示普通收藏和作者外链。读者笔记与讨论目前只是“研究论坛即将上线”占位。`,
+      },
+    ],
+  },
+  {
+    slug: "open-access-and-paper-translation",
+    title: "开放获取全文与论文翻译",
+    summary:
+      "优先使用论文自带的 OA 线索，并在有 DOI 时查询合法开放版本；登录后可翻译标题和摘要。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["所有访客", "登录用户", "研究者"],
+    aliases: ["OA 全文", "Unpaywall", "AI 翻译", "摘要翻译"],
+    sourcePaths: [
+      "frontend-user/src/features/browser/api/open-access.ts",
+      "frontend-user/src/features/browser/components/paper-detail/PaperMetadataBlock.tsx",
+      "frontend-user/src/shared/components/TranslatePaperButton.tsx",
+      "frontend-user/src/shared/api/translate.ts",
+    ],
+    related: ["paper-detail-and-actions", "pdf-reader", "ai-usage-quota"],
+    sections: [
+      {
+        id: "oa",
+        title: "开放获取查找",
+        markdown: `论文自带 openAccessPdf 时直接使用该链接；没有直链但有 DOI 时，前端请求站内 OA 接口，由后端查询并缓存 Unpaywall 结果。页面会区分 PDF 与普通免费全文，并标注 via Unpaywall。找到元数据页或原始链接不等于找到了可合法下载的全文。`,
+      },
+      {
+        id: "translation",
+        title: "AI 翻译",
+        markdown: `只有标题或摘要包含需要翻译的文字时才显示按钮。首次翻译要求登录并消耗相应 AI 额度，完成后缓存中文标题和摘要；之后“AI 翻译/原文”只在当前已缓存内容间切换，不会重复请求。额度耗尽由全局恢复流程承接。`,
+      },
+      {
+        id: "limits",
+        title: "边界",
+        markdown: `翻译覆盖标题和摘要，不是整篇 PDF 翻译，也不会改写论文原始记录。OA 查询依赖 DOI 和第三方覆盖，失败时用户仍可尝试上游原始页；Scholay 不以“OA”标签替代版权和许可判断。`,
+      },
+    ],
+  },
+  {
+    slug: "author-profile-page",
+    title: "作者详情页",
+    summary: "查看作者身份线索、研究主题、代表作、合作作者和年度发表趋势。",
+    category: "discovery",
+    kind: "page",
+    status: "current",
+    audience: ["所有访客", "研究者"],
+    aliases: ["学者档案", "作者画像", "Author Detail"],
+    sourcePaths: [
+      "frontend-user/src/features/browser/components/AuthorDetailPane.tsx",
+      "frontend-user/src/features/browser/components/author-detail/AuthorHero.tsx",
+      "frontend-user/src/features/browser/components/author-detail/TopicSection.tsx",
+      "frontend-user/src/features/browser/components/author-detail/FeaturedPapersCol.tsx",
+      "frontend-user/src/shared/api/authors.ts",
+    ],
+    related: ["authors-and-journals", "paper-detail-and-actions"],
+    sections: [
+      {
+        id: "entry",
+        title: "入口与状态",
+        markdown: `作者入口是 /author/:source/:authorId。搜索或论文详情打开作者时会建立浏览器标签；直接访问深链则补拉作者详情。页面提供加载、接口失败和页签失效状态，同名作者、来源归并和机构字段都只是数据线索，不代表人工完成身份认证。`,
+      },
+      {
+        id: "derived-sections",
+        title: "派生内容",
+        markdown: `页面最多请求 50 篇作者论文来派生主题和趋势。代表作按引用数排序取前 5；合作作者排除本人后按共同出现次数取前 8；年度柱状图也基于这批返回论文。因此这些区块是当前样本的摘要，不一定覆盖作者全部生涯。`,
+      },
+      {
+        id: "navigation",
+        title: "继续浏览",
+        markdown: `代表作可进入标准论文详情，合作作者可继续打开作者标签。缺少 authorId 的作者名不会生成虚假详情链接；不同 source 的作者 ID 不应跨源拼接。`,
+      },
+    ],
+  },
+  {
+    slug: "journal-detail-page",
+    title: "期刊详情页",
+    summary:
+      "集中查看期刊标识、收录来源、分区、影响指标、年度趋势和投稿决策信息。",
+    category: "discovery",
+    kind: "page",
+    status: "current",
+    audience: ["所有访客", "作者", "研究者"],
+    aliases: ["Journal Detail", "期刊指标", "选刊信息"],
+    sourcePaths: [
+      "frontend-user/src/features/browser/components/JournalDetailPane.tsx",
+      "frontend-user/src/shared/components/JournalDecisionCard.tsx",
+      "frontend-user/src/shared/components/JournalMetricsGroups.tsx",
+      "frontend-user/src/shared/components/JournalTrendChart.tsx",
+      "frontend-user/src/shared/api/journals.ts",
+    ],
+    related: [
+      "authors-and-journals",
+      "journal-search-page",
+      "journal-submission-resources",
+    ],
+    sections: [
+      {
+        id: "route-and-loading",
+        title: "入口与完整详情",
+        markdown: `详情支持 /journal/:id 和带 SEO slug 的 /journal/:id/:slug。已有浏览器标签可先显示基础信息，随后仍按 id 请求 full 详情，补充分组指标、年度趋势和投稿资源；权威 slug 到达后会替换为规范 URL。无效 id、加载失败和页签失效都有独立空态。`,
+      },
+      {
+        id: "decision-data",
+        title: "选刊信息",
+        markdown: `页面可展示 ISSN、出版社、国家、期刊或会议类型、来源数量、JCR/中科院/CCF、影响因子、OpenAlex h-index、OA 和预警信号。指标按来源可用性出现，年度趋势数据不足时会隐藏；ISSN 可跳官方 ISSN Portal。决策卡是多个指标的摘要，不构成投稿保证。`,
+      },
+      {
+        id: "current-boundary",
+        title: "当前边界",
+        markdown: `详情支持复制与分享，但当前没有稳定的“收藏期刊”写动作。旧设计中的评分、评论和更完整社区收录信息仍待研究论坛能力；空字段不会用虚构值补齐。`,
+      },
+    ],
+  },
+  {
+    slug: "journal-search-page",
+    title: "期刊检索页",
+    summary:
+      "按刊名、ISSN、主办机构和五类质量条件筛选期刊，每页查看 8 条结果。",
+    category: "discovery",
+    kind: "page",
+    status: "current",
+    audience: ["所有访客", "作者", "研究者"],
+    aliases: ["期刊搜索", "Journal Search", "查期刊"],
+    sourcePaths: [
+      "frontend-user/src/features/journals/pages/JournalSearchPage.tsx",
+      "frontend-user/src/features/journals/components/JournalSearchResults.tsx",
+      "frontend-user/src/features/journals/components/JournalSidebar.tsx",
+      "frontend-user/src/features/journals/hooks/useJournalUrlFilters.ts",
+      "frontend-user/src/features/journals/types.ts",
+    ],
+    related: [
+      "journal-detail-page",
+      "journal-rankings-and-directories",
+      "authors-and-journals",
+    ],
+    sections: [
+      {
+        id: "query",
+        title: "搜索与默认列表",
+        markdown: `入口是 /journals/search。搜索框接受刊名、ISSN 或主办机构；没有关键词时也显示默认高质量列表，默认按影响因子降序。关键词、页码、排序和筛选写入 URL，从详情返回时可以恢复。每页固定 8 条，上游没有可靠 total 时分页只使用上一页、下一页和 hasMore。`,
+      },
+      {
+        id: "filters",
+        title: "五组筛选",
+        markdown: `中科院分区可选 1–4 区，JCR 可选 Q1–Q4，影响因子阈值为 5/10/20/30，CCF 为 A/B/C，出版社预设包括 Nature Portfolio、Elsevier、IEEE、Springer 和 ACM。每组单选，“不限”会清除该维度；任一变化自动回第一页并重新查询。`,
+      },
+      {
+        id: "sort-and-states",
+        title: "排序与页面状态",
+        markdown: `排序提供相关度、影响因子和最新；这里“最新”的后端映射实际按 OpenAlex works count 降序，不应把它解释为创刊日期。页面显示检索中、接口错误和无匹配空态；期刊卡可进入详情。侧栏文件夹只是前往文库的快捷入口，不代表期刊已经被收藏。`,
+      },
+    ],
+  },
+  {
+    slug: "journal-rankings-and-directories",
+    title: "期刊榜单与分类目录",
+    summary:
+      "通过四个预设质量榜单，以及学科、国家、开放获取和预警目录发现期刊。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["所有访客", "作者", "研究者"],
+    aliases: ["SCI 一区", "中科院一区", "CCF A", "期刊目录"],
+    sourcePaths: [
+      "frontend-user/src/features/journals/routes.tsx",
+      "frontend-user/src/features/journals/pages/JournalCollectionPage.tsx",
+      "frontend-user/src/features/journals/pages/JournalHubBrowsePage.tsx",
+      "frontend-user/src/features/journals/pages/JournalHubListPage.tsx",
+      "frontend-user/src/features/journals/api/journal-hubs.ts",
+    ],
+    related: ["journal-search-page", "journal-detail-page"],
+    sections: [
+      {
+        id: "rankings",
+        title: "四个预设榜单",
+        markdown: `现行榜单是 JCR Q1（/journals/sci-q1）、中科院 1 区（/journals/cas-zone1）、CCF A（/journals/ccf-a）和影响因子至少 10（/journals/high-impact-factor）。它们复用期刊搜索数据与分页，只是预设筛选并提供面向该榜单的说明。`,
+      },
+      {
+        id: "directories",
+        title: "目录发现",
+        markdown: `/journals/browse 汇总分类、国家、OA、预警入口和最近更新的 20 本期刊。分类与国家列表使用路径页码，OA 列表也可分页，列表页每页 50；预警页重点保留风险入口。目录与榜单都是发现工具，不等于官方评价或投稿推荐。`,
+      },
+      {
+        id: "metric-caution",
+        title: "指标口径",
+        markdown: `JCR Q1 与中科院 1 区是不同体系，CCF 只覆盖相应计算机目录，影响因子阈值也不等于学科内排名。榜单文案用于解释筛选，不应把某一标签扩写为“适合所有研究者”或“必然录用”。`,
+      },
+    ],
+  },
+  {
+    slug: "journal-submission-resources",
+    title: "期刊投稿资源下载",
+    summary: "在期刊详情中下载可用的作者指南 Markdown 和 LaTeX 模板 zip。",
+    category: "discovery",
+    kind: "feature",
+    status: "current",
+    audience: ["作者", "Max 会员"],
+    aliases: ["Guide for Authors", "LaTeX 模板", "投稿须知"],
+    sourcePaths: [
+      "frontend-user/src/shared/components/JournalSubmissionCard.tsx",
+      "frontend-user/src/shared/api/journals.ts",
+      "frontend-user/src/features/browser/components/JournalDetailPane.tsx",
+    ],
+    related: ["journal-detail-page", "membership", "prism"],
+    sections: [
+      {
+        id: "availability",
+        title: "什么时候显示",
+        markdown: `完整期刊详情的 submission 数据明确标记 has_guideline 或 has_latex 时才显示卡片。作者指南下载为 .md，LaTeX 模板为 .zip；若上游提供 class 名，界面一并显示。没有资源时整个区块隐藏，而不是显示一个不可用占位。`,
+      },
+      {
+        id: "membership",
+        title: "会员限制",
+        markdown: `资源下载是 Max 专享。Max 用户点击后由后端代理获取文件，浏览器不会拿到上游真实地址；访客、Free 和 Pro 显示锁定状态并进入定价页。下载失败会保留页面并提示重试。`,
+      },
+      {
+        id: "boundary",
+        title: "使用边界",
+        markdown: `下载到的指南和模板是辅助材料，可能随期刊更新。用户在投稿前仍应访问期刊官网核对最新格式、许可与要求；Scholay 提供资源不等于代投或保证材料合规。`,
+      },
+    ],
+  },
+  {
+    slug: "paper-favorites",
+    title: "论文收藏与取消收藏",
+    summary:
+      "把论文保存到个人文献集的指定文件夹，并理解重复收藏和取消收藏的真实副作用。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["登录用户", "研究者"],
+    aliases: ["收藏论文", "取消收藏", "加入文件夹"],
+    sourcePaths: [
+      "frontend-user/src/shared/components/FavoritePaperButton.tsx",
+      "frontend-user/src/shared/api/user-library-mutations.ts",
+      "frontend-user/src/features/library/components/CollectFolderPicker.tsx",
+      "frontend-user/src/stores/pending-action.store.ts",
+      "frontend-user/src/stores/collect-picker.store.ts",
+    ],
+    related: ["literature-library", "paper-detail-and-actions", "mobile-feed"],
+    sections: [
+      {
+        id: "favorite",
+        title: "收藏流程",
+        markdown: `统一收藏按钮用于搜索、矩阵、详情和移动 Feed。未登录点击时会保存一次 pending action、打开登录，并在成功后尝试自动收藏；登录后若调用方未指定文件夹，会打开全局文件夹选择器，未选择具体文件夹则由后端落入默认文件夹。`,
+      },
+      {
+        id: "duplicate",
+        title: "重复收藏",
+        markdown: `收藏以用户、source 和 source_paper_id 幂等。论文已经存在时返回 already_existed，界面如实提示“已在文件夹中”，不会新增一份副本，也不会因为用户这次选了另一个文件夹就静默搬动原记录。需要移动时应去文库执行移动。`,
+      },
+      {
+        id: "unfavorite",
+        title: "取消收藏是删除记录",
+        markdown: `已收藏按钮再次点击会先显示确认，再按 source 和论文 ID 删除私有文库行。这个动作不只是去掉星标：若该行包含用户上传 PDF、编辑元数据或处理状态，也可能一并丢失。文库场景会使用更强的数据损失提示；成功后刷新所有文库缓存。`,
+      },
+    ],
+  },
+  {
+    slug: "pdf-upload-resolve-and-relink",
+    title: "PDF 上传、识别与重新关联",
+    summary:
+      "把本地 PDF 放入个人文献集，核对三源匹配候选，并在识别错误时重新关联或保留自由文件。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["登录用户", "研究者"],
+    aliases: ["上传 PDF", "PDF 解析", "文献识别", "重新关联"],
+    sourcePaths: [
+      "frontend-user/src/features/library/api/pdf.ts",
+      "frontend-user/src/features/library/api/upload-resolve.ts",
+      "frontend-user/src/features/library/api/relink.ts",
+      "frontend-user/src/features/library/components/library-import-dialog/PdfUploadTab.tsx",
+      "frontend-user/src/features/library/components/manage/RelinkPanel.tsx",
+      "frontend-user/src/features/library/components/shared/validate-pdf.ts",
+    ],
+    related: ["literature-library", "pdf-reader", "paper-favorites"],
+    sections: [
+      {
+        id: "validation",
+        title: "文件预检",
+        markdown: `只接受 .pdf。服务端上限为 50 MiB，前端实际放行上限是 50 MiB 减 4 KiB，用于避开 multipart 协议开销；还会读取前 5 个字节确认 %PDF- 文件头。文件名超过 250 个 Unicode 字符只警告，后端会安全截短，而不是阻止上传。`,
+      },
+      {
+        id: "resolve",
+        title: "流式识别与人工确认",
+        markdown: `上传后通过 SSE 依次接收 parsed、searched 和 ready：提取标题、摘要、DOI、arXiv、作者、年份等，再跨来源寻找候选。用户必须选择候选并以 link 保存，或拒绝候选以 free 自由文件保存；扫描件无文本会给降级警告，但仍允许保存 PDF。最终确认搬运对象并落库，前端为该步骤保留 120 秒超时。`,
+      },
+      {
+        id: "relink",
+        title: "重新关联与合并",
+        markdown: `已有记录可按当前标题或覆盖标题重新检索，再明确选择新候选。若目标论文已在文库，重关联会把 PDF 和 AI 状态合并到现有行并删除当前重复行；否则原地替换上游关联。也可取消关联回到 local 自由文件，先固化当前显示元数据，再清除上游快照。`,
+      },
+    ],
+  },
+  {
+    slug: "citation-dialog",
+    title: "引用弹窗与默认格式",
+    summary:
+      "从论文卡片、详情或移动 Feed 生成五种引用文本，复制并保存个人默认格式。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["所有访客", "研究者", "学生"],
+    aliases: ["引用本文", "参考文献复制", "BibTeX", "GB/T 7714"],
+    sourcePaths: [
+      "frontend-user/src/shared/components/CitationDialog.tsx",
+      "frontend-user/src/shared/components/CitationProse.tsx",
+      "frontend-user/src/shared/lib/citation.ts",
+      "frontend-user/src/features/browser/components/paper-detail/PaperFooter.tsx",
+    ],
+    related: ["citation-generator", "paper-detail-and-actions", "mobile-feed"],
+    sections: [
+      {
+        id: "formats",
+        title: "五种格式",
+        markdown: `统一格式集合是 GB/T 7714、BibTeX、MLA、APA 和 Chicago。BibTeX 使用等宽代码块，其他格式按引文段落渲染；论文详情内联引用区和全局弹窗共用同一生成器，因此格式算法不会各维护一份。`,
+      },
+      {
+        id: "interaction",
+        title: "切换、默认与复制",
+        markdown: `单击格式名只切换本次显示，双击会把该格式写入本机作为默认并给出提示。尚未保存偏好时，全局弹窗默认 APA，论文详情内联区默认 BibTeX；保存后两处都会读取同一偏好。复制会去除仅用于页面展示的斜体标记，并报告剪贴板成功或失败。`,
+      },
+      {
+        id: "quality",
+        title: "元数据边界",
+        markdown: `格式化只使用当前论文的作者、题名、年份、期刊、卷期、页码和标识符。缺失或错误元数据不会因切换格式自动修复；正式投稿前仍应核对原论文与目标期刊要求。需要通过 DOI 或手工录入时可使用独立引用生成器。`,
+      },
+    ],
+  },
+  {
+    slug: "claw-sessions",
+    title: "Claw 会话与历史",
+    summary:
+      "创建、切换、重命名和删除自己的 Claw 会话，并在长历史中分批加载较早轮次。",
+    category: "research-ai",
+    kind: "feature",
+    status: "current",
+    audience: ["Claw 用户", "研究者"],
+    aliases: ["Claw 历史", "新对话", "会话重命名"],
+    sourcePaths: [
+      "frontend-user/src/features/claw/routes.tsx",
+      "frontend-user/src/features/claw/api/session.ts",
+      "frontend-user/src/features/claw/components/sidebar/ClawSessionList.tsx",
+      "frontend-user/src/features/claw/components/sidebar/ClawSessionDialogs.tsx",
+      "frontend-user/src/features/claw/hooks/makeAgentConversationHook.ts",
+    ],
+    related: [
+      "claw",
+      "claw-attachments-and-references",
+      "claw-stream-tool-states",
+    ],
+    sections: [
+      {
+        id: "routes",
+        title: "会话入口",
+        markdown: `/claw 表示准备新对话或恢复当前入口，/claw/:sessionId 打开指定会话；移动端使用对应 /m/claw 路径。会话列表按最近访问时间组织，只能读取当前账户拥有的会话。切换会话会同步 URL、激活后端会话并为该会话重新连接实时通道。`,
+      },
+      {
+        id: "management",
+        title: "管理动作",
+        markdown: `侧栏支持新建、重命名和删除。标题不能为空；删除会先确认，删除当前会话后尝试切换到剩余会话，没有剩余项时回到新对话状态。每个会话的模型选择由服务端保存，刷新或换设备后以后端 session 的 pinned model 为准。`,
+      },
+      {
+        id: "history-window",
+        title: "长历史加载",
+        markdown: `为了避免一次解析和渲染上万轮，前端初始请求最近 100 个用户轮，“加载更早”每次再增加 100；页面初始渲染窗口为 60 轮，再按 60 增量展开。历史接口显式携带 session_id，避免切换会话时把 A 的消息缓存到 B。`,
+      },
+    ],
+  },
+  {
+    slug: "claw-attachments-and-references",
+    title: "Claw 附件、文库引用与 Skill",
+    summary:
+      "向 Claw 消息加入受支持的图片、文档、文库资料和已安装 Skill，并理解格式与数量限制。",
+    category: "research-ai",
+    kind: "feature",
+    status: "current",
+    audience: ["Claw 用户", "研究者"],
+    aliases: ["Claw 上传文件", "文库引用", "会话 Skill"],
+    sourcePaths: [
+      "frontend-user/src/shared/hooks/useComposerAttachments.ts",
+      "frontend-user/src/shared/components/chat/LibraryReferencePicker.tsx",
+      "frontend-user/src/features/claw/components/chat/ComposerSkillsButton.tsx",
+      "frontend-user/src/features/claw/components/chat/ChatComposer.tsx",
+      "frontend-user/src/shared/api/agent-attach.ts",
+    ],
+    related: [
+      "claw",
+      "claw-sessions",
+      "community-skills",
+      "literature-library",
+    ],
+    sections: [
+      {
+        id: "attachment-limits",
+        title: "附件限制",
+        markdown: `一条消息最多 10 个附件。JPEG/JPG、PNG、WebP、GIF 图片每个最多 5 MB；PDF、DOCX、XLSX、PPTX、ODT、RTF 和常见文本/代码文件每个最多 30 MB。只有上传完成的附件 DTO 会随消息发送，仍在上传、失败或已移除的项目不会进入 Agent 上下文。`,
+      },
+      {
+        id: "unsupported",
+        title: "不支持的格式",
+        markdown: `SVG 和 BMP 不作为视觉附件接收，TIFF、HEIC、AVIF 等超出视觉白名单的图片也会拒绝；旧版 Office 需另存为 docx/xlsx/pptx。SPSS、Stata、SAS 专有二进制格式会引导转 CSV 或 XLSX，并提醒中文 Windows CSV 可能使用 GBK。`,
+      },
+      {
+        id: "references-skills",
+        title: "文库引用与 Skill",
+        markdown: `文库选择器把用户有权访问的论文作为结构化引用加入当前消息，不等于上传原始 PDF；是否有全文仍取决于文库记录。已安装 Skill 提供任务指南，用户可在会话中选择，但会话最多启用数量及账户安装上限以后端为准，工具权限不会因 Skill 文本自动扩大。`,
+      },
+    ],
+  },
+  {
+    slug: "claw-stream-tool-states",
+    title: "Claw 流式连接、工具过程与异常状态",
+    summary:
+      "识别消息送达、工具执行、停止、停滞、断线、额度阻断和多标签页接管等会话状态。",
+    category: "research-ai",
+    kind: "feature",
+    status: "current",
+    audience: ["Claw 用户", "支持人员"],
+    aliases: ["Claw 卡住", "工具调用", "消息未发送", "WebSocket 重连"],
+    sourcePaths: [
+      "frontend-user/src/features/claw/hooks/makeAgentConversationHook.ts",
+      "frontend-user/src/shared/hooks/useAgentSocket.ts",
+      "frontend-user/src/features/claw/components/chat/ConnectionBadge.tsx",
+      "frontend-user/src/shared/components/chat/ToolCallBlock.tsx",
+      "frontend-user/src/shared/components/chat/StallNotice.tsx",
+      "frontend-user/src/shared/components/AgentDisplacedBanner.tsx",
+    ],
+    related: [
+      "claw",
+      "claw-sessions",
+      "quota-block-and-recovery",
+      "agent-runtime",
+    ],
+    sections: [
+      {
+        id: "delivery",
+        title: "发送与送达",
+        markdown: `浏览器发送后等待后端 user_ack 或本轮第一帧作为送达证据。10 秒内两者都没有时，本轮转成“未发送”并提供一键重发；迟到 ack 到达会撤销误报。重试复用同一发送链路与 client turn 标识，服务端还会按重复消息去重。`,
+      },
+      {
+        id: "stream",
+        title: "流式过程与停止",
+        markdown: `连接中的 thinking、research、工具组、问题、正文和 artifact 会按事件折叠成一轮。用户请求停止后等待终止帧，20 秒仍未收尾时前端用兜底状态释放界面；这不应被解读为 Agent 一定在服务端瞬间停止。系统繁忙会按服务端策略有限重试。`,
+      },
+      {
+        id: "abnormal",
+        title: "停滞、断线与接管",
+        markdown: `忙碌状态连续 180 秒没有内容帧会显示软性停滞提示，用户可继续等待或停止，本提示不会自动杀死长任务。WebSocket 最多按指数退避重连 8 次，间隔封顶 60 秒；另一标签页接管同一会话时显示 displaced 横幅，避免两个窗口同时把自己当作主连接。`,
+      },
+    ],
+  },
+  {
+    slug: "help-center-and-qa",
+    title: "帮助中心与学术问答",
+    summary:
+      "按主题浏览后台维护的科研长问答，并在详情页使用目录、相关问答和产品快捷入口。",
+    category: "knowledge",
+    kind: "page",
+    status: "current",
+    audience: ["所有访客", "研究者", "学生"],
+    aliases: ["Help Center", "QA", "常见问题", "学术问答"],
+    sourcePaths: [
+      "frontend-user/src/features/help/pages/HelpCenterPage.tsx",
+      "frontend-user/src/features/help/pages/QADetailPage.tsx",
+      "frontend-user/src/features/help/api/content.ts",
+      "frontend-user/src/features/help/components/ArticleRenderer.tsx",
+    ],
+    related: [
+      "feedback-and-support",
+      "resource-and-blog-center",
+      "service-policies",
+    ],
+    sections: [
+      {
+        id: "hub",
+        title: "问答首页",
+        markdown: `/help 是现行学术问答首页，旧 /qa 列表入口会转到这里。页面从内容 API 读取 qa 文章，按后台给出的 category 分组，并在分类多于一个时生成页内主题锚点；加载中显示明确状态，页面底部保留关于、反馈、联系和政策入口。`,
+      },
+      {
+        id: "detail",
+        title: "问答详情",
+        markdown: `/qa/:slug 保留稳定详情 URL。详情展示分类、作者、阅读时长、正文目录和与分类相关的产品 CTA，并最多选出 3 篇相关问答。找不到文章或请求失败时返回 /help，不展示一个内容为空的伪详情页。`,
+      },
+      {
+        id: "source",
+        title: "内容来源",
+        markdown: `问答正文由后端内容 API 提供，前端负责结构化渲染和 SEO，不把 Wiki 本身当作问答数据库。学术问答是解释和教育内容，涉及平台限制、会员和法律边界时仍应链接对应现行规则词条。`,
+      },
+    ],
+  },
+  {
+    slug: "resource-and-blog-center",
+    title: "学术资源中心与产品博客",
+    summary:
+      "在同一个内容中心切换原创学术资源与产品博客，同时保留两套稳定列表和详情 URL。",
+    category: "knowledge",
+    kind: "page",
+    status: "current",
+    audience: ["所有访客", "研究者", "学生"],
+    aliases: ["资源中心", "产品博客", "Academic Resources"],
+    sourcePaths: [
+      "frontend-user/src/features/help/pages/ResourceCenterPage.tsx",
+      "frontend-user/src/features/help/pages/BlogDetailPage.tsx",
+      "frontend-user/src/features/help/pages/ResourceDetailPage.tsx",
+      "frontend-user/src/features/help/api/content.ts",
+      "frontend-user/src/shared/components/TableOfContents.tsx",
+    ],
+    related: ["help-center-and-qa", "research-news"],
+    sections: [
+      {
+        id: "two-tabs",
+        title: "两个列表入口",
+        markdown: `/resources 默认打开学术资源，按内容分类组成多个 section；/blog 打开产品博客，支持分类 chip、最新文章 Hero 和两列卡片。切换 Tab 会真正改变 URL，而不是只切本地状态，因此两套入口都可被收藏和建立独立 canonical。`,
+      },
+      {
+        id: "details",
+        title: "详情与继续阅读",
+        markdown: `资源详情使用 /resources/:slug，博客详情使用 /blog/:slug。正文支持目录、作者/日期/阅读时长、相关文章和回到产品的 CTA；无内容分类会给空态。文章是内容 API 的发布结果，页面展示的日期与作者应以该条记录为准。`,
+      },
+      {
+        id: "boundary",
+        title: "与资讯、帮助的区别",
+        markdown: `资源和博客是相对稳定的原创长文；/news 是持续更新的学术资讯；/help 与 /qa/:slug 是问题导向的帮助内容。三者可以互链，但不应把转载资讯当作官方产品规则，也不应把博客里的愿景当成已上线功能。`,
+      },
+    ],
+  },
+  {
+    slug: "share-cards-and-posters",
+    title: "分享卡片、短链与海报",
+    summary:
+      "为论文、期刊、文献文件夹和工具生成链接、二维码或图片，并在移动端调用系统分享。",
+    category: "knowledge",
+    kind: "feature",
+    status: "current",
+    audience: ["访客", "登录用户", "分享接收者"],
+    aliases: ["分享海报", "二维码分享", "复制口令", "保存图片"],
+    sourcePaths: [
+      "frontend-user/src/shared/components/share/ShareSheet.tsx",
+      "frontend-user/src/shared/components/share/ShareCard.tsx",
+      "frontend-user/src/shared/components/share/SharePoster.tsx",
+      "frontend-user/src/shared/components/share/CollectionSharePoster.tsx",
+      "frontend-user/src/shared/api/library-share.ts",
+    ],
+    related: ["library-sharing", "paper-detail-and-actions", "feature-tools"],
+    sections: [
+      {
+        id: "targets",
+        title: "四类分享对象",
+        markdown: `论文、期刊和文献文件夹由登录用户创建 /s/:token 短链；工具直接分享公开 /tools/:slug 路径，不创建文库 token。论文和期刊打开面板后自动创建永久、无提取码短链；文件夹由用户选择永久、7 天或 30 天，并可开启提取码。`,
+      },
+      {
+        id: "channels",
+        title: "链接、口令、二维码与系统分享",
+        markdown: `面板支持复制链接、保存图片和二维码。文件夹还可复制“链接 + 提取码”的纯文本口令；二维码会直接包含 code 参数，扫码者无需再手输。支持 Web Share API 的移动浏览器打开系统分享面板，否则复制链接并提示粘贴到微信。`,
+      },
+      {
+        id: "image",
+        title: "保存分享图",
+        markdown: `论文、期刊和工具使用富海报，文件夹使用包含整理人、篇目样本和二维码的集合海报。只有用户点击保存时才动态加载 html-to-image，并以 2 倍像素比导出 PNG；生成失败不会影响已经创建的短链。海报中的引用量、分区和摘要来自当前快照，不保证长期实时更新。`,
+      },
+    ],
+  },
+  {
+    slug: "mobile-feed",
+    title: "移动 Feed：论文、期刊与情报",
+    summary:
+      "在移动 Web 中上下滑动浏览论文、期刊和学术情报，横滑切换频道并下拉刷新。",
+    category: "mobile",
+    kind: "page",
+    status: "current",
+    audience: ["手机用户", "移动端研究者"],
+    aliases: ["刷论文", "刷期刊", "刷情报", "移动信息流"],
+    sourcePaths: [
+      "frontend-user/src/features/mobile/pages/FeedPage.tsx",
+      "frontend-user/src/features/mobile/pages/JournalFeedPage.tsx",
+      "frontend-user/src/features/mobile/pages/NewsPage.tsx",
+      "frontend-user/src/features/mobile/components/VerticalSwipeFeed.tsx",
+      "frontend-user/src/features/mobile/api/feed.ts",
+      "frontend-user/src/features/mobile/api/journal-feed.ts",
+    ],
+    related: [
+      "mobile-web",
+      "paper-favorites",
+      "research-news",
+      "citation-dialog",
+    ],
+    sections: [
+      {
+        id: "navigation",
+        title: "三条信息流",
+        markdown: `/m/feed 是论文，/m/feed/journals 是期刊，/m/feed/news 是情报。三者共用纵向一屏一卡与提前加载机制；横向手势按论文 → 期刊 → 情报切换，不干扰纵向滑动。加载、加载更多、错误、空内容、下拉刷新和下一张预览都有统一状态。`,
+      },
+      {
+        id: "papers-journals",
+        title: "论文与期刊的种子",
+        markdown: `论文每批 10 篇，按 seed 轮换 STC、OpenAlex、PubMed、主题和 offset，偏向近年内容；期刊每批 10 本，按影响因子数值降序，并用 seed 抖动起始页。两条流最多各翻 60 页，连续 4 个空页会停止；前 3 页和当前位置写入本机，同一 seed 返回时接着浏览。下拉刷新会换 seed。`,
+      },
+      {
+        id: "news-actions",
+        title: "情报与卡片动作",
+        markdown: `情报每批 8 条，可切“实时”和“热榜”，使用确定性顺序；下拉刷新刷新同一查询，不保存随机 seed 或阅读位置。论文卡支持打开详情、引用以及登录后的收藏/取消收藏；期刊卡打开标准期刊详情。局部收藏状态会即时更新，最终仍以后端文库写入为准。`,
+      },
+    ],
+  },
+];
