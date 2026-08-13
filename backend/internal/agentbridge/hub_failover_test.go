@@ -17,6 +17,7 @@ type fakeCatalog struct {
 	systemMain  string
 	provider    map[string]string // modelID → providerKey("" = 默认端点)
 	forbidden   map[string]bool   // 该用户不可用(档位不够 / 未上架)
+	price       map[string]int64  // modelID → 微元/token(缺项 = 目录 miss → cost 0)
 }
 
 func (c *fakeCatalog) Resolve(purpose string) string {
@@ -38,6 +39,13 @@ func (c *fakeCatalog) MaxOutput(string) int        { return 0 }
 func (c *fakeCatalog) Vision(string) bool          { return false }
 func (c *fakeCatalog) CostPerToken(string) float64 { return 0 }
 func (c *fakeCatalog) ProviderKey(m string) string { return c.provider[m] }
+
+// PriceUsage 测试替身:未在 price 里登记的模型 → cost=0(模拟目录 miss)。
+// 登记了就按「每 token 该单价微元」线性计价,便于在测试里把成本算成整数。
+func (c *fakeCatalog) PriceUsage(model string, in, out, cr, cw int) (int64, int64) {
+	total := int64(in) + int64(out) + int64(cr) + int64(cw)
+	return total, total * c.price[model]
+}
 
 type testErr string
 
