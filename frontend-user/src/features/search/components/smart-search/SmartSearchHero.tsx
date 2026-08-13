@@ -63,7 +63,7 @@ export function SmartSearchHero({
                 <HeroSpark />
                 <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 text-2xl font-bold text-foreground">
                   <span>和</span>
-                  <BrandLogo size="sm" className="text-2xl" />
+                  <BrandLogo variant="wordmark" height={17} />
                   <span>一起找论文</span>
                 </h2>
               </div>
