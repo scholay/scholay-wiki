@@ -22,6 +22,7 @@ import type {
   WikiNavCategoryMeta,
   WikiNavNode,
   WikiNavTrail,
+  WikiSectionBlock,
 } from "../types";
 
 export {
@@ -30,6 +31,12 @@ export {
   WIKI_STATUS_LABEL,
 } from "./categories";
 export { WIKI_NAV_CATEGORIES } from "./navigation";
+export {
+  WIKI_PRODUCT_MENUS,
+  resolveWikiProductMenu,
+  resolveWikiProductMenuFromNavCategory,
+} from "./product-menus";
+export { WIKI_START_PATHS } from "./start-paths";
 
 export const WIKI_ARTICLES: WikiArticle[] = [
   ...administrationArticles,
@@ -222,6 +229,29 @@ export function searchWikiArticles(
     .map(({ article }) => article);
 }
 
+export function wikiSectionPlainText(
+  section: WikiArticle["sections"][number],
+): string {
+  const tableText = section.table
+    ? [
+        ...section.table.columns.map((column) => column.header),
+        ...section.table.rows.flatMap((row) =>
+          Object.values(row).flatMap((cell) => {
+            if (typeof cell === "string") return [cell];
+            if (Array.isArray(cell)) {
+              return cell.flatMap((item) => [item.label, item.href]);
+            }
+            return [cell.label, cell.href];
+          }),
+        ),
+      ].join(" ")
+    : "";
+  const guidanceText = (section.blocks ?? [])
+    .flatMap(wikiBlockSearchText)
+    .join(" ");
+  return `${section.title} ${section.markdown} ${tableText} ${guidanceText}`;
+}
+
 function articleScore(article: WikiArticle, needle: string): number {
   const category = WIKI_CATEGORIES.find(
     (item) => item.slug === article.category,
@@ -243,27 +273,7 @@ function articleScore(article: WikiArticle, needle: string): number {
       .filter(Boolean)
       .join(" "),
   );
-  const body = normalize(
-    article.sections
-      .map((section) => {
-        const tableText = section.table
-          ? [
-              ...section.table.columns.map((column) => column.header),
-              ...section.table.rows.flatMap((row) =>
-                Object.values(row).flatMap((cell) => {
-                  if (typeof cell === "string") return [cell];
-                  if (Array.isArray(cell)) {
-                    return cell.flatMap((item) => [item.label, item.href]);
-                  }
-                  return [cell.label, cell.href];
-                }),
-              ),
-            ].join(" ")
-          : "";
-        return `${section.title} ${section.markdown} ${tableText}`;
-      })
-      .join(" "),
-  );
+  const body = normalize(article.sections.map(wikiSectionPlainText).join(" "));
 
   if (title === needle) return 100;
   if (title.includes(needle)) return 70;
@@ -272,6 +282,42 @@ function articleScore(article: WikiArticle, needle: string): number {
   if (metadata.includes(needle)) return 20;
   if (body.includes(needle)) return 10;
   return 0;
+}
+
+function wikiBlockSearchText(block: WikiSectionBlock): string[] {
+  switch (block.type) {
+    case "markdown":
+    case "table":
+    case "embeds":
+      return [];
+    case "prompt-tabs":
+      return [
+        block.group.title,
+        block.group.description ?? "",
+        ...block.group.options.flatMap((option) => [
+          option.label,
+          option.prompt,
+        ]),
+      ];
+    case "article-link":
+      return [
+        block.card.title ?? "",
+        block.card.description ?? "",
+        block.card.articleSlug,
+      ];
+    case "tip":
+      return [block.tip.text, block.tip.link?.label ?? ""];
+    case "next-steps":
+      return [
+        block.group.title ?? "",
+        block.group.description ?? "",
+        ...block.group.items.flatMap((item) => [
+          item.title ?? "",
+          item.description,
+          item.articleSlug,
+        ]),
+      ];
+  }
 }
 
 function navLabelsForArticle(articleSlug: string): string[] {

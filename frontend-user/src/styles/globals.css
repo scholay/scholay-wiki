@@ -61,6 +61,9 @@
  * ============================================================================= */
 
 :root {
+  /* Wiki 独立暗色页面底：同时作为 index.html theme-color 字面镜像的真源。 */
+  --wiki-dark-background: #0B0B0D;
+
   /* ===========================================================================
    * 一、色阶原语 (primitives)
    * ---------------------------------------------------------------------------
@@ -850,7 +853,7 @@
 }
 
 /* =============================================================================
- * ⚠️ 暗色态已移除 (2026-07)
+ * ⚠️ 产品壳的全站暗色态已移除 (2026-07)
  * -----------------------------------------------------------------------------
  * 改造前存在 .dark 块(18 个 token 覆写)与 stores/theme.store.ts,但实测:
  *   - useApplyTheme() 确实在 App.tsx:59 被调用,切换机制完整
@@ -858,8 +861,8 @@
  *   - theme 默认 'light' 且 persist,'system' 分支不可达
  *   → .dark 类永远不会被挂上,那 18 个覆写从来没有生效过
  * 按「快速落地」的设计前提,连同 theme.store.ts 一并移除,不留跑不到的代码。
- * 将来若要做暗色态: 玄墨 12 档正好可与亮色互为镜像
- * (亮色从亮端取 surface / 暗端取 text,暗色反过来),基于新色阶重新推导即可。
+ * Wiki 后来增加的夜间模式只在 `.wiki-doc-surface` 子树内覆写语义 token；
+ * 它不恢复全站 `.dark` / store，也不改变 `:root` 产品 token。
  * ============================================================================= */
 
 /* =============================================================================
@@ -1578,6 +1581,172 @@
 }
 
 /**
+ * Wiki 夜间模式只属于文档路由，不复用或恢复全站 `.dark`。
+ * `.wiki-theme-portal` 承接 Radix Portal：Portal 落在 body 下，无法继承
+ * `.wiki-doc-surface` 的变量，必须显式带同一 data-wiki-theme。
+ */
+.wiki-doc-surface[data-wiki-theme="dark"],
+.wiki-theme-portal[data-wiki-theme="dark"] {
+  color-scheme: dark;
+
+  --background: var(--wiki-dark-background);
+  --surface-card: #111114;
+  --surface-1: #18181c;
+  --surface-2: #202026;
+  --surface-3: #28282e;
+
+  --foreground: var(--ink-11);
+  --subtle-foreground: var(--ink-10);
+  --muted-foreground: var(--ink-9);
+  --faint-foreground: var(--ink-8);
+  --disabled-foreground: var(--ink-7);
+  --placeholder-foreground: color-mix(
+    in srgb,
+    var(--foreground) 55%,
+    transparent
+  );
+
+  --border-hairline: rgb(230 230 242 / 0.08);
+  --border: rgb(230 230 242 / 0.14);
+  --border-strong: rgb(230 230 242 / 0.24);
+  --divider: rgb(230 230 242 / 0.16);
+  --border-control: var(--ink-8);
+  --border-control-emphasis: var(--ink-10);
+
+  /* 深色背景上的品牌文字要用亮端，原品牌红/绿在 #111114 上不足 3:1。 */
+  --brand-red: var(--red-12);
+  --brand-green: var(--green-11);
+  --brand-amber: var(--amber-10);
+  --brand-red-soft: color-mix(
+    in srgb,
+    var(--brand-red) 16%,
+    var(--surface-card)
+  );
+  --brand-green-soft: color-mix(
+    in srgb,
+    var(--brand-green) 14%,
+    var(--surface-card)
+  );
+  --brand-amber-soft: color-mix(
+    in srgb,
+    var(--brand-amber) 16%,
+    var(--surface-card)
+  );
+  --amber-soft-bg: color-mix(
+    in srgb,
+    var(--brand-amber) 18%,
+    var(--surface-card)
+  );
+  --amber-soft-fg: var(--amber-10);
+
+  --status-success: var(--green-11);
+  --status-success-soft: color-mix(
+    in srgb,
+    var(--status-success) 14%,
+    var(--surface-card)
+  );
+  --status-error: var(--red-12);
+  --status-error-soft: color-mix(
+    in srgb,
+    var(--status-error) 16%,
+    var(--surface-card)
+  );
+  --status-warning: var(--amber-10);
+  --status-warning-soft: color-mix(
+    in srgb,
+    var(--status-warning) 16%,
+    var(--surface-card)
+  );
+  --status-running: var(--ink-9);
+  --status-running-soft: color-mix(
+    in srgb,
+    var(--status-running) 14%,
+    var(--surface-card)
+  );
+  --status-neutral: var(--ink-8);
+  --status-neutral-soft: color-mix(
+    in srgb,
+    var(--status-neutral) 14%,
+    var(--surface-card)
+  );
+  --status-info: #7aa2f7;
+  --status-info-soft: color-mix(
+    in srgb,
+    var(--status-info) 16%,
+    var(--surface-card)
+  );
+
+  --on-brand: var(--ink-1);
+  --on-dark: var(--ink-11);
+  --on-dark-muted: var(--ink-8);
+  --card: var(--surface-card);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--foreground);
+  --primary: var(--brand-red);
+  --primary-foreground: var(--on-brand);
+  --destructive: var(--status-error);
+  --destructive-foreground: var(--on-brand);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --input: var(--border);
+
+  --ring: rgb(255 255 255 / 0.5);
+  --ring-selected: rgb(255 255 255 / 0.14);
+  --ring-on-dark: rgb(255 255 255 / 0.14);
+  --ring-on-dark-emphasis: rgb(255 255 255 / 0.5);
+  --shadow-overlay:
+    0 12px 32px -6px rgb(0 0 0 / 0.65), 0 2px 8px -2px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --shadow-raised:
+    0 1px 3px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.04);
+
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* bootstrap 在 React 首绘前就会打标；先把浏览器画布同步为暗色，避免直达
+ * `/wiki` 时正文壳挂载前短暂闪出全站米白底。这里只改画布，不改根语义 token。 */
+html[data-wiki-theme="dark"] {
+  color-scheme: dark;
+  background-color: var(--wiki-dark-background);
+}
+html[data-wiki-theme="dark"] body {
+  background-color: var(--wiki-dark-background);
+}
+
+/*
+ * globals.css 的承载面可读性修正规则会在 `.bg-surface-card` 等元素自身
+ * 重新写回浅色 ramp；暗 Wiki 必须在更窄的 scope 内纠正。演示 canvas 在后文
+ * 独立恢复完整浅色主题，因此这里明确排除它的整棵子树。
+ */
+.wiki-doc-surface[data-wiki-theme="dark"]
+  :where(.bg-background, .bg-surface-card, .bg-card, .bg-popover):not(
+    .wiki-embed-canvas,
+    .wiki-embed-canvas *
+  ),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  :where(.bg-background, .bg-surface-card, .bg-card, .bg-popover):not(
+    .wiki-embed-canvas,
+    .wiki-embed-canvas *
+  ) {
+  --subtle-foreground: var(--ink-10);
+  --muted-foreground: var(--ink-9);
+  --faint-foreground: var(--ink-8);
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  :not(.wiki-embed-canvas, .wiki-embed-canvas *)::selection,
+.wiki-theme-portal[data-wiki-theme="dark"]
+  :not(.wiki-embed-canvas, .wiki-embed-canvas *)::selection {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--brand-red) 34%, transparent);
+}
+
+/**
  * Wiki 嵌入演示井 —— 凹进衬底 + 恢复产品 surface 色阶。
  * wiki-doc-surface 把正文树压成纯白；演示井内重新挂回米白 / 弱卡片色阶。
  * 五向内阴影建立井壁，canvas 的轻微投影让产品截面浮在井底上方。
@@ -1599,9 +1768,162 @@
 .wiki-embed-canvas {
   background-color: transparent;
   color: var(--foreground);
-  filter:
-    drop-shadow(0 2px 4px color-mix(in srgb, var(--foreground) 12%, transparent))
-    drop-shadow(0 8px 16px color-mix(in srgb, var(--foreground) 8%, transparent));
+  filter: drop-shadow(
+      0 2px 4px color-mix(in srgb, var(--foreground) 12%, transparent)
+    )
+    drop-shadow(
+      0 8px 16px color-mix(in srgb, var(--foreground) 8%, transparent)
+    );
+}
+
+/* 夜间只暗化井壁，五向 inset 的结构和顺序与亮色契约完全一致。 */
+.wiki-doc-surface[data-wiki-theme="dark"] .wiki-embed-stage,
+.wiki-theme-portal[data-wiki-theme="dark"] .wiki-embed-stage {
+  --background: var(--wiki-dark-background);
+  --surface-card: #111114;
+  --surface-1: #18181c;
+  --surface-2: #202026;
+  --surface-3: #28282e;
+  background-color: var(--surface-1);
+  box-shadow:
+    inset 0 4px 10px rgb(0 0 0 / 0.65),
+    inset 0 2px 4px rgb(0 0 0 / 0.48),
+    inset 2px 0 6px rgb(0 0 0 / 0.32),
+    inset -2px 0 6px rgb(0 0 0 / 0.24),
+    inset 0 -2px 0 rgb(255 255 255 / 0.05);
+}
+
+/*
+ * Fixture 是被文档引用的“原产品截图”，不随 Wiki 夜间模式换肤。
+ * 在 canvas 边界完整复位，而不是只复位 surface；这样 inline mock theme 仍能在
+ * 更深层按自身来源覆盖，未自带 theme 的 fixture 也不会落入白底浅字混合态。
+ */
+.wiki-doc-surface[data-wiki-theme="dark"] .wiki-embed-canvas,
+.wiki-theme-portal[data-wiki-theme="dark"] .wiki-embed-canvas {
+  color-scheme: light;
+
+  --background: #f6f4ee;
+  --surface-card: #ffffff;
+  --surface-1: #efede5;
+  --surface-2: #e8e5dc;
+  --surface-3: #f1efe8;
+
+  --foreground: var(--ink-2);
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: var(--ink-6);
+  --faint-foreground: #6e6e78;
+  --disabled-foreground: var(--ink-7);
+  --placeholder-foreground: color-mix(
+    in srgb,
+    var(--foreground) 50%,
+    transparent
+  );
+
+  --border-hairline: rgb(31 31 35 / 0.08);
+  --border: rgb(31 31 35 / 0.12);
+  --border-strong: rgb(31 31 35 / 0.22);
+  --divider: rgb(31 31 35 / 0.14);
+  --border-control: var(--ink-2);
+  --border-control-emphasis: #0d0c0b;
+
+  --brand-red: var(--red-5);
+  --brand-green: var(--green-3);
+  --brand-amber: var(--amber-4);
+  --brand-red-soft: color-mix(
+    in srgb,
+    var(--brand-red) 10%,
+    var(--surface-card)
+  );
+  --brand-green-soft: color-mix(
+    in srgb,
+    var(--brand-green) 10%,
+    var(--surface-card)
+  );
+  --brand-amber-soft: color-mix(
+    in srgb,
+    var(--brand-amber) 14%,
+    var(--surface-card)
+  );
+  --amber-soft-bg: var(--amber-12);
+  --amber-soft-fg: var(--amber-1);
+
+  --status-success: var(--green-4);
+  --status-success-soft: #e9f0e6;
+  --status-error: var(--red-8);
+  --status-error-soft: #f7e9e9;
+  --status-warning: var(--amber-2);
+  --status-warning-soft: #f7efdc;
+  --status-running: var(--ink-5);
+  --status-running-soft: #efeee9;
+  --status-neutral: var(--ink-6);
+  --status-neutral-soft: #f0ede4;
+  --status-info: #2e5aa8;
+  --status-info-soft: #e7ecf5;
+
+  --on-brand: #ffffff;
+  --on-dark: var(--ink-11);
+  --on-dark-muted: var(--ink-8);
+  --card: var(--surface-card);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--foreground);
+  --primary: var(--brand-red);
+  --primary-foreground: var(--on-brand);
+  --destructive: var(--brand-red);
+  --destructive-foreground: var(--on-brand);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --input: var(--border);
+
+  --ring: rgb(31 31 35 / 0.5);
+  --ring-selected: rgb(31 31 35 / 0.12);
+  --ring-on-dark: rgb(255 255 255 / 0.1);
+  --ring-on-dark-emphasis: rgb(255 255 255 / 0.45);
+  --shadow-overlay:
+    0 8px 24px -4px rgb(31 31 35 / 0.14), 0 2px 6px -2px rgb(31 31 35 / 0.08);
+  --shadow-raised: 0 1px 2px 0 rgb(31 31 35 / 0.07);
+
+  color: var(--foreground);
+  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.32))
+    drop-shadow(0 8px 16px rgb(0 0 0 / 0.42));
+}
+
+/* Mermaid 的配色由 theme-bridge 从 :root 读取并缓存。Wiki scoped theme 不去改
+ * 根 token，因此把它作为和 fixture 相同的浅色内容岛，避免暗壳里出现白底浅字。 */
+.wiki-doc-surface[data-wiki-theme="dark"] .wiki-light-content,
+.wiki-theme-portal[data-wiki-theme="dark"] .wiki-light-content {
+  color-scheme: light;
+
+  --background: #f6f4ee;
+  --surface-card: #ffffff;
+  --surface-1: #efede5;
+  --surface-2: #e8e5dc;
+  --surface-3: #f1efe8;
+  --foreground: var(--ink-2);
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: var(--ink-6);
+  --faint-foreground: #6e6e78;
+  --border-hairline: rgb(31 31 35 / 0.08);
+  --border: rgb(31 31 35 / 0.12);
+  --border-strong: rgb(31 31 35 / 0.22);
+  --brand-red: var(--red-5);
+  --brand-green: var(--green-3);
+  --brand-amber: var(--amber-4);
+  background-color: var(--surface-card);
+  color: var(--foreground);
+}
+
+/* 栏目图标按 20px 母尺寸生成粗实心浅色符号；日间反相，夜间保留亮墨。 */
+.wiki-feature-icon {
+  filter: brightness(0);
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"] .wiki-feature-icon,
+.wiki-theme-portal[data-wiki-theme="dark"] .wiki-feature-icon {
+  filter: none;
 }
 
 /**
@@ -1635,7 +1957,7 @@
     box-shadow 120ms ease;
 }
 
-[data-sonner-toaster][data-theme='light'] {
+[data-sonner-toaster][data-theme="light"] {
   --normal-bg: var(--surface-card);
   --normal-border: var(--border);
   --normal-text: var(--foreground);
@@ -1655,6 +1977,34 @@
   --error-bg: var(--status-error-soft);
   --error-border: var(--status-error);
   --error-text: var(--status-error);
+}
+
+/*
+ * Toaster 挂在 Providers/body 下，不继承 Wiki 文档壳。WikiLayout 只在 Wiki 路由
+ * 存活期间给 html 挂 data-wiki-theme，因此这里不会改变站内其他页面。
+ */
+html[data-wiki-theme="dark"] [data-sonner-toaster] {
+  color-scheme: dark;
+
+  --normal-bg: #111114;
+  --normal-border: rgb(230 230 242 / 0.14);
+  --normal-text: #e6e6f2;
+
+  --success-bg: color-mix(in srgb, #85d974 14%, #111114);
+  --success-border: #85d974;
+  --success-text: #85d974;
+
+  --info-bg: color-mix(in srgb, #7aa2f7 16%, #111114);
+  --info-border: #7aa2f7;
+  --info-text: #7aa2f7;
+
+  --warning-bg: color-mix(in srgb, #e5cd89 16%, #111114);
+  --warning-border: #e5cd89;
+  --warning-text: #e5cd89;
+
+  --error-bg: color-mix(in srgb, #ff8080 16%, #111114);
+  --error-border: #ff8080;
+  --error-text: #ff8080;
 }
 
 /* 隐藏滚动条但保留滚动能力 —— tab 条 / 横向 chip 行 / 首页情报区。

@@ -42,7 +42,7 @@ export function WikiAllPage() {
         title={
           query
             ? `${query}：Wiki 搜索结果 | Scholay`
-            : "全部词条 | Scholay Wiki"
+            : "词条索引 | Scholay Wiki"
         }
         description="浏览并搜索 Scholay 的全部产品页面、功能、规则、实体与架构词条。"
         keywords="Scholay Wiki,Scholay 功能索引,Scholay 规则"
@@ -50,9 +50,9 @@ export function WikiAllPage() {
       />
       <section className="border-b border-border bg-surface-card">
         <div className="mx-auto max-w-page px-6 py-10 md:py-14">
-          <p className="text-12 font-medium text-brand-red">COMPLETE INDEX</p>
+          <p className="text-12 font-medium text-brand-red">WIKI INDEX</p>
           <h1 className="mt-2 font-display text-32 font-bold leading-display-tight text-foreground">
-            全部词条
+            词条索引
           </h1>
           <p className="mt-3 max-w-reading text-14 leading-paragraph text-muted-foreground">
             搜索产品名、页面、用户动作、业务对象或规则。结果会同时匹配标题、别名、摘要与正文。

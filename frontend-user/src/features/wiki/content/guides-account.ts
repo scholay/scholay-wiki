@@ -29,7 +29,7 @@ export const accountGuideArticles: WikiArticle[] = [
 
 **搜索文献与期刊**：文献搜索同时提供传统搜索和智能搜索。传统搜索适合按关键词、年份和来源筛选；智能搜索适合直接描述研究问题，让系统帮助拆解检索。期刊搜索是独立入口，用来查看影响因子、分区等期刊信息。
 
-**使用 AI 完成研究任务**：智能助手 Claw 可以阅读附件、整理材料和生成交付物；智能写作 Prism 用来维护论文项目；智能审稿用于在正式投稿或送审前获得一份 AI 模拟评议。
+**使用 AI 完成研究任务**：智能助手（Scholay Claw）可以阅读附件、整理材料和生成交付物；智能写作（Scholay Prism）用来维护论文项目；智能审稿（AI 模拟评议）用于在正式投稿或送审前发现问题。
 
 **管理资料与发现工具**：个人文件夹用于收藏和分组论文，科研能力广场用于查找科研工具与社区技能。学术资源中心则是一组教程和产品文章，不是个人资料库。`,
       },
@@ -46,7 +46,7 @@ export const accountGuideArticles: WikiArticle[] = [
           rows: [
             {
               goal: "筛论文、找学者",
-              entry: "文献搜索 · 经典搜索",
+              entry: "文献搜索 · 传统搜索",
               boundary: "结构化检索与筛选，不是生成式对话",
             },
             {
@@ -61,12 +61,12 @@ export const accountGuideArticles: WikiArticle[] = [
             },
             {
               goal: "问答、读附件、做研究任务",
-              entry: "智能助手 Claw",
+              entry: "智能助手",
               boundary: "通用研究助手，结果仍需核验来源",
             },
             {
               goal: "编辑论文项目",
-              entry: "智能写作 Prism",
+              entry: "智能写作",
               boundary: "面向 LaTeX 项目和变更确认",
             },
             {
@@ -76,6 +76,21 @@ export const accountGuideArticles: WikiArticle[] = [
             },
           ],
         },
+        blocks: [
+          { type: "table" },
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "search-entry-comparison",
+              sectionId: "quick-decision",
+              title: "传统搜索、智能搜索与智能助手怎么选",
+              description:
+                "用一条决策规则区分结构化检索、自然语言找论文和带材料完成研究任务。",
+              icon: "compass",
+            },
+          },
+        ],
       },
       {
         id: "plan-model",
@@ -84,6 +99,20 @@ export const accountGuideArticles: WikiArticle[] = [
 
 论文检索、期刊检索和文献管理不消耗 AI 额度。智能搜索、Claw、Prism、智能审稿，以及绘图、翻译等 AI 功能共享同一周期额度。价格页中的“约 N 次”只是按常见任务估算，不是固定可调用次数。`,
         embeds: [{ id: "membership-plans" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "ai-usage-quota",
+              title: "AI 周期额度与“约 N 次”怎样理解",
+              description:
+                "了解额度池、算力点、恢复周期和不同任务实际消耗为何会有差异。",
+              icon: "sparkles",
+            },
+          },
+        ],
       },
       {
         id: "price-authority",
@@ -139,6 +168,27 @@ export const accountGuideArticles: WikiArticle[] = [
 
 页面只会展示当前账户可以执行的选项。系统不提供自动续订，会员到期后不会自动扣款。购买会员会获得对应等级和周期 AI 额度，不会额外固定赠送科研经费。下图展示移动端的购买入口，价格和支付方式仍以你实际看到的页面为准。`,
         embeds: [{ id: "mobile-membership-purchase" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "付款前同时核对购买动作、月付或年付、到期日变化与应付金额。页面没有展示的组合表示当前账户不能执行，不要根据旧截图自行推算。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "subscription-lifecycle",
+              sectionId: "matrix",
+              title: "为什么不同账户看到的购买选项不同",
+              description:
+                "查看 Free、Pro 月付、Pro 年付、Max 月付与 Max 年付各自允许的新购、续费和升级组合。",
+              icon: "compass",
+            },
+          },
+        ],
       },
       {
         id: "payment-methods",
@@ -154,6 +204,61 @@ export const accountGuideArticles: WikiArticle[] = [
 
 邀请活动则是在完成有效邀请或受邀用户首次合格付费后发放科研经费，奖励会进入邀请记录和钱包流水，不会在下单前直接抵扣。活动会随运营配置启停；页面没有显示时，不要按旧截图或海报中的数字理解当前优惠。`,
         embeds: [{ id: "promo-modal" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "活动弹窗、邀请奖励和订单报价是三件事：只有结算窗口里的应付金额决定本单支付；邀请奖励在符合当期规则后进入科研经费，不在下单前抵扣。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "invitation-rebate-guide",
+              sectionId: "current-rebate",
+              title: "邀请返利何时进入科研经费",
+              description:
+                "继续核对邀请关系、合格首单、退款和隐私展示规则，不把旧海报当作当前活动承诺。",
+              icon: "resource",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "付款前后继续核对",
+              description:
+                "根据当前是在比较方案、准备付款，还是已经完成支付，选择对应的下一步。",
+              items: [
+                {
+                  articleSlug: "subscription-lifecycle",
+                  sectionId: "quote",
+                  title: "核对升级、续费与到期日",
+                  description:
+                    "确认结算页显示的目标档位、计费周期、到期日变化和本次应付金额。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "payment-orders",
+                  sectionId: "quote",
+                  title: "查看订单与支付记录",
+                  description:
+                    "了解订单报价、支付状态，以及桌面端和移动端可以查看的记录。",
+                  icon: "search",
+                },
+                {
+                  articleSlug: "invitation-rebate-guide",
+                  sectionId: "binding-rules",
+                  title: "确认邀请关系是否成立",
+                  description:
+                    "先核对绑定资格，再判断后续首单是否可能触发当期邀请奖励。",
+                  icon: "compass",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -204,6 +309,27 @@ export const accountGuideArticles: WikiArticle[] = [
 
 每天的奖励上限只影响是否发放当日注册奖励，不会把已经建立的邀请关系改给另一个人。`,
         embeds: [{ id: "invite-code-field" }, { id: "invite-code-prompt" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "绑定前先核对邀请码或邀请人。邀请关系一旦建立不能改绑；跳过邀请码不影响注册，但之后能否补录要以当期页面提醒和资格校验为准。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "invite-campaign",
+              sectionId: "binding",
+              title: "邀请关系的完整资格规则",
+              description:
+                "了解一次绑定、自邀限制、注册后期限、旧账户确认，以及绑定失败与注册结果之间的边界。",
+              icon: "book-open",
+            },
+          },
+        ],
       },
       {
         id: "current-rebate",
@@ -211,6 +337,34 @@ export const accountGuideArticles: WikiArticle[] = [
         markdown: `受邀好友在活动规定时间内完成首笔符合条件的实付后，邀请人会按邀请页显示的比例获得等值科研经费。活动关闭时不再显示可用奖励，因此 Wiki 不固定写某个百分比，也不要把旧海报里的数字当作当前规则。
 
 测试支付和已经全额退款的订单不计返利；发生部分退款时，已经发放的返利也会按比例扣回。邀请记录里只会显示经过隐藏处理的好友联系方式。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "next-steps",
+            group: {
+              title: "绑定或返利发生后",
+              description: "邀请关系、奖励到账和退款调整分别有自己的记录入口。",
+              items: [
+                {
+                  articleSlug: "wallet-payg",
+                  sectionId: "balance",
+                  title: "查看科研经费与流水",
+                  description:
+                    "确认奖励是否已经进入经费余额，并通过逐笔流水区分奖励、充值与调整。",
+                  icon: "resource",
+                },
+                {
+                  articleSlug: "invite-campaign",
+                  sectionId: "rewards",
+                  title: "理解奖励与退款调整",
+                  description:
+                    "查看合格首单、部分退款反冲以及余额不足时的记录规则。",
+                  icon: "review",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -250,6 +404,27 @@ export const accountGuideArticles: WikiArticle[] = [
 
 如果你用验证码登录一个尚未注册的邮箱，验证通过后系统会自动创建账户并直接登录。这个新账户暂时没有密码，可以稍后到“账户安全”中设置。使用“忘记密码”时则不会自动创建新账户。`,
         embeds: [{ id: "auth-dialog" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "如果目标是找回已有账户，请使用“忘记密码”。用验证码登录一个未注册邮箱会创建新账户，并不是密码找回。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "email-phone-authentication",
+              sectionId: "recovery",
+              title: "邮箱与手机号的注册、登录和找回边界",
+              description:
+                "查看验证码登录、注册和密码重置各自需要的信息与页面状态。",
+              icon: "book-open",
+            },
+          },
+        ],
       },
       {
         id: "wechat",
@@ -258,6 +433,16 @@ export const accountGuideArticles: WikiArticle[] = [
 
 手机网页不会显示这个扫码入口，因为同一部手机无法扫描自己的屏幕。此时请使用手机号、邮箱或页面上其他可见方式。微信小程序有独立登录流程，也不需要扫描桌面二维码。`,
         embeds: [{ id: "wechat-qr-login" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "只扫描自己刚在 Scholay 登录窗口发起的二维码，并在手机端核对授权页面。二维码失效后回到原窗口刷新，不要转发二维码。",
+            },
+          },
+        ],
       },
       {
         id: "enterscholar",
@@ -273,6 +458,61 @@ export const accountGuideArticles: WikiArticle[] = [
         embeds: [
           { id: "oauth-callback-states" },
           { id: "wechat-callback-state" },
+        ],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "出现账户合并确认时，先核对第三方平台、第三方邮箱和目标 Scholay 账户，再验证原账户；不要只凭邮箱相同就默认它们属于同一身份。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "oauth-account-merge",
+              sectionId: "why",
+              title: "为什么第三方邮箱相同也不会自动合并",
+              description:
+                "了解一次性确认凭据、原账户验证，以及合并与创建独立账户的安全边界。",
+              icon: "review",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "选择并维护登录方式",
+              description:
+                "先选能完成当前登录的入口，登录后再维护备用方式或处理身份冲突。",
+              items: [
+                {
+                  articleSlug: "email-phone-authentication",
+                  sectionId: "entry-and-methods",
+                  title: "使用邮箱或手机号登录",
+                  description:
+                    "在第三方入口不可见或移动端不能扫码时，改用密码或验证码完成登录。",
+                  icon: "compass",
+                },
+                {
+                  articleSlug: "oauth-wechat-login",
+                  sectionId: "providers",
+                  title: "理解 OAuth 与微信扫码流程",
+                  description:
+                    "区分动态提供方、桌面二维码和普通 OAuth 授权返回状态。",
+                  icon: "book-open",
+                },
+                {
+                  articleSlug: "account-connections",
+                  sectionId: "list",
+                  title: "登录后检查账户连接",
+                  description:
+                    "查看哪些方式已经绑定，以及哪些方式只能登录、暂时不能从设置中新增。",
+                  icon: "review",
+                },
+              ],
+            },
+          },
         ],
       },
     ],

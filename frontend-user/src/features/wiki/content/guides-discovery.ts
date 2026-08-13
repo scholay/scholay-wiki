@@ -35,6 +35,26 @@ export const discoveryGuideArticles: WikiArticle[] = [
 
 搜索词、筛选、排序和页码都会写入当前 URL。返回搜索页时，页面会恢复最近一次有内容的检索状态，因此可以先打开论文详情，再回到原来的结果继续筛选。`,
         embeds: [{ id: "classic-search-dock" }],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "先用 2—4 个能区分主题的核心检索词建立基线，再逐项增加对象、方法和年份；完整条件一次堆得太多，反而不容易判断是哪项限制导致漏检。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "academic-search",
+              title: "文献搜索的范围与共同边界",
+              description:
+                "了解传统搜索、智能搜索共同使用的论文实体、数据来源和核对原则。",
+              icon: "search",
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "search-and-refine",
@@ -45,6 +65,16 @@ export const discoveryGuideArticles: WikiArticle[] = [
 
 不要把结果总数当作质量结论。传统搜索最多开放前 1,000 条结果的翻页窗口，越往后的相关性通常越低；如果需要不断深翻，通常应先改写查询或增加有效筛选。`,
         embeds: [{ id: "classic-search-filters" }],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "每轮只改一个检索条件，并记录结果数量和相关性变化。这样才能把“没有结果”定位到术语、年份、来源或类型中的具体一项。",
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "review-and-stage",
@@ -55,11 +85,56 @@ export const discoveryGuideArticles: WikiArticle[] = [
 
 找到候选论文后，可以逐篇暂存，也可以把当前页批量加入暂存区。批量动作只作用于当前页，不会把全部检索结果一次加入。暂存区是本次检索的短期工作台，不是长期文献库。`,
         embeds: [{ id: "review-and-stage" }],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "staging-area",
+              title: "检索暂存区",
+              description:
+                "了解逐篇暂存、当前页批量暂存，以及从候选论文进入矩阵分析的方式。",
+              icon: "resource",
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "continue-workflow",
         title: "把候选清单转成研究材料",
         markdown: `初筛完成后有两条常见路径：需要长期保存时，把确认过的论文收藏到个人文献集；需要横向比较时，把暂存论文送入矩阵分析并设置比较维度。无论走哪条路径，AI 摘要、引用量和检索排序都只能帮助筛选，正式论证仍应回到论文原文、版本信息和可追溯出处。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "next-steps",
+            group: {
+              title: "下一步",
+              description: "根据这轮检索的完成度，选择一个明确的后续动作。",
+              items: [
+                {
+                  articleSlug: "literature-library",
+                  title: "保存到个人文献集",
+                  description: "把已经核对的论文长期归档，再补充文件与分类。",
+                  icon: "resource",
+                },
+                {
+                  articleSlug: "matrix-analysis",
+                  title: "建立矩阵分析",
+                  description: "把候选论文按同一组维度横向比较。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "smart-literature-search-guide",
+                  sectionId: "guide-the-search",
+                  title: "补做智能搜索",
+                  description: "当术语或覆盖仍不稳定时，用追问扩展检索路线。",
+                  icon: "sparkles",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -99,6 +174,45 @@ export const discoveryGuideArticles: WikiArticle[] = [
 
 避免只写“帮我找点论文”。约束越明确，系统越容易判断应该先宽搜、拆分概念还是沿引用关系扩展；若条件之间可能冲突，智能搜索也可能先提出澄清问题。`,
         embeds: [{ id: "smart-search-dock" }],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "smart-search-first-question",
+              title: "按学科改写第一轮提问",
+              description:
+                "复制最接近的版本，再替换方括号中的研究对象、范围和数量。",
+              options: [
+                {
+                  id: "general-research",
+                  label: "通用研究",
+                  prompt:
+                    "围绕【研究主题】检索【年份范围】内的研究。重点关注【研究对象/场景】、【方法或现象】与【结果变量】。优先返回【文献类型】，筛选【数量】篇高相关论文，并按“研究问题—方法—主要发现—证据限制”整理。最后列出本轮使用的中英文检索词、尚未覆盖的数据源，以及建议补检的方向。",
+                },
+                {
+                  id: "medicine",
+                  label: "医学",
+                  prompt:
+                    "检索【疾病/人群】中【干预或暴露】与【结局】的研究，时间范围为【年份】。优先纳入【系统综述/RCT/队列研究】，返回【数量】篇高相关论文。请区分研究人群、干预、对照、结局与随访时间，不要混合人体和动物证据；如结论冲突，请说明冲突来自哪些研究设计或样本差异。",
+                },
+                {
+                  id: "humanities-social-sciences",
+                  label: "人文社科",
+                  prompt:
+                    "检索关于【概念/事件/文本】在【地区与时期】中的研究，兼顾【理论传统】与【材料类型】。返回【数量】篇代表性研究，区分理论论述、历史材料与实证案例，并列出常见中英文术语、不同译名及各自使用语境。不要把研究者的解释写成已被材料直接证明的事实。",
+                },
+                {
+                  id: "engineering-computing",
+                  label: "工程计算",
+                  prompt:
+                    "检索【技术/算法】用于【任务或应用场景】的研究，范围为【年份】。返回【数量】篇代表性论文，比较数据集、基线方法、评价指标、计算成本、主要改进与开源状态。请区分论文声称的优势和实验实际支持的范围。",
+                },
+              ],
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "start-a-session",
@@ -117,6 +231,56 @@ export const discoveryGuideArticles: WikiArticle[] = [
 
 还可以通过下图中的“+”菜单上传文件，或打开个人文献集选择资料，让当前会话围绕已有材料继续找文献。图中冻结的是已经展开菜单、并已挂上一份 CSV 附件的状态；选择文献后，它也会出现在输入框上方。引用只有元数据或摘要的论文时，系统并不等于读过全文；有 PDF 的引用与仅有摘要的引用应分别核对。`,
         embeds: [{ id: "composer-attachments" }],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "smart-search-follow-up",
+              title: "一次只改变一个检索条件",
+              description:
+                "按当前缺口选择一条追问，并要求系统说明这一轮实际改变了什么。",
+              options: [
+                {
+                  id: "replace-terms",
+                  label: "换术语",
+                  prompt:
+                    "在不改变当前研究对象的前提下，把核心概念换成该领域常用的英文学术术语、缩写和同义词重新检索。列出新增检索词，并只返回本轮新增的论文。",
+                },
+                {
+                  id: "foundational-work",
+                  label: "找奠基工作",
+                  prompt:
+                    "以当前高相关论文为种子，沿参考文献寻找更早的奠基工作。优先返回首次提出核心概念、方法或测量工具的论文，并说明它与种子论文的关系。",
+                },
+                {
+                  id: "recent-progress",
+                  label: "找近期进展",
+                  prompt:
+                    "沿当前论文的被引工作和相关论文补找【年份】以来的后续进展。只保留对方法、数据或结论有实质推进的研究，并说明推进点。",
+                },
+                {
+                  id: "narrow-scope",
+                  label: "收窄范围",
+                  prompt:
+                    "保留【研究对象】，把结果限定为【方法/地区/人群/文献类型】。其他条件不变，只说明这一项限制带来了哪些新增、删除或遗漏。",
+                },
+              ],
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "literature-graph-status",
+              sectionId: "workaround",
+              title: "没有文献图谱时怎样做引用扩展",
+              description:
+                "用参考文献、被引工作和相关论文完成可核对的滚雪球检索。",
+              icon: "search",
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "inspect-and-stage",
@@ -167,6 +331,19 @@ export const discoveryGuideArticles: WikiArticle[] = [
         markdown: `现行 PDF 问答入口是 Scholay Claw。登录后打开智能助手并开始新对话，再通过输入框的附件入口上传 PDF。仅仅在个人文献集或 PDF 阅读器中把文件打开，并不会自动把该文件加入 Claw 的当前会话。
 
 如果准备比较多篇论文，建议先确定这次对话的任务范围，再上传真正需要的文件；不同课题使用不同会话，后续回看时更容易判断每个回答使用了哪些附件。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "claw-interface-guide",
+              sectionId: "composer",
+              title: "找到智能助手的附件与上下文入口",
+              description: "认识输入框中的附件、个人文献集、Skill 与模型选择。",
+              icon: "sparkles",
+            },
+          },
+        ],
       },
       {
         id: "upload-pdf",
@@ -174,6 +351,20 @@ export const discoveryGuideArticles: WikiArticle[] = [
         markdown: `选择文件后会立即上传，附件条会显示上传中、完成或失败。单个普通文件上限为 30 MB，一条消息最多 10 个附件；超过限制的文件会在发送前被拦截。新对话第一次上传时，系统会先建立会话，文件只会归入当前这次对话。
 
 等附件显示完成后再发送问题。上传失败时先按附件上的错误提示重试；不要在文件仍处于上传中时反复点击发送。扫描版、版式复杂或文本层损坏的 PDF 可能难以解析，回答质量仍取决于文件本身的可读性。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "多篇比较时先统一文件名，并在提问中逐一写出文件名；“第一篇”“第二篇”在后续追加附件后容易失去指向。",
+              link: {
+                articleSlug: "claw-attachments-and-references",
+                sectionId: "attachment-limits",
+                label: "查看附件格式与数量限制",
+              },
+            },
+          },
+        ],
       },
       {
         id: "ask-grounded-questions",
@@ -181,6 +372,44 @@ export const discoveryGuideArticles: WikiArticle[] = [
         markdown: `第一问应同时写明对象、范围和输出。例如：“只根据这篇 PDF，总结研究问题、样本、方法和主要结论；不确定的地方标出来”，或“找出作者对局限性的原文位置，并解释它对结论外推的影响”。
 
 后续可以要求比较章节、解释图表、梳理变量关系或生成待核对的阅读笔记。若一次上传多篇，应使用文件名或论文题名指定对象，并要求分开列出每篇证据，避免把不同论文的结论混在一起。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "pdf-grounded-question",
+              title: "按阅读任务选择提问模板",
+              description:
+                "把文件名写进提问，并要求回答标出页码、章节或表图位置。",
+              options: [
+                {
+                  id: "quick-understanding",
+                  label: "快速读懂",
+                  prompt:
+                    "只根据【文件名】回答。总结研究问题、样本、数据、方法和主要结论；每项注明对应章节、页码或表图位置。文中没有明确说明的内容写“未报告”，不要自行补全。",
+                },
+                {
+                  id: "method-review",
+                  label: "方法审查",
+                  prompt:
+                    "审查【文件名】的方法部分：研究设计是否能回答研究问题，样本与变量如何定义，统计或分析方法依赖哪些假设。分别列出“文中明确说明”“需要进一步核对”“可能影响结论的限制”，并附原文位置。",
+                },
+                {
+                  id: "result-evidence",
+                  label: "结果证据",
+                  prompt:
+                    "核对【文件名】中的主要结论。为每条结论找到对应的数字、表格、图或原文段落，并区分“数据直接支持”“作者推断”“当前材料无法验证”。不要只复述摘要。",
+                },
+                {
+                  id: "multi-document-comparison",
+                  label: "多文比较",
+                  prompt:
+                    "比较【文件 A】与【文件 B】。分别列出研究问题、样本、方法、主要发现和局限，再说明一致、冲突与不可直接比较之处。每条判断都标明来自哪一个文件及其章节或页码，不要混合两篇论文的证据。",
+                },
+              ],
+            },
+          },
+        ],
       },
       {
         id: "reader-vs-chat",
@@ -194,6 +423,21 @@ export const discoveryGuideArticles: WikiArticle[] = [
 
 两者可以配合：在阅读器中核对页码、图表和公式，在 Claw 中组织问题和比较结果。但二者没有“打开阅读器即自动传给助手”的隐式同步。下图展示的是左侧阅读 PDF、右侧继续提问的组合工作区。`,
         embeds: [{ id: "pdf-chat-workspace" }],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "pdf-reader",
+              sectionId: "rendering",
+              title: "PDF 阅读器",
+              description:
+                "了解全文可用性、翻页核对和解析结果与原始文件的区别。",
+              icon: "book-open",
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "verify-answer",
@@ -201,6 +445,78 @@ export const discoveryGuideArticles: WikiArticle[] = [
         markdown: `AI 可能遗漏脚注、表格限定、数学符号或扫描页，也可能把作者的讨论推断写得过于确定。对关键数字、样本量、显著性、原句和页码，应回到 PDF 阅读器逐项核对；引用时引用原论文，不引用对话回答。
 
 如果回答没有说明依据，可以继续追问“这一点来自哪一节、哪张表或哪段原文”；仍无法定位时，把它标记为未证实，而不是继续让模型猜测。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "pdf-answer-verification",
+              title: "把关键回答重新送回复核",
+              description:
+                "选择最需要核对的风险点；无法定位的内容应保留为“未证实”。",
+              options: [
+                {
+                  id: "locate-basis",
+                  label: "定位依据",
+                  prompt:
+                    "请定位你刚才这项判断的依据：来自哪一节、哪一页、哪张表或哪段原文？给出足以让我回到 PDF 核对的位置。找不到时请明确写“当前文件中无法定位”。",
+                },
+                {
+                  id: "verify-numbers",
+                  label: "核对数字",
+                  prompt:
+                    "重新核对刚才回答中的所有数字，包括样本量、比例、效应量、置信区间和 p 值。逐项列出原值、单位、对应页码或表格；不要根据上下文推算未报告的数字。",
+                },
+                {
+                  id: "separate-inference",
+                  label: "区分推断",
+                  prompt:
+                    "把刚才的回答拆成三类：“作者原文明确陈述”“由数据可以合理推断”“模型补充解释”。无法归类或缺少依据的内容标记为未证实。",
+                },
+              ],
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "research-evidence-kernel",
+              sectionId: "trust",
+              title: "证据可追踪不等于结论自动成立",
+              description:
+                "了解工具证据、来源本身与模型推断之间仍需人工复核的边界。",
+              icon: "review",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "下一步",
+              description: "完成定位后，把结果变成可复查的研究材料。",
+              items: [
+                {
+                  articleSlug: "literature-library",
+                  title: "保存原文与论文记录",
+                  description: "把确认使用的论文和可用全文归入个人文献集。",
+                  icon: "resource",
+                },
+                {
+                  articleSlug: "matrix-analysis",
+                  title: "比较多篇论文",
+                  description: "用统一维度整理方法、发现与证据边界。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "prism-writing-workflow",
+                  sectionId: "evidence",
+                  title: "带着核对结果进入写作",
+                  description:
+                    "在正文中插入来源，并继续核对作者、年份与结论范围。",
+                  icon: "compass",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -346,6 +662,20 @@ export const discoveryGuideArticles: WikiArticle[] = [
         id: "workaround",
         title: "上线前如何做引用扩展",
         markdown: `可以先打开高相关论文的参考文献列表寻找奠基工作，再在智能搜索中要求沿“参考文献、被引工作、相关论文”分别扩展，并把确认过的论文加入暂存区。这样能完成检索层面的滚雪球，但结果仍应按清单核对，不能声称已经做过图谱聚类或网络分析。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "smart-literature-search-guide",
+              sectionId: "guide-the-search",
+              title: "用追问完成滚雪球检索",
+              description:
+                "按奠基工作、近期进展或范围收窄逐轮扩展，并只比较每轮新增结果。",
+              icon: "search",
+            },
+          },
+        ],
       },
     ],
   },

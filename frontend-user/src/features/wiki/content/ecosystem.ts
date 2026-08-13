@@ -125,11 +125,66 @@ export const ecosystemArticles: WikiArticle[] = [
         markdown: `创建 Claw 会话时，系统会把你已启用的技能作为本次对话的做事指南。Free 账户最多持有 10 个技能，付费账户最多 50 个；每个技能最多保留 20 个版本，每个会话最多启用 5 个。
 
 技能可以说明步骤和输出要求，但不能改变账户权限，也不能要求助手执行原本无权执行的操作。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "claw",
+              sectionId: "skills",
+              title: "Skill 在智能助手中怎样加载",
+              description: "了解会话里的技能、工具与账户权限分别承担什么角色。",
+              icon: "sparkles",
+            },
+          },
+        ],
       },
       {
         id: "trust",
         title: "信任与举报",
         markdown: `公开技能可能包含不准确或不安全的步骤。作者不能举报自己的技能；同一用户对同一技能只能保留一份举报，举报不会自动下架内容，而是进入管理员审查。执行器仍需用权限、工作目录和工具策略限制实际动作。安装表示允许会话参考该技能，不代表 Scholay 对内容背书。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "Skill 是任务指南，不是工具授权，也不是安全证明。安装前检查作者、版本、外链和权限诱导；执行时仍以工具与沙箱策略为准。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "agent-tool-and-sandbox-boundary",
+              title: "工具、沙箱与出站网络边界",
+              description:
+                "进一步了解 Skill 无法绕过的执行权限、工作目录与网络限制。",
+              icon: "review",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "使用社区技能的下一步",
+              items: [
+                {
+                  articleSlug: "claw",
+                  sectionId: "skills",
+                  title: "在智能助手中启用 Skill",
+                  description:
+                    "把经过核对的技能加入会话，并继续用明确的任务说明约束输出。",
+                  icon: "sparkles",
+                },
+                {
+                  articleSlug: "agent-tool-and-sandbox-boundary",
+                  title: "核对执行权限",
+                  description:
+                    "在处理文件、外部请求或敏感任务前，确认真实工具边界。",
+                  icon: "review",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },

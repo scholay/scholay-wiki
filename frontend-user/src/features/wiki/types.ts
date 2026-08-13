@@ -44,6 +44,71 @@ export interface WikiSectionTable {
   rows: WikiMergedTableRow[];
 }
 
+export interface WikiArticleTarget {
+  articleSlug: string;
+  /** 跳到目标词条中的具体章节。 */
+  sectionId?: string;
+}
+
+export interface WikiPromptOption {
+  /** 同一组选项中唯一，用于可访问的 tab / panel 关联。 */
+  id: string;
+  /** 学科或任务场景，例如“医学影像”“方法复核”。 */
+  label: string;
+  /** 可直接复制、再按研究实际修改的完整提示词。 */
+  prompt: string;
+}
+
+export interface WikiPromptGroup {
+  id: string;
+  title: string;
+  description?: string;
+  /** 缺省使用首项；只用于需要固定展示某个代表场景时。 */
+  defaultOptionId?: string;
+  options: WikiPromptOption[];
+}
+
+export type WikiGuidanceIcon =
+  "book-open" | "compass" | "search" | "review" | "resource" | "sparkles";
+
+export interface WikiArticleLinkCard extends WikiArticleTarget {
+  /** 缺省沿用目标词条标题与摘要，避免同一术语出现多个版本。 */
+  title?: string;
+  description?: string;
+  icon?: WikiGuidanceIcon;
+}
+
+export interface WikiTip {
+  text: string;
+  link?: WikiArticleTarget & { label: string };
+}
+
+export interface WikiNextStep extends WikiArticleTarget {
+  /** 缺省沿用目标词条标题。 */
+  title?: string;
+  description: string;
+  icon?: WikiGuidanceIcon;
+}
+
+export interface WikiNextStepGroup {
+  title?: string;
+  description?: string;
+  items: WikiNextStep[];
+}
+
+/**
+ * 章节中可穿插的结构化内容。markdown / table / embeds 引用章节现有字段，
+ * 让旧词条无需迁移，同时允许提示词、解释卡和提示语精确落在语境旁边。
+ */
+export type WikiSectionBlock =
+  | { type: "markdown" }
+  | { type: "table" }
+  | { type: "embeds" }
+  | { type: "prompt-tabs"; group: WikiPromptGroup }
+  | { type: "article-link"; card: WikiArticleLinkCard }
+  | { type: "tip"; tip: WikiTip }
+  | { type: "next-steps"; group: WikiNextStepGroup };
+
 /** 词条内嵌的站点组件演示（须在 wiki/embeds/registry 登记） */
 export type WikiEmbedId =
   | "academic-intel-detail"
@@ -287,6 +352,11 @@ export interface WikiSection {
   table?: WikiSectionTable;
   /** 可选真实组件演示（ErrorBoundary 沙箱，演示态不写生产数据） */
   embeds?: WikiEmbedRef[];
+  /**
+   * 可选的显式渲染顺序。未提供时保持 table → markdown → embeds 的旧顺序；
+   * 提供后，每种旧内容必须以相应 block 引用，禁止页面根据正文关键词猜测。
+   */
+  blocks?: WikiSectionBlock[];
 }
 
 export interface WikiArticle {

@@ -23,7 +23,7 @@ export function WikiMergedTable({ columns, rows }: WikiMergedTableProps) {
   return (
     <div className="mt-6 overflow-x-auto rounded-12 border border-border bg-surface-card">
       <table className="w-full border-collapse text-left text-12">
-        <thead>
+        <thead className="bg-surface-1">
           <tr>
             {columns.map((column) => (
               <th
@@ -39,7 +39,7 @@ export function WikiMergedTable({ columns, rows }: WikiMergedTableProps) {
           {rows.map((row, rowIndex) => (
             <tr
               key={rowIndex}
-              className="transition-colors hover:bg-surface-card"
+              className="transition-colors hover:bg-surface-2/60"
             >
               {columns.map((column, columnIndex) => {
                 const span = rowSpans[columnIndex][rowIndex];

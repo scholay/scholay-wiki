@@ -233,16 +233,108 @@ export const discoveryArticles: WikiArticle[] = [
           { id: "matrix-workspace" },
           { id: "matrix-dimension-settings" },
         ],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "matrix-custom-dimensions",
+              title: "可复制的维度描述",
+              description:
+                "复制后可作为自定义维度的分析要求。每篇论文都使用同一口径，并把“未报告”和模型推断严格区分开。",
+              options: [
+                {
+                  id: "study-design",
+                  label: "研究设计",
+                  prompt:
+                    "概括研究设计：研究对象与样本、数据来源、核心变量、对照或基线、采用的方法和时间范围。论文未报告的内容写“未报告”，不要推断。",
+                },
+                {
+                  id: "main-findings",
+                  label: "核心发现",
+                  prompt:
+                    "概括论文的主要发现，并把每项发现与对应数据、表图或实验结果关联。区分作者报告的结果和作者提出的解释，不要把相关性写成因果。",
+                },
+                {
+                  id: "limitations",
+                  label: "局限边界",
+                  prompt:
+                    "列出作者明确承认的局限，以及从研究设计和数据范围可以直接判断的适用边界。两类内容分开呈现，不要自行发明作者未讨论的缺陷。",
+                },
+                {
+                  id: "reproduction",
+                  label: "复现要点",
+                  prompt:
+                    "提取复现所需的信息：数据来源、样本筛选、预处理、参数、软件或模型版本、评价指标与随机性控制。缺失项明确写“未报告”。",
+                },
+              ],
+            },
+          },
+        ],
       },
       {
         id: "generation",
         title: "生成与核对",
         markdown: `矩阵结果由 AI 分析生成，因此仍需回到论文原文核对。批量生成会受到可用论文内容、模型状态和账户额度影响；失败单元格可以与已完成结果分开处理。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "矩阵单元格是研究辅助结论，不是可直接引用的证据。缺少原文定位时，应先标记为待核对。",
+              link: {
+                label: "查看论文实体与原始材料边界",
+                articleSlug: "paper",
+                sectionId: "identity",
+              },
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "ai-usage-quota",
+              title: "批量生成会使用 AI 周期额度",
+              description:
+                "了解算力点怎样记录、额度何时恢复，以及为什么失败单元格可以与已完成结果分开处理。",
+              icon: "sparkles",
+            },
+          },
+        ],
       },
       {
         id: "export",
         title: "导出",
         markdown: `矩阵提供面向后续整理的导出入口。导出结果是研究辅助材料，不自动成为可引用证据，引用仍应指向原论文。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "next-steps",
+            group: {
+              title: "导出后继续核对与引用",
+              description:
+                "先把矩阵中的判断追溯到原文，再把真正采用的论文整理成规范引用。",
+              items: [
+                {
+                  articleSlug: "pdf-reader",
+                  sectionId: "rendering",
+                  title: "回到 PDF 核对原文",
+                  description:
+                    "检查关键数字、方法、限定条件以及矩阵记录的页码和图表位置。",
+                  icon: "search",
+                },
+                {
+                  articleSlug: "citation-dialog",
+                  sectionId: "quality",
+                  title: "生成并核对正式引用",
+                  description:
+                    "使用论文元数据生成引用，并按目标期刊要求检查作者、年份和标识符。",
+                  icon: "book-open",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },

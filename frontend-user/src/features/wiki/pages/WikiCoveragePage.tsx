@@ -100,7 +100,7 @@ export function WikiCoveragePage() {
               to="/wiki/all"
               className="text-12 font-medium text-brand-red hover:underline"
             >
-              查看全部词条
+              查看词条索引
             </Link>
             <Link
               to="/wiki/sources"

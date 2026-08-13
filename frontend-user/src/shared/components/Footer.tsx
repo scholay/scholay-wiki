@@ -51,7 +51,18 @@ const BRAND_LINKS: { label: string; to: string }[] = [
   { label: '服务条款', to: '/terms' },
 ];
 
-export function Footer({ className }: { className?: string } = {}) {
+interface FooterProps {
+  className?: string;
+  /** Radix Popover 挂到 body 后不再继承调用方主题；独立壳可显式传入 portal 主题。 */
+  portalClassName?: string;
+  portalTheme?: 'light' | 'dark';
+}
+
+export function Footer({
+  className,
+  portalClassName,
+  portalTheme,
+}: FooterProps = {}) {
   return (
     <footer className={cn('border-t border-border bg-background', className)}>
       {/*
@@ -103,7 +114,11 @@ export function Footer({ className }: { className?: string } = {}) {
                 align="end"
                 side="top"
                 sideOffset={6}
-                className="z-popover w-64 rounded-12 border border-border bg-surface-card p-1.5"
+                data-wiki-theme={portalTheme}
+                className={cn(
+                  'z-popover w-64 rounded-12 border border-border bg-surface-card p-1.5',
+                  portalClassName,
+                )}
               >
                 <div className="flex flex-col">
                   {SOLUTION_LINKS.map((l) => (

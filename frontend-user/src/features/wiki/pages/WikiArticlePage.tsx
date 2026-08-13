@@ -15,15 +15,26 @@ import {
   articleNavTrail,
   canViewWikiArticle,
   relatedArticles,
+  resolveWikiProductMenu,
 } from "../content";
+import { linkWikiTermsInArticle } from "../content/wiki-term-links";
 import type { WikiArticle, WikiNavTrail } from "../types";
 import { WikiAdminOnlyBadge } from "../components/WikiAdminOnlyBadge";
+import { WikiFeatureIcon } from "../components/WikiFeatureIcon";
+import { WikiLeadVisual } from "../components/WikiLeadVisual";
 import { WikiMergedTable } from "../components/WikiMergedTable";
+import { WikiProductMenuDock } from "../components/WikiProductMenuDock";
+import { WikiSectionBlocks } from "../components/WikiSectionBlocks";
+import { wikiSectionBlocks } from "../components/wiki-section-blocks";
 import { WikiStatusBadge } from "../components/WikiStatusBadge";
 import { WikiEmbedList } from "../embeds/WikiEmbedList";
 import { WikiSpotSection } from "../embeds/WikiSpotSection";
 import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
-import type { WikiEmbedRef, WikiSectionTable } from "../types";
+import type {
+  WikiEmbedRef,
+  WikiSectionBlock,
+  WikiSectionTable,
+} from "../types";
 
 const MERMAID_LANG_RE =
   /language-(mermaid|flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram)\b/i;
@@ -62,7 +73,7 @@ export function WikiArticlePage() {
           to="/wiki/all"
           className="mt-6 inline-flex items-center gap-1 text-12 font-medium text-brand-red"
         >
-          <ArrowLeft className="size-3" /> 返回全部词条
+          <ArrowLeft className="size-3" /> 返回词条索引
         </Link>
       </div>
     );
@@ -74,6 +85,13 @@ export function WikiArticlePage() {
   const navTrail = articleNavTrail(article.slug);
   const related = relatedArticles(article, canSeeAdmin);
   const locator = buildWikiLocator(article, navTrail, category?.title);
+  const productMenu = resolveWikiProductMenu(
+    article.slug,
+    navTrail?.category.slug,
+  );
+  const articleIconSlug =
+    article.slug === "smart-search" ? "smart-search" : navTrail?.category.slug;
+  const linkedMarkdown = linkWikiTermsInArticle(article);
 
   return (
     <>
@@ -131,12 +149,30 @@ export function WikiArticlePage() {
               <span className="font-mono text-faint">f23d0003</span>
             </div>
 
-            <h1 className="mt-6 font-brand text-32 font-normal leading-display-tight text-foreground">
-              {article.title}
-            </h1>
+            {productMenu ? (
+              <div className="mt-6">
+                <WikiProductMenuDock activeId={productMenu.id} />
+                <h1 className="mt-4 min-w-0 font-brand text-32 font-normal leading-display-tight text-foreground">
+                  {article.title}
+                </h1>
+              </div>
+            ) : (
+              <div className="mt-6 flex items-start gap-4">
+                {articleIconSlug && (
+                  <WikiFeatureIcon
+                    slug={articleIconSlug}
+                    className="size-10 shrink-0 object-contain md:size-12"
+                  />
+                )}
+                <h1 className="min-w-0 font-brand text-32 font-normal leading-display-tight text-foreground">
+                  {article.title}
+                </h1>
+              </div>
+            )}
             <p className="mt-4 text-16 leading-paragraph text-subtle">
               {article.summary}
             </p>
+            <WikiLeadVisual articleSlug={article.slug} className="mt-7" />
             {article.headerEmbeds && article.headerEmbeds.length > 0 && (
               <WikiEmbedList embeds={article.headerEmbeds} />
             )}
@@ -158,9 +194,10 @@ export function WikiArticlePage() {
                 </h2>
                 <WikiSectionBody
                   chapter={chapter}
-                  markdown={section.markdown}
+                  markdown={linkedMarkdown[sectionIndex] ?? section.markdown}
                   table={section.table}
                   embeds={section.embeds}
+                  blocks={section.blocks}
                 />
               </section>
             );
@@ -188,6 +225,34 @@ export function WikiArticlePage() {
               ))}
             </ul>
           </section>
+
+          <section className="border-t border-border-hairline py-8 xl:hidden">
+            <h2
+              data-toc-ignore
+              className="font-serif text-20 font-medium text-foreground"
+            >
+              继续阅读
+            </h2>
+            {related.length > 0 ? (
+              <div className="mt-3 divide-y divide-border-hairline">
+                {related.map((item) => (
+                  <Link
+                    key={item.slug}
+                    to={`/wiki/${item.slug}`}
+                    className="group flex min-h-14 items-center justify-between gap-3 py-3 text-14 text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground"
+                  >
+                    <span>{item.title}</span>
+                    <ArrowRight
+                      className="size-4 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transform-none"
+                      aria-hidden
+                    />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-12 text-faint">暂无关联词条。</p>
+            )}
+          </section>
         </article>
 
         <aside className="hidden border-l border-border-hairline pl-8 xl:block">
@@ -199,7 +264,12 @@ export function WikiArticlePage() {
             />
 
             <section className="mt-8 border-t border-border-hairline pt-8">
-              <h2 className="text-12 font-medium text-foreground">相关词条</h2>
+              <h2
+                data-toc-ignore
+                className="text-12 font-medium text-foreground"
+              >
+                相关词条
+              </h2>
               {related.length > 0 ? (
                 <div className="mt-3 flex flex-col">
                   {related.map((item) => (
@@ -209,7 +279,10 @@ export function WikiArticlePage() {
                       className="group flex items-center justify-between gap-2 py-2 text-12 text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <span>{item.title}</span>
-                      <ArrowRight className="size-3 shrink-0 transition-transform group-hover:translate-x-1" />
+                      <ArrowRight
+                        className="size-3 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transform-none"
+                        aria-hidden
+                      />
                     </Link>
                   ))}
                 </div>
@@ -287,38 +360,35 @@ function WikiSectionBody({
   markdown,
   table,
   embeds,
+  blocks,
 }: {
   chapter: number;
   markdown: string;
   table?: WikiSectionTable;
   embeds?: WikiEmbedRef[];
+  blocks?: WikiSectionBlock[];
 }) {
-  const hasMermaid = /```mermaid/.test(markdown);
   const hasEmbeds = Boolean(embeds?.length);
+  const orderedBlocks = wikiSectionBlocks({ blocks, markdown, table, embeds });
 
   const body = (
-    <>
-      {hasMermaid ? (
-        <>
+    <WikiSectionBlocks
+      blocks={orderedBlocks}
+      markdown={markdown}
+      table={table}
+      embeds={embeds}
+      renderers={{
+        markdown: () => (
           <div data-wiki-prose>
             <WikiSectionMarkdown markdown={markdown} chapter={chapter} />
           </div>
-          {table && (
-            <WikiMergedTable columns={table.columns} rows={table.rows} />
-          )}
-        </>
-      ) : (
-        <>
-          {table && (
-            <WikiMergedTable columns={table.columns} rows={table.rows} />
-          )}
-          <div data-wiki-prose>
-            <WikiSectionMarkdown markdown={markdown} chapter={chapter} />
-          </div>
-        </>
-      )}
-      {hasEmbeds && embeds ? <WikiEmbedList embeds={embeds} /> : null}
-    </>
+        ),
+        table: (value) => (
+          <WikiMergedTable columns={value.columns} rows={value.rows} />
+        ),
+        embeds: (value) => <WikiEmbedList embeds={value} />,
+      }}
+    />
   );
 
   if (!hasEmbeds) return body;
@@ -380,7 +450,7 @@ function WikiSectionMarkdown({
           </ol>
         ),
         code: ({ children }) => (
-          <code className="rounded-4 border border-border bg-surface-card px-1 py-1 font-mono text-12 text-foreground">
+          <code className="rounded-4 border border-border bg-surface-2 px-1 py-1 font-mono text-12 text-foreground">
             {children}
           </code>
         ),
@@ -393,14 +463,14 @@ function WikiSectionMarkdown({
             );
             if (MERMAID_LANG_RE.test(cls) || MERMAID_HEAD_RE.test(raw)) {
               return (
-                <div className="mt-6 overflow-x-auto rounded-8 border border-border bg-surface-card p-4">
+                <div className="wiki-light-content mt-6 overflow-x-auto rounded-8 border border-border bg-surface-card p-4">
                   <MermaidDiagram code={raw} />
                 </div>
               );
             }
           }
           return (
-            <pre className="mt-4 overflow-x-auto rounded-8 border border-border bg-surface-card p-3 font-mono text-12 text-foreground">
+            <pre className="mt-4 overflow-x-auto rounded-8 border border-border bg-surface-1 p-3 font-mono text-12 leading-code text-foreground">
               {children}
             </pre>
           );
@@ -412,13 +482,13 @@ function WikiSectionMarkdown({
         ),
         table: ({ children }) => (
           <div className="mt-6 overflow-x-auto rounded-8 border border-border">
-            <table className="w-full border-collapse text-left text-12">
+            <table className="w-full border-collapse bg-surface-card text-left text-12">
               {children}
             </table>
           </div>
         ),
         th: ({ children }) => (
-          <th className="border-b border-border px-3 py-2 font-medium text-foreground">
+          <th className="border-b border-border bg-surface-1 px-3 py-2 font-medium text-foreground">
             {children}
           </th>
         ),
@@ -427,14 +497,22 @@ function WikiSectionMarkdown({
             {children}
           </td>
         ),
-        a: ({ children, href }) => (
-          <a
-            href={href}
-            className="text-brand-red underline underline-offset-4"
-          >
-            {children}
-          </a>
-        ),
+        a: ({ children, href }) =>
+          href?.startsWith("/wiki/") ? (
+            <Link
+              to={href}
+              className="text-brand-red underline underline-offset-4"
+            >
+              {children}
+            </Link>
+          ) : (
+            <a
+              href={href}
+              className="text-brand-red underline underline-offset-4"
+            >
+              {children}
+            </a>
+          ),
       }}
     >
       {markdown}

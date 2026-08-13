@@ -48,7 +48,9 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
     if (!el) return;
 
     const scan = () => {
-      const nodes = el.querySelectorAll<HTMLHeadingElement>('h2, h3');
+      const nodes = el.querySelectorAll<HTMLHeadingElement>(
+        'h2:not([data-toc-ignore]), h3:not([data-toc-ignore])'
+      );
       const list: Heading[] = [];
       const usedIds = new Set<string>();
       nodes.forEach((node) => {

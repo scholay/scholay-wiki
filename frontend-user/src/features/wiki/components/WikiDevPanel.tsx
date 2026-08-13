@@ -11,8 +11,8 @@ const PANEL_COLLAPSED_KEY = "scholay.wiki.panelCollapsed";
 const PANEL_HIDDEN_KEY = "scholay.wiki.panelHidden";
 
 const routes = [
-  ["总览", "/wiki"],
-  ["全部", "/wiki/all"],
+  ["开始", "/wiki"],
+  ["索引", "/wiki/all"],
   ["来源", "/wiki/sources"],
   ["覆盖", "/wiki/coverage"],
   ["其他", "/wiki/category/other"],

@@ -51,12 +51,69 @@ export const userExperienceArticles: WikiArticle[] = [
 
 密码为 8–64 位；启用注册验证码时需要输入 6 位数字。验证码按钮倒计时 60 秒，结束只表示可以再次请求，不代表旧验证码仍有效。是否需要邮箱验证和人机校验，以页面当前提示为准。修改或取消已验证的邀请码会先清除旧候选。`,
         embeds: [{ id: "invite-code-field" }, { id: "auth-register-recovery" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "使用自己能够持续接收验证码的邮箱或手机号注册，不要把验证码转发给任何人。邀请信息是选填项，不确定时可以先跳过。",
+            },
+          },
+        ],
       },
       {
         id: "recovery",
         title: "找回密码",
         markdown: `在登录表单点击“忘记密码”，选择邮箱或手机号，输入收到的 6 位验证码和 8–64 位新密码后提交。下图展示选择邮箱后的初始表单。页面会分别显示验证码发送中、重新发送倒计时、密码提交中和失败原因；是否匹配到账户、验证码是否过期以及剩余尝试次数，以提交后的提示为准。`,
         embeds: [{ id: "auth-password-recovery-email" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "只在本人打开的 Scholay 页面输入验证码和新密码。如果你没有发起找回却收到验证码，停止当前操作，不要向他人提供验证码。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "account-security-settings",
+              sectionId: "password",
+              title: "登录后继续维护账户安全",
+              description:
+                "修改密码，检查邮箱与手机号的绑定状态，并确认账户至少保留一种可用登录方式。",
+              icon: "review",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "恢复访问后",
+              description:
+                "补齐可持续使用的登录方式，减少再次无法访问账户的风险。",
+              items: [
+                {
+                  articleSlug: "account-security-settings",
+                  sectionId: "rebind",
+                  title: "核对或更换联系方式",
+                  description:
+                    "在桌面安全页验证新旧联系方式，维护可接收验证码的邮箱或手机号。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "account-connections",
+                  sectionId: "list",
+                  title: "检查第三方登录连接",
+                  description:
+                    "查看已经绑定的登录方式，并为解绑前的备用入口做好准备。",
+                  icon: "compass",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -90,6 +147,20 @@ export const userExperienceArticles: WikiArticle[] = [
         markdown: `当前支持 GitHub、Google、Apple、ORCID、Microsoft、Discourse 和微信。只有已经开放的方式才会出现在登录页；其中微信会在登录弹窗内显示二维码，其他方式会跳转到对应平台完成授权。
 
 某种方式可以用于登录，不代表它也一定能从账户设置中新增绑定；请以“设置 → 连接”页面实际显示的按钮为准。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "account-connections",
+              sectionId: "bind",
+              title: "登录可用不等于设置页可以新增绑定",
+              description:
+                "查看各第三方连接的当前绑定方式、移动端边界，以及 Google 新绑定尚未接通的情况。",
+              icon: "book-open",
+            },
+          },
+        ],
       },
       {
         id: "wechat-flow",
@@ -98,6 +169,16 @@ export const userExperienceArticles: WikiArticle[] = [
 
 每次扫码得到的授权信息只能使用一次。移动网页的认证页不会显示微信二维码入口。`,
         embeds: [{ id: "wechat-qr-login" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "只处理自己刚发起的扫码登录，并在微信端核对授权页面。二维码或授权信息不要转发；过期后回到 Scholay 登录窗口重新发起。",
+            },
+          },
+        ],
       },
       {
         id: "callback-state",
@@ -108,6 +189,53 @@ Google 使用自己的身份服务，不经过这两组整页回调状态。`,
         embeds: [
           { id: "oauth-callback-states" },
           { id: "wechat-callback-state" },
+        ],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "授权返回后如果出现合并确认，先核对第三方平台、邮箱与目标 Scholay 账户，再验证已有账户。取消不会自动完成绑定。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "oauth-account-merge",
+              sectionId: "choices",
+              title: "合并已有账户，还是创建独立账户",
+              description:
+                "比较两种选择的登录后果，并了解为什么合并前必须验证目标账户。",
+              icon: "review",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "登录完成后",
+              description:
+                "确认身份落到预期账户，再补齐备用登录方式或管理第三方连接。",
+              items: [
+                {
+                  articleSlug: "account-connections",
+                  sectionId: "list",
+                  title: "检查已连接账号",
+                  description:
+                    "确认这次授权对应的第三方方式已经出现在预期账户中。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "account-security-settings",
+                  sectionId: "boundary",
+                  title: "保留一种可用的备用登录方式",
+                  description:
+                    "检查邮箱、手机号和密码状态，避免第三方入口变化后无法登录。",
+                  icon: "compass",
+                },
+              ],
+            },
+          },
         ],
       },
     ],
@@ -272,11 +400,66 @@ Google 使用自己的身份服务，不经过这两组整页回调状态。`,
 
 Google 可以用于登录，但当前设置页还不能新绑定 Google，因此不要把没有反应的入口当作绑定成功。已经存在的 Google 绑定仍会显示在连接列表中，也可以解绑。`,
         embeds: [{ id: "wechat-qr-binding" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "只在自己打开的“设置 → 连接”中发起绑定，并核对跳转到的第三方平台。返回后以连接列表的绑定状态为准，不以按钮点击或扫码完成推断绑定成功。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "oauth-wechat-login",
+              sectionId: "providers",
+              title: "第三方登录入口为什么会变化",
+              description:
+                "了解管理员启用的提供方、微信扫码与普通 OAuth，以及登录和新增绑定之间的差异。",
+              icon: "book-open",
+            },
+          },
+        ],
       },
       {
         id: "unbind",
         title: "解绑保护",
         markdown: `解绑第三方账号前，页面会要求再次确认。账户只剩一种登录方式时，解绑按钮会被禁用，避免你把自己锁在账户外。解绑后将无法再用该平台登录；只要账户仍有其他登录方式，之后还可以重新绑定。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "解绑前先实际确认另一种方式能够登录。连接列表里显示邮箱、手机号或第三方账号，不等于你仍能接收验证码或记得对应密码。",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "绑定或解绑之后",
+              description: "验证结果，并为账户保留至少一种可靠的登录路径。",
+              items: [
+                {
+                  articleSlug: "account-security-settings",
+                  sectionId: "rebind",
+                  title: "验证邮箱或手机号",
+                  description:
+                    "首次绑定或换绑联系方式，并确认验证码能够送达本人。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "oauth-account-merge",
+                  sectionId: "why",
+                  title: "处理第三方邮箱冲突",
+                  description:
+                    "遇到同邮箱账户时先验证目标账户，不依赖邮箱相同自动合并。",
+                  icon: "compass",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -348,6 +531,21 @@ Google 可以用于登录，但当前设置页还不能新绑定 Google，因此
         title: "被拦消息不会假装已发送",
         markdown: `额度不足时，本轮消息会明确显示为“未发送/额度不足”，输入文字、文库引用和已经保存的附件仍留在当前会话中；下图展示了额度状态提示的几种样式。Claw、智能搜索和 Prism 会在输入框上方显示恢复入口，矩阵、翻译和审稿等操作则会弹出带按钮的提示。`,
         embeds: [{ id: "quota-status-toasts" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "ai-usage-quota",
+              sectionId: "accounting",
+              title: "为什么这轮任务会被额度门禁拦下",
+              description:
+                "了解所有 AI 功能共享的成本额度、恢复周期和真实成本记账方式。",
+              icon: "sparkles",
+            },
+          },
+        ],
       },
       {
         id: "recovery-actions",
@@ -356,11 +554,60 @@ Google 可以用于登录，但当前设置页还不能新绑定 Google，因此
 
 只有仍有重置次数或经费时，对应按钮才可用；没有可用资产时可以进入会员升级。`,
         embeds: [{ id: "quota-recovery" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "先确认原消息仍标记为未发送，再选择恢复方式。重置会立即开始新周期；“用经费继续”只在你明确开启后按超额部分结算。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "wallet-payg",
+              sectionId: "autopay",
+              title: "“用经费继续”怎样结算",
+              description:
+                "了解开关不会预扣、在途回合怎样记账，以及为什么低余额可能出现小额负数。",
+              icon: "resource",
+            },
+          },
+        ],
       },
       {
         id: "resume",
         title: "恢复原任务",
         markdown: `重置额度或开启经费续用成功后，页面会刷新额度，并允许你重新发送刚才被拦下的消息；也可以选择忽略它。关闭提示本身不会恢复额度，也不会把未发送的消息改成已发送。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "next-steps",
+            group: {
+              title: "恢复后继续",
+              description: "重新发送前确认额度或经费状态，之后再核对实际流水。",
+              items: [
+                {
+                  articleSlug: "ai-usage-quota",
+                  sectionId: "amounts",
+                  title: "查看当前额度与恢复时间",
+                  description:
+                    "以账户资产页的当前百分比和恢复时间判断是否已经恢复。",
+                  icon: "search",
+                },
+                {
+                  articleSlug: "wallet-payg",
+                  sectionId: "balance",
+                  title: "核对科研经费余额与流水",
+                  description:
+                    "在开启按量续用后区分周期额度与经费变化，检查实际结算记录。",
+                  icon: "resource",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -384,7 +631,7 @@ Google 可以用于登录，但当前设置页还不能新绑定 Google，因此
       {
         id: "choices",
         title: "四种选择",
-        markdown: `打开经典搜索的筛选面板，可以在“综合、Graph、Discovery、Medicine”之间选择论文来源；下图展示的是来源和其他筛选条件展开后的状态。“综合”会从多个来源中选择可用结果，其他三项只检索对应来源。`,
+        markdown: `打开传统搜索的筛选面板，可以在“综合、Graph、Discovery、Medicine”之间选择论文来源；下图展示的是来源和其他筛选条件展开后的状态。“综合”会从多个来源中选择可用结果，其他三项只检索对应来源。`,
         embeds: [{ id: "classic-search-filters" }],
       },
       {

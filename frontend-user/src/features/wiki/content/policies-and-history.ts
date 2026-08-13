@@ -73,6 +73,39 @@ export const policyAndHistoryArticles: WikiArticle[] = [
         id: "privacy",
         title: "提交前注意",
         markdown: `反馈材料可能被支持人员查看。不要上传不必要的敏感数据、未公开论文原稿或第三方机密；复现问题时优先提供去标识化信息。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "不要上传未公开稿件、第三方机密或与问题无关的敏感信息。截图和日志应先遮盖账户标识、密钥与个人数据。",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "提交前再核对",
+              items: [
+                {
+                  articleSlug: "service-policies",
+                  sectionId: "ai",
+                  title: "确认数据与 AI 使用边界",
+                  description:
+                    "了解反馈材料、AI 输出与正式政策之间的责任范围。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "help-center-and-qa",
+                  sectionId: "hub",
+                  title: "先查帮助中心",
+                  description:
+                    "常见使用问题可以先从公开问答与资源入口快速定位答案。",
+                  icon: "search",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },

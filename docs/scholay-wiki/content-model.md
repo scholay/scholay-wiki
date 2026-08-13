@@ -2,9 +2,9 @@
 
 ## 顶层导航
 
-Wiki 采用“入口 + 分类 + 全部词条 + 单词条”的结构：
+Wiki 采用“开始 + 分类 + 词条索引 + 单词条”的结构：
 
-- `/wiki`：总览、核心工作流、分类和最近核对状态。
+- `/wiki`：开始页，承担搜索与常用任务入口，不重复完整栏目目录。
 - `/wiki/all`：可搜索、可按类型/状态筛选的完整词条索引。
 - `/wiki/sources`：仓库来源路径到词条的反向索引。
 - `/wiki/coverage`：页面、模块、Agent、小程序、技能、迁移与数据集的核验口径。
@@ -14,6 +14,10 @@ Wiki 采用“入口 + 分类 + 全部词条 + 单词条”的结构：
 路由必须保留真实链接，确保键盘操作、打开新标签和搜索引擎内链都可用。
 
 ## 分类
+
+读者侧采用 `WIKI_NAV_CATEGORIES` 的 16 个任务与产品栏目；“全站概览”是其中第一个正式内容栏目。开始页只选取其中 6 个高频入口，不复制完整目录。
+
+底层词条同时保留以下 10 个内容分类，用于权限、搜索元数据与工程归档；它们不直接等同于读者侧栏目：
 
 1. `getting-started`：Scholay、账户、导航与基础概念。
 2. `discovery`：论文、作者、期刊、搜索、暂存区与引用网络。
@@ -54,16 +58,59 @@ interface WikiArticle {
   summary: string;
   category: WikiCategory;
   kind: WikiArticleKind;
-  status: 'current' | 'experimental' | 'compatibility' | 'historical' | 'planned';
+  status:
+    "current" | "experimental" | "compatibility" | "historical" | "planned";
   audience: string[];
   aliases: string[];
   sourcePaths: string[];
   related: string[];
-  sections: Array<{ id: string; title: string; markdown: string }>;
+  sections: WikiSection[];
 }
 ```
 
 `sourcePaths` 只接受仓库相对路径。覆盖脚本负责验证路径存在，并检查路由/模块/页面是否被至少一篇词条引用。
+
+### 章节中的结构化引导
+
+旧章节继续使用 `markdown`、`table` 和 `embeds`。需要在指定语境旁插入交互内容时，使用有序的 `blocks`；页面不会扫描关键词来猜应出现哪种组件。
+
+```ts
+type WikiSectionBlock =
+  | { type: "markdown" }
+  | { type: "table" }
+  | { type: "embeds" }
+  | { type: "prompt-tabs"; group: WikiPromptGroup }
+  | { type: "article-link"; card: WikiArticleLinkCard }
+  | { type: "tip"; tip: WikiTip }
+  | { type: "next-steps"; group: WikiNextStepGroup };
+
+interface WikiSection {
+  id: string;
+  title: string;
+  markdown: string;
+  table?: WikiSectionTable;
+  embeds?: WikiEmbedRef[];
+  blocks?: WikiSectionBlock[];
+}
+```
+
+- `prompt-tabs`：只用于真实的自然语言任务说明或提问模板。学科、场景切换必须复用同一目的，每个选项都能原样复制；DOI、邀请码、密码、筛选器等结构化输入不属于 Prompt。
+- `article-link`：解释当前段落出现的一个站内概念，标题和摘要默认继承目标词条。
+- `tip`：紧邻当前操作的短边界或风险提示，不重复正文大段内容。
+- `next-steps`：放在一段工作流的尾部，帮助读者执行下一项动作或做出选择；它不同于宽泛的 `related`。
+
+提供 `blocks` 时，章节已有的 Markdown、表格和演示图必须分别出现对应引用块，避免内容在重排时静默丢失。Prompt 文本、卡片标题和下一步说明同样进入 Wiki 搜索索引。
+
+### 术语和跨章节链接
+
+高频术语由人工维护的小型注册表控制。渲染时只链接单篇词条中首次有效出现的位置，并跳过标题、代码、表格、已有链接和 Prompt；不得直接把所有 `aliases` 自动转成链接。
+
+- 首次写“智能助手（Scholay Claw）”，后文简称“智能助手”。
+- 首次写“智能写作（Scholay Prism）”，后文简称“智能写作”。
+- 用户侧统一用“传统文献搜索”“智能搜索”“PDF 对话”“个人文献集”“交付物”。
+- “AI 周期额度”“算力点”“科研经费”是不同概念，不能互作同义词。
+- “暂存”“收藏”“加入个人文献集”是三个不同动作。
+- “开放获取（OA）”“存在全文链接”“拥有可用 PDF”不是同一状态。
 
 ## 搜索
 

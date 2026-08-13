@@ -39,9 +39,21 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     document.body.appendChild(ta);
     ta.focus();
     ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
+    let wroteClipboardEvent = false;
+    const handleCopy = (event: ClipboardEvent) => {
+      if (!event.clipboardData) return;
+      event.clipboardData.setData('text/plain', text);
+      event.preventDefault();
+      wroteClipboardEvent = true;
+    };
+    document.addEventListener('copy', handleCopy);
+    try {
+      document.execCommand('copy');
+      return wroteClipboardEvent;
+    } finally {
+      document.removeEventListener('copy', handleCopy);
+      ta.remove();
+    }
   } catch {
     return false;
   }

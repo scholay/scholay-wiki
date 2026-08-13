@@ -125,6 +125,16 @@ export const membershipArticles: WikiArticle[] = [
 
 实际额度可以调整，页面以百分比和周期时间呈现；某档上限设为负数时表示不限额。收费开启时，Free 基准额度和周期天数不能为零。`,
         embeds: [{ id: "account-assets" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "额度上限和周期可能调整。判断当前还能否使用、何时恢复时，以账户资产页当时显示的剩余百分比和恢复时间为准，不把示例数值当作长期承诺。",
+            },
+          },
+        ],
       },
       {
         id: "accounting",
@@ -133,11 +143,60 @@ export const membershipArticles: WikiArticle[] = [
 
 周期到期会自然恢复；实际升档，以及满足最短授予时长的兑换码或管理员赠送，会按各自规则恢复额度，并非任何权益变化都会重置。手动重置只能在额度耗尽后使用最早到期的重置次数，经费不能直接换成一次重置。系统无法可靠确认额度时，会暂时拒绝重置以避免重复扣除次数。`,
         embeds: [{ id: "billing-overview-usage" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "quota-block-and-recovery",
+              sectionId: "recovery-actions",
+              title: "额度耗尽后有哪些恢复方式",
+              description:
+                "了解一次重置、用经费继续和升级会员各自何时可用，以及被拦消息怎样保留。",
+              icon: "compass",
+            },
+          },
+        ],
       },
       {
         id: "concurrency",
         title: "并发请求边界",
         markdown: `额度门禁只发生在每个 AI 回合开始前，模型结束后才按真实成本记账；单轮或多个并发回合都可能跨过 100%，系统不会在生成中途硬切断。最终成本仍会记录，因此额度不是严格的并发事务上限，用户不应依靠并发请求规避额度。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "不要用并发请求测试或绕过额度。门禁只判断回合开始时的状态，最终仍会按各回合真实成本记账。",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "额度不足时",
+              description: "先保留当前任务，再根据已有资产选择恢复方式。",
+              items: [
+                {
+                  articleSlug: "quota-block-and-recovery",
+                  sectionId: "blocked-message",
+                  title: "恢复被拦下的 AI 任务",
+                  description:
+                    "确认消息是否真正发送，再选择重置、经费续用或升级会员。",
+                  icon: "compass",
+                },
+                {
+                  articleSlug: "wallet-payg",
+                  sectionId: "autopay",
+                  title: "了解“用经费继续”",
+                  description:
+                    "核对开关、实际成本结算与经费流水，再决定是否按量续用。",
+                  icon: "resource",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -172,6 +231,21 @@ export const membershipArticles: WikiArticle[] = [
 
 临时经费已经停止使用，订阅也不会自动赠送经费。`,
         embeds: [{ id: "account-assets" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "ai-usage-quota",
+              sectionId: "accounting",
+              title: "科研经费与 AI 周期额度不是同一项权益",
+              description:
+                "周期额度会按规则恢复；科研经费长期保留，只在用户开启按量续用或发生其他钱包交易时变化。",
+              icon: "sparkles",
+            },
+          },
+        ],
       },
       {
         id: "rate",
@@ -180,11 +254,56 @@ export const membershipArticles: WikiArticle[] = [
 
 兑换率和最低金额可能调整，结算前请以页面显示为准；系统会限制价格，避免按量付费比购买同等套餐额度更便宜。`,
         embeds: [{ id: "wallet-recharge" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "tip",
+            tip: {
+              text: "充值前只以当前结算窗口显示的实付金额、到账经费和支付方式为准。Wiki 与演示组件中的数字用于解释计算关系，不是固定报价。",
+            },
+          },
+        ],
       },
       {
         id: "autopay",
         title: "何时扣经费",
         markdown: `“用经费继续”默认关闭，必须由用户显式开启。跨过周期上限的一轮只对 included ceiling 之外的部分收费，不会把整轮重复扣款；未开启时该轮溢出由平台承担，下一轮才拦截。起跑门禁只检查余额是否大于 0，因此余额为正但不足以覆盖整轮时，异步结算可能产生不超过在途回合成本量级的小额负数。开启开关不会预扣，也不会降低模型等级或速度。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "开启前先查看经费余额。开关不会预扣，实际成本在回合结束后写入流水；余额很低时，仍可能因在途回合结算出现小额负数。",
+            },
+          },
+          {
+            type: "next-steps",
+            group: {
+              title: "使用或补充科研经费",
+              description:
+                "根据当前是额度耗尽、准备充值，还是需要核对一笔交易继续操作。",
+              items: [
+                {
+                  articleSlug: "quota-block-and-recovery",
+                  sectionId: "recovery-actions",
+                  title: "从被拦任务开启经费续用",
+                  description:
+                    "在保留原消息的前提下选择恢复方式，并在成功后重新发送任务。",
+                  icon: "compass",
+                },
+                {
+                  articleSlug: "payment-orders",
+                  sectionId: "quote",
+                  title: "核对充值订单",
+                  description:
+                    "查看充值报价、支付状态与订单记录，不用旧截图推算到账经费。",
+                  icon: "review",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },

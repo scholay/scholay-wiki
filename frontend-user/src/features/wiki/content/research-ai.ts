@@ -57,11 +57,26 @@ export const researchAiArticles: WikiArticle[] = [
     sections: [
       {
         id: "difference",
-        title: "与普通检索的区别",
-        markdown: `在智能搜索输入框中直接写下完整的研究问题，例如研究对象、方法和时间范围，再发送即可；下图展示的是等待输入时的状态。智能搜索会围绕问题规划检索、整理来源并给出说明，普通检索则更适合明确关键词和筛选条件。
+        title: "与传统搜索的区别",
+        markdown: `在智能搜索输入框中直接写下完整的研究问题，例如研究对象、方法和时间范围，再发送即可；下图展示的是等待输入时的状态。智能搜索会围绕问题规划检索、整理来源并给出说明，传统搜索则更适合明确检索词和筛选条件。
 
 两种方式都能找到论文，但智能搜索还会保留这一轮对话中的查询过程和来源线索。`,
         embeds: [{ id: "smart-search-dock" }],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "smart-literature-search-guide",
+              sectionId: "frame-the-question",
+              title: "把研究需求写成可执行的第一问",
+              description:
+                "按学科复制提问模板，明确对象、时间、结果类型与证据边界。",
+              icon: "sparkles",
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "session",
@@ -250,16 +265,115 @@ export const researchAiArticles: WikiArticle[] = [
         embeds: [
           { id: "claw-empty-state", caption: "智能助手 · 数据分析入口" },
         ],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "research-data-analysis-question",
+              title: "先写清研究设计，再要求选择方法",
+              description:
+                "复制最接近的数据结构，替换文件名、变量、单位与编码说明。",
+              options: [
+                {
+                  id: "two-group-comparison",
+                  label: "两组比较",
+                  prompt:
+                    "只分析附件【文件名】。研究问题是【问题】；结局变量为【变量】，分组变量为【变量】，单位与编码为【说明】，缺失值编码为【说明】。先检查变量类型、样本量、缺失、异常值和研究设计；信息不足时先提问，不要自行假设。请选择当前支持范围内合适的两组比较方法，并报告描述统计、假设检查、效应量、区间、p 值和方法选择理由。不要把组间差异表述为因果关系。",
+                },
+                {
+                  id: "multi-group-comparison",
+                  label: "多组比较",
+                  prompt:
+                    "只分析附件【文件名】。比较【组别变量】的多个组在【结局变量】上的差异。先检查每组样本量、分布、方差与缺失；在当前支持范围内选择合适的多组检验，并报告整体检验、效应量和必要的后续比较建议。若当前工具不能完成所需比较，请明确说明，不要用不等价方法替代。",
+                },
+                {
+                  id: "paired-observations",
+                  label: "配对数据",
+                  prompt:
+                    "附件【文件名】包含同一对象在【两个时间点/两个条件】下的配对观测。对象标识为【ID】，结果变量为【变量】。请先验证配对关系和缺失情况，再选择配对检验，报告配对差值、描述统计、假设检查、效应量、区间和 p 值。",
+                },
+                {
+                  id: "categorical-data",
+                  label: "分类资料",
+                  prompt:
+                    "分析附件【文件名】中【变量 A】与【变量 B】的分类资料关系。先列出列联表、样本量与期望频数，再在当前支持范围内选择卡方或精确检验，并说明选择理由、效应大小与限制。稀疏单元格或编码不清时先报告问题。",
+                },
+              ],
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "stat-lab-method-boundary",
+              sectionId: "methods",
+              title: "先核对当前支持的统计方法",
+              description:
+                "查看两组、多组、配对与分类资料的真实方法目录，不从已安装依赖推断能力。",
+              icon: "review",
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "environment",
         title: "执行环境",
         markdown: `统计工具在 Agent 的受控工作区中运行，支持常见表格和统计文件。文件解析失败、变量类型不明或研究设计不足时，应先澄清或报告限制，不应为了产出而猜测。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "提交数据前保留一份原始文件，并另附变量字典：至少写清列名、含义、单位、分组编码和缺失值编码。SPSS、Stata、SAS 专有文件需先转换为 CSV 或 XLSX。",
+              link: {
+                articleSlug: "claw-attachments-and-references",
+                sectionId: "unsupported",
+                label: "查看附件格式与转换说明",
+              },
+            },
+          },
+        ],
       },
       {
         id: "responsibility",
         title: "解释边界",
         markdown: `显著性、效应量、模型假设和缺失值处理都必须结合领域语境解释。AI 分析不能替代研究方案审查，尤其不能从观察数据自动推断因果。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "next-steps",
+            group: {
+              title: "下一步",
+              description:
+                "完成计算后，不要停在自然语言结论；继续核对方法、文件与可复现信息。",
+              items: [
+                {
+                  articleSlug: "stat-lab-method-boundary",
+                  sectionId: "workflow",
+                  title: "复核计算与报告链路",
+                  description: "检查方法卡、假设检查和报告 bundle 是否对应。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "claw-interface-guide",
+                  sectionId: "artifacts",
+                  title: "下载并打开分析交付物",
+                  description:
+                    "核对表格、图形、数据文件和方法说明，而不只阅读聊天文字。",
+                  icon: "resource",
+                },
+                {
+                  articleSlug: "agent-artifacts",
+                  sectionId: "access",
+                  title: "确认交付文件的访问与归属",
+                  description: "了解文件怎样被收集、更新并与当前会话关联。",
+                  icon: "compass",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },
@@ -292,16 +406,127 @@ export const researchAiArticles: WikiArticle[] = [
         embeds: [
           { id: "claw-empty-state", caption: "智能助手 · 科研创作模板" },
         ],
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "research-figure-brief",
+              title: "按图形任务写清内容与证据边界",
+              description:
+                "复制最接近的图形类型；生成后仍需逐项核对标签、数据和科学关系。",
+              options: [
+                {
+                  id: "mechanism-diagram",
+                  label: "机制示意图",
+                  prompt:
+                    "根据【材料/论文】制作一张用于【论文/组会/项目申请】的机制示意图。必须体现【实体】、【关系】和【方向】，标签使用【中文/英文】。只画材料能够支持的关系；不确定或假设性关系使用明确的视觉区分并在图注说明。交付可编辑 SVG，并附节点与连线清单。",
+                },
+                {
+                  id: "method-flowchart",
+                  label: "方法流程图",
+                  prompt:
+                    "把【研究方法/实验流程】整理成从【起点】到【终点】的方法流程图。包含输入、关键步骤、判断分支、输出和失败/排除条件；步骤顺序以附件为准，不要补造未提供的环节。交付可编辑 SVG，并附一段可用于论文方法部分的图注。",
+                },
+                {
+                  id: "data-visualization",
+                  label: "数据图",
+                  prompt:
+                    "只使用附件【文件名】中的数据制作【图形类型】。横轴为【变量】，纵轴为【变量与单位】，分组为【变量】，误差表示【标准差/标准误/置信区间】。不得改变数值或隐藏缺失；请同时交付可编辑图形、作图数据和图注草稿。",
+                },
+                {
+                  id: "graphical-abstract",
+                  label: "图形摘要",
+                  prompt:
+                    "把【研究问题—方法—主要发现—意义】压缩为一张图形摘要。每部分只保留一个核心信息，所有数字和关系必须能在附件中定位。使用【期刊/会议】适合的版式，交付可编辑 SVG，并列出仍需作者确认的内容。",
+                },
+              ],
+            },
+          },
+          { type: "embeds" },
+        ],
       },
       {
         id: "slides",
         title: "演示文稿",
         markdown: `演示文稿工作流根据主题、材料和受众生成页面结构与可编辑文件。交付目标是能继续修改的演示文件，而不是把每一页烘焙成不可编辑图片。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "prompt-tabs",
+            group: {
+              id: "research-slides-brief",
+              title: "按汇报场景设置叙事重点",
+              description:
+                "替换受众、时长和核心问题，并把材料中没有的内容留作待确认项。",
+              options: [
+                {
+                  id: "lab-meeting",
+                  label: "组会汇报",
+                  prompt:
+                    "基于【附件/材料】制作一份面向【受众】的【组会汇报】演示文稿，时长【分钟】，约【页数】页。叙事主线是【核心问题】。每页只表达一个判断，区分背景、证据、方法、结果、局限和下一步；所有数字、图表与引用都标明来源。不要补造材料中没有的结果。交付可继续编辑的演示文件，并附逐页标题、讲述要点和仍需确认的内容。强调当前进展、问题和下周决策。",
+                },
+                {
+                  id: "proposal-defense",
+                  label: "开题报告",
+                  prompt:
+                    "基于【附件/材料】制作一份面向【受众】的【开题报告】演示文稿，时长【分钟】，约【页数】页。叙事主线是【核心问题】。每页只表达一个判断，区分背景、证据、方法、结果、局限和下一步；所有数字、图表与引用都标明来源。不要补造材料中没有的结果。交付可继续编辑的演示文件，并附逐页标题、讲述要点和仍需确认的内容。强调研究空白、问题、设计、可行性和风险。",
+                },
+                {
+                  id: "conference-talk",
+                  label: "学术会议",
+                  prompt:
+                    "基于【附件/材料】制作一份面向【受众】的【学术会议】演示文稿，时长【分钟】，约【页数】页。叙事主线是【核心问题】。每页只表达一个判断，区分背景、证据、方法、结果、局限和下一步；所有数字、图表与引用都标明来源。不要补造材料中没有的结果。交付可继续编辑的演示文件，并附逐页标题、讲述要点和仍需确认的内容。强调一条核心贡献、关键证据和时间控制。",
+                },
+                {
+                  id: "thesis-defense",
+                  label: "毕业答辩",
+                  prompt:
+                    "基于【附件/材料】制作一份面向【受众】的【毕业答辩】演示文稿，时长【分钟】，约【页数】页。叙事主线是【核心问题】。每页只表达一个判断，区分背景、证据、方法、结果、局限和下一步；所有数字、图表与引用都标明来源。不要补造材料中没有的结果。交付可继续编辑的演示文件，并附逐页标题、讲述要点和仍需确认的内容。强调贡献、方法合理性、结果、局限和可能追问。",
+                },
+              ],
+            },
+          },
+        ],
       },
       {
         id: "shared",
         title: "共同机制",
         markdown: `科研绘图和演示文稿会分别保存自己的会话与任务设置，但都使用同一套会话历史、额度和文件交付方式。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "next-steps",
+            group: {
+              title: "下一步",
+              description: "生成文件之后，按交付目标继续检查和整理。",
+              items: [
+                {
+                  articleSlug: "claw-interface-guide",
+                  sectionId: "artifacts",
+                  title: "预览并下载交付物",
+                  description: "打开真正的 SVG 或演示文件，确认它仍可编辑。",
+                  icon: "resource",
+                },
+                {
+                  articleSlug: "research-data-analysis",
+                  sectionId: "responsibility",
+                  title: "复核数据与解释边界",
+                  description:
+                    "图中包含统计结果时，回查分析方法、单位和数据来源。",
+                  icon: "review",
+                },
+                {
+                  articleSlug: "prism-writing-workflow",
+                  sectionId: "evidence",
+                  title: "把图形带入论文写作",
+                  description: "补齐图注、引用与材料来源，再进入正文和编译。",
+                  icon: "compass",
+                },
+              ],
+            },
+          },
+        ],
       },
     ],
   },

@@ -5,11 +5,14 @@ import {
   navArticlesInCategory,
   navCategoryBySlug,
   navHref,
+  resolveWikiProductMenuFromNavCategory,
   visibleNavNodes,
   visibleNavCategories,
 } from "../content";
 import type { WikiNavNode } from "../types";
 import { WikiArticleCard } from "../components/WikiArticleCard";
+import { WikiFeatureIcon } from "../components/WikiFeatureIcon";
+import { WikiProductMenuDock } from "../components/WikiProductMenuDock";
 import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
 
 export function WikiCategoryPage() {
@@ -23,6 +26,7 @@ export function WikiCategoryPage() {
 
   const articles = navArticlesInCategory(category.slug, canSeeAdmin);
   const categoryNodes = visibleNavNodes(category.children, canSeeAdmin);
+  const productMenu = resolveWikiProductMenuFromNavCategory(category.slug);
 
   return (
     <>
@@ -37,20 +41,46 @@ export function WikiCategoryPage() {
             to="/wiki"
             className="inline-flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="size-3" /> 返回 Wiki 总览
+            <ArrowLeft className="size-3" /> 返回开始
           </Link>
-          <p className="mt-6 text-12 font-medium text-brand-red">
-            WIKI DIRECTORY
-          </p>
-          <h1 className="mt-2 font-display text-32 font-bold leading-display-tight text-foreground">
-            {category.title}
-          </h1>
-          <p className="mt-3 max-w-reading text-14 leading-paragraph text-muted-foreground">
-            {category.description}
-          </p>
-          <p className="mt-4 text-12 text-faint">
-            当前归入 {articles.length} 篇词条
-          </p>
+          {productMenu ? (
+            <div className="mt-6">
+              <WikiProductMenuDock activeId={productMenu.id} />
+              <p className="mt-6 text-12 font-medium text-brand-red">
+                WIKI DIRECTORY
+              </p>
+              <h1 className="mt-2 font-display text-32 font-bold leading-display-tight text-foreground">
+                {category.title}
+              </h1>
+              <p className="mt-3 max-w-reading text-14 leading-paragraph text-muted-foreground">
+                {category.description}
+              </p>
+              <p className="mt-4 text-12 text-faint">
+                当前归入 {articles.length} 篇词条
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 flex items-start gap-4 md:gap-5">
+              <WikiFeatureIcon
+                slug={category.slug}
+                className="mt-1 size-12 shrink-0 object-contain md:size-14"
+              />
+              <div className="min-w-0">
+                <p className="text-12 font-medium text-brand-red">
+                  WIKI DIRECTORY
+                </p>
+                <h1 className="mt-2 font-display text-32 font-bold leading-display-tight text-foreground">
+                  {category.title}
+                </h1>
+                <p className="mt-3 max-w-reading text-14 leading-paragraph text-muted-foreground">
+                  {category.description}
+                </p>
+                <p className="mt-4 text-12 text-faint">
+                  当前归入 {articles.length} 篇词条
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

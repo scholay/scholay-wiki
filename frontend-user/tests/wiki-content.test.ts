@@ -6,7 +6,13 @@ import {
   WIKI_ARTICLES,
   WIKI_CATEGORIES,
   WIKI_NAV_CATEGORIES,
+  WIKI_PRODUCT_MENUS,
+  WIKI_START_PATHS,
   articleNavTrail,
+  resolveWikiProductMenu,
+  resolveWikiProductMenuFromNavCategory,
+  visibleNavCategories,
+  wikiSectionPlainText,
 } from "../src/features/wiki/content";
 import { WIKI_EMBED_REGISTRY } from "../src/features/wiki/embeds/registry";
 import { WIKI_MOCK_SURFACE_BASELINE } from "../src/features/wiki/coverage";
@@ -18,7 +24,17 @@ import {
   MOCK_SURFACE_COVERAGE_STATS,
   USER_MOCK_SURFACE_COVERAGE,
 } from "../src/features/wiki/embeds/mock-surface-coverage";
+import {
+  WIKI_ARTICLE_INTRO_VISUALS,
+  WIKI_CATEGORY_ICON_SRC,
+  WIKI_EXTRA_FEATURE_ICON_SRC,
+} from "../src/features/wiki/visuals/catalog";
+import {
+  WIKI_TERM_LINKS,
+  linkWikiTerms,
+} from "../src/features/wiki/content/wiki-term-links";
 import type {
+  WikiArticleTarget,
   WikiEmbedId,
   WikiEmbedRef,
   WikiNavNode,
@@ -80,6 +96,111 @@ function allEmbedRefs(): WikiEmbedRef[] {
 }
 
 describe("Scholay Wiki 内容契约", () => {
+  it("栏目图标与关键简介首图资产完整、尺寸稳定且遵守体积预算", () => {
+    expect(Object.keys(WIKI_CATEGORY_ICON_SRC)).toHaveLength(16);
+    expect(Object.keys(WIKI_EXTRA_FEATURE_ICON_SRC)).toEqual(["smart-search"]);
+    expect(Object.keys(WIKI_ARTICLE_INTRO_VISUALS)).toEqual(["claw"]);
+
+    for (const [slug, src] of Object.entries({
+      ...WIKI_CATEGORY_ICON_SRC,
+      ...WIKI_EXTRA_FEATURE_ICON_SRC,
+    })) {
+      const assetPath = path.join(repoRoot, "frontend-user/public", src);
+      expect(existsSync(assetPath), `${slug}: ${src}`).toBe(true);
+      const png = readFileSync(assetPath);
+      expect(png.subarray(1, 4).toString(), slug).toBe("PNG");
+      expect(png.readUInt32BE(16), slug).toBe(512);
+      expect(png.readUInt32BE(20), slug).toBe(512);
+      expect(statSync(assetPath).size, slug).toBeLessThan(24 * 1024);
+    }
+
+    for (const [slug, visual] of Object.entries(WIKI_ARTICLE_INTRO_VISUALS)) {
+      const assetPath = path.join(repoRoot, "frontend-user/public", visual.src);
+      expect(existsSync(assetPath), `${slug}: ${visual.src}`).toBe(true);
+      expect(visual.alt.trim().length, slug).toBeGreaterThan(15);
+      const png = readFileSync(assetPath);
+      expect(png.subarray(1, 4).toString(), slug).toBe("PNG");
+      expect(png.readUInt32BE(16), slug).toBe(1440);
+      expect(png.readUInt32BE(20), slug).toBe(960);
+      expect(statSync(assetPath).size, slug).toBeLessThan(450 * 1024);
+    }
+  });
+
+  it("首页常用入口都继承一级栏目图标", () => {
+    for (const pathEntry of WIKI_START_PATHS) {
+      expect(WIKI_CATEGORY_ICON_SRC[pathEntry.categorySlug]).toBeDefined();
+    }
+  });
+
+  it("智能搜索词条使用独立功能图标", () => {
+    const articlePage = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/pages/WikiArticlePage.tsx",
+      ),
+      "utf8",
+    );
+    expect(articlePage).toContain('article.slug === "smart-search"');
+    expect(articlePage).toContain('? "smart-search"');
+    expect(articlePage).toContain("<WikiFeatureIcon");
+    expect(
+      resolveWikiProductMenu("smart-search", "literature-search"),
+    ).toBeUndefined();
+  });
+
+  it("词条页眉用宫灯选中态对应全站功能菜单七项", () => {
+    expect(WIKI_PRODUCT_MENUS.map((menu) => menu.label)).toEqual([
+      "文献搜索",
+      "期刊搜索",
+      "智能助手",
+      "智能写作",
+      "智能审稿",
+      "我的资源",
+      "Skills广场",
+    ]);
+    expect(resolveWikiProductMenu("claw", "assistant")?.id).toBe("claw");
+    expect(
+      resolveWikiProductMenu("academic-search", "literature-search")?.id,
+    ).toBe("search");
+    expect(
+      resolveWikiProductMenu("journal-search-page", "journal-search")?.id,
+    ).toBe("journal-search");
+    expect(resolveWikiProductMenu("prism", "writing")?.id).toBe("prism");
+    expect(resolveWikiProductMenu("peer-review", "review")?.id).toBe(
+      "peer-review",
+    );
+    expect(
+      resolveWikiProductMenu("literature-library", "resources")?.label,
+    ).toBe("我的资源");
+    expect(resolveWikiProductMenu("community-skills", "assistant")?.id).toBe(
+      "tools",
+    );
+    expect(resolveWikiProductMenu("feature-tools", "other")?.id).toBe("tools");
+    expect(resolveWikiProductMenu("ai-usage-quota", "limits")).toBeUndefined();
+    expect(resolveWikiProductMenuFromNavCategory("journal-search")?.id).toBe(
+      "journal-search",
+    );
+    expect(resolveWikiProductMenuFromNavCategory("limits")).toBeUndefined();
+
+    const articlePage = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/pages/WikiArticlePage.tsx",
+      ),
+      "utf8",
+    );
+    const categoryPage = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/pages/WikiCategoryPage.tsx",
+      ),
+      "utf8",
+    );
+    expect(articlePage).toContain("<WikiProductMenuDock");
+    expect(articlePage).not.toContain("WikiProductMenuList");
+    expect(categoryPage).toContain("<WikiProductMenuDock");
+  });
+
   it("词条 slug、标题与章节标识唯一", () => {
     expect(new Set(WIKI_ARTICLES.map((article) => article.slug)).size).toBe(
       WIKI_ARTICLES.length,
@@ -140,6 +261,127 @@ describe("Scholay Wiki 内容契约", () => {
         ).toBe(true);
       }
     }
+  });
+
+  it("规范术语只在正文首次有效出现处建立站内链接", () => {
+    for (const entry of WIKI_TERM_LINKS) {
+      expect(
+        WIKI_ARTICLE_BY_SLUG.has(entry.articleSlug),
+        entry.articleSlug,
+      ).toBe(true);
+    }
+
+    const linked = linkWikiTerms(
+      "智能助手可以引用个人文献集。再次提到智能助手。`智能助手`。\n| 智能助手 | 说明 |",
+      "example",
+    );
+    expect(linked).toContain("[智能助手](/wiki/claw)");
+    expect(linked.match(/\/wiki\/claw/g)).toHaveLength(1);
+    expect(linked).toContain("`智能助手`");
+    expect(linked).toContain("| 智能助手 | 说明 |");
+    expect(linkWikiTerms("智能助手", "claw")).toBe("智能助手");
+  });
+
+  it("结构化文档块顺序明确，Prompt 与站内跳转目标都有效", () => {
+    let promptGroupCount = 0;
+
+    const expectTarget = (source: string, target: WikiArticleTarget) => {
+      const article = WIKI_ARTICLE_BY_SLUG.get(target.articleSlug);
+      expect(article, `${source} -> ${target.articleSlug}`).toBeDefined();
+      if (target.sectionId) {
+        expect(
+          article?.sections.some((section) => section.id === target.sectionId),
+          `${source} -> ${target.articleSlug}#${target.sectionId}`,
+        ).toBe(true);
+      }
+    };
+
+    for (const article of WIKI_ARTICLES) {
+      for (const section of article.sections) {
+        const source = `${article.slug}#${section.id}`;
+        const blocks = section.blocks ?? [];
+        const blockKeys = blocks.map((block, index) => {
+          if (block.type === "prompt-tabs") return `prompt:${block.group.id}`;
+          return `${block.type}:${index}`;
+        });
+        expect(new Set(blockKeys).size, source).toBe(blockKeys.length);
+
+        if (blocks.length > 0) {
+          if (section.markdown.trim()) {
+            expect(
+              blocks.some((block) => block.type === "markdown"),
+              `${source} 丢失 markdown block`,
+            ).toBe(true);
+          }
+          if (section.table) {
+            expect(
+              blocks.some((block) => block.type === "table"),
+              `${source} 丢失 table block`,
+            ).toBe(true);
+          }
+          if (section.embeds?.length) {
+            expect(
+              blocks.some((block) => block.type === "embeds"),
+              `${source} 丢失 embeds block`,
+            ).toBe(true);
+          }
+        }
+
+        for (const block of blocks) {
+          if (block.type === "prompt-tabs") {
+            promptGroupCount += 1;
+            expect(block.group.title.trim().length, source).toBeGreaterThan(0);
+            expect(block.group.options.length, source).toBeGreaterThanOrEqual(
+              2,
+            );
+            expect(
+              new Set(block.group.options.map((option) => option.id)).size,
+              source,
+            ).toBe(block.group.options.length);
+            for (const option of block.group.options) {
+              expect(option.label.trim().length, source).toBeGreaterThan(0);
+              expect(option.prompt.trim().length, source).toBeGreaterThan(40);
+            }
+            if (block.group.defaultOptionId) {
+              expect(
+                block.group.options.some(
+                  (option) => option.id === block.group.defaultOptionId,
+                ),
+                source,
+              ).toBe(true);
+            }
+          }
+          if (block.type === "article-link") {
+            expectTarget(source, block.card);
+          }
+          if (block.type === "tip" && block.tip.link) {
+            expectTarget(source, block.tip.link);
+          }
+          if (block.type === "next-steps") {
+            expect(block.group.items.length, source).toBeGreaterThan(0);
+            expect(block.group.items.length, source).toBeLessThanOrEqual(4);
+            for (const item of block.group.items) {
+              expect(item.description.trim().length, source).toBeGreaterThan(
+                10,
+              );
+              expectTarget(source, item);
+            }
+          }
+        }
+      }
+    }
+
+    expect(promptGroupCount).toBeGreaterThanOrEqual(10);
+  });
+
+  it("Prompt、解释卡、Tips 与下一步都进入 Wiki 搜索文本", () => {
+    const section = WIKI_ARTICLE_BY_SLUG.get(
+      "smart-literature-search-guide",
+    )?.sections.find((item) => item.id === "frame-the-question");
+    expect(section).toBeDefined();
+    const text = wikiSectionPlainText(section!);
+    expect(text).toContain("通用研究");
+    expect(text).toContain("研究主题");
   });
 
   it("每个 Wiki 演示都已登记并至少挂载到一个词条", () => {
@@ -564,6 +806,27 @@ describe("Scholay Wiki 内容契约", () => {
       walkNav(category.children),
     );
     expect(new Set(nodes.map((node) => node.id)).size).toBe(nodes.length);
+  });
+
+  it("开始页仅保留可公开访问的高频栏目入口", () => {
+    expect(WIKI_START_PATHS.map((item) => item.title)).toEqual([
+      "全站概览",
+      "文献查询与分析",
+      "智能助手",
+      "智能写作",
+      "智能审稿",
+      "会员订阅",
+    ]);
+
+    const publicCategorySlugs = new Set(
+      visibleNavCategories(false).map((category) => category.slug),
+    );
+    for (const path of WIKI_START_PATHS) {
+      expect(
+        publicCategorySlugs.has(path.categorySlug),
+        path.categorySlug,
+      ).toBe(true);
+    }
   });
 
   it("导航目标、章节锚点与唯一主归位全部可解析", () => {

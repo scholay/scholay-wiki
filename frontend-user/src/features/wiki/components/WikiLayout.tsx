@@ -1,4 +1,4 @@
-import { Menu, Search } from "lucide-react";
+import { Menu, Moon, Search, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Footer } from "@/shared/components/Footer";
@@ -18,12 +18,14 @@ import {
   visibleNavCategories,
 } from "../content";
 import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
+import { useWikiTheme } from "../hooks/useWikiTheme";
 import type { WikiNavCategory } from "../types";
 import { WikiDocsNav } from "./WikiDocsNav";
 import { WikiSearchForm } from "./WikiSearchForm";
 
 export function WikiLayout() {
   const { pathname } = useLocation();
+  const { theme, isDark, toggleTheme } = useWikiTheme();
   const canSeeAdmin = useCanSeeWikiAdmin();
   const categories = visibleNavCategories(canSeeAdmin);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -35,10 +37,13 @@ export function WikiLayout() {
   useEffect(() => setMobileNavOpen(false), [pathname]);
 
   return (
-    <div className="wiki-doc-surface flex min-h-dvh flex-col bg-surface-card">
+    <div
+      className="wiki-doc-surface flex min-h-dvh flex-col bg-background"
+      data-wiki-theme={theme}
+    >
       <a
         href="#wiki-main"
-        className="sr-only z-tooltip bg-foreground px-3 py-2 text-12 text-on-dark focus-visible:fixed focus-visible:left-3 focus-visible:top-3 focus-visible:not-sr-only"
+        className="sr-only z-tooltip rounded-8 border border-border bg-surface-card px-3 py-2 text-12 text-foreground shadow-overlay focus-visible:fixed focus-visible:left-3 focus-visible:top-3 focus-visible:not-sr-only"
       >
         跳到正文
       </a>
@@ -46,10 +51,10 @@ export function WikiLayout() {
       <header className="sticky top-0 z-nav flex h-14 items-center border-b border-border bg-surface-card px-4 lg:px-6">
         <Link
           to="/wiki"
-          aria-label="Scholay Wiki 首页"
+          aria-label="Scholay Wiki 开始"
           className="flex shrink-0 items-center gap-2"
         >
-          <BrandLogo size="sm" />
+          <BrandLogo size="sm" variant={isDark ? "mark" : "full"} />
           <span className="text-12 font-medium text-brand-red">WIKI</span>
         </Link>
 
@@ -63,6 +68,21 @@ export function WikiLayout() {
             <Search className="size-icon-inline" aria-hidden />
           </Link>
 
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-pressed={isDark}
+            aria-label={isDark ? "切换到日间模式" : "切换到夜间模式"}
+            title={isDark ? "切换到日间模式" : "切换到夜间模式"}
+            className="inline-flex size-9 items-center justify-center rounded-8 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+          >
+            {isDark ? (
+              <Sun className="size-icon-inline" aria-hidden />
+            ) : (
+              <Moon className="size-icon-inline" aria-hidden />
+            )}
+          </button>
+
           <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <SheetTrigger asChild>
               <button
@@ -74,7 +94,11 @@ export function WikiLayout() {
                 导航
               </button>
             </SheetTrigger>
-            <SheetContent side="left" className="max-w-panel-lg gap-0">
+            <SheetContent
+              side="left"
+              className="wiki-theme-portal max-w-panel-lg gap-0"
+              data-wiki-theme={theme}
+            >
               <SheetHeader>
                 <SheetTitle>Scholay Wiki</SheetTitle>
                 <SheetDescription className="sr-only">
@@ -113,7 +137,11 @@ export function WikiLayout() {
           <main id="wiki-main" className="min-w-0 flex-1">
             <Outlet />
           </main>
-          <Footer className="bg-surface-card" />
+          <Footer
+            className="bg-surface-card"
+            portalClassName="wiki-theme-portal"
+            portalTheme={theme}
+          />
         </div>
       </div>
     </div>

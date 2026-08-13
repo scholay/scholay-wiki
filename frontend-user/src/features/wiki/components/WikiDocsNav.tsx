@@ -110,7 +110,7 @@ export function WikiDocsNav({
             aria-current={pathname === "/wiki" ? "page" : undefined}
             className={indexLinkClass(pathname === "/wiki", linkSpacing)}
           >
-            Wiki 总览
+            开始
           </Link>
           <Link
             to="/wiki/all"
@@ -118,7 +118,7 @@ export function WikiDocsNav({
             aria-current={pathname === "/wiki/all" ? "page" : undefined}
             className={indexLinkClass(pathname === "/wiki/all", linkSpacing)}
           >
-            全部词条
+            词条索引
           </Link>
           <Link
             to="/wiki/sources"
@@ -281,7 +281,7 @@ function WikiNavBranch({
               "-ml-px flex min-w-0 flex-1 items-center gap-2 border-l-2 pr-2 transition-colors",
               linkSpacing,
               isTargetActive
-                ? "border-brand-red bg-surface-card font-medium text-brand-red"
+                ? "border-brand-red bg-surface-1 font-medium text-brand-red"
                 : isPrimaryActive
                   ? "border-border-strong text-foreground"
                   : "border-transparent text-muted-foreground hover:border-border-strong hover:text-foreground",
@@ -390,7 +390,7 @@ function indexLinkClass(active: boolean, spacing: string): string {
     "border-l-2 px-3 transition-colors",
     spacing,
     active
-      ? "border-brand-red bg-surface-card font-medium text-brand-red"
+      ? "border-brand-red bg-surface-1 font-medium text-brand-red"
       : "border-transparent text-muted-foreground hover:border-border-strong hover:text-foreground",
   );
 }
