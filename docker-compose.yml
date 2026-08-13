@@ -256,6 +256,10 @@ services:
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       # SEO 完整性回填(H1 论文摘要 + M2 冷门 URL 现拉):默认关,置 true 才消耗 minicod 配额
       SEO_ENRICH_ENABLED: ${SEO_ENRICH_ENABLED:-false}
+      # M2 现拉的每小时全局配额。爬虫 UA 一律不放行(硬编码),这个数只管「非爬虫」那部分:
+      # 0 = 不限;留空取默认 200(≈ 真人实体页浏览量的 100 倍余量)。理由见
+      # backend/internal/config/ssr_onmiss_gate.go 文件头。必须在这里透传,否则 .env 里设了不生效。
+      SEO_ONMISS_HOURLY_BUDGET: ${SEO_ONMISS_HOURLY_BUDGET:-}
       # MinIO 对象存储(用户上传 PDF) —— endpoint 用容器名 minio:9000
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}

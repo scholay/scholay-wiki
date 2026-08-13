@@ -637,8 +637,15 @@ Disallow: /api/`
 	// ② 给"训练类"重爬虫加 Crawl-delay 护栏, 减轻 SSR 后端压力。
 	// 两类区分(依据 OpenAI/Anthropic/Perplexity 官方文档):
 	//   - 检索/实时取页类(被引前提, 不限速): OAI-SearchBot / *-User / *-SearchBot / PerplexityBot
-	//   - 训练/批量类(放行但限速): GPTBot / ClaudeBot / Google-Extended / Amazonbot / Meta-ExternalAgent / CCBot
+	//   - 训练/批量类(放行但限速): GPTBot / ClaudeBot / Google-Extended / Amazonbot / CCBot
 	// 注: 不输出 llms.txt —— Google 官方已否定, 实测几乎无引擎读取, 不投入。
+	//
+	// 🔴 Meta-ExternalAgent 已从"训练类放行"移出, 整站 Disallow(2026-08-12):
+	// 生产 24h 实测 33,796 次实体页抓取(全站爬虫量第一), 换来的收录/引用/流量为零,
+	// 却是 SSR on-miss 现拉上游的最大单一来源 —— 它不给我们任何东西, 只花我们的 minicod 配额。
+	// 大小写两种拼写("Meta-ExternalAgent" / "meta-externalagent")线上都出现过:
+	// robots 规范里 UA 匹配本就不区分大小写, 但这个爬虫量级太大, 宁可各写一组也不赌解析器实现。
+	// robots 只是声明, 强制执行在 nginx/conf.d/user.conf 的 $block_meta_bot(403)。
 	body := fmt.Sprintf(`User-agent: *
 %s
 
@@ -662,10 +669,15 @@ User-agent: GPTBot
 User-agent: ClaudeBot
 User-agent: Google-Extended
 User-agent: Amazonbot
-User-agent: Meta-ExternalAgent
 User-agent: CCBot
 %s
 Crawl-delay: 5
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
 
 Sitemap: %s/sitemap.xml
 `, rules, rules, rules, rules, rules, baseURL())

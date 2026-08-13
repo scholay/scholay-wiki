@@ -63,6 +63,10 @@ describe('production dependency contract', () => {
     // 运行时 API/Worker 版本错配,这里钉死单版本让分叉在测试期就红。
     expect(lockedVersions('pdfjs-dist').size, 'pdfjs-dist 出现多个版本').toBe(1);
     expect(lockedVersions('highlight.js').size, 'highlight.js 出现多个版本').toBe(1);
+    // @lezer/highlight:LatexEditor 直接 import 其 tags,此前靠 @codemirror/language 的传递依赖存活。
+    // @lezer 系与 @codemirror 系有实例同一性要求(tags 必须来自同一份模块,否则语法高亮静默失效),
+    // 故必须单版本 —— 分叉即高亮挂,且不报错。@dnd-kit/utilities 靠 @dnd-kit/sortable 传递存活。
+    expect(lockedVersions('@lezer/highlight').size, '@lezer/highlight 出现多个版本').toBe(1);
   });
 
   it('imports table primitives from the supported aggregate Tiptap extension', () => {

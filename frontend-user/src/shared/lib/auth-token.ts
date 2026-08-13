@@ -124,11 +124,15 @@ export function syncAuthSideEffects(token: string | null): void {
 
 // ─── cookie(仅 iframe / 跨页签共享会话用;主流请求仍走 Authorization header)─────
 // SameSite=Strict:同站同源加载,够用且免 CSRF。无 HttpOnly:token 在 localStorage 本就 XSS 可读,
-// 不损失安全等级,换取「前端任意 login 入口都能写」。Max-Age 24h ≈ 后端 JWT TTL,过期由 401 清。
+// 不损失安全等级,换取「前端任意 login 入口都能写」。
+// Max-Age 必须 = 后端 JWT TTL(utils/jwt.go TokenExpiration=48h)—— 早前写 24h 与之错位:
+// 长驻超 24h 的 tab 里 Authorization header 仍有效(axios 200),但 cookie 已过期,只吃 cookie
+// 的鉴权面(聊天图片 iframe / umami)会静默 401(2026-08-12 审计)。JWT 真过期时由 401 清。
+const SESSION_COOKIE_MAX_AGE = 48 * 60 * 60; // 48h,对齐后端 JWT TTL
 
 function writeSessionCookie(token: string): void {
   if (typeof document === 'undefined') return;
-  document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=86400; SameSite=Strict`;
+  document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; SameSite=Strict`;
 }
 
 function clearSessionCookie(): void {

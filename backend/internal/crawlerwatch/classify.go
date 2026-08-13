@@ -90,6 +90,19 @@ func ClassifyUA(ua string) (engine string, ok bool) {
 	return "", false
 }
 
+// IsBot 是 ClassifyUA 的布尔投影:调用方只关心「这是不是机器人」时不必拿着 engine key。
+//
+// 刻意复用同一张表而不是另起一份 UA 判定 —— 两张会漂移的爬虫表比没有表更糟:
+// 加了新爬虫只改一处、另一处静默失效,而失效的那处正好是花钱的那处
+// (SSR on-miss 现拉上游)。本函数的调用方见 internal/config/ssr_onmiss_gate.go。
+//
+// 空 UA 返回 false(与 ClassifyUA 同口径):它不是「已知爬虫」,由 on-miss 的
+// 预算闸门兜住 —— 判成爬虫会误伤某些隐私浏览器/代理抹掉 UA 的真人。
+func IsBot(ua string) bool {
+	_, ok := ClassifyUA(ua)
+	return ok
+}
+
 // ssrPrefixes 后端 SSR 注入的公开页面前缀(与 nginx user.conf 的 @ssr_backend
 // 正则同口径)。按**路径段**匹配:"/paper" 与 "/paper/..." 算,"/paperclip" 不算。
 var ssrPrefixes = []string{

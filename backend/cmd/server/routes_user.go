@@ -53,6 +53,8 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 	{
 		applePublic.GET("/login-url", h.user.GetAppleLoginURL)
 		applePublic.POST("/callback", h.user.AppleCallback)
+		// Apple form_post 的回调只带一次性 login_code(不再把 JWT 放 URL);前端拿 code 换真 token。
+		applePublic.POST("/exchange", h.user.AppleExchangeCode)
 	}
 
 	microsoftPublic := api.Group("/user/microsoft")

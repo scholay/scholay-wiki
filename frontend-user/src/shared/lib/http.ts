@@ -68,7 +68,10 @@ http.interceptors.response.use(
   (resp) => resp,
   (err) => {
     const apiErr = toApiError(err);
-    if (isAuthError(apiErr)) {
+    // 本次请求是否带了 Authorization(请求时刻真值)—— 请求拦截器仅在 token 存在时设该头。
+    const requestHadToken =
+      err instanceof AxiosError && err.config?.headers?.Authorization != null;
+    if (isAuthError(apiErr, requestHadToken)) {
       notifyAuthLost({ code: apiErr.code, message: apiErr.message });
     }
     // AI 额度耗尽 → 汇入全局额度通知器(弹重置弹窗)。统一谓词,与 SSE/WS 同一判断(Theme 2)。
@@ -221,9 +224,15 @@ export function toApiError(err: unknown): ApiError {
  *   全局登出(否则登录失败反而弹"登录已过期"+ 双 toast)。这是 defense-in-depth:
  *   后端也已把"邮箱验证码登录失败"从 2016(→401)改成 2004(→400),双保险。
  */
-export function isAuthError(err: ApiError): boolean {
+export function isAuthError(err: ApiError, requestHadToken?: boolean): boolean {
   if (err.code === BizCode.TokenRevoked || err.code === BizCode.TokenExpired) {
     return true;
   }
-  return err.status === BizCode.Unauthorized && getAuthToken() != null;
+  // 裸 401 是否算「会话丢失」取决于**本次请求是否带了凭证**。
+  // requestHadToken 由响应拦截器从 err.config 传入(请求时刻的真值);缺省才回落
+  // getAuthToken()(响应时刻现值)—— 后者有竞态:匿名请求在途中用户完成登录,
+  // 401 返回时现值非空会误清刚建立的会话(sse-post 已按请求时 token 修过同型竞态,
+  // 2026-08-12 审计指出主 HTTP 通道遗漏,这里补齐)。
+  const hadToken = requestHadToken ?? getAuthToken() != null;
+  return err.status === BizCode.Unauthorized && hadToken;
 }

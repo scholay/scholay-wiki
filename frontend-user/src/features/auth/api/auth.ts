@@ -32,6 +32,20 @@ export function handleAuthSuccess(qc: QueryClient, data: AuthResponse) {
   });
 }
 
+/**
+ * Apple 登录码交换 —— Apple form_post 回调后端 302 只带一次性 login_code(不再带 JWT),
+ * 前端拿 code POST 换回完整 AuthResponse(mirrors backend/internal/user/apple_oauth.go AppleExchangeCode)。
+ * code 一次性(GetDel)+ 90s TTL,即便落进日志也换不出第二次。
+ */
+export async function exchangeAppleLoginCode(code: string): Promise<AuthResponse> {
+  try {
+    const { data } = await http.post<{ data: AuthResponse }>('/user/apple/exchange', { code });
+    return data.data;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 function normalizeUser(raw: User): import('@/stores/auth.store').StoredUser {
   return {
     id: raw.id,

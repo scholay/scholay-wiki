@@ -18,6 +18,7 @@ import {
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import { trackEvent } from '@/shared/lib/track';
 import { useHeightVar } from '@/shared/hooks';
+import { MAX_RECONNECT_ATTEMPTS } from '@/shared/hooks/useAgentSocket';
 import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { Upload } from 'lucide-react';
@@ -1036,7 +1037,7 @@ export function SmartSearchPanel() {
                     <Loader2 className="size-3 animate-spin" />
                     连接断开,正在重连
                     {reconnectAttempt > 0 && (
-                      <span className="text-faint">({reconnectAttempt}/5)</span>
+                      <span className="text-faint">({reconnectAttempt}/{MAX_RECONNECT_ATTEMPTS})</span>
                     )}
                   </div>
                 )}

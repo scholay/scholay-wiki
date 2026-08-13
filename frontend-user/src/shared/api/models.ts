@@ -3,6 +3,7 @@
 // 不允许跨 feature import)。locked 模型照常返回(选择器置灰 + 升级引导),过滤是后端 hub 闸的事。
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { useAuthStore } from '@/stores/auth.store';
 
 export interface UserModel {
   model_id: string;
@@ -38,8 +39,12 @@ export function modelSupportsVision(
 export type ModelFeatureKey = 'smart_search' | 'claw' | 'prism' | 'boltslides' | 'sci_draw' | 'stat_lab';
 
 export function useUserModels(feature: ModelFeatureKey) {
+  // 私有端点(/user/models 需鉴权):匿名访问 /claw、/search?mode=smart 等页时不发请求,
+  // 否则白打注定 401 的请求。响应式 token 门控,原地弹窗登录后自动启动。
+  const token = useAuthStore((s) => s.token);
   return useQuery({
     queryKey: ['shared', 'models', feature],
+    enabled: !!token,
     queryFn: async () =>
       (await http.get<{ data: UserModel[] }>('/user/models', { params: { feature } })).data.data,
     staleTime: 5 * 60_000,

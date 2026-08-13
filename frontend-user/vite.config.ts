@@ -28,6 +28,10 @@ export default defineConfig(({ command }) => ({
     outDir: 'build',
     sourcemap: false,
     target: 'es2022',
+    // 每次构建都产出 .vite/manifest.json,让 postbuild 的 bundle:check 有据可依 ——
+    // 否则体积预算(bundle-budgets.json)是一道从不运行的死闸(2026-08-12 审计)。
+    // manifest 以 . 开头,nginx `location ~ /\.` deny 兜住,不会对外服务。
+    manifest: true,
     rollupOptions: {
       output: {
         // 函数式 manualChunks(性能审计 fe-bundle):
@@ -74,7 +78,8 @@ export default defineConfig(({ command }) => ({
     },
     // 1500:elk(1.44MB)/mathlive(816KB)是刻意的独立 lazy 巨块(上面 manualChunks 手工命名),
     // 700 时它们每次构建都恒超线 —— 永远黄灯只会训练大家忽略构建警告。
-    // 真正的体积闸在 bundle-budgets.json 的 largestJsChunkGzipBytes(npm run ci:bundle)。
+    // 真正的体积闸在 bundle-budgets.json 的 largestJsChunkGzipBytes:由 postbuild 的
+    // `npm run bundle:check` 每次构建(含 Docker)硬校验(2026-08-12 接线,此前是从不运行的死闸)。
     chunkSizeWarningLimit: 1500,
   },
 }));

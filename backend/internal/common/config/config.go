@@ -458,6 +458,26 @@ func CanonicalBaseURL() string {
 	return v
 }
 
+// defaultSEOOnMissHourlyBudget SSR 冷门实体「现拉上游」的每小时全局默认配额。
+//
+// 200/h 的来路:生产 24h 实测**真人**实体页浏览量 31 次/天,而爬虫 6.5 万次/天。
+// 200/h ≈ 真人用量的 100 倍余量,对真实用户等于不存在;它存在的唯一理由是
+// 「伪装成浏览器 UA 的爬虫不能把 minicod 配额抽干」—— UA 闸门挡不住谎报 UA 的,
+// 预算能。
+const defaultSEOOnMissHourlyBudget = 200
+
+// SEOOnMissHourlyBudget SSR on-miss 现拉上游的每小时全局配额(env SEO_ONMISS_HOURLY_BUDGET)。
+//
+//	0        = 不限(仅解除预算,**不解除**爬虫 UA 闸门)
+//	负数/缺省/非法值 = 默认 200
+func SEOOnMissHourlyBudget() int {
+	v := getEnvAsInt("SEO_ONMISS_HOURLY_BUDGET", defaultSEOOnMissHourlyBudget)
+	if v < 0 {
+		return defaultSEOOnMissHourlyBudget
+	}
+	return v
+}
+
 // GoogleSiteVerification 返回 Google Search Console 的 HTML-tag 验证 token
 // (env GOOGLE_SITE_VERIFICATION,即 <meta name="google-site-verification"> 的
 // content 值,不含标签本身)。非空时 SSR 会在每个页面 <head> 注入验证 meta。

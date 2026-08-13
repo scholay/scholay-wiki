@@ -8,7 +8,7 @@ import { Button } from '@/shared/ui';
 import { useAuthStore } from '@/stores/auth.store';
 import type { AuthResponse } from '../types';
 import { OAuthMergeConfirmDialog } from '../components/OAuthMergeConfirmDialog';
-import { handleAuthSuccess } from '../api/auth';
+import { handleAuthSuccess, exchangeAppleLoginCode } from '../api/auth';
 import { authSuccessLandingPath } from '@/shared/lib/auth-events';
 import {
   OAUTH_MODE_KEY,
@@ -85,37 +85,23 @@ export function OAuthCallbackPage() {
       return;
     }
 
-    // 1. Apple 风格:后端已签好 token,直接落 session
-    const directToken = params.get('token');
-    if (directToken) {
-      const userJson = params.get('user');
-      try {
-        let user: AuthResponse['user'];
-        if (userJson) {
-          user = JSON.parse(userJson) as AuthResponse['user'];
-        } else {
-          const userId = Number(params.get('user_id'));
-          if (!Number.isSafeInteger(userId) || userId <= 0) {
-            throw new Error('missing user_id');
-          }
-          // Apple redirect 只需先提供真实身份 ID；AuthBootstrap 随后以 /user/profile
-          // 补齐完整资料。禁止用 id:0，否则活动查询迟到时邀请 Flow 会误判账号已切换。
-          user = { id: userId, email: '', role: 'user' } as AuthResponse['user'];
+    // 1. Apple 风格:后端 form_post 回调完成后 302 回来,只带一次性 login_code(不再带 JWT ——
+    //    JWT 落进 URL 会进 nginx access log 可重放,2026-08-12 安全修复)。拿 code POST 换真 token。
+    const loginCode = params.get('login_code');
+    if (loginCode) {
+      void (async () => {
+        try {
+          const authResponse = await exchangeAppleLoginCode(loginCode);
+          const landingPath = authSuccessLandingPath(authResponse.is_new_user);
+          handleAuthSuccess(qc, authResponse);
+          setPhase('success');
+          toast.success('登录成功');
+          setTimeout(() => navigate(landingPath, { replace: true }), 400);
+        } catch (e) {
+          setPhase('error');
+          setErrMsg(toApiError(e).message || '登录响应解析失败');
         }
-        const authResponse = {
-          token: directToken,
-          user,
-          is_new_user: params.get('is_new_user') === 'true',
-        } as AuthResponse;
-        const landingPath = authSuccessLandingPath(authResponse.is_new_user);
-        handleAuthSuccess(qc, authResponse);
-        setPhase('success');
-        toast.success('登录成功');
-        setTimeout(() => navigate(landingPath, { replace: true }), 400);
-      } catch {
-        setPhase('error');
-        setErrMsg('登录响应解析失败');
-      }
+      })();
       return;
     }
 

@@ -242,6 +242,40 @@ func (r *Repository) GetByPaperID(paperID string) (*SEOPaper, error) {
 	return &p, nil
 }
 
+// ExistingPaperIDs 批量判定哪些 paper_id 已在 seo_papers 落地(SSR 内链的「抓取前沿」核对,
+// 见 internal/config/ssr_link_frontier.go)。一次 IN 查询走 uk_paper_id 唯一索引;
+// 只 select 主键列,不回表取行数据。入参去重后再查,重复作者/论文不会放大 IN 列表。
+func (r *Repository) ExistingPaperIDs(paperIDs []string) (map[string]bool, error) {
+	return existingIDs(r.db, &SEOPaper{}, "paper_id", paperIDs)
+}
+
+// existingIDs 论文/作者共用的存在性批量核对。表与列由调用方给定,行为完全一致。
+func existingIDs(db *gorm.DB, model any, column string, ids []string) (map[string]bool, error) {
+	uniq := make([]string, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		uniq = append(uniq, id)
+	}
+	if len(uniq) == 0 {
+		return map[string]bool{}, nil
+	}
+	var found []string
+	if err := db.Model(model).
+		Where(column+" IN ?", uniq).
+		Pluck(column, &found).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(found))
+	for _, id := range found {
+		out[id] = true
+	}
+	return out, nil
+}
+
 // ListSitemapPage 读取指定分页的 sitemap 条目（仅取 SEO 必要字段）
 //
 // 多 select 一个 source 和 paper_id —— sitemap 写入的 URL 现在是

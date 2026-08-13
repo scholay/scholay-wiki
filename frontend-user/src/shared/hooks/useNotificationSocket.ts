@@ -94,8 +94,15 @@ export function useNotificationSocket() {
   const closedByUserRef = useRef(false);
   // 退避预算耗尽后挂的一次性 visibilitychange 监听的卸载器(null = 未挂)。
   const visibilityReviveRef = useRef<(() => void) | null>(null);
+  // 代际计数:每次 effect 重跑(token 变化)自增。旧连接的异步事件(onopen/onmessage/onclose)
+  // 带着自己那一代的 myGen,与当前代不符即作废 —— 否则 token 直接换值(old→new,跨 tab 换号)时,
+  // 旧连接 A 的 onclose 在新连接 B 建立后才异步到达,此刻 closedByUserRef 已被新 effect 重置为 false,
+  // A.onclose 会拉起第三条连接并把共享的 wsRef/pingTimerRef 覆写/清空(通知双弹 + 心跳泄漏,对抗审查确认)。
+  const genRef = useRef(0);
 
   useEffect(() => {
+    const myGen = ++genRef.current;
+    const isCurrent = () => genRef.current === myGen;
     closedByUserRef.current = false;
     reconnectAttemptsRef.current = 0;
 
@@ -177,11 +184,15 @@ export function useNotificationSocket() {
         scheduleReconnect();
         return;
       }
-      if (closedByUserRef.current) return; // await 期间登出/换号 → 放弃本次连接
+      if (closedByUserRef.current || !isCurrent()) return; // await 期间登出/换号 → 放弃本次连接
       const ws = new WebSocket(buildWsUrl(wsToken));
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (!isCurrent()) {
+          ws.close(); // 已是上一代连接,别启心跳,直接收摊
+          return;
+        }
         reconnectAttemptsRef.current = 0; // 连上即重置退避计数
         // 启动心跳
         pingTimerRef.current = setInterval(() => {
@@ -192,6 +203,7 @@ export function useNotificationSocket() {
       };
 
       ws.onmessage = (e) => {
+        if (!isCurrent()) return; // 上一代连接的迟到消息不再驱动 UI(否则通知双弹)
         let msg: ServerMessage;
         try {
           msg = JSON.parse(e.data);
@@ -211,7 +223,12 @@ export function useNotificationSocket() {
           case 'unread_count': {
             const d = msg.data as UnreadCountData | undefined;
             if (typeof d?.count === 'number') {
-              qc.setQueryData(['notifications', 'unread-count'], d.count);
+              // 先杀在途 refetch 再写,否则一个在途的 unread-count GET 过期 resolve 会把
+              // 推送的新值覆盖回旧值(与 prism compile 推送同款竞态,对齐其 cancelQueries 姿势)。
+              const key = ['notifications', 'unread-count'];
+              void qc.cancelQueries({ queryKey: key }).then(() => {
+                qc.setQueryData(key, d.count);
+              });
             }
             break;
           }
@@ -238,6 +255,9 @@ export function useNotificationSocket() {
       };
 
       ws.onclose = () => {
+        // 代际守卫必须在触碰任何共享 ref 之前:上一代连接的 close 迟到时,若无条件清
+        // pingTimerRef/wsRef 会拆掉当前代连接的心跳、并触发多余重连(见 genRef 注释)。
+        if (!isCurrent()) return;
         if (pingTimerRef.current) {
           clearInterval(pingTimerRef.current);
           pingTimerRef.current = null;

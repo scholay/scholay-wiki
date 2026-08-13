@@ -238,6 +238,17 @@ func (s *Service) GetByPaperID(paperID string) (*SEOPaper, error) {
 	return s.repo.GetByPaperID(paperID)
 }
 
+// ExistingPaperIDs / ExistingAuthorIDs —— SSR 内链渲染前的「已落地」批量核对。
+// 实现 config.PaperCorpusProvider / config.AuthorCorpusProvider(可选接口,
+// 已由 bootstrap 注入的同一个 seo.Service 承载,无需额外接线)。
+func (s *Service) ExistingPaperIDs(paperIDs []string) (map[string]bool, error) {
+	return s.repo.ExistingPaperIDs(paperIDs)
+}
+
+func (s *Service) ExistingAuthorIDs(authorIDs []string) (map[string]bool, error) {
+	return s.repo.ExistingAuthorIDs(authorIDs)
+}
+
 // GetSitemapPage 获取指定分页的 sitemap 条目
 func (s *Service) GetSitemapPage(page int) ([]SitemapEntry, error) {
 	return s.repo.ListSitemapPage(page)

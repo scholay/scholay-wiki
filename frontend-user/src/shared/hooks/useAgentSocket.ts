@@ -138,7 +138,8 @@ export interface UseAgentSocket<TServer, TClient> {
 }
 
 /** 弱网友好的指数退避:1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s ... 上限 8 次 ≈ 3-4 分钟。 */
-const MAX_RECONNECT_ATTEMPTS = 8;
+/** 重连尝试上限 —— 导出供 UI 显示「第 n/N 次重连」,避免面板里写死字面量与之漂移。 */
+export const MAX_RECONNECT_ATTEMPTS = 8;
 function reconnectDelayMs(attempt: number) {
   return Math.min(1000 * 2 ** Math.min(attempt, 6), 60000);
 }
@@ -523,6 +524,11 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
         // 不立即 setState;等 onclose 决定走重连还是错误终态
       };
       ws.onclose = () => {
+        // 代际守卫必须在触碰共享定时器 ref 之前:pingTimerRef/stallTimerRef 是 hook 级共享 ref,
+        // 上一代连接 A 的 close 若晚于新连接 B 的 onopen 到达(B 已把自己的心跳/看门狗装进这两个 ref),
+        // 无条件 clearInterval 会拆掉 B 的心跳与半死看门狗(对抗审查确认)。A 自己的定时器已由
+        // effect cleanup / 上一次 close 清过,这里早退不会泄漏。
+        if (!isCurrent()) return;
         if (pingTimerRef.current) {
           window.clearInterval(pingTimerRef.current);
           pingTimerRef.current = null;
@@ -531,9 +537,6 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           window.clearInterval(stallTimerRef.current);
           stallTimerRef.current = null;
         }
-        // 只有当 ws 仍是 active 那条时才触发重连决策;过期 ws 的 close(cleanup 主动 close /
-        // 被 backend displace)不应改 state / 触发重连,否则污染新 ws 状态机。
-        if (!isCurrent()) return;
         wsRef.current = null;
         scheduleReconnectOrError();
       };

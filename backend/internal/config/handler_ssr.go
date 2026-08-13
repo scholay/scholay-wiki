@@ -247,7 +247,10 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 				var meta *seo.PaperSSRMeta
 				var resolveErr error
 				canonicalRequest := false
-				enrichmentAttempted := false
+				// onMissTerminal:on-miss 分支已进入终局 —— 要么真调了上游没拿到,
+				// 要么被闸门挡掉压根没调。两者都不该再给 SPA 200 兜底:实体不在库里,
+				// 爬虫必须收到 404 才会停止沿内链扩散(见 ssr_onmiss_gate.go 文件头)。
+				onMissTerminal := false
 				switch len(parts) {
 				case 1:
 					meta, resolveErr = h.paperSEOProvider.ResolveSlug(parts[0])
@@ -260,17 +263,19 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 							// URL 中的任意 source 触发上游回填，否则首访可污染 canonical。
 							status = http.StatusNotFound
 						} else if resolveErr == nil && meta == nil && h.paperEnricher != nil {
-							enrichmentAttempted = true
-							ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
-							var e2 error
-							if m2, enrichErr := h.paperEnricher.EnrichPaperOnMiss(ctx, source, paperID); enrichErr == nil && m2 != nil {
-								meta = m2
-							} else {
-								e2 = enrichErr
-							}
-							cancel()
-							if e2 != nil {
-								resolveErr = e2
+							onMissTerminal = true
+							if h.allowOnMissEnrich(c, "paper", source, paperID) {
+								ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+								var e2 error
+								if m2, enrichErr := h.paperEnricher.EnrichPaperOnMiss(ctx, source, paperID); enrichErr == nil && m2 != nil {
+									meta = m2
+								} else {
+									e2 = enrichErr
+								}
+								cancel()
+								if e2 != nil {
+									resolveErr = e2
+								}
 							}
 						}
 					} else {
@@ -284,7 +289,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 					case resolveErr != nil:
 						status = http.StatusServiceUnavailable
 					case meta == nil:
-						if canonicalRequest && !enrichmentAttempted {
+						if canonicalRequest && !onMissTerminal {
 							// SEO 行只是缓存，canonical 深链在未启用 on-miss 时不能据此判实体不存在。
 							// 保留 SPA 让用户端数据源继续解析，同时去掉错误的首页 canonical。
 							modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
@@ -304,7 +309,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						if canonical != "" {
 							renderPath = canonical
 						}
-						modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, renderPath)
+						modifiedHTML = injectPaperSEOMeta(modifiedHTML, h.closePaperAuthorFrontier(meta), renderPath)
 						if !meta.SEOIndexable || canonical == "" {
 							if canonical == "" {
 								// 旧 SEO 行可能没有 source。没有权威 canonical 时宁可省略，
@@ -333,7 +338,8 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 				var meta *seo.AuthorSSRMeta
 				var resolveErr error
 				canonicalRequest := false
-				enrichmentAttempted := false
+				// 与论文同口径,见上面 onMissTerminal 的说明。
+				onMissTerminal := false
 				switch len(parts) {
 				case 1:
 					meta, resolveErr = h.authorSEOProvider.ResolveAuthorSlug(parts[0])
@@ -344,17 +350,19 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						if resolveErr == nil && meta == nil && !seo.IsCanonicalSource(source) {
 							status = http.StatusNotFound
 						} else if resolveErr == nil && meta == nil && h.authorEnricher != nil {
-							enrichmentAttempted = true
-							ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
-							var e2 error
-							if m2, enrichErr := h.authorEnricher.EnrichAuthorOnMiss(ctx, source, authorID); enrichErr == nil && m2 != nil {
-								meta = m2
-							} else {
-								e2 = enrichErr
-							}
-							cancel()
-							if e2 != nil {
-								resolveErr = e2
+							onMissTerminal = true
+							if h.allowOnMissEnrich(c, "author", source, authorID) {
+								ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+								var e2 error
+								if m2, enrichErr := h.authorEnricher.EnrichAuthorOnMiss(ctx, source, authorID); enrichErr == nil && m2 != nil {
+									meta = m2
+								} else {
+									e2 = enrichErr
+								}
+								cancel()
+								if e2 != nil {
+									resolveErr = e2
+								}
 							}
 						}
 					} else {
@@ -368,7 +376,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 					case resolveErr != nil:
 						status = http.StatusServiceUnavailable
 					case meta == nil:
-						if canonicalRequest && !enrichmentAttempted {
+						if canonicalRequest && !onMissTerminal {
 							modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
 							modifiedHTML = setSSRNoindex(c, modifiedHTML)
 						} else {
@@ -386,7 +394,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						if canonical != "" {
 							renderPath = canonical
 						}
-						modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, renderPath)
+						modifiedHTML = injectAuthorSEOMeta(modifiedHTML, h.closeAuthorWorkFrontier(meta), renderPath)
 						if !meta.SEOIndexable || canonical == "" {
 							if canonical == "" {
 								modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")

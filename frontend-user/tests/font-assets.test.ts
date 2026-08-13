@@ -43,6 +43,9 @@ const EDGE_NGINX_PATH = join(REPO_ROOT, 'nginx', 'conf.d', 'user.conf');
 const EDGE_NGINX = existsSync(EDGE_NGINX_PATH)
   ? readFileSync(EDGE_NGINX_PATH, 'utf8')
   : null;
+// 外层 http 块(map $status $static_cache_control 在这里)—— 同 EDGE_NGINX,镜像内物理缺席。
+const EDGE_HTTP_PATH = join(REPO_ROOT, 'nginx', 'nginx.conf');
+const EDGE_HTTP = existsSync(EDGE_HTTP_PATH) ? readFileSync(EDGE_HTTP_PATH, 'utf8') : null;
 
 /** 逗号栈 → 家族名数组(剥引号)。用**精确相等**比对家族,
  *  不用 substring('Noto Serif CJK SC' 会误命中 'Noto Serif SC')。 */
@@ -421,14 +424,22 @@ describe('Nginx 字体路由契约', () => {
     expect(FRONTEND_NGINX).toContain('try_files /fonts/noto-serif-sc/v35/$1 =404;');
   });
 
-  it('边缘层静态正则含字体后缀且 1y immutable', (ctx) => {
+  it('边缘层静态正则含字体后缀,且 1y immutable 经 map 按状态码分流', (ctx) => {
     // Docker 构建 context 只有 frontend-user,外层 nginx 物理缺席 —— 必须以
     // 「可见的 skip」收场而不是静默通过(仓库约定:一条永远绿的规则和一条
     // 不存在的规则等价);design-guard.mjs 的跳过横幅靠 vitest 的 skipped 计数。
     if (!EDGE_NGINX) return ctx.skip();
+    // 静态正则含字体/图片后缀,缓存头走 $static_cache_control(2026-08-12:immutable 只给 200,
+    // 避免 404 被缓存一年;硬编码 immutable 已下线)。
     expect(EDGE_NGINX).toMatch(
-      /location\s+~\*\s+\\\.\(jpg\|jpeg\|png\|gif\|ico\|svg\|webp\|woff\|woff2[^}]*max-age=31536000, immutable/,
+      /location\s+~\*\s+\^\(\?!\/api\/\)[^{]*\(jpg\|jpeg\|png\|gif\|ico\|svg\|webp\|woff\|woff2[^}]*Cache-Control \$static_cache_control/,
     );
+    // map 必须存在于外层 nginx.conf 且只在 200 给 immutable(否则 404 也吃 1y)。
+    if (EDGE_HTTP) {
+      expect(EDGE_HTTP).toMatch(
+        /map\s+\$status\s+\$static_cache_control\s*\{[^}]*200\s+"public, max-age=31536000, immutable"/,
+      );
+    }
   });
 });
 
@@ -437,8 +448,10 @@ describe('边缘 Nginx 静态路由契约', () => {
     if (!EDGE_NGINX) return ctx.skip();
 
     const uploadsLocation = 'location ^~ /uploads/ {';
+    // 静态正则带 ^(?!/api/) 负向前瞻:防止 /api/*.js 等被正则抢走送前端返 404
+    //(2026-08-12 审计的 latent 路由劫持)。
     const staticAssetLocation =
-      'location ~* \\.(jpg|jpeg|png|gif|ico|svg|webp|woff|woff2|ttf|eot|css|js|mjs|wasm)$ {';
+      'location ~* ^(?!/api/).+\\.(jpg|jpeg|png|gif|ico|svg|webp|woff|woff2|ttf|eot|css|js|mjs|wasm)$ {';
     expect(EDGE_NGINX).toContain(uploadsLocation);
     expect(EDGE_NGINX).toContain(staticAssetLocation);
     expect(EDGE_NGINX.indexOf(uploadsLocation)).toBeLessThan(

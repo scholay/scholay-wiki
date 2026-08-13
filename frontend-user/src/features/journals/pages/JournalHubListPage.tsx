@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AlertCircle, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { cn } from '@/shared/lib/utils';
 import { HubJournalCard } from '../components/HubJournalCard';
 import {
   useJournalHubList,
@@ -174,7 +175,16 @@ function HubListPage({ dimension }: { dimension: JournalHubDimension }) {
         )}
 
         {items.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          // keepPreviousData 让翻页/换维度不塌空,但也让 isLoading 恒 false —— 若无反馈,
+          // 点下一页 / 切学科时页面静止,用户以为没响应(2026-08-12 审计:实体切换零反馈)。
+          // isPlaceholderData=正在取新数据、当前展示的是上一次的旧内容 → 淡化 + 顶部细进度提示。
+          <div
+            className={cn(
+              'grid grid-cols-1 lg:grid-cols-2 gap-3 transition-opacity',
+              listQ.isPlaceholderData && 'opacity-60'
+            )}
+            aria-busy={listQ.isPlaceholderData}
+          >
             {items.map((item) => (
               <HubJournalCard key={item.journal_id} item={item} />
             ))}

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { useAuthStore } from '@/stores/auth.store';
 // TODO: 30s 没对应 STALE_* preset, 保留硬编码;若后续需要可在 query-config.ts 新增 STALE_HOT。
 
 /**
@@ -29,8 +30,11 @@ export interface ConnectionsResp {
 }
 
 export function useUserConnections() {
+  // 私有端点:匿名访问 /m/me/connections 等页时不发必 401 请求(响应式门控)。
+  const token = useAuthStore((s) => s.token);
   return useQuery({
     queryKey: ['settings', 'connections'],
+    enabled: !!token,
     queryFn: async () => {
       const { data } = await http.get<{ data: ConnectionsResp }>('/user/connections');
       return data.data;

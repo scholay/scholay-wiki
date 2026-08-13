@@ -244,15 +244,60 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 		return
 	}
 
-	// Apple form_post 由后端直接 302 回前端，没有 JSON AuthResponse。显式携带 user_id，
-	// 避免前端用 id=0 占位时与稍后 AuthBootstrap 拿到的真实用户发生身份竞争。
-	resultURL := appleLoginResultURL(baseURL, token, outcome.User.ID, outcome.IsNewUser, state)
+	// 🔴 不把 JWT 放进 URL(它会落进 nginx access log,48h 全权限凭证可重放)。
+	// Apple 是 form_post 模式:code 由浏览器 POST 到后端(redirect_uri),不像 github 那样
+	// 把 code 带回前端 —— 所以后端只能自己 302。改成标准 OAuth authorization-code 模式:
+	// 把「已签发的 JWT + user 快照」存 Redis 挂一个 90s 一次性短 code,302 只带 code;
+	// 前端拿 code POST /user/apple/exchange 换回完整 JSON(见 AppleExchangeCode)。
+	userSnapshot, mErr := json.Marshal(outcome.User)
+	if mErr != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "登录处理失败,请重试")
+		return
+	}
+	loginCode, cErr := cache.SaveOAuthLoginCode(c.Request.Context(), cache.PendingOAuthLogin{
+		Token:     token,
+		UserJSON:  string(userSnapshot),
+		IsNewUser: outcome.IsNewUser,
+	})
+	if cErr != nil {
+		slog.Error("apple oauth: save login code failed", "err", cErr)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "登录处理失败,请重试")
+		return
+	}
+	resultURL := fmt.Sprintf("%s/apple/callback?login_code=%s&is_new_user=%v&state=%s",
+		baseURL, url.QueryEscape(loginCode), outcome.IsNewUser, url.QueryEscape(state))
 	c.Redirect(http.StatusFound, resultURL)
 }
 
-func appleLoginResultURL(baseURL, token string, userID uint, isNewUser bool, state string) string {
-	return fmt.Sprintf("%s/apple/callback?token=%s&user_id=%d&is_new_user=%v&state=%s",
-		baseURL, url.QueryEscape(token), userID, isNewUser, url.QueryEscape(state))
+// AppleExchangeCode — POST /user/apple/exchange  body: { "code": "<login_code>" }
+// 用 Apple 回调 302 带回的一次性短 code 换取真正的 JWT + user JSON(标准 OAuth code 交换)。
+// GetDel 一次性:重放/过期(90s)一律 400。响应形状与 respondOAuthSuccess 完全一致,
+// 前端 handleAuthSuccess 无需为 Apple 特判。
+func (h *Handler) AppleExchangeCode(c *gin.Context) {
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Code == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "缺少登录码")
+		return
+	}
+	pending, err := cache.ConsumeOAuthLoginCode(c.Request.Context(), req.Code)
+	if err != nil {
+		slog.Error("apple oauth: consume login code failed", "err", err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "登录处理失败,请重试")
+		return
+	}
+	if pending == nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "登录码无效或已过期,请重新登录")
+		return
+	}
+	var user User
+	if err := json.Unmarshal([]byte(pending.UserJSON), &user); err != nil {
+		slog.Error("apple oauth: decode user snapshot failed", "err", err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "登录处理失败,请重试")
+		return
+	}
+	respondOAuthSuccess(c, pending.Token, &user, pending.IsNewUser)
 }
 
 // AppleTokenResponse represents Apple's token endpoint response
