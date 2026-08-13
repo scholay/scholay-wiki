@@ -8,7 +8,6 @@ import {
   FileText,
   FolderArchive,
   LayoutGrid,
-  MoreVertical,
   PanelLeft,
   Plus,
   Puzzle,
@@ -19,39 +18,6 @@ import {
 } from "lucide-react";
 import { ClawBrandIcon } from "@/shared/components/ClawBrandIcon";
 import { ChatStyles, MarkdownRenderer } from "@/shared/components/chat";
-
-const SESSION_GROUPS = [
-  {
-    label: "今天",
-    sessions: [
-      {
-        title: "医学影像基础模型综述",
-        meta: "18 条消息 · 最近访问 刚刚",
-        active: true,
-      },
-      {
-        title: "单细胞分析方法比较",
-        meta: "8 条消息 · 最近访问 2 小时前",
-        active: false,
-      },
-    ],
-  },
-  {
-    label: "昨天",
-    sessions: [
-      {
-        title: "期刊投稿范围核对",
-        meta: "12 条消息 · 最近访问 昨天",
-        active: false,
-      },
-      {
-        title: "Transformer 参考文献整理",
-        meta: "6 条消息 · 最近访问 昨天",
-        active: false,
-      },
-    ],
-  },
-] as const;
 
 const ARTIFACT_MARKDOWN = `# 医学影像基础模型：进展与评测
 
@@ -67,60 +33,11 @@ const ARTIFACT_MARKDOWN = `# 医学影像基础模型：进展与评测
 
 优先回到原始论文确认数据来源、样本排除标准和统计区间。`;
 
-/** /m/claw 的历史会话左侧抽屉。 */
-export function WikiEmbedMobileClawSessionDrawer() {
-  return (
-    <div
-      className="relative w-[min(100%,24rem)] overflow-hidden bg-background"
-      style={{ height: 704 }}
-      aria-hidden
-      data-wiki-fixture="mobile-claw-session-drawer"
-    >
-      <FrozenClawUnderlay />
-      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]" />
-      <section className="absolute inset-y-0 left-0 flex w-80 max-w-[86%] flex-col border-r border-border bg-background shadow-overlay">
-        <X className="absolute right-4 top-4 size-4 text-muted-foreground" />
-        <div
-          className="min-h-0 flex-1 overflow-hidden px-2 pb-6"
-          style={{ paddingTop: 20 }}
-        >
-          {SESSION_GROUPS.map((group) => (
-            <div key={group.label} className="mb-1">
-              <p className="px-3 pb-1 pt-3 text-12 font-medium text-faint">
-                {group.label}
-              </p>
-              {group.sessions.map((session) => (
-                <div
-                  key={session.title}
-                  className={`flex items-center gap-1 rounded-8 px-3 ${session.active ? "bg-surface-2" : ""}`}
-                  style={{ paddingBlock: 10 }}
-                >
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span
-                      className={`truncate text-14 ${session.active ? "font-medium text-foreground" : "text-subtle"}`}
-                    >
-                      {session.title}
-                    </span>
-                    <span className="truncate text-12 text-faint">
-                      {session.meta}
-                    </span>
-                  </span>
-                  <MoreVertical className="size-4 shrink-0 text-faint" />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 /** 移动 Claw 扩展区中选中 Markdown 交付物后的整屏预览。 */
 export function WikiEmbedMobileClawArtifactPreview() {
   return (
     <div
-      className="relative flex w-[min(100%,24rem)] flex-col overflow-hidden bg-background shadow-overlay"
+      className="relative flex w-[24rem] max-w-full min-w-0 flex-col overflow-hidden bg-background shadow-overlay"
       style={{ height: 704 }}
       aria-hidden
       data-wiki-fixture="mobile-claw-artifact-preview"
@@ -136,7 +53,7 @@ export function WikiEmbedMobileClawArtifactPreview() {
           返回列表
         </span>
       </div>
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 pr-10">
+      <header className="flex h-12 min-w-0 shrink-0 items-center gap-2 border-b border-border bg-background px-3 pr-10">
         <div className="min-w-0 flex-1">
           <p className="truncate text-14 font-medium text-foreground">
             医学影像基础模型：进展与评测
@@ -150,7 +67,7 @@ export function WikiEmbedMobileClawArtifactPreview() {
           下载
         </span>
       </header>
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto px-4 py-3">
         <MarkdownRenderer text={ARTIFACT_MARKDOWN} />
       </div>
     </div>
@@ -161,17 +78,16 @@ export function WikiEmbedMobileClawArtifactPreview() {
 export function WikiEmbedMobileClawActiveSession() {
   return (
     <div
-      className="flex w-[min(100%,24rem)] flex-col overflow-hidden bg-background"
-      style={{ height: 704 }}
+      className="flex w-[24rem] max-w-full min-w-0 flex-col overflow-hidden bg-background"
       aria-hidden
       data-wiki-fixture="mobile-claw-active-session"
     >
-      <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+      <div className="relative flex flex-col bg-background">
         <ChatStyles />
         <ClawFloatingControls />
 
         <main
-          className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden pb-3 pt-14"
+          className="flex flex-col gap-4 pb-3 pt-14"
           style={{ paddingInline: 14 }}
         >
           <div className="flex justify-center">
@@ -252,23 +168,6 @@ export function WikiEmbedMobileClawActiveSession() {
   );
 }
 
-function FrozenClawUnderlay() {
-  return (
-    <div className="flex h-full flex-col bg-background">
-      <div className="relative min-h-0 flex-1">
-        <ClawFloatingControls />
-        <div className="flex h-full items-center justify-center text-faint">
-          <Sparkles className="size-10 text-brand-green" />
-        </div>
-        <div className="absolute inset-x-0 bottom-0">
-          <FrozenComposer />
-        </div>
-      </div>
-      <StaticMobileNav active="claw" />
-    </div>
-  );
-}
-
 function ClawFloatingControls() {
   return (
     <div
@@ -301,7 +200,7 @@ function FrozenComposer() {
         className="relative flex flex-col gap-2 rounded-16 border border-border-strong bg-background"
         style={{ padding: 10 }}
       >
-        <p className="truncate px-1 py-1 text-14 text-faint">
+        <p className="min-w-0 w-full truncate px-1 py-1 text-14 text-faint">
           问问智能助手 · Enter 发送 / Shift+Enter 换行 · 可直接粘贴/拖入图片文件
         </p>
         <div className="flex items-center gap-1">

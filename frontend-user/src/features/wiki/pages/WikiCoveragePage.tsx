@@ -8,8 +8,10 @@ import {
   WIKI_MOCK_SURFACE_BASELINE,
 } from "../coverage";
 import { WIKI_EMBED_REGISTRY } from "../embeds/registry";
+import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
 
 export function WikiCoveragePage() {
+  const canSeeAdmin = useCanSeeWikiAdmin();
   const sourceCount = new Set(
     WIKI_ARTICLES.flatMap((article) => article.sourcePaths),
   ).size;
@@ -34,8 +36,12 @@ export function WikiCoveragePage() {
           </p>
           <div className="mt-4 flex flex-wrap gap-3 text-12 text-faint">
             <span>{WIKI_ARTICLES.length} 篇词条</span>
-            <span aria-hidden>·</span>
-            <span>{sourceCount} 个代码来源</span>
+            {canSeeAdmin && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{sourceCount} 个代码来源</span>
+              </>
+            )}
             <span aria-hidden>·</span>
             <span>{Object.keys(WIKI_EMBED_REGISTRY).length} 个界面示意</span>
             <span aria-hidden>·</span>
@@ -102,12 +108,14 @@ export function WikiCoveragePage() {
             >
               查看词条索引
             </Link>
-            <Link
-              to="/wiki/sources"
-              className="text-12 font-medium text-brand-red hover:underline"
-            >
-              查看来源索引
-            </Link>
+            {canSeeAdmin && (
+              <Link
+                to="/wiki/sources"
+                className="text-12 font-medium text-brand-red hover:underline"
+              >
+                查看来源索引
+              </Link>
+            )}
           </div>
         </section>
       </div>

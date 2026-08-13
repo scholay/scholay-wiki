@@ -42,6 +42,7 @@ export function WikiEmbedReviewAndStage() {
           </div>
           <article
             data-paper-id="paper-alphafold"
+            data-wiki-spot="暂存区"
             className="group flex items-start gap-2 border-b border-border bg-brand-green/5 px-4 py-4"
           >
             <span
@@ -109,7 +110,7 @@ export function WikiEmbedReviewAndStage() {
           </article>
         </div>
 
-        <aside className="min-w-0 bg-background">
+        <aside className="min-w-0 bg-background" data-wiki-spot="论文详情">
           <div className="flex h-11 items-center gap-1 border-b border-border bg-surface-1 px-2">
             {[
               { label: "PDF 对话", icon: MessageSquare },

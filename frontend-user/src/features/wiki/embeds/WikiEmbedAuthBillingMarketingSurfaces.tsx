@@ -17,8 +17,6 @@ import {
   LogOut,
   MessageCircle,
   RefreshCw,
-  Search,
-  Share2,
   Shield,
   Sparkles,
   Ticket,
@@ -28,24 +26,24 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { BrandLogo } from "@/shared/components/BrandLogo";
-import { ClawBrandIcon } from "@/shared/components/ClawBrandIcon";
 
-/** HomeAgentHero 首屏：智能输入、Claw 主推卡与下一段能力总起。 */
+/** HomeAgentHero 首屏：文献搜索框。 */
 export function WikiEmbedHomeResearchEntry() {
   return (
     <div
-      className="relative h-[48rem] w-[min(100%,60rem)] overflow-hidden bg-background"
+      className="relative w-[min(100%,60rem)] bg-surface-card"
       aria-hidden
       data-wiki-fixture="home-research-entry"
     >
-      <div className="pointer-events-none absolute -left-28 -top-24 size-[36rem] rounded-pill bg-brand-green/14 blur-3xl" />
-      <div className="pointer-events-none absolute -right-32 top-8 size-[38rem] rounded-pill bg-brand-amber/14 blur-3xl" />
-      <div className="relative z-raised flex flex-col items-center px-6 py-10">
+      <div className="flex flex-col items-center px-6 py-10">
         <div className="flex w-full max-w-3xl flex-col items-center">
           <BrandLogo size="xl" />
 
-          <div className="mt-8 w-full max-w-[40rem]">
-            <div className="flex h-12 items-center gap-3 rounded-16 border border-border-strong bg-background pl-4 pr-2 shadow-raised">
+          <div
+            className="mt-8 w-full max-w-[40rem]"
+            data-wiki-spot="文献搜索框"
+          >
+            <div className="flex h-12 items-center gap-3 rounded-16 border border-border bg-surface-card pl-4 pr-2 shadow-raised">
               <span className="inline-flex h-7 items-center rounded-8 bg-surface-2 p-1 text-12 text-subtle">
                 <span className="inline-flex h-5 items-center rounded-4 bg-background px-2 text-foreground shadow-raised">
                   智能
@@ -60,57 +58,8 @@ export function WikiEmbedHomeResearchEntry() {
               </span>
             </div>
           </div>
-
-          <div className="mt-6 w-full max-w-3xl">
-            <article className="relative flex w-full overflow-hidden rounded-16 border border-border bg-background sm:items-stretch">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_20%,hsl(var(--brand-amber)/0.16),transparent_55%),radial-gradient(ellipse_at_10%_90%,hsl(var(--brand-green)/0.1),transparent_50%)]" />
-              <div className="relative flex min-w-0 flex-1 flex-col justify-center gap-3 px-8 py-8">
-                <div className="inline-flex items-center gap-2">
-                  <span className="inline-flex size-8 items-center justify-center rounded-8 bg-brand-amber/15 text-brand-amber">
-                    <ClawBrandIcon className="size-5" />
-                  </span>
-                  <span className="text-12 font-medium text-brand-amber">
-                    智能助手 · Claw
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-serif text-24 font-medium text-foreground">
-                    一个能跟你一起想问题的学术搭档
-                  </h3>
-                  <p className="max-w-md text-14 leading-paragraph text-subtle">
-                    读文献、写摘要、做演示提纲——用对话推进科研任务，把重复劳动交给助手。
-                  </p>
-                </div>
-                <span className="mt-1 inline-flex w-fit items-center gap-2 rounded-8 bg-foreground px-4 py-2 text-14 font-medium text-on-dark">
-                  打开智能助手 <ArrowRight className="size-3.5" />
-                </span>
-              </div>
-              <div className="relative flex w-56 shrink-0 items-center justify-center px-8">
-                <div className="relative flex size-28 items-center justify-center rounded-16 bg-brand-amber/12 text-brand-amber ring-1 ring-brand-amber/20">
-                  <ClawBrandIcon className="size-14" />
-                  <span className="absolute -right-1 -top-1 rounded-pill bg-brand-red px-2 py-1 text-12 font-medium text-on-brand">
-                    HOT
-                  </span>
-                </div>
-              </div>
-            </article>
-          </div>
         </div>
       </div>
-
-      <section className="relative z-raised mt-2 border-t border-border bg-surface-1/60 px-6 py-16">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-12 font-medium text-brand-green">
-            PRODUCT CAPABILITIES
-          </p>
-          <h2 className="mt-3 font-display text-28 font-medium text-foreground">
-            从检索到写作、审稿，一整条学术工作流
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-14 leading-paragraph text-subtle">
-            Scholay 把文献发现、智能对话、写作与预审收在同一产品里。
-          </p>
-        </div>
-      </section>
     </div>
   );
 }
@@ -305,7 +254,6 @@ export function WikiEmbedBillingOverviewUsage() {
               </span>
               <span className="text-12 text-faint">经费</span>
             </div>
-            <span className="text-12 text-faint">300 临时 · 08-31 失效</span>
           </div>
         </div>
 
@@ -322,8 +270,7 @@ export function WikiEmbedBillingOverviewUsage() {
           <div className="min-w-0 flex-1">
             <p className="text-12 font-medium text-foreground">额度区别</p>
             <p className="mt-1 text-12 leading-paragraph text-subtle">
-              Free 为基础周期额度（7 天），Pro 是 Free 的 5 倍，Max 是 Pro 的 5
-              倍。
+              各档额度倍率由当前套餐配置决定，请以套餐页和本页实时显示为准。
             </p>
           </div>
           <span className="text-12 tabular-nums text-faint">1/4</span>
@@ -517,159 +464,6 @@ export function WikiEmbedUserAccountMenu() {
           <span className="text-12">退出登录</span>
         </div>
       </footer>
-    </div>
-  );
-}
-
-const MARKETING_ROWS = [
-  ["A12", "Attention Is All You Need", "2017 · 142k 引用"],
-  [
-    "B07",
-    "BERT: Pre-training of Deep Bidirectional Transformers",
-    "2019 · 89k 引用",
-  ],
-  ["C03", "GPT-3: Language Models are Few-Shot Learners", "2020 · 32k 引用"],
-  [
-    "D24",
-    "LLaMA: Open and Efficient Foundation Language Models",
-    "2023 · 12k 引用",
-  ],
-] as const;
-
-/** LandingTemplate 的 Search landing 首个同视口：Hero → TrustStrip → FeatureGrid 起点。 */
-export function WikiEmbedMarketingLandingTemplate() {
-  return (
-    <div
-      className="h-[52rem] w-[min(100%,80rem)] overflow-hidden bg-background"
-      aria-hidden
-      data-wiki-fixture="marketing-landing-template"
-    >
-      <section className="bg-background">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-12 py-20 lg:grid-cols-[1fr_35rem] lg:gap-16 lg:py-24">
-          <div className="flex flex-col gap-8">
-            <span className="inline-flex w-fit items-center gap-2 rounded-pill bg-surface-2 px-3 py-1 text-12 font-medium text-subtle">
-              <span className="text-brand-red">●</span> 全新发布 · 文献搜索 2.0
-            </span>
-            <h1 className="font-display text-32 font-medium text-foreground lg:text-display-64">
-              <span className="block leading-display-tight">用一句中文，</span>
-              <span className="block italic leading-display-tight">
-                读懂一整个研究领域。
-              </span>
-            </h1>
-            <p className="text-16 leading-paragraph text-subtle">
-              Scholay
-              文献搜索基于自然语言理解，跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索，让你像与同行对话一样发现关联文献。
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex h-11 items-center gap-2 rounded-8 bg-brand-red px-6 text-14 font-medium text-on-brand">
-                开始免费检索 <ArrowRight className="size-4" />
-              </span>
-              <span className="inline-flex h-11 items-center rounded-8 border border-border px-6 text-14 font-medium text-subtle">
-                观看 2 分钟演示
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-6">
-              {["无需信用卡", "支持中英文", "学生免费"].map((item) => (
-                <span
-                  key={item}
-                  className="inline-flex items-center gap-2 text-14 text-subtle"
-                >
-                  <Check className="size-3.5 text-brand-green" /> {item}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4 rounded-12 border border-border bg-surface-1 p-4 shadow-overlay">
-            <div className="flex items-center gap-2">
-              <span className="size-2.5 rounded-pill bg-brand-red" />
-              <span className="size-2.5 rounded-pill bg-brand-amber" />
-              <span className="size-2.5 rounded-pill bg-brand-green" />
-              <span className="flex-1" />
-              <span className="text-12 text-faint">scholay.ai/search</span>
-            </div>
-            <div className="flex items-center gap-3 rounded-8 border border-border-hairline bg-background px-4 py-3">
-              <Search className="size-4 shrink-0 text-subtle" />
-              <span className="min-w-0 flex-1 truncate text-14 text-foreground">
-                大语言模型在低资源语言上的对齐方法有哪些进展？
-              </span>
-              <span className="rounded-4 bg-prism-badge-bg px-2 py-1 text-12 font-medium text-prism-badge-fg">
-                Enter
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {["语义", "引文矩阵", "图谱", "2022–2025"].map((chip, index) => (
-                <span
-                  key={chip}
-                  className={
-                    index === 0
-                      ? "rounded-pill bg-foreground px-3 py-1 text-12 text-on-dark"
-                      : "rounded-pill border border-border-hairline bg-background px-3 py-1 text-12 text-subtle"
-                  }
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-            <div className="overflow-hidden rounded-8 border border-border-hairline bg-background">
-              <header className="flex items-center justify-between border-b border-border-hairline bg-surface-1 px-4 py-2">
-                <span className="text-12 font-medium text-foreground">
-                  引文矩阵
-                </span>
-                <span className="text-12 tabular-nums text-subtle">
-                  12 篇结果
-                </span>
-              </header>
-              <ul className="divide-y divide-border-hairline">
-                {MARKETING_ROWS.map(([tag, title, meta]) => (
-                  <li key={tag} className="flex items-center gap-3 px-4 py-2">
-                    <span className="inline-flex w-12 items-center justify-center rounded-4 bg-prism-badge-bg px-2 py-1 text-12 font-medium tabular-nums text-prism-badge-fg">
-                      {tag}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-14 font-medium text-foreground">
-                        {title}
-                      </p>
-                      <p className="text-12 text-subtle">{meta}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <span className="inline-flex w-fit items-center gap-2 rounded-8 border border-border-hairline bg-background px-3 py-2 text-12 font-medium text-subtle">
-              <Share2 className="size-3.5 text-brand-green" /> 已检测到 3
-              条跨论文关联 →
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-y border-border-hairline bg-surface-1">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-12 py-10">
-          <span className="text-12 font-medium uppercase text-subtle">
-            已被全球 280+ 实验室与研究小组使用
-          </span>
-          <div className="flex flex-wrap items-center justify-center gap-12 text-18 font-medium text-subtle">
-            <span className="font-display italic">Tsinghua</span>
-            <span>PEKING UNIV.</span>
-            <span className="font-display">复旦大学</span>
-            <span className="font-display italic">Nature</span>
-            <span>NeurIPS</span>
-            <span className="font-display">arXiv</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-surface-1 px-12 py-20">
-        <div className="mx-auto max-w-7xl text-center">
-          <p className="text-12 font-medium uppercase text-subtle">
-            为什么选择 SCHOLAY 搜索
-          </p>
-          <h2 className="mt-4 font-display text-32 font-medium text-foreground">
-            不是关键词搜索，是研究语义搜索。
-          </h2>
-        </div>
-      </section>
     </div>
   );
 }

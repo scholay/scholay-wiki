@@ -1,23 +1,25 @@
 import type { ReactNode } from "react";
 import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
+import { WikiFigure } from "../components/WikiMedia";
 
 interface WikiEmbedFrameProps {
-  /** 可见图注同时为 figure 提供无障碍名称，明确演示态边界。 */
+  /** 图注；缺省用注册表默认文案。 */
   caption: string;
   children: ReactNode;
+  className?: string;
 }
 
 /**
- * 词条内嵌演示壳：井口说明留在凹进衬底之外，井内只承载静态产品截面。
+ * 词条内嵌演示壳：井口图注在凹进衬底之下，井内只承载静态产品截面。
  * 尺寸随 fixture 自然宽高，max-w-full 与横向滚动共同兜住窄屏。
  */
-export function WikiEmbedFrame({ caption, children }: WikiEmbedFrameProps) {
+export function WikiEmbedFrame({
+  caption,
+  children,
+  className,
+}: WikiEmbedFrameProps) {
   return (
-    <figure className="mt-6 w-fit max-w-full scroll-mt-20">
-      <figcaption className="mb-2 flex max-w-full flex-wrap items-center gap-2 px-1 text-12 leading-paragraph">
-        <span className="font-medium text-subtle">界面示意</span>
-        <span className="text-muted-foreground">{caption}</span>
-      </figcaption>
+    <WikiFigure caption={caption} className={className}>
       <div className="wiki-embed-stage w-fit max-w-full rounded-16 p-3 md:p-4">
         <div className="wiki-embed-canvas w-fit max-w-full overflow-x-auto rounded-12 p-1">
           <ErrorBoundary
@@ -43,6 +45,6 @@ export function WikiEmbedFrame({ caption, children }: WikiEmbedFrameProps) {
           </ErrorBoundary>
         </div>
       </div>
-    </figure>
+    </WikiFigure>
   );
 }

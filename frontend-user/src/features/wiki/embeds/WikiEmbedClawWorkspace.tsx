@@ -62,7 +62,10 @@ export function WikiEmbedClawWorkspace() {
             </div>
 
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-surface-card via-surface-card/90 to-transparent px-4 pb-4 pt-12">
-              <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-[var(--wiki-mock-space-2-5)] shadow-raised">
+              <div
+                className="mx-auto flex w-full max-w-2xl flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-[var(--wiki-mock-space-2-5)] shadow-raised"
+                data-wiki-spot="输入框"
+              >
                 <div className="px-1 py-1 text-12 text-faint">
                   继续补充研究问题或交付格式…
                 </div>
@@ -93,7 +96,10 @@ export function WikiEmbedClawWorkspace() {
 
 function WorkspaceSidebar() {
   return (
-    <aside className="hidden border-r border-border-soft bg-surface-1 md:block">
+    <aside
+      className="hidden border-r border-border-soft bg-surface-1 md:block"
+      data-wiki-spot="工作区"
+    >
       <div className="flex h-12 items-center justify-between gap-2 border-b border-border-soft px-4">
         <p className="text-12 font-medium text-foreground">工作区</p>
         <ChevronDown className="size-3 text-faint" />
@@ -126,7 +132,10 @@ function WorkspaceSidebar() {
 
 function SessionStrip() {
   return (
-    <div className="relative flex h-10 items-center gap-1 rounded-12 border border-border bg-surface-card px-2 shadow-raised">
+    <div
+      className="relative flex h-10 items-center gap-1 rounded-12 border border-border bg-surface-card px-2 shadow-raised"
+      data-wiki-spot="会话历史"
+    >
       <span className="inline-flex h-7 items-center gap-2 rounded-8 bg-surface-2 px-2 text-12 text-subtle">
         <History className="size-3.5" />
         <span className="font-medium tabular-nums text-foreground">4</span>
@@ -154,7 +163,10 @@ function SessionStrip() {
 
 function ArtifactPanel() {
   return (
-    <aside className="hidden border-l border-border-soft bg-surface-1 lg:flex lg:flex-col">
+    <aside
+      className="hidden border-l border-border-soft bg-surface-1 lg:flex lg:flex-col"
+      data-wiki-spot="扩展区"
+    >
       <header className="flex h-9 items-center gap-2 border-b border-border px-3 text-14 font-medium text-foreground">
         <FolderArchive className="size-3.5 text-brand-green" />
         扩展区

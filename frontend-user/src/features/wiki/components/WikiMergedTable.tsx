@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/shared/lib/utils";
 import type {
@@ -7,13 +8,20 @@ import type {
   WikiMergedTableLink,
   WikiMergedTableRow,
 } from "../types";
+import { WikiArticlePreviewLink } from "./WikiArticlePreviewLink";
+import { WikiTableFigure } from "./WikiMedia";
 
 interface WikiMergedTableProps {
   columns: WikiMergedTableColumn[];
   rows: WikiMergedTableRow[];
+  caption: string;
 }
 
-export function WikiMergedTable({ columns, rows }: WikiMergedTableProps) {
+export function WikiMergedTable({
+  columns,
+  rows,
+  caption,
+}: WikiMergedTableProps) {
   const rowSpans = columns.map((column) =>
     column.merge
       ? computeRowSpans(rows.map((row) => cellKey(row[column.key])))
@@ -21,44 +29,55 @@ export function WikiMergedTable({ columns, rows }: WikiMergedTableProps) {
   );
 
   return (
-    <div className="mt-6 overflow-x-auto rounded-12 border border-border bg-surface-card">
-      <table className="w-full border-collapse text-left text-12">
-        <thead className="bg-surface-1">
+    <WikiTableFigure caption={caption}>
+      <table className="wiki-three-line text-12">
+        <thead>
           <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                className="border-b border-border-hairline px-4 py-3 font-medium text-muted-foreground"
-              >
-                {column.header}
-              </th>
-            ))}
+            {columns.map((column) => {
+              const isGoColumn = column.key === "links";
+              return (
+                <th
+                  key={column.key}
+                  className={cn(isGoColumn && "w-16 px-2 text-center")}
+                >
+                  {isGoColumn ? (
+                    <span className="sr-only">前往</span>
+                  ) : (
+                    column.header
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
           {rows.map((row, rowIndex) => (
-            <tr
-              key={rowIndex}
-              className="transition-colors hover:bg-surface-2/60"
-            >
+            <tr key={rowIndex} className="group/row relative">
               {columns.map((column, columnIndex) => {
                 const span = rowSpans[columnIndex][rowIndex];
                 if (span === 0) return null;
                 const cell = row[column.key];
+                const isGoColumn = column.key === "links";
+                const isFirstColumn = columnIndex === 0;
                 return (
                   <td
                     key={column.key}
                     rowSpan={span > 1 ? span : undefined}
                     className={cn(
-                      "px-4 py-3 leading-paragraph",
-                      column.merge
-                        ? "border-b border-r border-border-hairline align-middle font-serif text-14 font-medium text-foreground"
-                        : "border-b border-border-hairline align-middle text-subtle",
+                      "leading-paragraph",
+                      isGoColumn && "w-16 px-2 text-center",
+                      isFirstColumn
+                        ? "font-serif text-16 font-bold text-foreground"
+                        : column.merge
+                          ? "font-serif text-14 font-medium text-foreground"
+                          : "text-subtle",
                     )}
                   >
-                    {column.key === "status"
-                      ? renderStatusCell(cell)
-                      : renderCell(cell)}
+                    {isGoColumn
+                      ? renderGoCell(cell)
+                      : column.key === "status"
+                        ? renderStatusCell(cell)
+                        : renderCell(cell)}
                   </td>
                 );
               })}
@@ -66,7 +85,7 @@ export function WikiMergedTable({ columns, rows }: WikiMergedTableProps) {
           ))}
         </tbody>
       </table>
-    </div>
+    </WikiTableFigure>
   );
 }
 
@@ -125,7 +144,48 @@ function renderCell(cell: WikiMergedTableCell | undefined): ReactNode {
   return <TableLink link={cell} />;
 }
 
+function primaryLink(
+  cell: WikiMergedTableCell | undefined,
+): WikiMergedTableLink | null {
+  if (cell == null || cell === "") return null;
+  if (typeof cell === "string") return null;
+  if (Array.isArray(cell)) return cell[0] ?? null;
+  return cell;
+}
+
+function renderGoCell(cell: WikiMergedTableCell | undefined): ReactNode {
+  const link = primaryLink(cell);
+  if (!link) return null;
+  return <RowGoButton link={link} />;
+}
+
+function RowGoButton({ link }: { link: WikiMergedTableLink }) {
+  const className =
+    "inline-flex size-11 items-center justify-center rounded-8 text-brand-red transition-transform after:absolute after:inset-0 group-hover/row:translate-x-1 motion-reduce:transform-none";
+  const icon = <ArrowRight className="size-3.5" aria-hidden />;
+  const label = `前往${link.label}`;
+  if (link.href.startsWith("/")) {
+    return (
+      <Link to={link.href} className={className} aria-label={label}>
+        {icon}
+      </Link>
+    );
+  }
+  return (
+    <a href={link.href} className={className} aria-label={label}>
+      {icon}
+    </a>
+  );
+}
+
 function TableLink({ link }: { link: WikiMergedTableLink }) {
+  if (link.href.startsWith("/wiki/")) {
+    return (
+      <WikiArticlePreviewLink href={link.href}>
+        {link.label}
+      </WikiArticlePreviewLink>
+    );
+  }
   if (link.href.startsWith("/")) {
     return (
       <Link

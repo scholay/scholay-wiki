@@ -1,4 +1,4 @@
-import type { RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 
 export const wikiRoutes: RouteObject[] = [
   {
@@ -10,10 +10,7 @@ export const wikiRoutes: RouteObject[] = [
     children: [
       {
         index: true,
-        lazy: () =>
-          import("./pages/WikiHomePage").then((m) => ({
-            Component: m.WikiHomePage,
-          })),
+        element: <Navigate to="/wiki/scholay" replace />,
       },
       {
         path: "all",

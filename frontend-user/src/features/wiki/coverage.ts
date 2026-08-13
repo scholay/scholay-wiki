@@ -5,7 +5,7 @@ export const WIKI_AUDIT_BASELINE = {
   verifiedOn: "2026-08-12",
   renderedRoutes: 120,
   redirectRoutes: 29,
-  backendModules: 56,
+  backendModules: 57,
   agentFeatures: 7,
   agentSkills: 109,
   miniProgramPages: 15,
@@ -15,11 +15,11 @@ export const WIKI_AUDIT_BASELINE = {
 
 /** 与 mock-surface-coverage.ts 的机械统计互相校验，避免把审计账本带进运行时 bundle。 */
 export const WIKI_MOCK_SURFACE_BASELINE = {
-  visible: 240,
-  migratedOrCorrected: 105,
+  visible: 243,
+  migratedOrCorrected: 108,
   existing: 135,
-  excluded: 17,
-  registeredFixtures: 226,
+  excluded: 18,
+  registeredFixtures: 229,
 } as const;
 
 export const WIKI_AUDIT_AREAS = [

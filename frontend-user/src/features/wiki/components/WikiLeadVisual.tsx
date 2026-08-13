@@ -1,4 +1,6 @@
+import { cn } from "@/shared/lib/utils";
 import { wikiArticleIntroVisual } from "../visuals/catalog";
+import { WikiFigure } from "./WikiMedia";
 
 export function WikiLeadVisual({
   articleSlug,
@@ -11,18 +13,21 @@ export function WikiLeadVisual({
   if (!visual) return null;
 
   return (
-    <figure
-      className={`wiki-light-content overflow-hidden rounded-8 border border-border-hairline ${className ?? ""}`}
+    <WikiFigure
+      caption={visual.caption}
+      className={cn("w-full max-w-[32rem]", className)}
     >
-      <img
-        src={visual.src}
-        alt={visual.alt}
-        width={1440}
-        height={960}
-        loading="lazy"
-        decoding="async"
-        className="h-auto w-full object-cover"
-      />
-    </figure>
+      <div className="wiki-light-content w-full overflow-hidden rounded-8 border border-border-hairline">
+        <img
+          src={visual.src}
+          alt={visual.alt}
+          width={1440}
+          height={960}
+          loading="lazy"
+          decoding="async"
+          className="h-auto w-full object-cover"
+        />
+      </div>
+    </WikiFigure>
   );
 }

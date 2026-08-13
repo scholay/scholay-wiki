@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BookOpen, FlaskConical, X } from "lucide-react";
 import { useHotkey } from "@/shared/hooks/useHotkey";
 import { canAccessAdmin, useAuthStore } from "@/stores/auth.store";
+import { firstNavHref, WIKI_NAV_CATEGORIES } from "../content";
 import {
   useWikiDevStore,
   type WikiAudiencePreview,
@@ -10,13 +11,19 @@ import {
 const PANEL_COLLAPSED_KEY = "scholay.wiki.panelCollapsed";
 const PANEL_HIDDEN_KEY = "scholay.wiki.panelHidden";
 
+const firstCategoryHref = (slug: string) =>
+  firstNavHref(
+    WIKI_NAV_CATEGORIES.find((category) => category.slug === slug)?.children ??
+      [],
+  ) ?? "/wiki";
+
 const routes = [
-  ["开始", "/wiki"],
+  ["简介", "/wiki/scholay"],
   ["索引", "/wiki/all"],
   ["来源", "/wiki/sources"],
   ["覆盖", "/wiki/coverage"],
-  ["其他", "/wiki/category/other"],
-  ["开发计划", "/wiki/category/roadmap"],
+  ["其他", firstCategoryHref("other")],
+  ["开发计划", firstCategoryHref("roadmap")],
 ] as const;
 
 /** DEV 面板：深底 + 松青描边，与站内控件刻意区分，但仍走设计 token。 */

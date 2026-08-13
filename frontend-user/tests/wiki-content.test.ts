@@ -6,14 +6,12 @@ import {
   WIKI_ARTICLES,
   WIKI_CATEGORIES,
   WIKI_NAV_CATEGORIES,
-  WIKI_PRODUCT_MENUS,
-  WIKI_START_PATHS,
   articleNavTrail,
-  resolveWikiProductMenu,
-  resolveWikiProductMenuFromNavCategory,
-  visibleNavCategories,
+  firstNavHref,
+  searchWikiArticles,
   wikiSectionPlainText,
 } from "../src/features/wiki/content";
+import { discoveryArticles } from "../src/features/wiki/content/discovery";
 import { WIKI_EMBED_REGISTRY } from "../src/features/wiki/embeds/registry";
 import { WIKI_MOCK_SURFACE_BASELINE } from "../src/features/wiki/coverage";
 import {
@@ -126,13 +124,7 @@ describe("Scholay Wiki 内容契约", () => {
     }
   });
 
-  it("首页常用入口都继承一级栏目图标", () => {
-    for (const pathEntry of WIKI_START_PATHS) {
-      expect(WIKI_CATEGORY_ICON_SRC[pathEntry.categorySlug]).toBeDefined();
-    }
-  });
-
-  it("智能搜索词条使用独立功能图标", () => {
+  it("词条页眉使用品牌标志", () => {
     const articlePage = readFileSync(
       path.join(
         repoRoot,
@@ -140,48 +132,51 @@ describe("Scholay Wiki 内容契约", () => {
       ),
       "utf8",
     );
-    expect(articlePage).toContain('article.slug === "smart-search"');
-    expect(articlePage).toContain('? "smart-search"');
-    expect(articlePage).toContain("<WikiFeatureIcon");
-    expect(
-      resolveWikiProductMenu("smart-search", "literature-search"),
-    ).toBeUndefined();
+    expect(articlePage).toContain("<BrandLogo");
+    expect(articlePage).toContain('variant="mark"');
+    expect(articlePage).not.toContain("<WikiFeatureIcon");
   });
 
-  it("词条页眉用宫灯选中态对应全站功能菜单七项", () => {
-    expect(WIKI_PRODUCT_MENUS.map((menu) => menu.label)).toEqual([
-      "文献搜索",
-      "期刊搜索",
-      "智能助手",
-      "智能写作",
-      "智能审稿",
-      "我的资源",
-      "Skills广场",
-    ]);
-    expect(resolveWikiProductMenu("claw", "assistant")?.id).toBe("claw");
-    expect(
-      resolveWikiProductMenu("academic-search", "literature-search")?.id,
-    ).toBe("search");
-    expect(
-      resolveWikiProductMenu("journal-search-page", "journal-search")?.id,
-    ).toBe("journal-search");
-    expect(resolveWikiProductMenu("prism", "writing")?.id).toBe("prism");
-    expect(resolveWikiProductMenu("peer-review", "review")?.id).toBe(
-      "peer-review",
+  it("词条来源章节与来源索引仅管理员可见", () => {
+    const articlePage = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/pages/WikiArticlePage.tsx",
+      ),
+      "utf8",
     );
-    expect(
-      resolveWikiProductMenu("literature-library", "resources")?.label,
-    ).toBe("我的资源");
-    expect(resolveWikiProductMenu("community-skills", "assistant")?.id).toBe(
-      "tools",
+    const sourcesPage = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/pages/WikiSourcesPage.tsx",
+      ),
+      "utf8",
     );
-    expect(resolveWikiProductMenu("feature-tools", "other")?.id).toBe("tools");
-    expect(resolveWikiProductMenu("ai-usage-quota", "limits")).toBeUndefined();
-    expect(resolveWikiProductMenuFromNavCategory("journal-search")?.id).toBe(
-      "journal-search",
+    const docsNav = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/components/WikiDocsNav.tsx",
+      ),
+      "utf8",
     );
-    expect(resolveWikiProductMenuFromNavCategory("limits")).toBeUndefined();
+    expect(articlePage).toContain("{canSeeAdmin && (");
+    expect(articlePage).toContain('id="sources"');
+    expect(sourcesPage).toContain("此页仅管理员可见");
+    expect(docsNav).toContain("{canSeeAdmin && (");
+    expect(docsNav).toContain('href="#sources"');
+  });
 
+  it("公开搜索不匹配代码来源路径", () => {
+    const pathNeedle = "features/help/pages/AboutPage.tsx";
+    const publicHits = searchWikiArticles(pathNeedle, false);
+    const adminHits = searchWikiArticles(pathNeedle, true);
+    expect(publicHits.some((article) => article.slug === "scholay")).toBe(
+      false,
+    );
+    expect(adminHits.some((article) => article.slug === "scholay")).toBe(true);
+  });
+
+  it("Wiki 页眉不再复刻全站宫灯菜单", () => {
     const articlePage = readFileSync(
       path.join(
         repoRoot,
@@ -196,9 +191,8 @@ describe("Scholay Wiki 内容契约", () => {
       ),
       "utf8",
     );
-    expect(articlePage).toContain("<WikiProductMenuDock");
-    expect(articlePage).not.toContain("WikiProductMenuList");
-    expect(categoryPage).toContain("<WikiProductMenuDock");
+    expect(articlePage).not.toContain("WikiProductMenuDock");
+    expect(categoryPage).not.toContain("WikiProductMenuDock");
   });
 
   it("词条 slug、标题与章节标识唯一", () => {
@@ -230,8 +224,11 @@ describe("Scholay Wiki 内容契约", () => {
         ).toBeGreaterThan(0);
         const hasEmbeds = (section.embeds?.length ?? 0) > 0;
         const hasTable = Boolean(section.table);
-        // 纯对照图章节可只有 embeds / table，不必硬塞说明废话
-        if (!hasEmbeds && !hasTable) {
+        const hasPathCards = (section.blocks ?? []).some(
+          (block) => block.type === "path-cards",
+        );
+        // 纯对照图 / 入口卡章节可只有 embeds / table / path-cards，不必硬塞说明废话
+        if (!hasEmbeds && !hasTable && !hasPathCards) {
           expect(
             section.markdown.trim().length,
             `${article.slug}/${section.id}`,
@@ -367,11 +364,49 @@ describe("Scholay Wiki 内容契约", () => {
               expectTarget(source, item);
             }
           }
+          if (block.type === "path-cards") {
+            expect(block.items.length, source).toBeGreaterThan(0);
+            for (const item of block.items) {
+              expect(item.title.trim().length, source).toBeGreaterThan(0);
+              expect(item.description.trim().length, source).toBeGreaterThan(
+                10,
+              );
+              expectTarget(source, item);
+            }
+          }
         }
       }
     }
 
     expect(promptGroupCount).toBeGreaterThanOrEqual(10);
+  });
+
+  it("检索与文献词条把说明和图穿插，不把多张演示一次性堆在段落后", () => {
+    for (const article of discoveryArticles) {
+      for (const section of article.sections) {
+        const embeds = section.embeds ?? [];
+        if (embeds.length < 2) continue;
+        const source = `${article.slug}#${section.id}`;
+        expect(section.blocks, `${source} 缺少 blocks`).toBeDefined();
+        let run = 0;
+        let maxRun = 0;
+        for (const block of section.blocks ?? []) {
+          if (block.type === "markdown") {
+            run = 0;
+            continue;
+          }
+          if (block.type !== "embeds") continue;
+          run += block.ids?.length ?? embeds.length;
+          maxRun = Math.max(maxRun, run);
+        }
+        expect(maxRun, `${source} 连续堆了 ${maxRun} 张图`).toBeLessThanOrEqual(
+          2,
+        );
+        expect(section.markdown).not.toMatch(
+          /下方[一二三四五六七八九十两\d]+张图/,
+        );
+      }
+    }
   });
 
   it("Prompt、解释卡、Tips 与下一步都进入 Wiki 搜索文本", () => {
@@ -384,12 +419,23 @@ describe("Scholay Wiki 内容契约", () => {
     expect(text).toContain("研究主题");
   });
 
+  it("产品地图「你可以前往」卡片进入 Wiki 搜索文本", () => {
+    const section = WIKI_ARTICLE_BY_SLUG.get("product-map")?.sections.find(
+      (item) => item.id === "start-here",
+    );
+    expect(section).toBeDefined();
+    const text = wikiSectionPlainText(section!);
+    expect(text).toContain("论文检索");
+    expect(text).toContain("智能助手");
+    expect(text).toContain("会员体系");
+  });
+
   it("每个 Wiki 演示都已登记并至少挂载到一个词条", () => {
     const refs = allEmbedRefs();
     const registered = Object.keys(WIKI_EMBED_REGISTRY) as WikiEmbedId[];
     const used = new Set(refs.map((ref) => ref.id));
 
-    expect(registered).toHaveLength(226);
+    expect(registered).toHaveLength(229);
     expect(new Set(registered).size).toBe(registered.length);
     for (const ref of refs) {
       expect(WIKI_EMBED_REGISTRY[ref.id], ref.id).toBeDefined();
@@ -398,6 +444,61 @@ describe("Scholay Wiki 内容契约", () => {
       expect(used.has(id), `${id} 未挂载`).toBe(true);
       expect(WIKI_EMBED_REGISTRY[id].id).toBe(id);
     }
+  });
+
+  it("通用页面元素词条以 current production 为准并彻底移除营销落地页演示", () => {
+    const article = WIKI_ARTICLE_BY_SLUG.get(
+      "marketing-pages-and-implementation-boundaries",
+    );
+    expect(article?.title).toBe("功能页面与元素说明");
+    expect(article?.category).toBe("getting-started");
+    expect(article?.sections.map((section) => section.id)).toEqual([
+      "navigation-and-tabs",
+      "reference-card",
+      "workspaces",
+      "agent-status",
+    ]);
+
+    const text = article?.sections.map(wikiSectionPlainText).join("\n") ?? "";
+    for (const term of [
+      "汉堡菜单",
+      "浏览器页签",
+      "参考文献基础信息卡片",
+      "扩展区标签页",
+      "文件树",
+      "Function call",
+      "推理过程",
+      "剩余额度",
+      "进度条",
+    ]) {
+      expect(text, term).toContain(term);
+    }
+
+    const mounted = new Set(allEmbedRefs().map((ref) => ref.id));
+    for (const id of [
+      "common-navigation-tabs",
+      "common-reference-card",
+      "common-workspaces",
+      "common-agent-status",
+    ] as const) {
+      expect(WIKI_EMBED_REGISTRY[id]).toBeDefined();
+      expect(mounted.has(id)).toBe(true);
+    }
+    expect(Object.keys(WIKI_EMBED_REGISTRY)).not.toContain(
+      "marketing-landing-template",
+    );
+
+    const fixture = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/embeds/WikiEmbedCommonElements.tsx",
+      ),
+      "utf8",
+    );
+    expect(fixture).toContain('data-wiki-fixture="common-reference-card"');
+    expect(fixture).toContain('data-wiki-spot="Function call 卡片"');
+    expect(fixture).toContain('data-wiki-spot="任务进度条"');
+    expect(fixture).not.toContain("LandingTemplate");
   });
 
   it("Wiki 演示壳保持凹进井层级，不能退化为平面边框", () => {
@@ -416,7 +517,9 @@ describe("Scholay Wiki 内容契约", () => {
     const stageRule = globals.match(/\.wiki-embed-stage\s*\{([^}]+)\}/)?.[1];
     const canvasRule = globals.match(/\.wiki-embed-canvas\s*\{([^}]+)\}/)?.[1];
 
-    expect(frame).toContain('className="mt-6 w-fit max-w-full scroll-mt-20"');
+    expect(frame).toContain(
+      "<WikiFigure caption={caption} className={className}>",
+    );
     expect(frame).toContain(
       'className="wiki-embed-stage w-fit max-w-full rounded-16 p-3 md:p-4"',
     );
@@ -424,8 +527,45 @@ describe("Scholay Wiki 内容契约", () => {
     expect(stageRule).not.toMatch(/box-shadow\s*:\s*none/);
     expect(stageRule?.match(/\binset\b/g)).toHaveLength(5);
     expect(canvasRule).toBeDefined();
-    expect(canvasRule).not.toMatch(/filter\s*:\s*none/);
-    expect(canvasRule?.match(/drop-shadow\s*\(/g)).toHaveLength(2);
+    const canvasBlocks = [
+      ...globals.matchAll(/\.wiki-embed-canvas[^{]*\{([^}]+)\}/g),
+    ];
+    expect(canvasBlocks.length).toBeGreaterThan(0);
+    for (const [, body] of canvasBlocks) {
+      expect(body).not.toMatch(/\bfilter\b/);
+      expect(body).not.toMatch(/drop-shadow/);
+    }
+  });
+
+  it("Wiki 术语聚光灯只挖空目标，目标不染色且其它层级全部受蒙层约束", () => {
+    const globals = readFileSync(
+      path.join(repoRoot, "frontend-user/src/styles/globals.css"),
+      "utf8",
+    );
+    const scrim = globals.match(
+      /\.wiki-spot-section \[data-wiki-fixture\]::after\s*\{([^}]+)\}/,
+    )?.[1];
+    expect(scrim).toContain("foreground) 32%");
+    expect(scrim).toContain("z-index: var(--z-fx)");
+    expect(scrim).toContain("pointer-events: none");
+    expect(scrim?.match(/linear-gradient/g)).toHaveLength(4);
+    for (const variable of [
+      "--wiki-spot-cutout-left",
+      "--wiki-spot-cutout-top",
+      "--wiki-spot-cutout-width",
+      "--wiki-spot-cutout-height",
+    ]) {
+      expect(scrim).toContain(variable);
+    }
+    expect(globals).not.toMatch(
+      /\[data-wiki-spot-id\]\[data-wiki-spot-active\]::before/,
+    );
+    expect(globals).toMatch(
+      /\[data-wiki-fixture\]\[data-wiki-spot-tour\]\s*\{[^}]*isolation:\s*isolate/,
+    );
+    expect(globals).not.toMatch(
+      /\[data-wiki-spot-id\]\[data-wiki-spot-active\]\s*\{[^}]*border-radius:\s*var\(--radius-8\)/,
+    );
   });
 
   it("Wiki fixture 保持静态，不接入生产状态或写操作", () => {
@@ -648,7 +788,10 @@ describe("Scholay Wiki 内容契约", () => {
 
     expect(
       giftCodes?.sections.find((section) => section.id === "preview")?.embeds,
-    ).toEqual([{ id: "redeem-preview", caption: "用户端 · 兑换预览" }]);
+    ).toEqual([{ id: "redeem-preview" }]);
+    expect(WIKI_EMBED_REGISTRY["redeem-preview"].defaultCaption).toBe(
+      "兑换码 · 会员权益预览（确认前）",
+    );
     expect(
       giftCodes?.sections
         .find((section) => section.id === "grant")
@@ -741,19 +884,19 @@ describe("Scholay Wiki 内容契约", () => {
       "library-share-receive",
       "share-receive-variants",
     ]);
-    expect(sharingSection?.markdown).toContain(
-      "第二张图只展示受保护合集的提取码输入状态",
-    );
+    expect(sharingSection?.markdown).toContain("公开合集");
+    expect(sharingSection?.markdown).toContain("受保护合集尚未解锁");
+    expect(sharingSection?.markdown).toContain("确认按钮保持禁用");
     expect(sharingSection?.markdown).not.toContain("已过期");
     expect(shareFixture.match(/<SharePhone/g)).toHaveLength(1);
     expect(shareFixture).not.toContain('<SharePhone title="论文详情">');
     expect(shareFixture).not.toContain('<SharePhone title="期刊详情">');
 
     expect(WIKI_EMBED_REGISTRY["paper-favorite-flow"].defaultCaption).toBe(
-      "收藏论文 · 选择目标文献集",
+      "收藏论文 · 选择目标文件夹",
     );
     expect(favoriteSection?.markdown).toContain(
-      "下图只展示确认收藏前的文献集选择界面",
+      "下图只展示确认收藏前的目标文件夹选择界面",
     );
     expect(favoriteSection?.markdown).not.toContain("保存完成");
     expect(unfavoriteSection?.markdown).toContain("这一步不在上图中");
@@ -808,25 +951,24 @@ describe("Scholay Wiki 内容契约", () => {
     expect(new Set(nodes.map((node) => node.id)).size).toBe(nodes.length);
   });
 
-  it("开始页仅保留可公开访问的高频栏目入口", () => {
-    expect(WIKI_START_PATHS.map((item) => item.title)).toEqual([
-      "全站概览",
-      "文献查询与分析",
-      "智能助手",
-      "智能写作",
-      "智能审稿",
-      "会员订阅",
-    ]);
-
-    const publicCategorySlugs = new Set(
-      visibleNavCategories(false).map((category) => category.slug),
-    );
-    for (const path of WIKI_START_PATHS) {
-      expect(
-        publicCategorySlugs.has(path.categorySlug),
-        path.categorySlug,
-      ).toBe(true);
+  it("一级栏目不再单独成页，展开后落到第一篇二级词条", () => {
+    for (const category of WIKI_NAV_CATEGORIES) {
+      expect(firstNavHref(category.children), category.slug).toMatch(
+        /^\/wiki\/[a-z0-9-]+/,
+      );
     }
+    expect(firstNavHref(WIKI_NAV_CATEGORIES[0]!.children)).toBe("/wiki/scholay");
+
+    const categoryPage = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/wiki/pages/WikiCategoryPage.tsx",
+      ),
+      "utf8",
+    );
+    expect(categoryPage).toContain("firstNavHref");
+    expect(categoryPage).toContain("Navigate");
+    expect(categoryPage).not.toContain("WIKI DIRECTORY");
   });
 
   it("导航目标、章节锚点与唯一主归位全部可解析", () => {
@@ -878,14 +1020,14 @@ describe("Scholay Wiki 内容契约", () => {
     expect(guardedCorpus).toContain("固定");
   });
 
-  it("覆盖全部 56 个后端一级业务模块", () => {
+  it("覆盖全部 57 个后端一级业务模块", () => {
     const internalRoot = path.join(repoRoot, "backend/internal");
     const modules = readdirSync(internalRoot)
       .filter((name) => statSync(path.join(internalRoot, name)).isDirectory())
       .sort();
     const corpus = wikiCorpus();
 
-    expect(modules).toHaveLength(56);
+    expect(modules).toHaveLength(57);
     for (const module of modules) {
       expect(corpus, `backend/internal/${module}`).toContain(
         `backend/internal/${module}`,

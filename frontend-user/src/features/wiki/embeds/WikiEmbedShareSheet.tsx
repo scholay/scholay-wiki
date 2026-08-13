@@ -28,7 +28,7 @@ export function WikiEmbedShareSheet() {
               "BERT: Pre-training of Deep Bidirectional Transformers",
               "Language Models are Few-Shot Learners",
             ],
-            qrValue: "https://scholay.com/",
+            qrValue: "https://scholay.com/s/M8Q7K2?code=H7K9",
             urlLabel: "scholay.com/s/M8Q7K2",
           }}
         />

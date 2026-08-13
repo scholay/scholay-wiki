@@ -34,7 +34,7 @@ export const membershipArticles: WikiArticle[] = [
       {
         id: "pricing",
         title: "当前默认价格",
-        markdown: `在会员页切换月付或年付，可以并排比较 Free、Pro 和 Max 的额度与权益，再从套餐卡进入购买；下图展示的是默认月付套餐卡。0.0.80 版本的默认价格为 Pro 月付 ¥59、年付 ¥590，Max 月付 ¥269、年付 ¥2690。
+        markdown: `在会员页切换月付或年付，可以并排比较 Free、Pro 和 Max 的额度与权益，再从套餐卡进入购买。下图展示默认年付视图：卡片主价是年付总额折算的月均价，实际一次支付金额见卡片说明；切到月付后才显示单月价。0.0.80 版本的默认价格为 Pro 月付 ¥59、年付 ¥590，Max 月付 ¥269、年付 ¥2690。
 
 这些价格和“最受欢迎”标记都可以调整，最终应以你进入结算页时看到的报价为准。`,
         embeds: [{ id: "membership-plans" }],
@@ -121,7 +121,7 @@ export const membershipArticles: WikiArticle[] = [
       {
         id: "amounts",
         title: "当前默认额度",
-        markdown: `进入账户资产页，你会看到当前会员、剩余额度百分比、距离恢复的时间、经费余额和可用重置次数；下图中的数值只是界面示例。当前默认值为 Free 每周期 300 算力点，Pro 为 6,000 点，Max 为 30,000 点。
+        markdown: `进入账户资产页，你会看到当前会员、剩余额度百分比、距离恢复的时间、经费余额和可用重置次数；额度条表示“还剩多少”，不是“已经用了多少”。下图中的数值只是界面示例。当前默认值为 Free 每周期 300 算力点，Pro 为 6,000 点，Max 为 30,000 点。
 
 实际额度可以调整，页面以百分比和周期时间呈现；某档上限设为负数时表示不限额。收费开启时，Free 基准额度和周期天数不能为零。`,
         embeds: [{ id: "account-assets" }],
@@ -132,6 +132,17 @@ export const membershipArticles: WikiArticle[] = [
             type: "tip",
             tip: {
               text: "额度上限和周期可能调整。判断当前还能否使用、何时恢复时，以账户资产页当时显示的剩余百分比和恢复时间为准，不把示例数值当作长期承诺。",
+            },
+          },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "marketing-pages-and-implementation-boundaries",
+              sectionId: "agent-status",
+              title: "怎样读懂剩余额度与进度状态",
+              description:
+                "区分剩余百分比、恢复时间、任务进度和停止状态，避免把进度条当作完成证据。",
+              icon: "sparkles",
             },
           },
         ],
@@ -227,7 +238,7 @@ export const membershipArticles: WikiArticle[] = [
       {
         id: "balance",
         title: "经费是什么",
-        markdown: `账户资产卡会把经费余额与会员周期额度分开显示，并提供“用经费继续”的开关；下图展示的是同时有额度、经费和重置次数的示例状态。经费来自充值、兑换码、活动奖励或管理员调账，余额支持小数、长期保留，并留下逐笔流水。
+        markdown: `账户资产卡会把经费余额与会员周期额度分开显示，并提供“用经费继续”的开关；开关为绿色表示已允许在周期额度耗尽后按超出部分扣经费，这与使用重置次数是两条恢复路径。下图展示的是同时有额度、经费和重置次数的示例状态。经费来自充值、兑换码、活动奖励或管理员调账，余额支持小数、长期保留，并留下逐笔流水。
 
 临时经费已经停止使用，订阅也不会自动赠送经费。`,
         embeds: [{ id: "account-assets" }],

@@ -63,7 +63,7 @@ export function WikiEmbedMembershipPlans() {
           <span className="inline-flex h-8 items-center gap-2 rounded-pill bg-surface-card px-4 text-14 font-medium text-foreground shadow-raised">
             年付
             <span className="rounded-pill bg-brand-red px-2 py-1 text-12 font-medium text-on-brand">
-              省 16%
+              省 17%
             </span>
           </span>
           <span className="inline-flex h-8 items-center rounded-pill px-4 text-14 font-medium text-muted-foreground">

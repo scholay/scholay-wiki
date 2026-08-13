@@ -6,6 +6,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { MermaidDiagram } from "@/shared/components/chat/MermaidDiagram";
 import { RouteSEO } from "@/shared/components/RouteSEO";
+import { BrandLogo } from "@/shared/components/BrandLogo";
 import { TableOfContents } from "@/shared/components/TableOfContents";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import {
@@ -14,16 +15,19 @@ import {
   WIKI_KIND_LABEL,
   articleNavTrail,
   canViewWikiArticle,
+  firstNavHref,
   relatedArticles,
-  resolveWikiProductMenu,
+  wikiInterestRecommendations,
 } from "../content";
+import { wikiArticleCopyText } from "../content/wiki-article-export";
 import { linkWikiTermsInArticle } from "../content/wiki-term-links";
 import type { WikiArticle, WikiNavTrail } from "../types";
 import { WikiAdminOnlyBadge } from "../components/WikiAdminOnlyBadge";
-import { WikiFeatureIcon } from "../components/WikiFeatureIcon";
+import { WikiArticlePreviewLink } from "../components/WikiArticlePreviewLink";
 import { WikiLeadVisual } from "../components/WikiLeadVisual";
+import { WikiInterestRecommendations } from "../components/WikiInterestRecommendations";
+import { WikiFigure, WikiTableFigure } from "../components/WikiMedia";
 import { WikiMergedTable } from "../components/WikiMergedTable";
-import { WikiProductMenuDock } from "../components/WikiProductMenuDock";
 import { WikiSectionBlocks } from "../components/WikiSectionBlocks";
 import { wikiSectionBlocks } from "../components/wiki-section-blocks";
 import { WikiStatusBadge } from "../components/WikiStatusBadge";
@@ -37,9 +41,9 @@ import type {
 } from "../types";
 
 const MERMAID_LANG_RE =
-  /language-(mermaid|flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram)\b/i;
+  /language-(mermaid|flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|mindmap)\b/i;
 const MERMAID_HEAD_RE =
-  /^\s*(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(-v2)?|erDiagram)\b/;
+  /^\s*(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(-v2)?|erDiagram|mindmap)\b/;
 
 function extractCodeText(node: ReactNode): string {
   if (typeof node === "string") return node;
@@ -84,13 +88,12 @@ export function WikiArticlePage() {
   );
   const navTrail = articleNavTrail(article.slug);
   const related = relatedArticles(article, canSeeAdmin);
-  const locator = buildWikiLocator(article, navTrail, category?.title);
-  const productMenu = resolveWikiProductMenu(
-    article.slug,
-    navTrail?.category.slug,
-  );
-  const articleIconSlug =
-    article.slug === "smart-search" ? "smart-search" : navTrail?.category.slug;
+  const recommendations = wikiInterestRecommendations(article, canSeeAdmin);
+  const navPath = buildWikiNavPath(article, navTrail, category?.title);
+  const pageCopyText = wikiArticleCopyText(article, {
+    navPath,
+    resolveArticleTitle: (slug) => WIKI_ARTICLE_BY_SLUG.get(slug)?.title,
+  });
   const linkedMarkdown = linkWikiTermsInArticle(article);
 
   return (
@@ -107,7 +110,7 @@ export function WikiArticlePage() {
       />
 
       <div className="mx-auto grid w-full max-w-page grid-cols-1 gap-12 px-6 py-8 md:px-8 md:py-10 xl:grid-cols-[minmax(0,1fr)_var(--rail-w-sm)] xl:px-10">
-        <article ref={contentRef} className="min-w-0">
+        <article ref={contentRef} className="wiki-article min-w-0">
           <header className="border-b border-border-hairline pb-8">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <nav
@@ -120,7 +123,7 @@ export function WikiArticlePage() {
                 <span aria-hidden>/</span>
                 {navTrail && (
                   <Link
-                    to={`/wiki/category/${navTrail.category.slug}`}
+                    to={firstNavHref(navTrail.category.children) ?? "/wiki"}
                     className="hover:text-foreground"
                   >
                     {navTrail.category.title}
@@ -137,42 +140,24 @@ export function WikiArticlePage() {
                   {article.title}
                 </span>
               </nav>
-              <WikiLocatorCopyButton locator={locator} />
+              <WikiArticleCopyButton text={pageCopyText} />
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-12 text-muted-foreground">
-              <WikiStatusBadge status={article.status} />
-              {category?.adminOnly && <WikiAdminOnlyBadge />}
-              <span>{WIKI_KIND_LABEL[article.kind]}</span>
-              <span>适用：{article.audience.join("、")}</span>
-              <span>版本：0.0.80</span>
-              <span className="font-mono text-faint">f23d0003</span>
+            <div className="mt-6 flex items-start gap-3">
+              <BrandLogo
+                size="lg"
+                variant="mark"
+                height={24}
+                className="shrink-0"
+              />
+              <h1 className="min-w-0 font-brand text-32 font-normal leading-display-tight text-foreground">
+                {article.title}
+              </h1>
             </div>
-
-            {productMenu ? (
-              <div className="mt-6">
-                <WikiProductMenuDock activeId={productMenu.id} />
-                <h1 className="mt-4 min-w-0 font-brand text-32 font-normal leading-display-tight text-foreground">
-                  {article.title}
-                </h1>
-              </div>
-            ) : (
-              <div className="mt-6 flex items-start gap-4">
-                {articleIconSlug && (
-                  <WikiFeatureIcon
-                    slug={articleIconSlug}
-                    className="size-10 shrink-0 object-contain md:size-12"
-                  />
-                )}
-                <h1 className="min-w-0 font-brand text-32 font-normal leading-display-tight text-foreground">
-                  {article.title}
-                </h1>
-              </div>
-            )}
             <p className="mt-4 text-16 leading-paragraph text-subtle">
               {article.summary}
             </p>
-            <WikiLeadVisual articleSlug={article.slug} className="mt-7" />
+            <WikiLeadVisual articleSlug={article.slug} className="mt-8" />
             {article.headerEmbeds && article.headerEmbeds.length > 0 && (
               <WikiEmbedList embeds={article.headerEmbeds} />
             )}
@@ -194,6 +179,7 @@ export function WikiArticlePage() {
                 </h2>
                 <WikiSectionBody
                   chapter={chapter}
+                  title={section.title}
                   markdown={linkedMarkdown[sectionIndex] ?? section.markdown}
                   table={section.table}
                   embeds={section.embeds}
@@ -203,56 +189,42 @@ export function WikiArticlePage() {
             );
           })}
 
-          <section className="py-8">
-            <h2
-              id="sources"
-              className="scroll-mt-20 flex items-baseline gap-3 font-serif text-24 font-medium text-foreground"
-            >
-              <ChapterNumber value={`${article.sections.length + 1}.`} />
-              <span>来源</span>
-            </h2>
-            <p className="mt-3 text-12 leading-paragraph text-muted-foreground">
-              下列路径是本词条在代码基线中的主要事实来源。研究文档只补充背景，不覆盖运行时代码。
-            </p>
-            <ul className="mt-4 divide-y divide-border-hairline border-y border-border-hairline">
-              {article.sourcePaths.map((path) => (
-                <li
-                  key={path}
-                  className="break-words py-3 font-mono text-12 leading-paragraph text-brand-red"
-                >
-                  {path}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="border-t border-border-hairline py-8 xl:hidden">
-            <h2
-              data-toc-ignore
-              className="font-serif text-20 font-medium text-foreground"
-            >
-              继续阅读
-            </h2>
-            {related.length > 0 ? (
-              <div className="mt-3 divide-y divide-border-hairline">
-                {related.map((item) => (
-                  <Link
-                    key={item.slug}
-                    to={`/wiki/${item.slug}`}
-                    className="group flex min-h-14 items-center justify-between gap-3 py-3 text-14 text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground"
+          {canSeeAdmin && (
+            <section className="py-8">
+              <h2
+                id="sources"
+                className="scroll-mt-20 flex items-center gap-3 font-serif text-24 font-medium text-foreground"
+              >
+                <ChapterNumber value={`${article.sections.length + 1}.`} />
+                <span>来源</span>
+                <WikiAdminOnlyBadge />
+              </h2>
+              <p className="mt-3 text-12 leading-paragraph text-muted-foreground">
+                下列路径是本词条在代码基线中的主要事实来源。研究文档只补充背景，不覆盖运行时代码。
+              </p>
+              <ul className="mt-4 divide-y divide-border-hairline border-y border-border-hairline">
+                {article.sourcePaths.map((path) => (
+                  <li
+                    key={path}
+                    className="break-words py-3 font-mono text-12 leading-paragraph text-brand-red"
                   >
-                    <span>{item.title}</span>
-                    <ArrowRight
-                      className="size-4 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transform-none"
-                      aria-hidden
-                    />
-                  </Link>
+                    {path}
+                  </li>
                 ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-12 text-faint">暂无关联词条。</p>
-            )}
-          </section>
+              </ul>
+            </section>
+          )}
+
+          <WikiInterestRecommendations recommendations={recommendations} />
+
+          <footer className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-border-hairline py-8 text-12 text-muted-foreground">
+            <WikiStatusBadge status={article.status} />
+            {category?.adminOnly && <WikiAdminOnlyBadge />}
+            <span>{WIKI_KIND_LABEL[article.kind]}</span>
+            <span>适用：{article.audience.join("、")}</span>
+            <span>版本：0.0.80</span>
+            <span className="font-mono text-faint">f23d0003</span>
+          </footer>
         </article>
 
         <aside className="hidden border-l border-border-hairline pl-8 xl:block">
@@ -305,12 +277,12 @@ function ChapterNumber({ value }: { value: string }) {
   );
 }
 
-function buildWikiLocator(
+function buildWikiNavPath(
   article: WikiArticle,
   navTrail: WikiNavTrail | undefined,
   fallbackCategoryTitle?: string,
-): string {
-  const parts = ["Wiki"];
+): string[] {
+  const parts = ["Scholay Wiki"];
   if (navTrail) {
     parts.push(navTrail.category.title);
     for (const node of navTrail.nodes.slice(0, -1)) {
@@ -320,20 +292,20 @@ function buildWikiLocator(
     parts.push(fallbackCategoryTitle);
   }
   parts.push(article.title);
-  return `${parts.join(" / ")}\n/wiki/${article.slug}`;
+  return parts;
 }
 
-function WikiLocatorCopyButton({ locator }: { locator: string }) {
+function WikiArticleCopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    const ok = await copyToClipboard(locator);
+    const ok = await copyToClipboard(text);
     if (!ok) {
-      toast.error("复制失败，请手动选择面包屑");
+      toast.error("复制失败，请手动选择本页正文");
       return;
     }
     setCopied(true);
-    toast.success("已复制定位路径");
+    toast.success("已复制本页完整内容");
     window.setTimeout(() => setCopied(false), 1600);
   };
 
@@ -342,27 +314,29 @@ function WikiLocatorCopyButton({ locator }: { locator: string }) {
       type="button"
       onClick={() => void handleCopy()}
       className="inline-flex h-8 shrink-0 items-center gap-2 rounded-8 border border-border bg-surface-card px-3 text-12 font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-      aria-label="复制定位路径"
-      title="复制面包屑与词条路径，方便在对话里定位"
+      aria-label="复制本页完整内容"
+      title="复制本页标题、正文、提示词、Tips 与下一步"
     >
       {copied ? (
         <Check className="size-3.5 text-brand-green" aria-hidden />
       ) : (
         <Copy className="size-3.5" aria-hidden />
       )}
-      {copied ? "已复制" : "复制定位"}
+      {copied ? "已复制" : "复制本页"}
     </button>
   );
 }
 
 function WikiSectionBody({
   chapter,
+  title,
   markdown,
   table,
   embeds,
   blocks,
 }: {
   chapter: number;
+  title: string;
   markdown: string;
   table?: WikiSectionTable;
   embeds?: WikiEmbedRef[];
@@ -378,15 +352,25 @@ function WikiSectionBody({
       table={table}
       embeds={embeds}
       renderers={{
-        markdown: () => (
+        markdown: (text) => (
           <div data-wiki-prose>
-            <WikiSectionMarkdown markdown={markdown} chapter={chapter} />
+            <WikiSectionMarkdown
+              markdown={text}
+              chapter={chapter}
+              mediaCaption={title}
+            />
           </div>
         ),
         table: (value) => (
-          <WikiMergedTable columns={value.columns} rows={value.rows} />
+          <WikiMergedTable
+            columns={value.columns}
+            rows={value.rows}
+            caption={value.caption ?? title}
+          />
         ),
-        embeds: (value) => <WikiEmbedList embeds={value} />,
+        embeds: (value, layout) => (
+          <WikiEmbedList embeds={value} layout={layout} />
+        ),
       }}
     />
   );
@@ -398,9 +382,11 @@ function WikiSectionBody({
 function WikiSectionMarkdown({
   markdown,
   chapter,
+  mediaCaption,
 }: {
   markdown: string;
   chapter: number;
+  mediaCaption: string;
 }) {
   if (!markdown.trim()) return null;
   // 单次 Markdown 渲染内按出现顺序编号；h3→1.1，h4→1.1.1
@@ -463,9 +449,11 @@ function WikiSectionMarkdown({
             );
             if (MERMAID_LANG_RE.test(cls) || MERMAID_HEAD_RE.test(raw)) {
               return (
-                <div className="wiki-light-content mt-6 overflow-x-auto rounded-8 border border-border bg-surface-card p-4">
-                  <MermaidDiagram code={raw} />
-                </div>
+                <WikiFigure caption={mediaCaption}>
+                  <div className="wiki-light-content w-fit max-w-full overflow-x-auto rounded-8 border border-border-hairline p-4 [&_svg]:max-h-[36rem]">
+                    <MermaidDiagram code={raw} />
+                  </div>
+                </WikiFigure>
               );
             }
           }
@@ -481,30 +469,23 @@ function WikiSectionMarkdown({
           </blockquote>
         ),
         table: ({ children }) => (
-          <div className="mt-6 overflow-x-auto rounded-8 border border-border">
-            <table className="w-full border-collapse bg-surface-card text-left text-12">
-              {children}
-            </table>
-          </div>
+          <WikiTableFigure caption={mediaCaption}>
+            <table className="wiki-three-line text-12">{children}</table>
+          </WikiTableFigure>
         ),
         th: ({ children }) => (
-          <th className="border-b border-border bg-surface-1 px-3 py-2 font-medium text-foreground">
-            {children}
-          </th>
+          <th className="font-medium text-foreground">{children}</th>
         ),
         td: ({ children }) => (
-          <td className="border-b border-border-hairline px-3 py-2 align-top leading-paragraph text-subtle">
+          <td className="align-top leading-paragraph text-subtle">
             {children}
           </td>
         ),
         a: ({ children, href }) =>
           href?.startsWith("/wiki/") ? (
-            <Link
-              to={href}
-              className="text-brand-red underline underline-offset-4"
-            >
+            <WikiArticlePreviewLink href={href}>
               {children}
-            </Link>
+            </WikiArticlePreviewLink>
           ) : (
             <a
               href={href}

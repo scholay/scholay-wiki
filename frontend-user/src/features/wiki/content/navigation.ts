@@ -79,8 +79,8 @@ export const WIKI_NAV_CATEGORIES: WikiNavCategoryMeta[] = [
             target: primary("ai-research-workflows"),
           },
           {
-            id: "overview-implementation-boundaries",
-            title: "功能页面与实装边界",
+            id: "overview-page-elements",
+            title: "功能页面与元素说明",
             target: primary("marketing-pages-and-implementation-boundaries"),
           },
         ],
@@ -283,20 +283,15 @@ export const WIKI_NAV_CATEGORIES: WikiNavCategoryMeta[] = [
           },
           {
             id: "assistant-stream-states",
-            title: "流式过程与异常状态",
+            title: "卡住与发不出去",
             target: primary("claw-stream-tool-states"),
           },
         ],
       },
       {
         id: "assistant-vs-smart-search",
-        title: "智能助手与智能搜索的区别",
+        title: "智能助手 vs 智能搜索",
         target: primary("search-entry-comparison"),
-      },
-      {
-        id: "assistant-smart-search-jump",
-        title: "从智能搜索的角度查看区别",
-        target: jump("search-entry-comparison"),
       },
     ],
   },
@@ -344,8 +339,8 @@ export const WIKI_NAV_CATEGORIES: WikiNavCategoryMeta[] = [
       },
       {
         id: "literature-search-traditional-vs-smart",
-        title: "传统搜索和智能搜索的区别",
-        target: jump("search-entry-comparison"),
+        title: "传统搜索 vs 智能搜索",
+        target: primary("classic-vs-smart-search"),
       },
       {
         id: "literature-search-smart-search",
@@ -354,7 +349,7 @@ export const WIKI_NAV_CATEGORIES: WikiNavCategoryMeta[] = [
       },
       {
         id: "literature-search-smart-vs-assistant",
-        title: "智能搜索和智能助手的区别",
+        title: "智能搜索 vs 智能助手",
         target: jump("search-entry-comparison"),
       },
     ],
@@ -1046,7 +1041,7 @@ export const WIKI_NAV_CATEGORIES: WikiNavCategoryMeta[] = [
           },
           {
             id: "other-admin-entitlements",
-            title: "会员、Credit 与 Reset Pass 发放",
+            title: "会员、科研经费与重置次数发放",
             target: primary("admin-user-entitlement-grants"),
           },
           {

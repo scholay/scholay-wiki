@@ -1749,7 +1749,7 @@ html[data-wiki-theme="dark"] body {
 /**
  * Wiki 嵌入演示井 —— 凹进衬底 + 恢复产品 surface 色阶。
  * wiki-doc-surface 把正文树压成纯白；演示井内重新挂回米白 / 弱卡片色阶。
- * 五向内阴影建立井壁，canvas 的轻微投影让产品截面浮在井底上方。
+ * 五向内阴影只画在底衬上；canvas 不再投影，避免产品卡片被滤镜压暗。
  */
 .wiki-embed-stage {
   --background: #f6f4ee;
@@ -1768,12 +1768,6 @@ html[data-wiki-theme="dark"] body {
 .wiki-embed-canvas {
   background-color: transparent;
   color: var(--foreground);
-  filter: drop-shadow(
-      0 2px 4px color-mix(in srgb, var(--foreground) 12%, transparent)
-    )
-    drop-shadow(
-      0 8px 16px color-mix(in srgb, var(--foreground) 8%, transparent)
-    );
 }
 
 /* 夜间只暗化井壁，五向 inset 的结构和顺序与亮色契约完全一致。 */
@@ -1887,8 +1881,6 @@ html[data-wiki-theme="dark"] body {
   --shadow-raised: 0 1px 2px 0 rgb(31 31 35 / 0.07);
 
   color: var(--foreground);
-  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.32))
-    drop-shadow(0 8px 16px rgb(0 0 0 / 0.42));
 }
 
 /* Mermaid 的配色由 theme-bridge 从 :root 读取并缓存。Wiki scoped theme 不去改
@@ -1916,6 +1908,49 @@ html[data-wiki-theme="dark"] body {
   color: var(--foreground);
 }
 
+/**
+ * Wiki 产品地图 classDiagram：五张能力卡浅底区分，中心 Scholay 留白卡。
+ * 不能把 fill:#… 写进 mermaid `style`/`classDef` —— content/*.ts 会被硬编码 hex /
+ * 裸 CSS 护栏拦住。节点只挂 cssClass，这里用 token 上色。
+ * !important 压过 mermaid 写在 path 上的 inline fill。
+ */
+.wiki-light-content g.wikiMapHub {
+  --wiki-map-fill: var(--surface-card);
+  --wiki-map-stroke: var(--border-strong);
+}
+.wiki-light-content g.wikiMapSearch {
+  --wiki-map-fill: var(--brand-green-soft);
+  --wiki-map-stroke: color-mix(in srgb, var(--brand-green) 42%, var(--border));
+}
+.wiki-light-content g.wikiMapAnalyze {
+  --wiki-map-fill: var(--brand-amber-soft);
+  --wiki-map-stroke: color-mix(in srgb, var(--brand-amber) 42%, var(--border));
+}
+.wiki-light-content g.wikiMapManage {
+  --wiki-map-fill: var(--surface-2);
+  --wiki-map-stroke: var(--border-strong);
+}
+.wiki-light-content g.wikiMapWrite {
+  --wiki-map-fill: var(--brand-red-soft);
+  --wiki-map-stroke: color-mix(in srgb, var(--brand-red) 42%, var(--border));
+}
+.wiki-light-content g.wikiMapSupport {
+  --wiki-map-fill: var(--status-info-soft);
+  --wiki-map-stroke: color-mix(in srgb, var(--status-info) 38%, var(--border));
+}
+.wiki-light-content g[class*="wikiMap"] .outer-path path {
+  fill: var(--wiki-map-fill) !important;
+  stroke: var(--wiki-map-stroke) !important;
+}
+.wiki-light-content g[class*="wikiMap"] .divider path {
+  fill: none !important;
+  stroke: var(--wiki-map-stroke) !important;
+}
+.wiki-light-content g[class*="wikiMap"] foreignObject > div,
+.wiki-light-content g[class*="wikiMap"] .labelBkg {
+  background: transparent !important;
+}
+
 /* 栏目图标按 20px 母尺寸生成粗实心浅色符号；日间反相，夜间保留亮墨。 */
 .wiki-feature-icon {
   filter: brightness(0);
@@ -1927,7 +1962,51 @@ html[data-wiki-theme="dark"] body {
 }
 
 /**
- * Wiki 术语 ↔ 演示元素 hover 高亮。
+ * 词条内图 / 表独立编号。caption 正文由组件提供，序号由计数器生成：
+ * 「图3 : 首页 · 文献搜索框」「表1 : 全站功能」。
+ */
+.wiki-article {
+  counter-reset: wiki-fig wiki-tbl;
+}
+.wiki-article .wiki-fig {
+  counter-increment: wiki-fig;
+}
+.wiki-article .wiki-tbl {
+  counter-increment: wiki-tbl;
+}
+.wiki-article .wiki-fig > .wiki-media-caption::before {
+  content: "图" counter(wiki-fig) " : ";
+}
+.wiki-article .wiki-tbl > .wiki-media-caption::before {
+  content: "表" counter(wiki-tbl) " : ";
+}
+
+/**
+ * 科研三线表：顶线 / 表头下线 / 底线，无竖线、无表头底、无行框。
+ */
+.wiki-three-line {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 2px solid var(--foreground);
+  border-bottom: 2px solid var(--foreground);
+  text-align: left;
+}
+.wiki-three-line th,
+.wiki-three-line td {
+  border: 0;
+  background-color: transparent;
+  padding: 0.625rem 1rem;
+  vertical-align: middle;
+}
+.wiki-three-line thead th {
+  border-bottom: 1px solid var(--foreground);
+  font-weight: var(--weight-medium);
+  color: var(--foreground);
+}
+
+/**
+ * Wiki 术语 ↔ 演示元素：hover / focus 术语后，只给目标以外的区域加蒙层。
+ * 目标矩形由 JS 写入四个 cutout 变量；目标本身不染色、不描边，靠明暗对比凸显。
  * 正文 mark.wiki-spot-term 与 fixture [data-wiki-spot-id] 由 wiki-spot-linker 自动关联。
  */
 .wiki-spot-section mark.wiki-spot-term {
@@ -1938,23 +2017,61 @@ html[data-wiki-theme="dark"] body {
   border-radius: 2px;
   cursor: help;
   transition:
-    background-color 120ms ease,
-    box-shadow 120ms ease;
+    background-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
 }
-.wiki-spot-section mark.wiki-spot-term[data-wiki-term-active],
-.wiki-spot-section [data-wiki-spot-id][data-wiki-spot-active] {
+.wiki-spot-section mark.wiki-spot-term[data-wiki-term-active] {
   background-color: color-mix(
     in srgb,
     var(--brand-red) 16%,
     var(--surface-card)
   );
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-red) 35%, transparent);
-  border-radius: 4px;
+  border-radius: var(--radius-4);
 }
-.wiki-spot-section [data-wiki-spot-id] {
-  transition:
-    background-color 120ms ease,
-    box-shadow 120ms ease;
+.wiki-spot-section [data-wiki-fixture] {
+  position: relative;
+}
+.wiki-spot-section [data-wiki-fixture]::after {
+  --wiki-spot-scrim-color: color-mix(
+    in srgb,
+    var(--foreground) 32%,
+    transparent
+  );
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-fx);
+  border-radius: inherit;
+  background:
+    linear-gradient(var(--wiki-spot-scrim-color) 0 0) 0 0 / 100%
+      var(--wiki-spot-cutout-top) no-repeat,
+    linear-gradient(var(--wiki-spot-scrim-color) 0 0) 0
+      calc(var(--wiki-spot-cutout-top) + var(--wiki-spot-cutout-height)) / 100%
+      calc(100% - var(--wiki-spot-cutout-top) - var(--wiki-spot-cutout-height))
+      no-repeat,
+    linear-gradient(var(--wiki-spot-scrim-color) 0 0) 0
+      var(--wiki-spot-cutout-top) / var(--wiki-spot-cutout-left)
+      var(--wiki-spot-cutout-height) no-repeat,
+    linear-gradient(var(--wiki-spot-scrim-color) 0 0)
+      calc(var(--wiki-spot-cutout-left) + var(--wiki-spot-cutout-width))
+      var(--wiki-spot-cutout-top) /
+      calc(100% - var(--wiki-spot-cutout-left) - var(--wiki-spot-cutout-width))
+      var(--wiki-spot-cutout-height) no-repeat;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) ease;
+}
+.wiki-spot-section [data-wiki-fixture][data-wiki-spot-tour] {
+  isolation: isolate;
+}
+.wiki-spot-section [data-wiki-fixture][data-wiki-spot-tour]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wiki-spot-section [data-wiki-fixture]::after {
+    transition: none;
+  }
 }
 
 [data-sonner-toaster][data-theme="light"] {

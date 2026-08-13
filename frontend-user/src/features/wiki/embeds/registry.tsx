@@ -73,6 +73,12 @@ import { WikiEmbedClawHeroEntry } from "./WikiEmbedClawHeroEntry";
 import { WikiEmbedClawRunStates } from "./WikiEmbedClawRunStates";
 import { WikiEmbedClawSessionHistory } from "./WikiEmbedClawSessionHistory";
 import { WikiEmbedClawWorkspace } from "./WikiEmbedClawWorkspace";
+import {
+  WikiEmbedCommonAgentStatus,
+  WikiEmbedCommonNavigationTabs,
+  WikiEmbedCommonReferenceCard,
+  WikiEmbedCommonWorkspaces,
+} from "./WikiEmbedCommonElements";
 import { WikiEmbedCommunitySkill } from "./WikiEmbedCommunitySkill";
 import { WikiEmbedComposerAttachments } from "./WikiEmbedComposerAttachments";
 import { WikiEmbedContactSupport } from "./WikiEmbedContactSupport";
@@ -153,6 +159,7 @@ import {
   WikiEmbedRhinoAssistantNotificationsPanel,
 } from "./WikiEmbedRhinoAssistant";
 import { WikiEmbedSearchAutocomplete } from "./WikiEmbedSearchAutocomplete";
+import { WikiEmbedSearchWorkspace } from "./WikiEmbedSearchWorkspace";
 import { WikiEmbedShareSheet } from "./WikiEmbedShareSheet";
 import { WikiEmbedSmartPaperGroup } from "./WikiEmbedSmartPaperGroup";
 import { WikiEmbedSmartSearchDock } from "./WikiEmbedSmartSearchDock";
@@ -197,7 +204,6 @@ import {
   WikiEmbedAuthRegisterRecovery,
   WikiEmbedBillingOverviewUsage,
   WikiEmbedHomeResearchEntry,
-  WikiEmbedMarketingLandingTemplate,
   WikiEmbedUserAccountMenu,
 } from "./WikiEmbedAuthBillingMarketingSurfaces";
 import {
@@ -208,7 +214,6 @@ import {
 import {
   WikiEmbedMobileClawActiveSession,
   WikiEmbedMobileClawArtifactPreview,
-  WikiEmbedMobileClawSessionDrawer,
 } from "./WikiEmbedMobileClawSurfaces";
 import {
   WikiEmbedMobilePcOnlyGuide,
@@ -329,7 +334,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "account-security": {
     id: "account-security",
-    defaultCaption: "账户安全与双重换绑验证",
+    defaultCaption: "账户安全 · 密码与双重换绑表单",
     Component: WikiEmbedAccountSecurity,
   },
   "wechat-qr-login": {
@@ -419,7 +424,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "resource-center": {
     id: "resource-center",
-    defaultCaption: "学术资源与产品博客中心",
+    defaultCaption: "内容中心 · 学术资源标签已载入",
     Component: WikiEmbedResourceCenter,
   },
   "feedback-form": {
@@ -444,12 +449,12 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "author-profile": {
     id: "author-profile",
-    defaultCaption: "作者详情",
+    defaultCaption: "作者详情 · 身份线索、指标与代表作",
     Component: WikiEmbedAuthorProfile,
   },
   "citation-dialog": {
     id: "citation-dialog",
-    defaultCaption: "引用弹窗",
+    defaultCaption: "引用弹窗 · APA 已生成、待复制",
     Component: WikiEmbedCitationDialog,
   },
   "citation-generator": {
@@ -469,7 +474,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "classic-search-filters": {
     id: "classic-search-filters",
-    defaultCaption: "传统搜索 · 筛选器",
+    defaultCaption: "传统搜索 · 默认筛选器展开",
     Component: WikiEmbedClassicSearchFilters,
   },
   "claw-context-composer": {
@@ -489,7 +494,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "claw-run-states": {
     id: "claw-run-states",
-    defaultCaption: "Claw · 长任务停滞提示",
+    defaultCaption: "智能助手 · 任务停很久时的提示",
     Component: WikiEmbedClawRunStates,
   },
   "claw-session-history": {
@@ -524,7 +529,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "invite-code-field": {
     id: "invite-code-field",
-    defaultCaption: "注册中 · 邀请码可选填写与验证态",
+    defaultCaption: "注册中 · 邀请码选填入口（校验前）",
     Component: WikiEmbedInviteCodeField,
   },
   "invite-code-prompt": {
@@ -549,7 +554,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "journal-search": {
     id: "journal-search",
-    defaultCaption: "期刊搜索",
+    defaultCaption: "期刊搜索 · 相关度排序、筛选收起",
     Component: WikiEmbedJournalSearch,
   },
   "library-share-receive": {
@@ -559,17 +564,17 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "literature-library": {
     id: "literature-library",
-    defaultCaption: "个人文献集",
+    defaultCaption: "个人文献集 · 文件夹与论文列表",
     Component: WikiEmbedLiteratureLibrary,
   },
   "matrix-workspace": {
     id: "matrix-workspace",
-    defaultCaption: "论文矩阵分析",
+    defaultCaption: "矩阵分析 · 论文行与维度列",
     Component: WikiEmbedMatrixWorkspace,
   },
   "membership-plans": {
     id: "membership-plans",
-    defaultCaption: "会员套餐",
+    defaultCaption: "会员套餐 · 默认年付视图",
     Component: WikiEmbedMembershipPlans,
   },
   "mobile-academic-intel": {
@@ -634,7 +639,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "mobile-search": {
     id: "mobile-search",
-    defaultCaption: "移动端搜索",
+    defaultCaption: "移动搜索 · 期刊结果",
     Component: WikiEmbedMobileSearch,
   },
   "mobile-tools": {
@@ -649,22 +654,22 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "paper-detail": {
     id: "paper-detail",
-    defaultCaption: "论文详情",
+    defaultCaption: "论文详情 · 元数据与操作区",
     Component: WikiEmbedPaperDetail,
   },
   "paper-favorite-flow": {
     id: "paper-favorite-flow",
-    defaultCaption: "收藏论文 · 选择目标文献集",
+    defaultCaption: "收藏论文 · 选择目标文件夹",
     Component: WikiEmbedPaperFavoriteFlow,
   },
   "pdf-chat-workspace": {
     id: "pdf-chat-workspace",
-    defaultCaption: "PDF 对话",
+    defaultCaption: "PDF 对话 · 开始前的切换确认",
     Component: WikiEmbedPdfChatWorkspace,
   },
   "pdf-reader": {
     id: "pdf-reader",
-    defaultCaption: "PDF 阅读器",
+    defaultCaption: "PDF 阅读器 · 已载入、单页自适应",
     Component: WikiEmbedPdfReader,
   },
   "pdf-resolve": {
@@ -684,7 +689,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "peer-review-progress": {
     id: "peer-review-progress",
-    defaultCaption: "智能审稿运行阶段",
+    defaultCaption: "智能审稿 · 初审通过、审稿人等待",
     Component: WikiEmbedPeerReviewProgress,
   },
   "peer-review-report": {
@@ -714,7 +719,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "prism-workspace": {
     id: "prism-workspace",
-    defaultCaption: "Prism 写作工作区",
+    defaultCaption: "Prism 写作工作区 · 逐块审阅待确认",
     Component: WikiEmbedPrismWorkspace,
   },
   "prism-writing-start": {
@@ -734,7 +739,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "redeem-preview": {
     id: "redeem-preview",
-    defaultCaption: "每账号一次的兑换预览确认",
+    defaultCaption: "兑换码 · 会员权益预览（确认前）",
     Component: WikiEmbedRedeemPreview,
   },
   "review-and-stage": {
@@ -747,6 +752,11 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
     defaultCaption: "传统搜索",
     Component: WikiEmbedSearchAutocomplete,
   },
+  "search-workspace": {
+    id: "search-workspace",
+    defaultCaption: "搜索工作区 · 占位",
+    Component: WikiEmbedSearchWorkspace,
+  },
   "share-sheet": {
     id: "share-sheet",
     defaultCaption: "分享面板",
@@ -754,7 +764,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "smart-paper-group": {
     id: "smart-paper-group",
-    defaultCaption: "智能搜索论文组",
+    defaultCaption: "智能搜索 · 1 篇已暂存、2 篇待选",
     Component: WikiEmbedSmartPaperGroup,
   },
   "smart-search-dock": {
@@ -764,12 +774,12 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "smart-search-session": {
     id: "smart-search-session",
-    defaultCaption: "智能搜索 · 会话态",
+    defaultCaption: "智能搜索 · 回答、论文组与会话条",
     Component: WikiEmbedSmartSearchSession,
   },
   "staging-units": {
     id: "staging-units",
-    defaultCaption: "暂存区",
+    defaultCaption: "暂存区 · A–C 单元与论文计数",
     Component: WikiEmbedStagingUnits,
   },
   "admin-console": {
@@ -799,7 +809,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "admin-entitlement-grants": {
     id: "admin-entitlement-grants",
-    defaultCaption: "后台 · 会员、Credit 与 Reset Pass 发放",
+    defaultCaption: "后台 · 会员、科研经费与重置次数发放",
     Component: WikiEmbedAdminEntitlementGrants,
   },
   "admin-gift-codes": {
@@ -959,7 +969,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "home-research-entry": defineWikiEmbed(
     "home-research-entry",
-    "首页 · 研究入口与能力路径",
+    "首页搜索框 · 智能模式已选",
     WikiEmbedHomeResearchEntry,
   ),
   "search-suggestions-dropdown": defineWikiEmbed(
@@ -984,22 +994,22 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "matrix-dimension-settings": defineWikiEmbed(
     "matrix-dimension-settings",
-    "论文矩阵 · 分析维度设置",
+    "论文矩阵 · 3 个可见、1 个隐藏维度",
     WikiEmbedMatrixDimensionSettings,
   ),
   "library-import-workbench": defineWikiEmbed(
     "library-import-workbench",
-    "个人文献集 · 统一导入工作台",
+    "个人文献集 · 在线搜索加入",
     WikiEmbedLibraryImportWorkbench,
   ),
   "library-bulk-actions": defineWikiEmbed(
     "library-bulk-actions",
-    "个人文献集 · 批量操作",
+    "个人文献集 · 批量删除确认",
     WikiEmbedLibraryBulkActions,
   ),
   "library-maintenance-workbench": defineWikiEmbed(
     "library-maintenance-workbench",
-    "个人文献集 · 元数据与 PDF 维护",
+    "个人文献集 · 基本信息未保存",
     WikiEmbedLibraryMaintenanceWorkbench,
   ),
   "library-relink-workbench": defineWikiEmbed(
@@ -1029,7 +1039,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "prism-writing-tools-dialogs": defineWikiEmbed(
     "prism-writing-tools-dialogs",
-    "Prism · 质量检查窗口",
+    "Prism · 质量检查发现 3 类问题",
     WikiEmbedPrismWritingToolsDialogs,
   ),
   "prism-document-insert-dialogs": defineWikiEmbed(
@@ -1084,7 +1094,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "community-skill-management": defineWikiEmbed(
     "community-skill-management",
-    "社区技能 · 管理与版本",
+    "社区 Skill · 列表与编辑公开版本",
     WikiEmbedCommunitySkillManagement,
   ),
   "auth-register-recovery": defineWikiEmbed(
@@ -1102,10 +1112,25 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
     "账户菜单 · 会员与设置入口",
     WikiEmbedUserAccountMenu,
   ),
-  "marketing-landing-template": defineWikiEmbed(
-    "marketing-landing-template",
-    "功能落地页 · 内容模板与实装边界",
-    WikiEmbedMarketingLandingTemplate,
+  "common-navigation-tabs": defineWikiEmbed(
+    "common-navigation-tabs",
+    "通用元素 · 汉堡菜单与浏览器页签",
+    WikiEmbedCommonNavigationTabs,
+  ),
+  "common-reference-card": defineWikiEmbed(
+    "common-reference-card",
+    "通用元素 · 参考文献基础信息卡片",
+    WikiEmbedCommonReferenceCard,
+  ),
+  "common-workspaces": defineWikiEmbed(
+    "common-workspaces",
+    "通用元素 · 扩展区、工作表标签与文件树",
+    WikiEmbedCommonWorkspaces,
+  ),
+  "common-agent-status": defineWikiEmbed(
+    "common-agent-status",
+    "通用元素 · 智能体过程、额度与任务进度",
+    WikiEmbedCommonAgentStatus,
   ),
   "mobile-search-paper-results": defineWikiEmbed(
     "mobile-search-paper-results",
@@ -1121,11 +1146,6 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
     "mobile-feed-states",
     "移动 Feed · 加载失败与重试",
     WikiEmbedMobileFeedStates,
-  ),
-  "mobile-claw-session-drawer": defineWikiEmbed(
-    "mobile-claw-session-drawer",
-    "移动 Claw · 会话历史抽屉",
-    WikiEmbedMobileClawSessionDrawer,
   ),
   "mobile-claw-artifact-preview": defineWikiEmbed(
     "mobile-claw-artifact-preview",
@@ -1184,7 +1204,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "quota-status-toasts": defineWikiEmbed(
     "quota-status-toasts",
-    "额度状态 · 跨端系统提示",
+    "额度状态 · 全局系统通知（单一状态）",
     WikiEmbedQuotaStatusToasts,
   ),
   "admin-sidebar-alerts": defineWikiEmbed(

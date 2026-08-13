@@ -1,4 +1,4 @@
-import { FileCode2 } from "lucide-react";
+import { BookOpen, FileCode2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RouteSEO } from "@/shared/components/RouteSEO";
 import { visibleArticles } from "../content";
@@ -14,12 +14,40 @@ export function WikiSourcesPage() {
   const articles = visibleArticles(canSeeAdmin);
   const sources = buildSources(articles);
 
+  if (!canSeeAdmin) {
+    return (
+      <>
+        <RouteSEO
+          title="代码来源索引 | Scholay Wiki"
+          description="按仓库路径追溯 Scholay Wiki 词条所依据的页面、后端模块、配置、迁移与测试。"
+          noindex
+        />
+        <div className="mx-auto max-w-reading px-6 py-16 text-center">
+          <BookOpen className="mx-auto size-icon text-faint" />
+          <h1 className="mt-4 font-display text-28 font-bold text-foreground">
+            此页仅管理员可见
+          </h1>
+          <p className="mt-3 text-12 text-muted-foreground">
+            代码来源索引属于内部文档，需要管理员或运营身份才能查看。
+          </p>
+          <Link
+            to="/wiki"
+            className="mt-6 inline-flex items-center gap-1 text-12 font-medium text-brand-red"
+          >
+            返回 Wiki
+          </Link>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <RouteSEO
         title="代码来源索引 | Scholay Wiki"
         description="按仓库路径追溯 Scholay Wiki 词条所依据的页面、后端模块、配置、迁移与测试。"
         keywords="Scholay Wiki 来源,Scholay 源码索引,Scholay 架构"
+        noindex
       />
       <section className="border-b border-border bg-surface-card">
         <div className="mx-auto max-w-page px-6 py-10 md:py-14">

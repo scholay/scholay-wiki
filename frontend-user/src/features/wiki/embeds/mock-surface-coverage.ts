@@ -871,12 +871,48 @@ const USER_GAP_SURFACES = [
   ),
   fixture(
     "user",
-    "marketing-landing-template",
+    "common-navigation-tabs",
     [
-      "frontend-user/src/features/landing/components/LandingTemplate.tsx",
-      "frontend-user/src/features/landing/pages/FeaturesOverviewPage.tsx",
+      "frontend-user/src/app/layouts/TopNav.tsx",
+      "frontend-user/src/features/browser/components/BrowserTabsBar.tsx",
     ],
-    "产品营销落地页的统一层级模板是稳定公开表面，本轮补齐。",
+    "窄屏导航出口与详情浏览页签是跨功能稳定元素，本轮按 current production 补齐说明 fixture。",
+  ),
+  fixture(
+    "user",
+    "common-reference-card",
+    [
+      "frontend-user/src/shared/components/PaperResultCard/DefaultCard.tsx",
+      "frontend-user/src/shared/components/PaperResultCard/MetaLine.tsx",
+    ],
+    "论文基础信息卡片的字段、评价标签与点击结果跨检索场景复用，本轮补齐说明 fixture。",
+  ),
+  fixture(
+    "user",
+    "common-workspaces",
+    [
+      "frontend-user/src/features/claw/components/preview/ClawArtifactPanel.tsx",
+      "frontend-user/src/features/claw/components/preview/SpreadsheetPreview.tsx",
+      "frontend-user/src/features/prism/components/sidebar/PrismFileSidebar.tsx",
+    ],
+    "扩展区、文件内部标签与 Prism 文件树是稳定工作面，本轮按 current production 补齐对照 fixture。",
+  ),
+  fixture(
+    "user",
+    "search-workspace",
+    ["frontend-user/src/features/search/pages/SearchPage.tsx"],
+    "桌面搜索工作区整页尚无产品截面，本轮先挂三栏占位井。",
+  ),
+  fixture(
+    "user",
+    "common-agent-status",
+    [
+      "frontend-user/src/shared/components/chat/ToolCallBlock.tsx",
+      "frontend-user/src/shared/components/chat/ThinkingFold.tsx",
+      "frontend-user/src/features/settings/components/account-assets-card.tsx",
+      "frontend-user/src/shared/components/peer-review-record/StatusGrid.tsx",
+    ],
+    "工具调用、思考、剩余额度与任务进度需要按不同分母解释，本轮补齐通用状态 fixture。",
   ),
   visibleGroup(
     "user",
@@ -957,7 +993,7 @@ const USER_EXCLUDED_SURFACES = [
   ),
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
-/** 普通用户域：75 个既有覆盖 + 34 个本轮补齐或修正的 fixture，另有 8 个明确排除组。 */
+/** 普通用户域：75 个既有覆盖 + 38 个本轮补齐或修正的 fixture，另有 8 个明确排除组。 */
 export const USER_MOCK_SURFACE_COVERAGE = [
   ...USER_EXISTING_SURFACES,
   ...USER_GAP_SURFACES,
@@ -1138,11 +1174,11 @@ const MOBILE_GAP_SURFACES = [
     ["frontend-user/src/features/mobile/components/VerticalSwipeFeed.tsx"],
     "纵向流的加载、错误、结束和刷新反馈是稳定状态组，本轮补齐。",
   ),
-  fixture(
+  excluded(
     "mobile",
     "mobile-claw-session-drawer",
     ["frontend-user/src/features/claw/components/chat/MobileClawDrawer.tsx"],
-    "移动 Claw 会话与能力抽屉是稳定弹层，本轮补齐。",
+    "词条只保留桌面会话历史；移动抽屉不再单独出图。",
   ),
   fixture(
     "mobile",
@@ -2040,11 +2076,11 @@ export const MOCK_SURFACE_COVERAGE_STATS = {
   visibleTotal: VISIBLE_MOCK_SURFACE_COVERAGE.length,
 } as const;
 
-/** 本轮审计冻结值：240 个稳定可见表面，另加 17 个明确排除组。 */
+/** 本轮审计冻结值：243 个稳定可见表面，另加 18 个明确排除组。 */
 export const MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS = {
-  user: 117,
+  user: 121,
   mobile: 48,
   admin: 92,
-  all: 257,
-  visibleTotal: 240,
+  all: 261,
+  visibleTotal: 243,
 } as const;

@@ -16,21 +16,27 @@ export const foundationArticles: WikiArticle[] = [
       "frontend-user/src/features/landing/pages/FeaturesOverviewPage.tsx",
       "frontend-user/src/features/home/HomePage.tsx",
       "frontend-user/src/app/router.tsx",
-      "frontend-user/src/features/wiki/embeds/WikiEmbedRhinoAssistant.tsx",
-      "frontend-user/public/wiki/assets/rhino/pet-idle-frame-000.png",
+      "backend/internal/wikimcp",
     ],
     related: ["product-map", "account", "ai-research-workflows"],
     sections: [
       {
-        id: "overview",
-        title: "功能与能力",
+        id: "workflow",
+        title: "如何开始",
         markdown:
-          "AI 用于压缩检索、整理、写作与审稿中的重复劳动，但不替代研究者对证据、方法和结论的判断。",
+          "进入首页之后，你可以看到醒目的搜索框。下图当前选中智能搜索；切到“文献”后才进入关键词与筛选式传统检索。根据课题是否已有稳定检索词，选择对应入口。",
+        embeds: [{ id: "home-research-entry" }],
+      },
+      {
+        id: "overview",
+        title: "全站功能",
+        markdown:
+          "AI 用于压缩检索、整理、写作与审稿中的重复劳动，但不替代研究者对证据、方法和结论的判断。下表按研究流程列出站内功能。",
         table: {
           columns: [
-            { key: "domain", header: "能力域", merge: true },
-            { key: "feature", header: "功能" },
-            { key: "description", header: "能力说明" },
+            { key: "domain", header: "功能", merge: true },
+            { key: "feature", header: "子功能" },
+            { key: "description", header: "说明" },
             { key: "links", header: "详见" },
           ],
           rows: [
@@ -48,8 +54,8 @@ export const foundationArticles: WikiArticle[] = [
             },
             {
               domain: "文献检索",
-              feature: "作者与期刊",
-              description: "作者主页、期刊检索、榜单目录与投稿资源",
+              feature: "作者主页",
+              description: "作者主页、发文列表与引用关系",
               links: {
                 label: "作者与期刊",
                 href: "/wiki/authors-and-journals",
@@ -117,9 +123,45 @@ export const foundationArticles: WikiArticle[] = [
             },
             {
               domain: "智能助手",
-              feature: "Scholay Claw",
-              description: "可溯源学术对话，加载技能、附件与研究工具",
+              feature: "学术对话",
+              description: "可溯源研究会话：左侧文献、中间对话、右侧交付物",
               links: { label: "Scholay Claw", href: "/wiki/claw" },
+            },
+            {
+              domain: "智能助手",
+              feature: "技能与附件",
+              description: "在对话中加载 Skill、上传附件，并从文献集引用论文",
+              links: [
+                { label: "界面导览", href: "/wiki/claw-interface-guide" },
+                {
+                  label: "附件与引用",
+                  href: "/wiki/claw-attachments-and-references",
+                },
+              ],
+            },
+            {
+              domain: "智能助手",
+              feature: "科研绘图",
+              description: "按图形任务生成可预览、缩放和导出的科研图形",
+              links: {
+                label: "科研绘图",
+                href: "/wiki/research-figure-and-slides",
+              },
+            },
+            {
+              domain: "智能助手",
+              feature: "演示文稿",
+              description: "按汇报场景生成可继续编辑的演示文件",
+              links: {
+                label: "演示文稿",
+                href: "/wiki/research-figure-and-slides",
+              },
+            },
+            {
+              domain: "智能助手",
+              feature: "交付物预览",
+              description: "文档、表格、图片等产物可在扩展区预览或下载",
+              links: { label: "产物与预览", href: "/wiki/claw" },
             },
             {
               domain: "智能审稿",
@@ -127,200 +169,315 @@ export const foundationArticles: WikiArticle[] = [
               description: "投稿前/同行评审式 AI 审稿任务与记录",
               links: { label: "智能审稿", href: "/wiki/peer-review" },
             },
+          ],
+        },
+      },
+      {
+        id: "mcp-access",
+        title: "通过 MCP 读取 Wiki",
+        markdown: `Wiki 顶栏最右侧的“MCP”按钮会复制只读服务配置。把配置加入支持 Streamable HTTP 的 MCP 客户端后，可以检索全部词条、按 slug 读取完整内容，或按分类和状态列出词条；结果与站内词条使用同一份生成快照。
+
+MCP 端点是公开只读资料入口，不提供登录、写入、后台操作或源码路径。调用方仍应根据词条的状态、受众和边界说明判断内容是否适用于当前任务；实验中、计划中与历史词条不会被伪装成现行功能。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "配置不需要密钥。若站点刚发布了新词条，MCP 内容会随同一次发布更新，而不是读取你浏览器中尚未发布的本地改动。",
+            },
+          },
+        ],
+      },
+      {
+        id: "public-info",
+        title: "信息公开",
+        markdown:
+          "以下入口面向公开访问，用来了解产品、查阅政策和获取帮助。它们不是研究工作区里的功能。",
+        table: {
+          columns: [
+            { key: "domain", header: "类别", merge: true },
+            { key: "entry", header: "入口" },
+            { key: "description", header: "说明" },
+            { key: "links", header: "详见" },
+          ],
+          rows: [
             {
-              domain: "研究交付",
-              feature: "科研绘图与演示",
-              description: "科研插图与演示文稿的 Agent 生成与预览",
-              links: {
-                label: "科研绘图与演示",
-                href: "/wiki/research-figure-and-slides",
-              },
+              domain: "期刊",
+              entry: "期刊搜索",
+              description: "按刊名、ISSN、主办机构和质量条件筛选公开期刊目录",
+              links: { label: "期刊检索页", href: "/wiki/journal-search-page" },
             },
             {
-              domain: "论文发表",
-              feature: "期刊发现与投稿资源",
+              domain: "期刊",
+              entry: "期刊详情与投稿资源",
               description: "期刊详情、选刊信息与投稿资源下载",
-              links: { label: "期刊详情", href: "/wiki/journal-detail-page" },
+              links: [
+                { label: "期刊详情", href: "/wiki/journal-detail-page" },
+                {
+                  label: "投稿资源",
+                  href: "/wiki/journal-submission-resources",
+                },
+              ],
             },
             {
               domain: "工具生态",
-              feature: "功能广场",
+              entry: "功能广场",
               description: "外部学术工具目录与冷启动导航",
               links: { label: "功能广场", href: "/wiki/feature-tools" },
             },
             {
               domain: "工具生态",
-              feature: "社区技能",
+              entry: "社区技能",
               description: "用户创建、审核与在会话中加载的技能",
               links: { label: "社区技能", href: "/wiki/community-skills" },
             },
             {
-              domain: "内容资讯",
-              feature: "学术资讯",
-              description: "站内学术新闻流与详情",
-              links: { label: "学术资讯", href: "/wiki/research-news" },
-            },
-            {
               domain: "账户与会员",
-              feature: "账户与登录",
+              entry: "账户与登录",
               description: "邮箱/手机、OAuth、微信扫码与账户设置",
               links: { label: "账户", href: "/wiki/account" },
             },
             {
               domain: "账户与会员",
-              feature: "会员与额度",
+              entry: "会员与额度",
               description: "会员档位、AI 周期额度、经费钱包与邀请活动",
               links: { label: "会员体系", href: "/wiki/membership" },
             },
             {
-              domain: "多端入口",
-              feature: "移动 Web / 小程序",
-              description: "手机工作区与微信小程序的轻量入口",
-              links: [
-                { label: "移动 Web", href: "/wiki/mobile-web" },
-                { label: "小程序", href: "/wiki/wechat-mini-program" },
-              ],
+              domain: "资讯",
+              entry: "学术资讯",
+              description: "公开学术新闻列表与详情，由后台维护采集和发布",
+              links: { label: "学术资讯", href: "/wiki/research-news" },
+            },
+            {
+              domain: "帮助",
+              entry: "帮助中心",
+              description: "按主题浏览科研问答，详情页提供目录与相关文章",
+              links: {
+                label: "帮助中心与学术问答",
+                href: "/wiki/help-center-and-qa",
+              },
+            },
+            {
+              domain: "内容",
+              entry: "学术资源与博客",
+              description: "原创学术资源与产品博客，两类列表和详情都有稳定链接",
+              links: {
+                label: "学术资源中心与产品博客",
+                href: "/wiki/resource-and-blog-center",
+              },
+            },
+            {
+              domain: "定价",
+              entry: "定价方案",
+              description: "会员档位、公开定价页与当前权益说明",
+              links: {
+                label: "产品与定价总览",
+                href: "/wiki/product-and-pricing-overview",
+              },
+            },
+            {
+              domain: "政策",
+              entry: "服务政策",
+              description: "隐私政策、服务条款、免责声明与 AI 使用边界",
+              links: {
+                label: "服务政策与 AI 使用边界",
+                href: "/wiki/service-policies",
+              },
+            },
+            {
+              domain: "支持",
+              entry: "反馈与支持",
+              description: "提交问题、功能建议、内容纠错和合作请求",
+              links: {
+                label: "反馈与支持",
+                href: "/wiki/feedback-and-support",
+              },
             },
           ],
         },
       },
       {
         id: "surfaces",
-        title: "产品表面",
-        markdown: `面向用户的客户端按「端 × 形态」划分。PC Web 与 \`/admin\` 管理后台、公开内容页共用同一 React SPA；各端共用后端 API、Agent、数据库、对象存储与反向代理。虚线表示规划中、尚未交付的客户端。
-
-\`\`\`mermaid
-flowchart TB
-  subgraph Clients["客户端"]
-    direction TB
-    PCWeb["PC · Web<br/>现行"]
-    MobileWeb["移动端 · Web<br/>现行"]
-    MiniProgram["移动端 · 小程序<br/>现行"]
-    MobileApp["移动端 · App<br/>规划中"]
-    DesktopApp["PC · Desktop App<br/>规划中"]
-  end
-
-  Platform["后端平台<br/>API · Agent · 数据 · 存储"]
-
-  PCWeb --> Platform
-  MobileWeb --> Platform
-  MiniProgram --> Platform
-  MobileApp -.->|规划中| Platform
-  DesktopApp -.->|规划中| Platform
-\`\`\`
-`,
+        title: "打开方式",
+        markdown:
+          "同一个账号可以在电脑和手机上使用。现在能打开的是网站和微信小程序；独立的电脑软件和手机 App 还在规划中。",
         table: {
           columns: [
-            { key: "form", header: "端", merge: true },
-            { key: "surface", header: "形态" },
+            { key: "form", header: "设备", merge: true },
+            { key: "surface", header: "打开方式" },
             { key: "status", header: "状态" },
             { key: "description", header: "说明" },
             { key: "links", header: "详见" },
           ],
           rows: [
             {
-              form: "PC",
-              surface: "Web",
+              form: "电脑",
+              surface: "浏览器",
               status: "现行",
-              description: "桌面浏览器主工作区；与 /admin、公开内容页同一 SPA",
-              links: [
-                { label: "产品地图", href: "/wiki/product-map" },
-                { label: "管理后台", href: "/wiki/admin-console" },
-              ],
+              description: "打开网站即可使用全部功能",
+              links: { label: "产品地图", href: "/wiki/product-map" },
             },
             {
-              form: "PC",
-              surface: "Desktop App",
+              form: "电脑",
+              surface: "电脑软件",
               status: "规划中",
-              description: "原生桌面客户端，尚未交付",
+              description: "还不能下载安装",
               links: "",
             },
             {
-              form: "移动端",
-              surface: "Web",
+              form: "手机",
+              surface: "浏览器",
               status: "现行",
-              description: "手机浏览器独立壳（/m/*），与桌面路径双向分流",
-              links: [
-                { label: "移动 Web", href: "/wiki/mobile-web" },
-                { label: "设备分流", href: "/wiki/device-routing" },
-              ],
+              description: "打开同一网站，页面会按手机调整",
+              links: { label: "移动 Web", href: "/wiki/mobile-web" },
             },
             {
-              form: "移动端",
-              surface: "小程序",
+              form: "手机",
+              surface: "微信小程序",
               status: "现行",
-              description: "微信小程序入口，能力相对 Web 为轻量子集",
+              description: "在微信里使用；完整写作和审稿请用电脑",
               links: { label: "微信小程序", href: "/wiki/wechat-mini-program" },
             },
             {
-              form: "移动端",
-              surface: "App",
+              form: "手机",
+              surface: "手机 App",
               status: "规划中",
-              description: "原生移动应用，尚未交付",
+              description: "还不能在应用商店下载",
               links: "",
             },
           ],
         },
       },
-      {
-        id: "workflow",
-        title: "研究工作流",
-        markdown: `进入首页后，你会先看到几张研究入口卡片。根据当前任务选择论文检索、智能搜索或其他入口，就能进入对应工作区；下图展示的是首页入口的常见状态。
-
-完整的研究过程可以概括为：**发现资料 → 阅读与暂存 → 整理文献 → 分析与对话 → 写作或审稿 → 导出研究产物**。这些功能共用同一个账户和 AI 额度，但页面中的资料、会话与任务进度分别保存。`,
-        embeds: [{ id: "home-research-entry" }],
-      },
-      {
-        id: "rhino-assistant",
-        title: "打开牛犀犀助手",
-        markdown: `桌面页面角落会停着可拖动的“牛犀犀”。把指针移到角色上，就能看到对话、功能、帮助、反馈、通知和隐藏入口；双击角色会直接打开对话。下图展示的是已登录且有两条未读通知时，指针停在角色上的样子。
-
-通知入口和红色数字只对已登录用户显示，实际数字以你的账户为准。`,
-        embeds: [{ id: "rhino-assistant-entry" }],
-      },
-      {
-        id: "rhino-assistant-dock",
-        title: "隐藏后重新放出",
-        markdown: `选择“隐藏”后，悬浮角色会离开页面，顶栏头像旁会出现一枚小犀牛按钮。点击它即可重新放出助手；下图只展示隐藏后的恢复入口。`,
-        embeds: [{ id: "rhino-assistant-dock" }],
-      },
     ],
   },
   {
     slug: "product-map",
-    title: "产品与页面地图",
-    summary:
-      "Scholay 的公开页面、产品工作区、移动端和后台如何组成一个完整产品。",
+    title: "全站功能",
+    summary: "一张图看清 Scholay 里你能用到的地方，以及接下来该打开哪篇说明。",
     category: "getting-started",
     kind: "overview",
     status: "current",
-    audience: ["所有访客", "产品运营", "支持人员"],
-    aliases: ["站点地图", "功能地图", "页面总览"],
+    audience: ["所有访客", "研究者"],
+    aliases: ["产品与页面地图", "站点地图", "功能地图", "页面总览"],
     sourcePaths: [
       "frontend-user/src/app/router.tsx",
       "frontend-user/src/features/landing/routes.tsx",
       "frontend-user/src/features/help/routes.tsx",
       "frontend-user/src/features/mobile/routes.tsx",
-      "frontend-user/src/features/admin/routes.tsx",
       "frontend-user/src/app/layouts/AppShell.tsx",
-      "frontend-user/src/features/home/NotFoundPage.tsx",
     ],
-    related: ["scholay", "device-routing", "admin-console"],
+    related: ["scholay", "academic-search", "claw"],
     sections: [
       {
-        id: "public",
-        title: "公开内容",
-        markdown: `无需登录即可访问的表面包括功能介绍、定价、关于、联系、反馈、服务政策、博客、学术资源、帮助问答、论文/作者/期刊的公开详情以及分享接收页。`,
+        id: "map",
+        title: "功能地图",
+        markdown: `\`\`\`mermaid
+%%{init: {"themeVariables": {"fontSize": "16px"}}}%%
+classDiagram
+  direction LR
+  class Scholay {
+    一站式学术工作台
+  }
+
+  Search --> Scholay
+  Analyze --> Scholay
+  Scholay --> Manage
+  Scholay --> Write
+  Scholay --> Support
+
+  class Search["文献搜索"] {
+    论文检索
+    智能搜索
+    作者主页
+    期刊检索
+  }
+
+  class Analyze["文献分析"] {
+    论文矩阵
+    AI数据分析
+    智能助手
+    开放获取与翻译
+  }
+
+  class Manage["文献管理"] {
+    个人文献集
+    暂存区
+    文献集分享
+    引用生成
+  }
+
+  class Write["论文写作"] {
+    智能写作
+    智能审稿
+    科研绘图
+    演示文稿
+  }
+
+  class Support["会员与支持"] {
+    登录
+    会员
+    帮助中心
+  }
+
+  cssClass "Search" wikiMapSearch
+  cssClass "Analyze" wikiMapAnalyze
+  cssClass "Manage" wikiMapManage
+  cssClass "Write" wikiMapWrite
+  cssClass "Support" wikiMapSupport
+  cssClass "Scholay" wikiMapHub
+\`\`\`
+`,
       },
       {
-        id: "workspace",
-        title: "产品工作区",
-        markdown: `登录后的主要工作区包括检索与矩阵、文献集、功能广场、Claw、智能审稿、Prism、社区技能和账户设置。部分详情页面可以公开浏览，但保存、会话、上传、支付等动作要求账户。`,
-      },
-      {
-        id: "other-surfaces",
-        title: "移动端与后台",
-        markdown: `\`/m/*\` 使用独立移动壳，并为首页、工具、Claw、文献集、账户和登录提供移动页面。\`/admin/*\` 使用管理员角色守卫，承载用户、模型、内容、计费、营销、统计和系统配置。`,
+        id: "start-here",
+        title: "你可以前往",
+        markdown: "",
+        blocks: [
+          {
+            type: "path-cards",
+            items: [
+              {
+                title: "Scholay",
+                description:
+                  "了解定位、覆盖的研究流程，以及各功能分别从哪里进入。",
+                articleSlug: "scholay",
+                icon: "overview",
+              },
+              {
+                title: "论文检索",
+                description:
+                  "用关键词和筛选发现论文；需要会话式检索时再打开智能搜索。",
+                articleSlug: "academic-search",
+                icon: "literature-search",
+              },
+              {
+                title: "智能助手",
+                description: "用附件、技能和工具完成分析、绘图与研究交付。",
+                articleSlug: "claw",
+                icon: "assistant",
+              },
+              {
+                title: "个人文献集",
+                description: "把核对过的论文长期归档、整理和分享。",
+                articleSlug: "literature-library",
+                icon: "resources",
+              },
+              {
+                title: "智能写作",
+                description: "从 LaTeX 项目和正文工作区开始一次完整写作。",
+                articleSlug: "prism",
+                icon: "writing",
+              },
+              {
+                title: "会员体系",
+                description: "看 Free、Pro、Max 的额度、价格和购买入口。",
+                articleSlug: "membership",
+                icon: "subscription",
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -355,7 +512,7 @@ flowchart TB
       {
         id: "settings",
         title: "账户设置",
-        markdown: `点击桌面端头像可以展开账户菜单，再进入个人资料、安全、第三方连接、会员资产或邀请页面；下图展示的是菜单展开后的状态。手机端从“我的”进入对应的设置子页面。`,
+        markdown: `点击桌面端头像可以展开账户菜单；下图展示菜单展开后的状态。菜单中可查看当前身份与会员档位，并进入个人资料、账户资产、安全设置、已连接账号和帮助中心；底部用于退出登录。邀请页面不在这张菜单里，应从其他入口进入。手机端从“我的”进入对应的设置子页面。`,
         embeds: [{ id: "user-account-menu" }],
       },
       {

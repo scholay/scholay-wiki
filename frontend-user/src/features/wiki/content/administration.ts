@@ -115,7 +115,7 @@ operations 拥有 analytics.view、content.manage、users.view；admin 再增加
       {
         id: "detail",
         title: "聚合详情",
-        markdown: `点击用户行会打开详情抽屉，再分别查看身份与 OAuth 连接、登录与 IP、会员、额度、Reset Pass、功能使用、AI 算力、订单、经费流水和兑换记录。下方三张图依次展示聚合详情、单用户用量，以及订单与资产历史。
+        markdown: `点击用户行会打开详情抽屉，再分别查看身份与 OAuth 连接、登录与 IP、会员、额度、额度重置次数、功能使用、AI 算力、订单、经费流水和兑换记录。下方三张图依次展示聚合详情、单用户用量，以及订单与资产历史。
 
 这些面板分别加载数据；某一个统计请求失败时，应按面板提示排查，不能据此判断账号不存在。`,
         embeds: [
@@ -193,7 +193,7 @@ users.manage 可冻结普通账号，原因要求 1–255 个字符；admin 和 
   },
   {
     slug: "admin-user-entitlement-grants",
-    title: "管理员发放会员、Credit 与 Reset Pass",
+    title: "管理员发放会员、科研经费与重置次数",
     summary: "对单个用户直接调整会员、钱包余额和 AI 重置次数的补偿工具。",
     category: "administration",
     kind: "feature",
@@ -214,7 +214,7 @@ users.manage 可冻结普通账号，原因要求 1–255 个字符；admin 和 
         title: "会员发放与撤销",
         markdown: `在用户详情的权益区域，可以分别发放会员、科研经费或重置次数；选择会员时，再设置 Pro/Max、按天/月/年计时和授予长度。下图依次展示权益概览和单用户发放面板。提交前请再次核对用户、权益种类与期限。
 
-users.manage 单次最多发放 3650 天、120 月或 10 年，超过一年会增加二次确认。撤销会员只把档位恢复为 Free，不会同时清空 Credit 或 Reset Pass。`,
+users.manage 单次最多发放 3650 天、120 月或 10 年，超过一年会增加二次确认。撤销会员只把档位恢复为 Free，不会同时清空科研经费或额度重置次数。`,
         embeds: [
           { id: "admin-entitlement-grants" },
           {
@@ -225,13 +225,13 @@ users.manage 单次最多发放 3650 天、120 月或 10 年，超过一年会�
       },
       {
         id: "credit",
-        title: "Credit 调整",
-        markdown: `Credit 支持正向补发和负向扣减，每次调整都会写入不可变的 credit_transactions 记录；扣减后的余额最低为零。当前后台只支持永久 Credit，不提供在此处设置余额到期日的能力。`,
+        title: "科研经费调整",
+        markdown: `科研经费（Credit）支持正向补发和负向扣减，每次调整都会写入不可变的 credit_transactions 记录；扣减后的余额最低为零。当前后台只支持永久科研经费，不提供在此处设置余额到期日的能力。`,
       },
       {
         id: "reset-pass",
-        title: "Reset Pass",
-        markdown: `Reset Pass 用于补充可重置额度，前端单次最多发 1000 次，并可设置到期时间。三种权益彼此独立，客服补偿前应先查看用户现有档位、余额和有效期，避免重复发放。`,
+        title: "额度重置次数",
+        markdown: `额度重置次数（Reset Pass）用于补充可重置额度，前端单次最多发 1000 次，并可设置到期时间。三种权益彼此独立，客服补偿前应先查看用户现有档位、余额和有效期，避免重复发放。`,
       },
     ],
   },

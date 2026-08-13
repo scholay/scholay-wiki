@@ -1,8 +1,9 @@
-import { Menu, Moon, Search, Sun } from "lucide-react";
+import { Check, Copy, Menu, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { Footer } from "@/shared/components/Footer";
 import { BrandLogo } from "@/shared/components/BrandLogo";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import {
   Sheet,
@@ -22,9 +23,15 @@ import { useWikiTheme } from "../hooks/useWikiTheme";
 import type { WikiNavCategory } from "../types";
 import { WikiDocsNav } from "./WikiDocsNav";
 import { WikiSearchForm } from "./WikiSearchForm";
+import { toast } from "sonner";
+import { wikiMcpConfigText } from "../wiki-mcp";
 
 export function WikiLayout() {
   const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const headerQuery = pathname.startsWith("/wiki/all")
+    ? (params.get("q") ?? "")
+    : "";
   const { theme, isDark, toggleTheme } = useWikiTheme();
   const canSeeAdmin = useCanSeeWikiAdmin();
   const categories = visibleNavCategories(canSeeAdmin);
@@ -48,26 +55,25 @@ export function WikiLayout() {
         跳到正文
       </a>
 
-      <header className="sticky top-0 z-nav flex h-14 items-center border-b border-border bg-surface-card px-4 lg:px-6">
+      <header className="sticky top-0 z-nav grid h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 overflow-visible border-b border-border bg-surface-card px-4 lg:px-6">
         <Link
           to="/wiki"
-          aria-label="Scholay Wiki 开始"
+          aria-label="Scholay Wiki"
           className="flex shrink-0 items-center gap-2"
         >
           <BrandLogo size="sm" variant={isDark ? "mark" : "full"} />
           <span className="text-12 font-medium text-brand-red">WIKI</span>
         </Link>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <WikiSearchForm compact className="hidden w-rail-md xl:flex" />
-          <Link
-            to="/wiki/all"
-            aria-label="搜索 Wiki"
-            className="inline-flex size-9 items-center justify-center rounded-8 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground xl:hidden"
-          >
-            <Search className="size-icon-inline" aria-hidden />
-          </Link>
+        <div className="flex min-w-0 justify-center">
+          <WikiSearchForm
+            compact
+            initialValue={headerQuery}
+            className="w-full max-w-reading bg-background"
+          />
+        </div>
 
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={toggleTheme}
@@ -118,6 +124,8 @@ export function WikiLayout() {
               </ScrollArea>
             </SheetContent>
           </Sheet>
+
+          <WikiMcpCopyButton />
         </div>
       </header>
 
@@ -145,6 +153,38 @@ export function WikiLayout() {
         </div>
       </div>
     </div>
+  );
+}
+
+function WikiMcpCopyButton() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(wikiMcpConfigText());
+    if (!ok) {
+      toast.error("MCP 配置复制失败，请稍后重试");
+      return;
+    }
+    setCopied(true);
+    toast.success("已复制 Scholay Wiki MCP 配置");
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      className="inline-flex h-9 shrink-0 items-center gap-2 rounded-8 border border-border px-2 text-12 font-medium text-foreground transition-colors hover:border-border-strong hover:bg-foreground/5"
+      aria-label="复制 Scholay Wiki MCP 配置"
+      title="复制覆盖全部 Wiki 词条的远程 MCP 配置"
+    >
+      <span>{copied ? "已复制" : "MCP"}</span>
+      {copied ? (
+        <Check className="size-3.5 text-brand-green" aria-hidden />
+      ) : (
+        <Copy className="size-3.5" aria-hidden />
+      )}
+    </button>
   );
 }
 

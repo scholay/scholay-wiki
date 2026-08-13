@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WikiArticlePreviewLink } from "../src/features/wiki/components/WikiArticlePreviewLink";
 import { WikiPromptTabs } from "../src/features/wiki/components/WikiPromptTabs";
 
 const { copyToClipboard } = vi.hoisted(() => ({
@@ -60,5 +62,26 @@ describe("Wiki 文档引导组件", () => {
         name: "已复制“通用研究”提示词",
       }),
     ).not.toBeNull();
+  });
+
+  it("词条内链悬停/点击出预览卡，只有卡片内「前往」才跳转", async () => {
+    render(
+      <MemoryRouter>
+        <p>
+          <WikiArticlePreviewLink href="/wiki/smart-search">
+            智能搜索
+          </WikiArticlePreviewLink>
+        </p>
+      </MemoryRouter>,
+    );
+
+    const trigger = screen.getByRole("button", { name: "智能搜索" });
+    expect(trigger.tagName).toBe("BUTTON");
+    expect(screen.queryByRole("link", { name: "前往" })).toBeNull();
+
+    fireEvent.click(trigger);
+    const go = await screen.findByRole("link", { name: "前往" });
+    expect(go.getAttribute("href")).toBe("/wiki/smart-search");
+    expect(screen.queryByRole("link", { name: "智能搜索" })).toBeNull();
   });
 });

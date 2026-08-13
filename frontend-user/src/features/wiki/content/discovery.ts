@@ -22,19 +22,42 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "overview",
         title: "概览",
-        markdown: `在搜索栏输入题目、关键词或研究主题后提交，你会先得到论文列表；需要缩小范围时，再打开筛选面板设置时间、学科、类型或开放获取条件。下方三张图依次展示搜索入口、筛选面板，以及在结果中查看论文并加入暂存区的状态。
+        markdown: `在搜索栏输入题目、关键词或研究主题后提交，你会先得到论文列表。
 
-找到合适的论文后，你还可以继续打开详情或 PDF、收藏到个人文献集，或把候选送入矩阵分析。`,
+需要缩小范围时，打开筛选面板，设置时间、学科、类型或开放获取条件。
+
+找到合适的论文后，可以在结果中查看详情，并把候选加入暂存区；之后还可以打开 PDF、收藏到个人文献集，或送入矩阵分析。`,
         embeds: [
           { id: "classic-search-dock" },
           { id: "classic-search-filters" },
           { id: "review-and-stage" },
+        ],
+        blocks: [
+          {
+            type: "markdown",
+            markdown:
+              "在搜索栏输入题目、关键词或研究主题后提交，你会先得到论文列表。",
+          },
+          { type: "embeds", ids: ["classic-search-dock"] },
+          {
+            type: "markdown",
+            markdown:
+              "需要缩小范围时，打开筛选面板，设置时间、学科、类型或开放获取条件。",
+          },
+          { type: "embeds", ids: ["classic-search-filters"] },
+          {
+            type: "markdown",
+            markdown:
+              "找到合适的论文后，可以在结果中查看详情，并把候选加入暂存区；之后还可以打开 PDF、收藏到个人文献集，或送入矩阵分析。",
+          },
+          { type: "embeds", ids: ["review-and-stage"] },
         ],
       },
       {
         id: "workspace",
         title: "搜索工作区",
         markdown: `桌面搜索页由搜索器、暂存区和矩阵分析组成。URL 保存检索与筛选状态，使结果页可以被刷新和分享；服务端数据由查询缓存管理，页面不会把搜索结果复制进全局客户端状态。`,
+        embeds: [{ id: "search-workspace" }],
       },
       {
         id: "source",
@@ -75,10 +98,24 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "detail",
         title: "详情页",
-        markdown: `点击搜索结果中的论文，会打开包含标题、作者、摘要、元数据、引用与参考文献的详情。桌面端把详情放在当前浏览工作区里，方便你返回结果或切换其他标签；手机端使用更紧凑的标题栏。下图分别展示桌面详情和移动端页首的常见状态。
+        markdown: `点击搜索结果中的论文，会打开包含标题、作者、摘要、元数据、引用与参考文献的详情。桌面端把详情放在当前浏览工作区里，方便你返回结果或切换其他标签。
 
-收藏、全文和分享等按钮会按登录状态与资料是否可用而出现。`,
+手机端使用更紧凑的标题栏。收藏、全文和分享等按钮会按登录状态与资料是否可用而出现。`,
         embeds: [{ id: "paper-detail" }, { id: "mobile-detail-header" }],
+        blocks: [
+          {
+            type: "markdown",
+            markdown:
+              "点击搜索结果中的论文，会打开包含标题、作者、摘要、元数据、引用与参考文献的详情。桌面端把详情放在当前浏览工作区里，方便你返回结果或切换其他标签。",
+          },
+          { type: "embeds", ids: ["paper-detail"] },
+          {
+            type: "markdown",
+            markdown:
+              "手机端使用更紧凑的标题栏。收藏、全文和分享等按钮会按登录状态与资料是否可用而出现。",
+          },
+          { type: "embeds", ids: ["mobile-detail-header"] },
+        ],
       },
       {
         id: "actions",
@@ -108,7 +145,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "rendering",
         title: "阅读与渲染",
-        markdown: `打开可用全文后，你会在阅读器中看到页码、缩放和文档页面；下图展示的是 PDF 已载入时的阅读状态。PDF 与论文详情会分别保留在浏览工作区的标签中，你可以来回切换而不必离开当前检索过程。
+        markdown: `打开可用全文后，你会在阅读器中看到页码、缩放和文档页面；下图展示的是 PDF 已载入、单页自适应的阅读状态。中间三枚按钮依次切换单页、连续页和双页布局；右侧“自适应”是当前缩放策略，全屏只改变查看空间，不改变 PDF 文件。PDF 与论文详情会分别保留在浏览工作区的标签中，你可以来回切换而不必离开当前检索过程。
 
 阅读器内置中日韩文字所需的 CMap 资源，但能否打开全文仍取决于论文是否提供合法文件。`,
         embeds: [{ id: "pdf-reader" }],
@@ -147,7 +184,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "authors",
         title: "作者页面",
-        markdown: `点击论文中的作者名，可以查看作者信息、研究主题、代表论文、年度产出和合作作者；下图展示的是资料已载入后的作者页。你可以继续打开代表作或合作作者，沿着研究关系浏览。
+        markdown: `点击论文中的作者名，可以查看作者信息、研究主题、代表论文、年度产出和合作作者；下图展示的是资料已载入后的作者页。你可以继续打开代表作或合作作者，沿着研究关系浏览。ORCID 与来源标签只是当前记录携带的识别线索；勾形图标不表示 Scholay 已人工认证该作者。
 
 同名、机构和来源归并信息只是识别线索，不能视为经过人工确认的唯一身份。`,
         embeds: [{ id: "author-profile" }],
@@ -155,16 +192,44 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "journals",
         title: "期刊页面",
-        markdown: `在期刊搜索页输入刊名、ISSN 或主办机构，再使用分区、影响因子等条件缩小范围；点击结果即可进入详情。下图分别展示期刊搜索结果和详情状态，其中会按实际数据列出标识、出版社、收录信息、影响指标和相关论文。
+        markdown: `在期刊搜索页输入刊名、ISSN 或主办机构，再使用分区、影响因子等条件缩小范围。
 
-不同期刊可用字段并不相同，空缺信息不会用推测值补齐。`,
+点击结果即可进入详情，其中会按实际数据列出标识、出版社、收录信息、影响指标和相关论文。不同期刊可用字段并不相同，空缺信息不会用推测值补齐。`,
         embeds: [{ id: "journal-search" }, { id: "journal-detail" }],
+        blocks: [
+          {
+            type: "markdown",
+            markdown:
+              "在期刊搜索页输入刊名、ISSN 或主办机构，再使用分区、影响因子等条件缩小范围。",
+          },
+          { type: "embeds", ids: ["journal-search"] },
+          {
+            type: "markdown",
+            markdown:
+              "点击结果即可进入详情，其中会按实际数据列出标识、出版社、收录信息、影响指标和相关论文。不同期刊可用字段并不相同，空缺信息不会用推测值补齐。",
+          },
+          { type: "embeds", ids: ["journal-detail"] },
+        ],
       },
       {
         id: "navigation",
         title: "关系导航",
-        markdown: `点击论文、作者或期刊链接时，目标会在浏览工作区中打开；如果它已经打开，系统会直接切换到原标签。下图展示了标签栏和快速打开面板，你可以借此在多个研究对象之间切换。每个对象也有可复制和再次访问的独立链接。`,
+        markdown: `点击论文、作者或期刊链接时，目标会在浏览工作区中打开；如果它已经打开，系统会直接切换到原标签。下图展示标签栏和快速打开面板：“+”打开快速找论文面板，点击列表行才会建立新页签，页签上的“×”只关闭当前页签，不会删除论文、作者或期刊。每个对象也有可复制和再次访问的独立链接。`,
         embeds: [{ id: "browser-tabs-quick-open" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "marketing-pages-and-implementation-boundaries",
+              sectionId: "navigation-and-tabs",
+              title: "汉堡菜单与浏览器页签",
+              description: "了解全站导航入口、页签复用、切换与关闭的共同规则。",
+              icon: "compass",
+            },
+          },
+        ],
       },
     ],
   },
@@ -189,7 +254,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "purpose",
         title: "用途",
-        markdown: `在搜索结果中点击“暂存”，论文会先进入当前候选区，不需要立刻决定长期收藏位置。下图展示了 A–E 暂存单元及其中的候选论文；点击字母可以切换单元，再把一组候选送入矩阵分析。`,
+        markdown: `在搜索结果中点击“暂存”，论文会先进入当前候选区，不需要立刻决定长期收藏位置。下图展示当前已有 A–C 三个单元；系统最多可增至 A–E。字母后的数字和顶部红色计数都表示该区论文总数，右上角“+”用于新增暂存区。论文行上的绿色勾表示已进入当前暂存单元，不是长期收藏或当前单选状态；行尾箭头用于展开内容。点击字母可以切换单元，再把一组候选送入矩阵分析。`,
         embeds: [{ id: "staging-units" }],
       },
       {
@@ -203,7 +268,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "matrix",
         title: "进入矩阵",
-        markdown: `暂存论文可以作为矩阵的列，用户选择或自定义分析维度作为行。系统随后逐篇生成维度结果，并支持检查和导出。`,
+        markdown: `进入矩阵后，暂存论文按行排列，用户选择或自定义的分析维度按列展开。系统随后逐篇生成维度结果，并支持检查和导出。`,
       },
     ],
   },
@@ -228,14 +293,28 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "model",
         title: "矩阵模型",
-        markdown: `进入矩阵后，你会看到论文按列排列、分析维度按行排列，每个交叉单元格对应“这篇论文在这个维度上的结果”。打开维度设置，可以选用系统模板，也可以增加、编辑或删除自己的维度。下图分别展示矩阵工作区和维度设置弹窗。`,
+        markdown: `进入矩阵后，论文按行排列，分析维度按列展开；每个交叉单元格回答“这篇论文在这个维度上的结果”。
+
+打开维度设置，可以选用系统模板，也可以增加、编辑或删除自己的维度。开关只控制维度是否显示在矩阵中，拖拽改变列顺序；系统维度右侧按钮用于恢复默认，自定义维度右侧“×”才是删除。隐藏维度不会删除已经保存的定义。
+
+矩阵单元格是 AI 按维度生成的比较摘要，不是论文原文；导出 CSV、Markdown 或 XLSX 前仍需打开论文核对关键数值与结论。`,
         embeds: [
           { id: "matrix-workspace" },
           { id: "matrix-dimension-settings" },
         ],
         blocks: [
-          { type: "markdown" },
-          { type: "embeds" },
+          {
+            type: "markdown",
+            markdown:
+              "进入矩阵后，论文按行排列，分析维度按列展开；每个交叉单元格回答“这篇论文在这个维度上的结果”。",
+          },
+          { type: "embeds", ids: ["matrix-workspace"] },
+          {
+            type: "markdown",
+            markdown:
+              "打开维度设置，可以选用系统模板，也可以增加、编辑或删除自己的维度。开关只控制维度是否显示在矩阵中，拖拽改变列顺序；系统维度右侧按钮用于恢复默认，自定义维度右侧“×”才是删除。隐藏维度不会删除已经保存的定义。矩阵单元格是 AI 按维度生成的比较摘要，不是论文原文；导出前仍需打开论文核对关键数值与结论。",
+          },
+          { type: "embeds", ids: ["matrix-dimension-settings"] },
           {
             type: "prompt-tabs",
             group: {
@@ -349,6 +428,7 @@ export const discoveryArticles: WikiArticle[] = [
     audience: ["登录用户", "研究者"],
     aliases: ["文献库", "我的文献", "Library"],
     sourcePaths: [
+      "frontend-user/src/features/landing/pages/LibraryLandingPage.tsx",
       "frontend-user/src/features/library/routes.tsx",
       "frontend-user/src/features/library/pages/LibraryPage.tsx",
       "frontend-user/src/features/library/pages/mobile/MobileLibraryPage.tsx",
@@ -362,33 +442,98 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "organization",
         title: "组织方式",
-        markdown: `进入个人文献集后，桌面端会在侧栏列出文件夹，在右侧显示论文、PDF 和处理状态；手机端先显示文件夹列表，再进入文件夹详情。新建或编辑文件夹时，可以选择图标和背景色。下方四张图依次展示桌面文献集、文件夹外观选择器、移动文件夹列表和移动文件夹详情。
+        markdown: `进入个人文献集后，桌面端会在侧栏列出文件夹，在右侧显示论文、PDF 和处理状态。列表行里的 G/D 是数据来源缩写，不是质量等级；“基础信息完整”只表示关键题录字段齐全，“PDF 完整/缺失”另行表示本账户是否有可读全文。
 
-文献集使用单层文件夹：每个账户最多 50 个文件夹、1,000 篇论文；你可以批量选择论文，但一次最多处理 500 篇。`,
+新建或编辑文件夹时，可以选择图标和背景色。
+
+手机端先显示文件夹列表，再进入文件夹详情。文献集使用单层文件夹：每个账户最多 50 个文件夹、1,000 篇论文；你可以批量选择论文，但一次最多处理 500 篇。`,
         embeds: [
           { id: "literature-library" },
           { id: "folder-icon-picker" },
           { id: "mobile-library-flow" },
           { id: "mobile-library-folder" },
         ],
+        blocks: [
+          {
+            type: "markdown",
+            markdown:
+              "进入个人文献集后，桌面端会在侧栏列出文件夹，在右侧显示论文、PDF 和处理状态。列表行里的 G/D 是数据来源缩写，不是质量等级；“基础信息完整”只表示关键题录字段齐全，“PDF 完整/缺失”另行表示本账户是否有可读全文。",
+          },
+          { type: "embeds", ids: ["literature-library"] },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "marketing-pages-and-implementation-boundaries",
+              sectionId: "reference-card",
+              title: "怎样读懂论文基础信息与文件树",
+              description:
+                "认识全站复用的题录字段、状态标记、文件树层级，以及点击后打开的详情。",
+              icon: "book-open",
+            },
+          },
+          {
+            type: "markdown",
+            markdown: "新建或编辑文件夹时，可以选择图标和背景色。",
+          },
+          { type: "embeds", ids: ["folder-icon-picker"] },
+          {
+            type: "markdown",
+            markdown:
+              "手机端先显示文件夹列表，再进入文件夹详情。文献集使用单层文件夹：每个账户最多 50 个文件夹、1,000 篇论文；你可以批量选择论文，但一次最多处理 500 篇。",
+          },
+          {
+            type: "embeds",
+            ids: ["mobile-library-flow", "mobile-library-folder"],
+            layout: "row",
+          },
+        ],
       },
       {
         id: "import",
         title: "导入与识别",
-        markdown: `点击文献集中的导入入口，可以从检索结果加入论文，也可以上传本地 PDF。上传后，工作台会显示识别进度和可能匹配的论文；请核对候选后选择采用匹配，或补充元数据并保存为自由文件。下图展示的是上传并等待确认的代表状态。
+        markdown: `点击文献集中的导入入口，可以从检索结果加入论文，也可以上传本地 PDF。下图展示“在线搜索加入”：检索论文后逐条加入当前文献集。PDF 上传后的识别候选与确认状态见“PDF 上传、识别与重新关联”。
 
 单个 PDF 上限为 50 MiB。“文件已保存”和“已正确关联论文”是两个不同状态；Zotero 与 EndNote 导入目前仍显示“即将上线”。`,
         embeds: [{ id: "library-import-workbench" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "pdf-upload-resolve-and-relink",
+              sectionId: "resolve",
+              title: "PDF 上传、识别与重新关联",
+              description:
+                "查看上传后的识别候选、人工确认、自由文件保存与错误关联修复。",
+              icon: "resource",
+            },
+          },
+        ],
       },
       {
         id: "maintenance",
         title: "维护能力",
-        markdown: `勾选一篇或多篇论文后，列表上方会出现批量操作栏；打开单篇论文的管理面板，还可以编辑元数据、管理 PDF、重新关联、移动或删除。下图分别展示批量选择状态和单篇维护工作台。
+        markdown: `第一张图冻结在批量删除确认：遮罩后的工具栏表明已选 3 项；确认后会永久移出这些记录，不能撤销。
 
-重新关联用于修复识别错误或补上学术标识，保存前仍需要你确认；系统不会悄悄覆盖已经确认的内容。`,
+第二张图展示基本信息的未保存状态。“实时预览”只反映当前输入；“已同步”表示预览同步，不代表修改已经保存，仍需点击“保存修改”。管理面板还可维护 PDF、重新关联、移动或删除；重新关联用于修复识别错误或补上学术标识，保存前仍需要你确认。`,
         embeds: [
           { id: "library-bulk-actions" },
           { id: "library-maintenance-workbench" },
+        ],
+        blocks: [
+          {
+            type: "markdown",
+            markdown:
+              "下图冻结在批量删除确认：遮罩后的工具栏表明已选 3 项；确认后会永久移出这些记录，不能撤销。",
+          },
+          { type: "embeds", ids: ["library-bulk-actions"] },
+          {
+            type: "markdown",
+            markdown:
+              "下图展示基本信息的未保存状态。“实时预览”只反映当前输入；“已同步”表示预览同步，不代表修改已经保存，仍需点击“保存修改”。管理面板还可维护 PDF、重新关联、移动或删除；重新关联用于修复识别错误或补上学术标识，保存前仍需要你确认。",
+          },
+          { type: "embeds", ids: ["library-maintenance-workbench"] },
         ],
       },
     ],
@@ -418,12 +563,32 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "receive",
         title: "接收行为",
-        markdown: `打开分享链接后，你可以先查看分享说明和论文列表；如果分享设置了提取码，在你打开全部内容或收藏合集时，页面会要求输入。分享方允许保存时，登录后即可把内容复制进自己的文献集。第一张图是已解锁的普通合集预览；第二张图只展示受保护合集的提取码输入状态。
+        markdown: `第一张图是无需提取码的公开合集：可以先浏览，登录后再收藏整个合集。
 
-提取码连续错误 5 次会被锁定。保存时会按论文来源和标识去重，复制后的文献与你看到的原分享分别维护，之后不会自动同步变化。`,
+第二张图是受保护合集尚未解锁的状态；未输入提取码时，确认按钮保持禁用。提取码连续错误 5 次会被锁定。保存时会按论文来源和标识去重，复制后的文献与原分享分别维护，不会自动同步变化。`,
         embeds: [
-          { id: "library-share-receive" },
-          { id: "share-receive-variants" },
+          {
+            id: "library-share-receive",
+            caption: "公开合集 · 已解锁预览",
+          },
+          {
+            id: "share-receive-variants",
+            caption: "受保护合集 · 等待提取码",
+          },
+        ],
+        blocks: [
+          {
+            type: "markdown",
+            markdown:
+              "第一张图是无需提取码的公开合集：可以先浏览，登录后再收藏整个合集。",
+          },
+          { type: "embeds", ids: ["library-share-receive"] },
+          {
+            type: "markdown",
+            markdown:
+              "第二张图是受保护合集尚未解锁的状态；未输入提取码时，确认按钮保持禁用。提取码连续错误 5 次会被锁定。保存时会按论文来源和标识去重，复制后的文献与原分享分别维护，不会自动同步变化。",
+          },
+          { type: "embeds", ids: ["share-receive-variants"] },
         ],
       },
     ],

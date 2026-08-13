@@ -35,12 +35,14 @@ export function wikiFeatureIconSrc(slug: WikiFeatureIconSlug): string {
 interface WikiArticleIntroVisual {
   src: string;
   alt: string;
+  caption: string;
 }
 
 export const WIKI_ARTICLE_INTRO_VISUALS = {
   claw: {
     src: "/wiki/assets/illustrations/intros/claw.png",
     alt: "犀牛智能助手在研究工作台汇集附件、引用、技能与工具并生成交付物的图示",
+    caption: "智能助手工作台",
   },
 } as const satisfies Record<string, WikiArticleIntroVisual>;
 

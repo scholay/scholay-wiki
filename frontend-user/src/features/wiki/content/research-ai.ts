@@ -81,10 +81,25 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "session",
         title: "会话与连接",
-        markdown: `发送问题后，页面会在同一会话中依次显示检索进度、正在使用的来源和最终回答；下图展示的是搜索进行中的会话状态。连接短暂中断时，页面会提示并尝试恢复，你不需要重新复制已经送达的问题。
+        markdown: `发送问题后，页面会在同一会话中逐步形成回答。下图展示已经得到回答和论文组的结果态；折叠的“思考过程”用于查看本轮过程摘要，论文可逐篇选择或一键暂存。底部会话条用于切换历史任务或开启不继承旧上下文的新对话。
 
-实时连接使用一次性的短期凭据，不会把长期登录信息直接放进连接地址。`,
+连接短暂中断时，页面会另行提示并尝试恢复，你不需要重新复制已经送达的问题。实时连接使用一次性的短期凭据，不会把长期登录信息直接放进连接地址。`,
         embeds: [{ id: "smart-search-session" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "marketing-pages-and-implementation-boundaries",
+              sectionId: "agent-status",
+              title: "推理过程和任务状态怎样读",
+              description:
+                "区分可展开的过程摘要、工具执行、任务进度与最终回答。",
+              icon: "sparkles",
+            },
+          },
+        ],
       },
       {
         id: "evidence",
@@ -104,6 +119,7 @@ export const researchAiArticles: WikiArticle[] = [
     audience: ["登录用户", "研究者"],
     aliases: ["智能助手", "Claw Agent", "学术助手"],
     sourcePaths: [
+      "frontend-user/src/features/landing/pages/ClawLandingPage.tsx",
       "frontend-user/src/features/claw/routes.tsx",
       "frontend-user/src/features/claw/pages/ClawPage.tsx",
       "frontend-user/src/features/claw/pages/mobile/MobileClawPage.tsx",
@@ -121,11 +137,42 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "workspace",
         title: "会话工作区",
-        markdown: `进入 Claw 后，桌面端左侧是文献工作区，主对话区顶部可以打开会话历史，中间显示消息与输入框，右侧用于查看生成的文件；你还可以在输入框中添加附件或选择 Skill。手机端把会话历史收进抽屉，并在独立页面中显示当前对话。下方三张图依次展示桌面工作区、移动端入口和移动端正在进行的会话。`,
+        markdown: `进入 Claw 后，桌面端左侧是文献工作区，主对话区顶部可以打开会话历史，中间显示消息与输入框，右侧扩展区用于查看生成的文件；你还可以在输入框中添加附件或选择 Skill。
+
+手机端把会话历史收进抽屉，当前对话单独成页。左边是新对话入口，可以从推荐任务开始；右边是正在进行的会话，消息、处理步骤和生成文件都在同一屏。`,
         embeds: [
           { id: "claw-workspace" },
           { id: "mobile-claw" },
           { id: "mobile-claw-active-session" },
+        ],
+        blocks: [
+          {
+            type: "markdown",
+            markdown:
+              "进入 Claw 后，桌面端左侧是文献工作区，主对话区顶部可以打开会话历史，中间显示消息与输入框，右侧扩展区用于查看生成的文件；你还可以在输入框中添加附件或选择 Skill。",
+          },
+          { type: "embeds", ids: ["claw-workspace"] },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "marketing-pages-and-implementation-boundaries",
+              sectionId: "workspaces",
+              title: "扩展区、标签页与文件树",
+              description:
+                "了解桌面工作区的通用分栏，以及窄屏中如何改为抽屉或整屏查看。",
+              icon: "resource",
+            },
+          },
+          {
+            type: "markdown",
+            markdown:
+              "手机端把会话历史收进抽屉，当前对话单独成页。左边是新对话入口，可以从推荐任务开始；右边是正在进行的会话，消息、处理步骤和生成文件都在同一屏。",
+          },
+          {
+            type: "embeds",
+            ids: ["mobile-claw", "mobile-claw-active-session"],
+            layout: "row",
+          },
         ],
       },
       {
@@ -154,6 +201,7 @@ export const researchAiArticles: WikiArticle[] = [
     audience: ["作者", "研究者", "研究生"],
     aliases: ["AI 审稿", "同行评审", "Peer Review"],
     sourcePaths: [
+      "frontend-user/src/features/landing/pages/PeerReviewLandingPage.tsx",
       "frontend-user/src/features/peer-review/routes.tsx",
       "frontend-user/src/features/peer-review/layouts/PeerReviewShell.tsx",
       "frontend-user/src/features/peer-review/pages/SubmissionLandingPage.tsx",
@@ -178,7 +226,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "review",
         title: "评审过程",
-        markdown: `提交后，进度页会显示任务正在排队、分析稿件信息、检查投稿信与方法、生成评审结果等阶段；下图展示的是评审进行中的状态。任务会从草稿进入排队、评审，最后变为完成或失败，失败后可以重试。
+        markdown: `提交后，进度页会显示任务正在排队、分析稿件信息、检查投稿信与方法、生成评审结果等阶段；下图冻结在“初审已通过、三位审稿人与主审仍等待、阶段 1/5 通读全文”的状态。顶部“阶段 1/5”是当前运行阶段，不等于已经得到 20% 的评审结果；初审已通过与审稿人仍等待可以同时出现，预计剩余时间只是估算。任务会从草稿进入排队、评审，最后变为完成或失败，失败后可以重试。
 
 只有草稿可以编辑。评审中断时系统会尝试恢复，页面会持续更新当前阶段，不需要手动刷新来判断是否完成。`,
         embeds: [{ id: "peer-review-progress" }],
@@ -186,7 +234,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "records",
         title: "记录与边界",
-        markdown: `打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。`,
+        markdown: `打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。列表中的进度条表示 Scholay 内部审稿任务阶段，不是期刊外审或投稿处理进度。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。`,
         embeds: [{ id: "peer-review-records-list" }],
       },
     ],
@@ -202,6 +250,7 @@ export const researchAiArticles: WikiArticle[] = [
     audience: ["论文作者", "研究者"],
     aliases: ["智能写作", "LaTeX 写作", "Prism"],
     sourcePaths: [
+      "frontend-user/src/features/landing/pages/PrismLandingPage.tsx",
       "frontend-user/src/features/prism/routes.tsx",
       "frontend-user/src/features/prism/pages/PrismPage.tsx",
       "frontend-user/src/features/prism/components/PrismWorkspaceV2.tsx",
@@ -214,7 +263,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "workspace",
         title: "写作工作区",
-        markdown: `打开 Prism 项目后，你会看到论文结构、正文编辑区、预览和 AI 助手；选择章节即可开始阅读或写作。下图展示的是一个已打开项目的工作区，结构树中的章节对应正文的不同部分。
+        markdown: `打开 Prism 项目后，你会看到论文结构、AI 写作对话与正文编辑区；选择章节即可开始阅读或写作。下图同时冻结在“逐块审阅待确认”状态：AI 改动尚未写入正文，必须先选择“应用”或“丢弃”，输入框才会恢复。编译后的 PDF 预览不在这张图中。
 
 新项目按结构化章节保存。较早版本创建的旧式文件项目会保留，但目前以只读方式打开，不能按旧流程继续改写。`,
         embeds: [{ id: "prism-workspace" }],
@@ -222,7 +271,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "writing-tools",
         title: "写作工具",
-        markdown: `新建或进入空项目时，可以从写作起始页选择引用、作者、数字、公式、质量检查、修订或翻译等任务；下图展示的就是这个起始状态。提交 AI 修改后，默认会在本轮结束时应用变化；如果打开“逐块审阅”，你可以逐项接受或拒绝。
+        markdown: `新建或进入空项目时，空对话起始页提供生成摘要、全文润色、整篇翻译、意见回应、投稿材料和数字校验；下图展示的就是这个起始状态。引用与公式从编辑器工具栏进入，作者/机构和质量检查从各自的顶栏入口进入。提交 AI 修改后，默认会在本轮结束时应用变化；如果打开“逐块审阅”，你可以逐项接受或拒绝。
 
 页面里关于多人实时协作的介绍目前没有稳定入口，请不要把它当作已经可以使用的功能。`,
         embeds: [{ id: "prism-writing-start" }],

@@ -62,6 +62,7 @@ import (
 	"scholar-backend/internal/websocket"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
+	"scholar-backend/internal/wikimcp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -209,6 +210,13 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		contentHandler := content.NewHandler()
 		api.GET("/content/:kind", contentHandler.ListArticles)
 		api.GET("/content/:kind/:slug", contentHandler.GetArticle)
+
+		// Wiki MCP：公开、匿名、只读的全站 Wiki 知识端点。单端点同时支持
+		// 2026-07-28 无会话协议和 initialize 时代客户端的兼容请求；不接业务写服务。
+		wikiMCPHandler := wikimcp.NewHandler()
+		api.POST(wikimcp.RoutePath, wikiMCPHandler.Handle)
+		api.GET(wikimcp.RoutePath, wikiMCPHandler.MethodNotAllowed)
+		api.DELETE(wikimcp.RoutePath, wikiMCPHandler.MethodNotAllowed)
 
 		// 情报(学术新闻)公开 API —— 列表 / 热榜 / 详情(免登录;enabled 关闭时返空/404)。
 		// 静态段 trending / detail 与 /news 同层,避免 :param 同层冲突(故详情走 /news/detail/:slug)。

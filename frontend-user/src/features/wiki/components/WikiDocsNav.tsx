@@ -1,9 +1,10 @@
-import { ChevronDown, ChevronRight, CornerDownRight, Lock } from "lucide-react";
+import { ChevronDown, ChevronRight, Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/shared/lib/utils";
 import {
   articleNavTrail,
+  firstNavHref,
   navHref,
   visibleArticles,
   visibleNavCategories,
@@ -24,8 +25,8 @@ export function WikiDocsNav({
   mobile = false,
   onNavigate,
 }: WikiDocsNavProps) {
-  const { pathname } = useLocation();
   const canSeeAdmin = useCanSeeWikiAdmin();
+  const navigate = useNavigate();
   const categories = visibleNavCategories(canSeeAdmin);
   const articles = visibleArticles(canSeeAdmin);
   const activeArticleSlug = activeArticle?.slug;
@@ -84,16 +85,18 @@ export function WikiDocsNav({
                 {section.title}
               </a>
             ))}
-            <a
-              href="#sources"
-              onClick={onNavigate}
-              className="flex min-h-11 items-center border-l-2 border-transparent px-3 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-            >
-              <span className="mr-2 shrink-0 font-mono font-medium tabular-nums text-brand-red">
-                {activeArticle.sections.length + 1}.
-              </span>
-              来源
-            </a>
+            {canSeeAdmin && (
+              <a
+                href="#sources"
+                onClick={onNavigate}
+                className="flex min-h-11 items-center border-l-2 border-transparent px-3 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+              >
+                <span className="mr-2 shrink-0 font-mono font-medium tabular-nums text-brand-red">
+                  {activeArticle.sections.length + 1}.
+                </span>
+                来源
+              </a>
+            )}
           </div>
         </section>
       )}
@@ -103,46 +106,6 @@ export function WikiDocsNav({
           <p className="font-medium text-foreground">Scholay Wiki</p>
           <span className="text-faint">{articles.length}</span>
         </div>
-        <div className="mt-2 flex flex-col gap-1">
-          <Link
-            to="/wiki"
-            onClick={onNavigate}
-            aria-current={pathname === "/wiki" ? "page" : undefined}
-            className={indexLinkClass(pathname === "/wiki", linkSpacing)}
-          >
-            开始
-          </Link>
-          <Link
-            to="/wiki/all"
-            onClick={onNavigate}
-            aria-current={pathname === "/wiki/all" ? "page" : undefined}
-            className={indexLinkClass(pathname === "/wiki/all", linkSpacing)}
-          >
-            词条索引
-          </Link>
-          <Link
-            to="/wiki/sources"
-            onClick={onNavigate}
-            aria-current={pathname === "/wiki/sources" ? "page" : undefined}
-            className={indexLinkClass(
-              pathname === "/wiki/sources",
-              linkSpacing,
-            )}
-          >
-            来源索引
-          </Link>
-          <Link
-            to="/wiki/coverage"
-            onClick={onNavigate}
-            aria-current={pathname === "/wiki/coverage" ? "page" : undefined}
-            className={indexLinkClass(
-              pathname === "/wiki/coverage",
-              linkSpacing,
-            )}
-          >
-            覆盖核验
-          </Link>
-        </div>
       </div>
 
       <div className="space-y-1">
@@ -150,13 +113,23 @@ export function WikiDocsNav({
           const expanded = expandedCategories.has(category.slug);
           const current = currentCategory === category.slug;
           const regionId = `${idPrefix}-category-${category.slug}`;
+          const firstHref = firstNavHref(category.children) ?? "/wiki";
+
+          const expandCategory = () => {
+            setExpandedCategories((previous) =>
+              new Set(previous).add(category.slug),
+            );
+          };
 
           return (
             <section key={category.slug}>
               <div className="flex items-center gap-1">
                 <Link
-                  to={`/wiki/category/${category.slug}`}
-                  onClick={onNavigate}
+                  to={firstHref}
+                  onClick={() => {
+                    expandCategory();
+                    onNavigate?.();
+                  }}
                   className={cn(
                     "min-w-0 flex-1 px-3 font-medium transition-colors hover:text-foreground",
                     linkSpacing,
@@ -175,14 +148,18 @@ export function WikiDocsNav({
                   aria-expanded={expanded}
                   aria-controls={regionId}
                   aria-label={`${expanded ? "收起" : "展开"}${category.title}`}
-                  onClick={() =>
-                    setExpandedCategories((previous) => {
-                      const next = new Set(previous);
-                      if (next.has(category.slug)) next.delete(category.slug);
-                      else next.add(category.slug);
-                      return next;
-                    })
-                  }
+                  onClick={() => {
+                    if (expanded) {
+                      setExpandedCategories((previous) => {
+                        const next = new Set(previous);
+                        next.delete(category.slug);
+                        return next;
+                      });
+                      return;
+                    }
+                    expandCategory();
+                    if (!current) navigate(firstHref);
+                  }}
                   className={cn(
                     "inline-flex shrink-0 items-center justify-center rounded-8 text-faint transition-colors hover:bg-foreground/5 hover:text-foreground",
                     mobile ? "size-11" : "size-8",
@@ -288,9 +265,6 @@ function WikiNavBranch({
             )}
             style={{ paddingLeft }}
           >
-            {node.target?.shortcut && (
-              <CornerDownRight className="size-3 shrink-0 text-faint" />
-            )}
             <span className="min-w-0 flex-1 leading-snug">{node.title}</span>
             {node.adminOnly && (
               <Lock className="size-3 shrink-0 text-brand-amber" aria-hidden />
@@ -385,12 +359,3 @@ function countTargets(nodes: WikiNavNode[]): number {
   return targets.size;
 }
 
-function indexLinkClass(active: boolean, spacing: string): string {
-  return cn(
-    "border-l-2 px-3 transition-colors",
-    spacing,
-    active
-      ? "border-brand-red bg-surface-1 font-medium text-brand-red"
-      : "border-transparent text-muted-foreground hover:border-border-strong hover:text-foreground",
-  );
-}

@@ -24,7 +24,7 @@ const SUGGESTED_PAPERS = [
 export function WikiEmbedSearchSuggestionsDropdown() {
   return (
     <div
-      className="w-[min(100%,40rem)]"
+      className="w-[40rem] max-w-full"
       aria-hidden
       data-wiki-fixture="search-suggestions-dropdown"
     >

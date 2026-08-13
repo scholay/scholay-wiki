@@ -20,7 +20,9 @@
     "build:analyze": "npm run build -- --manifest && npm run bundle:report",
     "ci:bundle": "npm run test:performance && npm run build -- --manifest && npm run bundle:check",
     "test:contract": "vitest run --dir tests/contract",
-    "test:wiki": "vitest run tests/wiki-content.test.ts tests/wiki-spot-linker.test.ts tests/wiki-theme.test.tsx tests/wiki-guidance-components.test.tsx tests/clipboard.test.ts",
+    "test:wiki": "vitest run tests/wiki-content.test.ts tests/wiki-spot-linker.test.ts tests/wiki-theme.test.tsx tests/wiki-guidance-components.test.tsx tests/wiki-navigation-actions.test.ts tests/wiki-mcp-export.test.ts tests/clipboard.test.ts",
+    "generate:wiki-mcp": "vite-node scripts/generate-wiki-mcp-articles.ts",
+    "check:wiki-mcp": "vite-node scripts/generate-wiki-mcp-articles.ts --check",
     "test:design": "node scripts/design-guard.mjs tests/design-system-guard.test.ts tests/design-tokens-compiled.test.ts tests/font-assets.test.ts tests/sidebar-design-contract.test.tsx"
   },
   "dependencies": {

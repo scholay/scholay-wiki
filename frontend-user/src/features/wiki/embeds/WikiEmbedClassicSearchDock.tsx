@@ -12,7 +12,10 @@ export function WikiEmbedClassicSearchDock() {
       aria-hidden
       data-wiki-fixture="classic-search-dock"
     >
-      <div className="flex h-12 items-center gap-3 rounded-4 border border-foreground bg-surface-card pl-5 pr-2">
+      <div
+        className="flex h-12 items-center gap-3 rounded-4 border border-foreground bg-surface-card pl-5 pr-2"
+        data-wiki-spot="搜索栏"
+      >
         <MockModeToggle label="搜索引擎" tone="engine" />
         <div className="relative min-w-0 flex-1">
           <span className="block truncate text-16 text-faint">

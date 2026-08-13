@@ -49,6 +49,22 @@ export const WIKI_TERM_LINKS: readonly WikiTermLink[] = [
     terms: ["中科院分区", "期刊分区", "JCR", "CCF"],
     articleSlug: "journal-metrics-guide",
   },
+  {
+    terms: [
+      "参考文献基础信息卡片",
+      "Function call 卡片",
+      "工具调用卡片",
+      "扩展区标签页",
+      "浏览器页签",
+      "汉堡菜单",
+      "剩余额度显示",
+      "任务进度条",
+      "推理过程",
+      "扩展区",
+      "文件树",
+    ],
+    articleSlug: "marketing-pages-and-implementation-boundaries",
+  },
 ] as const;
 
 const FLAT_TERM_LINKS = WIKI_TERM_LINKS.flatMap((entry) =>

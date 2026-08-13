@@ -1,6 +1,6 @@
 import { Info } from "lucide-react";
-import { Link } from "react-router-dom";
 import type { WikiTip } from "../types";
+import { WikiArticlePreviewLink } from "./WikiArticlePreviewLink";
 
 export function WikiTipCallout({ tip }: { tip: WikiTip }) {
   return (
@@ -15,12 +15,11 @@ export function WikiTipCallout({ tip }: { tip: WikiTip }) {
         {tip.link && (
           <>
             {" "}
-            <Link
-              to={`/wiki/${tip.link.articleSlug}${tip.link.sectionId ? `#${tip.link.sectionId}` : ""}`}
-              className="font-medium text-brand-red underline underline-offset-4"
+            <WikiArticlePreviewLink
+              href={`/wiki/${tip.link.articleSlug}${tip.link.sectionId ? `#${tip.link.sectionId}` : ""}`}
             >
               {tip.link.label}
-            </Link>
+            </WikiArticlePreviewLink>
           </>
         )}
       </p>

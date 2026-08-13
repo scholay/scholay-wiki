@@ -14,6 +14,7 @@ export function WikiEmbedClassicSearchFilters() {
       className="w-[min(100%,20rem)] overflow-hidden rounded-8 border border-border bg-surface-card shadow-overlay"
       aria-hidden
       data-wiki-fixture="classic-search-filters"
+      data-wiki-spot="筛选器"
     >
       <div className="flex items-center justify-end border-b border-border px-2 py-1">
         <span className="inline-flex size-7 items-center justify-center rounded-4 text-subtle">

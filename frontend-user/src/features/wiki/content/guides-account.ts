@@ -82,11 +82,10 @@ export const accountGuideArticles: WikiArticle[] = [
           {
             type: "article-link",
             card: {
-              articleSlug: "search-entry-comparison",
-              sectionId: "quick-decision",
-              title: "传统搜索、智能搜索与智能助手怎么选",
+              articleSlug: "classic-vs-smart-search",
+              title: "传统搜索 vs 智能搜索",
               description:
-                "用一条决策规则区分结构化检索、自然语言找论文和带材料完成研究任务。",
+                "已经有关键词就用传统搜索；还在找说法、需要系统帮你拆问题时用智能搜索。",
               icon: "compass",
             },
           },
@@ -202,7 +201,7 @@ export const accountGuideArticles: WikiArticle[] = [
         title: "分清限时活动与邀请奖励",
         markdown: `套餐价和结算窗口决定订单实付金额。页面出现“限时领取会员”时，弹窗会展示活动说明和客服二维码，但它不会自动修改结算价格，也不等同于优惠券。
 
-邀请活动则是在完成有效邀请或受邀用户首次合格付费后发放科研经费，奖励会进入邀请记录和钱包流水，不会在下单前直接抵扣。活动会随运营配置启停；页面没有显示时，不要按旧截图或海报中的数字理解当前优惠。`,
+邀请活动则是在完成有效邀请或受邀用户首次合格付费后发放科研经费，奖励会进入邀请记录和钱包流水，不会在下单前直接抵扣。活动会随运营配置启停；页面没有显示时，不要按旧截图或海报中的数字理解当前优惠。弹窗里的“今日不再弹出”只抑制当天的自动弹窗，不会关闭活动，也不会领取权益。`,
         embeds: [{ id: "promo-modal" }],
         blocks: [
           { type: "markdown" },
@@ -632,6 +631,7 @@ export const accountGuideArticles: WikiArticle[] = [
     aliases: ["路线图", "Roadmap", "下一期开发计划", "功能何时上线"],
     sourcePaths: [
       "frontend-user/src/app/router.tsx",
+      "frontend-user/src/features/landing/pages/SubmitLandingPage.tsx",
       "frontend-user/src/features/wiki/content/foundations.ts",
       "frontend-user/src/features/wiki/content/infrastructure.ts",
       "frontend-user/src/features/claw/components/chat/TemplateCards.tsx",
@@ -655,7 +655,7 @@ export const accountGuideArticles: WikiArticle[] = [
       {
         id: "explicit-planned-surfaces",
         title: "能确认的规划与占位",
-        markdown: `现有 Wiki 产品表面图明确把原生移动 App 和 Desktop App 标为“规划中、尚未交付”，但没有给出日期或功能范围。当前界面还出现“更多创作模板陆续加入”、任务中心与签到“即将上线”、Zotero/EndNote 导入 ComingSoon、研究论坛即将上线等提示。它们只能证明入口或文案被预留，不能证明已经进入某个迭代，也不能承诺奖励、数据模型或最终交互。`,
+        markdown: `Scholay 词条的打开方式表把原生移动 App 和电脑软件标为“规划中”，但没有给出日期或功能范围。当前界面还出现“更多创作模板陆续加入”、任务中心与签到“即将上线”、Zotero/EndNote 导入 ComingSoon、研究论坛即将上线等提示。它们只能证明入口或文案被预留，不能证明已经进入某个迭代，也不能承诺奖励、数据模型或最终交互。`,
         table: {
           columns: [
             { key: "item", header: "项目" },
@@ -665,7 +665,7 @@ export const accountGuideArticles: WikiArticle[] = [
           rows: [
             {
               item: "移动 App / Desktop App",
-              evidence: "产品表面图标为规划中",
+              evidence: "打开方式表标为规划中",
               safeStatus: "尚未交付；无公开日期与范围",
             },
             {
@@ -687,6 +687,11 @@ export const accountGuideArticles: WikiArticle[] = [
               item: "研究论坛",
               evidence: "论文详情中的禁用占位",
               safeStatus: "尚不可用；最终功能范围未定义",
+            },
+            {
+              item: "智能投稿",
+              evidence: "功能介绍页存在，但主按钮当前进入智能审稿",
+              safeStatus: "宣传性入口；不能据此认定期刊代投与状态追踪已交付",
             },
           ],
         },

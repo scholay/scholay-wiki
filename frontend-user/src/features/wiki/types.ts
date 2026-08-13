@@ -42,6 +42,8 @@ export type WikiMergedTableRow = Record<string, WikiMergedTableCell>;
 export interface WikiSectionTable {
   columns: WikiMergedTableColumn[];
   rows: WikiMergedTableRow[];
+  /** 表注；缺省用所在章节标题。 */
+  caption?: string;
 }
 
 export interface WikiArticleTarget {
@@ -96,18 +98,28 @@ export interface WikiNextStepGroup {
   items: WikiNextStep[];
 }
 
+/** 首页栏目入口同款：标题 + 摘要 + 栏目图标。 */
+export interface WikiPathCard extends WikiArticleTarget {
+  title: string;
+  description: string;
+  icon: WikiNavCategory;
+}
+
+export type WikiEmbedLayout = "stack" | "row";
+
 /**
- * 章节中可穿插的结构化内容。markdown / table / embeds 引用章节现有字段，
- * 让旧词条无需迁移，同时允许提示词、解释卡和提示语精确落在语境旁边。
+ * 章节中可穿插的结构化内容。markdown / table / embeds 默认引用章节现有字段；
+ * markdown 可带独立片段、embeds 可指定 id 子集与排版，用来把说明和图穿插排列。
  */
 export type WikiSectionBlock =
-  | { type: "markdown" }
+  | { type: "markdown"; markdown?: string }
   | { type: "table" }
-  | { type: "embeds" }
+  | { type: "embeds"; ids?: WikiEmbedId[]; layout?: WikiEmbedLayout }
   | { type: "prompt-tabs"; group: WikiPromptGroup }
   | { type: "article-link"; card: WikiArticleLinkCard }
   | { type: "tip"; tip: WikiTip }
-  | { type: "next-steps"; group: WikiNextStepGroup };
+  | { type: "next-steps"; group: WikiNextStepGroup }
+  | { type: "path-cards"; items: WikiPathCard[] };
 
 /** 词条内嵌的站点组件演示（须在 wiki/embeds/registry 登记） */
 export type WikiEmbedId =
@@ -137,6 +149,7 @@ export type WikiEmbedId =
   | "feedback-form"
   | "contact-support"
   | "search-autocomplete"
+  | "search-workspace"
   | "claw-hero-smart-entry"
   | "claw-empty-state"
   | "claw-workspace"
@@ -270,11 +283,13 @@ export type WikiEmbedId =
   | "auth-register-recovery"
   | "billing-overview-usage"
   | "user-account-menu"
-  | "marketing-landing-template"
+  | "common-navigation-tabs"
+  | "common-reference-card"
+  | "common-workspaces"
+  | "common-agent-status"
   | "mobile-search-paper-results"
   | "mobile-search-filter-sheet"
   | "mobile-feed-states"
-  | "mobile-claw-session-drawer"
   | "mobile-claw-artifact-preview"
   | "mobile-claw-active-session"
   | "mobile-tools-catalog"

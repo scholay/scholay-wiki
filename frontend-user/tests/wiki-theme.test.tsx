@@ -366,6 +366,8 @@ describe("Wiki 主题首屏与边界契约", () => {
     const canvasVariables = new Set(declaredVariables(canvasRule));
 
     expect(stageRule.match(/\binset\b/g)).toHaveLength(5);
+    expect(canvasRule).not.toMatch(/\bfilter\b/);
+    expect(canvasRule).not.toMatch(/drop-shadow/);
     expect(canvasRule).toContain("color-scheme: light");
     expect(canvasRule).toMatch(/--background:\s*#f6f4ee/i);
     expect(canvasRule).toMatch(/--surface-card:\s*#ffffff/i);

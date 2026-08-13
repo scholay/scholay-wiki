@@ -10,7 +10,6 @@ import {
 } from "../content";
 import type { WikiArticleKind, WikiArticleStatus } from "../types";
 import { WikiArticleCard } from "../components/WikiArticleCard";
-import { WikiSearchForm } from "../components/WikiSearchForm";
 import { useCanSeeWikiAdmin } from "../hooks/useWikiAccess";
 
 const KINDS = Object.keys(WIKI_KIND_LABEL) as WikiArticleKind[];
@@ -54,12 +53,6 @@ export function WikiAllPage() {
           <h1 className="mt-2 font-display text-32 font-bold leading-display-tight text-foreground">
             词条索引
           </h1>
-          <p className="mt-3 max-w-reading text-14 leading-paragraph text-muted-foreground">
-            搜索产品名、页面、用户动作、业务对象或规则。结果会同时匹配标题、别名、摘要与正文。
-          </p>
-          <div className="mt-6">
-            <WikiSearchForm initialValue={query} prominent />
-          </div>
         </div>
       </section>
 
