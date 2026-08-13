@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { ChevronDown } from 'lucide-react';
+import { icpBeian } from '@/shared/lib/site-config';
 import { BrandName } from './BrandName';
 
 /**
@@ -50,6 +51,8 @@ const BRAND_LINKS: { label: string; to: string }[] = [
 ];
 
 export function Footer() {
+  // ICP 备案号来自容器 env(ICP_BEIAN),未配置则不渲染该块 —— 见下方注释。
+  const icp = icpBeian();
   return (
     <footer className="bg-background border-t border-border">
       {/*
@@ -125,18 +128,26 @@ export function Footer() {
           </PopoverPrimitive.Root>
         </span>
 
-        {/* ICP 备案 —— 中国大陆运营要求;同行尾部,链到工信部官方查询页 */}
-        <span className="flex shrink-0 items-center gap-6">
-          <span className="hidden h-3.5 w-px bg-border-strong lg:block" />
-          <a
-            href="https://beian.miit.gov.cn/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whitespace-nowrap hover:text-foreground transition-colors"
-          >
-            蜀ICP备2025145653号-2
-          </a>
-        </span>
+        {/* ICP 备案 —— 中国大陆运营要求;同行尾部,链到工信部官方查询页。
+            🔴 备案号与【已备案的域名】绑定,不是与代码绑定。以前这里是写死的字面量,
+            意味着任何用这份代码部署的域名都会挂着同一个备案号 —— 未接入备案的站点
+            公开展示它属于错挂,被举报或巡检时处理对象是**那条备案本身**(可能连累
+            权威站被要求整改)。即使是同主体子域名也要各自接入。
+            改为运行时注入(容器 env ICP_BEIAN → index.html 的 window.__SITE_CONFIG__),
+            未配置则整块不渲染。 */}
+        {icp && (
+          <span className="flex shrink-0 items-center gap-6">
+            <span className="hidden h-3.5 w-px bg-border-strong lg:block" />
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="whitespace-nowrap hover:text-foreground transition-colors"
+            >
+              {icp}
+            </a>
+          </span>
+        )}
       </div>
     </footer>
   );

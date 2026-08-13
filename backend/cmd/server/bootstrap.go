@@ -19,6 +19,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/agent"
@@ -68,12 +69,20 @@ import (
 	"scholar-backend/internal/wechat"
 )
 
-// domainFromSiteURL 从 https://www.scholay.com → www.scholay.com,给 umami
-// auto-create website 时填 domain 字段。失败回落 localhost(纯本地起服不影响)。
+// domainFromSiteURL 从 https://www.example.com → www.example.com,给 umami
+// auto-create website 时填 domain 字段。
+//
+// 回落链:SITE_URL → CanonicalBaseURL()(= SEO_BASE_URL,compose 里两者同源)
+// → "localhost"。**刻意不回落任何真实域名** —— 这个值决定 umami 里自动建出来的
+// website 叫什么、统计归到哪个 domain 名下,回落成生产域名会让一个全新环境的
+// 统计面板看起来就是生产站,两套环境的数据在人眼里再也分不开。
 func domainFromSiteURL() string {
 	raw := os.Getenv("SITE_URL")
 	if raw == "" {
-		raw = "https://www.scholay.com"
+		if h := appconfig.CanonicalHost(); h != "" {
+			return h
+		}
+		return "localhost"
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
@@ -82,12 +91,10 @@ func domainFromSiteURL() string {
 	return u.Host
 }
 
-// siteName 从 SITE_NAME env 拿,缺省 Scholay。
+// siteName 从 SITE_NAME env 拿。缺省返回空串,由调用方决定怎么降级 ——
+// 不再兜底成品牌名,理由同 domainFromSiteURL:漏配时不该冒充别的站点。
 func siteName() string {
-	if v := os.Getenv("SITE_NAME"); v != "" {
-		return v
-	}
-	return "Scholay"
+	return strings.TrimSpace(os.Getenv("SITE_NAME"))
 }
 
 // newCrawlerAnalyticsClient 爬虫监控 website 的 umami 查询客户端。
@@ -468,6 +475,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	aiB.minicodHandler.SetPaperSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetAuthorSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetJournalSEORecorder(plat.seoService)
+	// 期刊详情的本地回落读路径:上游 /v1/jnl/get 挂掉时用 seo_journals 顶上,
+	// 避免期刊页对真实用户整体白屏(2026-08-13 事故;见 minicod/journal_fallback.go)。
+	aiB.minicodHandler.SetJournalFallback(plat.seoService)
 
 	// 已登录用户的论文搜索结果由 library 标注 isFavorited(省一次 /user/library/check 往返)
 	aiB.minicodHandler.SetFavoriteChecker(libraryHandler)

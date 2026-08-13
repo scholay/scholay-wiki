@@ -607,7 +607,22 @@ func markSSRSEOHead(html string) string {
 	return html
 }
 
+// writeSSRHTML 是**所有** SSR 响应的唯一写出口(200 走 :541,4xx/5xx 走 :638)。
+//
+// 🔴 环境级 noindex 就钉在这里,而不是逐个页面分支加。理由:SSR 有实体页、内容页、
+// 静态品牌页、软 404、503 一堆分支,逐个加必然漏,而且以后新增分支的人不会知道要加。
+// 出口只有一个,钉在出口上就是全覆盖。
+//
+// 注入的 robots meta **刻意不带** data-seo-fallback="server" 标记 ——
+// 带了会被前端 RouteSEO 在 useLayoutEffect 里当成"服务端兜底"移除掉
+// (见 markSSRSEOHead),那样会跑 JS 的爬虫就重新看到一个可索引的页面。
 func writeSSRHTML(c *gin.Context, status int, html string) {
+	if !appconfig.RequestIndexable(c.Request.Host) {
+		// nofollow 而非 follow:非权威环境的站内链接指向的也是本环境的副本,
+		// 让爬虫顺着爬下去只会把整份重复内容都发现一遍。
+		c.Header("X-Robots-Tag", "noindex, nofollow")
+		html = upsertHeadTag(html, ssrRobotsRe, `<meta name="robots" content="noindex,nofollow">`)
+	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
 	c.String(status, html)

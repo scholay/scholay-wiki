@@ -43,19 +43,22 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# 加载 .env 里的站点配置 —— 让 frontend build 把品牌 / 域名 / 邮箱
-# 烘进 bundle,服务器拉到镜像就有正确默认值。
-# 服务器侧要改这些值仍需重新 build + push + deploy(Vite 是 build-time,运行期不改 bundle)。
-if [ -f ".env" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . ./.env
-    set +a
-fi
-# 兜底默认值(.env 不存在或没设时)
-: "${SITE_URL:=https://www.scholay.com}"
-: "${SITE_NAME:=Scholay}"
-# UMAMI_WEBSITE_ID 不再 build-time 注入 —— 改为 runtime fetch /api/v1/public/umami-config
+# ⚠️ 这里【不再】读 .env 的站点配置。
+#
+# 旧实现 source 了 .env 并把 SITE_URL / SITE_NAME 当 --build-arg 传给前端构建,
+# 兜底默认值还是生产域名。两个问题:
+#   1. **那两个 build-arg 从来没生效过。** frontend-user/Dockerfile 只声明了
+#      `ARG VITE_API_BASE_URL`,源码里也没有任何 VITE_SITE_URL / VITE_SITE_NAME 的
+#      消费点 —— docker 只打一行 unused build-arg warning 就丢弃,而脚本却先
+#      打印了「站点配置(build-time 注入到 vite bundle)」。配了、看起来生效了、
+#      实际一个字节都没变,是最难发现的那种错。
+#   2. 即使让它生效也是错方向:域名一旦烘进 bundle,就等于「换域名 = 换镜像」,
+#      与「同一个镜像 tag + 各自的 .env 跑多套环境」的目标直接冲突。
+#
+# 现在站点身份全部**运行时注入**:index.html 留占位符,frontend-user 容器启动时由
+# docker-entrypoint.d/50-inject-site.sh 按 env 替换(SITE_URL / CLARITY_PROJECT_ID /
+# ICP_BEIAN / SITE_TITLE_PREFIX,接线见两份 docker-compose 的 frontend-user 服务)。
+# 也就是说:**构建产物与部署到哪个域名无关**,同一个 tag 可以同时服务多套环境。
 
 # 检查并设置 buildx (仅用于 backend)
 setup_buildx() {
@@ -202,22 +205,18 @@ build_frontend() {
     echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
-    echo "站点配置(build-time 注入到 vite bundle,运行期改 docker env 没用):"
-    echo "  SITE_URL          = ${SITE_URL}"
-    echo "  SITE_NAME         = ${SITE_NAME}"
+    echo "站点身份(域名 / Clarity / ICP / 标题前缀)不参与构建 —— 由各环境的 .env 在容器启动时注入。"
 
     setup_buildx
 
-    # build-arg 必须显式传 —— Vite 在编译期把 import.meta.env.VITE_* 替换进 bundle,
-    # 运行期再改 docker compose env 也改不了打好的 JS。
-    # 详见 frontend-user/Dockerfile + frontend-user/vite.config.ts。
+    # 唯一的 build-arg 是 VITE_API_BASE_URL(空 = 同源相对路径 /api/v1),它与部署到
+    # 哪个域名无关。任何「每套环境不同」的值都不许走 build-arg —— Vite 在编译期把
+    # import.meta.env.VITE_* 字面替换进 bundle,那等于把环境烘死在镜像里。
     docker buildx build \
         --platform ${TARGET_PLATFORM} \
         -t ${image} \
         -t ${latest} \
         --build-arg VITE_API_BASE_URL= \
-        --build-arg VITE_SITE_URL="${SITE_URL}" \
-        --build-arg VITE_SITE_NAME="${SITE_NAME}" \
         --push \
         ${context}
 

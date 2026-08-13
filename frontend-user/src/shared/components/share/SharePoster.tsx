@@ -34,7 +34,7 @@ export interface SharePosterData {
   highlight?: string; // "被引 128,430 · 高被引论文"
   qrValue: string;
   scanLabel?: string; // "长按识别二维码 · 在 Scholay 查看全文"
-  urlLabel: string; // "scholay.com/p/attention"
+  urlLabel: string; // 去掉 scheme 后的展示用短链,如 "example.com/p/attention"
 }
 
 export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>(

@@ -89,7 +89,9 @@ type Handler struct {
 	paperSEORecorder   PaperSEORecorder
 	authorSEORecorder  AuthorSEORecorder
 	journalSEORecorder JournalSEORecorder
-	hotRecorder        HotContentRecorder
+	// journalFallback 上游 /v1/jnl/get 失败时的本地读路径(见 journal_fallback.go)。
+	journalFallback JournalFallbackProvider
+	hotRecorder     HotContentRecorder
 	statRecorder       usagestat.Recorder
 	favChecker         FavoriteChecker
 	membership         MembershipChecker
@@ -857,6 +859,19 @@ func (h *Handler) GetJournal(c *gin.Context) {
 
 	result, err := h.manager.GetJournal(c.Request.Context(), req.ID, req.Full)
 	if err != nil {
+		// 上游不可用 → 用本地 seo_journals 回落(2026-08-13 事故:/v1/jnl/get 单端点
+		// 持续 502,期刊详情页对所有真实用户报错,而本地有 10 万行完整数据)。
+		// 详见 journal_fallback.go 的头注释;本地也没有才把错误交还给用户。
+		if h.journalFallback != nil {
+			if row, ferr := h.journalFallback.GetJournalByID(int64(req.ID)); ferr == nil && row != nil {
+				if fallback := journalFallbackJSON(row); fallback != nil {
+					slog.Warn("journal detail served from local fallback (upstream down)",
+						"journal_id", req.ID, "upstream_err", err)
+					utils.Success(c, fallback)
+					return
+				}
+			}
+		}
 		utils.Error(c, 4032, "加载期刊详情失败,请稍后重试")
 		return
 	}

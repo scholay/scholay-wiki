@@ -485,6 +485,21 @@ func seoReviewViolation(t *Tool) string {
 		return "no public data_quality source"
 	case countSubstantiveUseCases(t.UseCases) < 2:
 		return "fewer than 2 substantive use cases"
+	case isJournalEntry(t):
+		// 2026-08-13 审计:批量导入把 12,945 个 DOAJ 期刊当"工具"收进了功能广场,
+		// 其中 6,965 个与 seo_journals 重名 —— 同一本刊会同时存在
+		// /tools/plos-one 与 /journal/12062/plos-one 两个 URL。期刊垂类是专门为它们
+		// 建的(完整指标矩阵 + 专属 SSR + 枢纽页),放进 tools sitemap 只会制造
+		// 站内重复内容并稀释期刊页权重。且分类明显错配(PLOS Climate 被归到「可视化绘图」、
+		// Living Reviews in Relativity 归到「数学计算」),本身就是低质信号。
+		// 产品内是否保留由运营决定;但**绝不允许进搜索引擎**。
+		return "journal entry — belongs to the journals vertical, not the tools catalog"
+	case hasBoilerplateDescription(t.DescriptionMD):
+		// 同上审计:50,200 条里 48,041 条(95.7%)的 description_md 是同一套模板填空
+		// (「XX 是一个面向「分类」的在线工具,适合用于…使用前建议确认官网文档…」),
+		// 换个工具名和分类就复用。Google 对 tools 垂类已判 19,497 页软 404,
+		// 模板化正文正是它判低质的典型特征 —— 让这类页通过审核等于批量生产软 404。
+		return "boilerplate/templated description — needs original content"
 	default:
 		return ""
 	}
@@ -582,6 +597,43 @@ func isPublicHTTPURL(raw string) bool {
 		return !ip.IsPrivate() && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() && !ip.IsUnspecified()
 	}
 	return true
+}
+
+// journalEntryTags 批量导入的期刊条目在 tags 上的稳定特征(线上实测 12,945 条
+// 两个标签同时命中,计数完全一致)。命中任一即认定为期刊而非工具。
+var journalEntryTags = []string{"开放获取期刊", "投稿入口"}
+
+func isJournalEntry(t *Tool) bool {
+	for _, tag := range t.Tags {
+		s := strings.TrimSpace(tag)
+		for _, j := range journalEntryTags {
+			if s == j {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// boilerplateMarkers 模板化正文的判据。取自实际生成器的固定骨架句 ——
+// 它们与工具本身无关,换谁都一样,是「这段话不是为这个工具写的」的确证。
+// 线上实测覆盖率:「使用前建议确认官网文档」48,041 条、「是一个面向…的在线工具」11,564 条。
+// 刻意用整句而非关键词:关键词会误伤正常描述里偶然出现的词。
+var boilerplateMarkers = []string{
+	"使用前建议确认官网文档",
+	"适合用于科研数据管理、开放科学、团队协作",
+	"公开资料显示，它重点覆盖",
+	"公开资料显示,它重点覆盖",
+}
+
+func hasBoilerplateDescription(desc string) bool {
+	for _, m := range boilerplateMarkers {
+		if strings.Contains(desc, m) {
+			return true
+		}
+	}
+	// 「XX 是一个面向「YY」的在线工具」骨架:工具名和分类是填空位,其余逐字相同。
+	return strings.Contains(desc, "是一个面向「") && strings.Contains(desc, "的在线工具")
 }
 
 func hasPublicSource(sources []string) bool {

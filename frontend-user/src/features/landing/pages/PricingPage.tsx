@@ -11,8 +11,6 @@ import {
   maxYearlySavingsPct,
   resolveDefaultCycle,
   PLAN_META,
-  monthlyEquivalentCents,
-  yuanText,
   WechatPayDialog,
   type BillingCycle,
 } from '@/shared/components';
@@ -339,14 +337,6 @@ export function PricingPage() {
                   </th>
                   {TIER_ORDER.map((t) => {
                     const popular = data?.popular_plan === t;
-                    const plan = plans.find((x) => x.tier === t);
-                    const isFree = t === 'free';
-                    // 列头价格与上方卡片同口径:主数字恒为月价(年付=折合月价)。
-                    const head = plan
-                      ? cycle === 'yearly' && (plan.year_price_cents ?? 0) > 0
-                        ? monthlyEquivalentCents(plan.year_price_cents)
-                        : plan.price_cents
-                      : 0;
                     return (
                       <th
                         key={t}
@@ -356,8 +346,11 @@ export function PricingPage() {
                           popular && 'rounded-t-12 bg-brand-red-soft',
                         )}
                       >
-                        {/* 档名放大到 18 + 价格提到 14/foreground:列头是这张表的锚点,
-                            原来 14/12 与数据行几乎同重,横向扫行时容易忘记自己在看哪一列。
+                        {/* 🔴 列头**不写金额**(2026-08-13 拍板):价格在上方套餐卡里已经给足,
+                            这里重复一遍不增加信息;更实际的是它要跟着年付/月付切换器变,
+                            两处同一个数字维护在两处,迟早对不上(本页历史上就出过价格对不上的问题)。
+                            列头只做「这是哪一档 + 大概能干多少活」的锚点。
+                            档名 18px:原来 14px 与数据行几乎同重,横向扫到第 15 行时会忘记在看哪一列。
                             不用 font-bold —— 设计护栏只允许衬线/等宽字族用它,sans 靠字号拉重量。 */}
                         <span className="flex items-center gap-2">
                           <span className="text-18 font-medium text-foreground">
@@ -368,9 +361,6 @@ export function PricingPage() {
                               最受欢迎
                             </span>
                           )}
-                        </span>
-                        <span className="mt-1 block text-14 font-medium text-foreground">
-                          {isFree ? '免费' : plan ? `¥${yuanText(head)}/月` : ''}
                         </span>
                         <span className="mt-1 block text-12 font-normal leading-paragraph text-faint">
                           {TIER_COMBO[t]}

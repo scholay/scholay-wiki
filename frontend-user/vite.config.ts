@@ -1,10 +1,38 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 
+/**
+ * index.html 里的站点身份占位符(`__SITE_URL__` / `__CLARITY_ID__` / `__ICP_BEIAN__` /
+ * `__TITLE_PREFIX__`)在【生产】由 frontend-user 容器的 docker-entrypoint.d/50-inject-site.sh
+ * 在启动时按 env 替换 —— 这样同一个镜像 tag 能靠 .env 服务不同域名的多套环境。
+ *
+ * 但 `npm run dev` 没有那个容器,占位符会**原样渲染到页面上**(标题栏出现
+ * `__TITLE_PREFIX__Scholay学术`,JSON-LD 变成非法)。这个插件只在 dev
+ * (`apply: 'serve'`)补上同样的替换,用本地默认值。
+ *
+ * 🔴 刻意**不**在 build 时替换:构建产物必须保持占位符原样,那正是运行时注入的输入。
+ * 一旦在这里对 build 也生效,域名就又被烘进镜像了,绕回我们要解决的问题。
+ */
+function siteConfigPlaceholders(): Plugin {
+  return {
+    name: 'scholay:site-config-placeholders',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      const devPort = process.env.HTTP_PORT || '5411';
+      return html
+        .replaceAll('__SITE_URL__', process.env.SITE_URL?.replace(/\/+$/, '') || `http://localhost:${devPort}`)
+        // dev 默认关掉 Clarity:本地调试的点击流没有任何分析价值,只会污染真实项目。
+        .replaceAll('__CLARITY_ID__', process.env.CLARITY_PROJECT_ID || '')
+        .replaceAll('__ICP_BEIAN__', process.env.ICP_BEIAN || '')
+        .replaceAll('__TITLE_PREFIX__', process.env.SITE_TITLE_PREFIX ?? '[DEV] ');
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), siteConfigPlaceholders()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

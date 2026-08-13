@@ -50,6 +50,36 @@ func main() {
 	// Initialize structured logging
 	logger.Init()
 
+	// ── 环境身份回显 ────────────────────────────────────────────────────────
+	//
+	// 「这台机器是哪套环境、对外自称是谁、能不能被收录」是多环境部署里最容易配错、
+	// 也最难事后归因的一组(配错的表现是几周后 SERP 里冒出一个重复站点,而不是报错)。
+	// 每次启动打一条,`docker logs scholar_backend | head` 就能确认。
+	slog.Info("环境身份",
+		"app_env", cfg.App.Env,
+		"canonical_base_url", appconfig.CanonicalBaseURL(),
+		"canonical_host", appconfig.CanonicalHost(),
+		"seo_indexable", appconfig.SEOIndexable(),
+		"gin_mode", cfg.App.GinMode,
+	)
+	if !appconfig.SEOIndexable() {
+		slog.Warn("本环境【不可索引】:robots.txt 全站 Disallow、sitemap 与 IndexNow key 文件 404、" +
+			"所有 SSR 响应带 noindex。若这是权威生产站,请设 APP_ENV=prod(或 SEO_INDEXABLE=true)。")
+	}
+	// 非权威环境却开着对外推送 —— 这类配置会把本环境的 URL 推进真实搜索引擎,
+	// 且用的多半是权威站注册的凭据(IndexNow key / 百度 token 都是按站点发的),
+	// 后果落在权威站的收录上。不强制关(留下验证推送链路的可能),但必须吵。
+	if !appconfig.IsProdEnv() {
+		if cfg.SEOSubmit.Enabled || cfg.SEOSubmit.IndexNowEnabled || cfg.SEOSubmit.BaiduEnabled {
+			slog.Warn("⚠️ APP_ENV 非 prod,但 SEO 主动推送是开启的 —— 本环境会把自己的 URL 真的推给"+
+				"搜索引擎,若凭据来自权威站则会污染那个站的收录。确认这是有意为之,否则请在 .env 里关掉。",
+				"app_env", cfg.App.Env,
+				"seo_submit", cfg.SEOSubmit.Enabled,
+				"indexnow", cfg.SEOSubmit.IndexNowEnabled,
+				"baidu", cfg.SEOSubmit.BaiduEnabled)
+		}
+	}
+
 	// Initialize Redis
 	if err := cache.InitRedis(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.DB); err != nil {
 		log.Fatalf("Failed to initialize Redis: %v", err)

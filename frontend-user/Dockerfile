@@ -14,11 +14,16 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . .
 
 # Vite build-time env(VITE_ 前缀会被自动注入)
+#
+# 🔴 这里【只能】有与部署环境无关的东西。任何「每套环境不同」的值都不许走 build-arg ——
+# Vite 在编译期把 import.meta.env.VITE_* 字面替换进 bundle,走 build-arg 就等于
+# 「换域名 = 换镜像」,与「一套镜像 + 一份 .env 区分环境」的目标直接冲突。
+#
+# 站点身份(SITE_URL / Clarity ID / ICP / 标题前缀)全部走**运行时注入**:
+# index.html 里留占位符,容器启动时由 docker-entrypoint.d/50-inject-site.sh 按 env 替换。
+# Umami website id 同理(更早就运行时化了,走 /api/v1/public/umami-config)。
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-# Umami 接入完全运行时化:index.html 加载后 fetch /api/v1/public/umami-config 拿
-# website_id 再动态插入 tracker 脚本 —— 不再需要 build-time 注入 website id。
-# 见 frontend-user/index.html 顶部注释 + backend internal/umami/client.go EnsureWebsiteID。
 
 RUN npm run build
 
@@ -30,8 +35,12 @@ FROM nginx:alpine
 # ./data/frontend-assets)→ 发版后老标签页仍能拉到旧 chunk,避免「页面加载失败」。
 COPY --from=builder /app/build /opt/dist
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 编号即执行顺序(nginx entrypoint 按字典序跑 /docker-entrypoint.d/*.sh):
+#   40 把 /opt/dist 同步进 web root(index.html 每次回到「带占位符」的原始态)
+#   50 再按 env 把占位符替换成本环境的站点身份 —— 顺序反了会被 40 覆盖掉且不报错
 COPY docker-entrypoint.d/40-sync-site.sh /docker-entrypoint.d/40-sync-site.sh
-RUN chmod +x /docker-entrypoint.d/40-sync-site.sh
+COPY docker-entrypoint.d/50-inject-site.sh /docker-entrypoint.d/50-inject-site.sh
+RUN chmod +x /docker-entrypoint.d/40-sync-site.sh /docker-entrypoint.d/50-inject-site.sh
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

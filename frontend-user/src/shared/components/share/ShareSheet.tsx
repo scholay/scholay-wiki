@@ -155,7 +155,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
       : created
         ? `${origin}/s/${created.token}`
         : '';
-  const urlLabel = shareUrl ? shareUrl.replace(/^https?:\/\//, '') : 'scholay.com/s/…';
+  const urlLabel = shareUrl ? shareUrl.replace(/^https?:\/\//, '') : '短链生成中…';
 
   // 单篇 / 期刊:登录态下进面板即自动生成短链(永久 / 无提取码),即用即分享,对齐设计(无「生成」步骤)。
   // 依赖 authenticated:面板内通过底部登录弹窗登录后,authenticated 翻 true → 这里补生成短链(只一次)。
@@ -268,7 +268,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
       paperCount: created?.paper_count ?? target.paperCount,
       sampleTitles,
       qrValue: qr,
-      urlLabel: created ? urlLabel : 'scholay.com/s/…',
+      urlLabel: created ? urlLabel : '短链生成中…',
     };
   }, [target, created, origin, shareUrl, urlLabel, sampleTitles]);
 

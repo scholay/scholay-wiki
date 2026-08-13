@@ -60,6 +60,12 @@ export function ToolsCatalogPage() {
         noindex={search.length > 0}
       />
 
+      {/* 可被爬虫读到的 H1 —— sr-only,不改视觉(可见标题是下面那行 text-16 的分类名)。
+          2026-08-13 Bing 点名缺 h1:SSR 兜底正文有 h1,但 React 接管后被整块替换。
+          不把下面的 h2 直接提成 h1:它随分类切换而变(「全部工具」/「统计分析」…),
+          而 h1 应该是页面级的稳定主题。 */}
+      <h1 className="sr-only">科研能力广场 — 科研工具与学术软件黄页</h1>
+
       <div className="mb-3 flex items-end justify-between">
         <h2 className="text-16 font-medium text-foreground">{heading}</h2>
         <span className="text-12 text-faint">共 {listed} 个</span>

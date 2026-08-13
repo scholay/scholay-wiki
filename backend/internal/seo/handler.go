@@ -611,7 +611,15 @@ func entityLastModXML(e SitemapEntry) string {
 
 // ServeRobotsTxt 返回 robots.txt，声明 sitemap 入口
 // 索引文件 /sitemap.xml 会枚举所有子 sitemap，爬虫跟随即可
+//
+// 非权威环境(APP_ENV=test/dev,或显式 SEO_INDEXABLE=false)只输出整站 Disallow,
+// 并且**不输出 Sitemap 指令** —— 输出了等于把整份 URL 清单白送给不守 robots 的爬虫。
 func (h *Handler) ServeRobotsTxt(c *gin.Context) {
+	if !appconfig.RequestIndexable(c.Request.Host) {
+		WriteBodyWithETag(c, "text/plain; charset=utf-8", "User-agent: *\nDisallow: /\n", 300)
+		return
+	}
+
 	// 规则按 robots 规范:爬虫只遵从**最具体匹配**的 User-agent 组,**不继承** * 组。
 	// 故 Baiduspider / Sogou 这两个主力中文爬虫的具名组必须各自自带 Disallow,
 	// 否则它们会无视下面的禁爬目录,去爬 /admin、/api、OAuth 回调(query 带 code/state)等非 SEO 面。

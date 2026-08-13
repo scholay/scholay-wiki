@@ -374,6 +374,11 @@ export function SearchPage() {
         noindex={hasSearchState}
       />
 
+      {/* 可被爬虫读到的 H1 —— 与 HomePage 同款 sr-only 手法,不改双栏视觉。
+          2026-08-13 Bing 站长后台点名「63 个页面缺 h1」:SSR 兜底正文里本来有 h1,
+          但 React 接管后整块被替换,渲染型爬虫(Bing/Google 的 renderer)看到的是无 h1 的文档。 */}
+      <h1 className="sr-only">学术搜索 — 论文检索与智能筛选</h1>
+
       <div className="flex h-full min-h-0 bg-background">
         {/* 搜索器列 —— **px 固定宽度**,viewport 窄时不缩 */}
         <div

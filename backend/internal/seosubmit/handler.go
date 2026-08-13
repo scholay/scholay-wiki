@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	appconfig "scholar-backend/internal/common/config"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,6 +26,13 @@ import (
 // 没配 key 时不注册任何路由(避免暴露空文件)。
 func RegisterKeyFileRoute(router *gin.Engine, svc *Service) {
 	if svc == nil {
+		return
+	}
+	// 非权威环境不伺服 key 文件。IndexNow 的所有权校验就是反抓 https://<host>/<key>.txt,
+	// 任何能返回 200 的 host 都被视为该 key 的合法持有者 —— 一个测试环境如果照抄了
+	// 生产的 INDEXNOW_KEY 又对外可达,就等于替生产的 key 认领了第二个站点。
+	// (常规路径上 INDEXNOW_ENABLED=false 时 IndexNowKey() 已返回空,这里是纵深防御。)
+	if !appconfig.SEOIndexable() {
 		return
 	}
 	key := svc.IndexNowKey()

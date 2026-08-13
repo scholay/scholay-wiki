@@ -71,15 +71,38 @@
       };
     </script>
 
-    <!-- Microsoft Clarity Analytics -->
+    <!-- 站点运行时配置 —— 由 frontend-user 容器的 docker-entrypoint.d/50-inject-site.sh
+         在【容器启动时】按 env 替换下面的占位符;dev 下由 vite.config.ts 的
+         siteConfigPlaceholders 插件用本地默认值替换。
+
+         为什么是运行时而不是 build-time:Vite 的 import.meta.env.VITE_* 在编译期就被
+         替换进 bundle,那意味着「换个域名 = 重新构建一个镜像」。改成运行时注入后,
+         **同一个镜像 tag 靠 env 就能服务不同域名的多套环境**。
+         backend SSR 也吃得到:它是 HTTP fetch 本容器的 `/` 拿 index.html
+         (见 backend/internal/config/handler_ssr.go 的 getPageHTML),拿到的正是替换后的版本。 -->
     <script>
-      window.__afterCriticalLoad(function () {
-        (function(c,l,a,r,i,t,y){
-          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "u14c9rnomm");
-      });
+      window.__SITE_CONFIG__ = {
+        // ICP 备案号。⚠️ 备案号与【已备案的域名】绑定,未接入备案的站点公开展示它
+        // 属于错挂,处理对象是备案本身。非权威环境留空即可,Footer 会整块不渲染。
+        icp: "__ICP_BEIAN__",
+      };
+    </script>
+
+    <!-- Microsoft Clarity Analytics —— project id 由 env 注入,留空则整段不加载。
+         这里以前写死一个 id,意味着任何环境(测试/预发/本地构建)的会话录制、热图、
+         点击流都会以那个项目的名义上报,而部署方在容器里没有任何办法关掉它。 -->
+    <script>
+      (function () {
+        var id = "__CLARITY_ID__";
+        if (!id || id.charAt(0) === "_") return;
+        window.__afterCriticalLoad(function () {
+          (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+          })(window, document, "clarity", "script", id);
+        });
+      })();
     </script>
     <!--
       Umami tracker —— 运行时加载,website_id 由 backend 接口动态提供。
@@ -243,7 +266,12 @@
     <!-- ───────── SEO 基础 meta(静态兜底)─────────
          非 JS 爬虫 / 百度首屏即可见;详情页由后端 SSR(handler_ssr.go)用正则替换 title/description/keywords。
          首页 RouteSEO(React 注入)与此处保持品牌词一致即可。 -->
-    <title data-seo-fallback="default">Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理</title>
+    <!-- 标题前缀由 entrypoint 按 env SITE_TITLE_PREFIX 注入:生产为空串,
+         非权威环境建议设成 "[TEST] "。(注释里刻意不写出占位符字面量 ——
+         sed 是全文替换,写了这里也会被一并替换掉,留下一句读不通的话。)
+         品牌名本身不参数化 —— 两套环境部署的确实是同一个产品,把品牌词换成占位符
+         只会毁掉生产的 SEO 文案。真正需要的是「两个标签页能一眼分清」,前缀就够了。 -->
+    <title data-seo-fallback="default">__TITLE_PREFIX__Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理</title>
     <meta
       data-seo-fallback="default"
       name="description"
@@ -266,13 +294,13 @@
     <meta property="og:site_name" content="Scholay学术" />
     <meta property="og:title" content="Scholay学术 - AI 驱动的学术搜索与研究平台" />
     <meta property="og:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台,覆盖全球 2 亿+ 学术论文。" />
-    <meta property="og:url" content="https://www.scholay.com/" />
-    <meta property="og:image" content="https://www.scholay.com/og-image-v2.png" />
+    <meta property="og:url" content="__SITE_URL__/" />
+    <meta property="og:image" content="__SITE_URL__/og-image-v2.png" />
     <meta property="og:locale" content="zh_CN" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Scholay学术 - AI 学术搜索工具" />
     <meta name="twitter:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台。" />
-    <meta name="twitter:image" content="https://www.scholay.com/og-image-v2.png" />
+    <meta name="twitter:image" content="__SITE_URL__/og-image-v2.png" />
 
     <!-- 结构化数据:品牌(Organization)+ 站点搜索框(WebSite/SearchAction)+ 产品(SoftwareApplication)。
          这是百度/必应「官网 + 子链(sitelinks)」与品牌知识卡的关键启用项;不写假评分(会被判作弊)。 -->
@@ -282,32 +310,32 @@
       "@graph": [
         {
           "@type": "Organization",
-          "@id": "https://www.scholay.com/#organization",
+          "@id": "__SITE_URL__/#organization",
           "name": "Scholay学术",
           "alternateName": ["Scholay", "Scholay学术", "Scholay科研", "Scholay工具", "Scholay AI"],
-          "url": "https://www.scholay.com",
-          "logo": "https://www.scholay.com/favicon.svg",
+          "url": "__SITE_URL__",
+          "logo": "__SITE_URL__/favicon.svg",
           "description": "AI 驱动的学术搜索与研究平台",
-          "sameAs": ["https://www.scholay.com"],
+          "sameAs": ["__SITE_URL__"],
           "contactPoint": {
             "@type": "ContactPoint",
             "contactType": "customer support",
-            "url": "https://www.scholay.com/contact"
+            "url": "__SITE_URL__/contact"
           }
         },
         {
           "@type": "WebSite",
-          "@id": "https://www.scholay.com/#website",
+          "@id": "__SITE_URL__/#website",
           "name": "Scholay学术",
           "alternateName": ["Scholay", "Scholay学术", "Scholay科研", "Scholay工具", "Scholay AI"],
-          "url": "https://www.scholay.com",
-          "publisher": { "@id": "https://www.scholay.com/#organization" },
+          "url": "__SITE_URL__",
+          "publisher": { "@id": "__SITE_URL__/#organization" },
           "inLanguage": "zh-CN",
           "potentialAction": {
             "@type": "SearchAction",
             "target": {
               "@type": "EntryPoint",
-              "urlTemplate": "https://www.scholay.com/search?q={search_term_string}"
+              "urlTemplate": "__SITE_URL__/search?q={search_term_string}"
             },
             "query-input": "required name=search_term_string"
           }
@@ -317,7 +345,7 @@
           "name": "Scholay学术",
           "applicationCategory": "EducationalApplication",
           "operatingSystem": "Web",
-          "url": "https://www.scholay.com",
+          "url": "__SITE_URL__",
           "description": "AI 驱动的一站式学术研究平台:论文搜索、AI 分析、智能审稿、文献管理、LaTeX 写作。",
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" }
         },
@@ -325,12 +353,12 @@
           "@type": "ItemList",
           "name": "Scholay学术 主要功能",
           "itemListElement": [
-            { "@type": "SiteNavigationElement", "position": 1, "name": "AI 文献搜索", "description": "覆盖 2 亿+ 学术论文,关键词 + 语义双引擎智能检索", "url": "https://www.scholay.com/search" },
-            { "@type": "SiteNavigationElement", "position": 2, "name": "期刊查询", "description": "按影响因子、JCR 分区、ISSN 检索全球期刊", "url": "https://www.scholay.com/journals/search" },
-            { "@type": "SiteNavigationElement", "position": 3, "name": "AI 智能助手", "description": "基于你的文献的 AI 学术对话与论文分析", "url": "https://www.scholay.com/claw" },
-            { "@type": "SiteNavigationElement", "position": 4, "name": "AI 智能审稿", "description": "投稿前用 AI 模拟同行评审,提前发现论文问题", "url": "https://www.scholay.com/peer-review" },
-            { "@type": "SiteNavigationElement", "position": 5, "name": "文献集管理", "description": "文件夹树 + AI 自动打标签,千篇文献一处归档", "url": "https://www.scholay.com/library" },
-            { "@type": "SiteNavigationElement", "position": 6, "name": "全部功能", "description": "Scholay学术 全部能力总览", "url": "https://www.scholay.com/features" }
+            { "@type": "SiteNavigationElement", "position": 1, "name": "AI 文献搜索", "description": "覆盖 2 亿+ 学术论文,关键词 + 语义双引擎智能检索", "url": "__SITE_URL__/search" },
+            { "@type": "SiteNavigationElement", "position": 2, "name": "期刊查询", "description": "按影响因子、JCR 分区、ISSN 检索全球期刊", "url": "__SITE_URL__/journals/search" },
+            { "@type": "SiteNavigationElement", "position": 3, "name": "AI 智能助手", "description": "基于你的文献的 AI 学术对话与论文分析", "url": "__SITE_URL__/claw" },
+            { "@type": "SiteNavigationElement", "position": 4, "name": "AI 智能审稿", "description": "投稿前用 AI 模拟同行评审,提前发现论文问题", "url": "__SITE_URL__/peer-review" },
+            { "@type": "SiteNavigationElement", "position": 5, "name": "文献集管理", "description": "文件夹树 + AI 自动打标签,千篇文献一处归档", "url": "__SITE_URL__/library" },
+            { "@type": "SiteNavigationElement", "position": 6, "name": "全部功能", "description": "Scholay学术 全部能力总览", "url": "__SITE_URL__/features" }
           ]
         }
       ]
@@ -342,7 +370,7 @@
          都有真实 on-page 文本可关联到本站。JS 加载后由 React 接管 #root,此块不显示。 -->
     <noscript>
       <h1>Scholay学术 —— AI 驱动的学术搜索与科研工具平台</h1>
-      <p><strong>Scholay学术</strong>(Scholay)是一个 AI 驱动的一站式学术研究平台,提供智能论文搜索、AI 论文分析、AI 智能审稿、文献集管理、期刊查询与 LaTeX 在线写作,覆盖全球 2 亿+ 学术论文。前往 <a href="https://www.scholay.com/">www.scholay.com</a> 开始使用,或了解 <a href="https://www.scholay.com/features">全部功能</a>、<a href="https://www.scholay.com/about">关于 Scholay</a>。</p>
+      <p><strong>Scholay学术</strong>(Scholay)是一个 AI 驱动的一站式学术研究平台,提供智能论文搜索、AI 论文分析、AI 智能审稿、文献集管理、期刊查询与 LaTeX 在线写作,覆盖全球 2 亿+ 学术论文。前往 <a href="__SITE_URL__/">Scholay学术官网</a> 开始使用,或了解 <a href="__SITE_URL__/features">全部功能</a>、<a href="__SITE_URL__/about">关于 Scholay</a>。</p>
     </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

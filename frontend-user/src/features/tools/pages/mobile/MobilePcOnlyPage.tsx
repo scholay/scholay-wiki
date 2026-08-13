@@ -62,7 +62,9 @@ export function MobilePcOnlyPage() {
 
   if (!feature) return <Navigate to="/m/tools" replace />;
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://scholay.com';
+  // 兜底空串而非某个写死的域名:这是纯 CSR 组件,window 恒存在,这一档实际上是死代码;
+  // 但留个真实域名在这里,一旦将来引入 SSR 就会静默生成指向另一个站点的「电脑端链接」。
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const fullUrl = `${origin}${feature.path}`;
   const displayUrl = fullUrl.replace(/^https?:\/\//, '');
 

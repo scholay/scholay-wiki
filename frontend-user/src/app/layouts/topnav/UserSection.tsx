@@ -1,8 +1,7 @@
 import { useRef } from 'react';
 import { useNavigate } from'react-router-dom';
-import { useQuery } from'@tanstack/react-query';
 import { Headphones } from 'lucide-react';
-import { canAccessAdmin, useAuthStatus } from'@/stores/auth.store';
+import { useAuthStatus } from'@/stores/auth.store';
 import { useAuthDialog } from'@/stores/auth-dialog.store';
 import { Button } from'@/shared/ui/button';
 import {
@@ -13,7 +12,6 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from'@/shared/ui/dropdown-menu';
 import { IconButton } from'@/shared/components/IconButton';
@@ -21,9 +19,6 @@ import { NotificationBell } from'@/shared/components/NotificationBell';
 import { InviteNavButton } from '@/shared/components/InviteNavButton';
 import { ActivityNavMenu } from './ActivityNavMenu';
 import { UserMenuContent } from'@/shared/components/UserMenuContent';
-import { http } from'@/shared/lib/http';
-import { useAuthStore } from '@/stores/auth.store';
-import { resetInfo } from'@/shared/lib/quota-display';
 import { cn } from'@/shared/lib/utils';
 
 /**
@@ -109,8 +104,8 @@ export function UserSection({ wide }: { wide: boolean }) {
           </DropdownMenuTrigger>
           {/* p-0 让 UserMenuContent 自己控制内部 padding;w-auto 由 content 撑 240 */}
           <DropdownMenuContent align="end" sideOffset={8} className="p-0 w-auto">
-            {/* 常驻额度余量 —— 管理员不查额度(与 UserMenuContent 同款豁免) */}
-            {!canAccessAdmin(user.role) && <MenuQuotaSummary />}
+            {/* 额度已并入 UserMenuContent 的「剩余用量」可展开项(2026-08-13)——
+                原来它只挂在这里,侧栏那个入口没有,两处内容长期不一致。 */}
             <UserMenuContent />
           </DropdownMenuContent>
         </DropdownMenu>
@@ -125,69 +120,6 @@ export function UserSection({ wide }: { wide: boolean }) {
           <span className="hidden min-[1200px]:inline text-12 font-medium text-faint">我的账户</span>
         </div>
       )}
-    </div>
-  );
-}
-
-// mirrors backend/internal/vip/quota.go Overview.token(P5:percent 是真值,绝对额度已抹除)。
-// 只声明本组件消费的字段;端点/queryKey 与 QuotaNotifier 同款(['settings','billing'],通常命中缓存)。
-interface QuotaOverviewLite {
-  token: {
-    percent: number; // 本周期已用百分比(0..100)
-    unlimited: boolean;
-    window_started_at: string | null;
-    window_reset_at: string | null;
-    window_days: number;
-  };
-}
-
-/**
- * 用户下拉里的常驻额度余量 —— 一行:剩余 % 细进度条 + 相对重置时间。
- * percent>=100 转红「额度已用完」;点击进账户资产页。未登录 / 加载中 / 不限额度不渲染。
- * app/layouts 不 import features(方向铁律),与 UserMenuContent 同款 inline useQuery。
- */
-function MenuQuotaSummary() {
-  const navigate = useNavigate();
-  // 响应式登录态门控(getAuthToken 非响应式,原地弹窗登录后查询不会自动启动)。
-  const authToken = useAuthStore((s) => s.token);
-  const { data } = useQuery({
-    queryKey: ['settings', 'billing'],
-    queryFn: async () =>
-      (await http.get<{ data: QuotaOverviewLite }>('/user/billing/overview')).data.data,
-    enabled: !!authToken,
-    staleTime: 30_000,
-  });
-
-  const t = data?.token;
-  if (!t || t.unlimited) return null; // 加载中不渲染;不限额度没有「余量」概念
-
-  const used = Math.min(100, Math.max(0, t.percent));
-  const remaining = Math.round(100 - used);
-  const exhausted = used >= 100;
-  const { rel } = resetInfo(t); // 「3 天后恢复」「满额」「即将恢复」等相对口径
-
-  return (
-    <div className="w-60 border-b border-border-hairline p-2">
-      <DropdownMenuItem
-        className="cursor-pointer rounded-8 px-3 py-2"
-        onSelect={() => navigate('/settings/membership')}
-      >
-        <div className="flex w-full flex-col gap-1">
-          <div className="flex items-center justify-between gap-2 text-12">
-            <span className={exhausted ? 'font-medium text-brand-red' : 'text-subtle'}>
-              {exhausted ? '额度已用完' : `额度剩余 ${remaining}%`}
-            </span>
-            <span className="shrink-0 text-faint">{rel}</span>
-          </div>
-          {/* 细进度条:剩余量;动态宽度属「动态计算尺寸」,允许内联 style */}
-          <div className="h-1 w-full overflow-hidden rounded-pill bg-surface-2">
-            <div
-              className={cn('h-full rounded-pill', exhausted ? 'bg-brand-red' : 'bg-brand-green')}
-              style={{ width: `${remaining}%` }}
-            />
-          </div>
-        </div>
-      </DropdownMenuItem>
     </div>
   );
 }

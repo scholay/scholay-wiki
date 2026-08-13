@@ -265,14 +265,19 @@ func (s *Service) Stats(userID uint) (*UserInviteView, error) {
 // **不能**优先 FRONTEND_USER_URL:docker-compose 把它硬编码为 "http://frontend-user:80"
 // (容器内网地址,供 internal/config 下发前端做内部拼接),实测用它拼出的分享链接
 // 是用户不可达的内网 URL。仅当 SITE_URL 缺失时才回落它(裸机部署可能只配了公网
-// FRONTEND_USER_URL),最后兜底品牌域名。
+// FRONTEND_USER_URL),最后兜底 CanonicalBaseURL()。
+//
+// 🔴 最后一档以前是写死的品牌域名。那意味着一个漏配 SITE_URL 的环境会把自己的
+// 邀请码拼成**别的站点**的链接:用户点开进的是生产站,而那个 code 在生产库里不存在
+// → 落地页报无效码,邀请转化静默归零,且日志里两边都看不出问题。现在最后一档是
+// CanonicalBaseURL(),它自己已经没有真实域名兜底(release 模式漏配直接启动失败)。
 func (s *Service) InviteURL(code string) string {
 	base := os.Getenv("SITE_URL")
 	if base == "" && appconfig.AppConfig != nil {
 		base = appconfig.AppConfig.App.FrontendUserURL
 	}
 	if base == "" {
-		base = "https://www.scholay.com"
+		base = appconfig.CanonicalBaseURL()
 	}
 	return strings.TrimRight(base, "/") + "/i/" + code
 }
