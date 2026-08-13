@@ -7,7 +7,21 @@ import { isPhoneDevice } from '@/shared/lib/device';
 
 type Kind = 'half' | 'almost' | 'reset' | 'recharge' | 'exhausted';
 
-// 0090 口径:重置只扣「重置次数」、经费买不到重置;经费的用途是「用经费继续」按量付费(须在账户资产开启)。
+// 🔴 额度文案三条铁律(2026-08-13 产品拍板,全站额度提示共用,改文案前先读):
+//   ① **不解释机制**。「本周期」「每 N 天」「重新计算周期」「重置」这类周期/重置口径一律不进用户文案 ——
+//      规则本身在变,写进提示就会常年落后于实现(旧文案「用完后可等待自动恢复,或用手动恢复/经费继续」
+//      就是这么过期的)。只说**状态**和**出路**。
+//   ② **恢复时刻照常给**。绝对时刻(X月X日 HH:MM)是事实不是机制,必须露出 —— 给了时间,「等一等」
+//      才是一条真实选项,提示才不只剩逼单一条路。动态正文由 QuotaNotifierGate 注入,
+//      这里的 body 是拿不到 overview 时的兜底。
+//   ③ **没有的出路不要提**。「立即恢复」只在账上真有次数时出现(与 QuotaComposerStrip 上区同一判定),
+//      由调用方按 overview.reset_passes 注入 action;预设里绝不写死。
+//      —— 旧后端文案对所有人都写「用 1 次重置次数马上恢复」,而次数为 0 是绝大多数用户的常态。
+// 语域(2026-08-13):**书面、克制、不口语**。产品内提示尽量不用人称代词,不用语气词
+//   (「吧 / 呢 / 啦 / 哦」)、不用反问句(「不想等?」)、不用俗语(「不花钱」「接着跑」)。
+//   邮件与站内信统一第二人称「您」。
+// 用词统一:用户侧只说「恢复」,不说「重置」。
+//
 // action:动作按钮(sonner 自绘结构内的次级入口)。to 是 PC 目的地;手机 UA 统一去 /m/me
 // (移动端无 /settings/membership 对等页,裸跳会被设备 loader 送去 /m/feed 丢上下文)。
 const PRESETS: Record<
@@ -16,31 +30,28 @@ const PRESETS: Record<
 > = {
   half: {
     color: 'amber',
-    title: '本周期用量已过半',
-    body: '用量按周期自动恢复,可先安排重要任务。',
+    title: '额度已使用一半',
+    body: '剩余额度可继续使用',
     action: { label: '查看用量', to: '/settings/membership' },
   },
   almost: {
     // 琥珀而非红:还没到顶,是提醒不是故障(大厂调研:红色留给真失败)。
     color: 'amber',
-    title: '即将达到本周期用量上限',
-    body: '用完后可等待自动恢复,或用手动恢复/经费继续。',
+    title: '额度即将用完',
+    body: '额度将自动恢复',
     action: { label: '查看用量', to: '/settings/membership' },
   },
-  reset: { color: 'green', title: '用量已恢复', body: '可以继续使用了。' },
+  reset: { color: 'green', title: '额度已恢复', body: '可继续使用' },
   recharge: {
     color: 'blue',
     title: '经费已到账',
-    body: '开启「用经费继续」后,额度用完会自动续跑,只扣超出部分。',
+    body: '开启「用经费继续」后,额度用完将自动使用经费',
     action: { label: '去开启', to: '/settings/membership?tab=recharge' },
   },
-  // 弹窗关闭后的 60s 冷却期内再次命中 6010 → 只出这条轻 toast,不重弹弹窗(QuotaNotifier 消费)。
   exhausted: {
     color: 'amber',
-    title: '本周期用量已达上限',
-    // 正文只讲恢复时刻(与 composer 额度条同口径);带绝对时间的动态正文由
-    // QuotaNotifierGate 注入,这里是拿不到 overview 时的兜底。
-    body: '额度恢复后可继续使用。',
+    title: '额度已用完',
+    body: '额度恢复后可继续使用',
     action: { label: '查看用量', to: '/settings/membership' },
   },
 };
@@ -54,7 +65,7 @@ const COLOR = {
 } as const;
 
 /** 弹一条额度/经费状态 toastr。opts.action 覆盖预设动作(按用户状态注入:
- *  升级会员 / 重置额度 / 充值经费 / 用经费继续 —— 与对话位额度条同一优先级序)。 */
+ *  立即恢复 / 升级会员 / 用经费继续 / 充值经费 —— 与对话位额度条同一优先级序)。 */
 export function showQuotaToast(
   kind: Kind,
   opts?: { action?: { label: string; onClick: () => void }; body?: string },

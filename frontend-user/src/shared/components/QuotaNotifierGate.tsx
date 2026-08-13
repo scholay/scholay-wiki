@@ -80,30 +80,33 @@ export function QuotaNotifierGate() {
           quota?.credit_balance_positive ?? (ov?.credit.total ?? 0) > 0;
         const tier = ov?.tier ?? 'free';
         const passes = ov?.reset_passes ?? 0;
+        // 🔴 优先级与 QuotaComposerStrip 一致(2026-08-13):**有重置次数就先给「立即恢复」** ——
+        // 那是唯一零成本、当场生效的路,额度条把它单独放在上区正是这个理由;
+        // toast 只放得下一个自定义动作,所以它必须排在付费路之前。没有次数则整条不提(不出 0 次)。
         const action =
-          !autopayOn && creditPositive
+          passes > 0
             ? {
-                label: '用经费继续',
+                label: '立即恢复',
                 onClick: () =>
                   isPhoneDevice()
                     ? quotaNavigate('/m/me')
-                    : useQuotaStore.getState().openConfirmPayg(),
+                    : useQuotaStore.getState().openConfirmReset(),
               }
-            : tier === 'free'
+            : !autopayOn && creditPositive
               ? {
-                  label: '升级会员',
-                  onClick: () => {
-                    if (isPhoneDevice()) quotaNavigate('/m/me?upgrade=1');
-                    else useQuotaStore.getState().openSubscribe();
-                  },
+                  label: '用经费继续',
+                  onClick: () =>
+                    isPhoneDevice()
+                      ? quotaNavigate('/m/me')
+                      : useQuotaStore.getState().openConfirmPayg(),
                 }
-              : passes > 0
+              : tier === 'free'
                 ? {
-                    label: '立即恢复',
-                    onClick: () =>
-                      isPhoneDevice()
-                        ? quotaNavigate('/m/me')
-                        : useQuotaStore.getState().openConfirmReset(),
+                    label: '升级会员',
+                    onClick: () => {
+                      if (isPhoneDevice()) quotaNavigate('/m/me?upgrade=1');
+                      else useQuotaStore.getState().openSubscribe();
+                    },
                   }
                 : {
                     label: '充值经费',
@@ -116,9 +119,7 @@ export function QuotaNotifierGate() {
         const resetAt = formatResetAt(quota?.reset_at || ov?.token.window_reset_at);
         showQuotaToast('exhausted', {
           action,
-          body: resetAt
-            ? `额度将于 ${resetAt} 恢复。`
-            : undefined,
+          body: resetAt ? `${resetAt} 恢复满额` : undefined,
         });
       }, 150);
     };
@@ -150,11 +151,14 @@ export function QuotaNotifierGate() {
       const state = useQuotaStore.getState();
       const level = state.warnDay === day ? state.warnLevel : 0;
       const percent = data.token.percent;
+      // 阈值 toast 也带上恢复时刻(与耗尽 toast / 额度条同一句式);拿不到时走预设兜底。
+      const resetAt = formatResetAt(data.token.window_reset_at);
+      const body = resetAt ? `${resetAt} 恢复满额` : undefined;
       if (percent >= 80 && level < 2) {
-        showQuotaToast('almost');
+        showQuotaToast('almost', { body });
         state.markWarn(day, 2);
       } else if (percent >= 50 && level < 1) {
-        showQuotaToast('half');
+        showQuotaToast('half', { body });
         state.markWarn(day, 1);
       }
     }, 600);

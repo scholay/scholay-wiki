@@ -2,7 +2,9 @@
 // (UsageDialog)共用同一份 mutation 与二次确认弹窗,行为/文案单一真源。
 //
 // 两条恢复路:
-//   · 重置:POST /user/billing/reset(扣 1 次重置次数,立即满额)—— 必须二次确认。
+//   · 立即恢复:POST /user/billing/reset(扣 1 次次数,额度当场回满)—— 必须二次确认。
+//     ⚠️ 端点与后端字段仍叫 reset/reset_passes(冻结契约),但**用户侧一律说「恢复」不说「重置」**
+//     (2026-08-13 文案收口,三条铁律见 quota-toast.tsx 头部)。别照着接口名写文案。
 //   · 用经费继续:PUT /user/billing/autopay {enabled:true} —— 弹窗确认后就地开启。
 // 成功后统一 notifyQuotaRecovered()(有被拦消息时由额度条自动重发)+ 刷新 overview。
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -33,7 +35,7 @@ export function useResetQuotaMutation(onDone?: () => void) {
       void qc.invalidateQueries({ queryKey: QUOTA_OVERVIEW_QUERY_KEY });
     },
     onError: (err) =>
-      toast.error(toApiError(err).message || '重置失败,次数未扣除,请稍后再试'),
+      toast.error(toApiError(err).message || '恢复失败,恢复次数未扣除,请稍后重试'),
   });
 }
 
@@ -48,7 +50,7 @@ export function usePaygMutation(onDone?: () => void) {
       void qc.invalidateQueries({ queryKey: QUOTA_OVERVIEW_QUERY_KEY });
     },
     onError: (err) =>
-      toast.error(toApiError(err).message || '开启失败,设置未变更,请稍后再试'),
+      toast.error(toApiError(err).message || '开启失败,设置未变更,请稍后重试'),
   });
 }
 
@@ -72,9 +74,10 @@ export function ResetConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>使用 1 次重置?</DialogTitle>
+          {/* 不写「重新计算周期」:那是内部机制,用户只需要知道额度会回满、还剩几次。 */}
+          <DialogTitle>立即恢复额度?</DialogTitle>
           <DialogDescription>
-            立即恢复满额并重新计算周期
+            额度将立即恢复至满额
             {passes > 0 && (
               <>
                 ,本次使用后剩余 <b className="text-foreground">{passes - 1}</b> 次
@@ -95,7 +98,7 @@ export function ResetConfirmDialog({
             ) : (
               <RefreshCw className="size-3.5" />
             )}
-            确认重置
+            确认恢复
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -123,7 +126,7 @@ export function PaygConfirmDialog({
         <DialogHeader>
           <DialogTitle>开启「用经费继续」?</DialogTitle>
           <DialogDescription>
-            额度用完后自动使用经费,只扣超出额度的部分,可随时在「账户资产」关闭。{note}
+            额度用完后将自动使用经费,仅扣除超出额度的部分,可随时关闭。{note}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

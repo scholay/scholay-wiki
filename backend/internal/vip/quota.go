@@ -544,7 +544,7 @@ func (s *Service) payAsYouGoOrQuotaError(userID uint, tier string, cfg *BillingC
 	if bal != nil && bal.PermMicro > 0 && !bal.CreditAutopay {
 		// 有钱但没开开关 —— 文案要指向「去开开关」,而不是笼统说额度没了。
 		// 刻意不点名「账户资产」页:移动端没有该页,具体入口由前端按钮按端承载。
-		msg += "你有可用经费。开启「用经费继续」就能立刻接着做 —— 只扣超出额度的那部分,随时可以关掉。"
+		msg += "开启「用经费继续」后可继续使用,仅扣除超出额度的部分。"
 	}
 	return NewQuotaErrorWithDetails(msg, details)
 }
@@ -710,7 +710,7 @@ func (r *ResetResult) StripAmounts() *ResetResult {
 // ErrQuotaServiceDown 额度计数器不可用时的重置拒绝(**不扣费**)。
 // 旧实现降级期照扣经费但解锁不了(base 写被 rdb!=nil 包住跳过)→ 用户反复扣费;
 // 日窗口下明早自愈,7 天周期会卡整窗,必须显式拒绝(评审 window7 修订)。
-var ErrQuotaServiceDown = errors.New("暂时没能重置额度,请稍过一会儿再试。你的重置次数没有被扣除,额度也没有任何变化。")
+var ErrQuotaServiceDown = errors.New("暂时无法恢复额度,请稍后重试。恢复次数未扣除,额度未发生变化。")
 
 // ResetQuota —— 手动重置:消耗经费 → 窗口内额度满血(base=used)。经费不足回 ErrInsufficientCredit。
 func (s *Service) ResetQuota(ctx context.Context, userID uint) (*ResetResult, error) {
@@ -1036,27 +1036,27 @@ func (s *Service) ReconcilePendingRefills(ctx context.Context) (int, error) {
 	return n, nil
 }
 
-// quotaExceededMessage 超限友好文案(含自动重置时刻 + 升级引导)。
+// quotaExceededMessage 超限友好文案(状态 + 恢复时刻,尽量短)。
 //
-// 0090 起重置改扣「重置次数」而非经费,文案里的「消耗 N 经费立即重置」全部换成「使用重置次数」。
-// 刻意**不在这里报剩余次数**:本函数在超限热路径上被调用(WS/HTTP 两条通路),取次数要打一次 DB;
-// 且大多数用户次数为 0(唯一来源是那次历史换算),报「剩余 0 次」只会制造困惑。
-// 有没有次数由前端读账户资产后自行决定要不要显示重置入口。
+// 🔴 2026-08-13 文案收口 —— 这条会原样透传成前端 toast / 额度条,是全站最高频的额度文案。
+// ① 不提「重置次数」。旧文案对所有人都写「用 1 次重置次数马上恢复」,但本函数在超限热路径上
+// (WS/HTTP 两条通路),取次数要打一次 DB,所以刻意不查 —— 于是次数为 0 的用户(绝大多数,
+// 唯一来源是那次历史换算)被告知了一条他根本没有的出路。现在后端只说状态和时刻,
+// 「立即恢复」入口由前端读 overview.reset_passes 后决定出不出(与对话位额度条上区同一判定)。
+// ② 不解释周期机制。「每个周期能做的事更多」这类内部口径不进用户文案 —— 规则在变,写进去就会过期。
+// ③ 恢复时刻照常给。绝对时刻是事实不是机制,有了它「等待」才是一条真实选项。
+// ④ 语域书面克制,不用感叹号与口语。
+// 前端对应文案与铁律见 frontend-user/src/shared/components/quota-toast.tsx 头部。
 func quotaExceededMessage(tier string, _ *BillingConfig, resetAt time.Time) string {
-	when := ""
+	msg := "AI 额度已用完"
 	if !resetAt.IsZero() {
-		when = fmt.Sprintf("%d月%d日 %02d:%02d", resetAt.Month(), resetAt.Day(), resetAt.Hour(), resetAt.Minute())
+		msg += fmt.Sprintf(",%d月%d日 %02d:%02d 恢复满额", resetAt.Month(), resetAt.Day(), resetAt.Hour(), resetAt.Minute())
 	}
+	msg += "。"
 	if tier == TierFree {
-		if when != "" {
-			return fmt.Sprintf("你的 AI 额度用完了,到 %s 会自动恢复满额。不想等的话:用 1 次重置次数马上恢复,或者升级 Pro —— 每个周期能做的事更多。", when)
-		}
-		return "你的 AI 额度用完了。可以用 1 次重置次数马上恢复,或者升级 Pro —— 每个周期能做的事更多。"
+		msg += "升级会员可获得更多额度。"
 	}
-	if when != "" {
-		return fmt.Sprintf("你的 AI 额度用完了,到 %s 会自动恢复满额;不想等,可以用 1 次重置次数马上恢复。", when)
-	}
-	return "你的 AI 额度用完了。可以用 1 次重置次数马上恢复。"
+	return msg
 }
 
 // ─── 会员/额度总览(给前端「账户资产 · 总览」+ 旧「我的会员」)────────────────────

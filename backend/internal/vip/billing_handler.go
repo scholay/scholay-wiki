@@ -55,14 +55,14 @@ func (h *Handler) ResetQuota(c *gin.Context) {
 	res, err := h.svc.ResetQuota(c.Request.Context(), uid)
 	if err != nil {
 		if errors.Is(err, ErrNoResetPass) {
-			// 刻意不提「充值」——充值买不到重置次数了,给一条走不通的路比不给更糟。
-			utils.BadRequest(c, "你的重置次数已经用完了。这一轮额度到期会自动恢复满额;不想等,可以升级会员 —— 每个周期能做的事更多。")
+			// 刻意不提「充值」——充值买不到次数了,给一条走不通的路比不给更糟。
+			utils.BadRequest(c, "恢复次数已用完。升级会员可获得更多额度。")
 			return
 		}
-		utils.InternalError(c, 500, "这次没能重置成功,请稍后再试。你的重置次数没有被扣除。", err)
+		utils.InternalError(c, 500, "恢复失败,请稍后重试。恢复次数未扣除。", err)
 		return
 	}
-	utils.SuccessWithMessage(c, "额度已恢复满额,可以接着用了", res.StripAmounts()) // 用户端只看百分比,不下发额度绝对值
+	utils.SuccessWithMessage(c, "额度已恢复至满额", res.StripAmounts()) // 用户端只看百分比,不下发额度绝对值
 }
 
 // SetCreditAutopay PUT /user/billing/autopay {enabled} —— 开/关「周期额度用完后自动用经费续」。
@@ -84,9 +84,9 @@ func (h *Handler) SetCreditAutopay(c *gin.Context) {
 		utils.InternalError(c, 500, "保存失败,请稍后重试", err)
 		return
 	}
-	msg := "已关闭:额度用完后将不再自动使用经费"
+	msg := "已关闭,额度用完后不再自动使用经费"
 	if req.Enabled {
-		msg = "已开启:周期额度用完后将自动使用经费继续"
+		msg = "已开启,额度用完后将自动使用经费"
 	}
 	utils.SuccessWithMessage(c, msg, gin.H{"enabled": req.Enabled})
 }

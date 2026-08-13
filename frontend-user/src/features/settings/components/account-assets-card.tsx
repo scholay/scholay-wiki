@@ -76,13 +76,17 @@ function fmtMultiple(n: number): string {
 }
 
 // 倍率口径:Pro 相对 Free,Max 相对 Pro。倍率与充值汇率都从后端 plans 取(动态),兜底 5/5/100。
-// 0090:重置只扣重置次数、经费买不到重置、无临时经费 —— 轮播文案与此口径对齐,别把旧话术加回来。
-function buildSlides(proMult: number, maxMult: number, rate: number) {
+// 0090:恢复只扣恢复次数、经费买不到恢复、无临时经费 —— 轮播文案与此口径对齐,别把旧话术加回来。
+// windowDays 动态取 billing_config.window_days(admin 旋钮),不写死「7 天」;
+// 用词与全站额度文案同律:说「恢复」不说「重置」(见 shared/components/quota-toast.tsx 头部)。
+function buildSlides(proMult: number, maxMult: number, rate: number, windowDays: number) {
   return [
-    { title: '各档能用多少', body: `Pro 的 AI 用量是 Free 的 ${proMult} 倍,Max 又是 Pro 的 ${maxMult} 倍。档位越高,一周能连着干的活越多。` },
-    { title: '会员多了什么', body: 'Pro 和 Max 能优先用上更强的 AI 模型,新功能也先给你用;Max 还能在高峰期优先处理。' },
-    { title: '用完了怎么办', body: '额度从你第一次用 AI 那天起算,7 天后自动回满。不想等,可以用 1 次重置次数当场回满。' },
-    { title: '经费怎么用', body: `按 1 元 = ${rate} 经费到账,充多少用多少。开启「用经费继续」后,额度用完还能接着干活 —— 只扣超出额度的那部分。` },
+    { title: '各档能用多少', body: `Pro 的 AI 额度是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。档位越高,可连续完成的工作量越多。` },
+    // 🔴 这一条原本讲「更强模型 / 新功能优先 / 高峰期优先」,2026-08-13 实测三条在代码里
+    // 都不存在(min_tier 全空、无优先级队列、无灰度),已换成真实差异:功能不分档,只差额度量级。
+    { title: '会员多了什么', body: '三档可使用的功能完全相同,差别在于每周可用的 AI 额度。档位越高,同一周期内能完成的任务越多。' },
+    { title: '用完了怎么办', body: `额度自第一次使用 AI 时开始计算,${windowDays} 天后自动恢复至满额。如需立即恢复,可使用 1 次恢复次数。` },
+    { title: '经费怎么用', body: `按 1 元 = ${rate} 经费到账,充值多少即可使用多少。开启「用经费继续」后,额度用完可自动使用经费继续,仅扣除超出额度的部分。` },
   ];
 }
 
@@ -98,6 +102,7 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
   const methods = subscribePayMethods(plans?.payment_methods, plans?.test_payment ?? false);
   const proMult = plans?.plans?.find((p) => p.tier === 'pro')?.multiplier ?? 5;
   const maxMult = plans?.plans?.find((p) => p.tier === 'max')?.multiplier ?? 5;
+  const windowDays = plans?.window_days ?? 7; // admin 旋钮,不写死(理由见 buildSlides 上方)
   const rate = plans?.recharge_rate ?? 100; // 0095:经费=分,¥1 = 100 经费(汇率可调,以后端为准)
   // 倍率兜底值(5/5)与线上配置(实测 2/2)不一致 —— 一个醒目的「×25」写错比不写更糟,
   // 故倍率徽标只在 plans 真的到位后才渲染,未到位时轨道留空。
@@ -185,7 +190,7 @@ export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () 
         </>
       )}
 
-      <ExplainerCarousel proMult={proMult} maxMult={maxMult} rate={rate} />
+      <ExplainerCarousel proMult={proMult} maxMult={maxMult} rate={rate} windowDays={windowDays} />
 
       <MembershipActionDialog
         open={flow !== null}
@@ -225,7 +230,7 @@ function CreditAutopayRow({ data }: { data: Overview }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-14 font-medium text-foreground">用经费继续</p>
-        <p className="text-12 text-faint">额度用完后，仅对超出部分按量扣除经费</p>
+        <p className="text-12 text-faint">额度用完后,仅对超出部分按量扣除经费</p>
       </div>
       <Switch
         checked={data.credit.credit_autopay}
@@ -236,8 +241,8 @@ function CreditAutopayRow({ data }: { data: Overview }) {
             onSuccess: () =>
               toast.success(
                 enabled
-                  ? '已开启：额度用完后将按实际超出用量扣除经费'
-                  : '已关闭：额度用完后不会自动扣除经费',
+                  ? '已开启,额度用完后将按实际超出用量扣除经费'
+                  : '已关闭,额度用完后不会自动扣除经费',
               ),
             onError: (error) =>
               toast.error(toApiError(error).message || '保存失败'),
@@ -317,7 +322,7 @@ function ActiveRow({ data }: { data: Overview }) {
                       ? ` · ${monthDay(data.reset_pass_next_expiry)}前有效`
                       : ''
                   }`
-                : '暂无重置次数'}
+                : '暂无恢复次数'}
             </span>
             <ResetDialog data={data} exhausted={exhausted} />
           </div>
@@ -400,9 +405,19 @@ function LockedRow({
   );
 }
 
-function ExplainerCarousel({ proMult, maxMult, rate }: { proMult: number; maxMult: number; rate: number }) {
+function ExplainerCarousel({
+  proMult,
+  maxMult,
+  rate,
+  windowDays,
+}: {
+  proMult: number;
+  maxMult: number;
+  rate: number;
+  windowDays: number;
+}) {
   const [i, setI] = useState(0);
-  const slides = buildSlides(proMult, maxMult, rate);
+  const slides = buildSlides(proMult, maxMult, rate, windowDays);
   const s = slides[i % slides.length];
   return (
     <div className="mt-4 flex items-center gap-3 rounded-12 border border-border-soft bg-surface-1 p-3">
@@ -429,17 +444,17 @@ function ExplainerCarousel({ proMult, maxMult, rate }: { proMult: number; maxMul
 function ResetDialog({ data, exhausted }: { data: Overview; exhausted: boolean }) {
   const reset = useResetQuota();
   const [open, setOpen] = useState(false);
-  // 0090:重置扣的是**重置次数**不是经费 —— 按经费余额判会两头都错
+  // 0090:恢复扣的是**恢复次数**不是经费 —— 按经费余额判会两头都错
   // (有次数没经费的点不到按钮;有经费没次数的点了吃 400)。
   const enough = data.reset_passes > 0;
 
   const onReset = async () => {
     try {
       await reset.mutateAsync();
-      toast.success('额度已回满,可以接着用了');
+      toast.success('额度已恢复至满额');
       setOpen(false);
     } catch (err) {
-      toast.error(toApiError(err).message || '没能重置,请再试一次');
+      toast.error(toApiError(err).message || '恢复失败,请稍后重试');
     }
   };
 
@@ -448,7 +463,7 @@ function ResetDialog({ data, exhausted }: { data: Overview; exhausted: boolean }
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="使用重置次数重置额度"
+        title="使用恢复次数立即恢复额度"
         className={cn(
           'flex h-7 shrink-0 items-center justify-center rounded-8 border px-3 text-12 font-medium transition-colors',
           exhausted
@@ -456,34 +471,34 @@ function ResetDialog({ data, exhausted }: { data: Overview; exhausted: boolean }
             : 'border-border text-faint hover:bg-surface-2',
         )}
       >
-        重置
+        立即恢复
       </button>
       <DialogContent>
         {enough ? (
           <>
             <DialogHeader>
-              <DialogTitle>{exhausted ? 'AI 额度用完了' : '把额度恢复满额'}</DialogTitle>
+              <DialogTitle>{exhausted ? '额度已用完' : '立即恢复额度'}</DialogTitle>
               <DialogDescription>
-                用掉 1 次重置次数,额度马上回满 —— 用完你还剩 <b className="text-foreground">{Math.max(0, data.reset_passes - 1)}</b> 次。也可以什么都不做,等它到期自动回满。
+                使用 1 次恢复次数,额度将立即回到满额,本次使用后剩余 <b className="text-foreground">{Math.max(0, data.reset_passes - 1)}</b> 次。也可以不做任何操作,等待自动恢复。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose asChild>
-                <Button variant="outline" size="sm">先不用</Button>
+                <Button variant="outline" size="sm">暂不使用</Button>
               </DialogClose>
               <Button size="sm" onClick={onReset} disabled={reset.isPending}>
                 {reset.isPending && <Loader2 className="size-3.5 animate-spin" />}
-                马上回满
+                确认恢复
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>重置次数用完了</DialogTitle>
+              <DialogTitle>恢复次数已用完</DialogTitle>
               <DialogDescription>
-                {/* 刻意不引导充值:0090 起经费买不到重置,给一条走不通的路比不给更糟。 */}
-                你的重置次数已经用完了。这一轮额度到期会自动回满;想现在就有更多额度,可以升级会员。
+                {/* 刻意不引导充值:0090 起经费买不到恢复次数,给一条走不通的路比不给更糟。 */}
+                恢复次数已用完。额度到期会自动恢复至满额;如需更多额度,可升级会员。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

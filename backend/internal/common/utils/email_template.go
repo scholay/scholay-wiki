@@ -1,14 +1,13 @@
 // ============================================================================
 // 统一品牌邮件模板 —— 全站所有邮件(验证码 / 反馈回复 / 会员计费通知 / 兑换 等)
-// 都走 RenderBrandedEmail,保证品牌名(Scholay)、配色、版式与前端项目一致。
+// 都走 RenderBrandedEmail,保证字标、配色、版式与前端页面一致。
 //
 // UI 配色是 frontend-user/src/styles/globals.css 的**人工镜像**。邮件走内联样式、
-// 拿不到 CSS 变量,只能把 token 解析后的字面值抄过来。但多色 Scholay 字标
-// 是独立冻结资产,不随 UI `--brand-*` 调色联动。
-// 上次同步:2026-07-28(此前停留在两代前的 #CC2222/#2A7A2A/#D4A017,
+// 拿不到 CSS 变量,只能把 token 解析后的字面值抄过来。
+// 上次同步:2026-08-13(见下方字标一节;此前停留在两代前的 #CC2222/#2A7A2A/#D4A017,
 // 而用户收到的每一封验证码/通知邮件都是站外的品牌露出 —— 前端护栏扫不到 backend/)。
 //
-// 字标用前端同款多色 "Scholay"。邮件用 table + 内联样式(兼容 Outlook/QQ/Gmail)。
+// 邮件用 table + 内联样式(兼容 Outlook/QQ/Gmail)。
 // ============================================================================
 
 package utils
@@ -19,15 +18,25 @@ import (
 	"strings"
 )
 
-// EmailBrandName 品牌名(主题前缀 / 页脚)。
+// EmailBrandName 品牌名(主题前缀 / 页脚 / 正文行文)。
+//
+// 与前端 shared/components/BrandName.tsx 渲染的字样一致 —— 全站正文里的品牌名就是它。
+// ⚠️ 不要写成「Scholay学术」:那是 SEO 侧的 og:site_name / <title>(index.html),
+// 用来在搜索结果里补语义,不是 UI 与邮件行文用的品牌名。
 const EmailBrandName = "Scholay"
+
+// EmailSubject 邮件主题统一格式:「Scholay · <标题>」。
+//
+// 收口三种历史写法(`Scholay 注册验证码` / `您的反馈已收到回复 - Scholay` / `Scholay · 经费充值成功`)——
+// 品牌前置能让用户在收件箱列表里一眼扫到是谁发的,分隔符统一成 `·` 与站内标题风格一致。
+func EmailSubject(title string) string { return EmailBrandName + " · " + title }
 
 // 括号里是 globals.css 的 token 名。对比度均按邮件里的**实际承载底色**验算过,
 // 不是照抄前端的标称值 —— 同一个前景色换个底就可能掉出 AA(页脚那条就是这么定的)。
 const (
-	emailRed    = "#882828" // --brand-red 朱砂  · CTA 底 / 顶部色条 / 字标 S·a
-	emailGreen  = "#2F4D29" // --brand-green 松青 · 字标 ch·y
-	emailAmber  = "#E5A800" // 冻结的历史邮件字标色 · Scholay 的 o（非 UI --brand-amber）
+	// 松青 --brand-green 此前只被旧字标消费,字标改跟 --logo-* 后已无调用点,故删除
+	// (留着就是一个没人用的色 token,正是本仓库反复清理的那类死代码)。
+	emailRed    = "#882828" // --brand-red 朱砂  · CTA 底 / 顶部色条
 	emailInk    = "#1F1F23" // --foreground      · 标题 / 验证码   16.43:1 on 白卡
 	emailSubtle = "#505059" // --subtle          · 正文段落        7.98:1 on 白卡
 	emailMuted  = "#686873" // --muted-foreground· 引用块          4.69:1 on surface-1
@@ -45,6 +54,31 @@ const (
 	// 落米白正好 4.58:1。语义上页脚也本就是「页面 chrome」而非内嵌面板,两边对齐。
 	emailPageBg = "#F6F4EE"
 )
+
+// ─── 字标(与页面 Logo 同一套)────────────────────────────────────────────────
+//
+// 🔴 2026-08-13 收口:此前邮件自造了一个**页面上不存在**的字标 —— 混合大小写
+// "Scholay"、三色(#882828/#2F4D29/#E5A800)、按 S·ch·o·l·a·y 分配。而页面的
+// 文字标(frontend-user/src/shared/components/brand/ScholayWordmark.tsx,顶栏 /
+// 分享海报 / 登录弹窗都用它)是**全大写 SCHOLAY + 四色循环**。大小写、色值、
+// 配色规则三样全不一样,收件箱里那封邮件等于另一个牌子。
+//
+// 邮件里没法用 SVG(Gmail 直接剥离)、也不宜用图片(默认屏蔽图片是常态,
+// 一屏蔽品牌就整块消失),所以用**真文本**复刻:大小写与配色跟着页面走,
+// 字形交给衬线栈近似(页面字形是 Playfair Display 400 的矢量描边)。
+//
+// 色值真源 = globals.css 的 --logo-*(与语义 --brand-* 是两套,刻意不联动:
+// 标志要比 UI 更跳)。改这四个值 = 改品牌,必须先改设计稿。
+const (
+	logoRed   = "#882828" // --logo-red   · S · L
+	logoAmber = "#F1BF45" // --logo-amber · C · A
+	logoGreen = "#427935" // --logo-green · H · Y
+	logoInk   = "#000000" // --logo-ink   · O(纯黑,刻意不用 --foreground 的偏蓝墨黑)
+)
+
+// emailBrandFont 与 globals.css --font-brand 同栈(去掉不自托管的 Playfair,
+// 邮件客户端只会命中系统字体;顺序保持一致,装了 Playfair 的机器仍原样命中)。
+const emailBrandFont = `'Playfair Display', Didot, 'Bodoni MT', Georgia, 'Times New Roman', serif`
 
 // EmailContent 邮件正文构件,由 RenderBrandedEmail 组装进品牌外壳。各字段可空。
 // 多行文本字段(Intro/Quote/Outro/Note)中的换行会渲染成 <br>,内容自动转义防注入。
@@ -105,15 +139,14 @@ func RenderBrandedEmail(c EmailContent) string {
 	return wrapEmailShell(b.String())
 }
 
-// brandWordmark 前端同款多色 Scholay 字标(内联 span)。
+// brandWordmark 页面同款文字标:全大写 SCHOLAY,四色循环(红/黄/绿/黑),逐字母上色。
+// 与 ScholayWordmark.tsx 的 7 条 path 逐字母对齐,见上方 logo* 常量注释。
 func brandWordmark() string {
-	letters := []struct{ ch, color string }{
-		{"S", emailRed}, {"c", emailGreen}, {"h", emailGreen}, {"o", emailAmber},
-		{"l", emailInk}, {"a", emailRed}, {"y", emailGreen},
-	}
+	// 四色循环 —— 与页面 SVG 的取色顺序一致:S红 C黄 H绿 O黑 L红 A黄 Y绿。
+	cycle := []string{logoRed, logoAmber, logoGreen, logoInk}
 	var b strings.Builder
-	for _, l := range letters {
-		fmt.Fprintf(&b, `<span style="color:%s">%s</span>`, l.color, l.ch)
+	for i, ch := range "SCHOLAY" {
+		fmt.Fprintf(&b, `<span style="color:%s">%c</span>`, cycle[i%len(cycle)], ch)
 	}
 	return b.String()
 }
@@ -128,15 +161,17 @@ func wrapEmailShell(inner string) string {
 <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%%;background:#FFFFFF;border:1px solid %s;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;">
 <tr><td style="height:4px;line-height:4px;font-size:0;background:%s;">&nbsp;</td></tr>
 <tr><td style="padding:24px 28px 6px;">
-<div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;font-family:Georgia,'Times New Roman',serif;">%s</div>
+<div role="img" aria-label="%s" style="font-size:24px;font-weight:400;letter-spacing:1px;font-family:%s;">%s</div>
 </td></tr>
 <tr><td style="padding:10px 28px 26px;">%s</td></tr>
 <tr><td style="padding:18px 28px;border-top:1px solid %s;background:%s;">
-<p style="margin:0;font-size:12px;line-height:1.6;color:%s;">这是一封来自 %s 的自动邮件,请勿直接回复。如果这不是您本人的操作,请忽略本邮件或联系客服。</p>
+<p style="margin:0;font-size:12px;line-height:1.6;color:%s;">这是 %s 自动发送的邮件,请勿直接回复。如非本人操作,请忽略本邮件。</p>
 </td></tr>
 </table>
 </td></tr>
 </table>
 </body></html>`,
-		emailPageBg, emailPageBg, emailBorder, emailRed, brandWordmark(), inner, emailBorder, emailPageBg, emailFaint, EmailBrandName)
+		emailPageBg, emailPageBg, emailBorder, emailRed,
+		EmailBrandName, emailBrandFont, brandWordmark(),
+		inner, emailBorder, emailPageBg, emailFaint, EmailBrandName)
 }

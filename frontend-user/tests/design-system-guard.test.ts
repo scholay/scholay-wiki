@@ -2232,9 +2232,9 @@ const LITERAL_MIRRORS: { path: string; why: string; allow?: Record<string, strin
   {
     path: 'backend/internal/common/utils/email_template.go',
     why: '对外邮件的 HTML 模板:邮件客户端(尤其 Outlook)不吃 CSS 变量,只能内联字面色。⚠️ 其中 #E4E4E5 是 `--border`(玄墨 12%)**叠白之后**的实色,不是 token 原文',
-    allow: {
-      '#e5a800': '用户明确要求暂不改 Logo / Scholay 字标;此处是邮件字标的冻结历史色,不得当作 UI 琥珀镜像',
-    },
+    // 2026-08-13:原 `#e5a800` 豁免已删 —— 那是邮件自造字标的冻结色,而邮件字标已改成
+    // 与页面 Logo 同源的 --logo-*(#882828/#F1BF45/#427935/#000000),四个值都能被本规则
+    // 直接追溯到 globals,不再需要豁免。本条 allow 为空即正确状态,别再往回加。
   },
   {
     path: 'backend/internal/config/handler_ssr.go',

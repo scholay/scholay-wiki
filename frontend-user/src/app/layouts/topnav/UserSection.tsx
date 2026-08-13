@@ -164,7 +164,7 @@ function MenuQuotaSummary() {
   const used = Math.min(100, Math.max(0, t.percent));
   const remaining = Math.round(100 - used);
   const exhausted = used >= 100;
-  const { rel } = resetInfo(t); // 「3 天后重置」「满额」「即将重置」等相对口径
+  const { rel } = resetInfo(t); // 「3 天后恢复」「满额」「即将恢复」等相对口径
 
   return (
     <div className="w-60 border-b border-border-hairline p-2">

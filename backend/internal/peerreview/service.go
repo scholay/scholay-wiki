@@ -157,7 +157,11 @@ func (s *Service) ensureReviewBudget(ctx context.Context, userID uint64) error {
 	}
 	slog.Info("peerreview: 剩余额度不足以起跑一场审稿,拒绝投递",
 		"user_id", userID, "remaining_micro", remaining, "need_micro", peerreviewMinBudgetMicro)
-	return vip.NewQuotaError("剩余额度不够跑完一份完整的审稿,所以这次没有开始 —— 没有扣掉任何额度,你的稿件和填好的信息都还在。等额度自动恢复满额后再投递就行;想现在就跑,可以用 1 次重置次数、升级会员,或开启「用经费继续」(只扣超出额度的那部分)。")
+	// 文案(2026-08-13 收口):只留「没开始 / 没扣额度 / 东西还在」这三条用户猜不到的信息。
+	// 出路一律不在这里枚举 —— 旧文案把「用 1 次重置次数、升级会员、用经费继续」全列了一遍,
+	// 而这三条对具体某个用户往往有两条走不通(次数多为 0、Max 无可升)。真实可用的入口由前端
+	// 按 overview 状态出按钮,判定与对话位额度条同源。全站额度文案铁律见 vip/quota.go。
+	return vip.NewQuotaError("剩余额度不足以完成一次完整审稿,本次未开始。未扣除任何额度,稿件与已填写的信息均已保留。额度恢复后可重新投递。")
 }
 
 // VIPCheckerWired 报告配额校验器是否已注入(bootstrap 启动断言付费功能已接线)。

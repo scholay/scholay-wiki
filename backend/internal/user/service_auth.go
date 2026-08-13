@@ -42,11 +42,13 @@ func (s *Service) SendWelcomeMessage(userID uint) {
 		return
 	}
 
-	title := "欢迎加入 Scholay"
-	content := "感谢注册！开始探索学术世界吧~"
+	// 欢迎语给「现在能做什么」而不是纯寒暄 —— 新用户读完这一条就该知道从哪儿下手。
+	// 口径依据:论文检索与文献管理不限次不耗额度,AI 能力走额度(Free 档即可体验)。
+	title := "欢迎加入 " + utils.EmailBrandName
+	content := "论文检索与文献管理不限次数;智能搜索、AI 审稿等 AI 功能均可直接使用。"
 
 	safego.Go("user-welcome-message", func() {
-		if err := s.messageService.SendToUser(userID, title, content, "system", "/", "开始探索"); err != nil {
+		if err := s.messageService.SendToUser(userID, title, content, "system", "/", "开始检索"); err != nil {
 			slog.Error("failed to send welcome message", "user_id", userID, "err", err)
 		}
 	})
@@ -382,18 +384,21 @@ func (s *Service) SendVerificationCode(ctx context.Context, email, purpose strin
 				purposeText = "登录验证码"
 			}
 
-			// Generate 3-letter reference code to avoid email deduplication
-			// Format: "Scholay 注册验证码 [Ref: ABC]" - professional and unambiguous
+			// 3 位随机参考码防邮件服务按主题去重(同一收件人短时间内多封验证码会被折叠/丢弃)。
+			// 主题统一走 utils.EmailSubject → "Scholay · 注册验证码 [Ref: ABC]"。
 			refCode := utils.SecureRandomString(3, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-			subject := fmt.Sprintf("Scholay %s [Ref: %s]", purposeText, refCode)
+			subject := fmt.Sprintf("%s [Ref: %s]", utils.EmailSubject(purposeText), refCode)
 
 			// 时间戳进正文,避免邮件服务按内容去重
 			currentTime := time.Now().Format("2006-01-02 15:04:05")
 			body := utils.RenderBrandedEmail(utils.EmailContent{
 				Title: purposeText,
-				Intro: "请在页面输入以下验证码以完成操作:",
+				Intro: "请在页面中输入以下验证码完成操作:",
 				Code:  code,
-				Note:  fmt.Sprintf("验证码 10 分钟内有效,请尽快使用。发送时间 %s。如果这不是您本人的操作,请忽略本邮件。", currentTime),
+				// 有效期是用户唯一需要立刻知道的约束,放最前;发送时间是防去重的副产物,
+				// 但对「同时收到几封、该用哪封」也有用,所以留着但压到后面。
+				// 「不是本人操作请忽略」外壳页脚已有一句,这里不再重复。
+				Note: fmt.Sprintf("验证码 10 分钟内有效。发送时间 %s。", currentTime),
 			})
 
 			config := utils.EmailConfig{

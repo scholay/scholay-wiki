@@ -37,16 +37,17 @@ import {
 } from '../quota-recovery';
 
 /**
- * 到顶提示文案 —— 依据大厂 UX writing 调研(2026-08-12)定稿:
- *   ① **主语是「用量」不是用户**:「本周期用量已达上限」而非「你已超出限制」
+ * 到顶提示文案 —— 依据大厂 UX writing 调研(2026-08-12)+ 2026-08-13 文案收口定稿:
+ *   ① **主语是额度不是用户**:「额度已用完」而非「你已超出限制」
  *      (Microsoft 错误文案准则 "Do not make the user feel at fault";Ant Design 同款)。
- *   ② **正文只讲恢复时刻**(2026-08-12 产品拍板):给了绝对时间,「等待」才是真实选项,
- *      文案才不只剩逼单一条路;其余信息一律不进条内 ——
- *      「消息已保存 / 未消耗用量 / 届时自动发送」都被砍掉:前两条是用户不会怀疑的默认,
- *      第三条在真的自动发出去时有 toast 兜底(见下方 attempt),不必提前承诺占一行。
+ *   ② **不提周期/重置机制**(2026-08-13):原文「本周期用量已达上限」里的「本周期」是内部口径,
+ *      规则一变文案就过期。只说状态,机制不进用户文案。全站额度文案同此律,见 quota-toast.tsx 头部。
+ *   ③ **正文只讲恢复时刻**:给了绝对时间,「等待」才是真实选项,文案才不只剩逼单一条路;
+ *      其余信息一律不进条内 ——「消息已保存 / 未消耗用量 / 届时自动发送」都被砍掉:
+ *      前两条是用户不会怀疑的默认,第三条在真的自动发出去时有 toast 兜底(见下方 attempt)。
  * 图标用中性 Info + 琥珀,不用红色/感叹号:额度到顶是**状态**,不是错误。
  */
-const EXHAUSTED_TITLE = '本周期用量已达上限';
+const EXHAUSTED_TITLE = '额度已用完';
 
 export interface QuotaBlockedControls {
   /** 重发被拦的那条(清持久化 → 走 feature 正常发送路径)。 */
@@ -122,7 +123,7 @@ export function QuotaComposerStrip({
       if (handledTokenRef.current === token) return;
       handledTokenRef.current = token;
       useQuotaStore.getState().clearExceeded();
-      toast.success('额度已恢复,消息已自动发送');
+      toast.success('额度已恢复,消息已重新发送');
       resendRef.current?.();
     };
     const onRecovered = () => attempt(`evt:${Date.now()}`);
@@ -181,7 +182,7 @@ export function QuotaComposerStrip({
             <div className="flex flex-wrap items-center gap-2 border-b border-brand-amber/20 px-3 py-2">
               <RefreshCw className="size-3.5 shrink-0 text-brand-amber" />
               <p className="min-w-0 flex-1 text-12 text-foreground">
-                重置次数还剩 <b className="font-medium">{passes}</b> 次 · 用 1 次立即恢复满额,不扣经费
+                可立即恢复 <b className="font-medium">{passes}</b> 次,不消耗经费
               </p>
               <Button size="sm" className="h-7" onClick={() => setConfirmReset(true)}>
                 立即恢复
@@ -196,12 +197,12 @@ export function QuotaComposerStrip({
               <div className="min-w-0 flex-1">
                 <p className="text-14 font-medium text-foreground">{EXHAUSTED_TITLE}</p>
                 <p className="text-12 text-muted-foreground">
-                  {resetAtText ? `额度将于 ${resetAtText} 恢复` : '额度恢复后可继续使用'}
+                  {resetAtText ? `${resetAtText} 恢复满额` : '额度恢复后可继续使用'}
                 </p>
               </div>
               <button
                 type="button"
-                aria-label="不发了"
+                aria-label="取消发送"
                 onClick={() => blocked?.onDismiss()}
                 className="shrink-0 rounded-4 p-1 text-faint transition-colors hover:text-foreground"
               >
@@ -252,15 +253,15 @@ export function QuotaComposerStrip({
         >
           <span className="size-2 shrink-0 rounded-pill bg-brand-amber" />
           <p className="min-w-0 flex-1 truncate text-12 text-foreground">
-            即将达到本周期用量上限
-            {resetAtText && <span className="text-muted-foreground">,{resetAtText} 自动恢复</span>}
+            额度即将用完
+            {resetAtText && <span className="text-muted-foreground"> · {resetAtText} 恢复满额</span>}
           </p>
           <Button size="sm" variant="outline" className="h-7" onClick={() => setUsageOpen(true)}>
             查看用量
           </Button>
           <button
             type="button"
-            aria-label="本周期不再提醒"
+            aria-label="不再提醒"
             onClick={() => dismissStripWarn(warnDay)}
             className="shrink-0 rounded-4 p-1 text-faint transition-colors hover:text-foreground"
           >
@@ -277,14 +278,14 @@ export function QuotaComposerStrip({
         passes={passes}
         pending={reset.isPending}
         onConfirm={() => reset.mutate()}
-        note="确认后你的消息会自动重新发送。"
+        note="确认后将自动重新发送该消息。"
       />
       <PaygConfirmDialog
         open={confirmPayg}
         onOpenChange={setConfirmPayg}
         pending={payg.isPending}
         onConfirm={() => payg.mutate()}
-        note="开启后你的消息会自动重新发送。"
+        note="开启后将自动重新发送该消息。"
       />
     </>
   );
