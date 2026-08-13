@@ -25,7 +25,7 @@ export function WikiHomePage() {
         <div className="mx-auto max-w-page px-6 py-10 md:px-8 md:py-12 xl:px-10">
           <p className="text-12 font-medium text-brand-red">SCHOLAY WIKI</p>
           <h1 className="mt-3 max-w-reading font-display text-32 font-medium leading-display-tight text-foreground">
-            把 Scholay 的每一项能力讲清楚
+            感谢您选择scholay!
           </h1>
           <p className="mt-4 max-w-reading text-14 leading-paragraph text-muted-foreground">
             这里记录页面、功能、对象、活动规则和系统边界。每个结论都回到当前代码来源，历史资料与现行行为分开标注。
