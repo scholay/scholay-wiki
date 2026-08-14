@@ -7,7 +7,6 @@ import { useApplyTheme } from '@/stores/theme.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useInvitePromptStore } from '@/stores/invite-prompt.store';
 import { usePromoStore } from '@/stores/promo.store';
-import { useQuotaStore } from '@/stores/quota.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import { useShareSheet } from '@/stores/share.store';
 
@@ -48,8 +47,6 @@ function useCloseGlobalModalsOnNavigate() {
         if (ip.open) ip.close();
         const pm = usePromoStore.getState();
         if (pm.open) pm.closePromo();
-        const qn = useQuotaStore.getState();
-        if (qn.resetOpen) qn.closeReset();
         const cp = useCollectPicker.getState();
         if (cp.request) cp.closeCollect();
         const ss = useShareSheet.getState();

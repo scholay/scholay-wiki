@@ -1192,6 +1192,42 @@
   /* —— Prism 角标 → 琥珀软底(B4 迁移) —— */
   --color-prism-badge-bg: var(--amber-soft-bg);   /* 旧 #F0E8D8 */
   --color-prism-badge-fg: var(--amber-soft-fg);   /* 旧 #806A2E(等值) */
+
+  /* =====================================================================
+   * 🔶 mock2 桥接段 —— design/product-mock 合入 main 后的旧标度兼容
+   * ---------------------------------------------------------------------
+   * main 在 B5/B6 里删除旧圆角/字号档时的前提是「引用已归零」,但 mock 分支
+   * 保留的组件把旧类名又带了回来(实测 rounded-sm/md/lg/xl/2xl/3xl 272 处、
+   * text-2xs..2xl/15/badge 518 处、brand-blue 5 文件)。不加别名它们会静默
+   * 失效: 圆角变直角、字号回退继承、蓝色变透明。
+   * 策略: 圆角按新 Figma 标度就近映射(样式以线上为准);字号按 mock 原值
+   * 复活(避免版式炸裂);brand-blue 按 B4 三分流归入调色板 cat-blue 档。
+   * mock 组件逐处迁到新标度后,本段应整体删除。
+   * ===================================================================== */
+
+  /* —— 旧圆角档 → 新 Figma 标度(就近) —— */
+  --radius-sm:  var(--radius-4);    /* 旧 4  → 4 */
+  --radius-md:  var(--radius-8);    /* 旧 6  → 8  小控件档 */
+  --radius-lg:  var(--radius-12);   /* 旧 8  → 12 子面板档 */
+  --radius-xl:  var(--radius-12);   /* 旧 12 → 12 */
+  --radius-2xl: var(--radius-16);   /* 旧 16 → 16 */
+  --radius-3xl: var(--radius-20);   /* 旧 24 → 20 封顶 */
+
+  /* —— 旧字号档 → 原值复活(保 mock 版式) —— */
+  --text-2xs:   0.625rem;   /* 10  段标 / 小徽章 */
+  --text-xs:    0.6875rem;  /* 11  计数 / trailing */
+  --text-sm:    0.75rem;    /* 12  sidebar 子项 / 说明 */
+  --text-base:  0.8125rem;  /* 13  正文基准 */
+  --text-md:    0.875rem;   /* 14  加重按钮 / tab */
+  --text-lg:    1rem;       /* 16  page header */
+  --text-xl:    1.25rem;    /* 20  page title */
+  --text-2xl:   1.5rem;     /* 24  hero subtitle */
+  --text-15:    0.9375rem;  /* 15  列 header */
+  --text-badge: 0.5625rem;  /* 9   胶囊角标 */
+
+  /* —— brand-blue → cat-blue(B4 三分流的调色板档) —— */
+  --color-brand-blue:      var(--cat-blue);
+  --color-brand-blue-soft: var(--cat-blue-soft);
 }
 
 /* =============================================================================

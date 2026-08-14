@@ -32,6 +32,7 @@ export function DefaultCard({
   onFold,
   highlightQuery,
   hideStage,
+  readOnly = false,
 }: {
   paper: Paper;
   isStaged: boolean;
@@ -41,6 +42,8 @@ export function DefaultCard({
   onFold: () => void;
   highlightQuery?: string;
   hideStage?: boolean;
+  /** 只读场景(聊天内嵌列表等):隐藏收藏/翻译/PdfChat/折叠操作行 */
+  readOnly?: boolean;
 }) {
   const tags = pickTags(paper, journalEnrichment);
   const openPaperDetail = useOpenPaperDetail();
@@ -182,6 +185,7 @@ export function DefaultCard({
             {displayAbstract}
           </TruncatedText>
         )}
+        {!readOnly && (
         <div className="@container mt-2.5 flex items-center gap-1.5">
           <FavoritePaperButton
             paper={paper}
@@ -234,6 +238,7 @@ export function DefaultCard({
             <span className="@max-[260px]:hidden">折叠</span>
           </button>
         </div>
+        )}
       </div>
     </article>
   );
