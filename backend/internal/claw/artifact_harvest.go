@@ -24,6 +24,34 @@ import (
 	"scholar-backend/internal/storage"
 )
 
+// HarvestTurnArtifacts 是 agentbridge.OnTurnArtifactsFn 的实现:**每轮结束后**把该会话
+// 交付目录里的产物收割进 MinIO + agent_artifacts。由 bootstrap 经
+// FeatureBridge.SetArtifactHarvester 注入(BuildSpec 时 Handler 还不存在,故晚绑定)。
+//
+// 🔴 为什么必须有它(2026-08-07 生产取证):在此之前,产物耐久化的**唯一**触发点是
+//    用户点开产物面板(GetSessionArtifacts → harvestSession)。而会话工作区是临时的
+//    (executor 容器重启即清、30 天 GC)——用户没在那个窗口期点过面板,产物就永久
+//    丢失,且**零日志**。实测 claw 有 13 个会话调用过写文件工具,只有 7 个留下了产物行;
+//    典型漏例发出过 12 个 artifact 帧、用户当时看得见卡片,但一行都没落库。
+//    完整取证见 agentbridge/artifact_dispatch.go 顶部注释。
+//
+// 契约(agentbridge 侧要求):
+//   · 幂等 —— harvestSession 是按 dedup_anchor 的 upsert,可被重复/并发调用。
+//   · 自带容错 —— 会话已删 / 工作区已清 / agent 暂不可达都是正常终局,吞掉即可。
+//   · 不往上抛 —— 调用方没有重试,只会记日志。
+func (h *Handler) HarvestTurnArtifacts(ctx context.Context, userID uint, sessionID string) {
+	if h.artifactRepo == nil || !storage.IsEnabled() {
+		return // storage 未启用 → 走实时回退,本就没有耐久层可写
+	}
+	if err := h.harvestSession(ctx, userID, sessionID); err != nil {
+		if agentClientErrIs4xxOrMissing(err) {
+			return // 会话已删 / 工作区已清:正常终局,不是错误
+		}
+		slog.Warn("轮末产物收割失败(on-list 兜底仍会在用户打开面板时重试)",
+			"feature", FeatureKey, "session_id", sessionID, "err", err)
+	}
+}
+
 // harvestSession 收割会话 ./out 顶层 → MinIO + 元数据 + 对账。非致命错误(单文件读失败/too_large)
 // 跳过不中断;返回的 error 仅为「列目录」本身的错(调用方据 4xx/missing 决定空列表 or 回退)。
 // 收割是 **upsert-only**:只把 ./out 当前条目加/更新进 MinIO+DB,**绝不**按 live 工作区删已持久化的产物。

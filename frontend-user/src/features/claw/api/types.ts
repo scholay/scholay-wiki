@@ -13,6 +13,8 @@ import type {
   AgentClaimAudit,
   AgentErrorFrame,
   AgentDisplacedFrame,
+  AgentEvidenceAppendedFrame,
+  AgentResearchStateFrame,
   AgentResyncUserFrame,
 } from '@/shared/lib/agent-stream';
 
@@ -51,7 +53,9 @@ export type ServerMessage =
       toolName?: string;
       toolUseId?: string;
     }
-  | { type: 'content_delta'; text?: string; toolInput?: string }
+  // toolInput/toolPath:Write 入参明文的逐 token 流(agent turnLoop P1-1)。fold 挂到在途
+  // ToolBlock → ToolCallBlock「构建中」态实时预览(此前 claw 丢弃,仅 prism 消费)。
+  | { type: 'content_delta'; text?: string; toolInput?: string; toolPath?: string }
   | { type: 'tool_use_complete'; toolName: string; toolUseId: string; input: unknown }
   // userMessage:面向用户的失败摘要(仅 isError 时;agent 双轨制 W5 P0-A)。旧 agent 不发 → 可选。
   | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean; userMessage?: string }
@@ -61,6 +65,10 @@ export type ServerMessage =
   | { type: 'message_complete'; claim_audit?: AgentClaimAudit }
   // DSML 作废重打(审计 [10]):撤回本轮已流式发出的残缺前缀,重打的完整答案随后重建。
   | { type: 'round_discarded' }
+  // 证据账本(2026-08 P0-c):引擎口径的取证过程计数 → 轮尾 ResearchStateChip 带外展示。
+  // evidence_appended 是 P1 的输入,P0 收到即忽略(fold 有显式 no-op case,不是漏了)。
+  | AgentResearchStateFrame
+  | AgentEvidenceAppendedFrame
   | AgentErrorFrame
   | { type: 'thinking'; text: string }
   | {
@@ -104,7 +112,18 @@ export interface ClawHistoryEntry {
   // 回放时 shared replayHistoryAsTurns 据此把产物绑回对应轮(见 TurnArtifact)。
   // 'error' 是失败轮终态合成 entry(EvError 折出,W3 P1-A 冻结契约:content = {code, message}),
   // 回放成与实时 error 终帧同构的 TurnErrorNotice;旧后端无此 entry → 分支不进。
-  type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result' | 'artifact' | 'error';
+  // 'research_state' 是取证过程计数的合成 entry(EvEvidence 里该轮**最后一条**全量快照,
+  // content = [原帧],snake_case)。与 'artifact' 同范式:带外声明 → 合成 entry → 绑回对应轮
+  // (Turn.research),让刷新/重入后的历史轮也能还原 ResearchStateChip。
+  type:
+    | 'user'
+    | 'assistant'
+    | 'system'
+    | 'tool_use'
+    | 'tool_result'
+    | 'artifact'
+    | 'error'
+    | 'research_state';
   /** Anthropic content array; UI 自己做 narrow 解释 */
   content: unknown;
   timestamp: string;

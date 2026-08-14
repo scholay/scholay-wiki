@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import type { Author, AuthorPapersResult, Paper } from './types';
 
@@ -19,35 +19,43 @@ import type { Author, AuthorPapersResult, Paper } from './types';
 // 单个学者详情
 // ============================================================================
 
+/** 学者详情 queryKey/staleTime —— hook 与 browser 路由 loader 的 prefetch 共用。 */
+export const authorDetailQueryKey = (authorId: string) =>
+  ['author', 'detail', authorId] as const;
+export const AUTHOR_DETAIL_STALE_TIME = 10 * 60 * 1000;
+
+/** 独立 fetcher —— useAuthorDetail 与 route loader prefetch 共用。 */
+export async function fetchAuthorDetail(authorId: string): Promise<Author> {
+  try {
+    const { data } = await http.get<{ data: Record<string, unknown> }>(
+      `/public/author-detail/${encodeURIComponent(authorId)}`
+    );
+    const raw = data.data ?? {};
+    return {
+      authorId: String(raw.authorId ?? authorId),
+      name: (raw.name as string) ?? '未知作者',
+      url: raw.url as string | undefined,
+      homepage: raw.homepage as string | undefined,
+      affiliations: raw.affiliations as string[] | undefined,
+      paperCount: raw.paperCount as number | undefined,
+      citationCount: raw.citationCount as number | undefined,
+      hIndex: raw.hIndex as number | undefined,
+      source: raw.source as Author['source'],
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 export function useAuthorDetail(
   authorId: string | null | undefined,
   enabled = true
 ) {
   return useQuery({
-    queryKey: ['author', 'detail', authorId] as const,
+    queryKey: authorDetailQueryKey(authorId ?? ''),
     enabled: enabled && !!authorId,
-    staleTime: 10 * 60 * 1000,
-    queryFn: async (): Promise<Author> => {
-      try {
-        const { data } = await http.get<{ data: Record<string, unknown> }>(
-          `/public/author-detail/${encodeURIComponent(authorId!)}`
-        );
-        const raw = data.data ?? {};
-        return {
-          authorId: String(raw.authorId ?? authorId),
-          name: (raw.name as string) ?? '未知作者',
-          url: raw.url as string | undefined,
-          homepage: raw.homepage as string | undefined,
-          affiliations: raw.affiliations as string[] | undefined,
-          paperCount: raw.paperCount as number | undefined,
-          citationCount: raw.citationCount as number | undefined,
-          hIndex: raw.hIndex as number | undefined,
-          source: raw.source as Author['source'],
-        };
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
+    staleTime: AUTHOR_DETAIL_STALE_TIME,
+    queryFn: () => fetchAuthorDetail(authorId!),
   });
 }
 
@@ -78,6 +86,8 @@ export function useAuthorPapers({
     queryKey: ['author', 'papers', authorId, limit, offset] as const,
     enabled: enabled && !!authorId,
     staleTime: 5 * 60 * 1000,
+    // offset 在 queryKey 里,翻页会换 key:保留上一页避免论文列表塌空闪白。
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<AuthorPapersResult> => {
       try {
         const { data } = await http.get<{ data: RawAuthorPapersPayload }>(

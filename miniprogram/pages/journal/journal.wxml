@@ -1,7 +1,7 @@
-<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
-<view wx:elif="{{error}}" class="state error">{{error}}</view>
+<view wx:if="{{loading}}" class="sk-detail" capture-bind:touchstart="onUserActivity"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error" capture-bind:touchstart="onUserActivity">{{error}}</view>
 
-<scroll-view wx:else scroll-y class="page detail">
+<scroll-view wx:else scroll-y class="page detail" capture-bind:touchstart="onUserActivity">
   <text class="meta">{{scope}}</text>
   <text class="h1">{{name}}</text>
   <text wx:if="{{publisherLine}}" class="authors">{{publisherLine}}</text>
@@ -20,6 +20,8 @@
 
   <view wx:if="{{submission}}" class="section">
     <text class="sec-title">投稿资源</text>
-    <text class="body">该刊提供:{{submission}}。投稿模板/须知下载为 Max 会员专享,请到网页端 scholay.com 完成下载。</text>
+    <!-- 不写死域名:小程序有 dev/test/prod 三种连接目标(config/env.ts),
+         写死会让非生产构建把用户导向另一套环境。 -->
+    <text class="body">该刊提供:{{submission}}。投稿模板/须知下载为 Max 会员专享,请到网页端完成下载。</text>
   </view>
 </scroll-view>

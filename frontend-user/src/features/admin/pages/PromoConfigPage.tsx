@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Gift, Loader2, Save, Sparkles, Trash2, Upload } from 'lucide-react';
-import { AdminPageLayout } from '../components/AdminPageLayout';
 import { useApiToast } from '../hooks/useApiToast';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { Label } from '@/shared/ui/label';
 import { Switch } from '@/shared/ui/switch';
+import { ConfigPageGuard } from '../components/ConfigPageGuard';
 import { useAdminPromoConfig, useUpdatePromoConfig, type PromoConfig } from '../api/promo-config';
 
 /**
- * 限时领取会员推广(后台)——
+ * 限时领取会员推广(后台)—— 「活动管理」页的一个 tab 面板(ActivitiesPage 挂载,
+ * 原独立页 /admin/promo-config 已重定向;owner 拍板 2026-07-31:限时活动统一管理)。
+ *
  *   · 总开关:关 = 用户端无按钮、不弹窗;开 = 顶部导航出现按钮 + 首屏/额度用尽自动弹
  *   · 微信客服二维码(data URL 直存)——用户扫码加客服领取
  *   · 文案:标题 / 副标题 / 福利点(一行一条)/ 按钮文案,均可留空走前端内置默认
@@ -17,6 +20,7 @@ import { useAdminPromoConfig, useUpdatePromoConfig, type PromoConfig } from '../
  */
 
 const QR_MAX_BYTES = 300 * 1024;
+const QR_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 // 与前端 PromoModal 的 DEFAULTS 对齐,预览/留空时展示。
 const PLACEHOLDER = {
@@ -28,27 +32,38 @@ const PLACEHOLDER = {
 
 type FormState = Omit<PromoConfig, 'id'>;
 
-const EMPTY: FormState = {
-  enabled: false,
-  title: '',
-  subtitle: '',
-  benefits: '',
-  button_text: '',
-  wechat_qr: '',
-};
+/**
+ * 🔴 **本页是整份审计里最典型的「一次误点 = 线上事故」**,所以必须走 ConfigPageGuard:
+ * 原写法 `useState(EMPTY)` + `useEffect(() => { if (cfg) setForm(cfg) })` + 保存按钮
+ * `disabled={update.isPending || isLoading}` —— GET 挂掉时 isLoading 变 false、cfg 是 undefined、
+ * effect 不跑,屏幕上是一份**看起来完全正常的空表单**,而保存按钮**是可点的**。
+ * 后端 PUT 整行覆盖,点一下就把线上的客服二维码、活动标题、福利点全部写成空串,
+ * 且 enabled 会被写成 false(活动直接下线),全程零异常提示。
+ */
+export function PromoConfigPanel() {
+  const q = useAdminPromoConfig();
+  return (
+    <ConfigPageGuard query={q} resourceName="限时领取会员配置">
+      {(cfg) => <PromoConfigForm initial={cfg} blocked={q.isError || !q.data} />}
+    </ConfigPageGuard>
+  );
+}
 
-export function PromoConfigPage() {
-  const { data: cfg, isLoading } = useAdminPromoConfig();
+/** 后端配置行 → 表单态(去掉主键 id;PUT 只提交可编辑字段)。 */
+function toFormState({ id: _id, ...rest }: PromoConfig): FormState {
+  void _id;
+  return rest;
+}
+
+function PromoConfigForm({ initial, blocked }: { initial: PromoConfig; blocked: boolean }) {
   const update = useUpdatePromoConfig();
   const apiToast = useApiToast();
 
-  const [form, setForm] = useState<FormState>(EMPTY);
+  const [form, setForm] = useState<FormState>(() => toFormState(initial));
+  // 刷新拿到新配置时重新同步(react-query 结构共享:内容不变则引用不变,不会打断编辑)
   useEffect(() => {
-    if (cfg) {
-      const { id: _id, ...rest } = cfg;
-      setForm(rest);
-    }
-  }, [cfg]);
+    setForm(toFormState(initial));
+  }, [initial]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -65,24 +80,25 @@ export function PromoConfigPage() {
     : PLACEHOLDER.benefits;
 
   return (
-    <AdminPageLayout
-      title="限时领取会员"
-      description="推广期专用 —— 开启后用户端顶部出现「限时领取会员」按钮,首屏 / 额度用尽自动弹窗引导扫码加客服领取"
-      actions={
-        <Button size="sm" onClick={handleSave} disabled={update.isPending || isLoading}>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-12 text-muted-foreground">
+          开启后用户端「限时活动」菜单出现该活动,首屏 / 额度用尽自动弹窗引导扫码加客服领取。
+        </p>
+        {/* blocked 是 Guard 之外的第二道闸 —— PUT 是整行覆盖,GET 失败时绝不能让按钮可点 */}
+        <Button size="sm" onClick={handleSave} disabled={update.isPending || blocked}>
           {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           保存
         </Button>
-      }
-    >
+      </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
         {/* 表单 */}
         <div className="flex max-w-2xl flex-col gap-6">
           <Section icon={<Sparkles className="size-4" />} title="推广开关">
-            <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 px-4 py-3">
+            <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-4 py-3">
               <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium text-foreground">启用「限时领取会员」推广</span>
-                <span className="text-xs text-muted-foreground">关闭后用户端不显示按钮、不弹窗</span>
+                <span className="text-12 font-medium text-foreground">启用「限时领取会员」推广</span>
+                <span className="text-12 text-muted-foreground">关闭后用户端不显示按钮、不弹窗</span>
               </div>
               <Switch checked={form.enabled} onCheckedChange={(v) => set('enabled', v)} />
             </div>
@@ -104,12 +120,11 @@ export function PromoConfigPage() {
               />
             </Field>
             <Field label="福利点(一行一条)">
-              <textarea
+              <Textarea
                 value={form.benefits}
                 onChange={(e) => set('benefits', e.target.value)}
                 rows={4}
                 placeholder={PLACEHOLDER.benefits.join('\n')}
-                className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               />
             </Field>
             <Field label="按钮 / 引导文案">
@@ -124,50 +139,50 @@ export function PromoConfigPage() {
 
         {/* 实时预览 */}
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <Label className="mb-2 block text-2xs tracking-[0.08em] text-faint">实时预览</Label>
-          <div className="w-full max-w-80 overflow-hidden rounded-lg border border-border shadow-sm lg:w-80">
-            <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-white">
-              <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-white/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
+          <Label className="mb-2 block text-12 text-faint">实时预览</Label>
+          <div className="w-full max-w-80 overflow-hidden rounded-16 border border-border lg:w-80">
+            <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-on-brand">
+              <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-surface-card/20 px-2 py-0.5 text-12 font-medium backdrop-blur-sm">
                 <Sparkles className="size-3" /> 限时
               </span>
-              <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-white/15 ring-1 ring-white/30">
+              <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-surface-card/15 ring-1 ring-on-brand/30">
                 <Gift className="size-7" strokeWidth={2} />
               </div>
-              <div className="text-lg font-bold tracking-tight">{pvTitle}</div>
-              <div className="mt-1 text-sm text-white/90">{pvSubtitle}</div>
+              <div className="text-16 font-medium">{pvTitle}</div>
+              <div className="mt-1 text-12 text-on-brand/90">{pvSubtitle}</div>
             </div>
-            <div className="flex flex-col gap-2.5 bg-background px-6 pt-5">
+            <div className="flex flex-col gap-2.5 bg-surface-card px-6 pt-5">
               {pvBenefits.map((b, i) => (
-                <div key={i} className="flex items-start gap-2 text-sm text-foreground">
+                <div key={i} className="flex items-start gap-2 text-12 text-foreground">
                   <Check className="mt-0.5 size-4 shrink-0 text-brand-green" strokeWidth={2.6} />
                   <span>{b}</span>
                 </div>
               ))}
             </div>
-            <div className="flex flex-col items-center gap-2.5 bg-background px-6 pb-6 pt-5">
+            <div className="flex flex-col items-center gap-2.5 bg-surface-card px-6 pb-6 pt-5">
               {form.wechat_qr ? (
-                <img src={form.wechat_qr} alt="二维码预览" className="size-44 rounded-md border border-border object-contain p-1" />
+                <img src={form.wechat_qr} alt="二维码预览" className="size-44 rounded-12 border border-border object-contain p-1" />
               ) : (
-                <div className="flex size-44 items-center justify-center rounded-md border border-dashed border-border text-xs text-faint">
+                <div className="flex size-44 items-center justify-center rounded-12 border border-dashed border-border text-12 text-faint">
                   二维码未配置
                 </div>
               )}
-              <div className="inline-flex items-center gap-1.5 rounded-pill bg-brand-red/10 px-3 py-1.5 text-sm font-semibold text-brand-red">
+              <div className="inline-flex items-center gap-1.5 rounded-pill bg-brand-red/10 px-3 py-1.5 text-12 font-medium text-brand-red">
                 <Gift className="size-4" /> {pvButton}
               </div>
-              <p className="text-xs text-faint">微信扫一扫,添加客服领取</p>
+              <p className="text-12 text-faint">微信扫一扫,添加客服领取</p>
             </div>
           </div>
         </div>
       </div>
-    </AdminPageLayout>
+    </div>
   );
 }
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-background p-5">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+    <div className="flex flex-col gap-4 rounded-16 border border-border bg-surface-card p-5">
+      <div className="flex items-center gap-2 text-12 font-medium text-foreground">
         <span className="text-muted-foreground">{icon}</span>
         {title}
       </div>
@@ -179,7 +194,7 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs tracking-[0.08em] text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
   );
@@ -192,17 +207,25 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
 
   const handleFile = (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      void apiToast(Promise.reject(new Error('仅支持图片')), { success: '', failure: '仅支持图片文件' });
+    if (!QR_MIME_TYPES.has(file.type.toLowerCase())) {
+      void apiToast(Promise.reject(new Error('不支持的图片格式')), {
+        success: '',
+        failure: '二维码仅支持 PNG、JPEG 或 WebP',
+      });
+      return;
+    }
+    // 限额按真实二进制大小计算。data URL 的 base64 会膨胀约 4/3，
+    // 若拿编码后的字符串与 300KB 比较，会把可上传上限错误收紧到约 225KB。
+    if (file.size > QR_MAX_BYTES) {
+      void apiToast(Promise.reject(new Error('too large')), {
+        success: '',
+        failure: '图片过大,请压缩到 300KB 以内',
+      });
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       const url = String(reader.result ?? '');
-      if (url.length > QR_MAX_BYTES) {
-        void apiToast(Promise.reject(new Error('too large')), { success: '', failure: '图片过大,请压缩到 300KB 以内' });
-        return;
-      }
       onChange(url);
     };
     reader.readAsDataURL(file);
@@ -210,12 +233,12 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs tracking-[0.08em] text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       <div className="flex items-center gap-3">
         {value ? (
-          <img src={value} alt={label} className="size-20 rounded-sm border border-border object-contain" />
+          <img src={value} alt={label} className="size-20 rounded-8 border border-border object-contain" />
         ) : (
-          <div className="flex size-20 items-center justify-center rounded-sm border border-dashed border-border text-2xs text-faint">
+          <div className="flex size-20 items-center justify-center rounded-8 border border-dashed border-border text-12 text-faint">
             未设置
           </div>
         )}
@@ -234,7 +257,7 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp"
           className="hidden"
           onChange={(e) => {
             handleFile(e.target.files?.[0]);

@@ -16,15 +16,42 @@ import (
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/seoingest"
 )
 
 // startBackgroundTasks 启动所有后台任务
-func startBackgroundTasks(ctx context.Context, seoService *seo.Service) {
+func startBackgroundTasks(ctx context.Context, seoService *seo.Service, seoIngestService *seoingest.Service) {
 	// 数据库连接池监控
 	database.StartConnectionPoolMonitoring(ctx, 5*time.Minute)
 
 	// Redis 逐出监控:correctness 键(吊销/配额/队列)与大缓存共池 allkeys-lru,逐出即告警。
 	cache.StartEvictionMonitoring(ctx, 5*time.Minute)
+
+	// 期刊全量摄取:worker 的父 ctx + 每日上游构建版本检查。
+	// 检查本体只打一次 /v1/jnl/meta(极廉价);只有 lastBuiltAt 真的变了、且此前
+	// 已有成功基线 run 时才自动发起 resync(见 RunDailyUpstreamCheck 头注)。
+	// 首查延迟 15 分钟:避开启动窗口(minicod key 池缓存 5 分钟才热)。
+	if seoIngestService != nil {
+		seoIngestService.SetBaseContext(ctx)
+		safego.Go("seoingest-daily-upstream-check", func() {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(15 * time.Minute):
+			}
+			seoIngestService.RunDailyUpstreamCheck(ctx)
+			ticker := time.NewTicker(24 * time.Hour)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					seoIngestService.RunDailyUpstreamCheck(ctx)
+				}
+			}
+		})
+	}
 
 	// 每 1 分钟回填 seo_papers / seo_authors 的 sitemap_page
 	// （新插入行首次 page=0，事后按 id 区间修正）

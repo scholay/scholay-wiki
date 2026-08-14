@@ -9,7 +9,11 @@
 package vip
 
 import (
+	"errors"
+	"fmt"
+	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/common/utils"
@@ -96,6 +100,20 @@ type AdminOrderTotals struct {
 	// 订单状态(窗口内,次要信息)
 	PendingCount int64 `json:"pending_count"`
 	ExpiredCount int64 `json:"expired_count"`
+
+	// ── 退款(0107)────────────────────────────────────────────────────────────
+	// 🔴 上面的 Revenue* 是**毛额**,口径不变(仍是 `orders.status='paid'` 的 final_amount 之和)。
+	// 退款刻意不去改历史订单的 status —— 那会让**过去某一天**的营收柱子当场变矮、
+	// 且没有任何维度能解释差额,管理员昨天记的月营收今天就对不上了。
+	// 退款在这里作为**独立一项**呈现,净额 = 毛额 - 退款额,三个数都摆出来。
+	// 按退款**发生时间**(order_refunds.created_at)归属,而不是原订单的支付时间 ——
+	// 财务口径上退款属于它发生的那一天。
+	RefundedToday float64 `json:"refunded_today"`
+	Refunded      float64 `json:"refunded"` // 窗口
+	RefundedAll   float64 `json:"refunded_all"`
+	RefundToday   int64   `json:"refund_today"` // 笔数
+	RefundCount   int64   `json:"refund_count"`
+	RefundAll     int64   `json:"refund_all"`
 }
 
 // AdminRevenueDay 每日营收一格(充值/订阅 两段,前端堆叠柱)。
@@ -137,27 +155,60 @@ func (o *OrderService) AdminStats(days int) (*AdminOrderStatsResult, error) {
 		"COALESCE(SUM(CASE WHEN order_type='subscription' THEN final_amount END),0) AS subscription, " +
 		"COUNT(*) AS paid"
 	// since=nil → 全部(不限支付时间;paid 订单 payment_time 恒有值,全部口径取所有已支付)。
-	queryRev := func(since *time.Time) revRow {
+	// 查询失败不再静默:该口径按 0 返回但必须 Warn 留痕,否则营收看板「掉 0」与「真没收入」不可分辨。
+	queryRev := func(scope string, since *time.Time) revRow {
 		var rv revRow
 		q := o.db.Table("orders").Select(revSelect).Where("status = 'paid'")
 		if since != nil {
 			q = q.Where("payment_time >= ?", *since)
 		}
-		q.Scan(&rv)
+		if err := q.Scan(&rv).Error; err != nil {
+			slog.Warn("billing: admin 营收统计查询失败(该口径按 0 展示)", "scope", scope, "err", err)
+		}
 		return rv
 	}
-	win, td, all := queryRev(&cutoff), queryRev(&todayStart), queryRev(nil)
+	win, td, all := queryRev("窗口", &cutoff), queryRev("今日", &todayStart), queryRev("全部", nil)
 	t.Revenue, t.RechargeRevenue, t.SubscriptionRevenue, t.PaidCount = win.Revenue, win.Recharge, win.Subscription, win.Paid
 	t.RevenueToday, t.RechargeToday, t.SubscriptionToday, t.PaidToday = td.Revenue, td.Recharge, td.Subscription, td.Paid
 	t.RevenueAll, t.RechargeAll, t.SubscriptionAll, t.PaidAll = all.Revenue, all.Recharge, all.Subscription, all.Paid
 
+	// 退款额(今日 / 窗口 / 全部)—— 与营收并列展示,净额 = 毛额 - 退款额。
+	// 按 order_refunds.created_at 归属(退款发生的那天),不是原订单的支付日。
+	type refRow struct {
+		Amount float64
+		Cnt    int64
+	}
+	queryRefund := func(scope string, since *time.Time) refRow {
+		var rr refRow
+		q := o.db.Table("order_refunds").
+			Select("COALESCE(SUM(amount),0) AS amount, COUNT(*) AS cnt").
+			Where("status = 'done'")
+		if since != nil {
+			q = q.Where("created_at >= ?", *since)
+		}
+		if err := q.Scan(&rr).Error; err != nil {
+			slog.Warn("billing: admin 退款统计查询失败(该口径按 0 展示)", "scope", scope, "err", err)
+		}
+		return rr
+	}
+	rWin, rTd, rAll := queryRefund("窗口", &cutoff), queryRefund("今日", &todayStart), queryRefund("全部", nil)
+	t.Refunded, t.RefundCount = rWin.Amount, rWin.Cnt
+	t.RefundedToday, t.RefundToday = rTd.Amount, rTd.Cnt
+	t.RefundedAll, t.RefundAll = rAll.Amount, rAll.Cnt
+
+	// 计数失败不再静默(理由同 queryRev:掉 0 必须可归因)。
+	warnCount := func(scope string, err error) {
+		if err != nil {
+			slog.Warn("billing: admin 订单统计计数失败(该口径按 0 展示)", "scope", scope, "err", err)
+		}
+	}
 	// 订单状态(窗口内,次要)
-	o.db.Table("orders").Where("status = 'pending' AND created_at >= ?", cutoff).Count(&t.PendingCount)
-	o.db.Table("orders").Where("status = 'expired' AND created_at >= ?", cutoff).Count(&t.ExpiredCount)
+	warnCount("pending 订单", o.db.Table("orders").Where("status = 'pending' AND created_at >= ?", cutoff).Count(&t.PendingCount).Error)
+	warnCount("expired 订单", o.db.Table("orders").Where("status = 'expired' AND created_at >= ?", cutoff).Count(&t.ExpiredCount).Error)
 	// 兑换码核销:今日 / 窗口 / 全部
-	o.db.Table("vip_code_redemptions").Where("created_at >= ?", todayStart).Count(&t.RedeemedToday)
-	o.db.Table("vip_code_redemptions").Where("created_at >= ?", cutoff).Count(&t.RedeemedCodes)
-	o.db.Table("vip_code_redemptions").Count(&t.RedeemedAll)
+	warnCount("兑换码核销·今日", o.db.Table("vip_code_redemptions").Where("created_at >= ?", todayStart).Count(&t.RedeemedToday).Error)
+	warnCount("兑换码核销·窗口", o.db.Table("vip_code_redemptions").Where("created_at >= ?", cutoff).Count(&t.RedeemedCodes).Error)
+	warnCount("兑换码核销·全部", o.db.Table("vip_code_redemptions").Count(&t.RedeemedAll).Error)
 
 	// 每日营收(充值/订阅 拆段)。DATE_FORMAT 而非 DATE():DSN parseTime 坑(同 llmusage)。
 	var sparse []AdminRevenueDay
@@ -225,4 +276,118 @@ func (h *Handler) AdminOrderStats(c *gin.Context) {
 		return
 	}
 	utils.Success(c, res)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 管理台退款(0107)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// AdminRefundRequest POST /admin/billing/orders/:orderNo/refund 的请求体。
+type AdminRefundRequest struct {
+	// Amount 本次退款金额(元)。省略或 0 = 按剩余可退全额退。
+	Amount float64 `json:"amount"`
+	// Reason 内部退款原因(必填)。只进 order_refunds,不下发给用户端。
+	Reason string `json:"reason" binding:"required,min=1,max=255"`
+	// GatewayRefundNo 商户后台那笔退款的单号,选填,用于对账。
+	GatewayRefundNo string `json:"gateway_refund_no" binding:"max=64"`
+	// RevokeMembership 是否连带撤销会员(仅订阅单有意义)。
+	RevokeMembership bool `json:"revoke_membership"`
+	// IdempotencyKey 幂等键 —— 管理台弹窗打开时生成一次,重试沿用同一个。
+	// 不传则**没有幂等保护**(每次都是新的一笔),见 vip/refund.go 的说明。
+	IdempotencyKey string `json:"idempotency_key" binding:"max=64"`
+}
+
+// AdminRefundOrder POST /admin/billing/orders/:orderNo/refund —— 登记一笔退款并回收权益。
+//
+// ⚠️ 本接口**不调用支付网关**。当前口径是「管理员先去支付宝/微信商户后台把钱退掉,
+// 回到管理台登记」,所以它做的是:记账 + 回收权益 + 通知用户 + 留痕。
+// 前端必须把这一点说清楚,否则管理员会以为点一下钱就退出去了。
+func (h *Handler) AdminRefundOrder(c *gin.Context) {
+	orderNo := c.Param("orderNo")
+	if orderNo == "" {
+		utils.BadRequest(c, "缺少订单号")
+		return
+	}
+	var req AdminRefundRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	// binding 的 `required,min=1` 对字符串只拒空串 —— 三个空格能过,
+	// 随后被服务层 TrimSpace 抹成空,退款单上就留下一条没有理由的记账。
+	// 动钱的操作必须有理由,这里按 trim 后的口径再判一次(与前端 reason.trim() 对齐)。
+	if strings.TrimSpace(req.Reason) == "" {
+		utils.BadRequest(c, "退款原因必填")
+		return
+	}
+
+	// 操作人留痕 —— 退款是动真钱的操作,「谁批的」必须落库而不只是打日志。
+	operatorID, _ := utils.GetUserID(c)
+	operatorName := h.svc.Order().adminDisplayName(operatorID)
+
+	res, err := h.svc.Order().Refund(c.Request.Context(), RefundRequest{
+		OrderNo:          orderNo,
+		AmountYuan:       req.Amount,
+		Reason:           req.Reason,
+		GatewayRefundNo:  req.GatewayRefundNo,
+		RevokeMembership: req.RevokeMembership,
+		IdempotencyKey:   req.IdempotencyKey,
+		OperatorID:       operatorID,
+		OperatorName:     operatorName,
+	})
+	if err != nil {
+		// 这几类是「操作不合法」而不是「系统坏了」,要把具体原因给管理员看 ——
+		// 统一回 500 + "退款失败" 会让人完全不知道该怎么办。
+		switch {
+		case errors.Is(err, ErrRefundDuplicate):
+			utils.Error(c, 4090, err.Error())
+		case errors.Is(err, ErrOrderNotRefundable), errors.Is(err, ErrRefundAmountInvalid):
+			utils.BadRequest(c, err.Error())
+		case errors.Is(err, ErrUserNotFound):
+			utils.BadRequest(c, "订单归属用户不存在")
+		default:
+			slog.Error("billing: admin refund failed", "order_no", orderNo, "operator_id", operatorID, "err", err)
+			utils.ServerError(c, "退款登记失败,请稍后重试")
+		}
+		return
+	}
+	utils.SuccessWithMessage(c, "退款已登记", res)
+}
+
+// AdminListOrderRefunds GET /admin/billing/orders/:orderNo/refunds —— 某订单的退款明细。
+func (h *Handler) AdminListOrderRefunds(c *gin.Context) {
+	orderNo := c.Param("orderNo")
+	if orderNo == "" {
+		utils.BadRequest(c, "缺少订单号")
+		return
+	}
+	rows, err := h.svc.Order().ListOrderRefunds(orderNo)
+	if err != nil {
+		utils.ServerError(c, "获取退款记录失败")
+		return
+	}
+	utils.Success(c, gin.H{"items": rows})
+}
+
+// adminDisplayName 取管理员的展示名(用户名优先,退回邮箱,再退回 #id)。
+// 冗余快照进退款单:管理员改名/注销后仍要能回答「谁批的」。
+func (o *OrderService) adminDisplayName(userID uint) string {
+	if userID == 0 {
+		return ""
+	}
+	var row struct {
+		Username string
+		Email    string
+	}
+	if err := o.db.Table("users").Select("username, email").
+		Where("id = ?", userID).Scan(&row).Error; err != nil {
+		return fmt.Sprintf("#%d", userID)
+	}
+	switch {
+	case row.Username != "":
+		return row.Username
+	case row.Email != "":
+		return row.Email
+	default:
+		return fmt.Sprintf("#%d", userID)
+	}
 }

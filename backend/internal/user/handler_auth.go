@@ -86,8 +86,9 @@ type LoginRequest struct {
 
 // AuthResponse represents an authentication response
 type AuthResponse struct {
-	Token string `json:"token"`
-	User  *User  `json:"user"`
+	Token     string `json:"token"`
+	User      *User  `json:"user"`
+	IsNewUser bool   `json:"is_new_user,omitempty"`
 }
 
 // ResetPasswordRequest represents a password reset request
@@ -209,8 +210,9 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	utils.Success(c, AuthResponse{
-		Token: token,
-		User:  user,
+		Token:     token,
+		User:      user,
+		IsNewUser: true,
 	})
 }
 
@@ -276,15 +278,16 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithEmailCode(c.Request.Context(), req.Email, req.Code, ip)
+	user, token, created, err := h.service.LoginWithEmailCode(c.Request.Context(), req.Email, req.Code, ip)
 	if err != nil {
 		utils.SafeError(c, CodeLoginWithCodeFailed, err)
 		return
 	}
 
 	utils.Success(c, AuthResponse{
-		Token: token,
-		User:  user,
+		Token:     token,
+		User:      user,
+		IsNewUser: created,
 	})
 }
 
@@ -376,8 +379,9 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	}
 
 	utils.Success(c, AuthResponse{
-		Token: token,
-		User:  user,
+		Token:     token,
+		User:      user,
+		IsNewUser: true,
 	})
 }
 
@@ -426,15 +430,16 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithPhoneCode(c.Request.Context(), req.Phone, req.Code, ip)
+	user, token, created, err := h.service.LoginWithPhoneCode(c.Request.Context(), req.Phone, req.Code, ip)
 	if err != nil {
 		utils.SafeError(c, CodeLoginPhoneWithCodeFailed, err)
 		return
 	}
 
 	utils.Success(c, AuthResponse{
-		Token: token,
-		User:  user,
+		Token:     token,
+		User:      user,
+		IsNewUser: created,
 	})
 }
 
@@ -526,4 +531,3 @@ func (h *Handler) LogoutAll(c *gin.Context) {
 	}
 	utils.SuccessWithMessage(c, "已退出所有设备", nil)
 }
-

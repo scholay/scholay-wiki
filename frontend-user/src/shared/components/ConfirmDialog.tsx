@@ -101,10 +101,10 @@ export function ConfirmDialog({
           <div className="space-y-1.5">
             <Label
               htmlFor="confirm-input"
-              className="text-xs text-muted-foreground"
+              className="text-12 text-muted-foreground"
             >
               输入{' '}
-              <code className="px-1 py-0.5 bg-surface-1 rounded text-foreground font-mono">
+              <code className="px-1 py-0.5 bg-surface-1 rounded-4 text-foreground font-mono">
                 {typeToConfirm}
               </code>{' '}
               确认
@@ -137,7 +137,7 @@ export function ConfirmDialog({
             variant={danger ? 'destructive' : 'default'}
             disabled={!matches || pending}
             onClick={handleConfirm}
-            className={cn(danger && 'font-bold')}
+            className={cn(danger && 'font-medium')}
           >
             {pending && <Loader2 className="size-3.5 animate-spin" />}
             {confirmText}

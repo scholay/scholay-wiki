@@ -42,6 +42,15 @@ const (
 	// status: 一条**瞬时进度提示** (如"正在读取稿件…/检索文献…"), 不进 text 缓冲,
 	// 前端拿去显示 loading 文案。agent 用工具 (Read/Bash/MCP) 的"静默期"靠它给反馈。
 	StreamPhaseStatus StreamPhase = "status"
+	// state: **控制帧** —— computeState 翻转通知 (StreamEvent.ComputeState 填新值)。
+	// 不进 text、不定向任何 slot,经 BroadcastAll 发给该 submission 当前全部订阅者;
+	// 前端收帧 invalidate submission 详情查询,把 2s 轮询降级成推送 + 慢兜底。
+	// 老前端对未知 SSE event 静默丢弃,向后兼容 (frontend stream.ts handleFrame 无 default 分支)。
+	StreamPhaseState StreamPhase = "state"
+	// report_ready: **控制帧** —— 某个 role 的审稿报告已落库 (StreamEvent.Role 填 role)。
+	// 语义与该 reviewer slot 的 done 帧不同:done 只说"这条流写完了",占位/跳轮的 Done 也会发;
+	// report_ready 保证 DB 行已可读,前端收帧 invalidate reports 查询。
+	StreamPhaseReportReady StreamPhase = "report_ready"
 )
 
 // 已知 slot 常量 — service 内部硬编码, handler 在 SSE URL ?slot= 转发。
@@ -64,6 +73,9 @@ type StreamEvent struct {
 	Text  string      `json:"text,omitempty"`  // delta: 新增片段; snapshot/done: 当前完整文本; error: 留空
 	Error string      `json:"error,omitempty"` // 只在 phase=error 时填
 	Note  string      `json:"note,omitempty"`  // 只在 phase=status 时填: 瞬时进度提示 (不进 text)
+	// 控制帧载荷 (2026-08-12 推送化):
+	ComputeState string `json:"computeState,omitempty"` // 只在 phase=state 时填: 新的 computeState
+	Role         string `json:"role,omitempty"`         // 只在 phase=report_ready 时填: alpha/beta/gamma/chief
 }
 
 // stream 是单条 (submissionID, slot) 的流式状态。
@@ -229,6 +241,29 @@ func (b *StreamBroker) Fail(id uint64, slot, errMsg string) {
 
 // FailAll — submission 整体被取消 (DeleteSubmission) 时, 把所有 slot 一次性 Fail,
 // 让所有 active SSE 客户端立即收到 error 然后 close。
+// BroadcastAll 把一条**控制帧**(state / report_ready)发给该 submission 当前全部活跃流的
+// 订阅者 —— 不改流状态、不进 text 缓冲、不触发 handler 的 done/error 关流分支。
+// 没有任何活跃流时静默落空:控制帧只服务"正在看着的人",错过的由前端慢轮询兜底
+// (DB 才是状态真源)。扇出方式与 FailAll 同款:按 "<id>|" 前缀线性扫 map。
+func (b *StreamBroker) BroadcastAll(id uint64, evt StreamEvent) {
+	prefix := fmt.Sprintf("%d|", id)
+	b.mu.RLock()
+	targets := make([]*stream, 0, 4)
+	for k, st := range b.streams {
+		if len(k) >= len(prefix) && k[:len(prefix)] == prefix {
+			targets = append(targets, st)
+		}
+	}
+	b.mu.RUnlock()
+	for _, st := range targets {
+		st.mu.Lock()
+		for ch := range st.subs {
+			nonBlockingSend(ch, evt)
+		}
+		st.mu.Unlock()
+	}
+}
+
 func (b *StreamBroker) FailAll(id uint64, errMsg string) {
 	prefix := fmt.Sprintf("%d|", id)
 	b.mu.RLock()

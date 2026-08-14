@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useSubmissionAssets } from '../../api/submissions';
-import type { SubmissionAsset } from '../../types';
+import type { SubmissionAsset } from '@/shared/lib/peer-review/types';
 
 /**
  * Wizard 右栏(.pen `DToay` / `x29bpl` 共用区域,~380px 宽):
@@ -43,18 +43,18 @@ export function RightRailPanel({ submissionId, children, tip }: RightRailPanelPr
 export function UploadedAssetsCard({ submissionId }: { submissionId: number }) {
   const { data: assets = [] } = useSubmissionAssets(submissionId);
   return (
-    <section className="rounded-lg border border-border bg-background">
+    <section className="rounded-16 border border-border bg-surface-card">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border-soft">
-        <h3 className="text-sm font-bold text-foreground">
+        <h3 className="text-14 font-medium text-foreground">
           已上传
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
+          <span className="ml-2 text-12 font-normal text-muted-foreground">
             {assets.length > 0 ? `${assets.length} 个文件` : ''}
           </span>
         </h3>
       </header>
       <ul className="flex flex-col gap-1 p-2">
         {assets.length === 0 ? (
-          <li className="px-2 py-3 text-xs text-faint">还没有上传任何文件</li>
+          <li className="px-2 py-3 text-12 text-faint">还没有上传任何文件</li>
         ) : (
           assets.map((a) => <AssetRow key={a.id} asset={a} />)
         )}
@@ -66,13 +66,17 @@ export function UploadedAssetsCard({ submissionId }: { submissionId: number }) {
 function AssetRow({ asset }: { asset: SubmissionAsset }) {
   const isManuscript = asset.role === 'manuscript';
   return (
-    <li className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-surface-1">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-[10px] font-bold text-muted-foreground">
+    <li className="flex items-center gap-2 rounded-8 px-2 py-2 hover:bg-surface-1">
+      {/* 扩展名角标:原为 text-[10px] —— 10px 低于 Figma §2.2 六档下限 12 且无依据,
+          arbitrary 写法绕过了已封闭的字号命名空间,故归到最小档 text-12
+          (与 PrismPreview 的 text-[11px]→text-12、AllMenusOverlay 的 text-[9px]→text-12 同一处理)。
+          extLabel 最多 4 个大写字母,12px 下约 30px,仍容得下 size-8(32px)方框。 */}
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-12 font-medium text-muted-foreground">
         {extLabel(asset.filename)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-1 text-xs font-bold text-foreground">{asset.filename}</p>
-        <p className="mt-0.5 text-2xs text-muted-foreground">
+        <p className="line-clamp-1 text-12 font-medium text-foreground">{asset.filename}</p>
+        <p className="mt-0.5 text-12 text-muted-foreground">
           {isManuscript ? '稿件正文' : '附件'} · {formatBytes(asset.size)}
         </p>
       </div>
@@ -86,12 +90,12 @@ function AssetRow({ asset }: { asset: SubmissionAsset }) {
 // 提示卡:背景走 warning-soft token;边框无对应 token,用 brand-amber 30% 不透明度近似 #F2E2B3
 export function TipCard({ title, bullets }: { title: string; bullets: string[] }) {
   return (
-    <section className="rounded-xl border border-brand-amber/30 bg-warning-soft p-4">
-      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
+    <section className="rounded-12 border border-brand-amber/30 bg-warning-soft p-4">
+      <h3 className="mb-2 flex items-center gap-1.5 text-14 font-medium text-foreground">
         <AlertCircle className="size-4 text-brand-amber" />
         {title}
       </h3>
-      <ul className="flex flex-col gap-1.5 text-xs leading-relaxed text-subtle">
+      <ul className="flex flex-col gap-1.5 text-12 leading-paragraph text-subtle">
         {bullets.map((b, i) => (
           <li key={i} className="flex gap-1.5">
             <span className="text-brand-amber">•</span>

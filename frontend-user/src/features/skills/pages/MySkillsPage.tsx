@@ -8,6 +8,8 @@ import { EmptyState } from '@/shared/components/EmptyState';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { ResourceError } from '@/shared/components/ResourceError';
 import { Button, Badge } from '@/shared/ui';
+import { useAuthStore } from '@/stores/auth.store';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import {
   useMySkills,
   usePublishSkill,
@@ -33,6 +35,25 @@ const MOD_BADGE: Record<
  */
 export function MySkillsPage() {
   const { data: skills, isLoading, isError, refetch } = useMySkills();
+  // 登录守卫(与 PeerReviewShell 同款 shell 层分叉):useMySkills 已按 token 门控不发请求,
+  // 这里补 UI 引导 —— 否则未登录用户看到的是空态/错误态而不是登录入口。
+  const token = useAuthStore((s) => s.token);
+  const openDialog = useAuthDialog((s) => s.openDialog);
+
+  if (!token) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-6">
+        <RouteSEO title="我的 Skills" description="管理我上传的智能助手技能" />
+        <EmptyState
+          className="min-h-[50dvh]"
+          icon={Lock}
+          title="登录后管理我的 Skills"
+          description="登录后即可上传、发布和管理自己的智能助手技能"
+          action={<Button variant="primary" onClick={() => openDialog('login')}>登录 / 注册</Button>}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6">
@@ -40,11 +61,11 @@ export function MySkillsPage() {
 
       <header className="mb-5 flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+          <h1 className="flex items-center gap-2 text-20 font-medium text-foreground">
             <Sparkles className="h-5 w-5 text-brand-green" />
             我的 Skills
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-12 text-muted-foreground">
             上传纯文本 SKILL.md;公开需通过审核。
             <Link to="/tools/skills" className="ml-2 text-brand-green hover:underline">
               浏览市场 →
@@ -94,22 +115,22 @@ function MySkillRow({ skill }: { skill: MySkill }) {
   const isPublic = skill.visibility === 'public';
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+    <div className="flex items-center gap-3 rounded-16 border border-border bg-surface-card p-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Link
             to={`/skills/${skill.slug || skill.id}`}
-            className="truncate text-sm font-medium text-foreground hover:text-brand-green"
+            className="truncate text-12 font-medium text-foreground hover:text-brand-green"
           >
             {skill.name}
           </Link>
           {isPublic && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-12 text-muted-foreground">
           {skill.tagline || '(暂无简介)'}
         </p>
         {skill.moderationStatus === 'rejected' && skill.moderationNote && (
-          <p className="mt-0.5 text-2xs text-brand-red">
+          <p className="mt-0.5 text-12 text-brand-red">
             驳回原因:{skill.moderationNote}
           </p>
         )}

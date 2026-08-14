@@ -10,6 +10,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RouteSEO } from '@/shared/components/RouteSEO';
+import { useSiteSupportEmail } from '@/shared/api/public-config';
 import { HelpLayout } from '../components/HelpLayout';
 import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
 import { useSupportContact } from '../api/contact';
@@ -31,26 +32,34 @@ interface Channel {
   href: string;
 }
 
-// 后台未配置时的回落邮箱(与历史展示一致)。
-const FALLBACK_SUPPORT_EMAIL = 'support@scholay.com';
-const FALLBACK_BUSINESS_EMAIL = 'hello@scholay.com';
-
+// 🔴 这里以前是两个写死的 `*@<品牌域>` 兜底常量。问题不在于「写死」本身,而在于
+// **兜底的触发条件**:它只在后台客服中心未配置时生效 —— 恰恰是任何全新部署环境的
+// 必然初始状态。于是每套新环境一上线,/contact 和所有带 ContactChannels 的页面
+// 都会展示另一个站点的真实客服邮箱,测试期造的假问题会直接发进真实工单流。
+//
+// 现在的取值顺序:后台客服中心配置 → 本环境 SUPPORT_EMAIL(经 /config/system 下发)
+// → 空(整个渠道卡不渲染)。没有任何一档会落到别的站点上。
 function buildChannels(supportEmail: string, businessEmail: string): Channel[] {
-  return [
-    {
+  const channels: Channel[] = [];
+  if (supportEmail) {
+    channels.push({
       icon: Mail,
       title: '产品支持',
       desc: '使用问题、bug 报告、账号问题',
       cta: supportEmail,
       href: `mailto:${supportEmail}`,
-    },
-    {
+    });
+  }
+  if (businessEmail) {
+    channels.push({
       icon: Briefcase,
       title: '商务合作',
       desc: '机构席位、API 接入、媒体采访',
       cta: businessEmail,
       href: `mailto:${businessEmail}`,
-    },
+    });
+  }
+  channels.push(
     {
       icon: MessageSquare,
       title: '产品反馈',
@@ -65,7 +74,8 @@ function buildChannels(supportEmail: string, businessEmail: string): Channel[] {
       cta: '查看帮助',
       href: '/help',
     },
-  ];
+  );
+  return channels;
 }
 
 interface SLAItem {
@@ -94,9 +104,10 @@ const SLA: SLAItem[] = [
 
 export function ContactPage() {
   const { data: contact } = useSupportContact();
+  const siteSupportEmail = useSiteSupportEmail();
   const channels = buildChannels(
-    contact?.support_email || FALLBACK_SUPPORT_EMAIL,
-    contact?.business_email || FALLBACK_BUSINESS_EMAIL,
+    contact?.support_email || siteSupportEmail,
+    contact?.business_email || '',
   );
   const qrs = [
     { title: '企业微信', src: contact?.wecom_qr },
@@ -109,7 +120,7 @@ export function ContactPage() {
       eyebrow="CONTACT"
       title="联系我们"
       lead="选择合适的渠道,我们会尽快回复。常规问题通常 1 个工作日内响应。"
-      contentMaxWidth="max-w-5xl"
+      contentMaxWidth="max-w-page"
     >
       <RouteSEO
         title="联系我们 - Scholay | 客服支持与商务合作"
@@ -118,21 +129,21 @@ export function ContactPage() {
       />
       {/* 1. 渠道卡 */}
       <section>
-        <h2 className="text-base font-bold text-foreground mb-4">联系渠道</h2>
+        <h2 className="text-14 font-medium text-foreground mb-4">联系渠道</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {channels.map((c) => (
             <ChannelCard key={c.title} channel={c} />
           ))}
         </div>
         {contact?.contact_note && (
-          <p className="mt-3 text-xs text-muted-foreground leading-relaxed">{contact.contact_note}</p>
+          <p className="mt-3 text-12 text-muted-foreground leading-paragraph">{contact.contact_note}</p>
         )}
       </section>
 
       {/* 2. 社交渠道二维码(后台配置后才展示) */}
       {qrs.length > 0 && (
         <section className="mt-14">
-          <h2 className="text-base font-bold text-foreground inline-flex items-center gap-2 mb-5">
+          <h2 className="text-14 font-medium text-foreground inline-flex items-center gap-2 mb-5">
             <QrCode className="size-4 text-brand-red" strokeWidth={2.2} />
             扫码联系
           </h2>
@@ -140,10 +151,10 @@ export function ContactPage() {
             {qrs.map((q) => (
               <div
                 key={q.title}
-                className="flex flex-col items-center gap-2 rounded-md border border-border bg-background p-4"
+                className="flex flex-col items-center gap-2 rounded-16 border border-border bg-surface-card p-4"
               >
-                <img src={q.src} alt={`${q.title}二维码`} className="size-36 rounded-sm object-contain" />
-                <p className="text-xs font-semibold text-subtle">{q.title}</p>
+                <img src={q.src} alt={`${q.title}二维码`} className="size-36 rounded-8 object-contain" />
+                <p className="text-12 font-medium text-subtle">{q.title}</p>
               </div>
             ))}
           </div>
@@ -152,7 +163,7 @@ export function ContactPage() {
 
       {/* 3. SLA */}
       <section className="mt-14">
-        <h2 className="text-base font-bold text-foreground inline-flex items-center gap-2 mb-5">
+        <h2 className="text-14 font-medium text-foreground inline-flex items-center gap-2 mb-5">
           <Clock className="size-4 text-brand-red" strokeWidth={2.2} />
           响应时效
         </h2>
@@ -179,18 +190,18 @@ function ChannelCard({ channel }: { channel: Channel }) {
   const { icon: Icon, title, desc, cta, href } = channel;
   const isInternal = href.startsWith('/');
   const inner = (
-    <div className="group flex flex-col gap-2.5 p-5 rounded-md bg-background border border-border hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] h-full">
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors">
+    <div className="group flex flex-col gap-2.5 p-5 rounded-16 bg-surface-card border border-border hover:border-foreground/40 transition-colors">
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors">
         <Icon
           className="size-4 text-subtle group-hover:text-brand-red transition-colors"
           strokeWidth={2}
         />
       </span>
-      <p className="text-sm font-bold text-foreground leading-tight">{title}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
-      <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-red group-hover:gap-2 transition-all">
+      <p className="text-12 font-medium text-foreground">{title}</p>
+      <p className="text-12 text-muted-foreground leading-paragraph">{desc}</p>
+      <span className="mt-auto inline-flex items-center gap-1 text-12 font-medium text-brand-red">
         {cta}
-        <ArrowRight className="size-3" />
+        <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
       </span>
     </div>
   );
@@ -207,12 +218,12 @@ function ChannelCard({ channel }: { channel: Channel }) {
 
 function SLACard({ item }: { item: SLAItem }) {
   return (
-    <div className="flex flex-col gap-1.5 p-5 rounded-md bg-surface-1 border border-border-soft">
-      <p className="text-xs font-bold text-faint uppercase tracking-[0.16em]">
+    <div className="flex flex-col gap-1.5 p-5 rounded-16 bg-surface-1 border border-border-soft">
+      <p className="text-12 font-medium text-faint uppercase">
         {item.scope}
       </p>
-      <p className="text-lg font-bold text-foreground leading-tight">{item.time}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed">{item.detail}</p>
+      <p className="text-16 font-medium text-foreground">{item.time}</p>
+      <p className="text-12 text-muted-foreground leading-paragraph">{item.detail}</p>
     </div>
   );
 }

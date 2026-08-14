@@ -31,7 +31,7 @@
   display: flex;
   align-items: center;
   gap: 24rpx;
-  background: #fff;
+  background: var(--card);
   border-radius: 24rpx;
   padding: 32rpx;
 }
@@ -45,7 +45,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--on-brand);
   font-size: 48rpx;
   font-weight: 700;
   background: var(--brand);
@@ -68,9 +68,9 @@
   justify-content: center;
   gap: 8rpx;
   height: 80rpx;
-  background: #fff;
-  color: #cc2222;
-  border: 1rpx solid #cc2222;
+  background: var(--card);
+  color: var(--red);
+  border: 1rpx solid var(--red);
   border-radius: 16rpx;
   font-size: 28rpx;
 }
@@ -82,7 +82,7 @@
 /* 会员资产 */
 .asset-card {
   margin-top: 24rpx;
-  background: #fff;
+  background: var(--card);
   border-radius: 24rpx;
   padding: 32rpx;
 }
@@ -102,20 +102,20 @@
   color: var(--text-weak);
 }
 .tier-pro {
-  background: #eaf7ee;
-  color: #2a7a2a;
+  background: var(--green-soft);
+  color: var(--green);
 }
 .tier-max {
-  background: #fbf3e0;
-  color: #d4a017;
+  background: var(--amber-soft);
+  color: var(--amber-ink);
 }
 /* 年费会员徽标(0079)—— 与月度会员显式区分 */
 .cycle-badge {
   margin-left: 12rpx;
   padding: 2rpx 14rpx;
   border-radius: 999rpx;
-  background: #fbf3e0;
-  color: #d4a017;
+  background: var(--amber-soft);
+  color: var(--amber-ink);
   font-size: 22rpx;
   font-weight: 700;
 }
@@ -135,7 +135,7 @@
 }
 .quota-fill {
   height: 100%;
-  background: #2a7a2a;
+  background: var(--green);
 }
 .quota-text {
   display: block;
@@ -156,8 +156,8 @@
   flex: 1;
   text-align: center;
   line-height: 68rpx;
-  border: 1rpx solid #cc2222;
-  color: #cc2222;
+  border: 1rpx solid var(--red);
+  color: var(--red);
   border-radius: 12rpx;
   font-size: 28rpx;
 }
@@ -165,7 +165,7 @@
 /* 菜单 */
 .menu {
   margin-top: 24rpx;
-  background: #fff;
+  background: var(--card);
   border-radius: 24rpx;
   overflow: hidden;
 }

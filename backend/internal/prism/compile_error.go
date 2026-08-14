@@ -21,6 +21,57 @@ import (
 // lineNumRe 匹配 LaTeX log 的行号行,如 "l.380 \end{axis}"。
 var lineNumRe = regexp.MustCompile(`^l\.(\d+)`)
 
+// ── error_source 分类(2026-07 线上审计 #3)─────────────────────────────────
+// 三类高频编译错误(bib 条目未闭合 / 期刊名裸 & / 作者名重音命令)全部源于 references.bib,
+// 但自动修复回路把错误喂给 AI 改 document.md —— 结构性修不了,线上实测 6~11 轮不收敛白烧。
+// 这里加 error_source 维度(body / bibliography / infra),供前端把 bibliography 类错误
+// 分流出正文 auto-fix 回路。
+
+const (
+	compileSrcBody  = "body"         // 正文/模板 LaTeX 错(照旧回喂 AI 改 document.md)
+	compileSrcBib   = "bibliography" // 源头在 references.bib(改正文修不了)
+	compileSrcInfra = "infra"        // 基础设施/超时(error_kind 非 latex)
+)
+
+// bibErrSignals —— bibliography 家族信号:bibtex 自身报错 + 「错误上下文落在 bibtex 产物(.bbl)」的引擎错。
+var bibErrSignals = []string{
+	// bibtex 阶段直接报错(.bib 语法 / 条目畸形 / 引用键混空格)
+	"I'm skipping whatever remains",
+	"I was expecting",
+	"White space in argument",
+	"Something's wrong---perhaps",
+	// 引擎错但上下文在参考文献:\newblock / \bibitem / thebibliography / .bbl / {\em(bst 斜体期刊名)
+	// 只出现在 bibtex 生成的参考文献渲染里(正文投影用 \emph,不产 {\em )。
+	"\\newblock",
+	"\\bibitem",
+	"thebibliography",
+	".bbl",
+	"{\\em ",
+	// 2026-07 审查 [13]/[25]:"Misplaced alignment tab character &" 已从信号表**移除** ——
+	// 它只在与上面那几条 .bbl 上下文特征共现时才判 bibliography(共现时由上面几条自然命中)。
+	// 原理由「正文由投影器转义生成、裸 & 必已转义」对两类路径不成立:BlockOpaque 把 agent/用户
+	// 的原样 LaTeX 直接写进正文;BlockDisplayMath 的 blk.Latex 也不转义(没写 aligned 的
+	// $$ x &= y $$ 报的就是这条)。误判代价不对称:判成 bibliography 会**同时**换掉原始报错文案
+	// 并撤掉「让 AI 修复」按钮(用户被锁死),判成 body 只是多回喂一次 AI —— 故无上下文证据时
+	// 保守偏 body。.bib 裸 & 的真阳性形态(l.NNN 落在 .bbl 的 `\newblock {\em Soil &`)自带
+	// 上下文特征,仍照常判 bibliography。
+}
+
+// classifyCompileErrorSource 由 error_kind + 已存的错误摘要/错误块推断 error_source。
+// 读时派生(免迁移加列、向后兼容),对历史失败行同样生效;kind 为空(0072 前存量)按 latex 走信号判定。
+func classifyCompileErrorSource(kind, summary, excerpt string) string {
+	if kind != "" && kind != compileErrLatex {
+		return compileSrcInfra
+	}
+	blob := summary + "\n" + excerpt
+	for _, sig := range bibErrSignals {
+		if strings.Contains(blob, sig) {
+			return compileSrcBib
+		}
+	}
+	return compileSrcBody
+}
+
 // undefCtrlSeqRe 抠出未定义命令名(如 "Undefined control sequence … \toprule" → "\toprule")。
 // (?s):`.` 跨行 —— TeX 的 `! Undefined control sequence.` 行本身不含命令名,命令名在紧随的
 // `<recently read> \cmd` / `l.NNN \cmd` 上下文行里,故必须在整个错误块(含换行)里找。

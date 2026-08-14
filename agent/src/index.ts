@@ -6,10 +6,11 @@ import { handleHTTP } from "./server/http.ts";
 import { onOpen, onMessage, onClose, type WSData } from "./server/ws.ts";
 import { startSessionSweeper } from "./server/sessions.ts";
 import { authOK, tokenConfigured } from "./auth.ts";
-import { sandboxMode, smokeTestSciDrawDeps, smokeTestExport } from "./sandbox/bwrap.ts";
+import { sandboxMode, smokeTestEvidenceReadonly, smokeTestSciDrawDeps, smokeTestExport } from "./sandbox/bwrap.ts";
 import { validSessionId } from "./sandbox/confine.ts";
 import { prewarm } from "./mcp/minicodClient.ts";
 import { unsandboxedBashGate } from "./sandbox/profile.ts";
+import { probeStatsEngines } from "./tools/statsEngines.ts";
 import { log } from "./obs/log.ts";
 
 const PORT = Number(process.env.PORT || 3456);
@@ -91,6 +92,13 @@ if (process.env.NODE_ENV === "production" && !tokenConfigured()) {
 
 // 科研绘图 B/C 车道(matplotlib/rdkit)在真实 jail 内的渲染自检 —— 非阻塞、fire-and-forget。
 // 结果打进启动日志(`docker logs scholar_agent | grep 科研绘图`);失败=某运行库没 bind 进 jail。
+// 证据保留区闸的**真 jail 实测**:argv 断言只证明参数在场,不证明内核真的拦住
+// (--ro-bind 覆盖 --bind 子路径依赖 bwrap 版本与参数顺序)。失败会打 error 级日志。
+smokeTestEvidenceReadonly().catch(() => {});
 smokeTestSciDrawDeps().catch(() => {});
 // ExportDocument 链路(pandoc docx/pdf)同款 jail 内自检(`docker logs scholar_agent | grep 导出自检`)。
 smokeTestExport().catch(() => {});
+// 统计引擎(statsmodels / sklearn / lifelines …)可用性探测(2026-08 证据账本 P0-a 运行时诚实化)。
+// 结果落进 statsEngines.engineSupported(P1 方法候选表的真值来源);缺库会在启动日志里 error
+// 大声报出(`docker logs scholar_agent | grep 统计引擎`)—— SKILL.md 承诺了而镜像没有 = 模型只能编数。
+probeStatsEngines().catch(() => {});

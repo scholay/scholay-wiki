@@ -8,6 +8,8 @@
  */
 
 import {
+  appendToolInputStream,
+  finishToolInputStream,
   markPendingToolsAborted,
   type TextBlock,
   type ToolBlock,
@@ -20,27 +22,42 @@ import type { PrismHistoryMsg } from '../../api/prism';
 /** 实时:把 socket.messages + 本地 pendingTurns(用户输入)折成 Turn[]。 */
 export function foldPrismMessages(
   messages: PrismServerMessage[],
-  pendingTurns: Pick<Turn, 'id' | 'userText' | 'paused'>[],
+  pendingTurns: Pick<
+    Turn,
+    'id' | 'userText' | 'paused' | 'blocked' | 'userAttachments' | 'userReferences'
+  >[],
 ): Turn[] {
   const turns: Turn[] = pendingTurns.map((p) => ({
     id: p.id,
     userText: p.userText,
+    // 附件/引用 chip 透传(实时轮由 send 填,blocked 恢复轮由 localStorage 还原)。
+    userAttachments: p.userAttachments,
+    userReferences: p.userReferences,
     blocks: [],
-    complete: false,
+    // blocked 轮(命中额度未发送)当场终结:agent 永不对它发终帧,留 complete=false 会让
+    // StreamingIndicator 永续转 + 下一轮流帧错位折进死轮(见 usePrismChat quota effect 注释)。
+    complete: !!p.blocked,
     paused: p.paused,
+    blocked: p.blocked,
   }));
   if (turns.length === 0) return turns;
 
   let turnIdx = 0;
   let currentTextBlock: TextBlock | null = null;
+  // 在途 tool_use 块 —— toolInput 流式增量挂它身上(ToolCallBlock 构建态预览,shared 同款)。
+  let currentToolBlock: ToolBlock | null = null;
   const toolByUseId = new Map<string, ToolBlock>();
 
   for (const msg of messages) {
+    // blocked 轮不产生任何流帧 —— 对齐游标跳过它们,否则后续真实轮的帧会错位折进
+    // blocked 轮(命中额度被拦后不重发、直接问下一句的场景)。同 claw / smart-search fold。
+    while (turns[turnIdx] && turns[turnIdx].blocked) turnIdx++;
     const current = turns[turnIdx];
     if (!current) break;
     switch (msg.type) {
       case 'content_start':
         currentTextBlock = null;
+        currentToolBlock = null;
         if (msg.blockType === 'text') {
           currentTextBlock = { kind: 'text', id: `text-${current.blocks.length}`, text: '' };
           current.blocks.push(currentTextBlock);
@@ -53,6 +70,7 @@ export function foldPrismMessages(
           };
           current.blocks.push(tb);
           toolByUseId.set(msg.toolUseId, tb);
+          currentToolBlock = tb;
         }
         break;
       case 'round_discarded':
@@ -64,13 +82,21 @@ export function foldPrismMessages(
         }
         break;
       case 'content_delta':
-        if (currentTextBlock && typeof msg.text === 'string') currentTextBlock.text += msg.text;
+        if (currentTextBlock && typeof msg.text === 'string') {
+          currentTextBlock.text += msg.text;
+        } else if (currentToolBlock && typeof msg.toolInput === 'string' && msg.toolInput) {
+          // 构建期流式入参:挂到在途工具块 → 对话流 ToolCallBlock 也有实时预览
+          // (右侧文档面板的流式预览另走 usePrismChat.currentStreamingWrite,互不影响)。
+          appendToolInputStream(currentToolBlock, msg.toolInput, msg.toolPath);
+        }
         break;
       case 'tool_use_complete': {
         const b = toolByUseId.get(msg.toolUseId);
         if (b) {
           b.toolName = msg.toolName;
           b.input = msg.input;
+          finishToolInputStream(b);
+          if (b === currentToolBlock) currentToolBlock = null;
         }
         break;
       }
@@ -105,6 +131,7 @@ export function foldPrismMessages(
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
+        currentToolBlock = null;
         turnIdx++;
         break;
       case 'error':
@@ -115,6 +142,7 @@ export function foldPrismMessages(
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
+        currentToolBlock = null;
         turnIdx++;
         break;
       default:

@@ -16,6 +16,10 @@ export interface TurnInput {
   tier: Tier;
   modelOverride?: string; // 具体 model id(peerreview set_runtime_config{modelId} 切模型);优先于 tier
   maxOutput?: number; // 模型最大完成 token(目录 max_output 随模型帧下发);>0 时与全局上限取小
+  // 2026-08 Phase 1(Run 引擎):本轮的工具轮上限。**不下发时行为与今天逐字等价**
+  // (turnLoop 用 `?? MAX_TOOL_ROUNDS`)。在场时轮尽发 code="step_incomplete" 分页信号
+  // 而非 round_cap 终结错误 —— 那是 Run 形态的核心收益。
+  maxRounds?: number;
   contextWindow?: number; // 模型上下文窗口(P0 反应式压缩:上游 context 溢出时按此有界重试压缩)
   vision?: boolean; // 当前模型是否支持图片输入(目录 vision 随模型帧下发);false → 请求前过滤 image 块
   providerName?: string; // F0 多 provider:额外 provider 的 executor 键;缺省 = 默认 active provider
@@ -35,8 +39,12 @@ export interface TurnInput {
   // peerreview(任务型,必须跑完)不盖 → undefined → 无披露无收尾。
   taskBudget?: { softRemaining: number; hardRemaining: number };
   // 诚实性核验 guard(2026-07 审计 P0-1/P0-2/P1-6)per-feature 旗标:true → turnLoop 轮末跑
-  // verifyClaims 核验(引用/交付/通读宣称),不过则注入纠偏轮。控制面按 feature 下发
-  // (claw 先开;peerreview 是有界 JSON 任务路、prism 交付走项目文件,均不开防误伤)。
+  // verifyClaims 核验(引用/交付/通读宣称)。控制面按 feature 下发(claw/prism 开;
+  // peerreview 是有界 JSON 任务路不开防误伤)。
+  // 🔴 2026-08 证据账本 P0:**已降级为纯观测** —— findings 只落 claim_audit 帧 + slog,
+  // **不再注入纠偏轮**(旧注释写的「不过则注入纠偏轮」已不成立)。降级理由见 verifyClaims.ts 头注释:
+  // 609 轮只触发 8 次、判据集合与故障形态不相交、且冷重播时会把每条**真实**引用判成未验证 →
+  // 逼模型「补齐或更正」而它此时无法查证 → 最省力的服从方式是删掉真引用(净负值)。
   honestyGuard?: boolean;
   // 核验维度按位开关(prism 预备件):honestyGuard=true 时生效,缺省全开。
   // 控制面下发形态 {citations?, delivery?, fullread?};详见 verifyClaims.HonestyChecks。
@@ -49,12 +57,22 @@ export interface EventSink {
   error(message: string, code?: string): void;
   // 请求权限裁决(对应 permission_request → permission_response)。
   // 控制面是权威(Go decidePermission);执行器只是据回执阻塞/放行该 tool。
+  // 2026-07 审查([16]/[21]):回执可带 userMessage(如「不存在名为 X 的工具,请改用可用工具。」),
+  // 此前解析层就把它丢了 → 幻想工具名与真越权同文案,模型误判为权限问题而放弃。
+  // 返回 boolean 是向后兼容形态(测试/shadow/conformance 等自动批的 sink 不必改)。
   requestPermission(req: {
     requestId: string;
     toolName: string;
     toolUseId: string;
     input: unknown;
-  }): Promise<boolean>;
+  }): Promise<boolean | PermissionDecision>;
+}
+
+// PermissionDecision:控制面裁决结果。userMessage 为控制面给的可见文案,
+// 拒绝时同时用作「回喂模型的 tool_result 正文」与「前端展示摘要」。
+export interface PermissionDecision {
+  allowed: boolean;
+  userMessage?: string;
 }
 
 export type AnthropicTool = {

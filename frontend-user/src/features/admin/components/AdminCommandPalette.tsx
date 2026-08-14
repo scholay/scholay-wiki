@@ -70,26 +70,44 @@ export function AdminCommandPalette({
               value={query}
               onValueChange={setQuery}
               placeholder="搜索页面 / 用户 / 快捷动作…"
-              className="flex-1 h-11 bg-transparent text-sm outline-none placeholder:text-faint"
+              /* outline-none 合法: cmdk / Radix Dialog 惯例 —— 面板打开即 autoFocus 到本框且它是唯一输入位,画环是噪音 */
+              className="flex-1 h-11 bg-transparent text-12 outline-none placeholder:text-faint"
             />
           </div>
 
           <Command.List className="flex-1 overflow-y-auto p-2">
-            <Command.Empty className="text-center text-sm text-faint py-6">
-              {userSearch.isFetching && debouncedQuery ? '搜索中…' : '没找到匹配项,换个关键词试试'}
+            <Command.Empty className="text-center text-12 text-faint py-6">
+              {userSearch.isFetching && debouncedQuery
+                ? '搜索中…'
+                : // 搜索**失败**不能说成"没找到" —— 那会让人以为库里真的没这个用户
+                  userSearch.isError && debouncedQuery
+                  ? '用户搜索失败,请稍后重试(页面跳转不受影响)'
+                  : '没找到匹配项,换个关键词试试'}
             </Command.Empty>
 
             {/* ---------- 用户搜索结果 ---------- */}
             {debouncedQuery && (userSearch.data?.length ?? 0) > 0 && (
-              <Command.Group heading="用户" className="text-2xs text-faint tracking-[0.18em] px-2 pb-1 pt-1 font-bold">
+              <Command.Group heading="用户" className="text-12 text-faint px-2 pb-1 pt-1 font-medium">
                 {userSearch.data?.map((u) => (
-                  <UserItem key={u.id} user={u} onSelect={() => jumpTo(`/admin/users?q=${encodeURIComponent(u.email || u.username || '')}`)} />
+                  <UserItem
+                    key={u.id}
+                    user={u}
+                    // 兜底链要带上 phone / id:微信与手机号注册的用户 email 和 username 都可能为空,
+                    // 只取前两个会拼出 `?q=`,等于跳回全量列表 —— 看起来像"点了没反应"。
+                    onSelect={() =>
+                      jumpTo(
+                        `/admin/users?q=${encodeURIComponent(
+                          u.email || u.username || u.phone || String(u.id)
+                        )}`
+                      )
+                    }
+                  />
                 ))}
               </Command.Group>
             )}
 
             {/* ---------- 页面跳转 ---------- */}
-            <Command.Group heading="跳转" className="text-2xs text-faint tracking-[0.18em] px-2 pb-1 pt-2 font-bold">
+            <Command.Group heading="跳转" className="text-12 text-faint px-2 pb-1 pt-2 font-medium">
               {navItems.map((it) => {
                 const Icon = it.icon;
                 return (
@@ -97,7 +115,7 @@ export function AdminCommandPalette({
                     key={it.id}
                     value={`${it.id} ${it.label} ${it.href}`}
                     onSelect={() => jumpTo(it.href)}
-                    className="flex items-center gap-3 px-2 h-9 rounded text-sm text-subtle cursor-pointer aria-selected:bg-surface-1 aria-selected:text-foreground"
+                    className="flex items-center gap-3 px-2 h-9 rounded-4 text-12 text-subtle cursor-pointer aria-selected:bg-surface-1 aria-selected:text-foreground"
                   >
                     <Icon className="size-4 text-faint" />
                     <span className="flex-1">{it.label}</span>
@@ -108,7 +126,7 @@ export function AdminCommandPalette({
             </Command.Group>
 
             {/* ---------- 快捷动作 ---------- */}
-            <Command.Group heading="快捷动作" className="text-2xs text-faint tracking-[0.18em] px-2 pb-1 pt-2 font-bold">
+            <Command.Group heading="快捷动作" className="text-12 text-faint px-2 pb-1 pt-2 font-medium">
               <ActionItem
                 icon={<Plus />}
                 label="新建公告"
@@ -150,12 +168,12 @@ function UserItem({ user, onSelect }: { user: AdminUser; onSelect: () => void })
     <Command.Item
       value={`user ${user.email} ${user.username} ${user.id}`}
       onSelect={onSelect}
-      className="flex items-center gap-3 px-2 h-10 rounded text-sm cursor-pointer aria-selected:bg-surface-1"
+      className="flex items-center gap-3 px-2 h-10 rounded-4 text-12 cursor-pointer aria-selected:bg-surface-1"
     >
       <UserIcon className="size-4 text-faint" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-foreground truncate">
+          <span className="font-medium text-foreground truncate">
             {user.username || user.email?.split('@')[0] || `User #${user.id}`}
           </span>
           {user.role !== 'user' && (
@@ -165,7 +183,7 @@ function UserItem({ user, onSelect }: { user: AdminUser; onSelect: () => void })
             <Lock className="size-3 text-brand-red" />
           )}
         </div>
-        <div className="text-2xs text-faint truncate">{user.email || user.phone || '—'}</div>
+        <div className="text-12 text-faint truncate">{user.email || user.phone || '—'}</div>
       </div>
       <ArrowRight className="size-3 text-faint opacity-0 aria-selected:opacity-100" />
     </Command.Item>
@@ -184,11 +202,11 @@ function ActionItem({
     <Command.Item
       value={`action ${label}`}
       onSelect={onSelect}
-      className="flex items-center gap-3 px-2 h-9 rounded text-sm cursor-pointer aria-selected:bg-surface-1"
+      className="flex items-center gap-3 px-2 h-9 rounded-4 text-12 cursor-pointer aria-selected:bg-surface-1"
     >
       <span className="text-faint [&_svg]:size-4">{icon}</span>
       <span className="flex-1 text-subtle">{label}</span>
-      {hint && <span className="text-2xs text-faint">{hint}</span>}
+      {hint && <span className="text-12 text-faint">{hint}</span>}
     </Command.Item>
   );
 }

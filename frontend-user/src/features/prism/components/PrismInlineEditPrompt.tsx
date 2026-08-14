@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Sparkles, X } from 'lucide-react';
+import { Textarea } from '@/shared/ui/textarea';
 import type { InlineEditTarget } from './LatexEditor';
 
 /** 选区快捷动作 —— 点一下即按预设指令提交(Cursor/Canvas 式 fast path)。 */
@@ -66,12 +67,12 @@ export function PrismInlineEditPrompt({
     <div
       ref={cardRef}
       style={{ position: 'fixed', left, top, width }}
-      className="z-50 rounded-lg border border-border bg-popover p-2.5 shadow-xl"
+      className="z-popover rounded-12 border border-border bg-popover p-2.5 shadow-overlay"
     >
       <div className="mb-2 flex items-center gap-1.5">
         <Sparkles className="size-3.5 text-brand-green" />
-        <span className="text-2xs font-bold text-foreground">就选中内容让 AI 修改</span>
-        <span className="ml-auto text-2xs text-faint">已选 {charCount} 字</span>
+        <span className="text-12 font-medium text-foreground">就选中内容让 AI 修改</span>
+        <span className="ml-auto text-12 text-faint">已选 {charCount} 字</span>
         <button type="button" onClick={onClose} className="text-faint hover:text-foreground" aria-label="关闭">
           <X className="size-3.5" />
         </button>
@@ -83,14 +84,14 @@ export function PrismInlineEditPrompt({
             type="button"
             disabled={busy}
             onClick={() => submit(a.instruction)}
-            className="rounded-pill border border-border-button px-2 py-0.5 text-2xs text-subtle transition-colors hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+            className="rounded-pill border border-border-button px-2 py-0.5 text-12 text-subtle transition-colors hover:border-brand-green hover:text-brand-green disabled:opacity-50"
           >
             {a.label}
           </button>
         ))}
       </div>
       <div className="flex items-end gap-1.5">
-        <textarea
+        <Textarea
           ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -102,13 +103,13 @@ export function PrismInlineEditPrompt({
           }}
           rows={2}
           placeholder="或描述你想怎么改…(Enter 提交)"
-          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-md border border-border-button bg-background px-2.5 py-1.5 text-xs leading-relaxed text-foreground placeholder:text-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="max-h-24 min-h-[44px] flex-1 resize-none border-border-button px-2.5 py-1.5 leading-paragraph"
         />
         <button
           type="button"
           disabled={!text.trim() || busy}
           onClick={() => submit(text)}
-          className="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-foreground text-background disabled:opacity-40"
+          className="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-foreground text-on-dark disabled:opacity-40"
           aria-label="提交"
         >
           <ArrowUp className="size-4" />

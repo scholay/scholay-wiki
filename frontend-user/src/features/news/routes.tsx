@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 情报(学术新闻)路由 —— 挂 AppShell('/' children),与论文/期刊详情同模式
@@ -11,10 +12,10 @@ import type { RouteObject } from 'react-router-dom';
 export const newsRoutes: RouteObject[] = [
   {
     path: 'news',
-    lazy: () => import('./pages/NewsListPage').then((m) => ({ Component: m.NewsListPage })),
+    element: lazyRoute(() => import('./pages/NewsListPage'), 'NewsListPage'),
   },
   {
     path: 'news/:slug',
-    lazy: () => import('./pages/NewsDetailPage').then((m) => ({ Component: m.NewsDetailPage })),
+    element: lazyRoute(() => import('./pages/NewsDetailPage'), 'NewsDetailPage'),
   },
 ];

@@ -146,11 +146,50 @@ func (r *Repository) ListByUser(userID uint64, mode string) ([]Submission, error
 }
 
 // PatchSubmission 局部更新 —— 接受一个 map 直接写,字段名跟 column 对齐。
+// ⚠️ 无状态条件、也拿不到 RowsAffected:**不要**用它做「起跑」类转态(那是 ClaimStatus 的活)。
 func (r *Repository) PatchSubmission(id uint64, fields map[string]any) error {
 	if len(fields) == 0 {
 		return nil
 	}
 	return r.db.Model(&Submission{}).Where("id = ?", id).Updates(fields).Error
+}
+
+// ClaimStatus 条件转态:仅当当前 status == from 才写入 fields(其中应含新 status),
+// 返回是否**本次调用抢到**。并发下只有一个执行流拿 true,其余拿 false。
+//
+// 🔴 2026-08-02 计费审计 P1-8:审稿是全平台单次成本最高的功能,而它的三条起跑口
+// (Submit / AdvanceStep / RetryReview)全是「GetByID 读状态 → 内存判定 → 无条件 UPDATE →
+// 起后台 goroutine」的 check-then-act。两个几乎同时到达的请求会双双通过幂等守卫、双双通过
+// 只读的额度闸、双双 UPDATE 成功(后者静默覆盖前者),然后在**同一条 agent session** 上并行
+// 跑两整场审稿:agent 侧的 inFlight 只是每连接的,而 SessionMeta 按 sid 全局共享、
+// runTurn 的结果整体替换 meta.messages,于是两路互相丢消息、污染上下文;DB 侧 UpsertReport 的
+// OnConflict UpdateAll 又让同一 (submission_id, role) 静默互相覆盖 —— 既多烧一整场 token,
+// 又可能产出被污染的审稿结论。
+//
+// 本包其实早就有这个范式(CreateDraft 的唯一键兜底、DeleteManuscriptIfMatch),只是起跑口没用。
+func (r *Repository) ClaimStatus(id uint64, from string, fields map[string]any) (bool, error) {
+	if len(fields) == 0 {
+		return false, nil
+	}
+	res := r.db.Model(&Submission{}).Where("id = ? AND status = ?", id, from).Updates(fields)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// ClaimComputeState 抢「向导某一步的计算权」:仅当仍是草稿且当前 compute_state 属于 fromStates
+// (idle / failed = 空闲可跑)才置成 to,返回是否抢到。用于 AdvanceStep 的两条 LLM 分支 ——
+// 那里的 `ComputeState != idle && != failed` 是内存判定,并发下两个「下一步」会双双通过、
+// 各自 resetAgentSession 再各自起 goroutine(向导单轮历史上烧到过 10-17M token)。
+func (r *Repository) ClaimComputeState(id uint64, fromStates []string, to string) (bool, error) {
+	res := r.db.Model(&Submission{}).
+		Where("id = ? AND status = 'draft' AND compute_state IN ?", id, fromStates).
+		Updates(map[string]any{"compute_state": to, "compute_error": sql.NullString{}})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // MarkSubmitted 把草稿从 draft → queued,绑定 agent session;

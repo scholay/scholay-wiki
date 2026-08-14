@@ -5,9 +5,11 @@ import { formatMetric, authorsLine as fmtAuthors } from '../../lib/format'
 import { currentPagePath } from '../../lib/share'
 import { generateCitation, CITATION_FORMATS, CitationFormat } from '../../lib/citation'
 import { translatePaper, TranslateResult } from '../../services/api/translate'
+import { QUOTA_CODE, showQuotaModal } from '../../services/request'
 import { isLoggedIn } from '../../store/auth'
 import { ensureLogin } from '../../services/auth'
 import { closeAnimated } from '../../lib/anim'
+import { reportActivity } from '../../services/activity'
 
 interface RefVM {
   paperId?: string
@@ -41,7 +43,16 @@ Page({
     translatePreview: '',
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShareAppMessage() {
+    reportActivity()
     return { title: (this.data.paper && this.data.paper.title) || 'Scholay 学术', path: currentPagePath() }
   },
 
@@ -98,8 +109,10 @@ Page({
     } catch (e) {
       this.setData({ translating: false })
       const err = e as { code?: number; message?: string }
-      if (err.code === 6010) {
-        wx.showModal({ title: '额度已用完', content: '今日 AI 额度已用完,请明日再来或提升会员', showCancel: false })
+      if (err.code === QUOTA_CODE) {
+        // 统一额度提示(services/request 单一执行点):content 透传后端动态文案(含重置时刻)。
+        // 翻译走 SSE 通道不经 request(),须在此显式接入。
+        showQuotaModal(err.message)
       } else {
         wx.showToast({ title: err.message || '翻译失败', icon: 'none' })
       }

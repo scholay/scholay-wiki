@@ -1,0 +1,55 @@
+# 多组比较的决策规则(P1 族①)。与两组族同构:先实测前提,再分流。
+#
+# 🔴 与两组族的一处关键差异:多组族**不做「小样本转非参」的分流**。
+#    两组族有 D-02(min_group_n < 30 且非正态 → Mann-Whitney),而这里没有对应规则 ——
+#    理由是 ANOVA 对正态性的稳健性随组数上升而提高,而 Kruskal-Wallis 在小样本多组下
+#    的功效损失更明显。判据统一收在「正态性是否满足」上,不再叠样本量条件。
+rules:
+  - id: D-07
+    when: "multi_group and continuous and not paired and levene_equal and normal_by_group"
+    allowed: [oneway_anova, welch_anova, kruskal_wallis]
+    default: oneway_anova
+    reason: "三组及以上、独立、连续、方差齐且各组正态 → 用单因素方差分析(事后 Tukey HSD)"
+    citations:
+      - id: kim2017-anova
+        role: primary
+        access: oa
+        cite: "Kim HY. Statistical notes for clinical researchers: analysis of variance (ANOVA) comparing means of more than two groups. Restorative Dentistry & Endodontics. 2014;39(1):74-77."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3916511/"
+
+  - id: D-08
+    when: "multi_group and continuous and not paired and not levene_equal and normal_by_group"
+    allowed: [welch_anova, kruskal_wallis, oneway_anova]
+    default: welch_anova
+    reason: "方差不齐(Levene p<.05)→ 改用 Welch 方差分析(不假定等方差),事后走 Games-Howell"
+    # doctrine/contested:与两组族的 D-01/D-03 同一个分歧 ——
+    # 「先测 Levene 再分流」(pretest-classic)vs「无条件用 Welch」(welch-always)。
+    # 标了 contested 就必须把**另一派的出处**也放进来,否则 report 的「如实披露」无从落地
+    # (doctor 会检查这一点:只有一条 primary 时它会点名)。
+    doctrine: pretest-classic
+    contested: true
+    citations:
+      - id: delacre2021-welch-anova
+        role: primary
+        access: oa
+        cite: "Delacre M, Leys C, Mora YL, Lakens D. Taking parametric assumptions seriously: arguments for the use of Welch's F-test instead of the classical F-test in one-way ANOVA. International Review of Social Psychology. 2019;32(1):13."
+        url: "https://www.rips-irsp.com/articles/10.5334/irsp.198"
+      # 另一派:主张**无条件**用 Welch(不要先测方差齐性再分流)——
+      # 理由是前置检验本身有 I 类错误,两步走会让整体错误率不可控。
+      - id: zimmerman2004-pretest
+        role: primary
+        access: free_to_read
+        cite: "Zimmerman DW. A note on preliminary tests of equality of variances. British Journal of Mathematical and Statistical Psychology. 2004;57(1):173-181. doi:10.1348/000711004849222"
+        url: "https://bpspsychub.onlinelibrary.wiley.com/doi/10.1348/000711004849222"
+
+  - id: D-09
+    when: "multi_group and continuous and not paired and not normal_by_group"
+    allowed: [kruskal_wallis, welch_anova]
+    default: kruskal_wallis
+    reason: "各组正态性不满足 → 用 Kruskal-Wallis 检验(事后 Dunn,Holm 校正)"
+    citations:
+      - id: whitley2002-nonparam
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 6: Nonparametric methods. Critical Care. 2002;6(6):509-513."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC153434/"

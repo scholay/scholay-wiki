@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useMatch } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { RouteSEO } from '@/shared/components/RouteSEO';
 import { useAuthorDetail, useAuthorPapers } from '@/shared/api/authors';
 import {
   authorTabKey,
@@ -95,24 +96,37 @@ export function AuthorDetailPane() {
     );
   }
 
+  const affiliations = author.affiliations?.filter(Boolean).join('、');
+  const description = affiliations
+    ? `${author.name}的学术档案，所属机构：${affiliations}。查看代表作、合作学者、引用与发表趋势。`
+    : `${author.name}的学术档案，查看代表作、合作学者、引用与发表趋势。`;
+
   return (
-    <div className="h-full overflow-auto bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-4 sm:px-10 sm:py-7 space-y-4 sm:space-y-6">
-        <AuthorHero author={author} />
-        <TopicSection
-          papers={papersQ.data?.items ?? []}
-          loading={papersQ.isLoading}
-        />
-        <TwoColumn
-          author={author}
-          papers={papersQ.data?.items ?? []}
-          total={papersQ.data?.total ?? 0}
-          loading={papersQ.isLoading}
-          error={papersQ.error as Error | null}
-        />
-        <YearlyChart papers={papersQ.data?.items ?? []} />
+    <>
+      <RouteSEO
+        title={`${author.name} - 学者档案 | Scholay学术`}
+        description={description.slice(0, 180)}
+        keywords={`${author.name},学者,作者,论文,引用`}
+        canonical={`/author/${encodeURIComponent(source)}/${encodeURIComponent(authorId)}`}
+      />
+      <div className="h-full overflow-auto bg-background">
+        <div className="max-w-6xl mx-auto px-4 py-4 sm:px-10 sm:py-7 space-y-4 sm:space-y-6">
+          <AuthorHero author={author} />
+          <TopicSection
+            papers={papersQ.data?.items ?? []}
+            loading={papersQ.isLoading}
+          />
+          <TwoColumn
+            author={author}
+            papers={papersQ.data?.items ?? []}
+            total={papersQ.data?.total ?? 0}
+            loading={papersQ.isLoading}
+            error={papersQ.error as Error | null}
+          />
+          <YearlyChart papers={papersQ.data?.items ?? []} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -21,18 +21,27 @@ function looksLikeMath(tex: string): boolean {
 }
 
 // 排版对齐移动端 Web(shared/components/chat/styles.tsx):正文 24rpx/1.7、
-// 行内代码 surface-2 底、代码块 #fafafa+描边、链接品牌绿下划线、表头 #fafafa。
+// 行内代码 surface-2 底、代码块 surface-1 + 描边、链接品牌松青下划线、表头 surface-1。
+//
+// ⚠️ 下面这些样式串进的是 <rich-text> 的 nodes —— 微信 rich-text 里 **CSS 变量不生效**,
+//    app.wxss 的 token 完全够不着,只能写死十六进制。所以这里是 app.wxss(其真源是
+//    frontend-user/src/styles/globals.css)的**第二层手工镜像**:
+//      #1F1F23 foreground · #686873 muted · #E8E5DC surface-2 · #EFEDE5 surface-1
+//      #E4E4E5 border(玄墨 12% 叠白)· #EDEDEE border-soft · #D6D6D8 border-strong
+//      #2F4D29 品牌松青(链接)· #2E5AA8 = globals --cat-blue(公式/示意图专用分类色,
+//      不是品牌色 —— 体系里没有蓝系)
+//    改 globals → 改 app.wxss → 也要改这里。三处必须一起动。
 const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'
 const CODE_STYLE =
-  'background:#f5f5f5;padding:2rpx 10rpx;border-radius:8rpx;font-family:' + MONO + ';font-size:28rpx;color:#111111'
+  'background:#E8E5DC;padding:2rpx 10rpx;border-radius:8rpx;font-family:' + MONO + ';font-size:28rpx;color:#1F1F23'
 const PRE_STYLE =
-  'background:#fafafa;border:1rpx solid #e8e8e8;padding:24rpx;border-radius:12rpx;font-family:' +
+  'background:#EFEDE5;border:1rpx solid #E4E4E5;padding:24rpx;border-radius:12rpx;font-family:' +
   MONO +
   ';font-size:26rpx;line-height:1.65;white-space:pre;overflow-x:auto;margin:0 0 24rpx'
-const QUOTE_STYLE = 'border-left:4rpx solid #d8d8d8;padding-left:24rpx;color:#666666;margin:0 0 24rpx'
-const LINK_STYLE = 'color:#2a7a2a;text-decoration:underline'
-const EM_STYLE = 'font-style:normal;color:#666666' // Web 的 em 刻意做成灰色元数据、不斜体
-const HR_STYLE = 'height:1rpx;background:#eeeeee;margin:28rpx 0'
+const QUOTE_STYLE = 'border-left:4rpx solid #D6D6D8;padding-left:24rpx;color:#686873;margin:0 0 24rpx'
+const LINK_STYLE = 'color:#2F4D29;text-decoration:underline'
+const EM_STYLE = 'font-style:normal;color:#686873' // Web 的 em 刻意做成灰色元数据、不斜体
+const HR_STYLE = 'height:1rpx;background:#EDEDEE;margin:28rpx 0'
 // GFM 表格:不再在 rich-text 里画 table —— 微信 rich-text 字符串解析对 table 内容模型
 // 处理很粗糙(td 里嵌 div、width:max-content 会整表渲染成空),表格改出**结构化单元格**
 // 交给页面原生组件渲染(scroll-view 横滚 + display:table 网格),见 tableCells / claw.wxml。
@@ -40,10 +49,10 @@ const HR_STYLE = 'height:1rpx;background:#eeeeee;margin:28rpx 0'
 // 粘连成「•从单模态」「1Foundation」),回退到 rich-text 原生 ul/ol/li,由组件自己画 marker。
 // 块级公式:优先服务端渲染的 PNG(见 math-cache);未渲染/失败时降级成原样 LaTeX 文本(可读、可复制)。
 const MATH_STYLE =
-  'background:#f0f4ff;border:1rpx solid #d6def5;border-radius:10rpx;padding:16rpx;font-family:monospace;font-size:24rpx;color:#333;white-space:pre-wrap;overflow-x:auto;margin:10rpx 0'
+  'background:#EEF2F8;border:1rpx solid #CBD6E9;border-radius:10rpx;padding:16rpx;font-family:monospace;font-size:24rpx;color:#1F1F23;white-space:pre-wrap;overflow-x:auto;margin:10rpx 0'
 const MATH_IMG_WRAP = 'text-align:center;margin:14rpx 0'
 // 行内公式:未命中/失败/超上限时的文本兜底样式;检测上限 + 正则(工厂返回新实例,避免共享 lastIndex)。
-const INLINE_MATH_STYLE = 'font-family:monospace;color:#3a4a7a'
+const INLINE_MATH_STYLE = 'font-family:monospace;color:#2E5AA8'
 const INLINE_TEX_MAX = 160 // 行内公式内容上限;超出判为误匹配(货币/跨句)走文本兜底
 const MAX_INLINE_IMG_PER_LINE = 10 // 每行行内图上限,直接封 base64 内联体积(高频重复符号防膨胀)
 const MATH_LINE_MAX = 6000 // 单行超此长度跳过数学正则(纵深防 ReDoS:blockMathInlineRe 惰性量词最坏 O(n²))
@@ -58,9 +67,9 @@ function blockMathInlineRe(): RegExp {
 }
 
 // 图表(mermaid 等)卡片:小程序无 DOM 跑不了 mermaid,渲染成一张干净的图表卡片而非一坨源码。
-const DIAG_CARD_STYLE = 'border:1rpx solid #d6def5;border-radius:12rpx;background:#f8faff;margin:12rpx 0;padding:20rpx'
-const DIAG_HEAD_STYLE = 'font-size:26rpx;color:#3a4a7a;font-weight:600'
-const DIAG_NOTE_STYLE = 'font-size:22rpx;color:#8a93b0;margin-top:8rpx'
+const DIAG_CARD_STYLE = 'border:1rpx solid #CBD6E9;border-radius:12rpx;background:#EEF2F8;margin:12rpx 0;padding:20rpx'
+const DIAG_HEAD_STYLE = 'font-size:26rpx;color:#2E5AA8;font-weight:600'
+const DIAG_NOTE_STYLE = 'font-size:22rpx;color:#686873;margin-top:8rpx'
 const DIAG_LANGS = ['mermaid', 'flow', 'flowchart', 'sequence', 'sequencediagram', 'gantt', 'classdiagram', 'statediagram', 'erdiagram', 'mindmap', 'pie', 'timeline', 'journey', 'quadrantchart']
 const DIAG_LABELS: Record<string, string> = {
   mermaid: '图表',
@@ -323,7 +332,7 @@ export function mdToSegments(md: string): MdSegment[] {
       flushPara()
       const level = h[1].length
       out.push(
-        '<p style="font-weight:600;color:#111111;font-size:' + HEADING_SIZE[level] + ';margin:' + HEADING_MARGIN[level] + '">' +
+        '<p style="font-weight:600;color:#1F1F23;font-size:' + HEADING_SIZE[level] + ';margin:' + HEADING_MARGIN[level] + '">' +
           inline(h[2]) +
           '</p>',
       )
@@ -448,8 +457,8 @@ export function mdToSegments(md: string): MdSegment[] {
 
 // 拼回单串 HTML(产物文本预览等仍走 rich-text 一把梭的场景)。
 // 表格用最保守的写法(width:100% + 单元格直嵌内容,不用 div/max-content —— rich-text 吃不下)。
-const FB_TH = 'border:1rpx solid #e8e8e8;padding:12rpx 16rpx;text-align:left;font-weight:600;background:#fafafa;word-break:break-word'
-const FB_TD = 'border:1rpx solid #e8e8e8;padding:12rpx 16rpx;text-align:left;vertical-align:top;word-break:break-word'
+const FB_TH = 'border:1rpx solid #E4E4E5;padding:12rpx 16rpx;text-align:left;font-weight:600;background:#EFEDE5;word-break:break-word'
+const FB_TD = 'border:1rpx solid #E4E4E5;padding:12rpx 16rpx;text-align:left;vertical-align:top;word-break:break-word'
 function fbCell(c: MdCell, tag: 'th' | 'td'): string {
   // td 里嵌 div 会让 rich-text 整表渲染成空(真机实锤)—— 格内块级公式的
   // <div> 包裹(MATH_IMG_WRAP)降级成 <span>,图片直嵌单元格。

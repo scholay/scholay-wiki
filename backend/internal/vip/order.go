@@ -27,6 +27,21 @@ import (
 // ErrInvalidOrder —— 下单参数非法(金额过低 / 套餐无效)。
 var ErrInvalidOrder = errors.New("vip: invalid order")
 
+// ErrUpgradeBasisStale —— 升级单的定价基准(下单时的剩余时长)已失效:会员到期日在
+// 下单→支付之间被延长过,这张单的差价买不到现在这段时长。见 activateSubscriptionInTx 的红字。
+// 回调返回它 = 不履约,网关会持续重推并最终留下失败记录,交人工处理(系统内无退款链路)。
+var ErrUpgradeBasisStale = errors.New("vip: upgrade order pricing basis is stale")
+
+// yuanToCents 元 → 分,四舍五入。金额比较一律先过它:orders.amount/final_amount 是
+// decimal(10,2) 但在 Go 侧是 float64,269.00 可能是 268.99999999999997,直接比浮点会随
+// 存取路径抖动。分是这条链上唯一没有表示误差的刻度。
+func yuanToCents(yuan float64) int64 { return int64(math.Round(yuan * 100)) }
+
+// upgradeBasisTolerance 升级单定价基准的容差:当前到期日比订单冻结值晚这么多以内仍算成立。
+// 取 24h —— 吸收 Truncate(time.Second) 对齐、DATETIME 进位与时区抖动;任何真实的
+// 「先续期再付旧升级单」都是整周期(≥1 个自然月)级别的偏移,远在容差之外。
+const upgradeBasisTolerance = 24 * time.Hour
+
 // Order orders 表一行(只映射本模块用到的列;其余列走 DB 默认)。
 type Order struct {
 	ID             uint64     `gorm:"primaryKey" json:"id"`
@@ -44,22 +59,51 @@ type Order struct {
 	CreditsGranted int        `gorm:"column:credits_granted" json:"credits_granted"`
 	TransactionNo  string     `gorm:"column:transaction_no" json:"transaction_no"`
 	// 订阅履约参数(续期/升级):动作 + 赠送经费生效/失效 + 会员新到期。fulfill 时照此发放。
-	SubAction      string     `gorm:"column:sub_action" json:"sub_action"`       // new|renew|upgrade
+	SubAction      string     `gorm:"column:sub_action" json:"sub_action"` // new|renew|upgrade|switch
 	GrantStartsAt  *time.Time `gorm:"column:grant_starts_at" json:"grant_starts_at"`
 	GrantExpiresAt *time.Time `gorm:"column:grant_expires_at" json:"grant_expires_at"`
 	NewExpiresAt   *time.Time `gorm:"column:new_expires_at" json:"new_expires_at"`
 	CreatedAt      time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+
+	// ── 退款(0107)────────────────────────────────────────────────────────────
+	// 刻意**不复用 status** 表达退款:改 status 会让这笔单从用户账单里整行消失
+	// (ListUserOrders 硬编码 status='paid')、让历史营收被追溯性改写、并让延迟到达的
+	// 网关回调被 fulfill 判为不可履约而 NACK。详见 migration 0107 头注释。
+	//
+	// ⚠️ 这两个字段**会随用户端 /user/billing/orders 一起下发**(该接口原样返回 Order)。
+	// 这是有意的:用户有权知道自己这笔单退了多少。但也因此,任何**内部**信息
+	// (操作人、内部退款原因)绝不能加到这个 struct 上 —— 那些只存在于 order_refunds。
+	RefundedAmount float64 `gorm:"column:refunded_amount" json:"refunded_amount"`
+	RefundStatus   string  `gorm:"column:refund_status" json:"refund_status"` // ""|partial|full
 }
 
 func (Order) TableName() string { return "orders" }
 
 type OrderService struct {
-	db  *gorm.DB
-	svc *Service
+	db            *gorm.DB
+	svc           *Service
+	paidOrderHook func(tx *gorm.DB, userID uint, orderID uint64, orderNo, orderType string,
+		paidCents int64, paidAt time.Time, paymentMethod string) (uint, int, error)
+	refundRewardHook func(tx *gorm.DB, orderID uint64, userID uint, refundNo, idempotencyKey string,
+		cumulativeRefundedCents int64, refundedAt time.Time) (uint, int, int, error)
 }
 
 func newOrderService(svc *Service) *OrderService {
 	return &OrderService{db: svc.repo.DB(), svc: svc}
+}
+
+// SetPaidOrderHook 注入同事务的付费里程碑处理。hook 失败必须让 paid 标记、邀请奖励
+// 与订单权益整体回滚，网关重推时可安全重试。
+func (o *OrderService) SetPaidOrderHook(fn func(tx *gorm.DB, userID uint, orderID uint64,
+	orderNo, orderType string, paidCents int64, paidAt time.Time, paymentMethod string) (uint, int, error)) {
+	o.paidOrderHook = fn
+}
+
+// SetRefundRewardHook 注入同事务的邀请首单返利反冲。
+func (o *OrderService) SetRefundRewardHook(fn func(tx *gorm.DB, orderID uint64, userID uint,
+	refundNo, idempotencyKey string, cumulativeRefundedCents int64,
+	refundedAt time.Time) (uint, int, int, error)) {
+	o.refundRewardHook = fn
 }
 
 // CreateRecharge 建一个充值订单(金额单位:分)。返回订单(含 order_no + 到账经费预估)。
@@ -93,39 +137,51 @@ func (o *OrderService) CreateSubscription(userID uint, plan, cycle string) (*Ord
 		return nil, ErrInvalidOrder
 	}
 	cfg := o.svc.cfg.Get()
-	// 单活跃订阅单(反叠加漏洞):先清理该用户超时(>2h,已过网关关单窗口)的 pending 订阅单;
-	// 若仍有较新的 pending 订阅单则拒绝重复建单 —— 否则「挂一张低档年度续期单 + 升档到高档 +
-	// 再支付旧单」可借履约的不降级钳制,以低档价把高档延长一整个周期(评审 pricing-math)。
-	// 只约束订阅单;充值单不受影响(可与订阅单并存)。
-	staleCutoff := time.Now().Add(-2 * time.Hour)
-	if err := o.db.Model(&Order{}).
-		Where("user_id = ? AND order_type = 'subscription' AND status = 'pending' AND created_at < ?", userID, staleCutoff).
-		Update("status", "expired").Error; err != nil {
-		return nil, err
-	}
-	var pendingSubs int64
-	if err := o.db.Model(&Order{}).
-		Where("user_id = ? AND order_type = 'subscription' AND status = 'pending'", userID).
-		Count(&pendingSubs).Error; err != nil {
-		return nil, err
-	}
-	if pendingSubs > 0 {
-		return nil, ErrPendingOrderExists
-	}
-	uv, _ := o.svc.repo.GetUserVIP(userID)
-	sp, err := computeSubscription(uv, plan, cycle, cfg, time.Now())
+	var ord *Order
+	err := o.db.Transaction(func(tx *gorm.DB) error {
+		// 每用户串行化:FOR UPDATE 锁 users 行(activateSubscriptionInTx 已有同款先例)。
+		// 「作废 stale → count pending → create」三步若不在事务里,两个并发请求可同时通过
+		// 「pending 计数 = 0」检查后各建一单,绕过下方反叠加约束;锁行后同一用户串行执行。
+		// 顺带把 uv 读进锁内,computeSubscription 用到的会员状态与建单原子一致。
+		var uv UserVIP
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Table("users").Select("vip_tier, vip_expires_at, vip_cycle").Where("id = ?", userID).Scan(&uv).Error; err != nil {
+			return err
+		}
+		// 单活跃订阅单(反叠加漏洞):先清理该用户超时(>2h,已过网关关单窗口)的 pending 订阅单;
+		// 若仍有较新的 pending 订阅单则拒绝重复建单 —— 否则「挂一张低档年度续期单 + 升档到高档 +
+		// 再支付旧单」可借履约的不降级钳制,以低档价把高档延长一整个周期(评审 pricing-math)。
+		// 只约束订阅单;充值单不受影响(可与订阅单并存)。
+		staleCutoff := time.Now().Add(-2 * time.Hour)
+		if err := tx.Model(&Order{}).
+			Where("user_id = ? AND order_type = 'subscription' AND status = 'pending' AND created_at < ?", userID, staleCutoff).
+			Update("status", "expired").Error; err != nil {
+			return err
+		}
+		var pendingSubs int64
+		if err := tx.Model(&Order{}).
+			Where("user_id = ? AND order_type = 'subscription' AND status = 'pending'", userID).
+			Count(&pendingSubs).Error; err != nil {
+			return err
+		}
+		if pendingSubs > 0 {
+			return ErrPendingOrderExists
+		}
+		sp, err := computeSubscription(uv, plan, cycle, cfg, time.Now())
+		if err != nil {
+			return err
+		}
+		yuan := float64(sp.AmountCents) / 100.0
+		gs, ge, ne := sp.GrantStarts, sp.GrantExpires, sp.NewExpires
+		ord = &Order{
+			UserID: userID, OrderNo: genOrderNo("S"), OrderType: "subscription", PlanCode: sp.Tier,
+			PlanName: planActionName(sp.Tier, sp.Action, sp.Cycle), BillingCycle: sp.Cycle,
+			Amount: yuan, FinalAmount: yuan, Status: "pending", CreditsGranted: 0, // 0090:订阅不再赠送经费(充值单的 CreditsGranted 仍是到账永久经费)
+			SubAction: sp.Action, GrantStartsAt: &gs, GrantExpiresAt: &ge, NewExpiresAt: &ne,
+		}
+		return tx.Create(ord).Error
+	})
 	if err != nil {
-		return nil, err
-	}
-	yuan := float64(sp.AmountCents) / 100.0
-	gs, ge, ne := sp.GrantStarts, sp.GrantExpires, sp.NewExpires
-	ord := &Order{
-		UserID: userID, OrderNo: genOrderNo("S"), OrderType: "subscription", PlanCode: sp.Tier,
-		PlanName: planActionName(sp.Tier, sp.Action, sp.Cycle), BillingCycle: sp.Cycle,
-		Amount: yuan, FinalAmount: yuan, Status: "pending", CreditsGranted: sp.Credits,
-		SubAction: sp.Action, GrantStartsAt: &gs, GrantExpiresAt: &ge, NewExpiresAt: &ne,
-	}
-	if err := o.db.Create(ord).Error; err != nil {
 		return nil, err
 	}
 	return ord, nil
@@ -133,26 +189,27 @@ func (o *OrderService) CreateSubscription(userID uint, plan, cycle string) (*Ord
 
 // subPlan 订阅动作的计算结果(建单 + 报价共用)。
 type subPlan struct {
-	Action        string    // new | renew | upgrade
-	Tier          string    // 履约后等级
-	Cycle         string    // 计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(见下)
-	AmountCents   int       // 应付(分):new/renew=周期价;upgrade=按剩余天数补差价
-	Credits       int       // 本单赠送经费:new/renew=整周期(年度=总额,分批发放);upgrade=按剩余天数补差额
-	GrantStarts   time.Time // 经费生效日:new/upgrade=now;renew=当前到期日(预发放)
-	GrantExpires  time.Time // 经费失效日
+	Action      string // new | renew | upgrade | switch(升档并转年付)
+	Tier        string // 履约后等级
+	Cycle       string // 计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(见下)
+	AmountCents int    // 应付(分):new/renew=周期价;upgrade=按剩余天数补差价
+	// (Credits 已删除 —— 0090 起订阅不再赠送经费)
+	GrantStarts   time.Time // 保留:履约窗口起(订单表 grant_starts_at 列仍写,供审计/对账)
+	GrantExpires  time.Time // 保留:履约窗口止
 	NewExpires    time.Time // 履约后会员到期日
 	Deferred      bool      // 经费是否延后生效(renew=true)
 	RemainingDays int       // 升级用:剩余天数
 }
 
 // computeSubscription 纯函数算定订阅动作 + 金额 + 经费发放窗口。cycle = monthly|yearly(空按 monthly)。
-//   new(免费/已过期):周期价,经费即时整周期(年度=总额,履约时分批)。
-//   renew(同档在期):周期价,到期日 + 一个周期;经费预发放(生效日=当前到期日)。可跨周期续
-//     (月度会员按年续 = 到期日 +365 天并转年费标识,反之亦然;vip_cycle 以最近一单为准)。
-//   upgrade(升高一档在期):差价 = (高价-低价)×剩余天数/周期,**按用户当前订阅周期的价目**折算
-//     (年费用户按年价口径,防用月价日均高估差价);立即升档、到期日不变。请求的 cycle 不参与 ——
-//     「换周期 + 升档」走两步(owner 拍板 2026-07-22):先补差升档,再按意愿续期换周期。
-//   降级:ErrNoDowngrade;年付未配置价格:ErrInvalidOrder。
+//
+//	new(免费/已过期):周期价,经费即时整周期(年度=总额,履约时分批)。
+//	renew(同档在期):周期价,到期日 + 一个周期;经费预发放(生效日=当前到期日)。可跨周期续
+//	  (月度会员按年续 = 到期日 +1 自然年(AddPeriod)并转年费标识,反之亦然;vip_cycle 以最近一单为准)。
+//	upgrade(升高一档在期):差价 = (高价-低价)×剩余天数/周期,**按用户当前订阅周期的价目**折算
+//	  (年费用户按年价口径,防用月价日均高估差价);立即升档、到期日不变。请求的 cycle 不参与 ——
+//	  「换周期 + 升档」走两步(owner 拍板 2026-07-22):先补差升档,再按意愿续期换周期。
+//	降级:ErrNoDowngrade;年付未配置价格:ErrInvalidOrder。
 func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, now time.Time) (*subPlan, error) {
 	if target != TierPro && target != TierMax {
 		return nil, ErrInvalidOrder
@@ -167,9 +224,38 @@ func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, n
 		return nil, ErrNoDowngrade
 	}
 
+	// 升档并转年付(switch)—— 月付会员一步买到「更高档 + 整年」。
+	//
+	// 为什么单独一支:原 upgrade 分支**只做原地补差**(到期日不变、周期不变),它在结构上
+	// 永远产不出一张年付订阅;而月付会员想直接上「Max 年会员」是真实诉求,过去只能
+	// 「先补差升档、再按年续期」两步走,两步之间的价格与到期日都对不上用户预期。
+	//
+	// 计价 = 目标档**年价全额**,到期日 = 当前到期日 + 1 自然年(与 renew 同一形状)。
+	//   · 不做「剩余价值折抵」:折抵模型要把到期日改成 now+1年,用户手上的剩余天数就没了,
+	//     而履约侧的到期日是 AddPeriod(max(now,当前到期), cycle) —— 改这条是动整个计费系统
+	//     最敏感的一段(P0-2 定价基准闸门就长在这里)。叠加模型对用户更有利(剩余天数一天不丢,
+	//     且从付款那刻起这段时间就已经是高档),对我们也划算(白送的上限 = 一个月的档位差)。
+	//   · Deferred 与 renew 同:本单权益从当前到期日起算。
+	//
+	// 年费会员不走这里(effectiveCycle == yearly):他们升档的正解是原地补差 ——
+	// 手上已经有整年,再叠一年不是「升级」而是「续费」,该走续费入口。
+	if isPaidTier(cur) && tierRank(target) > tierRank(cur) &&
+		normCycle(cycle) == CycleYearly &&
+		effectiveCycle(uv, now) != CycleYearly &&
+		cfg.PriceCentsFor(target, CycleYearly) > 0 {
+		curExpiry := AddPeriod(now, CycleMonthly)
+		if uv.VIPExpiresAt != nil {
+			curExpiry = *uv.VIPExpiresAt
+		}
+		exp := AddPeriod(curExpiry, CycleYearly)
+		return &subPlan{Action: "switch", Tier: target, Cycle: CycleYearly,
+			AmountCents: cfg.PriceCentsFor(target, CycleYearly),
+			GrantStarts: curExpiry, GrantExpires: exp, NewExpires: exp, Deferred: true}, nil
+	}
+
 	// 升级(在期升高一档):按剩余天数补差、到期日不变。
 	if isPaidTier(cur) && tierRank(target) > tierRank(cur) {
-		curExpiry := now.AddDate(0, 0, cfg.PeriodDaysFor(CycleMonthly))
+		curExpiry := AddPeriod(now, CycleMonthly)
 		if uv.VIPExpiresAt != nil {
 			curExpiry = *uv.VIPExpiresAt
 		}
@@ -183,17 +269,29 @@ func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, n
 		// 补差(定价倒挂,评审 pricing-math)。规则:剩余 > 月周期且两档年价均配置 → 年价日率
 		// (period=365,不再对整年余期外推);否则月价。
 		basisCycle := CycleMonthly
-		if remainingDays > cfg.PeriodDaysFor(CycleMonthly) &&
+		if remainingDays > prorationDays(CycleMonthly) &&
 			cfg.PriceCentsFor(target, CycleYearly) > 0 && cfg.PriceCentsFor(cur, CycleYearly) > 0 {
 			basisCycle = CycleYearly
 		}
-		period := cfg.PeriodDaysFor(basisCycle)
+		// 折算分母是**常量** 30/365(见 prorationDays 的红字):周期长度改自然月了,但钱的日率
+		// 保持不变 —— 否则同一笔升级的金额会随月份跳变,且档位阈值一起浮动会造成补差阶跃突变。
+		period := prorationDays(basisCycle)
 		diffCents := proratedDiff(cfg.PriceCentsFor(target, basisCycle)-cfg.PriceCentsFor(cur, basisCycle), remainingDays, period)
+		// 🔴 单调性地板(2026-08-02 计费审计 P1-10):basisCycle 是在 remainingDays>30 处**硬切**的,
+		// 而年价日率比月价日率低(现网 575 vs 700 分/天),于是补差在这一天**向下跳**:
+		// 余期 30 天补 ¥210.00,余期 31 天只补 ¥178.36 —— 多拿一天 Max 反而少付 ¥31.64,
+		// 且「先花 ¥59 续一个月再升级」能把整段的日率拉低。约 7/12 的月份(自然月 31 天)落在便宜档。
+		// 用「满一个月的月价补差」做地板:余期更长绝不更便宜。长余期不受影响(年价外推早已超过这个地板,
+		// 例:余期 100 天 = ¥575、393 天 = ¥2261,都远高于 ¥210),所以既有的防倒挂结论完全保留。
+		if basisCycle == CycleYearly {
+			if floor := cfg.PriceCentsFor(target, CycleMonthly) - cfg.PriceCentsFor(cur, CycleMonthly); floor > diffCents {
+				diffCents = floor
+			}
+		}
 		if diffCents < 1 {
 			diffCents = 1 // 价差地板, 避免 0 元单
 		}
-		diffCredits := proratedDiff(cfg.GrantCreditsFor(target, basisCycle)-cfg.GrantCreditsFor(cur, basisCycle), remainingDays, period)
-		return &subPlan{Action: "upgrade", Tier: target, Cycle: basisCycle, AmountCents: diffCents, Credits: diffCredits,
+		return &subPlan{Action: "upgrade", Tier: target, Cycle: basisCycle, AmountCents: diffCents,
 			GrantStarts: now, GrantExpires: curExpiry, NewExpires: curExpiry, RemainingDays: remainingDays}, nil
 	}
 
@@ -202,23 +300,28 @@ func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, n
 	if priceT <= 0 {
 		return nil, ErrInvalidOrder
 	}
-	period := cfg.PeriodDaysFor(cycle)
-	creditsT := cfg.GrantCreditsFor(target, cycle)
 
 	// 新订阅:当前免费 / 已过期。
 	if !isPaidTier(cur) {
-		exp := now.AddDate(0, 0, period)
-		return &subPlan{Action: "new", Tier: target, Cycle: cycle, AmountCents: priceT, Credits: creditsT,
+		exp := AddPeriod(now, cycle)
+		return &subPlan{Action: "new", Tier: target, Cycle: cycle, AmountCents: priceT,
 			GrantStarts: now, GrantExpires: exp, NewExpires: exp}, nil
 	}
 
 	// 续期(同档):往后延一个周期,经费预发放到下一周期。当前到期日兜底 now+周期。
-	curExpiry := now.AddDate(0, 0, period)
+	//
+	// 🔴 年费会员只能按年续(ErrYearlyRenewOnly):履约侧 new/renew 会把 vip_cycle 改写成
+	// 本单周期,年费会员补一个月就被记成月度会员,之后的升级折算基准与续费价目全部错档。
+	// 拦在这里而不是静默改价:两者差 10 倍,悄悄换单是最坏的一种「帮用户做主」。
+	if effectiveCycle(uv, now) == CycleYearly && cycle == CycleMonthly {
+		return nil, ErrYearlyRenewOnly
+	}
+	curExpiry := AddPeriod(now, cycle)
 	if uv.VIPExpiresAt != nil {
 		curExpiry = *uv.VIPExpiresAt
 	}
-	exp := curExpiry.AddDate(0, 0, period)
-	return &subPlan{Action: "renew", Tier: target, Cycle: cycle, AmountCents: priceT, Credits: creditsT,
+	exp := AddPeriod(curExpiry, cycle)
+	return &subPlan{Action: "renew", Tier: target, Cycle: cycle, AmountCents: priceT,
 		GrantStarts: curExpiry, GrantExpires: exp, NewExpires: exp, Deferred: true}, nil
 }
 
@@ -248,6 +351,9 @@ func planActionName(tier, action, cycle string) string {
 	if action == "upgrade" {
 		return label + " · 升级"
 	}
+	if action == "switch" {
+		return label + " · 升级并转年付"
+	}
 	if normCycle(cycle) == CycleYearly {
 		if action == "renew" {
 			return label + " · 年度续期"
@@ -261,6 +367,11 @@ func planActionName(tier, action, cycle string) string {
 }
 
 // ListUserOrders 列出某用户**已支付**的订单(订阅 + 充值),供「明细查看」。orderType 可空。
+//
+// 退款单仍然会出现在这里 —— 这正是当初退款不改 orders.status 的原因之一:
+// 若把退款单的 status 改成 'refunded',这个 `status='paid'` 的过滤会让它从用户自己的
+// 账单明细里**整行消失**,用户视角像是记录被删掉了,比显示「已退款」严重得多。
+// 现在退款走 refund_status 列,订单照常在列,前端据此打「已退款 / 部分退款」徽章。
 func (o *OrderService) ListUserOrders(userID uint, orderType string) ([]Order, error) {
 	q := o.db.Where("user_id = ? AND status = ?", userID, "paid").Order("created_at DESC").Limit(200)
 	if orderType == "subscription" || orderType == "recharge" {
@@ -273,6 +384,7 @@ func (o *OrderService) ListUserOrders(userID uint, orderType string) ([]Order, e
 // AdminListUserOrders 管理端列某用户的订单 —— 与用户面 ListUserOrders 的区别:
 //   - 不强制 status='paid'(admin 要看 pending/expired/refunded 等全状态),可选 status 过滤;
 //   - 分页(limit/offset)+ 返回 total。
+//
 // orderType / status 为空则不过滤。
 func (o *OrderService) AdminListUserOrders(userID uint, orderType, status string, limit, offset int) ([]Order, int64, error) {
 	q := o.db.Model(&Order{}).Where("user_id = ?", userID)
@@ -330,6 +442,8 @@ func (o *OrderService) ProcessWeChatPayCallback(orderNo, transactionID string, a
 func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method string) error {
 	now := time.Now()
 	var fulfilled *Order // 仅本次新履约才非空 → 据此通知
+	var inviteRewardUserID uint
+	var inviteRewardCredits int
 	err := o.db.Transaction(func(tx *gorm.DB) error {
 		var ord Order
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -339,14 +453,28 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 		if ord.Status == "paid" {
 			return nil // 幂等:回调重试, 已履约直接成功(不重复通知)
 		}
-		if ord.Status != "pending" {
+		// 可履约状态 = pending 或 expired。expired 单被支付 = stale 清理(建单 2h 起算)与网关
+		// 120m 关单窗口**起点错位**(网关窗口从用户发起支付起算,可晚于建单)—— 用户在网关侧
+		// 仍可支付、钱确实扣了,但单已被清理置 expired。回调已验签 + 下方验金额,验签通过即
+		// 复活履约;拒掉只会变成「钱扣了履约恒败」等人工退款,复活比退款正确。
+		if ord.Status != "pending" && ord.Status != "expired" {
 			return fmt.Errorf("order status not payable: %s", ord.Status)
 		}
-		if math.Abs(amount-ord.FinalAmount) > 0.01 {
-			return fmt.Errorf("amount mismatch: expect %.2f got %.2f", ord.FinalAmount, amount)
+		// 🔴 金额复核改**整数分**(2026-08-02 计费审计 P1-4)。
+		// 旧的 `math.Abs(amount-ord.FinalAmount) > 0.01` 有两个毛病:① 边界是「严格大于 0.01」,
+		// 于是恰好少付 1 分被静默放行 —— 而下单侧 int(amount*100) 的浮点截断产生的正是这种
+		// 0.00999… 级偏差,两个缺陷刚好互相掩护;② 用浮点比金额本身就不该出现在履约路径上。
+		// 允许多付(网关侧凑整/用户手滑),只堵少付。
+		paidCents, wantCents := yuanToCents(amount), yuanToCents(ord.FinalAmount)
+		if paidCents < wantCents {
+			return fmt.Errorf("amount mismatch: expect %d cents got %d cents (order %s)", wantCents, paidCents, orderNo)
 		}
-		// 标记已支付(并发兜底:只在仍 pending 时更新)。
-		res := tx.Model(&Order{}).Where("id = ? AND status = 'pending'", ord.ID).
+		if paidCents > wantCents {
+			slog.Warn("billing: 回调金额高于订单应付,按已支付履约", "order_no", orderNo,
+				"paid_cents", paidCents, "want_cents", wantCents)
+		}
+		// 标记已支付(并发兜底:只在仍可履约态时更新;含 expired,与上方复活口径一致)。
+		res := tx.Model(&Order{}).Where("id = ? AND status IN ('pending','expired')", ord.ID).
 			Updates(map[string]any{
 				"status": "paid", "payment_time": now,
 				"payment_method": method, "transaction_no": txNo,
@@ -356,6 +484,17 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 		}
 		if res.RowsAffected == 0 {
 			return nil // 被并发回调抢先, 视为已履约(不重复通知)
+		}
+		// 邀请首单里程碑在当次 paid 事务内执行。它先锁 users、再动邀请人 wallet；
+		// 必须放在 recharge 自身的被邀请人 wallet 入账之前，否则会与「bind 按 user_id
+		// 锁双方→按 user_id 发双向奖励」形成 invitee-wallet/inviter-user 反向等待。
+		if o.paidOrderHook != nil {
+			var hookErr error
+			inviteRewardUserID, inviteRewardCredits, hookErr = o.paidOrderHook(tx, ord.UserID, ord.ID, ord.OrderNo, ord.OrderType,
+				wantCents, now, method)
+			if hookErr != nil {
+				return hookErr
+			}
 		}
 		// 履约
 		switch ord.OrderType {
@@ -386,6 +525,9 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 	// 事务已提交 → 通知(站内信可靠 + 邮件 best-effort)。失败不影响履约结果。
 	if fulfilled != nil {
 		o.svc.notifyOrderFulfilled(fulfilled)
+		if inviteRewardCredits > 0 {
+			o.svc.NotifyInviteCampaignReward(inviteRewardUserID, inviteRewardCredits, TxInviteFirstPurchaseRebate)
+		}
 		// 订阅履约(新购/续费/升级)→ 升级满血:只抬额度窗口起点,不动 used 统计。
 		// 充值(recharge)只加经费、不动会员档,不触发。best-effort,post-commit,不影响履约。
 		if fulfilled.OrderType == "subscription" {
@@ -402,6 +544,7 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 // 批次(grant_expires < now)、两张同基线续费的第二笔零延长。重算锚点 = max(now, 当前到期):
 //   - 逾期支付(会员已过期)→ 从 now 起算,经费不会born-expired;
 //   - 在期支付 → 叠加到当前到期之后(每笔续费各加一个周期)。
+//
 // 金额 / 赠送经费数额仍按下单时算定(用户已为此付款),只重算「窗口」。
 // FOR UPDATE 锁 users 行:串行化同一用户的并发履约(两张不同订单可同时回调)。
 func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now time.Time) error {
@@ -414,9 +557,7 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 		return err
 	}
 
-	cfg := o.svc.cfg.Get()
 	cycle := normCycle(ord.BillingCycle)
-	periodDays := cfg.PeriodDaysFor(cycle)
 
 	curEff := effectiveTier(uv, now)
 	// 锚点 = max(now, 当前到期)。
@@ -430,18 +571,67 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 		newTier = curEff // 不降级
 	}
 
-	var newExp, grantStarts, grantExpires time.Time
+	var newExp time.Time
 	if ord.SubAction == "upgrade" {
-		// 升级:按剩余天数补差价,不延长周期,只升档。到期日=锚点;经费即时生效到到期。
+		// 🔴 定价基准失效硬闸(2026-08-02 计费审计 P0-2)。
+		//
+		// 升级单的**价格**在下单时按「当时的剩余时长」算定并冻结,而**到期日**在这里按支付时刻
+		// 的会员状态重算(base = max(now, 当前到期))。这两件事在下单→支付之间会脱钩:只要
+		// vip_expires_at 在这段时间里被合法延长(续费履约 / 兑换码 / admin 直授),下面的
+		// `newExp = base` 就会把「按 1 天余期定价的 ¥7 差价」兑现成「整年高档」。
+		// 实测路径:t=0 建 ¥7 升级单 → 仍 pending 时拿住收银台 → 2h 后 stale 清理把它打成 expired
+		// (同时清空单活跃订阅单护栏)→ 建并支付 ¥590 年付续期 → 再付掉那 ¥7 → Max 整年,
+		// 牌价 ¥2690,单次净损失约 ¥2093。447-463 原有的两个 case 都是为「到期日变小 / 会员已过期」
+		// 写的,对「到期日变大」这一侧零覆盖;469-472 的防回退只会把 newExp 往上抬,更加坐实。
+		//
+		// 为什么是拒绝而不是「按已付时长封顶」:users 表只有一对 (vip_tier, vip_expires_at),
+		// 表达不了「Max 到 X、之后 Pro 到 Y」的排期;把 newExp 缩到 X 会连带砍掉用户真金白银买来的
+		// 续期,比不升档更糟。所以这里只做「基准是否还成立」的判定,不成立就不履约。
+		//
+		// 正常用户几乎撞不到:延长到期日的三条路径都会顺手作废该用户 pending 的升级单
+		// (见 voidPendingUpgradeOrders 的三个调用点),要落到这里必须在延期**之前**就把收银台
+		// 拿在手里 —— 那已经是刻意编排。容差 24h 吸收秒级对齐与时区抖动。
+		if ord.NewExpiresAt != nil && uv.VIPExpiresAt != nil &&
+			uv.VIPExpiresAt.Sub(*ord.NewExpiresAt) > upgradeBasisTolerance {
+			return fmt.Errorf("%w: order_no=%s frozen_expires=%s current_expires=%s",
+				ErrUpgradeBasisStale, ord.OrderNo,
+				ord.NewExpiresAt.Format(time.RFC3339), uv.VIPExpiresAt.Format(time.RFC3339))
+		}
+		// 🔴 到期日为 NULL = 会员已被整体撤销(退款回收 / admin 撤销)。
+		//
+		// 这本身就是「定价基准不成立」的最强信号,必须拒绝履约 —— 上面那条闸门有
+		// `uv.VIPExpiresAt != nil` 前置条件,撞上 NULL 时整条短路,拦不住。
+		// 不拦的后果(退款功能上线后实测可复现):用户 Pro 年付 A + 在途 Max 升级单 B,
+		// 管理员对 A 全额退款并撤销会员 → B 被打成 expired,但 fulfill 的可履约白名单
+		// **包含 expired**(逾期支付复活语义),B 被支付时照样进来;base=now、
+		// 下面「兑现冻结到期日」的分支再把 newExp 抬回原到期日 T、curEff=free 让 newTier=max
+		// —— 被退款撤销掉的会员整段回来了,而且档更高。用户既拿回全款又持有到 T 的 Max。
+		if ord.NewExpiresAt != nil && uv.VIPExpiresAt == nil {
+			return fmt.Errorf("%w: order_no=%s frozen_expires=%s current_expires=<null>(会员已被撤销/退款)",
+				ErrUpgradeBasisStale, ord.OrderNo, ord.NewExpiresAt.Format(time.RFC3339))
+		}
+		// 升级:按剩余天数补差价,不延长周期,只升档。到期日=锚点。
 		newExp = base
-		grantStarts = now
-		grantExpires = base
+		switch {
+		case ord.NewExpiresAt != nil && uv.VIPExpiresAt != nil && ord.NewExpiresAt.After(newExp):
+			// 到期日被外部改小(admin 回收等):至少兑现下单时冻结在订单行的承诺到期日。
+			// 在期支付的正常路径 base >= 冻结值(到期日只增不减),此分支不改变原语义。
+			// ⚠️ 加 `uv.VIPExpiresAt != nil` 是第二道闸:会员被撤销时不能靠这个分支把
+			// 到期日"兑现"回来(上面已经拒绝履约了,这里是纵深防御)。
+			newExp = *ord.NewExpiresAt
+		case ord.NewExpiresAt != nil && uv.VIPExpiresAt != nil && uv.VIPExpiresAt.Before(now):
+			// 跨会员到期支付防打水漂:会员在下单→支付之间过期(base=now),newExp=base 会让
+			// 升到的档瞬间过期、补差价白付。差价买的是「下单时的剩余时长」(computeSubscription
+			// 的 remainingDays 口径)→ 从支付时刻起补齐等长时段,拿到的时长恒等于付费对应的
+			// 时长,无套利(拖延支付只是把同一段时长后移,且网关关单窗口把间隔钳在小时级)。
+			if remaining := ord.NewExpiresAt.Sub(ord.CreatedAt); remaining > 0 {
+				newExp = base.Add(remaining).Truncate(time.Second)
+			}
+		}
 	} else {
-		// new | renew:从锚点 + 一个周期(月度 30 天 / 年度 365 天,按订单 billing_cycle)。
-		// renew=叠加到当前到期之后(预发放);逾期则 base=now 即时。
-		newExp = base.AddDate(0, 0, periodDays)
-		grantStarts = base
-		grantExpires = newExp
+		// new | renew:从锚点 + 一个**自然**周期(月度 +1 月 / 年度 +1 年,按订单 billing_cycle)。
+		// renew=叠加到当前到期之后;逾期则 base=now 即时。0090 起不再按固定天数推算。
+		newExp = AddPeriod(base, cycle)
 	}
 	// 防回退:到期日不低于当前(并发/重复履约兜底,虽已 FOR UPDATE)。
 	if uv.VIPExpiresAt != nil && uv.VIPExpiresAt.After(newExp) {
@@ -457,57 +647,46 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 	if err := tx.Table("users").Where("id = ?", ord.UserID).Updates(updates).Error; err != nil {
 		return err
 	}
-	if ord.CreditsGranted > 0 {
-		// 赠送经费按「约每 30 天一批」预发放依次生效(owner 拍板 2026-07-22):年度新购/续期拆
-		// ~12 批、月度单批;长余期升级(年费口径补差,窗口可近整年)同样分批 —— 防「一次性到账
-		// 全年经费 → 首月集中重置薅走全年额度」(评审:升级差额单批即时生效同样绕过节流)。
-		return grantBatchedMonthlyInTx(tx, ord.UserID, ord.OrderNo, ord.CreditsGranted, grantStarts, grantExpires)
+	// new/renew 把到期日往后推了 → 该用户任何在途升级单的定价基准随之失效,就地作废(P0-2 第一道防线)。
+	// upgrade 单自己不延长到期日,不需要(也不该)作废别的升级单。
+	if ord.SubAction != "upgrade" {
+		if err := voidPendingUpgradeOrders(tx, ord.UserID, "subscription "+ord.SubAction+" extended expiry"); err != nil {
+			return err
+		}
+	}
+	// 0090 起订阅**不再赠送经费**:原先这里会按「约每 30 天一批」预发放临时经费
+	// (grantBatchedMonthlyInTx),该函数与整条临时经费链路一并下线。
+	// 注意:充值单(order_type=recharge)的 CreditsGranted 是另一回事(到账永久经费),
+	// 走 fulfillRechargeInTx 的 grantPermInTx,不受此处影响。
+	return nil
+}
+
+// voidPendingUpgradeOrders 作废该用户所有**在途升级单**(2026-08-02 计费审计 P0-2 的第一道防线)。
+//
+// 升级单的差价 = 「下单那一刻的剩余时长 × 档位价差 / 周期」。只要 vip_expires_at 在它 pending
+// 期间被延长(续费履约 / 兑换码 / admin 直授),这个定价基准就作废了 —— 那张 ¥7 的单会兑现成
+// 整年高档。这里在**每一条延长到期日的路径**里顺手把它们打成 expired,让用户根本走不到
+// activateSubscriptionInTx 里那道硬闸(那道闸会拒绝履约,而钱已经付了,是最后的兜底不是首选)。
+//
+// 只动 sub_action='upgrade' 且仍 pending 的单:new/renew 单的定价与到期日无关,充值单更无关。
+// 用 expired 而不是新增状态:fulfill 对 expired 的复活路径已有既定语义(逾期支付仍可履约),
+// 而升级单复活会被那道硬闸拦下 —— 两层配合,不引入第三种状态。
+func voidPendingUpgradeOrders(tx *gorm.DB, userID uint, reason string) error {
+	res := tx.Model(&Order{}).
+		Where("user_id = ? AND order_type = 'subscription' AND sub_action = 'upgrade' AND status = 'pending'", userID).
+		Update("status", "expired")
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		slog.Info("billing: 作废在途升级单(定价基准已随到期日延长而失效)",
+			"user_id", userID, "voided", res.RowsAffected, "reason", reason)
 	}
 	return nil
 }
 
-// grantBatchedMonthlyInTx 把一笔临时经费按「约每 30 天一批」拆分、预发放依次生效。
-// 批数 = round(窗口天数/30) 夹到 [1,12];窗口 <~45 天(月度/短余期升级)→ 单批,与原逻辑一致。
-// 每批 starts_at=本段起点、expires_at=本段终点(末批精确对齐窗口末),只在自己那一个月内可用,
-// 单月经济模型与月度会员一致。复用续期「预发放 starts_at」(钱包读路径天然支持未来生效批次),
-// 余数并入首批。ref 带 #序号(单批时用原 ref),流水/批次可追溯到单。
-func grantBatchedMonthlyInTx(tx *gorm.DB, userID uint, orderNo string, total int, startsAt, expiresAt time.Time) error {
-	span := expiresAt.Sub(startsAt)
-	if total <= 0 || span <= 0 {
-		return nil
-	}
-	parts := int(math.Round(span.Hours() / 24 / 30))
-	if parts < 1 {
-		parts = 1
-	}
-	if parts > 12 {
-		parts = 12
-	}
-	if parts == 1 {
-		return grantTempInTx(tx, userID, total, SourceSubscription, orderNo, startsAt, expiresAt, TxGrantSubscription)
-	}
-	per := total / parts
-	rem := total - per*parts
-	for i := 0; i < parts; i++ {
-		amount := per
-		if i == 0 {
-			amount += rem // 余数并入首批
-		}
-		if amount <= 0 {
-			continue // 总额 < parts 时的空批次直接跳过
-		}
-		starts := startsAt.Add(span * time.Duration(i) / time.Duration(parts))
-		ends := startsAt.Add(span * time.Duration(i+1) / time.Duration(parts))
-		if i == parts-1 {
-			ends = expiresAt // 消除整除误差,末批精确对齐窗口末
-		}
-		if err := grantTempInTx(tx, userID, amount, SourceSubscription,
-			fmt.Sprintf("%s#%02d", orderNo, i+1), starts, ends, TxGrantSubscription); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// (grantBatchedMonthlyInTx 已删除 —— 0090 起订阅不再赠送经费,「按月分批预发放临时经费」
+//  整条链路随临时经费一并下线。)
 
 // CancelStalePending 把超过 ttl 仍 pending 的订单标记 expired。返回作废数。
 //
@@ -526,7 +705,11 @@ func (o *OrderService) CancelStalePending(ttl time.Duration) (int64, error) {
 }
 
 // genOrderNo 生成订单号:前缀 + 北京时间到秒 + 6 位随机(防同秒撞);order_no 唯一索引兜底。
+// 随机源不可用时用纳秒尾数兜底 —— 不再静默空后缀(空后缀会让同秒并发下单必撞唯一索引)。
 func genOrderNo(prefix string) string {
-	suffix, _ := randomCode(6)
+	suffix, err := randomCode(6)
+	if err != nil {
+		suffix = fmt.Sprintf("%06d", time.Now().UnixNano()%1_000_000)
+	}
 	return prefix + time.Now().Format("20060102150405") + suffix
 }

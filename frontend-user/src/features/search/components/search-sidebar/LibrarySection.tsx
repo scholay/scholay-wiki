@@ -9,7 +9,7 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useLibraryFoldersSummary } from '../../api/library';
 
 /**
- * 文献集快捷区 —— 视觉/排版与 LibrarySidebar 的 FolderRow 一致
+ * 文件夹快捷区 —— 视觉/排版与 LibrarySidebar 的 FolderRow 一致
  * (Folder icon + 名字 + count + hover),click 跳 /library?folder=X。
  *
  * 限高 max-h-[260px] + overflow-y-auto:文件夹多了不会挤占下方筛选器位置。
@@ -27,15 +27,15 @@ export function LibrarySection() {
 
   if (!authenticated) {
     return (
-      <SidebarSection id="library" label="我的文献集">
-        <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">
-          <div className="text-sm text-subtle leading-relaxed">
-            登录后查看你的文献集,所有收藏云端同步
+      <SidebarSection id="library" label={<span className="font-serif">我的文件夹</span>}>
+        <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
+          <div className="text-12 text-subtle leading-paragraph">
+            登录后查看你的文件夹,所有收藏云端同步
           </div>
           <Button
             size="sm"
             variant="primary"
-            className="mt-2 w-full h-8 text-xs"
+            className="mt-2 w-full h-8 text-12"
             onClick={() => openDialog('login')}
           >
             <LogIn className="size-3" />
@@ -53,11 +53,11 @@ export function LibrarySection() {
       <div ref={sectionRef}>
         <SidebarSection
           id="library"
-          label="我的文件夹"
+          label={<span className="font-serif">我的文件夹</span>}
           action={
             <LeaveToLibraryLink
               to="/library"
-              className="text-2xs font-bold text-foreground hover:opacity-70"
+              className="text-12 font-medium text-foreground hover:opacity-70"
             >
               管理
             </LeaveToLibraryLink>
@@ -65,10 +65,10 @@ export function LibrarySection() {
         >
           <div className="max-h-[260px] overflow-y-auto">
             {foldersQ.isLoading && folders.length === 0 && (
-              <div className="px-4 py-2 text-2xs text-faint">加载中…</div>
+              <div className="px-4 py-2 text-12 text-faint">加载中…</div>
             )}
             {!foldersQ.isLoading && folders.length === 0 && (
-              <div className="px-4 py-2 text-2xs text-faint">
+              <div className="px-4 py-2 text-12 text-faint">
                 还没有文件夹 ·
                 <LeaveToLibraryLink to="/library" className="ml-1 underline">
                   去创建
@@ -79,14 +79,14 @@ export function LibrarySection() {
               <LeaveToLibraryLink
                 key={f.id}
                 to={`/library?folder=${f.id}`}
-                className="group flex items-center gap-1.5 px-4 h-8 hover:bg-surface-1 transition-colors"
+                className="group flex h-8 items-center gap-2.5 px-4 transition-colors hover:bg-surface-1"
                 title={f.name}
               >
                 <Folder className="size-3.5 text-muted-foreground shrink-0" />
-                <span className="flex-1 min-w-0 truncate text-xs text-subtle group-hover:text-foreground">
+                <span className="min-w-0 flex-1 truncate text-14 text-subtle group-hover:text-foreground">
                   {f.name}
                 </span>
-                <span className="text-2xs text-faint tabular-nums shrink-0">
+                <span className="text-12 text-faint tabular-nums shrink-0">
                   {f.paper_count.toLocaleString()}
                 </span>
               </LeaveToLibraryLink>

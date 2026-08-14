@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// issnRE 标准 ISSN 形态(4 位数字-3 位数字+校验位[数字或 X])。入库前校验,
+// 挡住上游偶发的占位/垃圾串;大小写已在调用侧统一为大写 X。
+var issnRE = regexp.MustCompile(`^[0-9]{4}-[0-9]{3}[0-9X]$`)
+
 // AuthorSEORecorder 由 seo.Service 直接实现, 作者详情命中时写入 SEO 索引库 tier=1。
 // 历史上 minicod 自定义了一份 AuthorSEOSeed 与 seo.AuthorSeed 字段镜像, 中间靠
 // cmd/server/authorSEORecorderAdapter 翻译; 现在改成 minicod 直接 import seo 用
@@ -34,9 +39,18 @@ type AuthorSEORecorder interface {
 	RecordAuthorDetailClick(seed *seo.AuthorSeed) error
 }
 
+// PaperSEORecorder 只接收 minicod 已验证响应映射出的 seed。不能用匿名
+// 客户端 /seo/expose 传来的元数据实现此接口，否则可被灌入 SEO spam。
+type PaperSEORecorder interface {
+	RecordDetailClick(seed *seo.PaperSeed) error
+	RecordSearchSeeds(seeds []seo.PaperSeed) (int, error)
+	RecordAuthorSearchSeeds(seeds []seo.AuthorSeed) (int, error)
+}
+
 // JournalSEORecorder 同构 — 也直接用 seo.JournalSeed。
 type JournalSEORecorder interface {
 	RecordJournalDetailClick(seed *seo.JournalSeed) error
+	RecordJournalSearchSeeds(seeds []seo.JournalSeed) (int, error)
 }
 
 // HotContentRecorder 由 hotcontent.Service 直接实现 —— 落热门搜索词 / 论文曝光。
@@ -72,12 +86,20 @@ const codeJournalSubmissionUpgradeRequired = 40310
 // Handler handles HTTP requests for Minicod API
 type Handler struct {
 	manager            *Manager
+	paperSEORecorder   PaperSEORecorder
 	authorSEORecorder  AuthorSEORecorder
 	journalSEORecorder JournalSEORecorder
-	hotRecorder        HotContentRecorder
+	// journalFallback 上游 /v1/jnl/get 失败时的本地读路径(见 journal_fallback.go)。
+	journalFallback JournalFallbackProvider
+	hotRecorder     HotContentRecorder
 	statRecorder       usagestat.Recorder
 	favChecker         FavoriteChecker
 	membership         MembershipChecker
+}
+
+// SetPaperSEORecorder 注入论文搜索/详情的服务端可信 SEO 记录器。
+func (h *Handler) SetPaperSEORecorder(r PaperSEORecorder) {
+	h.paperSEORecorder = r
 }
 
 // NewHandler creates a new Minicod handler
@@ -370,6 +392,24 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		sinkZeroOverlap(req.Query, result.Data)
 	}
 
+	// SEO 入库只信任本次 minicod 已验证的上游响应，不再信任匿名前端 expose。
+	if h.paperSEORecorder != nil && len(result.Data) > 0 {
+		papers, authors := buildVerifiedSearchSEOSeeds(result.Data)
+		recorder := h.paperSEORecorder
+		safego.Record("seo-verified-paper-search", func() {
+			if len(papers) > 0 {
+				if _, err := recorder.RecordSearchSeeds(papers); err != nil {
+					slog.Warn("seo verified paper search record failed", "err", err)
+				}
+			}
+			if len(authors) > 0 {
+				if _, err := recorder.RecordAuthorSearchSeeds(authors); err != nil {
+					slog.Warn("seo verified author search record failed", "err", err)
+				}
+			}
+		})
+	}
+
 	response := SearchPapersResponse{
 		Data:           result,
 		OriginalQuery:  req.Query,
@@ -423,9 +463,81 @@ func (h *Handler) GetPaper(c *gin.Context) {
 		return
 	}
 
+	if h.paperSEORecorder != nil {
+		if seed := buildVerifiedPaperSEOSeed(result); seed != nil {
+			recorder := h.paperSEORecorder
+			safego.Record("seo-verified-paper-detail", func() {
+				if err := recorder.RecordDetailClick(seed); err != nil {
+					slog.Warn("seo verified paper detail record failed", "paper_id", seed.PaperID, "err", err)
+				}
+			})
+		}
+	}
+
 	// 点击量不再在这里记 —— 站内从结果点开详情走前端缓存、根本不打本接口;
 	// 改由前端在"点开论文"那一刻上报 POST /public/hot-content/track。
 	utils.Success(c, result)
+}
+
+func buildVerifiedPaperSEOSeed(p *Paper) *seo.PaperSeed {
+	if p == nil || strings.TrimSpace(p.PaperID) == "" || strings.TrimSpace(p.Title) == "" {
+		return nil
+	}
+	seed := &seo.PaperSeed{
+		PaperID:       strings.TrimSpace(p.PaperID),
+		Title:         strings.TrimSpace(p.Title),
+		Abstract:      p.Abstract,
+		Venue:         p.Venue,
+		CitationCount: p.CitationCount,
+		FieldsOfStudy: append([]string(nil), p.FieldsOfStudy...),
+		Source:        seo.AuthoritativeSource(p.Source, p.PaperID),
+	}
+	if p.Year > 0 {
+		year := p.Year
+		seed.Year = &year
+	}
+	if p.ExternalIDs != nil {
+		if doi, ok := p.ExternalIDs["DOI"].(string); ok {
+			seed.DOI = strings.TrimSpace(doi)
+		}
+	}
+	seed.Authors = make([]seo.Author, 0, len(p.Authors))
+	for _, author := range p.Authors {
+		if name := strings.TrimSpace(author.Name); name != "" {
+			seed.Authors = append(seed.Authors, seo.Author{Name: name, AuthorID: strings.TrimSpace(author.AuthorID)})
+		}
+	}
+	return seed
+}
+
+func buildVerifiedSearchSEOSeeds(papers []Paper) ([]seo.PaperSeed, []seo.AuthorSeed) {
+	paperSeeds := make([]seo.PaperSeed, 0, len(papers))
+	authorSeeds := make([]seo.AuthorSeed, 0)
+	seenAuthors := make(map[string]struct{})
+	for i := range papers {
+		seed := buildVerifiedPaperSEOSeed(&papers[i])
+		if seed == nil {
+			continue
+		}
+		paperSeeds = append(paperSeeds, *seed)
+		for _, author := range papers[i].Authors {
+			id := strings.TrimSpace(author.AuthorID)
+			name := strings.TrimSpace(author.Name)
+			if id == "" || name == "" {
+				continue
+			}
+			if _, exists := seenAuthors[id]; exists {
+				continue
+			}
+			seenAuthors[id] = struct{}{}
+			authorSeeds = append(authorSeeds, seo.AuthorSeed{
+				AuthorID: id,
+				Name:     name,
+				Source:   seo.AuthoritativeSource(author.Source, id),
+			})
+		}
+	}
+	return paperSeeds, authorSeeds
 }
 
 // GetPaperReferences handles get paper references requests
@@ -549,13 +661,50 @@ func (h *Handler) GetPaperBatch(c *gin.Context) {
 		return
 	}
 
-	result, err := h.manager.GetPaperBatch(c.Request.Context(), ids, req.Fields)
+	fields := verifiedBatchFields(req.Fields, h.paperSEORecorder != nil)
+	result, err := h.manager.GetPaperBatch(c.Request.Context(), ids, fields)
 	if err != nil {
 		utils.Error(c, 4022, "批量加载论文失败,请稍后重试")
 		return
 	}
 
+	// Batch 也是后端已验证的上游结果。PMD 搜索只返元数据，前端会
+	// 用本接口补 abstract；在这里按 tier=2 回写可以让有实质内容的页面进入
+	// sitemap，又不会把“批量查询”伪装成用户详情点击。
+	if h.paperSEORecorder != nil && len(result) > 0 {
+		papers, authors := buildVerifiedSearchSEOSeeds(result)
+		recorder := h.paperSEORecorder
+		safego.Record("seo-verified-paper-batch", func() {
+			if len(papers) > 0 {
+				if _, err := recorder.RecordSearchSeeds(papers); err != nil {
+					slog.Warn("seo verified paper batch record failed", "err", err)
+				}
+			}
+			if len(authors) > 0 {
+				if _, err := recorder.RecordAuthorSearchSeeds(authors); err != nil {
+					slog.Warn("seo verified paper batch authors record failed", "err", err)
+				}
+			}
+		})
+	}
+
 	utils.Success(c, result)
+}
+
+// verifiedBatchFields 保证需要 SEO 回写时不依赖上游“即使只请求
+// abstract 也顺带返回 title”的宽松实现。未请求字段裁剪时保持 nil，
+// 避免把原本的完整响应意外缩成单字段。
+func verifiedBatchFields(fields []string, seoEnabled bool) []string {
+	if !seoEnabled || len(fields) == 0 {
+		return fields
+	}
+	for _, field := range fields {
+		if strings.EqualFold(strings.TrimSpace(field), "title") {
+			return fields
+		}
+	}
+	out := append([]string(nil), fields...)
+	return append(out, "title")
 }
 
 // dedupNonEmpty 返回去重、去空、按首现顺序排列的切片，最多保留 maxLen 条。
@@ -634,6 +783,19 @@ func (h *Handler) SearchJournals(c *gin.Context) {
 		return
 	}
 
+	// 和论文同口径：仅把 minicod 已验证的搜索响应写成 tier-2 seed。
+	// 匿名前端 expose 已禁止落库，因此这是动态期刊 sitemap 的可信发现链。
+	if h.journalSEORecorder != nil {
+		if seeds := buildVerifiedJournalSearchSEOSeeds(result); len(seeds) > 0 {
+			recorder := h.journalSEORecorder
+			safego.Record("seo-verified-journal-search", func() {
+				if _, err := recorder.RecordJournalSearchSeeds(seeds); err != nil {
+					slog.Warn("seo verified journal search record failed", "err", err)
+				}
+			})
+		}
+	}
+
 	// 热门内容: 记期刊搜索词(与文献搜索词分桶)。hot_papers 是论文专用, 期刊不记曝光。
 	if h.hotRecorder != nil && req.Keyword != "" {
 		rec := h.hotRecorder
@@ -649,6 +811,11 @@ func (h *Handler) SearchJournals(c *gin.Context) {
 			map[string]any{"keyword": req.Keyword})
 	}
 
+	// 字段投影(必须在 SEO 种子采集之后):full=1 或显式 fields= 的请求保留上游原样
+	//(调用方自己收口了字段,别替它二次裁剪),常规请求按白名单裁剪。
+	if req.Full != "1" && req.Fields == "" {
+		result = projectJournalRows(result)
+	}
 	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
@@ -672,6 +839,10 @@ func (h *Handler) ListJournals(c *gin.Context) {
 		return
 	}
 
+	// 字段投影:full=1 或显式 fields= 保留上游原样(seoingest 走 Go 层 Manager 不经这里,不受影响)。
+	if req.Full != "1" && req.Fields == "" {
+		result = projectJournalRows(result)
+	}
 	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
@@ -688,6 +859,19 @@ func (h *Handler) GetJournal(c *gin.Context) {
 
 	result, err := h.manager.GetJournal(c.Request.Context(), req.ID, req.Full)
 	if err != nil {
+		// 上游不可用 → 用本地 seo_journals 回落(2026-08-13 事故:/v1/jnl/get 单端点
+		// 持续 502,期刊详情页对所有真实用户报错,而本地有 10 万行完整数据)。
+		// 详见 journal_fallback.go 的头注释;本地也没有才把错误交还给用户。
+		if h.journalFallback != nil {
+			if row, ferr := h.journalFallback.GetJournalByID(int64(req.ID)); ferr == nil && row != nil {
+				if fallback := journalFallbackJSON(row); fallback != nil {
+					slog.Warn("journal detail served from local fallback (upstream down)",
+						"journal_id", req.ID, "upstream_err", err)
+					utils.Success(c, fallback)
+					return
+				}
+			}
+		}
 		utils.Error(c, 4032, "加载期刊详情失败,请稍后重试")
 		return
 	}
@@ -697,14 +881,20 @@ func (h *Handler) GetJournal(c *gin.Context) {
 	// SEO 关心的元数据都在 unified 下,但字段名是上游多源原貌
 	// (publisher 在 crossref_publisher / doaj_publisher; issns 拆成 print/electronic 两列)。
 	// 这里做一次轻量映射,失败回写就好,日志带 journal_id 方便排查。
-	if h.journalSEORecorder != nil && len(result) > 0 {
+	if len(result) > 0 {
 		if seed := buildJournalSEOSeed(result); seed != nil {
-			recorder := h.journalSEORecorder
-			safego.Record("seo-journal-detail-click", func() {
-				if err := recorder.RecordJournalDetailClick(seed); err != nil {
-					slog.Warn("seo journal detail click record failed", "journal_id", seed.JournalID, "err", err)
-				}
-			})
+			// The Go-generated slug is the single canonical truth for SSR,
+			// sitemap and React. JavaScript Unicode lowercasing is observably
+			// different for e.g. Greek final sigma and Turkish dotted I.
+			result = injectJournalSEOSlug(result, seo.GenerateJournalSlug(seed.CanonicalName))
+			if h.journalSEORecorder != nil {
+				recorder := h.journalSEORecorder
+				safego.Record("seo-journal-detail-click", func() {
+					if err := recorder.RecordJournalDetailClick(seed); err != nil {
+						slog.Warn("seo journal detail click record failed", "journal_id", seed.JournalID, "err", err)
+					}
+				})
+			}
 		}
 	}
 
@@ -713,9 +903,57 @@ func (h *Handler) GetJournal(c *gin.Context) {
 	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
+// buildVerifiedJournalSearchSEOSeeds 解析 /v1/jnl/search 的
+// {rows:[{unified:{...}}]} 响应。每行仍复用详情 seed 的字段兼容/验证逻辑，
+// 避免前后端两套期刊质量口径漂移。
+func buildVerifiedJournalSearchSEOSeeds(raw json.RawMessage) []seo.JournalSeed {
+	var payload struct {
+		Rows []json.RawMessage `json:"rows"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil || len(payload.Rows) == 0 {
+		return nil
+	}
+	out := make([]seo.JournalSeed, 0, len(payload.Rows))
+	seen := make(map[int64]struct{}, len(payload.Rows))
+	for _, row := range payload.Rows {
+		seed := buildJournalSEOSeed(row)
+		if seed == nil {
+			continue
+		}
+		if _, exists := seen[seed.JournalID]; exists {
+			continue
+		}
+		seen[seed.JournalID] = struct{}{}
+		out = append(out, *seed)
+	}
+	return out
+}
+
+// injectJournalSEOSlug adds the authoritative backend slug to both supported
+// response shapes. The top-level copy supports flat responses; the nested copy
+// is consumed by the current `{unified: ...}` frontend detail contract.
+func injectJournalSEOSlug(raw json.RawMessage, slug string) json.RawMessage {
+	if len(raw) == 0 || slug == "" {
+		return raw
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return raw
+	}
+	doc["seo_slug"] = slug
+	if unified, ok := doc["unified"].(map[string]any); ok {
+		unified["seo_slug"] = slug
+	}
+	if encoded, err := json.Marshal(doc); err == nil {
+		return encoded
+	}
+	return raw
+}
+
 // journalSeedFields 是 SEO 入库需要的期刊字段。**同时**带两套字段名以兼容上游两种响应形状:
 //   - 新形状(api-1.json:Journal):字段全在 `data` 顶层,国家/类型/OA 用 openalex_* 前缀;
 //   - 老形状:包在 { "unified": {...} } 里,国家/类型/OA 用裸 country/type/is_oa。
+//
 // 一个 struct 带全部别名 → 无论顶层解还是 unified 解都能填满,取值时按优先级挑非空的(见 buildJournalSEOSeed)。
 type journalSeedFields struct {
 	ID                int    `json:"id"`
@@ -790,26 +1028,31 @@ func buildJournalSEOSeed(raw []byte) *seo.JournalSeed {
 	}
 
 	// issns: 收集 print + electronic 去重, 若仍空再切 all_issns CSV
+	// 2026-08-10 审计:上游 print_issn/electronic_issn 字段本身可能是逗号拼接的多 ISSN 串
+	// (Nature/JAMA 等 18 刊实测),不拆分会把 "A" 与 "A, B" 当两个元素双双入库 →
+	// Periodical JSON-LD 输出重复+拼接的脏 issn 数组。所有字段统一:拆分 → TrimSpace →
+	// 大写 X → 格式校验(^\d{4}-\d{3}[\dX]$)→ 保序去重。存量 18 行由迁移 0122 清洗
+	// (「更长才覆盖」策略使干净值无法自然盖回)。
 	seen := make(map[string]struct{}, 4)
 	var issns []string
-	add := func(s string) {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			return
+	add := func(raw string) {
+		for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' }) {
+			s := strings.ToUpper(strings.TrimSpace(part))
+			if !issnRE.MatchString(s) {
+				continue
+			}
+			if _, ok := seen[s]; ok {
+				continue
+			}
+			seen[s] = struct{}{}
+			issns = append(issns, s)
 		}
-		if _, ok := seen[s]; ok {
-			return
-		}
-		seen[s] = struct{}{}
-		issns = append(issns, s)
 	}
 	add(u.ISSNL)
 	add(u.PrintISSN)
 	add(u.ElectronicISSN)
 	if len(issns) == 0 && u.AllISSNs != "" {
-		for _, s := range strings.Split(u.AllISSNs, ",") {
-			add(s)
-		}
+		add(u.AllISSNs)
 	}
 
 	seed := &seo.JournalSeed{
@@ -899,6 +1142,73 @@ func (h *Handler) JournalsByNames(c *gin.Context) {
 // redactJournalSubmissionURLs 把 journal 响应里 submission.{guideline_url,latex_url}
 // 抹成 null,防止公开端点把上游可直链的下载地址泄漏给非会员。
 // 常见路径(无 full / 无 submission)零成本:先按子串探测,没命中就原样返回。
+// journalRowProjection —— /public/journals/{list,search} 行内 unified 对象的字段白名单。
+// 上游 /v1/jnl 的 unified 有 ~88 个字段,这两个公网端点的全部 HTTP 消费方
+// (web 桌面 RawJournal / 移动 web feed JournalFeedCard / 小程序 journals.ts /
+// 审稿 JournalPickerStep)合计只读下面这些;逐行白传其余字段 = 列表页每页 12-20 行的
+// 纯带宽浪费(2026-08-12 全消费方盘点)。详情页全字段走 /journals/get,不投影。
+// ⚠️ 三个注意点:
+//  1. 投影必须在 handler 层、SEO 种子采集(buildVerifiedJournalSearchSEOSeeds)之后 ——
+//     seoingest 走 Manager.ListJournals(Go 层)不经这里,manager/client 层投影会毁掉它;
+//  2. full=1 的请求跳过投影(保留既有全量能力);
+//  3. 前端要新消费字段,先加进这里再上线,否则拿到的是 undefined。
+var journalRowProjection = map[string]struct{}{
+	// 标识与名称
+	"id": {}, "canonical_name": {}, "wikidata_label_zh": {}, "seo_slug": {},
+	"issn_l": {}, "print_issn": {}, "electronic_issn": {}, "all_issns": {},
+	// 来源与出版方
+	"source_count": {}, "sources": {}, "crossref_publisher": {}, "doaj_publisher": {},
+	"openalex_country": {}, "doaj_country": {}, "country": {}, "type": {}, "openalex_type": {},
+	// OA 与体量
+	"is_oa": {}, "openalex_is_oa": {}, "doaj_is_in_doaj": {},
+	"openalex_works_count": {}, "openalex_cited_by_count": {}, "openalex_h_index": {},
+	// 分区与指标
+	"scimago_best_quartile": {}, "scimago_sjr": {},
+	"jcr_impact_factor": {}, "jcr_quartile": {},
+	"fqb_major_quartile": {}, "fqb_major_category": {}, "fqb_top": {},
+	"xr_major_quartile": {}, "xr_top": {}, "ccf_rank": {},
+	// 预警与投稿
+	"gjqk_year": {}, "gjqk_warning_level": {}, "has_submission": {},
+	"scirev_first_review_months": {},
+	// 展示资产
+	"cover": {},
+}
+
+// projectJournalRows 对 {rows:[{unified:...}]} 信封按白名单裁剪 unified 字段。
+// fail-open:信封/行形状不符合预期就原样返回 —— 投影是带宽优化,不承担正确性语义。
+func projectJournalRows(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return raw
+	}
+	rows, ok := envelope["rows"].([]any)
+	if !ok {
+		return raw
+	}
+	for _, r := range rows {
+		row, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		unified, ok := row["unified"].(map[string]any)
+		if !ok {
+			continue
+		}
+		for k := range unified {
+			if _, keep := journalRowProjection[k]; !keep {
+				delete(unified, k)
+			}
+		}
+	}
+	if b, err := json.Marshal(envelope); err == nil {
+		return b
+	}
+	return raw
+}
+
 func redactJournalSubmissionURLs(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 {
 		return raw

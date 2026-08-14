@@ -17,7 +17,7 @@ interface PcFeature {
 }
 
 const PC_FEATURES: Record<string, PcFeature> = {
-  'peer-review': {
+  'peer-review' : {
     name: '智能审稿',
     title: '智能审稿建议在电脑端使用',
     desc: '完整审稿需要上传 PDF、逐段批注、多栏对照与导出,手机屏幕空间有限。前往电脑端可获得完整能力。',
@@ -62,7 +62,9 @@ export function MobilePcOnlyPage() {
 
   if (!feature) return <Navigate to="/m/tools" replace />;
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://scholay.com';
+  // 兜底空串而非某个写死的域名:这是纯 CSR 组件,window 恒存在,这一档实际上是死代码;
+  // 但留个真实域名在这里,一旦将来引入 SSR 就会静默生成指向另一个站点的「电脑端链接」。
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const fullUrl = `${origin}${feature.path}`;
   const displayUrl = fullUrl.replace(/^https?:\/\//, '');
 
@@ -83,7 +85,7 @@ export function MobilePcOnlyPage() {
         >
           <ChevronLeft className="size-6" />
         </button>
-        <span className="text-md font-semibold text-foreground">{feature.name}</span>
+        <span className="text-14 font-medium text-foreground">{feature.name}</span>
         <span className="size-9" aria-hidden />
       </header>
 
@@ -91,42 +93,44 @@ export function MobilePcOnlyPage() {
         <div className="flex flex-col items-center gap-4">
           {/* Hero:显示器图标 + 「手机端功能受限」徽章 */}
           <div className="flex flex-col items-center gap-3">
-            <span className="flex size-24 items-center justify-center rounded-full bg-[#F1EADA]">
+            {/* 琥珀软底高亮块 = bg-amber-soft(--amber-soft-bg #E5DFCE = amber-12,2026-07-28 末两档归一化后);
+                旧值 #F1EADA 是换 Figma 真源前的旧琥珀软底,已退休。 */}
+            <span className="flex size-24 items-center justify-center rounded-pill bg-amber-soft">
               <Monitor className="size-11 text-foreground" strokeWidth={1.6} />
             </span>
             <span className="flex items-center gap-1.5 rounded-pill bg-surface-2 px-3 py-1.5">
               <Smartphone className="size-3 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">手机端功能受限</span>
+              <span className="text-12 font-medium text-muted-foreground">手机端功能受限</span>
             </span>
           </div>
 
-          <h1 className="text-center text-xl font-semibold leading-snug text-foreground">{feature.title}</h1>
-          <p className="text-center text-sm leading-relaxed text-muted-foreground">{feature.desc}</p>
+          <h1 className="text-center text-20 font-medium text-foreground">{feature.title}</h1>
+          <p className="text-center text-12 leading-paragraph text-muted-foreground">{feature.desc}</p>
 
           {/* 电脑端可用 能力清单 */}
-          <div className="w-full rounded-md border border-border bg-surface-1 p-4">
-            <p className="mb-2.5 text-sm font-semibold text-foreground">电脑端可用</p>
+          <div className="w-full rounded-16 border border-border bg-surface-1 p-4">
+            <p className="mb-2.5 text-14 font-medium text-foreground">电脑端可用</p>
             <ul className="flex flex-col gap-2.5">
               {feature.features.map((f) => (
                 <li key={f} className="flex items-center gap-2">
                   <Check className="size-3.5 shrink-0 text-brand-green" />
-                  <span className="text-sm text-muted-foreground">{f}</span>
+                  <span className="text-12 text-muted-foreground">{f}</span>
                 </li>
               ))}
             </ul>
           </div>
 
           {/* 电脑端链接 + 复制 */}
-          <div className="w-full rounded-md border border-border bg-background p-4">
-            <div className="flex h-11 items-center justify-between gap-2 rounded-sm border border-border-button bg-surface-1 pl-3 pr-1.5">
-              <span className="truncate text-sm text-muted-foreground">{displayUrl}</span>
+          <div className="w-full rounded-16 border border-border bg-surface-card p-4">
+            <div className="flex h-11 items-center justify-between gap-2 rounded-8 border border-border-button bg-surface-1 pl-3 pr-1.5">
+              <span className="truncate text-12 text-muted-foreground">{displayUrl}</span>
               <button
                 type="button"
                 onClick={copy}
-                className="flex shrink-0 items-center gap-1.5 rounded-sm border border-border-button bg-background px-3 py-1.5 active:bg-surface-2"
+                className="flex shrink-0 items-center gap-1.5 rounded-4 border border-border-button bg-surface-card px-3 py-1.5 active:bg-surface-2"
               >
                 <Copy className="size-3.5 text-foreground" />
-                <span className="text-xs font-semibold text-foreground">复制</span>
+                <span className="text-12 font-medium text-foreground">复制</span>
               </button>
             </div>
           </div>

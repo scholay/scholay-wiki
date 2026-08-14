@@ -1,8 +1,14 @@
 // 智能写作 (Prism) —— 用户端 react-query hooks。字段对齐 backend/internal/prism。
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import {
+  PRISM_COMPILE_STATUS_EVENT,
+  type PrismCompileStatusDetail,
+} from '@/shared/lib/compile-events';
 import { retryDetailQuery } from '@/shared/lib/query-config';
 import { getAuthToken } from '@/shared/lib/auth-token';
+import { attachmentUrl } from '@/shared/lib/agent-attachment';
 import type { PdfSource } from '@/shared/components/PdfViewer';
 
 export interface PrismProject {
@@ -42,6 +48,9 @@ export interface PrismCompile {
   error_summary?: string;
   // 失败分类(mirrors prism.Compile.ErrorKind):latex=真 LaTeX 语法错(才 arm auto-fix)/ infra / timeout / 空=旧行未分类。
   error_kind?: string;
+  // 报错归属(mirrors prism.Compile.ErrorSource,2026-07 线上审计新增):body=正文 document.md /
+  // bibliography=参考文献 bib(回喂 AI 改 document.md 结构性修不了)/ infra=基础设施;空=旧后端未分类,按 body 兼容。
+  error_source?: string;
   duration_ms: number;
   page_count?: number; // 编译产物页数(mirrors prism.Compile.PageCount;V4-A3 页数对照)
   overfull_count?: number;
@@ -167,8 +176,32 @@ export function useStartCompile(projectId: number) {
   });
 }
 
-/** 轮询编译状态 —— queued/running 时每 1s 刷新,终态停。 */
+/**
+ * 编译状态 —— 推送为主、轮询兜底(2026-08-12 推送化)。
+ * 后端每次状态翻转经通知 WS 下发 compile_status(帧即 GET 响应体的 compile 对象),
+ * 这里监听事件桥直接 setQueryData,终态即时可见;queued/running 的轮询从 1s 降到 5s,
+ * 只兜 WS 断连/丢帧(单次编译 5-60 个请求 → ~1-12 个)。
+ * 注意:缓存命中路径是 queued→success 直跳,不能假设一定有 running 帧。
+ */
 export function useCompile(projectId?: number, compileId?: number) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!projectId || !compileId) return;
+    const handler = (evt: Event) => {
+      const d = (evt as CustomEvent<PrismCompileStatusDetail>).detail;
+      if (d?.project_id === projectId && d?.id === compileId) {
+        const key = ['prism', 'compile', projectId, compileId] as const;
+        // 先杀在途轮询再写(乐观更新标准姿势):不 cancel 的话,一个读到 running 的
+        // 在途 GET 会在推送帧之后 resolve,把 success/error 覆盖回 running —— 状态回翻
+        // 且 workspace 的 success effect 二次触发 pdfKey+1 → PdfViewer 整树重挂、PDF 双下载。
+        void qc.cancelQueries({ queryKey: key }).then(() => {
+          qc.setQueryData(key, d as unknown as PrismCompile);
+        });
+      }
+    };
+    window.addEventListener(PRISM_COMPILE_STATUS_EVENT, handler);
+    return () => window.removeEventListener(PRISM_COMPILE_STATUS_EVENT, handler);
+  }, [projectId, compileId, qc]);
   return useQuery({
     queryKey: ['prism', 'compile', projectId, compileId],
     enabled: !!projectId && !!compileId,
@@ -176,7 +209,7 @@ export function useCompile(projectId?: number, compileId?: number) {
       (await http.get<{ data: { compile: PrismCompile } }>(`/user/prism/projects/${projectId}/compile/${compileId}`)).data.data.compile,
     refetchInterval: (q) => {
       const s = q.state.data?.status;
-      return s === 'queued' || s === 'running' ? 1000 : false;
+      return s === 'queued' || s === 'running' ? 5_000 : false;
     },
   });
 }
@@ -788,6 +821,8 @@ export async function fetchWSHistory(
 /** prism 历史回放/已发送气泡里图片取图代理 URL(cookie 鉴权,<img src> 直接用)。
  *  端点 per-project(会话由 :id 解析);path 取 basename。 */
 export function prismSessionFileUrl(projectId: number, absPath: string): string {
+  // 0112 起优先走统一附件端点(见 shared/lib/agent-attachment.ts);老代理 URL 随 ?fb=
+  // 一起送,由后端在查不到行(0112 之前的存量附件)时 302 交还 —— 前端分辨不了新旧。
   const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
   // prism 附件落会话 cwd 的 uploads/ 子目录 —— 取「相对会话 cwd」的路径(而非 basename),
   // 否则后端按根目录找不到。绝对路径形如 /home/bun/sessions/<uuid>/uploads/<file>。
@@ -795,5 +830,6 @@ export function prismSessionFileUrl(projectId: number, absPath: string): string 
   const i = parts.indexOf('sessions');
   const rel = i >= 0 && parts.length > i + 2 ? parts.slice(i + 2).join('/') : parts.pop() || absPath;
   const qs = new URLSearchParams({ path: rel });
-  return `${apiBase}/user/prism/projects/${projectId}/session/file?${qs.toString()}`;
+  const legacy = `${apiBase}/user/prism/projects/${projectId}/session/file?${qs.toString()}`;
+  return attachmentUrl(absPath, legacy) ?? legacy;
 }

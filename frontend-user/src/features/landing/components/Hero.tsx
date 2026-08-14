@@ -9,14 +9,14 @@ import { ClawChatMock } from './mocks/ClawChatMock';
 import type { HeroMockKey, LandingFeature, TitleLine } from '../data/landings';
 
 const HERO_MOCK: Record<HeroMockKey, () => ReactNode> = {
-  'search-matrix': () => <SearchMatrixMock />,
-  'prism-editor': () => <PrismEditorMock />,
-  'claw-chat': () => <ClawChatMock />,
+  'search-matrix' : () => <SearchMatrixMock />,
+  'prism-editor' : () => <PrismEditorMock />,
+  'claw-chat' : () => <ClawChatMock />,
 };
 
 /**
  * Hero —— .pen `Hero` 通用结构:
- *   左侧:eyebrow → 大标题(Playfair Display 64px,混排 regular + italic)→ 描述 → 双 CTA → ✓ checklist
+ *   左侧:eyebrow → 大标题(Google Sans 64px,混排 regular + italic)→ 描述 → 双 CTA → ✓ checklist
  *   右侧:可选 mock(浏览器 chrome 风格的产品截图占位)
  *
  * 如果不传 mock,布局自动 fallback 为单列居中,适合「智能投稿 / 同行评审」这类
@@ -25,14 +25,15 @@ const HERO_MOCK: Record<HeroMockKey, () => ReactNode> = {
 
 function TitleLines({ lines }: { lines: TitleLine[] }) {
   return (
-    <h1 className="font-display text-foreground tracking-tight">
+    <h1 className="font-display text-foreground">
       {lines.map((line, i) => (
         <span
           key={i}
           className={cn(
-            'block leading-[1.05]',
+            'block',
             line.italic && 'italic',
-            // 主大字号 —— .pen 64-84,这里用 clamp 适配宽屏
+            // 主大字号 —— 展示级(64–84 的设计意图),用 clamp 适配宽屏;
+            // 离散字号 token 表达不了连续缩放,保留 arbitrary。(旧注释引的 .pen 真源已作废,现真源见 Figma)
             'text-[clamp(40px,6vw,72px)] font-medium'
           )}
         >
@@ -49,7 +50,7 @@ function CheckMeta({ items }: { items: string[] }) {
       {items.map((m) => (
         <span
           key={m}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+          className="inline-flex items-center gap-1.5 text-12 text-muted-foreground"
         >
           <Check className="size-3.5 text-brand-green" strokeWidth={2.5} />
           {m}
@@ -91,7 +92,7 @@ export function Hero({
           <TitleLines lines={hero.titleLines} />
           <p
             className={cn(
-              'text-lg leading-[1.6] text-subtle',
+              'text-16 leading-paragraph text-subtle',
               !hasMock && 'max-w-[760px]'
             )}
           >

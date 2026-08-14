@@ -44,12 +44,12 @@ export function ClawEmptyState({
         {/* 动效图标 —— 外发光脉冲 + 轻微呼吸(原地动效,reduced-motion 下也不引前庭不适)。 */}
         <div className="relative">
           <motion.div
-            className="absolute inset-0 rounded-2xl bg-brand-green/25 blur-xl"
+            className="absolute inset-0 rounded-16 bg-brand-green/25 blur-xl"
             animate={{ scale: [1, 1.5, 1], opacity: [0.45, 0, 0.45] }}
             transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
           />
           <motion.div
-            className="relative flex size-14 items-center justify-center rounded-2xl bg-surface-2"
+            className="relative flex size-14 items-center justify-center rounded-16 bg-surface-2"
             animate={{ scale: [1, 1.06, 1] }}
             transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
           >
@@ -57,10 +57,10 @@ export function ClawEmptyState({
           </motion.div>
         </div>
 
-        <h2 className="mt-4 font-serif text-xl font-bold tracking-tight text-foreground">
+        <h2 className="mt-4 font-serif text-20 font-bold text-foreground">
           智能助手 · Claw
         </h2>
-        <p className="mt-1.5 text-center text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 text-center text-12 leading-paragraph text-muted-foreground">
           找文献 · 读论文 · 查期刊 · 改摘要,也能上传 PDF / 图片帮你分析
         </p>
 
@@ -71,14 +71,14 @@ export function ClawEmptyState({
               key={label}
               type="button"
               onClick={() => onPickSuggestion?.(prompt)}
-              className="flex items-center gap-3 rounded-2xl border border-border bg-surface-1 px-3.5 py-3 text-left transition-colors active:bg-surface-2"
+              className="flex items-center gap-3 rounded-16 border border-border bg-surface-1 px-3.5 py-3 text-left transition-colors active:bg-surface-2"
             >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-background">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-card">
                 <Icon className="size-4 text-brand-green" />
               </span>
               <span className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium text-foreground">{label}</span>
-                <span className="truncate text-xs text-faint">{prompt}</span>
+                <span className="text-14 font-medium text-foreground">{label}</span>
+                <span className="truncate text-12 text-faint">{prompt}</span>
               </span>
             </button>
           ))}

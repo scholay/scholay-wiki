@@ -13,7 +13,9 @@ package featuretool
 
 import (
 	"fmt"
+	"html"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -33,11 +35,11 @@ func (h *Handler) ServeToolSitemapIndex(c *gin.Context) {
 		return
 	}
 	pages := int((count + toolSitemapPageSize - 1) / toolSitemapPageSize)
-	if pages < 1 {
-		pages = 1
-	}
 	base := appconfig.CanonicalBaseURL()
-	lm := lastMod.Format("2006-01-02")
+	lm := ""
+	if !lastMod.IsZero() {
+		lm = lastMod.Format("2006-01-02")
+	}
 
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
@@ -48,7 +50,7 @@ func (h *Handler) ServeToolSitemapIndex(c *gin.Context) {
 	b.WriteString(`</sitemapindex>` + "\n")
 
 	c.Header("Content-Type", "application/xml; charset=utf-8")
-	c.Header("Cache-Control", "public, max-age=21600")
+	c.Header("Cache-Control", "public, max-age=900, must-revalidate")
 	c.String(http.StatusOK, b.String())
 }
 
@@ -91,11 +93,11 @@ func (h *Handler) ServeToolSitemap(c *gin.Context) {
 			lm = time.Now()
 		}
 		fmt.Fprintf(&b, "  <url>\n    <loc>%s/tools/%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>\n",
-			base, r.Slug, lm.Format(time.RFC3339))
+			html.EscapeString(base), html.EscapeString(url.PathEscape(r.Slug)), lm.Format(time.RFC3339))
 	}
 	b.WriteString(`</urlset>` + "\n")
 
 	c.Header("Content-Type", "application/xml; charset=utf-8")
-	c.Header("Cache-Control", "public, max-age=21600")
+	c.Header("Cache-Control", "public, max-age=900, must-revalidate")
 	c.String(http.StatusOK, b.String())
 }

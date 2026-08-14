@@ -1,0 +1,132 @@
+# 分类资料族决策规则 D-10 ~ D-14(2026-08-07)
+#
+# 🔴 本族的入口条件全部含 `not continuous` —— 在 S5 把 `continuous` 从字面量 True 改成
+#    数据画像推断之前,这一族**在结构上不可能命中**。这也是为什么两组族的
+#    `shapiro_by_group` / `levene_center_median` 必须同时补上 `continuous`:
+#    分类路径打通后,它们会对 0/1 变量照跑 Shapiro,并把
+#    「对该变量做了正态性检验」写进用户的 Methods 段。
+#
+# 互斥性的切法(与两组族同构):同一层里用**期望频数是否达标**切开,
+# 不同层之间用 paired / binary_dv / ordinal_group / two_groups 切开。
+
+rules:
+  - id: D-10
+    when: "two_groups and not continuous and binary_dv and not paired and expected_ok"
+    allowed: [chi2_pearson, chi2_yates, fisher_exact]
+    default: chi2_pearson
+    reason: "两组独立、二分类结局,期望频数满足 Cochran 准则 → 用 Pearson 卡方检验"
+    doctrine: pretest-classic
+    # 🔴 contested 且分歧实质:`correction=False` vs Yates 校正在 2×2 上是两派。
+    #    实测同一份 60 例数据 p=0.0321(不校正) vs 0.0608(Yates)—— 跨过 0.05,
+    #    结论从「有差异」翻成「无差异」。既然一个参数能翻结论,就不许悄悄继承库默认值。
+    contested: true
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53. doi:10.1186/cc2428"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+        locator: "Chi-squared test 节 + Yates' correction 讨论"
+      - id: campbell2007-chisq
+        role: primary
+        access: free_to_read
+        cite: "Campbell I. Chi-squared and Fisher-Irwin tests of two-by-two tables with small sample recommendations. Statistics in Medicine. 2007;26(19):3661-3675. doi:10.1002/sim.2832"
+        url: "https://onlinelibrary.wiley.com/doi/10.1002/sim.2832"
+        quote: "the 'N-1' chi-squared test ... Yates's correction should not be used"
+
+  - id: D-11
+    when: "two_groups and not continuous and binary_dv and not paired and not expected_ok"
+    allowed: [fisher_exact, chi2_yates]
+    default: fisher_exact
+    reason: "两组独立、二分类结局,期望频数不满足 Cochran 准则(有格子 <1 或 <5 的格子超过 20%)→ 改用 Fisher 精确检验"
+    doctrine: pretest-classic
+    # 中文期刊惯例在 1≤E<5 时用校正卡方,精确检验则不受期望频数限制。
+    # 两条路都合法,故 allowed 里都留;默认给更稳的那条。
+    contested: true
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+        locator: "Fisher's exact test 节"
+      - id: campbell2007-chisq
+        role: primary
+        access: free_to_read
+        cite: "Campbell I. Chi-squared and Fisher-Irwin tests of two-by-two tables with small sample recommendations. Statistics in Medicine. 2007;26(19):3661-3675."
+        url: "https://onlinelibrary.wiley.com/doi/10.1002/sim.2832"
+
+  - id: D-12
+    when: "not continuous and paired and binary_dv"
+    allowed: [mcnemar_exact]
+    default: mcnemar_exact
+    reason: "配对设计、二分类结局 → 用 McNemar 检验(只看两次结果不一致的那部分对子)"
+    doctrine: pretest-classic
+    contested: false
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53. doi:10.1186/cc2428"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+        locator: "McNemar's test 节"
+
+  # 🔴 D-13 的条件里带 `not ordinal_group` —— 与 D-14 切开。
+  #    不切开的话「三组有序 + 二分类结局」会同时命中两条,而谁赢取决于 when 的 token 数
+  #    (两组族 D-02/D-03 就是这么出的事故:依据链里整条前提凭空消失)。
+  - id: D-13
+    # 🔴 条件写的是「**不是** 2×2」而不是「不是两组」(2026-08-07 修)。
+    #    原条件 `not two_groups` 把**两组 × 三水平结局**(治愈/好转/无效 —— 临床极常见)
+    #    整块漏在外面:D-10/D-11 要 binary_dv、D-13 要 not two_groups,两边都不收,
+    #    引擎回 no_rule_matched(「问诊信息不足」,而其实什么都不缺)。
+    #    全部测试当时仍然全绿 —— 是覆盖性护栏改成 shape-major 之后才把它挑出来的。
+    when: "not continuous and not paired and not ordinal_group and expected_ok and not (two_groups and binary_dv)"
+    allowed: [chi2_rxc]
+    default: chi2_rxc
+    reason: "独立样本、无序分类,且不是 2×2 表,期望频数满足 Cochran 准则 → 用行×列卡方检验"
+    doctrine: pretest-classic
+    contested: false
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+        locator: "Larger contingency tables 节"
+
+  - id: D-14
+    when: "not continuous and not paired and not two_groups and ordinal_group and binary_dv"
+    allowed: [cochran_armitage, chi2_rxc]
+    default: cochran_armitage
+    reason: "有序分组、二分类结局 → 用 Cochran-Armitage 趋势检验(把分组的顺序信息用上,检验剂量-反应关系)"
+    doctrine: pretest-classic
+    contested: false
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53. doi:10.1186/cc2428"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+        locator: "Trend 讨论"
+      - id: armitage1955-trend
+        role: secondary
+        access: print
+        cite: "Armitage P. Tests for linear trends in proportions and frequencies. Biometrics. 1955;11(3):375-386."
+
+  # 2026-08-07 新增:声明了分组顺序,但结局**不是二分类** —— 趋势检验不适用。
+  # 这一格不能悄悄并进 D-13:用户明确给了 `--group-order`,交付物必须交代
+  # 「你给的顺序这次没被用上、以及为什么」,否则他会以为做的是趋势分析。
+  - id: D-15
+    when: "not continuous and not paired and ordinal_group and not binary_dv and expected_ok"
+    allowed: [chi2_rxc]
+    default: chi2_rxc
+    reason: "分组虽有序,但结局有两个以上水平,线性趋势检验不适用(它要求二分结局)→ 改用行×列卡方检验;本次分析未利用分组的顺序信息"
+    doctrine: pretest-classic
+    contested: false
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53. doi:10.1186/cc2428"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+        locator: "Larger contingency tables 节"

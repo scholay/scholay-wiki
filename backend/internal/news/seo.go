@@ -16,7 +16,11 @@ import (
 
 // ResolveNewsBySlug 详情页 SSR meta(含 sanitize 后的全文)。不存在/未开启 → (nil, nil)。
 func (s *Service) ResolveNewsBySlug(slug string) (*seo.NewsSSRMeta, error) {
-	if !s.Enabled() {
+	cfg, err := s.repo.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.Enabled {
 		return nil, nil
 	}
 	item, ok, err := s.repo.GetBySlug(slug)
@@ -28,7 +32,11 @@ func (s *Service) ResolveNewsBySlug(slug string) (*seo.NewsSSRMeta, error) {
 
 // RecentNewsForSEO 列表页 noscript 用(只填 slug/title/summary/时间)。未开启 → 空。
 func (s *Service) RecentNewsForSEO(limit int) ([]*seo.NewsSSRMeta, error) {
-	if !s.Enabled() {
+	cfg, err := s.repo.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.Enabled {
 		return nil, nil
 	}
 	items, err := s.repo.ListCards("latest", "", limit, 0)

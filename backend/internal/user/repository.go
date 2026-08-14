@@ -171,19 +171,33 @@ func (r *Repository) UpdateLastLoginWithIP(id uint, ip string) error {
 	}).Error
 }
 
-// UpdateLastActive 更新「最后活跃时间」(真实使用时间, 0036)。
-// 由 service.RecordActivity 在每次鉴权请求节流后异步调用 —— 反映用户最后实际使用,
-// 而非仅登录动作(last_login_at)。单列点查 UPDATE, 极轻。
-func (r *Repository) UpdateLastActive(id uint) error {
-	return r.db.Model(&User{}).Where("id = ?", id).Update("last_active_at", time.Now()).Error
+const lastActiveWriteInterval = time.Minute
+
+// UpdateLastActive 更新「最后活跃时间」(真实交互时间,0036)。
+// activeAt 必须是服务端接收活跃事件的时间,绝不接受客户端上传时间。
+// WHERE 条件与 SET 在同一条 SQL 中原子执行:
+//   - 每个用户最多约每分钟写一次,避免高频操作放大 DB 写入;
+//   - 只有库内时间早于本次时间窗口才更新,并发/时钟回拨都不会使时间倒退。
+//
+// users.updated_at 在 MySQL 层带 ON UPDATE CURRENT_TIMESTAMP,仅用 GORM UpdateColumn
+// 仍会被数据库自动推进。因此原生 SQL 必须显式 updated_at = updated_at 自赋值冻结:
+// 活跃事件不是账号资料变更。
+func (r *Repository) UpdateLastActive(ctx context.Context, id uint, activeAt time.Time) error {
+	cutoff := activeAt.Add(-lastActiveWriteInterval)
+	return r.db.WithContext(ctx).Exec(`
+		UPDATE users
+		SET last_active_at = ?, updated_at = updated_at
+		WHERE id = ?
+		  AND (last_active_at IS NULL OR last_active_at <= ?)
+	`, activeAt, id, cutoff).Error
 }
 
 // RecordDailyActive 每日活跃台账落行(0069):每(用户,本地日)至多一行,INSERT IGNORE 幂等。
-// 由 service.RecordActivity 在每日节流后异步调用 —— 台账 append-only,可重建历史每日活跃序列
+// 由 service.RecordActivity 在显式真人交互事件上同步调用 —— 台账 append-only,可重建历史每日活跃序列
 // (last_active_at 是单列覆盖做不到)。date 为本地(北京)日 'YYYY-MM-DD',由调用方用 Go 侧
 // time.Now() 计算,不用 MySQL CURDATE() 以免会话时区歧义(见 time-handling-no-utc 约定)。
-func (r *Repository) RecordDailyActive(id uint, date string) error {
-	return r.db.Exec(
+func (r *Repository) RecordDailyActive(ctx context.Context, id uint, date string) error {
+	return r.db.WithContext(ctx).Exec(
 		"INSERT IGNORE INTO user_daily_active (user_id, active_date) VALUES (?, ?)",
 		id, date,
 	).Error
@@ -472,25 +486,60 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 // FK ON DELETE CASCADE 只会带走:user_auth_providers、orders→payment_transactions、
 // user_coupons、user_messages、user_invitations、usage_logs 等(见 0001_baseline FK)。
 // 以下均**没有 FK**,必须在同一事务里显式清:
-//   - 0015 计费表(user_wallets / credit_temp_lots / credit_transactions / vip_code_redemptions)
-//     不清则订单审计轨迹被级联删除、但同一笔钱的钱包/账本/兑换流水滞留,两套资金记录互相矛盾;
+//   - 计费表(user_wallets / credit_temp_lots / credit_transactions / vip_code_redemptions,
+//     以及 0090 的 credit_reset_passes)不清则订单审计轨迹被级联删除、但同一笔钱的
+//     钱包/账本/兑换流水滞留,两套资金记录互相矛盾;
 //   - 文献集(user_library_papers / user_library_folders)与分享三表(library_shares /
 //     library_share_papers / library_share_access)—— 不清则「死人分享」永续公开可访问且
 //     无人可撤销(owner 已无 RevokeShare 通道),快照表还存着论文全量元数据,属隐私/合规缺口
 //     (删除权要求删号连带撤销对外分享)。
 //
-// MinIO 对象(papers/<uid>/ 前缀的用户上传 PDF)在事务提交后异步 best-effort 清理
-// (失败只 warn,残余对象由孤儿对账 reaper 兜底)。
+// MinIO 对象在事务提交后异步 best-effort 清理(失败只 warn,残余对象由孤儿对账 reaper 兜底):
+//   - papers/<uid>/  —— 用户上传的论文 PDF(文献集)
+//   - att/<uid>/     —— agent 输入框上传附件(0112;行本身由 fk_agent_att_user 的
+//     ON DELETE CASCADE 带走,对象没有外键,必须在这里清)。
+//     key 按 user 分片正是为了让这一步能一条前缀搞定 —— 全局内容寻址下,
+//     A 的字节可能被 B 引用着,删号时既删不掉也不该留(见 agentattach/store.go)。
 //
 // ⚠️ 仍未清理(留作后续决策):peer_review_* / prism_* / user_staging_* 及其对象键、
 //
-//	agent_sessions 映射与 agent 容器内 jsonl。
+//	agent_sessions 映射与 agent 容器内 jsonl(附件的 **cwd 工作副本**随会话工作区最长再留
+//	30 天,由 executor 的 workdir GC 收走;耐久副本这里已经清了)。
 func (r *Repository) DeleteUser(userID uint) error {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// 邀请新旧表均无 FK：必须按 reversals→grants→milestones→registrations→codes
+		// 的引用顺序清理。
+		// 无论用户是邀请人还是被邀请人，关系与审计子行都一起移除；否则残码仍可被 preview。
+		if err := tx.Exec(`DELETE rv FROM invite_reward_reversals rv
+			JOIN invite_reward_grants g ON g.id = rv.grant_id
+			JOIN invite_milestones m ON m.id = g.milestone_id
+			JOIN invite_registrations ir ON ir.id = m.registration_id
+			WHERE ir.inviter_user_id = ? OR ir.invited_user_id = ?`, userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_reward_reversals: %w", err)
+		}
+		if err := tx.Exec(`DELETE g FROM invite_reward_grants g
+			JOIN invite_milestones m ON m.id = g.milestone_id
+			JOIN invite_registrations ir ON ir.id = m.registration_id
+			WHERE ir.inviter_user_id = ? OR ir.invited_user_id = ?`, userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_reward_grants: %w", err)
+		}
+		if err := tx.Exec(`DELETE m FROM invite_milestones m
+			JOIN invite_registrations ir ON ir.id = m.registration_id
+			WHERE ir.inviter_user_id = ? OR ir.invited_user_id = ?`, userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_milestones: %w", err)
+		}
+		if err := tx.Exec("DELETE FROM invite_registrations WHERE inviter_user_id = ? OR invited_user_id = ?", userID, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_registrations: %w", err)
+		}
+		if err := tx.Exec("DELETE FROM invite_codes WHERE user_id = ?", userID).Error; err != nil {
+			return fmt.Errorf("failed to delete invite_codes: %w", err)
+		}
+
 		// 先清无 FK 的计费孤儿表(顺序无关,均无相互 FK)。用表名直删,避免跨包导入 vip 模型。
 		for _, table := range []string{
 			"credit_transactions",
 			"credit_temp_lots",
+			"credit_reset_passes", // 0090 建表后曾漏加:重置次数批次同样无 FK,不清则删号后滞留
 			"user_wallets",
 			"vip_code_redemptions",
 		} {
@@ -531,7 +580,7 @@ func (r *Repository) DeleteUser(userID uint) error {
 		return err
 	}
 
-	// 事务提交成功后,异步清该用户的 MinIO PDF 对象(papers/<uid>/ 前缀,lifecycle 只盖 tmp/)。
+	// 事务提交成功后,异步清该用户的 MinIO 对象(两个桶都只按 <前缀>/<uid>/ 扫,lifecycle 只盖 tmp/)。
 	// best-effort:失败只 warn,不影响删号结果;残余由孤儿 reaper 下一轮兜底。
 	safego.Go("user-delete-minio-cleanup", func() {
 		if !storage.IsEnabled() {
@@ -539,18 +588,30 @@ func (r *Repository) DeleteUser(userID uint) error {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		bucket := storage.PaperPDFBucket()
-		prefix := fmt.Sprintf("papers/%d/", userID)
-		keys, err := storage.ListObjectKeys(ctx, bucket, prefix, 0)
-		if err != nil {
-			slog.Warn("user: 删号清理 MinIO 列举失败", "user_id", userID, "err", err)
+		for _, target := range []struct {
+			bucket string
+			prefix string
+			what   string
+		}{
+			{storage.PaperPDFBucket(), fmt.Sprintf("papers/%d/", userID), "论文 PDF"},
+			{storage.AgentAttachmentsBucket(), fmt.Sprintf("att/%d/", userID), "agent 附件"},
+		} {
+			if target.bucket == "" {
+				continue
+			}
+			keys, err := storage.ListObjectKeys(ctx, target.bucket, target.prefix, 0)
+			if err != nil {
+				slog.Warn("user: 删号清理 MinIO 列举失败",
+					"user_id", userID, "what", target.what, "err", err)
+			}
+			if len(keys) == 0 {
+				continue
+			}
+			_ = storage.DeleteObjects(ctx, target.bucket, keys, func(key string, err error) {
+				slog.Warn("user: 删号清理 MinIO 对象失败",
+					"user_id", userID, "what", target.what, "key", key, "err", err)
+			})
 		}
-		if len(keys) == 0 {
-			return
-		}
-		_ = storage.DeleteObjects(ctx, bucket, keys, func(key string, err error) {
-			slog.Warn("user: 删号清理 MinIO 对象失败", "user_id", userID, "key", key, "err", err)
-		})
 	})
 
 	return nil

@@ -8,6 +8,8 @@
 package main
 
 import (
+	"time"
+
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/peerreview"
@@ -51,6 +53,8 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 	{
 		applePublic.GET("/login-url", h.user.GetAppleLoginURL)
 		applePublic.POST("/callback", h.user.AppleCallback)
+		// Apple form_post 的回调只带一次性 login_code(不再把 JWT 放 URL);前端拿 code 换真 token。
+		applePublic.POST("/exchange", h.user.AppleExchangeCode)
 	}
 
 	microsoftPublic := api.Group("/user/microsoft")
@@ -81,6 +85,22 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 	// 计费套餐(公开):价格/倍率/赠送/起充等非敏感配置, 给落地价格页 + 套餐卡用。
 	api.GET("/billing/plans", h.vip.PublicPlans)
 
+	// 邀请落地页打开计数(公开,免登录):前端 /i/:code 落地页加载时上报一次。
+	// 码不存在也回 200 {valid:false}(契约:不报 4xx,防探测噪音);限流给较严的
+	// per-IP 档 —— 落地页一次访问只上报一次,20 次/分钟对真人富余,对刷计数够狠。
+	api.POST("/invite/open",
+		middleware.RateLimitMiddleware(20, time.Minute),
+		h.invite.RecordOpen,
+	)
+	api.GET("/invite/campaign",
+		middleware.RateLimitMiddleware(60, time.Minute),
+		h.invite.Campaign,
+	)
+	api.POST("/invite/preview",
+		middleware.RateLimitMiddleware(30, time.Minute),
+		h.invite.Preview,
+	)
+
 	// ── Skills 市场公开端点(免登录;只服务 public+approved+active)——
 	// 跨 agent 分发:install.md 安装说明 / marketplace.json 目录 / :slug/download tar.gz /
 	// :slug 匿名详情(分享落地页)/ :slug/SKILL.md 原始文本。静态段(install.md/marketplace.json)
@@ -97,6 +117,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	userProtected := api.Group("/user")
 	userProtected.Use(middleware.UserAuthMiddleware(), tieredRL)
 	{
+		// 只由前端检测到的可信真人交互调用;通用鉴权请求、轮询和 WS 重连不记活跃。
+		userProtected.POST("/activity", h.user.RecordActivity)
 		userProtected.GET("/profile", h.user.GetProfile)
 		userProtected.PUT("/profile", h.user.UpdateProfile)
 		// 「设置 → 已连接账号」一站拉全:邮箱/手机 + 8 个第三方 provider 的状态
@@ -119,6 +141,13 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/redeem-code/preview", h.vip.PreviewCode) // 兑换前预览(确认弹窗)
 		userProtected.POST("/redeem-code", h.vip.RedeemCode)
 
+		// 我的邀请(get-or-create):首次调用即生成该用户唯一邀请码,返回码/落地 URL/统计。
+		userProtected.GET("/invite", h.invite.GetMyInvite)
+		userProtected.GET("/invite/status", h.invite.GetStatus)
+		userProtected.POST("/invite/bind", h.invite.Bind)
+		// 我邀请的用户列表(name 已在服务层脱敏,原始邮箱/用户名/ID 不下发)
+		userProtected.GET("/invite/registrations", h.invite.GetMyRegistrations)
+
 		// 期刊投稿资源下载(投稿须知 .md / LaTeX 模板 .zip)—— Max 会员专享。
 		// 后端校验 tier=max + 代理拉取(上游 key 与真实下载地址都不暴露给前端)。
 		userProtected.GET("/journals/:id/submission/:kind", h.scholar.DownloadJournalSubmission)
@@ -128,6 +157,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		{
 			billingG.GET("/overview", h.vip.BillingOverview)
 			billingG.POST("/reset", h.vip.ResetQuota)
+			// 按量付费开关(0094):周期额度用完后是否自动用经费续。默认关,只能由用户显式开。
+			billingG.PUT("/autopay", h.vip.SetCreditAutopay)
 			billingG.GET("/transactions", h.vip.ListTransactions)
 			billingG.GET("/usage-calendar", h.vip.UsageCalendar)   // 当月每日 token 用量(热力图)
 			billingG.GET("/orders", h.vip.ListOrders)              // 已支付订单明细(明细查看)
@@ -165,7 +196,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.PUT("/projects/:id/struct", h.prism.SaveStruct)
 			prismG.GET("/projects/:id/struct/versions", h.prism.ListStructVersions)                       // 结构体版本历史
 			prismG.POST("/projects/:id/struct/versions/:versionId/restore", h.prism.RestoreStructVersion) // 恢复某历史版本
-			prismG.POST("/projects/:id/template", h.prism.SetJournalTemplate) // 确定性换刊
+			prismG.POST("/projects/:id/template", h.prism.SetJournalTemplate)                             // 确定性换刊
 			prismG.GET("/projects/:id/conformance", h.prism.GetConformance)
 			// 写作画像(Phase 3):base 文体/学科人格。查看 + 用户覆盖 + planner 自动识别。
 			prismG.GET("/projects/:id/writing-profile", h.prism.GetWritingProfile)
@@ -184,8 +215,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.GET("/projects/:id/terminology", h.prism.GetTerminology)
 			prismG.PUT("/projects/:id/terminology", h.prism.PutTerminology)
 			prismG.POST("/projects/:id/clone-to-struct", h.prism.CloneToStruct) // 逃生口:旧项目→新版
-			prismG.GET("/projects/:id/export/docx", h.prism.ExportDocx)        // struct→Pandoc→Word
-			prismG.POST("/projects/:id/assets", h.prism.UploadAsset)           // 上传图片 → figure 块
+			prismG.GET("/projects/:id/export/docx", h.prism.ExportDocx)         // struct→Pandoc→Word
+			prismG.POST("/projects/:id/assets", h.prism.UploadAsset)            // 上传图片 → figure 块
 			// agent-native 用户 WS 编辑(实时流式 + diff + 应用门 + 重入续流)。
 			// 输入框附件:上传 / 引用文献集 —— agentattach 通用实现(2026-07-14 三 feature
 			// 输入框统一);会话 per-project,handler 内解析。上传走通用 UploadLimitMiddleware。
@@ -196,7 +227,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
 			prismG.GET("/projects/:id/conversations", h.prism.ListConversations) // 多对话:本项目对话列表(共享同一份论文)
 			prismG.POST("/projects/:id/conversations", h.prism.NewConversation)  // 多对话:新建一条对话
-			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession) // 手动重开会话(V3-4.6-1:文稿零损失)
+			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession)     // 手动重开会话(V3-4.6-1:文稿零损失)
 			prismG.GET("/projects/:id/session/messages", h.prism.GetWSMessages)
 			prismG.GET("/projects/:id/session/context", h.prism.GetContext)       // 上下文水位(token 占用)
 			prismG.POST("/projects/:id/round/prepare", h.prism.PrepareRound)      // 铺源 DB→cwd
@@ -235,6 +266,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// 支付 (用户端支付发起;simulate 调试入口已下线)
 		userProtected.POST("/payment/alipay/create", h.alipay.CreatePayment)
 		userProtected.POST("/payment/wechat/create", h.wechatPay.CreatePayment)
+		// 扫码后前端轮询;本地仍 pending 时会主动向微信查单,回调丢失可自愈。
+		userProtected.GET("/payment/wechat/status/:orderNo", h.wechatPay.QueryPaymentStatus)
 
 		// 反馈
 		userProtected.POST("/feedback", h.feedback.CreateFeedbackWithUser)
@@ -251,6 +284,21 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.PUT("/messages/:id/read", h.message.MarkAsRead)
 		userProtected.PUT("/messages/read-all", h.message.MarkAllAsRead)
 		userProtected.DELETE("/messages/:id", h.message.DeleteMessage)
+
+		// ── agent 输入框附件:统一取回 / 删除(0112 耐久化)─────────────────────
+		// 一条路由服务全部 feature。:uuid = 落盘名 <uuid>-<原名> 的前缀,它已经写在存量
+		// journal 的 @"path" 里 ⇒ 历史回放零改造就能取回;查不到行(0112 之前的存量附件)
+		// 回 404,前端回落到各 feature 老的 session/file 代理(那三条**保留不删**)。
+		//
+		// 鉴权走 UserAuthMiddleware 已支持的 scholay_token cookie(<img> 发不了 Bearer)。
+		// 大文件传输预算由 APITimeoutMiddleware 的 isObjectServePath("/attachment/")给到 10min。
+		if h.attachment != nil {
+			userProtected.GET("/attachment/:uuid", h.attachment.Download)
+			userProtected.DELETE("/attachment/:uuid", h.attachment.Delete)
+			// 「我的附件」列表:撞 per-user 额度(7010)时前端弹窗的数据源。
+			// 没有它,那条错误就只剩一句用户执行不了的指引 —— 本次改造要消灭的正是这种形状。
+			userProtected.GET("/attachments", h.attachment.List)
+		}
 
 		// 文献集 v1（单默认收藏夹）
 		h.library.RegisterRoutes(userProtected)
@@ -293,12 +341,22 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 
 		// 智能助手 (Claw) — 通用对话 + 文件 / 图片上传 + Minicod MCP 检索。
 		// 跟 smart-search 一样的 session / ws-ticket 模式, 额外多一个 upload 端点。
+		// ── 科研内核 Run(2026-08 Phase 1)────────────────────────────────────
+		// 长任务:一条请求 = 一个持久 Run,分步跑、可续跑、可取消。
+		// 挂在 claw 下:claw 是内核,其余剖面是它的聚焦形态(老板的框架)。
+		// h.agentRun 未装配时(引擎关闭)这几条路由不挂 —— 见下方 nil 守卫。
 		userProtected.GET("/claw/session", h.claw.GetSession)
 		userProtected.POST("/claw/session/reset", h.claw.ResetSession)
 		userProtected.GET("/claw/session/messages", h.claw.GetSessionMessages)
 		userProtected.GET("/claw/session/context", h.claw.GetContextEstimate)
 		// 历史回放里图片缩略图/放大: 浏览器 <img src> 按 path 回取会话 cwd 内的原图 (cookie 鉴权)。
 		userProtected.GET("/claw/session/file", h.claw.GetSessionFile)
+		if h.agentRun != nil {
+			userProtected.POST("/claw/runs", h.agentRun.CreateRun)
+			userProtected.GET("/claw/runs", h.agentRun.ListRuns)
+			userProtected.GET("/claw/runs/:id", h.agentRun.GetRun)
+			userProtected.POST("/claw/runs/:id/cancel", h.agentRun.CancelRun)
+		}
 		// 成果交付: 列出会话 ./out 交付目录的产物 + 下载/预览单个产物 (agent 产出 → web 用户)。
 		userProtected.GET("/claw/session/artifacts", h.claw.GetSessionArtifacts)
 		userProtected.GET("/claw/artifact/:id", h.claw.DownloadArtifactByID)        // MinIO 交付物按 id 取(预览/下载)
@@ -360,15 +418,36 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/sci_draw/sessions/:id/activate", h.sciDraw.ActivateSession)
 		userProtected.GET("/sci_draw/models", h.sciDraw.ListModels)
 
+		// 数据分析 (stat_lab) — 智能助手页模板卡切入。与 claw/sci_draw 同型 session/ws + 产物交付。
+		// 与前两张卡的差异:**支持上传数据文件**(csv/xlsx 走 agentattach),且统计计算不由模型完成 ——
+		// 走 executor 侧 StatRun 工具调 statkit 引擎(见 internal/statlab/spec.go 包头的两道物理闸)。
+		userProtected.GET("/stat_lab/session", h.statLab.GetSession)
+		userProtected.POST("/stat_lab/session/reset", h.statLab.ResetSession)
+		userProtected.GET("/stat_lab/session/messages", h.statLab.GetSessionMessages)
+		userProtected.GET("/stat_lab/session/context", h.statLab.GetContextEstimate)
+		userProtected.GET("/stat_lab/session/artifacts", h.statLab.GetSessionArtifacts)
+		userProtected.GET("/stat_lab/artifact/:id", h.statLab.DownloadArtifactByID)        // MinIO 交付物按 id 取
+		userProtected.GET("/stat_lab/session/artifact", h.statLab.DownloadSessionArtifact) // 实时回退(storage 未启用)
+		userProtected.POST("/stat_lab/session/ws-ticket", h.statLab.IssueWSTicket)
+		userProtected.GET("/stat_lab/sessions", h.statLab.ListSessions)
+		userProtected.POST("/stat_lab/sessions", h.statLab.CreateNewSession)
+		userProtected.PATCH("/stat_lab/sessions/:id", h.statLab.RenameSession)
+		userProtected.POST("/stat_lab/sessions/:id/rename", h.statLab.RenameSession)
+		userProtected.DELETE("/stat_lab/sessions/:id", h.statLab.DeleteSession)
+		userProtected.POST("/stat_lab/sessions/:id/activate", h.statLab.ActivateSession)
+		userProtected.GET("/stat_lab/models", h.statLab.ListModels)
+		// 上传数据文件(csv/xlsx)——「添加文件即开会话」。限流与体积上限同 claw。
+		userProtected.POST("/stat_lab/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.statLab.UploadAttachment)
+
 		// 会话解析(feature 中立)—— /claw/:sessionId 深链/刷新时用:URL 只带裸 sessionId 不带 feature,
 		// 前端据此定 feature(挂 claw/boltslides/sci_draw 哪个 workspace)+ 判「不存在/不属于我 → 回新对话」。
-		// 归属校验落在 agent_session_id 全局唯一 + user_id 比对;仅智能助手页承载的三个 feature 可见,
+		// 归属校验落在 agent_session_id 全局唯一 + user_id 比对;仅智能助手页承载的四个 feature 可见,
 		// 其它(smart_search/prism 等)一律当不可见(owned=false),避免跨页打开别处的会话。
 		userProtected.GET("/agent-session/resolve", func(c *gin.Context) {
 			userID := c.GetUint("user_id")
 			feature, owned := h.agentBridge.ResolveUserSession(userID, c.Query("session_id"))
-			switch feature { // 智能助手页只承载这三个 feature(值同各自 spec.go FeatureKey)
-			case "claw", "boltslides", "sci_draw":
+			switch feature { // 智能助手页只承载这四个 feature(值同各自 spec.go FeatureKey)
+			case "claw", "boltslides", "sci_draw", "stat_lab":
 			default:
 				feature, owned = "", false
 			}
@@ -417,6 +496,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	api.GET("/user/boltslides/ws/:sessionId", h.boltSlides.HandleWS)
 	// 科研绘图 · WS 桥接 (同 claw 模式)
 	api.GET("/user/sci_draw/ws/:sessionId", h.sciDraw.HandleWS)
+	// 数据分析 WS(同上:ws_token 一次性票据鉴权,裸 JWT 已下线)
+	api.GET("/user/stat_lab/ws/:sessionId", h.statLab.HandleWS)
 	// 智能写作 (Prism) · WS 桥接 (ticket 已校验项目归属;agent-native 实时编辑)
 	api.GET("/user/prism/ws/:sessionId", h.prism.HandleWS)
 }

@@ -14,6 +14,7 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Check, CornerDownLeft, MessageCircleQuestion, Pencil } from 'lucide-react';
+import { Button, Textarea } from '@/shared/ui';
 import { cn } from '@/shared/lib/utils';
 import type { ToolBlock, Turn } from '@/shared/types/chat';
 
@@ -149,7 +150,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
 
   if (done) {
     return (
-      <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-3.5 py-2.5 text-xs text-muted-foreground">
+      <div className="mb-2 flex items-center gap-1.5 rounded-12 border border-border bg-surface-1 px-3.5 py-2.5 text-12 text-muted-foreground">
         <Check className="h-3.5 w-3.5 text-brand-green" />
         已提交,继续为你处理…
       </div>
@@ -157,13 +158,13 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
   }
 
   return (
-    <div className="mb-2 rounded-lg border border-border bg-background shadow-sm overflow-hidden">
+    <div className="mb-2 rounded-16 border border-border bg-surface-card overflow-hidden">
       {/* 头部:进度 + 返回 */}
       <div className="flex items-center gap-1.5 px-3.5 py-2 border-b border-border-soft">
         <MessageCircleQuestion className="h-3.5 w-3.5 text-brand-green shrink-0" />
-        <span className="text-xs font-medium text-subtle">需要你选择</span>
+        <span className="text-12 font-medium text-subtle">需要你选择</span>
         {total > 1 && (
-          <span className="ml-auto text-2xs text-faint tabular-nums">
+          <span className="ml-auto text-12 text-faint tabular-nums">
             {idx + 1} / {total}
           </span>
         )}
@@ -172,7 +173,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
             type="button"
             onClick={back}
             className={cn(
-              'inline-flex items-center gap-1 text-2xs text-muted-foreground hover:text-foreground transition-colors',
+              'inline-flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground transition-colors',
               total > 1 ? 'ml-2' : 'ml-auto',
             )}
           >
@@ -182,7 +183,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
         )}
       </div>
 
-      <div className="max-h-[42vh] overflow-y-auto px-3.5 py-3">
+      <div className="max-h-[42dvh] overflow-y-auto px-3.5 py-3">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={idx}
@@ -192,7 +193,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
             transition={{ duration: 0.16, ease: 'easeOut' }}
             className="flex flex-col gap-2 min-w-0"
           >
-            <div className="text-sm text-foreground">{q.question}</div>
+            <div className="text-12 text-foreground">{q.question}</div>
 
             <div className="flex flex-col gap-1.5">
               {q.options.map((opt, oi) => {
@@ -205,18 +206,18 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       q.multiSelect ? toggleMulti(opt.label) : pickSingle(opt.label)
                     }
                     className={cn(
-                      'flex items-start gap-2 w-full text-left rounded-md border px-3 py-2 transition-colors',
+                      'flex items-start gap-2 w-full text-left rounded-8 border px-3 py-2 transition-colors',
                       active
                         ? 'border-brand-green bg-brand-green/5'
-                        : 'border-border bg-background hover:bg-surface-2',
+                        : 'border-border bg-surface-card hover:bg-surface-2',
                     )}
                   >
                     {q.multiSelect && (
                       <span
                         className={cn(
-                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
+                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-4 border',
                           active
-                            ? 'border-brand-green bg-brand-green text-background'
+                            ? 'border-brand-green bg-brand-green text-on-brand'
                             : 'border-border-button',
                         )}
                       >
@@ -224,9 +225,9 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       </span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-foreground">{opt.label}</span>
+                      <span className="block text-12 text-foreground">{opt.label}</span>
                       {opt.description && (
-                        <span className="block text-xs text-muted-foreground mt-0.5">
+                        <span className="block text-12 text-muted-foreground mt-0.5">
                           {opt.description}
                         </span>
                       )}
@@ -243,14 +244,14 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                     setMultiSel([]);
                     setFreeOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground hover:text-foreground transition-colors px-1 py-1"
+                  className="inline-flex items-center gap-1.5 self-start text-12 text-muted-foreground hover:text-foreground transition-colors px-1 py-1"
                 >
                   <Pencil className="h-3 w-3" />
                   自己输入
                 </button>
               ) : (
                 <div className="flex items-end gap-1.5">
-                  <textarea
+                  <Textarea
                     autoFocus
                     rows={2}
                     value={freeText}
@@ -262,13 +263,14 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       }
                     }}
                     placeholder="输入你的回答…"
-                    className="flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    // min-h-0 / resize-none:此处高度由 rows={2} 定,不用原子的 min-h-16 与拖拽把手
+                    className="flex-1 min-w-0 min-h-0 px-2.5 py-1.5 resize-none"
                   />
                   <button
                     type="button"
                     onClick={commitFree}
                     disabled={!freeText.trim()}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-8 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
                     aria-label={isLast ? '发送' : '下一题'}
                   >
                     <CornerDownLeft className="h-3.5 w-3.5" />
@@ -279,14 +281,15 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
 
             {/* 多选需要显式确认(单选点即走,故无按钮) */}
             {q.multiSelect && !freeOpen && (
-              <button
+              <Button
                 type="button"
+                variant="primary"
                 onClick={commitMulti}
                 disabled={multiSel.length === 0}
-                className="mt-1 inline-flex h-8 items-center justify-center gap-1.5 self-end rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                className="mt-1 self-end"
               >
                 {isLast ? '完成并发送' : '下一题'}
-              </button>
+              </Button>
             )}
           </motion.div>
         </AnimatePresence>

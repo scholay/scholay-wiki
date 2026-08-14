@@ -419,9 +419,10 @@ func (s *Service) GetCodeSnippetsGrouped() (*model.CodeSnippetsGroupedResponse, 
 
 	for _, snippet := range snippets {
 		item := model.CodeSnippetResponse{
-			Position:    snippet.Position,
-			CodeContent: snippet.CodeContent,
-			Priority:    snippet.Priority,
+			Position:       snippet.Position,
+			CodeContent:    snippet.CodeContent,
+			Priority:       snippet.Priority,
+			DeferUntilIdle: snippet.DeferUntilIdle,
 		}
 		switch snippet.Position {
 		case model.PositionHead:

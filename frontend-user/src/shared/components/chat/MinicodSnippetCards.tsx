@@ -18,11 +18,11 @@ function SnippetCard({ snippet: s }: { snippet: MinicodSnippet }) {
   const source = [s.paperTitle, s.section].filter(Boolean).join(' · ');
   return (
     <div className="border-b border-border-soft px-3.5 py-3 last:border-0">
-      <blockquote className="border-l-2 border-border-strong pl-3 text-sm leading-relaxed text-subtle whitespace-pre-wrap break-words">
+      <blockquote className="border-l-2 border-border-strong pl-3 text-12 leading-paragraph text-subtle whitespace-pre-wrap break-words">
         {s.text}
       </blockquote>
       {source && (
-        <p className="mt-1.5 truncate text-2xs text-faint">— {source}</p>
+        <p className="mt-1.5 truncate text-12 text-faint">— {source}</p>
       )}
     </div>
   );
@@ -34,10 +34,10 @@ export function MinicodSnippetCards({ content }: { content: unknown }) {
 
   const overflow = snippets.length > 3;
   return (
-    <div className="rounded-md border border-border bg-surface-1 overflow-hidden">
-      <header className="flex items-center gap-1.5 h-9 px-2.5 border-b border-border-soft bg-surface-2/40 text-2xs text-muted-foreground">
+    <div className="rounded-16 border border-border bg-surface-1 overflow-hidden">
+      <header className="flex items-center gap-1.5 h-9 px-2.5 border-b border-border-soft bg-surface-2/40 text-12 text-muted-foreground">
         <Quote className="size-3" strokeWidth={2} />
-        <span className="font-semibold text-foreground">
+        <span className="font-medium text-foreground">
           {snippets.length} 条原文片段
         </span>
       </header>

@@ -46,8 +46,8 @@ export function MobileToolsFilterSheet({
     <MobileBottomSheet open={open} onOpenChange={onOpenChange} title="筛选">
       <div className="flex flex-col gap-5 px-4 pb-3 pt-1">
         <div className="flex items-center justify-between">
-          <span className="text-md font-semibold text-foreground">筛选</span>
-          <button type="button" onClick={onReset} className="text-xs text-muted-foreground active:opacity-60">
+          <span className="text-14 font-medium text-foreground">筛选</span>
+          <button type="button" onClick={onReset} className="text-12 text-muted-foreground active:opacity-60">
             重置
           </button>
         </div>
@@ -83,7 +83,7 @@ export function MobileToolsFilterSheet({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-medium text-faint">{title}</p>
+      <p className="text-12 font-medium text-faint">{title}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -95,10 +95,10 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-pill border px-3 py-1.5 text-xs transition-colors',
+        'rounded-pill border px-3 py-1.5 text-12 transition-colors',
         active
-          ? 'border-foreground bg-foreground font-medium text-white'
-          : 'border-border bg-background text-muted-foreground active:bg-surface-1'
+          ? 'border-foreground bg-foreground font-medium text-on-brand'
+          : 'border-border bg-surface-card text-muted-foreground active:bg-surface-1'
       )}
     >
       {label}

@@ -68,10 +68,10 @@ export function JournalSubmissionCard({
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-display font-bold text-md leading-none text-foreground">
+        <h3 className="font-display font-bold text-14 leading-none text-foreground">
           投稿资源
         </h3>
-        <span className="inline-flex items-center rounded-pill bg-prism-badge-bg px-2 py-0.5 text-2xs font-bold text-prism-badge-fg">
+        <span className="inline-flex items-center rounded-pill bg-prism-badge-bg px-2 py-0.5 text-12 font-medium text-prism-badge-fg">
           Max
         </span>
       </div>
@@ -81,12 +81,12 @@ export function JournalSubmissionCard({
           const pending = download.isPending && download.variables?.kind === kind;
           const row = (
             <>
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-subtle">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-4 bg-surface-2 text-subtle">
                 <Icon className="size-4" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-bold text-foreground">{title}</div>
-                <div className="truncate text-2xs text-muted-foreground">{desc}</div>
+                <div className="truncate text-14 font-medium text-foreground">{title}</div>
+                <div className="truncate text-12 text-muted-foreground">{desc}</div>
               </div>
               {isMax ? (
                 pending ? (
@@ -100,7 +100,7 @@ export function JournalSubmissionCard({
             </>
           );
           const cls =
-            'flex w-full items-center gap-2.5 rounded-md border border-border bg-background p-2.5 text-left transition-colors hover:border-foreground/40';
+            'flex w-full items-center gap-2.5 rounded-8 border border-border bg-surface-card p-2.5 text-left transition-colors hover:border-foreground/40';
           return isMax ? (
             <button
               key={kind}
@@ -120,7 +120,7 @@ export function JournalSubmissionCard({
       </div>
 
       {!isMax && (
-        <p className="text-2xs leading-relaxed text-faint">
+        <p className="text-12 leading-paragraph text-faint">
           下载为 Max 会员专享,
           <Link to="/pricing" className="text-brand-red hover:underline">
             升级解锁

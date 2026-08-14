@@ -4,11 +4,12 @@ import { Separator } from '@/shared/ui';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { TITLES } from '../../components/AuthDialog';
+import { AUTH_TITLES } from '../../components/auth-titles';
 import { LoginForm } from '../../components/LoginForm';
 import { RegisterForm } from '../../components/RegisterForm';
 import { ForgotPasswordForm } from '../../components/ForgotPasswordForm';
 import { OAuthRow } from '../../components/OAuthRow';
+import { InviteAuthNotice } from '../../components/InviteAuthNotice';
 
 type PageMode = 'login' | 'register' | 'forgot';
 
@@ -54,20 +55,20 @@ export function MobileAuthPage() {
     setMode(m);
   };
 
-  const t = TITLES[mode];
+  const t = AUTH_TITLES[mode];
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background px-6 pb-10">
       {/* 品牌 / 欢迎区 —— 大留白,移动 app 风格(无返回按钮、无分隔线) */}
       <div className="flex flex-col items-center pt-14 pb-9 text-center">
         <BrandLogo size="lg" />
-        <h1 className="mt-5 text-2xl font-bold tracking-tight text-foreground">{t.title}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">{t.desc}</p>
+        <h1 className="mt-5 text-24 font-medium text-foreground">{t.title}</h1>
+        <p className="mt-1.5 text-12 text-muted-foreground">{t.desc}</p>
       </div>
 
       {/* 表单 —— 移动端放大触控目标:输入框 / 主按钮抬到 h-12 + 圆角 + 大字号。
           用 scoped 变体只作用于本页内的共享表单,PC 弹窗里的 h-10 紧凑样式不受影响。 */}
-      <div className="[&_input]:h-12 [&_input]:rounded-xl [&_input]:text-base [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-xl [&_button[type=submit]]:text-base">
+      <div className="[&_input]:h-12 [&_input]:rounded-12 [&_input]:text-14 [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-14">
         {mode === 'login' && (
           <LoginForm initialAccountType="email" onSwitchMode={handleSwitchMode} />
         )}
@@ -82,11 +83,12 @@ export function MobileAuthPage() {
         )}
       </div>
 
+      {mode === 'register' && <InviteAuthNotice className="mx-0 mt-5" />}
       {/* 第三方登录 */}
       <div className="mt-8">
         <div className="relative flex items-center">
           <Separator className="flex-1" />
-          <span className="px-3 text-2xs tracking-widest text-faint uppercase">
+          <span className="px-3 text-12 text-faint uppercase">
             或继续使用
           </span>
           <Separator className="flex-1" />

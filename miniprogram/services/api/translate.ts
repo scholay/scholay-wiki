@@ -48,6 +48,38 @@ function findFrameEnd(bytes: Uint8Array): number {
   return -1
 }
 
+// 429(额度耗尽)的错误体是普通 JSON 信封 {code:6010, message:"<动态文案含重置时刻>"...},
+// 不是 SSE。优先把后端动态 message 挖出来,读不到才回落静态文案。两条到达路径都兜:
+// ① 部分基础库在 enableChunked 下 success 的 res.data 仍带完整 body(对象/字符串/ArrayBuffer);
+// ② 走 onChunkReceived 时,JSON 体没有 \n\n 帧界不会被 SSE 消费,恰好整段留在累积缓冲(leftover)里。
+function envelopeMessage(resData: unknown, leftover: Uint8Array): string {
+  const tryParse = (s: string): string => {
+    try {
+      const j = JSON.parse(s) as { message?: unknown }
+      return j && typeof j.message === 'string' ? j.message : ''
+    } catch {
+      return ''
+    }
+  }
+  if (resData && typeof resData === 'object' && !(resData instanceof ArrayBuffer)) {
+    const m = (resData as { message?: unknown }).message
+    if (typeof m === 'string' && m) return m
+  }
+  if (typeof resData === 'string' && resData) {
+    const m = tryParse(resData)
+    if (m) return m
+  }
+  if (resData instanceof ArrayBuffer && resData.byteLength) {
+    const m = tryParse(utf8Decode(new Uint8Array(resData)).trim())
+    if (m) return m
+  }
+  if (leftover.length) {
+    const m = tryParse(utf8Decode(leftover).trim())
+    if (m) return m
+  }
+  return ''
+}
+
 function stripTags(c: string): string {
   return c.replace(/<\/?[a-z_]+>/gi, '\n').replace(/\n{2,}/g, '\n').trim()
 }
@@ -121,7 +153,9 @@ export function translatePaper(body: TranslateBody, onProgress: (preview: string
       success: (res) => {
         // 非 SSE 错误(401 未登录 / 429 额度)走普通 JSON,不进 onChunkReceived。
         handleAuthFailure(res.statusCode) // 401 时和 JSON 请求一样清 token
-        if (res.statusCode === 429) return fail(new ApiError(6010, '今日额度已用完', 429))
+        // 429:优先透传后端动态文案(含重置时刻,见 envelopeMessage),读不到才回落静态文案。
+        if (res.statusCode === 429)
+          return fail(new ApiError(6010, envelopeMessage(res.data, bytes) || '本周期额度已用完,可在「我的」页重置或升级会员', 429))
         if (res.statusCode === 401) return fail(new ApiError(401, '登录已失效,请重新登录', 401))
         if (res.statusCode >= 400) return fail(new ApiError(res.statusCode, '翻译失败', res.statusCode))
         finish() // 流正常结束(即便没显式 [DONE])

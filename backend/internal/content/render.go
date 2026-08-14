@@ -31,7 +31,7 @@ func RenderNoscriptHTML(a *Article, baseStyle, headingStyle, textStyle string) s
 		metaParts = append(metaParts, "更新 "+a.UpdatedDate)
 	}
 	if len(metaParts) > 0 {
-		fmt.Fprintf(&b, `<p style="color:#9e9e9e;font-size:0.9rem;margin-bottom:8px;">%s</p>`,
+		fmt.Fprintf(&b, `<p style="color:#6E6E78;font-size:0.9rem;margin-bottom:8px;">%s</p>`,
 			html.EscapeString(strings.Join(metaParts, " · ")))
 	}
 	if a.Excerpt != "" {
@@ -48,25 +48,25 @@ func RenderNoscriptHTML(a *Article, baseStyle, headingStyle, textStyle string) s
 				title = "提示"
 			}
 			fmt.Fprintf(&b,
-				`<aside style="margin:16px 0;padding:12px 16px;border-left:3px solid #D4A017;background:#fffdf5;">`+
-					`<strong style="color:#806A2E;">%s</strong> <span %s>%s</span></aside>`,
+				`<aside style="margin:16px 0;padding:12px 16px;border-left:3px solid #B4880E;background:#E5DFCE;">`+
+					`<strong style="color:#664B00;">%s</strong> <span %s>%s</span></aside>`,
 				title, textStyle, html.EscapeString(s.Text))
 		case "list":
 			tag := "ul"
 			if s.Ordered {
 				tag = "ol"
 			}
-			fmt.Fprintf(&b, `<%s style="margin:12px 0;padding-left:24px;line-height:1.8;color:#bdbdbd;">`, tag)
+			fmt.Fprintf(&b, `<%s style="margin:12px 0;padding-left:24px;line-height:1.8;color:#505059;">`, tag)
 			for _, it := range s.Items {
 				fmt.Fprintf(&b, `<li>%s</li>`, html.EscapeString(it))
 			}
 			fmt.Fprintf(&b, `</%s>`, tag)
 		case "table":
-			b.WriteString(`<table style="border-collapse:collapse;margin:16px 0;width:100%;font-size:0.95em;color:#bdbdbd;">`)
+			b.WriteString(`<table style="border-collapse:collapse;margin:16px 0;width:100%;font-size:0.95em;color:#505059;">`)
 			if len(s.Headers) > 0 {
 				b.WriteString(`<thead><tr>`)
 				for _, h := range s.Headers {
-					fmt.Fprintf(&b, `<th style="border:1px solid #424242;padding:6px 10px;text-align:left;background:#2a2a2a;color:#fff;">%s</th>`, html.EscapeString(h))
+					fmt.Fprintf(&b, `<th style="border:1px solid #DCDAD6;padding:6px 10px;text-align:left;background:#EFEDE5;color:#1F1F23;">%s</th>`, html.EscapeString(h))
 				}
 				b.WriteString(`</tr></thead>`)
 			}
@@ -74,7 +74,7 @@ func RenderNoscriptHTML(a *Article, baseStyle, headingStyle, textStyle string) s
 			for _, row := range s.Rows {
 				b.WriteString(`<tr>`)
 				for _, cell := range row {
-					fmt.Fprintf(&b, `<td style="border:1px solid #424242;padding:6px 10px;">%s</td>`, html.EscapeString(cell))
+					fmt.Fprintf(&b, `<td style="border:1px solid #DCDAD6;padding:6px 10px;">%s</td>`, html.EscapeString(cell))
 				}
 				b.WriteString(`</tr>`)
 			}
@@ -92,7 +92,7 @@ func RenderNoscriptHTML(a *Article, baseStyle, headingStyle, textStyle string) s
 	// 作者 bio 卡(给 AI / 爬虫一个明确的"谁对内容负责"信号)
 	if a.Author != nil && a.Author.Bio != "" {
 		fmt.Fprintf(&b,
-			`<p style="color:#9e9e9e;font-size:0.85rem;margin-top:16px;">作者:%s —— %s</p>`,
+			`<p style="color:#6E6E78;font-size:0.85rem;margin-top:16px;">作者:%s —— %s</p>`,
 			html.EscapeString(a.Author.Name), html.EscapeString(a.Author.Bio))
 	}
 	b.WriteString(`</section>`)

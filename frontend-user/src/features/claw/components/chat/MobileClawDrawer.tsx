@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import { primeMobileKeyboard } from '@/shared/lib/ios-keyboard';
 import { computeSessionTitle } from '@/shared/lib/agent-session-title';
+import { relativeTimeZh } from '@/shared/lib/relative-time';
 import { useClawSessions, type ClawSessionItem } from '../../api/session';
 import { ClawRenameDialog, ClawDeleteDialog } from '../sidebar/ClawSessionDialogs';
 
@@ -80,19 +81,19 @@ export function MobileClawDrawer({
               pt-5 给右上角的关闭 X 让位。 */}
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-6 pt-5">
             {!token ? (
-              <p className="px-2 py-10 text-center text-sm text-faint">登录后可见历史会话</p>
+              <p className="px-2 py-10 text-center text-12 text-faint">登录后可见历史会话</p>
             ) : isLoading ? (
               <div className="flex h-24 items-center justify-center">
                 <Loader2 className="size-4 animate-spin text-faint" />
               </div>
             ) : groups.length === 0 ? (
-              <p className="px-2 py-10 text-center text-sm text-faint">
+              <p className="px-2 py-10 text-center text-12 text-faint">
                 还没有会话,发出第一条消息试试
               </p>
             ) : (
               groups.map((g) => (
                 <div key={g.label} className="mb-1">
-                  <p className="px-3 pb-1 pt-3 text-xs font-medium text-faint">{g.label}</p>
+                  <p className="px-3 pb-1 pt-3 text-12 font-medium text-faint">{g.label}</p>
                   {g.items.map((s) => (
                     <SessionRow
                       key={s.sessionId}
@@ -145,30 +146,39 @@ function SessionRow({
     session.messageCount,
     active,
   );
+  const lastAccessed = relativeTimeZh(session.lastAccessedAt);
+  const meta = [
+    `${session.messageCount} 条消息`,
+    lastAccessed ? `最近访问 ${lastAccessed}` : '',
+  ].filter(Boolean).join(' · ');
+
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-lg px-3 py-2.5 transition-colors',
+        'flex items-center gap-1 rounded-8 px-3 py-2.5 transition-colors',
         active ? 'bg-surface-2' : 'active:bg-surface-1'
       )}
       onClick={onActivate}
     >
-      <span
-        className={cn(
-          'flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm',
-          active ? 'font-semibold text-foreground' : 'text-subtle',
-          loading && 'italic text-faint'
-        )}
-      >
-        {loading && <Loader2 className="size-3 shrink-0 animate-spin" />}
-        <span className="truncate">{text}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span
+          className={cn(
+            'flex min-w-0 items-center gap-1.5 truncate text-14',
+            active ? 'font-medium text-foreground' : 'text-subtle',
+            loading && 'italic text-faint'
+          )}
+        >
+          {loading && <Loader2 className="size-3 shrink-0 animate-spin" />}
+          <span className="truncate">{text}</span>
+        </span>
+        <span className="truncate text-12 font-normal text-faint">{meta}</span>
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-faint active:bg-surface-2"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-8 text-faint active:bg-surface-2"
             aria-label="更多操作"
           >
             <MoreVertical className="size-4" />

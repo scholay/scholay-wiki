@@ -120,6 +120,12 @@ func (h *Handler) OrcidCallback(c *gin.Context) {
 		return
 	}
 
+	// 邀请归因(best-effort):findOrCreateOrcidUser 不带 ctx,故在 handler 层按 isNewUser 归因
+	// (与 WeChatCallback 同一口径);老用户登录绝不归因。
+	if isNewUser {
+		notifyInviteRegistered(c.Request.Context(), user.ID, "orcid")
+	}
+
 	token, err := issueTokenAndSession(h, c, user, ip)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "签发登录凭证失败,请重试")

@@ -1,19 +1,27 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import type { WizardStep } from '../../types';
+import type { WizardStep } from '@/shared/lib/peer-review/types';
 
 /**
- * 4 步进度条 —— 对照 .pen `yf01S` 的步骤列规格:
+ * 4 步进度条:
  *
  *   ○ ─── ○ ─── ● ─── ○
  *   已完成   已完成   当前   未到
  *
- *   - 圆点尺寸:28×28 圆角 14
- *   - 已完成:bg #E5E5E5 + ✓ 浅灰
- *   - 当前:bg #FFF5F5 + 1.5px #CC2222 描边 + 数字浅灰
- *   - 未到:bg #FFFFFF + 1.5px #E5E5E5 描边 + 数字 #AAAAAA
- *   - 标签:10px,当前 #CC2222 bold,其它 #888888 normal
- *   - 连接线:1.5px,已完成段 #E5E5E5,未到段 #E5E5E5(目前同色,设计稿如此)
+ * ⚠️ 本文件头原先照抄 .pen `yf01S` 的规格(bg #E5E5E5 / #FFF5F5 / 1.5px #CC2222 /
+ *    标签 10px #888888)。**.pen 口径已于 2026-07 作废**(真源换成 Figma,见 globals.css 头),
+ *    那几个 hex 全是退休色 —— 不要再照它改。现行规格:
+ *
+ *   - 圆点尺寸:28×28(size-7)· 胶囊
+ *   - 已完成:bg-surface-2(#E8E5DC)+ ✓ text-faint,无描边
+ *     (旧 #E5E5E5 是体系外冷灰;surface-2 与它相对亮度实测同为 0.783,只是随全站从冷灰转暖米)
+ *   - 当前:bg-danger-soft + border-brand-red + text-brand-red
+ *   - 未到:bg-surface-card + border-border + text-faint
+ *   - 标签:text-12(旧稿 10px 不在 Figma 六档内),当前 font-medium/brand-red,其余 text-faint
+ *   - 连接线:h-[1.5px] bg-border,两段同色
+ *
+ *   描边/连接线的 1.5px 属 Figma 描边集合 {1, 1.5}(§4.5 图标描边 #1F1F23 / 1.5px),
+ *   Tailwind 无 1.5px 边框档(border 只有 0/1/2/4/8),故保留 arbitrary value。
  */
 export interface StepIndicatorProps {
   current: WizardStep;
@@ -43,18 +51,18 @@ export function StepIndicator({ current, steps, onJump }: StepIndicatorProps) {
             >
               <span
                 className={cn(
-                  'flex size-7 items-center justify-center rounded-full border-[1.5px] text-2xs font-bold transition',
-                  done && 'border-transparent bg-[#E5E5E5] text-faint',
+                  'flex size-7 items-center justify-center rounded-pill border-[1.5px] text-12 font-medium transition',
+                  done && 'border-transparent bg-surface-2 text-faint',
                   active && 'border-brand-red bg-danger-soft text-brand-red',
-                  !done && !active && 'border-border bg-background text-faint'
+                  !done && !active && 'border-border bg-surface-card text-faint'
                 )}
               >
                 {done ? <Check className="size-3" /> : s.id}
               </span>
               <span
                 className={cn(
-                  'text-2xs whitespace-nowrap',
-                  active ? 'font-bold text-brand-red' : 'text-faint'
+                  'text-12 whitespace-nowrap',
+                  active ? 'font-medium text-brand-red' : 'text-faint'
                 )}
               >
                 {s.label}

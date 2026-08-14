@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useSettled } from '@/shared/hooks/useSettled';
+import { mermaidTheme } from '@/shared/lib/theme-bridge';
 import { ZoomableSvg } from './ZoomableSvg';
 
 /**
@@ -15,6 +16,7 @@ import { ZoomableSvg } from './ZoomableSvg';
  *     **绝不**在「半截代码 ↔ 渲染图」之间反复横跳;源码静止 ~350ms(本块输出完整)后才渲染一次。
  *   - **结果缓存**:渲染结果按源码缓存(模块级),重入/滚动回看同一条消息瞬时出图,不再走 350ms loader。
  *   - **可放大**:渲染结果交给 ZoomableSvg(点击全屏 + 拖拽平移 + 缩放)。
+ *   - **配色接 design token**:见下方 initialize 注释。
  */
 
 let mermaidPromise: Promise<typeof import('mermaid').default> | null = null;
@@ -25,7 +27,15 @@ function loadMermaid() {
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'strict',
-        theme: 'neutral',
+        // 🔴 必须是 'base' —— 只有 base 主题会完整消费 themeVariables;
+        //    'neutral'(改造前的取值)会用自己的内置配色覆盖掉大部分变量,
+        //    等于 AI 回答里的所有图完全落在设计系统之外。
+        theme: 'base',
+        // token → mermaid 的映射唯一收在 theme-bridge(resolved 模式:mermaid 要基于
+        // 这些值自己推导衍生色,给 var(--x) 它会当成颜色去算)。
+        // 时机安全:initialize 只在【首次遇到 mermaid 代码块】时随动态 import 跑一次,
+        // 那时组件早已挂载 → document 就绪 → tokenValue 走真实解析而非 fallback。
+        themeVariables: mermaidTheme(),
         fontFamily: 'inherit',
       });
       return mermaid;
@@ -83,7 +93,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code }: { code: str
   // 已稳定但渲染失败(语法非法)→ 回退原始代码,方便用户/排查。
   if (settled && error) {
     return (
-      <pre className="mb-2.5 last:mb-0 overflow-x-auto rounded-md border border-border bg-surface-1 p-3 text-[12px] leading-relaxed">
+      <pre className="mb-2.5 last:mb-0 overflow-x-auto rounded-12 border border-border bg-surface-1 p-3 text-12 leading-paragraph">
         <code>{code}</code>
       </pre>
     );
@@ -91,7 +101,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code }: { code: str
 
   // 流式中 / 渲染中 → 稳定占位,绝不闪烁。
   return (
-    <div className="mb-2.5 last:mb-0 flex min-h-[96px] items-center justify-center gap-2 rounded-md border border-border bg-surface-1 text-xs text-muted-foreground">
+    <div className="mb-2.5 last:mb-0 flex min-h-[96px] items-center justify-center gap-2 rounded-12 border border-border bg-surface-1 text-12 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" />
       图表生成中…
     </div>

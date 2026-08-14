@@ -19,7 +19,7 @@ import {
 } from '../../api/papers';
 
 /**
- * 移动端文件夹详情(/m/library/:folderId) —— 列出该文献集内的论文。
+ * 移动端文件夹详情(/m/library/:folderId) —— 列出该文件夹内的论文。
  *
  * 列表样式与移动端「搜索结果」完全一致(共用 shared `MobilePaperRow`,推特式连续列表)。
  * 性能:无限分页(pageSize 20)+ @tanstack/react-virtual 虚拟化,只挂载视口附近的行
@@ -42,7 +42,7 @@ export function MobileFolderPage() {
   const [citePaper, setCitePaper] = useState<Paper | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  // 进详情→返回时恢复滚动位置(键含 :folderId 路径,各文献集互不干扰),与桌面 LibraryPage 同款。
+  // 进详情→返回时恢复滚动位置(键含 :folderId 路径,各文件夹互不干扰),与桌面 LibraryPage 同款。
   useScrollRestoration(scrollRef, 'm-folder-papers');
 
   const rows = useMemo(
@@ -77,10 +77,7 @@ export function MobileFolderPage() {
   }, [virtualRows, papers.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // 稳定回调 —— 否则每次渲染新建函数,使 memo 化的 MobilePaperRow 全量重渲染。
-  const openPaper = useCallback(
-    (p: Paper) => navigate(`/paper/${p.source}/${encodeURIComponent(p.paperId)}`),
-    [navigate]
-  );
+  // (进详情的导航已由 MobilePaperRow 内的真实 <Link href> 承担,这里无需 navigate。)
   const sharePaper = useCallback(
     (p: Paper) => openShare({ kind: 'single', paper: p }),
     [openShare]
@@ -109,8 +106,8 @@ export function MobileFolderPage() {
         >
           <ChevronLeft className="size-5" />
         </button>
-        <h1 className="min-w-0 flex-1 truncate text-md font-semibold text-foreground">
-          {folder?.name ?? '文献集'}
+        <h1 className="min-w-0 flex-1 truncate text-16 font-medium text-foreground">
+          {folder?.name ?? '文件夹'}
         </h1>
         {rows.length > 0 && folder && (
           <button
@@ -131,7 +128,7 @@ export function MobileFolderPage() {
                   .filter((p) => p.title),
               })
             }
-            className="flex items-center gap-1 rounded-pill border border-border px-3 py-1.5 text-xs text-muted-foreground transition-transform active:scale-95 active:bg-surface-2"
+            className="flex items-center gap-1 rounded-pill border border-border px-3 py-1.5 text-12 text-muted-foreground transition-transform active:scale-95 active:bg-surface-2"
           >
             <Share2 className="size-3.5" /> 分享整本
           </button>
@@ -147,7 +144,7 @@ export function MobileFolderPage() {
         {papersQ.isLoading ? (
           <MobilePaperRowSkeletonList />
         ) : papers.length === 0 ? (
-          <p className="py-12 text-center text-sm text-faint">这个文献集还没有论文</p>
+          <p className="py-12 text-center text-14 text-faint">这个文件夹还没有论文</p>
         ) : (
           <>
             <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
@@ -166,15 +163,14 @@ export function MobileFolderPage() {
                 >
                   <MobilePaperRow
                     paper={papers[vi.index]}
-                    // 文献集里的论文必然已收藏 —— 收藏按钮显「已收藏」,点击二次确认。
+                    // 文件夹里的论文必然已收藏 —— 收藏按钮显「已收藏」,点击二次确认。
                     // 这里「取消收藏」= 删除整行(含上传的 PDF 与编辑),警示对齐 PC 行级删除。
                     isFavorited
-                    unfavoriteTitle="从文献集移除这篇论文?"
+                    unfavoriteTitle="从收藏中移除这篇论文?"
                     unfavoriteDescription="会一并删除你为它上传的 PDF 和编辑过的信息,此操作不可撤销。"
                     enrichment={
                       papers[vi.index].venue ? enrichments[papers[vi.index].venue!] : null
                     }
-                    onOpen={openPaper}
                     onShare={sharePaper}
                     onCite={setCitePaper}
                   />

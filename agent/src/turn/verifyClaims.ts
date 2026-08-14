@@ -1,17 +1,23 @@
 // 诚实性核验器(2026-07 审计 P0-1/P0-2/P1-6):纯函数,零 IO。
 //
 // 三类机械校验,全部以「宣称 vs 本会话可证事实」为判据:
-//   1) 引用:正文出现的 DOI 必须存在于证据语料(全会话 user 侧消息 = 用户文本 + 全部 tool_result
-//      + 用户粘贴内容)。刻意排除 assistant 消息:旧轮编造的 DOI 不能给本轮自洗白(审计:被戳穿
-//      后当轮零检索再犯)。
+//   1) 引用:正文出现的 DOI 必须存在于证据语料(证据账本 ∪ 全会话 user 侧消息)。刻意排除
+//      assistant 消息:旧轮编造的 DOI 不能给本轮自洗白(审计:被戳穿后当轮零检索再犯)。
 //   2) 交付:正文宣称「已生成/可下载文件」时,本轮必须真的产出 artifact 或会话内发生过 out/ 写入。
 //   3) 通读:正文宣称「已通读/完整精读」时,不得存在零 Read、或本轮读到截断/乱码标记的事实。
 //
-// 命中 → turnLoop 在终帧前注入一条纠偏指令(【系统纠偏】前缀,backend journal parity 豁免契约)
-// 并 continue 一轮:模型要么用工具补齐事实,要么显式更正。误报的代价 = 一轮"经核实无误"自愈。
+// 🔴 2026-08 证据账本 P0 · 本核验器已**降级为纯观测**:findings 只进日志与 message_complete.claim_audit,
+//    turnLoop 不再据此注入纠偏轮(移除理由见 turnLoop 的 honesty 观测段注释)。此处只留两条:
+//    ① 判据本身没错,错的是把它接成解法;② 证据语料改**以账本为主**:旧版读的是 messages —— 正是被
+//    shadowTurn 冷重播掏空的那份数组,于是每条**真实**引用在冷重播时都会被判成编造。账本活在
+//    workDir(会话驱逐绝不删),是这条路径上唯一还在的证据。
+//
+// 语料仍保留 messages 侧(用户粘贴的 DOI / 活会话内的 tool_result 原文):账本只收工具返回的题录,
+// 用户正文里给的 DOI 不在其中,去掉会新造一类误报。两者取并集,不做取舍。
 
 import type Anthropic from "@anthropic-ai/sdk";
 import type { ArtifactDecl } from "./artifacts.ts";
+import type { EvidenceRecord } from "../evidence/ledger.ts";
 
 // 统一纠偏前缀(冻结契约):执行器注入的所有纠偏 user 消息以此开头;
 // backend eventlog_validate 的用户轮 parity 据此豁免。改动必须两侧同步。
@@ -44,11 +50,31 @@ export function extractDois(text: string): string[] {
   return [...out];
 }
 
-// 证据语料 = 全会话 user 角色消息(用户文本 + 全部 tool_result 块)。tool_result 都躺在 user
-// 消息里(SDK 规则),一次过滤同时覆盖:检索返回的真实 DOI、Read 出的用户上传文件内容、
-// 用户正文粘贴的 DOI —— 三大误报源被机械吸收。
-export function buildEvidenceCorpus(messages: Anthropic.MessageParam[]): string {
+// buildLedgerCorpus:证据账本 → 语料(2026-08 证据账本 P0)。账本是 workDir 上的追加式 jsonl,
+// 冷重播后仍在 —— 这是「模型引用的这条到底检索到没有」在失忆纪元里唯一还成立的判据来源。
+export function buildLedgerCorpus(evidence?: EvidenceRecord[] | null): string {
+  if (!evidence || evidence.length === 0) return "";
   const parts: string[] = [];
+  for (const r of evidence) {
+    if (!r) continue;
+    if (r.doi) parts.push(r.doi);
+    if (r.title) parts.push(r.title);
+    if (r.venue) parts.push(r.venue);
+    if (Array.isArray(r.authors) && r.authors.length > 0) parts.push(r.authors.join(" "));
+  }
+  return parts.join("\n").toLowerCase();
+}
+
+// 证据语料 = 证据账本 ∪ 全会话 user 角色消息(用户文本 + 全部 tool_result 块)。tool_result 都躺在
+// user 消息里(SDK 规则),一次过滤同时覆盖:检索返回的真实 DOI、Read 出的用户上传文件内容、
+// 用户正文粘贴的 DOI —— 三大误报源被机械吸收;账本再补上「冷重播后 messages 已被折成一行摘要」的那部分。
+export function buildEvidenceCorpus(
+  messages: Anthropic.MessageParam[],
+  evidence?: EvidenceRecord[] | null,
+): string {
+  const parts: string[] = [];
+  const ledger = buildLedgerCorpus(evidence);
+  if (ledger) parts.push(ledger);
   for (const m of messages) {
     if (m.role !== "user") continue;
     if (typeof m.content === "string") {
@@ -193,11 +219,12 @@ export function auditClaims(
   turnMsgs: Anthropic.MessageParam[],
   artifacts: ArtifactDecl[],
   checks?: HonestyChecks,
+  evidence?: EvidenceRecord[] | null, // 2026-08 证据账本 P0:引用判据的主语料(冷重播后唯一存活的证据)
 ): ClaimFindings {
   const on = (v: boolean | undefined) => v !== false; // 缺省 = 开
   return {
     unverifiedDois: on(checks?.citations)
-      ? auditCitations(finalText, buildEvidenceCorpus(allMsgs)).slice(0, 20)
+      ? auditCitations(finalText, buildEvidenceCorpus(allMsgs, evidence)).slice(0, 20)
       : [],
     deliveryMismatch:
       on(checks?.delivery) && claimsDelivery(finalText) && artifacts.length === 0 && !sessionHasOutWrite(allMsgs),
@@ -205,20 +232,8 @@ export function auditClaims(
   };
 }
 
-export function buildCorrectiveDirective(f: ClaimFindings): string {
-  const items: string[] = [];
-  if (f.unverifiedDois.length) {
-    items.push(
-      `- 以下 DOI 未出现在本会话任何工具返回或用户材料中(疑似凭训练记忆编造):${f.unverifiedDois.join(" , ")}`,
-    );
-  }
-  if (f.deliveryMismatch) items.push("- 正文宣称已生成/可下载文件,但本轮没有任何文件写入交付区。");
-  if (f.fullReadMismatch) items.push("- 正文宣称已通读/完整精读,但实际阅读不完整(未读、被截断或内容乱码)。");
-  return (
-    `${CORRECTIVE_PREFIX}(此消息来自平台自动核验器,不是用户,也不会展示给用户)\n本轮回复未通过诚实性核验:\n${items.join("\n")}\n\n` +
-    "立即执行,逐条二选一:\n" +
-    "(a) 用工具把事实补齐:用 get_paper_by_doi / search_papers 逐条验证引用;把宣称的文件真正用 Write 写入 ./out/;把没读完的用 Read/ReadDocument 读完。\n" +
-    "(b) 无法做到的,输出一段以「更正:」开头的简短声明,明确告诉用户哪些条目未经检索验证、哪个文件实际尚未生成、实际只读了哪些部分。\n" +
-    "禁止:辩解、复读原文、再次宣称未发生的事。完成后自然结束。"
-  );
-}
+// 🔴 2026-08 证据账本 P0 · 减法:原 buildCorrectiveDirective(注入【系统纠偏】要求模型「补齐或更正」)
+// 已删除。它是本仓库「用事后纠偏文本兜底」的典型:判据集合与真实故障形态不相交(31 条效应量那次
+// findings 全空、静默满分),609 轮只触发 8 次(1.3%),而误报会吃掉 MAX_CORRECTIVE_ROUNDS=2 的共享
+// 预算、把真故障挤出去 —— 在最需要它的冷重播路径上是净负值。核验结果现在只做观测(见 turnLoop)。
+// CORRECTIVE_PREFIX 仍在:语言 / 字符画两个 guard 继续用它(它们的判据是确定性的渲染事实,不是宣称核验)。

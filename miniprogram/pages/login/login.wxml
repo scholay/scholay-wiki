@@ -1,4 +1,4 @@
-<view class="login">
+<view class="login" capture-bind:touchstart="onUserActivity">
   <view class="brand">
     <text class="logo">Scholay</text>
     <text class="tag">学术检索 · AI 助手</text>

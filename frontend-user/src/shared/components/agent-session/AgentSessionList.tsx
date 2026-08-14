@@ -68,11 +68,11 @@ export function AgentSessionList({
   return (
     <SidebarSection id={sectionId} label={label} prominent>
       {!token ? (
-        <div className="px-4 py-3 text-2xs text-faint">{loggedOutHint}</div>
+        <div className="px-4 py-3 text-12 text-faint">{loggedOutHint}</div>
       ) : isLoading ? (
-        <div className="px-4 py-3 text-2xs text-faint">加载中…</div>
+        <div className="px-4 py-3 text-12 text-faint">加载中…</div>
       ) : !sessions || sessions.length === 0 ? (
-        <div className="px-4 py-3 text-2xs text-faint">{emptyHint}</div>
+        <div className="px-4 py-3 text-12 text-faint">{emptyHint}</div>
       ) : (
         <div className="flex flex-col">
           {sessions.map((s) => (
@@ -130,7 +130,7 @@ function SessionRow({
   return (
     <div
       className={cn(
-        'group flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-colors',
+        'group flex h-8 items-center gap-2 px-4 cursor-pointer transition-colors max-sm:h-11',
         active ? 'bg-surface-2' : 'hover:bg-surface-1',
       )}
       onClick={onActivate}
@@ -138,8 +138,8 @@ function SessionRow({
       <div className="flex-1 min-w-0">
         <div
           className={cn(
-            'truncate text-sm flex items-center gap-1.5',
-            active ? 'text-foreground font-semibold' : 'text-subtle',
+            'truncate text-14 flex items-center gap-1.5',
+            active ? 'text-foreground font-medium' : 'text-subtle',
             loading && 'italic text-faint',
           )}
           title={displayTitle}
@@ -153,7 +153,7 @@ function SessionRow({
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex size-6 items-center justify-center rounded text-faint opacity-0 group-hover:opacity-100 hover:bg-surface-2 hover:text-foreground data-[state=open]:opacity-100"
+            className="inline-flex size-6 items-center justify-center rounded-4 text-faint opacity-0 group-hover:opacity-100 hover:bg-surface-2 hover:text-foreground data-[state=open]:opacity-100"
             aria-label="更多操作"
           >
             <MoreVertical className="size-3.5" />

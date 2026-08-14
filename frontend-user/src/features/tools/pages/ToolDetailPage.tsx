@@ -5,7 +5,10 @@ import {
   ArrowLeft, ExternalLink, Cloud, Copy, Globe, Calendar, MapPin, Building2, BookOpen, Search,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
 import { Badge } from '@/shared/ui/badge';
+import { cn } from '@/shared/lib/utils';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -27,19 +30,44 @@ export function ToolDetailPage() {
     <div className="flex h-full min-h-0 flex-col bg-surface-1">
       {/* 顶部:返回 + 右上角冗余搜索框(回车跳回目录搜索) */}
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-6 py-3">
-        <Link to="/tools" className="inline-flex items-center gap-1 text-xs font-medium text-subtle hover:text-foreground">
+        <Link to="/tools" className="inline-flex items-center gap-1 text-12 font-medium text-subtle hover:text-foreground">
           <ArrowLeft className="size-3.5" /> 功能广场
         </Link>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
-            placeholder="搜索功能广场"
-            className="h-9 w-full rounded-md border border-border-strong bg-surface-1 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus:border-foreground focus:bg-background focus:ring-2 focus:ring-ring/20"
-          />
-        </div>
+        {/* 🟠 2026-07-27 补:原本只有 onKeyDown 回车一条提交路径,界面上没有任何可点的提交入口
+            (左侧放大镜还被 pointer-events-none 显式禁用)。与功能广场同属 tools feature,
+            广场补了提交按钮而这里没有,会让两个兄弟页行为分叉。改成 form + 提交按钮:
+            回车与点按同一条路径。 */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitSearch();
+          }}
+          className="flex w-full max-w-xs items-center gap-2"
+        >
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+            {/* 规格走 SEARCH_FIELD_SHELL(Figma §4.5)。修前 h-9(36)/ rounded-8 / border-strong /
+                bg-surface-1 —— 全站 7 个搜索框里最矮的一个,与兄弟页功能广场(44)差 8px。
+                本框的焦点态修前是 Input 原子自带的 `focus-visible:border-foreground` +
+                全局 :focus-visible outline;前者在静置改成 #1F1F23 之后同色失效,
+                现由外层朱砂 outline 统一承担(shell 里的 focus-within 对 input 自身同样生效)。
+                ⚠️ 字号仍是 Input 原子的 text-12 —— 控件基座字号是产品拍板的刻意偏离,不在此处覆写。 */}
+            <Input
+              type="search"
+              enterKeyHint="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="搜索功能广场"
+              className={cn(SEARCH_FIELD_SHELL, 'pl-9 pr-3')}
+            />
+          </div>
+          {/* h-control-xl 覆写:与左侧搜索框的 44 对齐。Button 原子的档位是 28/32/40,没有 44 ——
+              这属于「控件高度阶梯未接线」的已知债(见 docs/design-audit-2026-07.md),
+              不在本次功能修复范围内,先按对齐需要覆写。 */}
+          <Button type="submit" className="h-control-xl shrink-0">
+            搜索
+          </Button>
+        </form>
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto">
@@ -71,30 +99,31 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <RouteSEO
-        title={`${tool.name}${tool.name_en && tool.name_en !== tool.name ? ` (${tool.name_en})` : ''} — 功能广场 | Scholay学术`}
+        title={`${tool.name}${tool.name_en && tool.name_en !== tool.name ? ` (${tool.name_en}) ` : ''} — 功能广场 | Scholay学术`}
         description={(tool.tagline || tool.description_md || `${tool.name} —— 科研工具详情、获取方式与使用说明。`).slice(0, 150)}
         keywords={[tool.name, tool.name_en, tool.category_label, ...(tool.tags ?? [])].filter(Boolean).join(',')}
         canonical={`/tools/${tool.slug || tool.id}`}
+        noindex={tool.seo_indexable !== true}
       />
 
       {/* 头部 */}
       <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-start">
-        <ToolLogo tool={tool} className="size-16 rounded-lg" textClass="text-2xl" />
+        <ToolLogo tool={tool} className="size-16 rounded-12" textClass="text-24" />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold text-foreground">{tool.name}</h1>
+            <h1 className="text-24 font-medium text-foreground">{tool.name}</h1>
             {tool.name_en && tool.name_en !== tool.name && (
-              <span className="text-sm text-faint">{tool.name_en}</span>
+              <span className="text-12 text-faint">{tool.name_en}</span>
             )}
             <Badge variant="outline">{PRICE_TYPE_LABEL[tool.price_type] ?? tool.price_type}</Badge>
             {tool.is_open_source && <Badge variant="success">开源</Badge>}
           </div>
 
-          {tool.tagline && <p className="mt-2 text-sm leading-relaxed text-subtle">{tool.tagline}</p>}
+          {tool.tagline && <p className="mt-2 text-12 leading-paragraph text-subtle">{tool.tagline}</p>}
 
           {/* meta */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-12 text-muted-foreground">
             {tool.official_url && (
               <a href={tool.official_url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 hover:text-foreground">
                 <Globe className="size-3.5" /> {hostOf(tool.official_url)}
@@ -107,7 +136,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
               <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" /> {tool.country}</span>
             )}
             {(tool.tags ?? []).slice(0, 5).map((t) => (
-              <span key={t} className="rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-subtle">{t}</span>
+              <span key={t} className="rounded-4 bg-surface-2 px-1.5 py-0.5 text-12 text-subtle">{t}</span>
             ))}
           </div>
 
@@ -136,7 +165,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
         <div className="space-y-6 lg:col-span-2">
           {tool.description_md && (
             <Section title="这是什么">
-              <p className="whitespace-pre-line text-sm leading-relaxed text-subtle">{tool.description_md}</p>
+              <p className="whitespace-pre-line text-12 leading-paragraph text-subtle">{tool.description_md}</p>
             </Section>
           )}
 
@@ -144,9 +173,9 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
             <Section title="典型使用场景">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {tool.use_cases.map((u, i) => (
-                  <div key={i} className="rounded-md border border-border bg-background p-3">
-                    <p className="text-sm font-bold text-foreground">{u.icon ? `${u.icon} ` : ''}{u.title}</p>
-                    {u.desc && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{u.desc}</p>}
+                  <div key={i} className="rounded-16 border border-border bg-surface-card p-3">
+                    <p className="text-14 font-medium text-foreground">{u.icon ? `${u.icon} ` : ''}{u.title}</p>
+                    {u.desc && <p className="mt-1 text-12 leading-paragraph text-muted-foreground">{u.desc}</p>}
                   </div>
                 ))}
               </div>
@@ -160,8 +189,8 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
               <div className="space-y-3">
                 {tool.faq.map((f, i) => (
                   <div key={i}>
-                    <p className="text-sm font-bold text-foreground">{f.q}</p>
-                    <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+                    <p className="text-14 font-medium text-foreground">{f.q}</p>
+                    <p className="mt-1 whitespace-pre-line text-12 leading-paragraph text-muted-foreground">{f.a}</p>
                   </div>
                 ))}
               </div>
@@ -169,7 +198,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
           )}
 
           {tool.disclaimer && (
-            <div className="rounded-md border border-border bg-warning-soft p-3 text-xs leading-relaxed text-brand-amber">
+            <div className="rounded-12 border border-border bg-warning-soft p-3 text-12 leading-paragraph text-brand-amber">
               {tool.disclaimer}
             </div>
           )}
@@ -180,36 +209,36 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
           {/* 获取方式 (下载型) */}
           {dl?.url && (
             <SideCard title="获取方式">
-              <div className="space-y-2 text-sm">
+              <div className="space-y-2 text-12">
                 <a href={dl.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-1.5 break-all text-brand-red hover:underline">
                   <Cloud className="size-3.5 shrink-0" /> {dl.provider === 'baidu' ? '百度网盘' : dl.provider || '网盘'}链接
                 </a>
                 {dl.extract_code && (
-                  <div className="flex items-center justify-between rounded-md bg-surface-2 px-2.5 py-1.5">
-                    <span className="text-xs text-muted-foreground">提取码 <span className="font-mono font-bold text-foreground">{dl.extract_code}</span></span>
+                  <div className="flex items-center justify-between rounded-8 bg-surface-2 px-2.5 py-1.5">
+                    <span className="text-12 text-muted-foreground">提取码 <span className="font-mono font-bold text-foreground">{dl.extract_code}</span></span>
                     <button
                       type="button"
                       onClick={() => copy(dl.extract_code!)}
-                      className="inline-flex items-center gap-1 text-2xs text-faint hover:text-foreground"
+                      className="inline-flex items-center gap-1 text-12 text-faint hover:text-foreground"
                     >
                       <Copy className="size-3" /> 复制
                     </button>
                   </div>
                 )}
-                {dl.filename && <p className="text-2xs text-faint">文件:{dl.filename}</p>}
+                {dl.filename && <p className="text-12 text-faint">文件:{dl.filename}</p>}
               </div>
             </SideCard>
           )}
 
           {tool.vendor?.name && (
             <SideCard title="关于厂商">
-              <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <p className="flex items-center gap-1.5 text-14 font-medium text-foreground">
                 <Building2 className="size-3.5 text-faint" /> {tool.vendor.name}
               </p>
-              <p className="mt-1 text-2xs text-faint">
+              <p className="mt-1 text-12 text-faint">
                 {[tool.vendor.country, tool.vendor.founded].filter(Boolean).join(' · ')}
               </p>
-              {tool.vendor.desc && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{tool.vendor.desc}</p>}
+              {tool.vendor.desc && <p className="mt-2 text-12 leading-paragraph text-muted-foreground">{tool.vendor.desc}</p>}
             </SideCard>
           )}
 
@@ -217,12 +246,12 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
             <SideCard title="价格 & 授权">
               <div className="space-y-1.5">
                 {tool.pricing.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
+                  <div key={i} className="flex items-center justify-between text-12">
                     <span className="text-subtle">{p.label}</span>
-                    <span className="font-bold text-foreground">{p.price}</span>
+                    <span className="font-medium text-foreground">{p.price}</span>
                   </div>
                 ))}
-                {tool.free_trial && <p className="pt-1 text-2xs text-brand-amber">{tool.free_trial}</p>}
+                {tool.free_trial && <p className="pt-1 text-12 text-brand-amber">{tool.free_trial}</p>}
               </div>
             </SideCard>
           )}
@@ -232,12 +261,12 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
               <div className="space-y-2">
                 {tool.alternatives.map((a, i) => (
                   <div key={i}>
-                    <p className="text-sm font-bold text-foreground">
+                    <p className="text-14 font-medium text-foreground">
                       {a.url ? (
                         <a href={a.url} target="_blank" rel="noreferrer noopener" className="hover:underline">{a.name}</a>
                       ) : a.name}
                     </p>
-                    {a.note && <p className="text-2xs text-faint">{a.note}</p>}
+                    {a.note && <p className="text-12 text-faint">{a.note}</p>}
                   </div>
                 ))}
               </div>
@@ -248,7 +277,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
             <SideCard title="教程 / 资源">
               <div className="space-y-1.5">
                 {tool.tutorials.map((t, i) => (
-                  <a key={i} href={t.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-1.5 text-sm text-subtle hover:text-foreground">
+                  <a key={i} href={t.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-1.5 text-12 text-subtle hover:text-foreground">
                     <BookOpen className="size-3.5 shrink-0 text-faint" /> <span className="truncate">{t.title}</span>
                   </a>
                 ))}
@@ -277,8 +306,8 @@ function SpecBlock({ spec }: { spec: NonNullable<FeatureTool['spec']> }) {
       <dl className="divide-y divide-border-soft">
         {rows.map((r) => (
           <div key={r.label} className="grid grid-cols-[5rem_1fr] gap-3 py-2">
-            <dt className="text-xs font-bold text-faint">{r.label}</dt>
-            <dd className="text-sm text-subtle">
+            <dt className="text-12 font-medium text-faint">{r.label}</dt>
+            <dd className="text-12 text-subtle">
               {Array.isArray(r.value) ? (
                 <ul className="list-disc space-y-0.5 pl-4">
                   {r.value.map((v, i) => <li key={i}>{v}</li>)}
@@ -297,7 +326,7 @@ function SpecBlock({ spec }: { spec: NonNullable<FeatureTool['spec']> }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-3 text-base font-bold text-foreground">{title}</h2>
+      <h2 className="mb-3 text-16 font-medium text-foreground">{title}</h2>
       {children}
     </section>
   );
@@ -305,8 +334,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function SideCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-md border border-border bg-background p-4">
-      <p className="mb-2.5 text-2xs font-bold uppercase tracking-[0.14em] text-faint">{title}</p>
+    <div className="rounded-16 border border-border bg-surface-card p-4">
+      <p className="mb-2.5 text-12 font-medium uppercase text-faint">{title}</p>
       {children}
     </div>
   );

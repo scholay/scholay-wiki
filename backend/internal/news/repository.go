@@ -186,12 +186,54 @@ func (r *Repository) IncrViewCount(id string) error {
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
 
-// AllSlugsForSitemap 取全部已发布的 slug + lastmod(分页),供 sitemap 用。
+// GetByID 按主键取单行(缩略图管线用:webhook 内存对象不含 thumb 列,必须重读)。
+func (r *Repository) GetByID(id string) (*NewsItem, error) {
+	var item NewsItem
+	if err := r.db.Where("id = ?", id).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+// UpdateCoverThumb 只写缩略图两列。刻意不进 newsUpdatableCols:上游 upsert 永不覆盖,
+// 这两列的唯一写入方就是缩略图管线自己。
+func (r *Repository) UpdateCoverThumb(id, key, src string) error {
+	return r.db.Model(&NewsItem{}).Where("id = ?", id).Updates(map[string]any{
+		"cover_thumb_key": key,
+		"cover_thumb_src": src,
+	}).Error
+}
+
+// ListCoverThumbPending 待生成/待重生成/待清理的行(回填任务用):
+//   - 有原图但缩略图缺失或对应的不是当前原图(含上游换图)
+//   - 原图已被上游撤掉但缩略图残留(需清理)
+//
+// 新内容优先(published_at DESC):首页/列表展示的就是最新的,先修可见面。
+func (r *Repository) ListCoverThumbPending(limit int) ([]NewsItem, error) {
+	var items []NewsItem
+	err := r.db.Model(&NewsItem{}).
+		Where("(cover_image <> '' AND cover_thumb_src <> cover_image) OR (cover_image = '' AND cover_thumb_key <> '')").
+		Order("published_at DESC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
+// AllSlugsForSitemap 取全部已发布的 slug + title + lastmod(分页),供 sitemap 做最终 eligibility 过滤。
 func (r *Repository) AllSlugsForSitemap(limit, offset int) ([]NewsItem, error) {
 	var items []NewsItem
 	err := r.db.Model(&NewsItem{}).Where("status = ?", "published").
-		Select("slug", "upstream_updated_at", "updated_at", "published_at").
+		Select("slug", "title", "upstream_updated_at", "updated_at", "published_at").
 		Order("published_at DESC").Limit(limit).Offset(offset).Find(&items).Error
+	return items, err
+}
+
+// RecentForGoogleNewsSitemap 最近 since 之后发布的情报(Google News sitemap 专用)。
+// Google 官方要求 News sitemap 只含最近两天的文章、上限 1,000 条。
+func (r *Repository) RecentForGoogleNewsSitemap(since time.Time, limit int) ([]NewsItem, error) {
+	var items []NewsItem
+	err := r.db.Model(&NewsItem{}).
+		Where("status = ? AND published_at >= ?", "published", since).
+		Select("slug", "title", "published_at").
+		Order("published_at DESC").Limit(limit).Find(&items).Error
 	return items, err
 }
 

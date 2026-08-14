@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronLeft, Search, Share2, SlidersHorizontal, X } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { CyclingHint } from '@/shared/components/CyclingHint';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { usePullToRefresh } from '@/shared/hooks';
 import { PullToRefreshIndicator } from '@/shared/components/PullToRefreshIndicator';
 import { useShareSheet } from '@/stores/share.store';
@@ -111,7 +113,7 @@ export function MobileToolsPage() {
           >
             <ChevronLeft className="size-5" />
           </button>
-          <h1 className="text-lg font-semibold text-foreground">功能广场</h1>
+          <h1 className="text-16 font-medium text-foreground">功能广场</h1>
         </div>
         <div className="flex items-center gap-2">
           <form
@@ -119,14 +121,24 @@ export function MobileToolsPage() {
               e.preventDefault();
               patchParams({ q: draft.trim() });
             }}
-            className="flex h-10 flex-1 items-center gap-2 rounded-pill border border-border bg-surface-1 px-3.5"
+            /* 规格走 SEARCH_FIELD_SHELL(Figma §4.5)。修前 h-10(40)/ rounded-pill /
+               border-border(ink@12%)/ bg-surface-1,是全站唯一一个 pill 形搜索框。
+               焦点修前是 `focus-within:border-border-control` —— 那正好等于新的静置色,
+               留着就是「按下去零变化」,现改成朱砂 outline。 */
+            className={cn(
+              'flex flex-1 items-center gap-2 pl-3.5 pr-1',
+              SEARCH_FIELD_SHELL
+            )}
           >
             <Search className="size-4 shrink-0 text-faint" />
             <input
+              type="search"
+              enterKeyHint="search"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="搜索网站、工具、数据库…"
-              className="min-w-0 flex-1 bg-transparent text-md text-foreground outline-none placeholder:text-faint"
+              placeholder="搜索网站、工具…"
+              /* outline-none 合法: 焦点由外层 form 的 SEARCH_FIELD_FOCUS(朱砂 outline)提示 */
+              className="min-w-0 flex-1 bg-transparent text-14 text-foreground outline-none placeholder:text-faint"
             />
             {draft && (
               <button
@@ -140,16 +152,26 @@ export function MobileToolsPage() {
                 <X className="size-4 text-faint" />
               </button>
             )}
+            {/* 🟠 2026-07-27 补:本框原先【没有任何提交按钮】,是移动端唯一如此的检索框。
+                移动端没有物理键盘,而紧邻右侧那颗图标按钮是「筛选」——
+                用户敲完关键词在屏幕上找提交入口,找到的却是筛选漏斗,误点后弹出筛选面板、
+                检索反而没执行。对照移动端搜索浮层 MobileSearchOverlay 是配了显式「搜索」按钮的。 */}
+            <Button type="submit" className="shrink-0">
+              搜索
+            </Button>
           </form>
           <button
             type="button"
             aria-label="筛选"
             onClick={() => setFilterOpen(true)}
-            className="relative flex size-10 shrink-0 items-center justify-center rounded-pill border border-border bg-surface-1 text-foreground active:bg-surface-2"
+            /* size-11(44):搜索框随 Figma §4.5 从 40 升到 44 后,这颗同排图标钮跟着抬平 ——
+               修前两者都是 40,不跟就会在同一横排出现 44/40 错位。圆角保持 pill(圆形图标钮),
+               它不是搜索框、不吃 §4.5 的 rounded-16。 */
+            className="relative flex size-11 shrink-0 items-center justify-center rounded-pill border border-border bg-surface-1 text-foreground active:bg-surface-2"
           >
             <SlidersHorizontal className="size-4" />
             {activeFilterCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-white">
+              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 font-medium text-on-brand">
                 {activeFilterCount}
               </span>
             )}
@@ -184,18 +206,18 @@ export function MobileToolsPage() {
           <div className="flex h-40 items-center justify-center">
             <CyclingHint
               phrases={['正在加载科研工具…', '统计 / 绘图 / 文献 / LaTeX…']}
-              className="text-sm text-muted-foreground"
+              className="text-12 text-muted-foreground"
             />
           </div>
         )}
 
         {listQ.isError && tools.length === 0 && (
           <div className="flex h-40 flex-col items-center justify-center gap-2">
-            <p className="text-sm text-muted-foreground">加载失败</p>
+            <p className="text-12 text-muted-foreground">加载失败</p>
             <button
               type="button"
               onClick={() => void listQ.refetch()}
-              className="rounded-pill border border-border-button px-4 py-1.5 text-sm text-foreground"
+              className="rounded-pill border border-border-button px-4 py-1.5 text-12 text-foreground"
             >
               重试
             </button>
@@ -203,7 +225,7 @@ export function MobileToolsPage() {
         )}
 
         {!listQ.isLoading && tools.length === 0 && !listQ.isError && (
-          <p className="py-16 text-center text-sm text-faint">
+          <p className="py-16 text-center text-12 text-faint">
             没有匹配的工具,换个关键词试试
           </p>
         )}
@@ -211,7 +233,7 @@ export function MobileToolsPage() {
         {tools.length > 0 && (
           <>
             {total != null && (
-              <p className="px-4 pt-3 text-xs text-faint">共 {total} 个工具</p>
+              <p className="px-4 pt-3 text-12 text-faint">共 {total} 个工具</p>
             )}
             <ul
               style={{ height: toolVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}
@@ -244,7 +266,7 @@ export function MobileToolsPage() {
 
         <div ref={sentinelRef} className="h-10">
           {isFetchingNextPage && (
-            <p className="text-center text-xs text-faint">加载中…</p>
+            <p className="text-center text-12 text-faint">加载中…</p>
           )}
         </div>
       </div>
@@ -274,10 +296,10 @@ function CategoryChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'shrink-0 rounded-pill border px-3 py-1.5 text-xs whitespace-nowrap transition-colors',
+        'shrink-0 rounded-pill border px-3 py-1.5 text-12 whitespace-nowrap transition-colors',
         active
-          ? 'border-foreground bg-foreground font-medium text-white'
-          : 'border-border bg-background text-muted-foreground'
+          ? 'border-foreground bg-foreground font-medium text-on-brand'
+          : 'border-border bg-surface-card text-muted-foreground'
       )}
     >
       {label}
@@ -290,22 +312,22 @@ function MobileToolRow({ tool }: { tool: FeatureTool }) {
   return (
     <Link
       to={`/m/tools/${tool.slug || tool.id}`}
-      className="flex items-center gap-3 rounded-lg border border-border bg-background p-3 transition-transform active:scale-[0.98] active:bg-surface-2"
+      className="flex items-center gap-3 rounded-16 border border-border bg-surface-card p-3 transition-transform active:scale-[0.98] active:bg-surface-2"
     >
-      <ToolLogo tool={tool} className="h-11 w-11" textClass="text-lg" />
+      <ToolLogo tool={tool} className="h-11 w-11" textClass="text-16" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-md font-medium text-foreground">
+          <span className="truncate text-14 font-medium text-foreground">
             {tool.name}
           </span>
           {tool.price_type && (
-            <span className="shrink-0 rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">
+            <span className="shrink-0 rounded-4 bg-surface-2 px-1.5 py-0.5 text-12 text-muted-foreground">
               {PRICE_TYPE_LABEL[tool.price_type] ?? tool.price_type}
             </span>
           )}
         </div>
         {tool.tagline && (
-          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-0.5 line-clamp-2 text-12 leading-paragraph text-muted-foreground">
             {tool.tagline}
           </p>
         )}

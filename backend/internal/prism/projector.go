@@ -15,6 +15,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 )
@@ -978,7 +979,16 @@ func renderBib(bib map[string]string) string {
 	sort.Strings(keys)
 	var b strings.Builder
 	for _, k := range keys {
-		b.WriteString(strings.TrimSpace(bib[k]))
+		e := strings.TrimSpace(bib[k])
+		// 2026-07 线上审计 #2:出口双保险 —— 畸形条目(双 @ 头/头部不合法,历史存量可能已入库)
+		// 跳过不落 .bib,宁缺一条不毒整份(入库侧 mergeBibInto 已同校验)。
+		if !validBibEntry(e) {
+			slog.Warn("prism: renderBib 跳过畸形 bib 条目(出口校验)", "cite_key", k)
+			continue
+		}
+		// 审计 #1:出口顺带清洗裸特殊字符(幂等)—— 自愈 bibEscape 换代前入库的存量条目
+		// (如期刊名裸 &),PDF 编译与 Word 导出两条链同时受益。
+		b.WriteString(sanitizeBibEntry(e))
 		b.WriteString("\n\n")
 	}
 	return b.String()

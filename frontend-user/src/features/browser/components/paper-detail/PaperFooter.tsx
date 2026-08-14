@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Copy, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { CitationProse } from '@/shared/components/CitationProse';
+import { Button } from '@/shared/ui/button';
 import {
   CITATION_FORMAT_LABELS,
   CITATION_FORMATS,
@@ -49,10 +50,10 @@ export function PaperFooter({ paper }: { paper: Paper }) {
     <section id="cite-block" className="mt-16 space-y-4">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div className="space-y-1.5">
-          <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
+          <div className="text-12 font-medium uppercase text-faint">
             HOW TO CITE
           </div>
-          <h2 className="font-display font-bold text-xl text-foreground">
+          <h2 className="font-display font-bold text-20 text-foreground">
             引用本文
           </h2>
         </div>
@@ -66,9 +67,9 @@ export function PaperFooter({ paper }: { paper: Paper }) {
               onClick={() => setFormat(f)}
               onDoubleClick={() => setAsDefault(f)}
               className={cn(
-                'h-7 px-3 rounded-md text-xs font-bold transition-colors',
+                'h-7 px-3 rounded-8 text-12 font-medium transition-colors',
                 format === f
-                  ? 'bg-foreground text-background'
+                  ? 'bg-foreground text-on-dark'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
               )}
               title="单击切换 · 双击设为默认"
@@ -83,26 +84,28 @@ export function PaperFooter({ paper }: { paper: Paper }) {
           min-w-0 防御性 grid item 守门(与 CitationDialog 同款) */}
       <div className="relative min-w-0">
         {isMono ? (
-          <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-[1.65] text-subtle overflow-x-auto whitespace-pre">
+          <pre className="w-full rounded-16 bg-surface-1 border border-border px-5 py-4 font-mono text-12 leading-paragraph text-subtle overflow-x-auto whitespace-pre">
             {citation}
           </pre>
         ) : (
-          <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-base leading-[1.7] text-subtle break-words">
+          <p className="rounded-16 bg-surface-1 border border-border px-5 py-4 text-14 leading-paragraph text-subtle break-words">
             <CitationProse text={citation} />
           </p>
         )}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={copyCurrent}
-          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-sm bg-background border border-border text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+          className="absolute top-2 right-2 gap-1 border-border text-subtle hover:border-foreground hover:text-foreground"
           aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
         >
-          <Copy className="size-3" strokeWidth={2.5} />
+          <Copy strokeWidth={2.5} />
           复制
-        </button>
+        </Button>
       </div>
 
-      <p className="text-2xs text-faint">
+      <p className="text-12 text-faint">
         单击切换格式 · 双击格式名设为默认 ·{' '}
         <Link
           to="/citation-generator"
@@ -117,28 +120,28 @@ export function PaperFooter({ paper }: { paper: Paper }) {
       {/* 讨论行 */}
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-0.5">
-          <div className="text-base font-bold text-foreground inline-flex items-center gap-2">
+          <div className="text-14 font-medium text-foreground inline-flex items-center gap-2">
             <MessageSquare
               className="size-4 text-muted-foreground"
               strokeWidth={2}
             />
             读者笔记与讨论
           </div>
-          <p className="text-sm text-faint">
+          <p className="text-12 text-faint">
             研究论坛即将上线,届时支持笔记与回复
           </p>
         </div>
         <button
           type="button"
           onClick={() => toast.info('研究论坛正在开发中,敬请期待')}
-          className="text-sm font-bold text-foreground hover:text-brand-red transition-colors"
+          className="text-12 font-medium text-foreground hover:text-brand-red transition-colors"
         >
           查看全部 →
         </button>
       </div>
 
       {/* meta 行 */}
-      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-faint">
+      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-12 text-faint">
         {paper.year && <span>发表于 {paper.year}</span>}
         {paper.publicationDate && (
           <>
@@ -155,7 +158,7 @@ export function PaperFooter({ paper }: { paper: Paper }) {
         {paper.isOpenAccess && (
           <>
             <span className="text-border-strong">·</span>
-            <span className="text-brand-green font-bold">Open Access</span>
+            <span className="text-brand-green font-medium">Open Access</span>
           </>
         )}
         {/* 不展示 stc/olx/pmd 数据源品牌名 —— 对终端用户没意义,顶部 metadata 区

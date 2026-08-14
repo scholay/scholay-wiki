@@ -40,6 +40,10 @@ export {
   type AssistantBubbleProps,
 } from './Bubbles';
 export {
+  SearchUserBubble,
+  type SearchUserBubbleProps,
+} from './SearchUserBubble';
+export {
   ToolCallBlock,
   type ToolCallBlockProps,
 } from './ToolCallBlock';
@@ -65,12 +69,23 @@ export { SafeSvg } from './SafeSvg';
 export { PausedNotice } from './PausedNotice';
 export { StallNotice } from './StallNotice';
 export { TurnErrorNotice } from './TurnErrorNotice';
+export { ResearchStateChip } from './ResearchStateChip';
+export { BlockedTurnCard, type BlockedTurnCardProps } from './BlockedTurnCard';
 export { ContextMeter, type ContextMeterProps } from './ContextMeter';
 export { Composer, type ComposerProps, type ComposerHandle, type ComposerContextInfo } from './Composer';
+export { QuotaComposerStrip, type QuotaBlockedControls } from './QuotaComposerStrip';
 export { ComposerAttachmentRow } from './ComposerAttachmentRow';
 export { ComposerPlusMenu } from './ComposerPlusMenu';
 export { LibraryReferencePicker, type ReferenceSelection } from './LibraryReferencePicker';
 export { ProcessFold } from './ProcessFold';
+export { ToolGroupBlock } from './ToolGroupBlock';
+export {
+  toolLabel,
+  toolIconFor,
+  toolRunningVerb,
+  toolParamSummary,
+  formatDurationSec,
+} from './tool-semantics';
 export {
   ToolHeaderExtras,
   extractToolQuery,
@@ -84,3 +99,10 @@ export { PaperListReadonly } from './PaperListReadonly';
 export { MinicodJournalCards } from './MinicodJournalCards';
 export { MinicodAuthorCards } from './MinicodAuthorCards';
 export { MinicodSnippetCards } from './MinicodSnippetCards';
+export {
+  ClawTurnView,
+  type ClawTurnViewProps,
+  type ClawSkillPresentation,
+} from './turns/ClawTurnView';
+export { SearchTurnView, type SearchTurnViewProps } from './turns/SearchTurnView';
+export { PrismTurnView, type PrismTurnViewProps } from './turns/PrismTurnView';

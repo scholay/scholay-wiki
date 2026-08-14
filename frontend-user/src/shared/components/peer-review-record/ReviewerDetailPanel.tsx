@@ -89,9 +89,9 @@ export function ReviewerDetailPanel({ role, report, status, preparing, stream: s
     //   reviewing 且已开跑 → "正在评议中…"(优先显示实时进度 note);
     //   其它(已完成态历史回看缺流)→ "还没出意见"。
     return (
-      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-surface-1 text-center">
+      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-16 border border-dashed border-border bg-surface-1 text-center">
         <Loader2 className="h-6 w-6 animate-spin text-faint" />
-        <p className="text-base font-semibold text-muted-foreground">
+        <p className="text-14 font-medium text-muted-foreground">
           {preparing
             ? `审稿人 ${letter} · 待评议`
             : status === 'reviewing'
@@ -99,14 +99,14 @@ export function ReviewerDetailPanel({ role, report, status, preparing, stream: s
               : `审稿人 ${letter} 还没出意见`}
         </p>
         {preparing ? (
-          <p className="text-sm text-faint">
+          <p className="text-12 text-faint">
             审稿团正在组建(通读全文、制定审稿标准),稍后由该审稿人评议,意见会在这里实时填充。
           </p>
         ) : status === 'reviewing' ? (
           // 正在评议、首个 token 还没到 → 循环打字等待文案(比静态"会实时显示在这里"更活、不像卡死)
-          <CyclingHint phrases={REVIEWER_HINTS} className="text-sm text-faint" />
+          <CyclingHint phrases={REVIEWER_HINTS} className="text-12 text-faint" />
         ) : (
-          <p className="text-sm text-faint">页面会自动刷新, 完成后即可查看完整意见。</p>
+          <p className="text-12 text-faint">页面会自动刷新, 完成后即可查看完整意见。</p>
         )}
       </div>
     );
@@ -120,7 +120,7 @@ export function ReviewerDetailPanel({ role, report, status, preparing, stream: s
 
   if (!view) {
     return (
-      <div className="rounded-md border border-border bg-background px-5 py-4">
+      <div className="rounded-16 border border-border bg-surface-card px-5 py-4">
         <MarkdownRenderer text={report.contentMd} />
       </div>
     );
@@ -207,19 +207,23 @@ function StreamingReviewerView({
     const narration = leadingNarration(text);
     const tail = narration.length > 360 ? '…' + narration.slice(-360) : narration;
     return (
-      <section className="flex flex-col gap-3 rounded-md border border-brand-amber/40 bg-background px-5 py-4">
+      <section className="flex flex-col gap-3 rounded-16 border border-brand-amber/40 bg-surface-card px-5 py-4">
         <div className="flex items-center gap-2.5">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
-          <p className="text-sm font-bold text-foreground">审稿人 {letter} 正在通读稿件…</p>
-          <p className="ml-auto shrink-0 font-mono text-xs text-faint">已生成 {p.totalChars} 字</p>
+          {/* 14 而非 12:本行是这张卡的标题,右侧「已生成 N 字」计数才是 12。
+              (B6 排印迁移时本文件与它在 features/ 下的孪生副本被两个 agent 分别处理,
+               一个把 text-sm 归到 14、一个归到 12;两份合并成这一份时按 14 收口 ——
+               text-sm=14px 是忠实映射,且标题不能与它下辖的计数同档。) */}
+          <p className="text-14 font-medium text-foreground">审稿人 {letter} 正在通读稿件…</p>
+          <p className="ml-auto shrink-0 font-mono text-12 text-faint">已生成 {p.totalChars} 字</p>
         </div>
         {tail ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          <p className="whitespace-pre-wrap text-12 leading-paragraph text-muted-foreground">
             {tail}
             <span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-foreground align-middle" />
           </p>
         ) : (
-          <p className="text-sm text-faint">正在调取稿件全文, 第一份评分马上就来…</p>
+          <p className="text-12 text-faint">正在调取稿件全文, 第一份评分马上就来…</p>
         )}
       </section>
     );
@@ -228,9 +232,9 @@ function StreamingReviewerView({
   return (
     <article className="flex flex-col gap-4">
       {/* 进度条 — 让用户感受审稿人在持续输出 */}
-      <div className="flex items-center gap-2.5 rounded-md border border-brand-amber/40 bg-warning-soft px-4 py-2.5">
+      <div className="flex items-center gap-2.5 rounded-16 border border-brand-amber/40 bg-warning-soft px-4 py-2.5">
         <Loader2 className="h-4 w-4 animate-spin text-brand-amber" />
-        <p className="flex-1 text-sm font-semibold text-brand-amber">
+        <p className="flex-1 text-12 font-medium text-brand-amber">
           {done ? (
             `审稿人 ${letter} 已完成 · 正在整理结果…`
           ) : (
@@ -242,15 +246,15 @@ function StreamingReviewerView({
             </>
           )}
         </p>
-        <p className="font-mono text-xs text-brand-amber/70">{p.totalChars} 字</p>
+        <p className="font-mono text-12 text-brand-amber/70">{p.totalChars} 字</p>
       </div>
 
       {/* 1) revHead — 提前用 partial 数据撑起来, 让用户看到成型 */}
       <StreamingHead letter={letter} partial={p} />
 
       {/* 2) 4 维度评分卡 + skeleton */}
-      <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
-        <p className="text-base font-bold text-foreground">结构化评分 · 四维度</p>
+      <section className="flex flex-col gap-3 rounded-16 border border-border bg-surface-card px-5 py-4">
+        <p className="text-14 font-medium text-foreground">结构化评分 · 四维度</p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {p.dimensions.map((d, i) => <DimensionCard key={i} dim={d} />)}
           {Array.from({ length: placeholderDims }).map((_, i) => (
@@ -261,11 +265,11 @@ function StreamingReviewerView({
 
       {/* 3) 逐句意见 — 已闭合的对象逐个出现 */}
       {p.lineComments.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
+        <section className="flex flex-col gap-3 rounded-16 border border-border bg-surface-card px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="h-5 w-[3px] rounded-sm bg-foreground" />
-            <p className="text-sm font-bold text-foreground">逐句意见</p>
-            <p className="flex-1 text-xs text-faint">已生成 {p.lineComments.length} 条</p>
+            <div className="h-5 w-[3px] rounded-4 bg-foreground" />
+            <p className="text-12 font-medium text-foreground">逐句意见</p>
+            <p className="flex-1 text-12 text-faint">已生成 {p.lineComments.length} 条</p>
           </div>
           {p.lineComments.map((lc, i) => <LineCommentCard key={i} item={lc} />)}
         </section>
@@ -273,11 +277,11 @@ function StreamingReviewerView({
 
       {/* 4) 整体性评价 */}
       {p.macroComments.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
+        <section className="flex flex-col gap-3 rounded-16 border border-border bg-surface-card px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="h-5 w-[3px] rounded-sm bg-subtle" />
-            <p className="text-sm font-bold text-foreground">整体性评价</p>
-            <p className="flex-1 text-xs text-faint">已生成 {p.macroComments.length} 条</p>
+            <div className="h-5 w-[3px] rounded-4 bg-subtle" />
+            <p className="text-12 font-medium text-foreground">整体性评价</p>
+            <p className="flex-1 text-12 text-faint">已生成 {p.macroComments.length} 条</p>
           </div>
           {p.macroComments.map((mc, i) => <MacroCard key={i} item={mc} />)}
         </section>
@@ -285,15 +289,15 @@ function StreamingReviewerView({
 
       {/* 5) 综合结论 — partial 部分文本会先出现, 让用户看到正在写 */}
       {p.finalSummary && (
-        <section className="flex flex-col gap-2 rounded-md border border-brand-amber/60 bg-background px-5 py-4">
+        <section className="flex flex-col gap-2 rounded-16 border border-brand-amber/60 bg-surface-card px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="h-5 w-[3px] rounded-sm bg-brand-amber" />
-            <p className="text-sm font-bold text-foreground">综合结论与推荐理由</p>
-            <span className="ml-auto inline-flex items-center gap-1 text-xs text-faint">
+            <div className="h-5 w-[3px] rounded-4 bg-brand-amber" />
+            <p className="text-12 font-medium text-foreground">综合结论与推荐理由</p>
+            <span className="ml-auto inline-flex items-center gap-1 text-12 text-faint">
               <Loader2 className="h-3 w-3 animate-spin" /> 写作中
             </span>
           </div>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-subtle">{p.finalSummary}</p>
+          <p className="whitespace-pre-wrap text-12 leading-paragraph text-subtle">{p.finalSummary}</p>
         </section>
       )}
     </article>
@@ -304,7 +308,7 @@ function StreamingHead({ letter, partial }: { letter: string; partial: PartialRe
   const rec = partial.recommendation;
   const recCls = rec ? recBorderClasses(rec) : '';
   return (
-    <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-background px-5 py-4">
+    <header className="flex items-start justify-between gap-4 rounded-16 border border-border bg-surface-card px-5 py-4">
       {/* 头像 + 名称:名称只剩单行(匿名审稿已去掉专长),用 items-center 让名称与头像垂直居中对齐 */}
       <div className="flex items-center gap-3">
         {/* 流式中: rec 一旦解析出来就按结果上色, 之前 (unknown) 走深色兜底 */}
@@ -314,29 +318,29 @@ function StreamingHead({ letter, partial }: { letter: string; partial: PartialRe
             recAvatarClasses(rec),
           )}
         >
-          <span className="font-serif text-lg font-bold">{letter}</span>
+          <span className="font-serif text-16 font-bold">{letter}</span>
         </div>
         {/* 匿名审稿:不展示审稿人专长/领域(只显示 A/B/C),避免泄露选了哪个专科审稿人 */}
-        <p className="text-base font-bold text-foreground">审稿人 {letter}</p>
+        <p className="text-14 font-medium text-foreground">审稿人 {letter}</p>
       </div>
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-end gap-1">
           <span
             className={cn(
-              'font-serif text-3xl font-bold transition-colors',
+              'font-serif text-28 font-bold transition-colors',
               rec ? recTextColor(rec) : partial.score != null ? 'text-foreground' : 'text-faint',
             )}
           >
             {partial.score != null ? partial.score : '--'}
           </span>
-          <span className="text-sm text-faint">/ 100</span>
+          <span className="text-12 text-faint">/ 100</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">推荐:</span>
+          <span className="text-12 text-muted-foreground">推荐:</span>
           {rec ? (
-            <span className={cn('rounded-sm px-2 py-0.5 text-xs font-bold', recCls)}>{recLabel(rec)}</span>
+            <span className={cn('rounded-4 px-2 py-0.5 text-12 font-medium', recCls)}>{recLabel(rec)}</span>
           ) : (
-            <span className="rounded-sm border border-dashed border-border bg-surface-1 px-2 py-0.5 text-xs text-faint">
+            <span className="rounded-4 border border-dashed border-border bg-surface-1 px-2 py-0.5 text-12 text-faint">
               评估中
             </span>
           )}
@@ -349,13 +353,13 @@ function StreamingHead({ letter, partial }: { letter: string; partial: PartialRe
 /** 占位 dimension card —— 维度未生成时的灰色 skeleton */
 function SkeletonDimension() {
   return (
-    <div className="flex animate-pulse flex-col gap-2 rounded-md border border-dashed border-border bg-surface-1 p-3.5">
+    <div className="flex animate-pulse flex-col gap-2 rounded-12 border border-dashed border-border bg-surface-1 p-3.5">
       <div className="flex items-end justify-between">
-        <div className="h-4 w-16 rounded-sm bg-border" />
-        <div className="h-7 w-10 rounded-sm bg-border" />
+        <div className="h-4 w-16 rounded-4 bg-border" />
+        <div className="h-7 w-10 rounded-4 bg-border" />
       </div>
-      <div className="h-3 w-full rounded-sm bg-border" />
-      <div className="h-3 w-4/5 rounded-sm bg-border" />
+      <div className="h-3 w-full rounded-4 bg-border" />
+      <div className="h-3 w-4/5 rounded-4 bg-border" />
     </div>
   );
 }
@@ -368,7 +372,7 @@ function ReviewerHead({ role, report }: { role: ReviewerRole; report: ReviewRepo
   const recCls = recBorderClasses(rec);
 
   return (
-    <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-background px-5 py-4">
+    <header className="flex items-start justify-between gap-4 rounded-16 border border-border bg-surface-card px-5 py-4">
       {/* 头像 + 名称:名称只剩单行(匿名审稿已去掉专长),用 items-center 让名称与头像垂直居中对齐 */}
       <div className="flex items-center gap-3">
         {/* 头像按该审稿人的推荐结果上色 (绿/黄/红), 跟状态栏 / tab 圆点一致 */}
@@ -378,22 +382,22 @@ function ReviewerHead({ role, report }: { role: ReviewerRole; report: ReviewRepo
             recAvatarClasses(rec),
           )}
         >
-          <span className="font-serif text-lg font-bold">{letter}</span>
+          <span className="font-serif text-16 font-bold">{letter}</span>
         </div>
         {/* 匿名审稿:不展示审稿人专长/领域(只显示 A/B/C),避免泄露选了哪个专科审稿人 */}
-        <p className="text-base font-bold text-foreground">审稿人 {letter}</p>
+        <p className="text-14 font-medium text-foreground">审稿人 {letter}</p>
       </div>
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-end gap-1">
           {/* 分数也按结果上色, 强化"这位审稿人倾向" */}
-          <span className={cn('font-serif text-3xl font-bold', recTextColor(rec))}>
+          <span className={cn('font-serif text-28 font-bold', recTextColor(rec))}>
             {report.score ?? '—'}
           </span>
-          <span className="text-sm text-faint">/ 100</span>
+          <span className="text-12 text-faint">/ 100</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">推荐:</span>
-          <span className={cn('rounded-sm px-2 py-0.5 text-xs font-bold', recCls)}>{recLabel(rec)}</span>
+          <span className="text-12 text-muted-foreground">推荐:</span>
+          <span className={cn('rounded-4 px-2 py-0.5 text-12 font-medium', recCls)}>{recLabel(rec)}</span>
         </div>
       </div>
     </header>
@@ -405,9 +409,9 @@ function ReviewerHead({ role, report }: { role: ReviewerRole; report: ReviewRepo
 function DimensionRing({ report }: { report: ReviewReport }) {
   const dims = report.dimensions ?? [];
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
+    <section className="flex flex-col gap-3 rounded-16 border border-border bg-surface-card px-5 py-4">
       <header className="flex items-center justify-between">
-        <p className="text-base font-bold text-foreground">结构化评分 · 四维度</p>
+        <p className="text-14 font-medium text-foreground">结构化评分 · 四维度</p>
       </header>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {dims.map((d) => (
@@ -420,12 +424,12 @@ function DimensionRing({ report }: { report: ReviewReport }) {
 
 function DimensionCard({ dim }: { dim: DimensionScore }) {
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border bg-surface-1 p-3.5">
+    <div className="flex flex-col gap-2 rounded-12 border border-border bg-surface-1 p-3.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-foreground">{dim.name}</p>
+        <p className="text-12 font-medium text-foreground">{dim.name}</p>
         <GradeRing grade={dim.grade} />
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{dim.comment}</p>
+      <p className="text-12 leading-paragraph text-muted-foreground">{dim.comment}</p>
     </div>
   );
 }
@@ -442,10 +446,10 @@ function GradeRing({ grade }: { grade: string }) {
       className={cn('relative inline-flex size-11 shrink-0 items-center justify-center', gradeTextColor(grade))}
       title={`等级 ${grade}`}
     >
-      <span className="absolute inset-0 rounded-full" style={ringStyle} aria-hidden="true" />
+      <span className="absolute inset-0 rounded-pill" style={ringStyle} aria-hidden="true" />
       {/* 中心挖空成环: 内圆用卡片底色盖住 */}
-      <span className="absolute inset-[3px] rounded-full bg-surface-1" aria-hidden="true" />
-      <span className="relative font-serif text-base font-bold">{grade}</span>
+      <span className="absolute inset-[3px] rounded-pill bg-surface-1" aria-hidden="true" />
+      <span className="relative font-serif text-14 font-bold">{grade}</span>
     </span>
   );
 }
@@ -456,10 +460,10 @@ function CommentsCard({ report }: { report: ReviewReport }) {
   const lineComments = report.lineComments ?? [];
   const macros = report.macroComments ?? [];
   return (
-    <section className="flex flex-col gap-3.5 rounded-md border border-border bg-background px-5 py-4">
+    <section className="flex flex-col gap-3.5 rounded-16 border border-border bg-surface-card px-5 py-4">
       <header className="flex items-center justify-between">
-        <p className="text-base font-bold text-foreground">主观评论与建议</p>
-        <p className="text-xs text-faint">客观评估难免主观, 仅供作者参考</p>
+        <p className="text-14 font-medium text-foreground">主观评论与建议</p>
+        <p className="text-12 text-faint">客观评估难免主观, 仅供作者参考</p>
       </header>
 
       {/* 逐句意见 */}
@@ -486,11 +490,11 @@ function CommentsCard({ report }: { report: ReviewReport }) {
       {report.finalSummaryMd && (
         <>
           <SectionHead barCls="bg-brand-amber" title="综合结论与推荐理由" subtitle="结合上述意见的最终判断" />
-          <div className="flex flex-col gap-2 rounded-md border border-brand-amber/60 bg-background px-4 py-3.5">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-subtle">
+          <div className="flex flex-col gap-2 rounded-12 border border-brand-amber/60 bg-surface-card px-4 py-3.5">
+            <p className="whitespace-pre-wrap text-12 leading-paragraph text-subtle">
               {report.finalSummaryMd}
             </p>
-            <p className="pt-2 text-xs italic text-muted-foreground">
+            <p className="pt-2 text-12 italic text-muted-foreground">
               最终结果由主审在汇总三位审稿人意见后决议。
             </p>
           </div>
@@ -513,10 +517,10 @@ function SectionHead({
 }) {
   return (
     <div className="flex items-center gap-2.5 pt-2">
-      <div className={cn('h-5 w-[3px] rounded-sm', barCls)} />
-      <p className="text-sm font-bold text-foreground">{title}</p>
-      <p className="flex-1 text-xs text-faint">{subtitle}</p>
-      {count != null && <p className="text-xs font-semibold text-faint">{count} 条</p>}
+      <div className={cn('h-5 w-[3px] rounded-4', barCls)} />
+      <p className="text-12 font-medium text-foreground">{title}</p>
+      <p className="flex-1 text-12 text-faint">{subtitle}</p>
+      {count != null && <p className="text-12 font-medium text-faint">{count} 条</p>}
     </div>
   );
 }
@@ -524,20 +528,20 @@ function SectionHead({
 function LineCommentCard({ item }: { item: LineComment }) {
   const sevCls = severityClasses(item.severity);
   return (
-    <div className="flex flex-col gap-2 rounded-sm border border-border bg-surface-1 px-4 py-3">
+    <div className="flex flex-col gap-2 rounded-12 border border-border bg-surface-1 px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs font-bold text-subtle">
+        <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-12 font-medium text-subtle">
           {item.location}
         </span>
-        <span className="rounded-sm bg-surface-2 px-1.5 py-0.5 text-xs text-muted-foreground">
+        <span className="rounded-4 bg-surface-2 px-1.5 py-0.5 text-12 text-muted-foreground">
           {item.dimension}
         </span>
-        <span className={cn('ml-auto rounded-sm px-2 py-0.5 text-xs font-bold', sevCls)}>
+        <span className={cn('ml-auto rounded-4 px-2 py-0.5 text-12 font-medium', sevCls)}>
           {item.severity}
         </span>
       </div>
       {item.quote && (
-        <blockquote className="rounded-sm border-l-2 border-border-strong bg-background px-3 py-2.5 text-sm italic text-subtle">
+        <blockquote className="rounded-8 border-l-2 border-border-strong bg-surface-card px-3 py-2.5 text-12 italic text-subtle">
           {item.quote}
         </blockquote>
       )}
@@ -550,14 +554,14 @@ function LineCommentCard({ item }: { item: LineComment }) {
 
 function MacroCard({ item }: { item: MacroComment }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-sm border border-border bg-surface-1 px-4 py-3">
+    <div className="flex flex-col gap-1.5 rounded-12 border border-border bg-surface-1 px-4 py-3">
       <div className="flex items-center gap-2">
-        <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-xs text-subtle">
+        <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-12 text-subtle">
           {item.aspect}
         </span>
-        <span className="ml-auto text-xs font-semibold text-subtle">{item.stance}</span>
+        <span className="ml-auto text-12 font-medium text-subtle">{item.stance}</span>
       </div>
-      <p className="text-sm leading-relaxed text-subtle">{item.body}</p>
+      <p className="text-12 leading-paragraph text-subtle">{item.body}</p>
     </div>
   );
 }
@@ -565,10 +569,10 @@ function MacroCard({ item }: { item: MacroComment }) {
 function KvRow({ k, v, dim = false }: { k: string; v: string; dim?: boolean }) {
   return (
     <div className="flex gap-2.5">
-      <span className="w-14 shrink-0 text-2xs font-bold tracking-wider text-faint">{k}</span>
+      <span className="w-14 shrink-0 text-12 font-medium text-faint">{k}</span>
       <p
         className={cn(
-          'flex-1 text-sm leading-relaxed',
+          'flex-1 text-12 leading-paragraph',
           dim ? 'text-muted-foreground' : 'text-subtle',
         )}
       >
@@ -597,11 +601,11 @@ function leadingNarration(text: string): string {
 
 function severityClasses(sev: string): string {
   switch (sev) {
-    case '必改':
+    case '必改' :
       return 'bg-danger-soft text-brand-red';
-    case '建议':
+    case '建议' :
       return 'bg-warning-soft text-brand-amber';
-    case '参考':
+    case '参考' :
       return 'bg-surface-2 text-muted-foreground';
     default:
       return 'bg-surface-2 text-muted-foreground';

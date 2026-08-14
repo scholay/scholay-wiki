@@ -100,16 +100,16 @@ export function PaperActionRow({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center flex-wrap gap-x-3 gap-y-2 text-sm">
+      <div className="flex items-center flex-wrap gap-x-3 gap-y-2 text-12">
         {actions.map((a, idx) => {
           const Icon = a.icon;
           const inner = (
             <span
               className={cn(
-                'inline-flex items-center gap-1.5 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 text-12 transition-colors',
                 a.primary
-                  ? 'font-bold text-foreground hover:text-brand-red'
-                  : 'font-medium text-foreground hover:text-brand-red',
+                  ? 'font-medium text-foreground hover:text-brand-red'
+                  : 'font-normal text-subtle hover:text-brand-red',
                 a.loading && 'opacity-70 cursor-not-allowed'
               )}
             >

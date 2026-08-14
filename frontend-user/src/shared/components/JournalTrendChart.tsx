@@ -8,11 +8,12 @@ import {
   YAxis,
 } from 'recharts';
 import { cn } from '@/shared/lib/utils';
+import { chartTheme } from '@/shared/lib/theme-bridge';
 import type { JournalFullDetail } from '@/shared/api/types';
 import { useJournalFullDetail } from '@/shared/api/journals';
 
 const LINE_COLOR = 'var(--color-brand-green)';
-const AXIS_COLOR = 'var(--color-faint)';
+const AXIS_COLOR = chartTheme.axis;
 
 /** 趋势图最多取最近几年(设计稿口径"近五年",给到 6 留余量) */
 const MAX_YEARS = 6;
@@ -97,15 +98,15 @@ export const JournalTrendChart = memo(function JournalTrendChart({
 
   if (detailQ.isLoading || !detailQ.data) {
     return (
-      <div className="h-44 shrink-0 animate-pulse rounded-md border border-border bg-surface-1" />
+      <div className="h-44 shrink-0 animate-pulse rounded-16 border border-border bg-surface-1" />
     );
   }
   if (available.length === 0) return null;
 
   return (
-    <section className="shrink-0 rounded-md border border-border bg-background p-3">
+    <section className="shrink-0 rounded-16 border border-border bg-surface-card p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">近年趋势</span>
+        <span className="text-14 font-medium text-foreground">近年趋势</span>
         <div className="flex gap-1">
           {available.map((m) => (
             <button
@@ -113,9 +114,9 @@ export const JournalTrendChart = memo(function JournalTrendChart({
               type="button"
               onClick={() => setMetric(m.key)}
               className={cn(
-                'rounded-pill px-2 py-0.5 text-2xs transition-colors',
+                'rounded-pill px-2 py-0.5 text-12 transition-colors',
                 effectiveMetric === m.key
-                  ? 'bg-foreground font-medium text-white'
+                  ? 'bg-foreground font-medium text-on-brand'
                   : 'bg-surface-2 text-muted-foreground'
               )}
             >
@@ -136,18 +137,17 @@ export const JournalTrendChart = memo(function JournalTrendChart({
               dataKey="year"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 10, fill: AXIS_COLOR }}
+              tick={{ fontSize: chartTheme.fontSize, fill: AXIS_COLOR }}
               interval="preserveStartEnd"
             />
             <YAxis hide domain={['auto', 'auto']} />
             <Tooltip
               formatter={(v) => [formatValue(Number(v)), '']}
               labelFormatter={(year) => `${year} 年`}
-              contentStyle={{
-                fontSize: 12,
-                borderRadius: 6,
-                border: '1px solid var(--color-border)',
-              }}
+              /* 原先只设了 border,底色吃 recharts 内建默认值。收口到 chartTheme.tooltip
+               * (白底 + border + rounded-12 + shadow-overlay,与 shared/ui/popover 同口径)。
+               * 注意这不是零视觉变化:另外几个图表的 tooltip 底色由米白改成了白。 */
+              contentStyle={chartTheme.tooltip}
               separator=""
             />
             <Line
@@ -160,7 +160,7 @@ export const JournalTrendChart = memo(function JournalTrendChart({
               isAnimationActive={false}
               label={{
                 position: 'top',
-                fontSize: 9,
+                fontSize: chartTheme.fontSize,
                 fill: AXIS_COLOR,
                 formatter: (v: unknown) =>
                   typeof v === 'number' ? formatValue(v) : String(v ?? ''),

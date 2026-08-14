@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, PanelLeft, SquarePen } from 'lucide-react';
+import { FolderArchive, Loader2, PanelLeft, SquarePen } from 'lucide-react';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { ResourceError } from '@/shared/components/ResourceError';
+import { Button } from '@/shared/ui/button';
 import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useHeightVar } from '@/shared/hooks';
@@ -16,7 +17,8 @@ import { ChatComposer, type ChatComposerHandle } from '../../components/chat/Cha
 import { useUserSkillsByGuide } from '@/shared/api/skills';
 import { MessageTurn } from '../../components/chat/MessageTurn';
 import { type ClawArtifact } from '../../api/artifacts';
-import { ClawArtifactPreview } from '../../components/preview/ClawArtifactPreview';
+import { ClawArtifactPanel } from '../../components/preview/ClawArtifactPanel';
+import { resolveArtifactSurface } from '../../lib/artifact-surface';
 import { ScrollController } from '../../components/chat/ScrollController';
 import { ClawEmptyState } from '../../components/chat/ClawEmptyState';
 import { MobileClawDrawer } from '../../components/chat/MobileClawDrawer';
@@ -85,7 +87,8 @@ export function MobileClawPage() {
  *
  * 交互对齐主流聊天助手(ChatGPT / DeepSeek / Claude):**不设独立顶栏**,改成对话区上方两枚
  * 悬浮按钮 —— 左「历史对话」(开左侧抽屉:新对话 + 按日期分组的历史 + 重命名/删除)、右「新对话」;
- * 连接状态做成中间的自隐小徽章。成果预览仍走底部整屏 Sheet。
+ * 连接状态做成中间的自隐小徽章。会话有产物时右侧再多一颗带计数的「扩展区」——
+ * 开整屏 Sheet,内容是与桌面同一个 ClawArtifactPanel(产物列表 + 预览)。
  */
 function MobileClawWorkspace({
   seed,
@@ -163,6 +166,29 @@ function MobileClawWorkspace({
       />
     ) : null;
   const [previewArtifact, setPreviewArtifact] = useState<ClawArtifact | null>(null);
+  /**
+   * 扩展区(会话产物)入口 —— 2026-08-07 补。此前移动端**只有**「对话流里的文件卡 → 单文件预览」
+   * 一条路:会话一长文件卡被渲染窗口裁掉、或刷新后卡片滚出视野,agent 产出的文件就再也找不到了。
+   * 现在悬浮条上多一颗带计数的按钮,开同一个 `ClawArtifactPanel`(列表 + 预览,与桌面同构)。
+   */
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
+  const artifactCount = sessionArtifacts?.length ?? 0;
+  const artifactSurface = resolveArtifactSurface({
+    isNarrow: true, // 移动端路由恒窄屏
+    open: artifactsOpen,
+    hasPreview: !!previewArtifact,
+  });
+  const closeArtifacts = useCallback(() => {
+    setArtifactsOpen(false);
+    setPreviewArtifact(null);
+  }, []);
+  /** 从对话流的文件卡进预览:必须**同时**把扩展区标记为打开。
+   *  否则面板内点「← 返回列表」时 open=false && hasPreview=false → Sheet 整个关掉,
+   *  用户以为自己按的是「返回」,结果是「退出」。 */
+  const openArtifactPreview = useCallback((a: ClawArtifact) => {
+    setPreviewArtifact(a);
+    setArtifactsOpen(true);
+  }, []);
   // 空白态点示例卡片 → 调 composer.prefill 把提示词填进底部输入框(可改后再发)。
   const composerRef = useRef<ChatComposerHandle>(null);
 
@@ -196,27 +222,44 @@ function MobileClawWorkspace({
       <div ref={chatAreaRef} className="relative min-h-0 flex-1">
         {/* 悬浮控制条(无独立顶栏):左=历史抽屉,中=连接状态(自隐),右=新对话。
             顶部渐隐让图标在滚动内容上也清晰;容器 pointer-events-none、仅按钮可点,不挡滚动。 */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 bg-gradient-to-b from-background via-background/85 to-transparent px-2 pb-5 pt-2">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-sticky flex items-center justify-between gap-2 bg-gradient-to-b from-background via-background/85 to-transparent px-2 pb-5 pt-2">
           <button
             type="button"
             aria-label="历史对话"
             onClick={() => setDrawerOpen(true)}
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-full text-foreground active:bg-surface-2"
+            className="pointer-events-auto flex size-9 items-center justify-center rounded-pill text-foreground active:bg-surface-2"
           >
             <PanelLeft className="size-5" />
           </button>
           {/* 连接状态徽章已移除:连接/重连过程对用户无意义,不展示。 */}
-          <button
-            type="button"
-            aria-label="新对话"
-            onClick={onNewConversation}
-            disabled={sessionId === null}
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-full text-foreground active:bg-surface-2 disabled:opacity-40"
-          >
-            {/* 摘掉 busy 门控(线上卡死修复):这是移动端唯一的新对话入口,busy 卡死时不能把
-                用户唯一逃生口也锁死;回答会在后台(hub grace)继续,开新对话与之零冲突。 */}
-            <SquarePen className="size-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* 扩展区入口 —— **只在真有产物时出现**,与桌面「空态也能手动打开」刻意不同:
+                桌面那颗坐在一条常驻工具栏里,多一颗按钮几乎无成本;移动端这条是浮在对话内容
+                之上的两枚图标,常驻一颗「点开是空的」按钮是纯噪音,还挤掉本就紧张的横向空间。
+                产物只会在 AI 产出后出现,计数 >0 即入口出现,发现成本已经足够低。 */}
+            {artifactCount > 0 && (
+              <button
+                type="button"
+                aria-label={`扩展区,${artifactCount} 个文件`}
+                onClick={() => setArtifactsOpen(true)}
+                className="pointer-events-auto flex h-9 items-center gap-1 rounded-pill px-2.5 text-foreground active:bg-surface-2"
+              >
+                <FolderArchive className="size-5 text-brand-green" />
+                <span className="text-12 tabular-nums text-subtle">{artifactCount}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="新对话"
+              onClick={onNewConversation}
+              disabled={sessionId === null}
+              className="pointer-events-auto flex size-9 items-center justify-center rounded-pill text-foreground active:bg-surface-2 disabled:opacity-40"
+            >
+              {/* 摘掉 busy 门控(线上卡死修复):这是移动端唯一的新对话入口,busy 卡死时不能把
+                  用户唯一逃生口也锁死;回答会在后台(hub grace)继续,开新对话与之零冲突。 */}
+              <SquarePen className="size-5" />
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -244,15 +287,16 @@ function MobileClawWorkspace({
             <StickToBottom.Content className="flex w-full flex-col gap-4 px-3.5 pt-14 pb-[calc(var(--chat-area-h,100dvh)*0.3)]">
               {(hiddenCount > 0 || historyHasMore) && (
                 <div className="flex justify-center">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={conv.loadEarlier}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-pill bg-surface-2 px-3.5 text-xs text-muted-foreground transition-colors active:bg-surface-2/70"
+                    className="px-3.5 font-normal text-muted-foreground active:bg-surface-2/70"
                   >
                     {hiddenCount > 0
                       ? `加载更早的 ${hiddenCount} 轮对话`
                       : '加载更早的对话'}
-                  </button>
+                  </Button>
                 </div>
               )}
               {visibleTurns.map((t, i) => (
@@ -262,9 +306,7 @@ function MobileClawWorkspace({
                   artifacts={sessionArtifacts}
                   sessionId={sessionId}
                   userSkillsByGuide={userSkillsByGuide}
-                  onPreview={setPreviewArtifact}
-                  onResendBlocked={conv.resendBlocked}
-                  onDismissBlocked={conv.dismissBlocked}
+                  onPreview={openArtifactPreview}
                   // 失败轮「重试」只对最后一轮成立(与桌面同构;hook 内守卫 !busy)。
                   onRetryTurn={i === visibleTurns.length - 1 ? conv.handleRetryTurn : undefined}
                 />
@@ -285,6 +327,12 @@ function MobileClawWorkspace({
         )}
         <ChatComposer
           ref={composerRef}
+          quotaBlocked={
+            visibleTurns.some((t) => t.blocked)
+              ? { onResend: conv.resendBlocked, onDismiss: conv.dismissBlocked }
+              : null
+          }
+          quotaWarn={visibleTurns.length > 0}
           disabled={composerDisabled}
           // 视觉门控:非视觉模型禁图片上传(对齐桌面 ConversationWorkspace;审计 P2-1 移动端漏传补齐)。
           acceptImages={modelSupportsVision(userModels, selectorCurrent)}
@@ -321,21 +369,23 @@ function MobileClawWorkspace({
         }}
       />
 
-      {/* 成果预览(桌面分栏的移动版:整屏 Sheet) */}
+      {/* 扩展区(桌面右侧分栏的移动版:整屏 Sheet)——
+          内容复用 `ClawArtifactPanel`,列表态 / 预览态 /「← 返回列表」/ 空态全部与桌面同构。
+          此前这里只挂 `ClawArtifactPreview`(单文件),所以移动端根本没有产物**列表**。 */}
       <Sheet
-        open={!!previewArtifact}
+        open={artifactSurface === 'sheet'}
         onOpenChange={(o) => {
-          if (!o) setPreviewArtifact(null);
+          if (!o) closeArtifacts();
         }}
       >
         <SheetContent className="w-full p-0 sm:max-w-xl">
-          {previewArtifact && (
-            <ClawArtifactPreview
-              artifact={previewArtifact}
-              onClose={() => setPreviewArtifact(null)}
-              hideHeaderClose
-            />
-          )}
+          <ClawArtifactPanel
+            sessionId={sessionId ?? ''}
+            artifacts={sessionArtifacts ?? []}
+            previewArtifact={previewArtifact}
+            onPreview={openArtifactPreview}
+            onClosePreview={() => setPreviewArtifact(null)}
+          />
         </SheetContent>
       </Sheet>
     </div>

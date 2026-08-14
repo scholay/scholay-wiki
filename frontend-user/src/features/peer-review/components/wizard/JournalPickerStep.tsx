@@ -1,24 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Check, Search, Loader2, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { Input } from '@/shared/ui/input';
-import { Button } from '@/shared/ui/button';
-import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
-import { useDebounce } from '@/shared/hooks';
-import { useJournalSearch } from '@/features/journals/api/journals';
-import { cn } from '@/shared/lib/utils';
-import type { JournalTarget } from '../../types';
-import type { Journal } from '@/shared/api/types';
+import { useEffect, useState } from'react';
+import { Check, Search, Loader2, X } from'lucide-react';
+import { toast } from'sonner';
+import { Input } from'@/shared/ui/input';
+import { Button } from'@/shared/ui/button';
+import { PaginationPrevNext } from'@/shared/components/PaginationPrevNext';
+import { useDebounce } from'@/shared/hooks';
+import { useJournalSearch } from'@/features/journals/api/journals';
+import { cn } from'@/shared/lib/utils';
+import type { JournalTarget } from'@/shared/lib/peer-review/types';
+import type { Journal } from'@/shared/api/types';
 
 /**
- * Step2 期刊选择(.pen `AwRED`) —— 复用 /public/journals/search 走真期刊库。
+ * Step2 期刊选择(.pen`AwRED`) —— 复用 /public/journals/search 走真期刊库。
  *
  * 设计要点:
- *   - 顶部头:标题 "选择投递期刊" + 副标题 + 右上 outlined "自定义期刊"(预留)
- *   - 搜索框 (#FAFAFA 灰底) + 排序按钮(预留)
- *   - 结果列表(固定上限高度 + 内部滚动,最多 10 条)
- *   - 每条期刊卡:左侧 44×44 logo box,中间名称 + publisher/issn + IF/Quartile/CCF 标签,右侧"✓ 已选" / "选择"
- *   - 单选 / **可取消(再次点击)**,允许空选状态
+ * - 顶部头:标题"选择投递期刊"+ 副标题 + 右上 outlined"自定义期刊"(预留)
+ * - 搜索框 (#FAFAFA 灰底) + 排序按钮(预留)
+ * - 结果列表(固定上限高度 + 内部滚动,最多 10 条)
+ * - 每条期刊卡:左侧 44×44 logo box,中间名称 + publisher/issn + IF/Quartile/CCF 标签,右侧"✓ 已选"/"选择"* - 单选 / **可取消(再次点击)**,允许空选状态
  */
 export interface JournalPickerStepProps {
   value: JournalTarget | undefined;
@@ -52,7 +51,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
   }
 
   // 不传 sortBy → 后端按**相关度**排序 (与期刊搜索页 relevance 默认一致);
-  // 之前硬传 jcr_impact_factor 会把相关度盖成"IF 倒序", 导致搜 "Psychology" 排在前面的
+  // 之前硬传 jcr_impact_factor 会把相关度盖成"IF 倒序", 导致搜"Psychology"排在前面的
   // 反而是 IF 最高但不一定最贴题的刊。
   const { data, isFetching } = useJournalSearch({
     keyword: hasQuery ? debouncedKeyword : undefined,
@@ -63,23 +62,19 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
   const items = hasQuery ? (data?.items ?? []) : [];
 
   return (
-    <section className="rounded-lg border border-border bg-background p-6">
+    <section className="rounded-16 border border-border bg-surface-card p-6">
       <header className="mb-4 flex items-end justify-between">
         <div>
-          <h2 className="text-base font-bold text-foreground">选择目标期刊</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <h2 className="text-14 font-medium text-foreground">选择目标期刊</h2>
+          <p className="mt-1 text-12 text-muted-foreground">
             选填。选了 AI 审稿口吻会贴合这本期刊;不选也可以,走通用 STM 模板
           </p>
         </div>
         <button
-          type="button"
-          onClick={() => setCustomOpen((v) => !v)}
-          className={cn(
-            'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs transition',
+          type="button" onClick={() => setCustomOpen((v) => !v)}
+          className={cn('inline-flex h-8 items-center gap-1 rounded-8 border px-3 text-12 transition',
             customOpen
-              ? 'border-brand-red bg-danger-soft text-brand-red'
-              : 'border-border-button bg-background text-subtle hover:border-foreground hover:text-foreground'
-          )}
+              ? 'border-brand-red bg-danger-soft text-brand-red' : 'border-border-button bg-surface-card text-subtle hover:border-foreground hover:text-foreground')}
         >
           + 自定义期刊
         </button>
@@ -94,34 +89,30 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
 
       {/* 搜索框 */}
       <div className="relative mb-3">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint"/>
         <Input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="搜索期刊名、ISSN 或学科…"
-          className="h-10 bg-surface-1 pl-9"
-        />
+          placeholder="搜索期刊名、ISSN 或学科…" className="h-10 bg-surface-1 pl-9"/>
         {isFetching && (
-          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-faint" />
+          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-faint"/>
         )}
       </div>
 
       {/* 当前选中提示行(同时给"取消选择"入口) */}
       {value && (
-        <div className="mb-3 flex items-center justify-between rounded-md border border-brand-red/40 bg-danger-soft px-3 py-2">
-          <span className="text-xs text-subtle">
-            已选:<span className="font-bold text-brand-red">{value.canonicalName}</span>
+        <div className="mb-3 flex items-center justify-between rounded-12 border border-brand-red/40 bg-danger-soft px-3 py-2">
+          <span className="text-12 text-subtle">
+            已选:<span className="font-medium text-brand-red">{value.canonicalName}</span>
             {value.journalId <= 0 && (
-              <span className="ml-2 rounded-pill bg-background px-2 py-0.5 text-2xs text-muted-foreground">
+              <span className="ml-2 rounded-pill bg-surface-card px-2 py-0.5 text-12 text-muted-foreground">
                 自定义
               </span>
             )}
           </span>
           <button
-            type="button"
-            onClick={() => onChange(undefined)}
-            className="text-xs font-bold text-brand-red hover:text-brand-red/80"
-          >
+            type="button" onClick={() => onChange(undefined)}
+            className="text-12 font-medium text-brand-red hover:text-brand-red/80">
             取消选择
           </button>
         </div>
@@ -130,12 +121,12 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
       {/* 结果区:固定上限高度 + 内部滚动 */}
       <div className="max-h-96 overflow-y-auto pr-1">
         {!hasQuery && (
-          <p className="rounded-md border border-dashed border-border bg-surface-1 py-10 text-center text-sm text-muted-foreground">
+          <p className="rounded-12 border border-dashed border-border bg-surface-1 py-10 text-center text-12 text-muted-foreground">
             输入关键词开始搜索 · 不选期刊也能继续
           </p>
         )}
         {hasQuery && items.length === 0 && !isFetching && (
-          <p className="rounded-md border border-dashed border-border bg-surface-1 py-10 text-center text-sm text-muted-foreground">
+          <p className="rounded-12 border border-dashed border-border bg-surface-1 py-10 text-center text-12 text-muted-foreground">
             没找到匹配的期刊,换个关键词试试 · 也可以点右上「+ 自定义期刊」
           </p>
         )}
@@ -179,14 +170,13 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
           onPageChange={setPage}
           hasMore={data?.has_more}
           disabled={isFetching}
-          className="pt-1"
-        />
+          className="pt-1"/>
       )}
     </section>
   );
 }
 
-// ─── 期刊卡 (.pen `nrpuw` selected / `q3e9k` unselected) ─────────────────
+// ─── 期刊卡 (.pen`nrpuw`selected /`q3e9k`unselected) ─────────────────
 
 function JournalCard({
   j,
@@ -203,8 +193,7 @@ function JournalCard({
 
   return (
     <article
-      role="button"
-      tabIndex={0}
+      role="button" tabIndex={0}
       aria-pressed={selected}
       onClick={onToggle}
       onKeyDown={(e) => {
@@ -215,8 +204,7 @@ function JournalCard({
       }}
       className={cn(
         // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨
-        'cursor-pointer rounded-md border bg-background p-3.5 text-left outline-none transition',
-        'focus-visible:ring-2 focus-visible:ring-brand-red/40',
+        'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left transition',
         selected
           ? 'border-brand-red bg-danger-soft ring-1 ring-brand-red'
           : 'border-border hover:border-brand-red/50 hover:bg-surface-1'
@@ -224,16 +212,15 @@ function JournalCard({
     >
       <header className="flex items-start gap-3">
         <span
-          className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-md text-base font-bold text-background',
+          className={cn('flex size-11 shrink-0 items-center justify-center rounded-8 text-14 font-medium text-on-dark',
             logoBg
           )}
         >
           {initial}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-1 text-sm font-bold text-foreground">{j.canonical_name}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <h3 className="line-clamp-1 text-14 font-medium text-foreground">{j.canonical_name}</h3>
+          <p className="mt-1 text-12 text-muted-foreground">
             {j.publisher ?? '—'}
             {j.is_oa && ' · Open Access'}
             {j.issns?.[0] && ` · ISSN ${j.issns[0]}`}
@@ -241,22 +228,22 @@ function JournalCard({
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {j.fqb_quartile && (
-            <span className="rounded-sm bg-danger-soft px-2 py-0.5 text-2xs font-bold text-brand-red">
+            <span className="rounded-4 bg-danger-soft px-2 py-0.5 text-12 font-medium text-brand-red">
               中科院 {j.fqb_quartile} 区
             </span>
           )}
           {j.jcr_quartile && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-12 font-medium text-subtle">
               JCR {j.jcr_quartile}
             </span>
           )}
           {j.jcr_impact_factor != null && (
-            <span className="rounded-sm border border-border-strong px-2 py-0.5 text-2xs font-bold text-foreground">
+            <span className="rounded-4 border border-border-strong px-2 py-0.5 text-12 font-medium text-foreground">
               IF {j.jcr_impact_factor.toFixed(1)}
             </span>
           )}
           {j.ccf_rank && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-12 font-medium text-subtle">
               CCF {j.ccf_rank}
             </span>
           )}
@@ -264,39 +251,35 @@ function JournalCard({
       </header>
 
       <footer className="mt-3 flex items-center justify-between gap-3 border-t border-border-soft pt-3">
-        <div className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-12 text-muted-foreground">
           <span>投稿要求:</span>
           {j.is_oa && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-subtle">
               Open Access
             </span>
           )}
           {j.openalex_h_index != null && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-subtle">
               h-index {j.openalex_h_index}
             </span>
           )}
           {j.country && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-subtle">
               {j.country}
             </span>
           )}
         </div>
         {/* 选中态指示 —— 整卡已可点选, 这里只作状态标识 (不再单独是按钮) */}
         <span
-          className={cn(
-            'inline-flex shrink-0 items-center gap-1 text-xs font-bold',
-            selected ? 'text-brand-red' : 'text-muted-foreground'
-          )}
+          className={cn('inline-flex shrink-0 items-center gap-1 text-12 font-medium',
+            selected ? 'text-brand-red' : 'text-muted-foreground')}
         >
           {selected ? (
             <>
               <Check className="size-3" strokeWidth={3} />
               已选
             </>
-          ) : (
-            '点击选择'
-          )}
+          ) : ('点击选择')}
         </span>
       </footer>
     </article>
@@ -321,18 +304,15 @@ function CustomJournalForm({
   const invalid = trimmed.length === 0 || trimmed.length > 250;
 
   return (
-    <div className="mb-3 rounded-lg border border-brand-red/40 bg-surface-1 p-4">
+    <div className="mb-3 rounded-12 border border-brand-red/40 bg-surface-1 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-bold text-foreground">
+        <p className="text-12 font-medium text-foreground">
           自定义期刊 <span className="ml-1 text-muted-foreground">(只填一个名字就行)</span>
         </p>
         <button
-          type="button"
-          onClick={onCancel}
-          className="text-faint hover:text-foreground"
-          aria-label="取消"
-        >
-          <X className="size-3.5" />
+          type="button" onClick={onCancel}
+          className="text-faint hover:text-foreground" aria-label="取消">
+          <X className="size-3.5"/>
         </button>
       </div>
       <div className="flex gap-2">
@@ -340,43 +320,56 @@ function CustomJournalForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !invalid) {
+            if (e.key ==='Enter'&& !invalid) {
               e.preventDefault();
               onSubmit(name);
             }
-            if (e.key === 'Escape') onCancel();
+            if (e.key ==='Escape') onCancel();
           }}
           autoFocus
-          placeholder="例:Journal of My Special Field"
-          maxLength={250}
-          className="h-9"
-        />
+          placeholder="例:Journal of My Special Field" maxLength={250}
+          className="h-9"/>
         <Button
-          size="sm"
-          variant="default"
-          disabled={invalid}
+          size="sm" variant="default" disabled={invalid}
           onClick={() => onSubmit(name)}
-          className="h-9 bg-brand-red text-background hover:bg-brand-red/90 disabled:opacity-40"
-        >
+          className="h-9 bg-brand-red text-on-brand hover:bg-brand-red/90 disabled:opacity-40">
           确认
         </Button>
       </div>
-      <p className="mt-2 text-2xs text-muted-foreground">
+      <p className="mt-2 text-12 text-muted-foreground">
         AI 审稿时会贴合这本期刊的口吻 · {trimmed.length} / 250
       </p>
     </div>
   );
 }
 
-// 简单根据首字母分配 logo 颜色 — 不严格,只让视觉有区分度
+// 简单根据首字母分配 logo 颜色 — 不严格,只让视觉有区分度。
+// 遗留债已还:原来的 6 个硬编码 hex 全部迁到分类色族 —— globals.css §7 建这一族时
+// 就点名要收编 `JournalPickerStep.colorForInitial(6)`,这里补上最后一处。
+//
+// 前景固定 text-on-dark (#E6E6F2),每个底色都实算过 WCAG AA(要求 ≥4.5:1):
+//   N bg-cat-8    #383840  9.38:1   S bg-cat-1    #4D1616  11.77:1
+//   I bg-cat-blue #2E5AA8  5.40:1   P bg-cat-3    #1F331B  10.96:1
+//   A bg-cat-4    #2F4D29  7.66:1   J bg-cat-5    #664B00  6.60:1
+//   兜底 bg-foreground #1F1F23 13.27:1
+// 全部通过。(旧的 6 个硬编码 hex 配的是当时的 text-background #F6F4EE,实算 4.88~15.82 也都过线,
+//  所以这批换色不是在修对比度事故,是在还 token 债 + 跟随新色阶整体压深。)
+// ⚠️ 不是零视觉变化:A 原来是 #2A7A2A —— 那是**旧**品牌绿,新色阶已把它压到 #2F4D29(= cat-4
+// = 新 --brand-green),所以 A 会明显变深,属预期。取 cat-4 而不直接写 bg-brand-green,是因为
+// 分类色不该借品牌色 —— 会让用户误以为「绿封面有语义」。
+//
+// 选档理由:分类色只有 红/绿/琥珀/玄墨 四色阶 + 一个分类蓝(见 globals.css §7 的规范缺口说明),
+// 6 个槽必然有一对同色相,故挑同色相里明度差最大的一对 —— 松青 cat-3/cat-4 相互 1.43:1,
+// 优于玄墨对 1.41、琥珀对 1.37、朱砂对 1.23。N 取 cat-8 而非 cat-7,是为了和兜底的
+// bg-foreground(与 cat-7 同值)拉开 1.41:1,否则「N」和「查无此档」会长得一模一样。
 function colorForInitial(c: string): string {
   const map: Record<string, string> = {
-    N: 'bg-[#1A1A1A]',
-    S: 'bg-[#B22234]',
-    I: 'bg-[#003E7E]',
-    P: 'bg-[#5A4FCF]',
-    A: 'bg-[#2A7A2A]',
-    J: 'bg-[#8B5A2B]',
+    N: 'bg-cat-8',
+    S: 'bg-cat-1',
+    I: 'bg-cat-blue',
+    P: 'bg-cat-3',
+    A: 'bg-cat-4',
+    J: 'bg-cat-5',
   };
   return map[c] ?? 'bg-foreground';
 }

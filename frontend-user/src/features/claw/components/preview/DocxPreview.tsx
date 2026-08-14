@@ -32,14 +32,14 @@ export function DocxPreview({ bytes }: { bytes: ArrayBuffer }) {
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center px-6 text-12 text-muted-foreground">
         无法解析 Word 文档
       </div>
     );
   }
   if (html === null) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center gap-2 text-12 text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
         正在解析文档…
       </div>
@@ -50,7 +50,7 @@ export function DocxPreview({ bytes }: { bytes: ArrayBuffer }) {
       // docx 转出的 HTML 已 DOMPurify 消毒;space-y 给段落/标题基础行距(无 prose 插件)。
       // h-full overflow-auto:多页 Word 在父级 overflow-hidden 下需自带滚动容器(其余预览分支都有,docx 曾漏)。
       // 内嵌图 / 宽表加约束防窄屏横向溢出。
-      className="h-full space-y-2.5 overflow-auto px-5 py-4 text-sm leading-relaxed text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_img]:h-auto [&_img]:max-w-full [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1"
+      className="h-full space-y-2.5 overflow-auto px-5 py-4 text-12 leading-paragraph text-foreground [&_h1]:text-16 [&_h1]:font-medium [&_h2]:text-14 [&_h2]:font-medium [&_img]:h-auto [&_img]:max-w-full [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

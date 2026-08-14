@@ -1,4 +1,5 @@
 import { Mail, Briefcase, QrCode } from 'lucide-react';
+import { useSiteSupportEmail } from '@/shared/api/public-config';
 import { useSupportContact } from '../api/contact';
 
 /**
@@ -9,12 +10,13 @@ import { useSupportContact } from '../api/contact';
  * 与 ContactPage 的大渠道卡同源数据,这里走轻量竖排版,适合放表单侧栏。
  */
 
-// 后台未配置时的回落支持邮箱(与 ContactPage 一致,保证页面永远有个兜底联系方式)。
-const FALLBACK_SUPPORT_EMAIL = 'support@scholay.com';
-
 export function ContactChannels({ className }: { className?: string }) {
   const { data } = useSupportContact();
-  const supportEmail = data?.support_email || FALLBACK_SUPPORT_EMAIL;
+  // 取值顺序:后台客服中心 → 本环境 SUPPORT_EMAIL(经 /config/system 下发)→ 空。
+  // 🔴 最后一档以前是写死的 `*@<品牌域>`。而这个兜底只在「后台没配」时生效 ——
+  // 恰恰是任何全新环境的必然状态,于是每套新环境都会展示另一个站点的真实客服邮箱。
+  const siteSupportEmail = useSiteSupportEmail();
+  const supportEmail = data?.support_email || siteSupportEmail;
   const businessEmail = data?.business_email || '';
   const note = data?.contact_note || '';
   const qrs = [
@@ -23,14 +25,16 @@ export function ContactChannels({ className }: { className?: string }) {
   ].filter((q): q is { title: string; src: string } => !!q.src);
 
   return (
-    <section className={'rounded-lg border border-border-soft bg-background p-5 ' + (className ?? '')}>
-      <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-foreground">
+    <section className={'rounded-12 border border-border-soft bg-surface-card p-5 ' + (className ?? '')}>
+      <h2 className="mb-3 inline-flex items-center gap-2 text-14 font-medium text-foreground">
         <Mail className="size-4 text-brand-red" strokeWidth={2.2} />
         其他联系方式
       </h2>
 
       <div className="flex flex-col gap-2">
-        <EmailRow icon={<Mail className="size-3.5" />} label="产品支持" email={supportEmail} />
+        {supportEmail && (
+          <EmailRow icon={<Mail className="size-3.5" />} label="产品支持" email={supportEmail} />
+        )}
         {businessEmail && (
           <EmailRow icon={<Briefcase className="size-3.5" />} label="商务合作" email={businessEmail} />
         )}
@@ -38,7 +42,7 @@ export function ContactChannels({ className }: { className?: string }) {
 
       {qrs.length > 0 && (
         <div className="mt-4">
-          <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-medium text-faint">
+          <p className="mb-2 inline-flex items-center gap-1.5 text-12 font-medium text-faint">
             <QrCode className="size-3" />
             扫码联系
           </p>
@@ -48,16 +52,16 @@ export function ContactChannels({ className }: { className?: string }) {
                 <img
                   src={q.src}
                   alt={`${q.title}二维码`}
-                  className="size-24 rounded-sm border border-border object-contain"
+                  className="size-24 rounded-8 border border-border object-contain"
                 />
-                <figcaption className="text-2xs text-faint">{q.title}</figcaption>
+                <figcaption className="text-12 text-faint">{q.title}</figcaption>
               </figure>
             ))}
           </div>
         </div>
       )}
 
-      {note && <p className="mt-3 text-2xs leading-relaxed text-muted-foreground">{note}</p>}
+      {note && <p className="mt-3 text-12 leading-paragraph text-muted-foreground">{note}</p>}
     </section>
   );
 }
@@ -66,14 +70,14 @@ function EmailRow({ icon, label, email }: { icon: React.ReactNode; label: string
   return (
     <a
       href={`mailto:${email}`}
-      className="group flex items-center gap-2.5 rounded-md border border-border-soft bg-surface-1 px-3 py-2 transition-colors hover:border-foreground/30 hover:bg-surface-2"
+      className="group flex items-center gap-2.5 rounded-8 border border-border-soft bg-surface-1 px-3 py-2 transition-colors hover:border-foreground/30 hover:bg-surface-2"
     >
-      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm bg-background text-subtle group-hover:text-brand-red">
+      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-4 bg-surface-card text-subtle group-hover:text-brand-red">
         {icon}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="text-2xs text-faint">{label}</span>
-        <span className="truncate text-xs font-medium text-subtle group-hover:text-foreground">{email}</span>
+        <span className="text-12 text-faint">{label}</span>
+        <span className="truncate text-12 font-medium text-subtle group-hover:text-foreground">{email}</span>
       </span>
     </a>
   );

@@ -15,11 +15,23 @@ import { useRedeemPreview, useRedeemCode, type CodePreview, type Tier } from '..
 // 会员等级展示名全站统一:Free / Pro / Max(不用「免费套餐 / Pro 套餐」等变体)。
 const TIER_NAME: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 
+// 授予时长单位的中文名(0110)—— 后端 vip.GrantUnitLabel 的前端镜像。
+// 未知 / 缺省一律回落「天」,与后端 vip.NormGrantUnit 同一口径:存量兑换码的
+// grant_unit 是空串,而它们的语义就是天,回落 day 才能让老码的显示保持不变。
+const UNIT_LABEL: Record<string, string> = { day: '天', month: '个月', year: '年' };
+
 function grantContent(pv: CodePreview): string {
   if (pv.grant_kind === 'tier') {
-    return `Scholay ${TIER_NAME[pv.grant_tier ?? 'pro']} · ${pv.grant_days ?? 30} 天`;
+    const tier = `Scholay ${TIER_NAME[pv.grant_tier ?? 'pro']}`;
+    const n = pv.grant_days ?? 0; // grant_days 是**数量**,单位看 grant_unit
+    // 🔴 这一行是用户点「确认兑换」前看到的**唯一时长承诺**,两条都不能省:
+    //  ① 必须带 grant_unit —— 否则「1 个月」的码会显示成「1 天」;
+    //  ② 数量缺失时**不编数字** —— 旧代码的 `?? 30` 会把字段缺失渲染成「30 天」,
+    //     那是凭空造出来的承诺;宁可只显示等级,让用户看不到假时长。
+    return n > 0 ? `${tier} · ${n} ${UNIT_LABEL[pv.grant_unit ?? 'day'] ?? '天'}` : tier;
   }
-  return `${pv.grant_credits ?? 0} ${pv.credit_kind === 'perm' ? '永久' : '临时'}科研经费`;
+  // 0090:经费不再分临时/永久,对外统一叫「科研经费」(credit_kind 仅协议兼容保留,不渲染)。
+  return `${pv.grant_credits ?? 0} 科研经费`;
 }
 
 export interface RedeemConfirmDialogProps {
@@ -54,7 +66,7 @@ export function RedeemConfirmDialog({ code, open, onOpenChange, onRedeemed }: Re
       if (res.kind === 'tier') {
         toast.success(`兑换成功!${TIER_NAME[res.tier ?? 'pro']}有效期至 ${res.expires_at?.slice(0, 10)}`);
       } else {
-        toast.success(`兑换成功!到账 ${res.credits} ${res.credit_kind === 'perm' ? '永久' : '临时'}经费`);
+        toast.success(`兑换成功!到账 ${res.credits} 经费`);
       }
       onRedeemed?.();
       onOpenChange(false);
@@ -72,12 +84,12 @@ export function RedeemConfirmDialog({ code, open, onOpenChange, onRedeemed }: Re
         {/* a11y:Radix 要求 DialogTitle;真实标题在各状态体里,这里挂个 sr-only 兜底。 */}
         <DialogTitle className="sr-only">兑换码确认</DialogTitle>
         {/* 顶部色条:确认=蓝 / 失败=红 / 校验中=灰。.pen 状态板配色无对应 token, 保留 arbitrary。 */}
-        <span className={cn('block h-1 w-full', loading ? 'bg-border' : ok ? 'bg-[#0066FF]' : 'bg-brand-red')} />
+        <span className={cn('block h-1 w-full', loading ? 'bg-border' : ok ? 'bg-status-info' : 'bg-brand-red')} />
         <div className="p-6">
           {loading ? (
             <div className="flex h-40 flex-col items-center justify-center gap-3 text-faint">
               <Loader2 className="size-6 animate-spin" />
-              <span className="text-xs">正在校验兑换码…</span>
+              <span className="text-12">正在校验兑换码…</span>
             </div>
           ) : ok ? (
             <ConfirmBody pv={pv} busy={redeem.isPending} onCancel={() => onOpenChange(false)} onConfirm={onConfirm} />
@@ -93,8 +105,8 @@ export function RedeemConfirmDialog({ code, open, onOpenChange, onRedeemed }: Re
 function InfoRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-      <span className={cn('truncate text-right text-xs font-bold', accent ? 'text-brand-amber' : 'text-foreground')}>
+      <span className="shrink-0 text-12 text-muted-foreground">{label}</span>
+      <span className={cn('truncate text-right text-12 font-medium', accent ? 'text-brand-amber' : 'text-foreground')}>
         {value}
       </span>
     </div>
@@ -115,23 +127,23 @@ function ConfirmBody({
   const isCredit = pv.grant_kind === 'credit';
   return (
     <>
-      <span className="inline-flex items-center gap-1 text-2xs font-bold tracking-wide text-brand-red">
+      <span className="inline-flex items-center gap-1 text-12 font-medium text-brand-red">
         <Ticket className="size-3" /> 礼品码兑换 · {isCredit ? '经费' : '会员'}
       </span>
-      <h2 className="mt-2 text-lg font-bold text-foreground">
+      <h2 className="mt-2 text-16 font-medium text-foreground">
         {isCredit ? '确认兑换科研经费?' : '确认兑换会员权益?'}
       </h2>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-1 text-12 leading-paragraph text-muted-foreground">
         {isCredit
           ? '该礼品码将为当前账号充入对应科研经费,兑换后立即到账。'
           : '该礼品码将为当前账号开通对应会员权益,兑换后立即生效、到期后自动失效。'}
       </p>
-      <div className="mt-4 flex flex-col gap-3 rounded-md border border-border bg-surface-1 p-4">
+      <div className="mt-4 flex flex-col gap-3 rounded-12 border border-border bg-surface-1 p-4">
         <InfoRow label="对应活动" value={pv.note || '通用兑换码'} />
         <InfoRow label="兑换内容" value={grantContent(pv)} accent />
       </div>
-      <p className="mt-3 flex items-start gap-1.5 text-2xs leading-relaxed text-faint">
-        <span className="mt-1 size-1.5 shrink-0 rounded-pill bg-[#0066FF]" />
+      <p className="mt-3 flex items-start gap-1.5 text-12 leading-paragraph text-faint">
+        <span className="mt-1 size-1.5 shrink-0 rounded-pill bg-status-info" />
         兑换后立即生效,同一兑换码每个账号仅可兑换一次,兑换码不可重复使用。
       </p>
       <div className="mt-5 flex justify-end gap-2">
@@ -150,22 +162,22 @@ function ConfirmBody({
 function FailBody({ code, msg, onRetry }: { code: string; msg: string; onRetry: () => void }) {
   return (
     <>
-      <span className="inline-flex items-center gap-1 text-2xs font-bold tracking-wide text-brand-red">
+      <span className="inline-flex items-center gap-1 text-12 font-medium text-brand-red">
         <XCircle className="size-3" /> 兑换失败
       </span>
       <div className="mt-2 flex items-start gap-2">
         <XCircle className="mt-0.5 size-5 shrink-0 text-brand-red" />
-        <h2 className="text-lg font-bold text-foreground">{msg || '激活码无效或已被兑换'}</h2>
+        <h2 className="text-16 font-medium text-foreground">{msg || '激活码无效或已被兑换'}</h2>
       </div>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-1 text-12 leading-paragraph text-muted-foreground">
         请确认兑换码是否正确。若兑换码已被使用、已过期或已停用,则无法再次兑换。
       </p>
-      <div className="mt-4 rounded-md border border-border bg-surface-1 px-3 py-2.5">
-        <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-subtle">
+      <div className="mt-4 rounded-12 border border-border bg-surface-1 px-3 py-2.5">
+        <span className="flex items-center gap-2 font-mono text-12 uppercase text-subtle">
           <Ticket className="size-3.5 shrink-0 text-faint" /> {code || '—'}
         </span>
       </div>
-      <p className="mt-3 flex items-start gap-1.5 text-2xs leading-relaxed text-faint">
+      <p className="mt-3 flex items-start gap-1.5 text-12 leading-paragraph text-faint">
         <span className="mt-1 size-1.5 shrink-0 rounded-pill bg-brand-red" />
         如确认兑换码无误仍无法兑换,请联系客服协助处理。
       </p>

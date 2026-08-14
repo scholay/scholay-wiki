@@ -1,39 +1,36 @@
-import { useState } from 'react';
-import { Search, MoreHorizontal, Lock, Unlock, Trash2, ShieldCheck, Crown, Eye, Copy, UserCog, UserRound } from 'lucide-react';
-import { toast } from 'sonner';
+import { useEffect, useState } from 'react';
+import { Search, Trash2, Crown, Eye, UserCog } from 'lucide-react';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/shared/ui/dropdown-menu';
-import { cn } from '@/shared/lib/utils';
 import { useDebounce, useUrlState, usePatchUrlState } from '@/shared/hooks';
-import { useHasPermission, PERM, roleLabel, roleBadgeVariant } from '../permissions';
+import {
+  useHasPermission,
+  PERM,
+  roleLabel,
+  roleBadgeVariant,
+} from '../permissions';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
+import {
+  LAST_ACTIVE_LEGACY_HINT,
+  TimeCell,
+} from '../components/TimeCell';
 import { UserMetricsPanel } from '../components/UserMetricsPanel';
-import { UserDetailDrawer } from '../components/UserDetailDrawer';
+import { UserCell } from '../components/UserCell';
+import { useAdminUserDetail } from '../components/AdminUserDetailProvider';
+import { UserActionsDrawer } from '../components/UserActionsDrawer';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
 import {
   useUserList,
-  useFreezeUser,
-  useUnfreezeUser,
-  useDeleteUser,
   useBatchDeleteUsers,
-  useUpdateUserRole,
   type AdminUser,
   type UserListParams,
 } from '../api/users';
-
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground';
 
 // 服务端排序默认值 —— 与后端 GetUserList 默认一致(last_login_at desc)。
 const DEFAULT_SORT_BY = 'last_login_at';
@@ -43,7 +40,8 @@ const DEFAULT_SORT_ORDER = 'desc';
  *  **必须含 max** —— 早期只判 'pro' 时,max 用户会被错显成 Free(详情页读 /vip 接口正确显示 Max → 列表与详情不一致)。 */
 function effectiveTier(u: AdminUser): 'free' | 'pro' | 'max' {
   if (u.vip_tier === 'pro' || u.vip_tier === 'max') {
-    const active = !u.vip_expires_at || new Date(u.vip_expires_at).getTime() > Date.now();
+    const active =
+      !u.vip_expires_at || new Date(u.vip_expires_at).getTime() > Date.now();
     if (active) return u.vip_tier;
   }
   return 'free';
@@ -71,42 +69,72 @@ export function UsersPage() {
   // 运营只有 users.view → 看得到列表/详情,但下面这些写操作按钮全部隐藏(后端也会 403 兜底)。
   const canManageUsers = useHasPermission(PERM.usersManage);
   const canAssignRole = useHasPermission(PERM.usersRoleAssign);
+  const { openUserDetail } = useAdminUserDetail();
 
-  const { data, isLoading } = useUserList({
+  const listQuery = useUserList({
     page,
     page_size: 20,
     q: debounced || undefined,
     role: role || undefined,
     status: status ? Number(status) : undefined,
     tier: tier || undefined,
-    email_verified: verified === '1' || verified === '0' ? (verified as '0' | '1') : undefined,
+    email_verified:
+      verified === '1' || verified === '0'
+        ? (verified as '0' | '1')
+        : undefined,
     created_from: createdFrom || undefined,
     created_to: createdTo || undefined,
     sort_by: sortBy as UserListParams['sort_by'],
     sort_order: sortOrder as UserListParams['sort_order'],
   });
+  const { data, isLoading } = listQuery;
 
-  const freeze = useFreezeUser();
-  const unfreeze = useUnfreezeUser();
-  const del = useDeleteUser();
   const batchDel = useBatchDeleteUsers();
-  const updateRole = useUpdateUserRole();
 
-  // 选中行 keys —— 切页/查询会保留(用户跨页选择常见)
+  // 选中行 keys。
+  // 🔴 **刻意不跨页保留**:DataTable 的批量条显示的是 `selectedKeys.size`(可能跨页),
+  // 而传给 bulkActions 的 selectedRows 只从**当前页**过滤 —— 第 1 页选 5 个 + 第 2 页选 3 个时,
+  // 顶部写「已选 8 项」、确认框写「批量删除 3 个用户?」、实际删 3 个,另外 5 个被静默丢弃。
+  // 一个不可逆操作上两个数字打架,比"多点两次"危险得多。所以换页/换筛选一律清空选择。
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
+  useEffect(() => {
+    setSelected(new Set());
+  }, [
+    page,
+    debounced,
+    role,
+    status,
+    tier,
+    verified,
+    createdFrom,
+    createdTo,
+    sortBy,
+    sortOrder,
+  ]);
 
-  // 详情抽屉
-  const [detailUser, setDetailUser] = useState<AdminUser | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const openDetail = (u: AdminUser) => {
-    setDetailUser(u);
-    setDrawerOpen(true);
-  };
+  // 只读详情由 AdminShell 的全局单例推屏承载；本页只保留写操作推屏。
+  const [actionUser, setActionUser] = useState<AdminUser | null>(null);
+  const openDetail = (user: AdminUser) => openUserDetail(user);
+  const openActions = (user: AdminUser) => setActionUser(user);
+  // 写操作失效列表 query 后，优先使用当前页的新快照。
+  const drawerUser = actionUser
+    ? (data?.users.find((candidate) => candidate.id === actionUser.id) ??
+      actionUser)
+    : null;
 
-  const labelOf = (u: AdminUser) => u.email || u.username || u.phone || `#${u.id}`;
+  const labelOf = (u: AdminUser) =>
+    u.email || u.username || u.phone || `#${u.id}`;
 
   // 任一筛选/搜索生效时显示「重置」
-  const hasFilter = !!(role || status || tier || verified || createdFrom || createdTo || keyword);
+  const hasFilter = !!(
+    role ||
+    status ||
+    tier ||
+    verified ||
+    createdFrom ||
+    createdTo ||
+    keyword
+  );
   const resetFilters = () =>
     patch({
       q: null,
@@ -135,67 +163,17 @@ export function UsersPage() {
     setSelected(new Set());
   };
 
-  const handleFreeze = async (u: AdminUser) => {
-    const action = u.status === 2 ? unfreeze.mutateAsync(u.id) : freeze.mutateAsync(u.id);
-    await apiToast(action, {
-      success: u.status === 2 ? `已解冻 ${labelOf(u)}` : `已冻结 ${labelOf(u)}`,
-      failure: '操作失败',
-    });
-  };
-
-  const handleDelete = async (u: AdminUser) => {
-    const ok = await confirm({
-      title: `删除用户 ${labelOf(u)}?`,
-      description: '此操作不可撤销 —— 该用户的所有订单、反馈、会话都会被级联删除。',
-      danger: true,
-      confirmText: '永久删除',
-      typeToConfirm: 'DELETE',
-    });
-    if (!ok) return;
-    await apiToast(del.mutateAsync(u.id), { success: '已删除', failure: '删除失败' });
-  };
-
-  const handleRoleChange = async (u: AdminUser, newRole: AdminUser['role']) => {
-    const desc: Partial<Record<AdminUser['role'], string>> = {
-      admin: '该用户将拥有除「角色分配」外的全部后台权限。',
-      operations: '该用户将成为运营:可进后台处理内容/用户运营 + 只读看板,但碰不到系统/凭证/财务配置与角色分配。',
-      user: '将回收该用户的一切后台权限,降为普通用户。',
-    };
-    const ok = await confirm({
-      title: `将 ${labelOf(u)} 的角色改为「${roleLabel(newRole)}」?`,
-      description: desc[newRole],
-      danger: newRole === 'admin',
-      confirmText: '更新角色',
-    });
-    if (!ok) return;
-    await apiToast(updateRole.mutateAsync({ id: u.id, role: newRole }), {
-      success: '角色已更新',
-      failure: '角色更新失败',
-    });
-  };
-
-  const copyId = (u: AdminUser) => {
-    navigator.clipboard?.writeText(String(u.id));
-    toast.success(`已复制用户 ID #${u.id}`);
-  };
-
   const columns: Column<AdminUser>[] = [
     {
       header: '用户',
       cell: (u) => (
-        <button
-          type="button"
-          onClick={() => openDetail(u)}
-          className="flex flex-col text-left transition-colors hover:text-brand-red"
-        >
-          <span className="flex items-center gap-1.5">
-            <span className="text-foreground font-bold">
-              {u.username || u.email?.split('@')[0] || u.phone || '用户'}
-            </span>
-            <span className="shrink-0 rounded-sm bg-surface-2 px-1 font-mono text-2xs text-faint">#{u.id}</span>
-          </span>
-          <span className="text-xs text-faint">{u.email || u.phone || '—'}</span>
-        </button>
+        <UserCell
+          id={u.id}
+          name={u.username}
+          email={u.email}
+          phone={u.phone}
+          showContact
+        />
       ),
     },
     {
@@ -209,17 +187,20 @@ export function UsersPage() {
       header: '会员',
       cell: (u) => {
         const t = effectiveTier(u);
-        if (t === 'free') return <span className="text-xs text-faint">Free</span>;
+        if (t === 'free')
+          return <span className="text-12 text-faint">Free</span>;
         return (
           <span
-            className={`inline-flex items-center gap-1 text-xs font-bold ${
+            className={`inline-flex items-center gap-1 text-12 font-medium ${
               t === 'max' ? 'text-brand-red' : 'text-brand-amber'
             }`}
           >
             <Crown className="size-3.5" />
             {t === 'max' ? 'Max' : 'Pro'}
             {u.vip_expires_at && (
-              <span className="font-normal text-faint">· {u.vip_expires_at.slice(0, 10)}</span>
+              <span className="font-normal text-faint">
+                · {u.vip_expires_at.slice(0, 10)}
+              </span>
             )}
           </span>
         );
@@ -233,112 +214,62 @@ export function UsersPage() {
         u.status === 2 ? (
           <Badge variant="destructive">已冻结</Badge>
         ) : (
-          <Badge variant="outline" className="text-brand-green border-brand-green">正常</Badge>
+          <Badge
+            variant="outline"
+            className="text-brand-green border-brand-green"
+          >
+            正常
+          </Badge>
         ),
       width: 90,
     },
+    // 三列时间统一走 TimeCell:主显相对时间(「3 天前」),精确时刻挂 title。
+    // 这三列存在的唯一理由就是回答"刚刚还是上个月",扫一列 `2026-08-01 09:12` 是答不出来的。
     {
       header: '注册时间',
-      cell: (u) => (
-        <span className="text-xs text-muted-foreground">{u.created_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
-      ),
-      width: 150,
+      cell: (u) => <TimeCell value={u.created_at} className="text-12" />,
+      width: 130,
       serverSortKey: 'created_at',
     },
     {
-      header: '最后活跃',
-      cell: (u) => (
-        <span className="text-xs text-muted-foreground">{u.last_active_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
-      ),
-      width: 150,
+      header: <span title={LAST_ACTIVE_LEGACY_HINT}>最后活跃</span>,
+      cell: (u) => <TimeCell value={u.last_active_at} className="text-12" />,
+      width: 130,
       serverSortKey: 'last_active_at',
     },
     {
       header: '最后登录',
-      cell: (u) => (
-        <span className="text-xs text-muted-foreground">{u.last_login_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
-      ),
-      width: 150,
+      cell: (u) => <TimeCell value={u.last_login_at} className="text-12" />,
+      width: 130,
       serverSortKey: 'last_login_at',
     },
     {
-      header: '',
-      width: 60,
+      header: '操作',
+      width: 170,
       align: 'right',
-      cell: (u) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-7">
-              <MoreHorizontal className="size-4" />
+      cell: (user) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            onClick={() => openDetail(user)}
+          >
+            <Eye className="size-3.5" />
+            详情
+          </Button>
+          {(canManageUsers || canAssignRole) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => openActions(user)}
+            >
+              <UserCog className="size-3.5" />
+              操作
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => openDetail(u)}>
-              <Eye className="size-3.5 mr-2" />
-              查看详情 / 会员
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => copyId(u)}>
-              <Copy className="size-3.5 mr-2" />
-              复制用户 ID
-            </DropdownMenuItem>
-            {/* 冻结/解冻 —— 用户写操作,需 users.manage(运营看不到) */}
-            {canManageUsers && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => handleFreeze(u)}>
-                  {u.status === 2 ? (
-                    <>
-                      <Unlock className="size-3.5 mr-2" />
-                      解冻账号
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="size-3.5 mr-2" />
-                      冻结账号
-                    </>
-                  )}
-                </DropdownMenuItem>
-              </>
-            )}
-            {/* 角色分配 —— 仅 super_admin(users.role.assign);不能改动其他 super_admin */}
-            {canAssignRole && u.role !== 'super_admin' && (
-              <>
-                <DropdownMenuSeparator />
-                {u.role !== 'admin' && (
-                  <DropdownMenuItem onSelect={() => handleRoleChange(u, 'admin')}>
-                    <ShieldCheck className="size-3.5 mr-2" />
-                    设为管理员
-                  </DropdownMenuItem>
-                )}
-                {u.role !== 'operations' && (
-                  <DropdownMenuItem onSelect={() => handleRoleChange(u, 'operations')}>
-                    <UserCog className="size-3.5 mr-2" />
-                    设为运营
-                  </DropdownMenuItem>
-                )}
-                {u.role !== 'user' && (
-                  <DropdownMenuItem onSelect={() => handleRoleChange(u, 'user')}>
-                    <UserRound className="size-3.5 mr-2" />
-                    设为普通用户
-                  </DropdownMenuItem>
-                )}
-              </>
-            )}
-            {/* 删除账号 —— 用户写操作,需 users.manage(运营看不到) */}
-            {canManageUsers && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => handleDelete(u)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="size-3.5 mr-2" />
-                  删除账号
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+        </div>
       ),
     },
   ];
@@ -346,7 +277,10 @@ export function UsersPage() {
   return (
     <AdminPageLayout
       title="用户管理"
-      description={`共 ${data?.total ?? 0} 个账号 · 含管理员 · 可筛选 / 管会员 / 冻结 / 删除`}
+      // 🔴 接口挂了绝不能显示「共 0 个账号」—— 那是个会被当成经营结论的错数字。降级为「—」。
+      description={`共 ${data ? data.total.toLocaleString() : '—'} 个账号 · 详情只读 · 用户操作独立管理`}
+      onRefresh={() => listQuery.refetch()}
+      refreshing={listQuery.isFetching}
       actions={
         <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-faint" />
@@ -362,59 +296,73 @@ export function UsersPage() {
       <UserMetricsPanel />
 
       {/* 筛选条 —— 每次写入都连带 page:null 回首页,且合并成一次 navigate */}
-      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-border-soft bg-surface-1 p-3">
+      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-16 border border-border-soft bg-surface-1 p-3">
         <FilterField label="角色">
-          <select
+          <Select
             value={role}
-            onChange={(e) => patch({ role: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-28')}
+            onChange={(e) =>
+              patch({ role: e.target.value || null, page: null })
+            }
+            fullWidth={false}
+            className="w-28"
           >
             <option value="">全部</option>
             <option value="user">普通用户</option>
             <option value="operations">运营</option>
             <option value="admin">管理员</option>
             <option value="super_admin">超级管理员</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="会员">
-          <select
+          <Select
             value={tier}
-            onChange={(e) => patch({ tier: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-24')}
+            onChange={(e) =>
+              patch({ tier: e.target.value || null, page: null })
+            }
+            fullWidth={false}
+            className="w-24"
           >
             <option value="">全部</option>
             <option value="max">Max</option>
             <option value="pro">Pro</option>
             <option value="free">Free</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="状态">
-          <select
+          <Select
             value={status}
-            onChange={(e) => patch({ status: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-24')}
+            onChange={(e) =>
+              patch({ status: e.target.value || null, page: null })
+            }
+            fullWidth={false}
+            className="w-24"
           >
             <option value="">全部</option>
             <option value="1">正常</option>
             <option value="2">已冻结</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="邮箱验证">
-          <select
+          <Select
             value={verified}
-            onChange={(e) => patch({ email_verified: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-24')}
+            onChange={(e) =>
+              patch({ email_verified: e.target.value || null, page: null })
+            }
+            fullWidth={false}
+            className="w-24"
           >
             <option value="">全部</option>
             <option value="1">已验证</option>
             <option value="0">未验证</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="注册自">
           <Input
             type="date"
             value={createdFrom}
-            onChange={(e) => patch({ created_from: e.target.value || null, page: null })}
+            onChange={(e) =>
+              patch({ created_from: e.target.value || null, page: null })
+            }
             className="h-8 w-36"
           />
         </FilterField>
@@ -422,12 +370,19 @@ export function UsersPage() {
           <Input
             type="date"
             value={createdTo}
-            onChange={(e) => patch({ created_to: e.target.value || null, page: null })}
+            onChange={(e) =>
+              patch({ created_to: e.target.value || null, page: null })
+            }
             className="h-8 w-36"
           />
         </FilterField>
         {hasFilter && (
-          <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 text-faint">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="h-8 text-faint"
+          >
             重置
           </Button>
         )}
@@ -437,7 +392,21 @@ export function UsersPage() {
         columns={columns}
         rows={data?.users}
         loading={isLoading}
+        // error 必须透传:不传的话请求失败 rows=undefined 会落进空态,
+        // 后台就"斩钉截铁"地显示「没有符合条件的用户」—— 排查封号/工单时会直接判断错。
+        error={listQuery.error}
+        onRetry={() => listQuery.refetch()}
         emptyMessage="没有符合条件的用户"
+        emptyDescription={
+          hasFilter ? '当前筛选条件下没有命中任何账号。' : undefined
+        }
+        emptyAction={
+          hasFilter ? (
+            <Button variant="outline" size="sm" onClick={resetFilters}>
+              清除筛选
+            </Button>
+          ) : undefined
+        }
         selection={
           canManageUsers
             ? {
@@ -481,15 +450,25 @@ export function UsersPage() {
         onPageChange={(p) => patch({ page: p <= 1 ? null : p })}
       />
 
-      <UserDetailDrawer user={detailUser} open={drawerOpen} onOpenChange={setDrawerOpen} />
+      <UserActionsDrawer
+        user={drawerUser}
+        open={!!actionUser}
+        onOpenChange={(nextOpen) => !nextOpen && setActionUser(null)}
+      />
     </AdminPageLayout>
   );
 }
 
-function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1">
-      <Label className="text-2xs text-faint tracking-[0.12em]">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
   );

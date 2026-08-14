@@ -22,7 +22,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -42,11 +41,6 @@ import (
 
 // artifactDir 是会话 cwd 内约定的"交付目录"。与 prompts/claw.go 的成果交付段一致。
 const artifactDir = "out"
-
-// artifactManifestName 是 agent 可选写入 ./out 的清单文件: agent 用它显式声明每个交付物的
-// title/description (相当于 deliver_artifact(path,title,description) 的元信息), 后端据此给
-// 产物卡片更友好的标题。清单本身不作为可下载产物列出。缺失/格式坏 → 退化成只用文件名。
-const artifactManifestName = "manifest.json"
 
 const (
 	artifactListTimeout = 10 * time.Second
@@ -70,53 +64,14 @@ type ArtifactDTO struct {
 	Description string `json:"description,omitempty"`
 }
 
-// artifactMeta — manifest.json 里单个交付物的标注。
-type artifactMeta struct {
-	Title       string
-	Description string
-}
-
 // readArtifactManifest 读 ./out/manifest.json (agent 可选写) 并解析成 file→meta 映射。
 // 任何缺失/读失败/解析失败都返回 nil (静默退化, 不影响产物列出)。
-func (h *Handler) readArtifactManifest(ctx context.Context, sessionID string) map[string]artifactMeta {
-	wf, err := h.feature.AgentClient().GetWorkspaceFile(ctx, sessionID, artifactDir+"/"+artifactManifestName)
+func (h *Handler) readArtifactManifest(ctx context.Context, sessionID string) map[string]agentartifact.Meta {
+	wf, err := h.feature.AgentClient().GetWorkspaceFile(ctx, sessionID, artifactDir+"/"+agentartifact.ManifestName)
 	if err != nil || wf == nil || wf.State != "ok" || wf.PreviewType != "text" {
 		return nil
 	}
-	return parseArtifactManifest([]byte(wf.Content))
-}
-
-// parseArtifactManifest 解析 out/manifest.json 文本为 file(basename)→meta 映射。纯函数, 便于单测。
-// 空 / 非法 JSON / 无 artifacts → nil (调用方取值天然安全)。file 取 basename, 防 manifest 写 ../。
-func parseArtifactManifest(content []byte) map[string]artifactMeta {
-	if strings.TrimSpace(string(content)) == "" {
-		return nil
-	}
-	var parsed struct {
-		Artifacts []struct {
-			File        string `json:"file"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-		} `json:"artifacts"`
-	}
-	if json.Unmarshal(content, &parsed) != nil {
-		return nil
-	}
-	if len(parsed.Artifacts) == 0 {
-		return nil
-	}
-	out := make(map[string]artifactMeta, len(parsed.Artifacts))
-	for _, a := range parsed.Artifacts {
-		f := strings.TrimSpace(a.File)
-		if f == "" {
-			continue
-		}
-		out[path.Base(f)] = artifactMeta{Title: a.Title, Description: a.Description}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return agentartifact.ParseManifest([]byte(wf.Content))
 }
 
 // artifactRelPath 校验并规整前端传来的产物相对路径: 只允许 out/<basename>。
@@ -149,7 +104,7 @@ func agentClientErrIs4xxOrMissing(err error) bool {
 // shouldListArtifact 判定 out/ 下一个目录项是否应作为可下载产物列出:
 // 排除目录、dotfile(.开头)、清单文件 manifest.json 本身、空名。纯函数, 便于单测。
 func shouldListArtifact(name string, isDir bool) bool {
-	if isDir || name == "" || strings.HasPrefix(name, ".") || name == artifactManifestName {
+	if isDir || name == "" || strings.HasPrefix(name, ".") || agentartifact.IsManifest(name) {
 		return false
 	}
 	return true
@@ -293,9 +248,23 @@ func (h *Handler) DownloadArtifactByID(c *gin.Context) {
 		utils.Error(c, 4404, "产物不存在或不属于你") // 防枚举:越权也回 404
 		return
 	}
+	if row.FeatureKey != FeatureKey {
+		// 跨 feature 越权:本人 stat_lab / sci_draw / boltslides 的产物 id 不能从 claw 路由取。回 404 防枚举。
+		// (2026-08-07 补:另三份镜像 statlab/scidraw/boltslides 的 artifact.go 都有这条,唯独 claw 缺 ——
+		//  claw 是最早写的那份,后来三份是照它抄的、抄的时候各自补上了,原件反而没回填。)
+		utils.Error(c, 4404, "产物不存在或不属于你")
+		return
+	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), artifactListTimeout)
-	defer cancel()
+	// 🔴 2026-08-07 修:这里**不能**用 artifactListTimeout(10s)。
+	//    minio-go 的 GetObject 返回的 *minio.Object 与传入的 ctx 绑定 —— ctx 一到期,
+	//    正在进行中的 body 读取当场失败。而 c.DataFromReader 是**边读边回写**:
+	//    10s 截止时间对「打开对象」绰绰有余,对「把 8MB docx 推给弱网客户端」远远不够,
+	//    于是下载在第 10 秒被截断成一个能打开却损坏的文件(用户视角:文档打不开/PPT 缺页)。
+	//    这与中间件白名单是**两道独立的闸**,只修中间件那道并不能让文件下全。
+	//    正确的预算来自 c.Request.Context():上界由 APITimeoutMiddleware 的
+	//    isObjectServePath 分支给到 10min,客户端断开时它也会被 gin 取消(不泄 goroutine)。
+	ctx := c.Request.Context()
 	obj, info, err := storage.GetObject(ctx, storage.AgentArtifactsBucket(), row.StorageKey)
 	if err != nil {
 		utils.Error(c, 4404, "产物已失效")

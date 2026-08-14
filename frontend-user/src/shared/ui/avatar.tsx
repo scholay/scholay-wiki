@@ -36,7 +36,9 @@ const AvatarFallback = React.forwardRef<
   <AvatarPrimitive.Fallback
     ref={ref}
     className={cn(
-      'flex h-full w-full items-center justify-center rounded-pill bg-primary text-primary-foreground text-xs font-medium',
+      // KEEP text-12 —— 姓名首字母缩写要装进 h-8(32px)的圆里,不是正文控件。
+      // 14px 会让两个字母贴到圆边;Figma §4.4 头像只给了 39×39 尺寸,没给字号。
+      'flex h-full w-full items-center justify-center rounded-pill bg-primary text-primary-foreground text-12 font-medium',
       className
     )}
     {...props}

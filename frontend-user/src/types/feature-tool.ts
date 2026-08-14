@@ -124,6 +124,8 @@ export interface FeatureTool {
   stats?: ToolStats | null;
   reviews?: unknown[];
   status: ToolStatus;
+  /** 产品内 published 与搜索引擎收录分离；只有管理员显式审核后才进入 sitemap。 */
+  seo_indexable?: boolean;
   sort_weight?: number;
   view_count?: number;
   favorite_count?: number;

@@ -8,10 +8,10 @@ export function PaperAbstract({ paper }: { paper: Paper }) {
   if (!paper.abstract) {
     return (
       <section className="mt-12">
-        <h2 className="font-display italic text-lg text-muted-foreground mb-4">
+        <h2 className="font-display italic text-16 text-muted-foreground mb-4">
           Abstract
         </h2>
-        <div className="px-4 py-6 rounded-md bg-surface-1 text-center text-xs text-muted-foreground">
+        <div className="px-4 py-6 rounded-16 bg-surface-1 text-center text-12 text-muted-foreground">
           该论文未提供摘要
         </div>
       </section>
@@ -20,14 +20,14 @@ export function PaperAbstract({ paper }: { paper: Paper }) {
 
   return (
     <section className="mt-12 space-y-4">
-      <h2 className="font-display italic text-lg text-muted-foreground">
+      <h2 className="font-display italic text-16 text-muted-foreground">
         Abstract
       </h2>
-      <p className="text-md leading-[1.75] text-subtle text-justify whitespace-pre-wrap">
+      <p className="text-14 leading-paragraph text-subtle text-justify whitespace-pre-wrap">
         {paper.abstract}
       </p>
       {(paper.fieldsOfStudy?.length ?? 0) > 0 && (
-        <p className="italic text-sm text-faint">
+        <p className="italic text-12 text-faint">
           Keywords — {paper.fieldsOfStudy!.slice(0, 8).join(', ')}
         </p>
       )}

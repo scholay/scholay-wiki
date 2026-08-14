@@ -19,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/shared/ui/popover';
+import { Button } from '@/shared/ui';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 import { useApiToast } from '@/shared/hooks';
 import {
@@ -28,7 +29,7 @@ import {
 } from '../api/papers';
 
 /**
- * 文献集批量操作工具条 —— 由 LibraryFolderView 在外层 toolbar 渲染,**左对齐**
+ * 文件夹内论文的批量操作工具条 —— 由 LibraryFolderView 在外层 toolbar 渲染,**左对齐**
  * 替换 normal 模式下的"面包屑 / 搜索框 / 导入按钮"。
  *
  * 状态语义:`selectedCount > 0` 即激活批量模式;父级控制显隐。
@@ -99,10 +100,10 @@ export function LibraryBulkToolbar({
   return (
     <>
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        <span className="text-sm font-bold text-foreground tabular-nums">
+        <span className="text-14 font-medium text-foreground tabular-nums">
           已选 {selectedCount} 项
         </span>
-        <span className="text-xs text-faint">
+        <span className="text-12 text-faint">
           (共 {totalCount} 项)
         </span>
 
@@ -110,7 +111,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={onToggleAll}
           disabled={busy}
-          className="h-7 px-2.5 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
+          className="h-7 px-2.5 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50"
         >
           {allSelected ? '取消全选' : '全选'}
         </button>
@@ -129,7 +130,7 @@ export function LibraryBulkToolbar({
             <button
               type="button"
               disabled={busy}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-border text-xs font-semibold text-subtle hover:bg-surface-1 disabled:opacity-50 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground"
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 font-medium text-subtle hover:bg-surface-1 disabled:opacity-50 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground"
             >
               {moveMut.isPending ? (
                 <Loader2 className="size-3 animate-spin" />
@@ -139,14 +140,17 @@ export function LibraryBulkToolbar({
               转移
             </button>
           </PopoverTrigger>
+          {/* w-[220px]:弹层宽 token 只有 200 / 280 / 360 三档,220 落在 200 与 280 之间;
+              压到 w-panel-sm(200)会让「转移到…」的文件夹名更早截断,留待弹层宽统一收口时定档。 */}
           <PopoverContent align="start" sideOffset={4} className="w-[220px] p-1">
             {/* 搜索框 */}
             <div className="px-1 pt-1 pb-1.5">
-              <div className="flex items-center gap-1.5 h-7 px-2 rounded-sm bg-surface-1 border border-border focus-within:border-foreground transition-colors">
+              <div className="flex items-center gap-1.5 h-7 px-2 rounded-8 bg-surface-1 border border-border focus-within:border-foreground transition-colors">
                 <Search
                   className="size-3 text-faint shrink-0"
                   strokeWidth={2}
                 />
+                {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground 提供 */}
                 <input
                   type="text"
                   value={folderQuery}
@@ -154,27 +158,28 @@ export function LibraryBulkToolbar({
                   placeholder="搜索文件夹…"
                   maxLength={48}
                   autoFocus
-                  className="flex-1 min-w-0 h-full bg-transparent text-xs outline-none placeholder:text-faint"
+                  className="flex-1 min-w-0 h-full bg-transparent text-12 outline-none placeholder:text-faint"
                 />
               </div>
             </div>
 
-            {/* 列表 —— 滚动:max-h + overflow-y-auto */}
-            <div className="max-h-[260px] overflow-y-auto">
+            {/* 列表 —— 滚动:max-h + overflow-y-auto。
+                max-h-scroll-pane = --scroll-pane-max-h 16.25rem = 260px,与原 max-h-[260px] 等值。 */}
+            <div className="max-h-scroll-pane overflow-y-auto">
               {filteredFolders.map((f) => (
                 <button
                   key={f.id}
                   type="button"
                   onClick={() => handleMove(f.id)}
                   disabled={moveMut.isPending}
-                  className="flex items-center gap-2 w-full h-8 px-2 rounded-sm text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 transition-colors text-left"
+                  className="flex items-center gap-2 w-full h-8 px-2 rounded-8 text-12 text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 transition-colors text-left"
                 >
                   <Folder className="size-3.5 shrink-0 text-faint" />
                   <span className="flex-1 truncate">{f.name}</span>
                 </button>
               ))}
               {filteredFolders.length === 0 && (
-                <div className="px-2 py-3 text-2xs text-faint text-center">
+                <div className="px-2 py-3 text-12 text-faint text-center">
                   {folderQuery.trim()
                     ? `没有匹配「${folderQuery.trim()}」的文件夹`
                     : '没有可移动到的文件夹,先新建'}
@@ -188,7 +193,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={() => setConfirmingDelete(true)}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-brand-red bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-brand-red bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 disabled:opacity-50"
         >
           <Trash2 className="size-3" />
           删除
@@ -198,7 +203,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={onClear}
           disabled={busy}
-          className="inline-flex items-center justify-center h-7 w-7 rounded-sm border border-border text-muted-foreground hover:bg-surface-1 disabled:opacity-50"
+          className="inline-flex items-center justify-center h-7 w-7 rounded-8 border border-border text-muted-foreground hover:bg-surface-1 disabled:opacity-50"
           title="取消选择"
         >
           <X className="size-3.5" />
@@ -234,31 +239,38 @@ function BatchDeleteConfirmDialog({
       <DialogContent className="p-0 gap-0 max-w-[360px] w-[360px]">
         <header className="flex items-center gap-2 h-13 px-5 pr-12 border-b border-border-soft">
           <AlertTriangle className="size-4 text-brand-red shrink-0" />
-          <DialogTitle className="text-sm font-bold text-foreground">
+          <DialogTitle className="text-16 font-medium text-foreground">
             删除 {count} 篇论文?
           </DialogTitle>
         </header>
-        <div className="px-5 py-4 text-xs text-subtle leading-relaxed">
-          将从文献集永久移除选中的 {count} 篇论文。此操作不可撤销。
+        <div className="px-5 py-4 text-12 text-subtle leading-paragraph">
+          {/* 「从收藏中」不是「从文件夹中」:batch/delete 是按 user_id 硬删整行 + 连带删 MinIO
+              上的 PDF,与文件夹无关。本工具条紧挨着的另一个操作就是「移动到文件夹」,写成
+              「从文件夹移除」会被读成它的逆操作(挪出这个夹),而实际是不可逆的彻底删除。 */}
+          将从你的收藏中永久删除选中的 {count} 篇论文。此操作不可撤销。
         </div>
         <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onClose}
             disabled={busy}
-            className="h-7 px-3 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
+            className="px-3"
           >
             取消
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="destructive"
+            size="sm"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+            className="gap-1 px-3 [&_svg]:size-3"
           >
             {busy && <Loader2 className="size-3 animate-spin" />}
             确认删除
-          </button>
+          </Button>
         </footer>
       </DialogContent>
     </Dialog>

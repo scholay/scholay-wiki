@@ -45,7 +45,10 @@ const PromptName = "Scholay 智能写作 · 默认 prompt"
 // (agent 要能读用户上传的 PDF/docx)。
 // 注:AskUserQuestion(交互提问)P1 起对 prism 放开(写作场景澄清需求很自然,前端已接 usePrismChat +
 // QuestionPrompt),故**不**列入禁用。见 docs/research/ask-mode-2026-07。
-var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent", "ExportDocument"}
+// 🔴 2026-08-08 加 StatRun/StatReport:builtin 走 deny-list ⇒ 新增 builtin 默认被所有老 feature
+// 继承。统计计算属于 stat_lab,prism 是写作 feature,不该顺手拿到整个 statkit 面
+// (backend permissionAllowed 对二者是无条件放行,没有第二道闸)。
+var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent", "ExportDocument", "StatRun", "StatReport"}
 
 // prismAllowedMcpTools —— prism(智能写作)对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
 // prism 用检索做「引用接地」(真实 BibTeX / DOI 解析 / 片段引用)与「投稿目标期刊 + 模板」,不做泛检索。
@@ -80,12 +83,38 @@ func prismSkillAddDir() string {
 // 走同一个构造器后,两处不会再漂移。
 func prismSessionOptions() *agent.CreateSessionOptions {
 	return &agent.CreateSessionOptions{
-		// allowBash=false → 在 prismDisallowedTools 基础上并入 Bash/BashOutput/KillShell。
-		DisallowedTools: agentbridge.SessionDisallowedTools(prismDisallowedTools, false),
+		// 2026-08-01 拍板放开 Bash(allowBash=true → 不再并入 Bash/BashOutput/KillShell)。
+		//
+		// 为什么现在可以:**与 claw 对齐**。claw 早已 AllowBash=true(claw/spec.go:191),
+		// 而两者跑在**同一个 bwrap jail、同一套沙箱配置**(net 设置在 agent/src/server/ws.ts:473
+		// 硬编码,不分 feature)。也就是说放开 prism 不引入任何**新的**风险类别,
+		// 只是把一个已在生产敞着的面多暴露给一个 feature。
+		//
+		// 放开前做过真实 jail 内取证(用生产同一条 buildBwrapArgv 构造,非裸 docker exec):
+		//   ✅ 跨会话:别的会话 cwd 物理上不在 mount 命名空间里,读不到
+		//   ✅ 只读根:/usr /bin /lib 只读;/etc 与 / 是 bwrap 每次新建的 tmpfs,写了也不跨调用持久
+		//   ✅ 宿主敏感文件:/proc/1/environ、/root/.ssh 读不到
+		//   ⚠️ 内网:scholar_backend:8080 可达(mysql/redis/minio 不在同一 docker 网络,DNS 都解析不出)。
+		//      **这是全 feature 的既有议题**(claw 今天就是这个状态),不是 prism 的前置条件 ——
+		//      要收紧得改 ws.ts 的 net 策略或加出站白名单,那是独立一项,别在这里悄悄用「不放开 prism」代偿。
+		//
+		// prism 独有的担心已排除:Bash 写 document.md **不是绕过 struct 真源的后门** ——
+		// document.md 本就是设计给模型的编辑面(edit.go:201),applyStructRound 会读它回来经
+		// parseEditorMarkdown 合并进 DB 真源(struct_service.go:295)。Bash 与 Write/Edit 走同一道门。
+		//
+		// ⚠️ ExportDocument 仍在 prismDisallowedTools 里(理由见上),放开 Bash 不改变那条。
+		DisallowedTools: agentbridge.SessionDisallowedTools(prismDisallowedTools, true),
 		// MCP 正向白名单:收敛 minicod 76 工具到 prism 引用接地 + 投稿期刊子集(见 prismAllowedMcpTools)。
 		AllowedMcpTools: prismAllowedMcpTools,
 		// 每项目会话加载写作 skill(--add-dir),agent 写/改时可经 Skill 调对应指南。
 		AddDirs: []string{prismSkillAddDir()},
+		// 2026-07 线上审计 #4:prism 开诚实性核验(claw 同款旗标,见 claw/spec.go;
+		// 经 CreateSession body + hub seed_history 帧两条链下发)。delivery 维度**关**:
+		// prism 交付走项目文件(DB 真源 + 导出按钮),executor 的 ./out/ 判据会误报
+		// (agent 侧 verifyClaims 注释有预留);citations / fullread 开。
+		// 急停阀同 claw:agent env EXECUTOR_HONESTY_GUARD=off(免 rebuild)。
+		HonestyGuard:  true,
+		HonestyChecks: map[string]bool{"citations": true, "fullread": true, "delivery": false},
 	}
 }
 
@@ -139,22 +168,32 @@ func checkQuota(ctx context.Context, userID uint) error {
 	if vipChecker == nil {
 		return nil
 	}
-	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			return agentbridge.NewQuotaError(err.Error())
+			return agentbridge.NewQuotaErrorFrom(err) // 保链:error 帧带结构化 quota 字段
 		}
 		return err
 	}
 	return nil
 }
 
-// budgetProvider(SS#2)给 hub 每轮盖「有界透支预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
+// budgetProvider(SS#2)给 hub 每轮盖「单轮预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
 func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
 	if vipChecker == nil {
 		return 0, 0, true
 	}
 	return vipChecker.RemainingBudget(ctx, userID)
+}
+
+// turnCostCapProvider(逐帧硬闸)给 hub 在**轮起点**取一次本轮成本硬顶(微元真实成本)。
+// 与 budgetProvider 同源但刻意各取一次:vip 侧 RemainingBudget = TurnCostCap × 收尾比例,
+// 那个比例是留给 agent 优雅收尾的尾巴,与硬闸没有语义关系 —— 在这里反推会让硬顶随它悄悄漂移。
+func turnCostCapProvider(ctx context.Context, userID uint) (int64, bool) {
+	if vipChecker == nil {
+		return 0, true
+	}
+	return vipChecker.TurnCostCap(ctx, userID)
 }
 
 func recordQuestion(uid *uint) {
@@ -180,13 +219,23 @@ func BuildSpec() agentbridge.FeatureSpec {
 		InjectPromptOnFirstMsg: true, // agent 默认带全工具,首条注入 agent-native 系统提示强约束
 		// 默认模型走 chat_default.prism 能力绑定(admin 模型目录页可改;迁移初值=主档)。
 
-		// C14: 审批轴 = auto。经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界/Bash 等拒。
+		// C14: 审批轴 = auto。经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界拒。
 		// ⚠️ prism 的越界文件防护只在 decidePermission 里,绝不能改 passthrough(会让前端能批越界)。
 		PermissionMode: agentbridge.PermissionAuto,
+		// 🔴 2026-08-08 补:能力轴 Bash 此前是**半边接线** —— prismSessionOptions 里
+		//    SessionDisallowedTools(prismDisallowedTools, /*allowBash=*/true) 把 Bash 从 agent 侧
+		//    denylist 拿掉了(2026-08-01),模型每轮都在 tools[] 里看得见 Bash;但这里的
+		//    AllowBash 取零值 false ⇒ specDeny() 又把 bashTools 塞回 backend 权限门的 denyTools
+		//    ⇒ decidePermission 顶部命中 denylist 直接拒。线上 48/48 次 prism Bash 调用 100% 失败
+		//    (43 次 "permission denied: Bash"、5 次改动前的 "tool not permitted: Bash"),
+		//    2026-08-07 16:54 仍在发生,且只打 INFO 日志、没有任何红灯。
+		//    AllowBash 是这条能力的**单一真源**(spec.go:258),两个消费者必须同时改。
+		AllowBash: true,
 		PreUserMessage:         pre,
 		OnMessageComplete:      onComplete,
-		// SS#2:有界透支预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
+		// SS#2:单轮预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
 		BudgetProvider: budgetProvider,
+		TurnCostCap:    turnCostCapProvider,
 		// 项目名真源在 prism_projects.title(非 agent jsonl):agent 用前端带的 titleSeed 生成标题后,
 		// backend 经此回调落库(见 handleAgentTitle / autoname.go)。
 		OnTitleResult: handleAgentTitle,

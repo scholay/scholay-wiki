@@ -15,14 +15,8 @@ import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
 import { WeChatQRPanel } from './WeChatQRPanel';
-
-// 移动整页版(MobileAuthPage)共用同一份标题文案 —— 双端措辞永远一致
-export const TITLES = {
-  login: { title: '欢迎回来', desc: '继续你的学术之旅' },
-  register: { title: '创建账号', desc: '免费开始使用 Scholay' },
-  forgot: { title: '找回密码', desc: '通过验证码重置你的密码' },
-  'wechat-qr': { title: '使用微信扫一扫', desc: '打开微信,扫描下方二维码完成登录' },
-} as const;
+import { InviteAuthNotice } from './InviteAuthNotice';
+import { AUTH_TITLES } from './auth-titles';
 
 /**
  * 鉴权弹窗 — 全局唯一,挂在 Providers 之下。
@@ -36,7 +30,7 @@ export const TITLES = {
  */
 export function AuthDialog() {
   const { open, mode, initialAccountType, setMode, close } = useAuthDialog();
-  const t = TITLES[mode];
+  const t = AUTH_TITLES[mode];
   const isWeChatQR = mode === 'wechat-qr';
 
   // 移动端(/m/*)的登录走 /m/auth 整页(MobileShell 的桥接 effect 会立刻转跳),
@@ -62,7 +56,7 @@ export function AuthDialog() {
 
   return (
     <Dialog open={open && !suppressOnMobile} onOpenChange={(v) => (v ? null : handleClose())}>
-      <DialogContent className="max-w-md p-0 gap-0 border-border">
+      <DialogContent className="max-w-md min-w-0 grid-cols-[minmax(0,1fr)] overflow-x-hidden p-0 gap-0 border-border">
         <div className="relative flex flex-col items-center gap-1 pt-7 pb-4 px-6 border-b border-border-soft">
           {/* 微信扫码模式:左上角返回箭头,回到 login;其他模式无返回(可关弹窗) */}
           {isWeChatQR && (
@@ -70,14 +64,14 @@ export function AuthDialog() {
               type="button"
               onClick={() => setMode('login')}
               aria-label="返回登录"
-              className="absolute left-3 top-3 inline-flex size-7 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
+              className="absolute left-3 top-3 inline-flex size-7 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
             >
               <ArrowLeft className="size-4" />
             </button>
           )}
           <BrandLogo size="md" />
-          <DialogTitle className="mt-2 text-lg font-semibold">{t.title}</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogTitle className="mt-2 text-16 font-medium">{t.title}</DialogTitle>
+          <DialogDescription className="text-12 text-muted-foreground">
             {t.desc}
           </DialogDescription>
         </div>
@@ -91,7 +85,7 @@ export function AuthDialog() {
           </div>
         ) : (
           <>
-            <div className="px-6 py-5">
+            <div className="min-w-0 px-6 py-5">
               {mode === 'login' && (
                 <LoginForm
                   initialAccountType={initialAccountType}
@@ -112,10 +106,11 @@ export function AuthDialog() {
               )}
             </div>
 
-            <div className="px-6 pb-6">
+            <div className="min-w-0 px-6 pb-6">
+              {mode === 'register' && <InviteAuthNotice className="mx-0 mt-0" />}
               <div className="relative flex items-center my-3">
                 <Separator className="flex-1" />
-                <span className="px-3 text-2xs text-faint uppercase tracking-widest">
+                <span className="px-3 text-12 text-faint uppercase">
                   或继续使用
                 </span>
                 <Separator className="flex-1" />

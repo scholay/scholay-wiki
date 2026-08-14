@@ -1,9 +1,12 @@
 // 公开套餐(价格/倍率/赠送)+ 订阅下单流程 —— 落地价格页用。对齐 backend billing_handler.PublicPlans。
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
+import { notifyBillingChanged } from '@/shared/lib/quota-events';
 import { type SubQuote, type BillingCycle } from '@/shared/components';
 
 /** 订阅/续期/升级报价(不建单)。模块级函数=稳定引用,供购买弹窗。 */
@@ -16,22 +19,23 @@ export interface PlanCard {
   price_cents: number;
   original_cents: number;
   multiplier: number;
-  grant_credits: number;
+  // 0090:订阅不再赠送经费,grant_credits / year_grant_credits 已从后端 PublicPlans 移除。
   year_price_cents: number; // 年度实付价(分);<=0 = 该档年付未开放(0079)
   year_original_cents: number; // 年度划线原价(分)
-  year_grant_credits: number; // 年度赠送经费总额(按月分 12 批发放)
 }
 export interface Plans {
-  free_daily_tokens: number; // 兼容字段:窗口÷天数的日均口径(P4)
-  free_window_tokens: number; // 7 天周期基准额度
+  // free_window_tokens / free_daily_tokens 已从这个**免登录**端点移除:基数 × multiplier
+  // = 三档的绝对额度上限,任何访客都能算出来(见 backend billing_handler.go PublicPlans)。
+  // 用户侧本来就零渲染,只有这两行 interface 声明存在过。要看基数去 /admin/billing/config。
   window_days: number;
-  reset_cost_credits: number;
+  // reset_cost_credits 已从后端移除:0090 起重置扣「重置次数」不扣经费。
   recharge_rate: number;
+  /** 1 经费可兑换的算力点(0094)。¥1 = recharge_rate × credit_to_points 算力点。 */
+  credit_to_points: number;
   min_recharge_cents: number;
   popular_plan: string;
   enabled: boolean;
   test_payment: boolean;
-  subscription_year_days: number; // 年度订阅时长(天,默认 365)
   payment_methods: { alipay: boolean; wechat: boolean }; // admin 配置里启用的支付渠道
   plans: PlanCard[];
 }
@@ -46,21 +50,41 @@ export function usePublicPlans() {
 
 /** 当前用户生效会员档(已登录才查;复用 ['settings','billing'] 总览缓存,返回完整对象保持一致)。 */
 export function useCurrentTier(): 'free' | 'pro' | 'max' | undefined {
+  return useCurrentMembership().tier;
+}
+
+/** 当前会员档 + 计费周期。周期用于把购买弹窗里的「续期」在跨周期时说成「转为年付」——
+ *  月付会员选年付时,后端 renew 分支会把 vip_cycle 一并改写,CTA 得如实反映这件事。 */
+export function useCurrentMembership(): { tier?: 'free' | 'pro' | 'max'; cycle?: 'monthly' | 'yearly' } {
+  // 响应式登录态门控:getAuthToken() 读 localStorage 非响应式 —— 用户在定价页经顶栏
+  // 弹窗登录后,本 hook 不重渲、查询停在 disabled,「当前档」徽标不亮(2026-08-12 审计)。
+  const authToken = useAuthStore((s) => s.token);
   const { data } = useQuery({
     queryKey: ['settings', 'billing'],
-    queryFn: async () => (await http.get<{ data: { tier: string } }>('/user/billing/overview')).data.data,
-    enabled: !!getAuthToken(),
+    queryFn: async () =>
+      (await http.get<{ data: { tier: string; cycle?: string } }>('/user/billing/overview')).data.data,
+    enabled: !!authToken,
     staleTime: 30_000,
   });
   const t = data?.tier;
-  return t === 'pro' || t === 'max' ? t : t === 'free' ? 'free' : undefined;
+  const c = data?.cycle;
+  return {
+    tier: t === 'pro' || t === 'max' ? t : t === 'free' ? 'free' : undefined,
+    cycle: c === 'yearly' || c === 'monthly' ? c : undefined,
+  };
 }
 
-/** 价格页订阅:建单 + 按选定支付方式发起。测试支付→一键履约后进会员页;支付宝→跳收银台;微信→暂未开放。
+/** 价格页订阅:建单 + 按选定支付方式发起。测试支付→一键履约后进会员页;支付宝→跳收银台;
+ *  微信→关弹窗、把已建订单交给 wechatOrder(调用方渲染 `<WechatPayDialog>` 扫码)。
  *  cycle=yearly 走年度订阅(订单/权益/文案由后端按周期履约)。
- *  返回 true=已完成(关弹窗),false=保持弹窗。登录闸门在调用方(点订阅时)先做。 */
+ *  返回 true=已完成(关弹窗),false=保持弹窗。登录闸门在调用方(点订阅时)先做。
+ *
+ *  ⚠️ 调用方**必须**接上 wechatOrder / closeWechat / onWechatPaid,否则微信分支会留下
+ *  pending 孤儿订单(改造前的 bug 就是先建单再 toast「即将开放」)。 */
 export function useLandingSubscribe() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [wechatOrder, setWechatOrder] = useState<{ orderNo: string; subject: string; label: string } | null>(null);
   const sub = useMutation({
     mutationFn: async (vars: { plan: 'pro' | 'max'; cycle: BillingCycle }) =>
       (await http.post<{ data: { order_no: string; final_amount: number } }>('/user/billing/subscribe', vars)).data.data,
@@ -82,12 +106,14 @@ export function useLandingSubscribe() {
       if (method === 'test') {
         await testPay.mutateAsync(order.order_no);
         toast.success(`测试支付成功!${cycleLabel}已开通`);
+        notifyBillingChanged(); // 广播刷新额度/经费(账户资产卡 + 全局通知器,同 settings 侧 useSubscribeFlow)
         navigate('/settings/membership');
         return true;
       }
       if (method === 'wechat') {
-        toast.info('微信支付即将开放,请暂用其他方式');
-        return false;
+        // 订单已建好 —— 交给扫码弹窗,不能在这里丢下它。
+        setWechatOrder({ orderNo: order.order_no, subject: `${cycleLabel}订阅`, label: cycleLabel });
+        return true;
       }
       const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${cycleLabel}订阅` });
       window.location.href = pay.payment_url;
@@ -97,5 +123,17 @@ export function useLandingSubscribe() {
       return false;
     }
   };
-  return { subscribe, busy: sub.isPending || testPay.isPending || startAlipay.isPending };
+  return {
+    subscribe,
+    busy: sub.isPending || testPay.isPending || startAlipay.isPending,
+    wechatOrder,
+    closeWechat: () => setWechatOrder(null),
+    /** 微信支付成功 —— 与本页 test 分支同一套副作用(成功 toast + 广播 + 进会员页)。 */
+    onWechatPaid: () => {
+      toast.success(`支付成功!${wechatOrder?.label ?? '会员'}已开通`);
+      notifyBillingChanged();
+      qc.invalidateQueries({ queryKey: ['settings', 'billing'] });
+      navigate('/settings/membership');
+    },
+  };
 }

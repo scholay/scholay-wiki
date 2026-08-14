@@ -24,6 +24,12 @@ import {
   prismSessionFileUrl,
 } from '../api/prism';
 import { foldHistoryToTurns, foldPrismMessages } from '../components/chat/fold';
+import {
+  clearPrismBlockedMessage,
+  getPrismBlockedMessage,
+  setPrismBlockedMessage,
+  type PrismBlockedMessage,
+} from '../api/blocked';
 
 /** 当前轮的实时 diff(编辑器据此渲染:original=baseline,modified=cwd 实时内容)。 */
 export interface LiveDiff {
@@ -113,6 +119,14 @@ function currentStreamingWrite(messages: PrismServerMessage[]): { content: strin
       openWrite = false;
       accum = '';
       path = undefined;
+    } else if (m.type === 'message_complete' || m.type === 'error' || m.type === 'round_discarded') {
+      // 终帧复位(2026-07 审查 finding):中止的在途 Write 永远收不到 tool_use_complete
+      // (markPendingToolsAborted 注释的协议事实)。不复位则残稿跨轮存活 —— 下一轮若是
+      // 纯文本回答(无新 tool_use 来复位),每次 messages 变化都会把上一轮中止的半截文档
+      // 反复灌进活动文件实时预览。
+      openWrite = false;
+      accum = '';
+      path = undefined;
     }
   }
   return openWrite && accum ? { content: accum, path } : null;
@@ -196,6 +210,8 @@ export function usePrismChat(
       id: string;
       userText: string;
       paused?: boolean;
+      /** 命中额度未发送的那轮 —— fold 置 complete=true + 游标跳过;渲染出 BlockedTurnCard。 */
+      blocked?: boolean;
       userAttachments?: TurnAttachment[];
       userReferences?: TurnReference[];
     }[]
@@ -224,6 +240,9 @@ export function usePrismChat(
   const roundActiveRef = useRef(false); // 当前是否有在途轮(gate finalize,避免重复收尾)
   const activeRef = useRef<{ relPath: string; baseline: string } | null>(null);
   const lastInstructionRef = useRef('');
+  // 最近一次提交的原始 payload(text + 含 path 的 attachments + 引用)—— 命中额度时据此把
+  // 「未发送」消息持久化到 localStorage 供一键重发(与 claw 的 lastSubmitRef 同构)。
+  const lastSubmitRef = useRef<PrismBlockedMessage | null>(null);
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const epochRef = useRef(''); // V3-4.4-1:轮次世代号(prepare/pending 取得,apply 带回;409=基线被别处推进)
   // 未送达看门狗 timer(send 成功后挂;ack/流帧/配额/busy 任一信号撤销)+ 停止兜底 timer。
@@ -472,6 +491,8 @@ export function usePrismChat(
       }
       activeRef.current = active;
       lastInstructionRef.current = ins;
+      // 记本次提交的完整 payload —— 命中额度时据此持久化「未发送」消息(含附件/引用)供重发。
+      lastSubmitRef.current = { text: ins, attachments: atts, references: refs };
       roundActiveRef.current = true;
       setChangeset(null);
       setAppliedChange(null); // 开新一轮 → 清掉上一轮的「本次改动」标识
@@ -602,7 +623,38 @@ export function usePrismChat(
     setHasMoreHistory(false);
     // 切对话即刻清空(不等异步返回),避免旧对话 UI 闪现:历史/在途轮/改动门/实时 diff + 各 round ref。
     setHistoryTurns([]);
-    setPendingTurns([]);
+    // 恢复「未发送」消息:该「项目+对话」的 localStorage 里存着命中额度被拦的消息 → 补一条
+    // blocked 轮(QuotaComposerStrip 自动重发)。覆盖三条路径:跳支付宝充会员整页返回 / 换设备
+    // 回来 / 切到别的对话再切回来。没有则照旧清空。
+    const storedBlocked = getPrismBlockedMessage(projectId, wantSession ?? null);
+    setPendingTurns(
+      storedBlocked
+        ? [
+            {
+              id: `blocked-${projectId}-${wantSession ?? 'latest'}`,
+              userText: storedBlocked.text,
+              blocked: true,
+              // 重建引用 chip:重发时会用 references 重附引用块,这里让恢复的 blocked 轮
+              // 也把绿 chip 显示回来(与实时提交的气泡一致)。
+              userReferences: (storedBlocked.references ?? []).map((r) => ({
+                kind: r.kind,
+                title: r.title,
+                paperCount: r.paperCount,
+                hasPdf: r.hasPdf,
+              })),
+              userAttachments: storedBlocked.attachments.map((a) => ({
+                type: a.type,
+                name: a.name,
+                mimeType: a.mimeType,
+                size: a.size,
+                path: a.path,
+                previewUrl:
+                  a.type === 'image' && a.path ? prismSessionFileUrl(projectId, a.path) : undefined,
+              })),
+            },
+          ]
+        : [],
+    );
     setChangeset(null);
     setAppliedChange(null);
     setRoundState('idle');
@@ -701,14 +753,22 @@ export function usePrismChat(
 
   // 命中每日额度:backend 在转发给 agent 之前就拒了这条 user_message(quota_exceeded 帧不进
   // socket.messages),agent 永不对这轮发 message_complete → roundState 卡在 'streaming'、composer
-  // 永久禁用、stop 也救不了(评审 F2)。socket.quotaExceeded 单调自增 → 解卡:回 idle + 标记本轮暂停。
-  // 用户已由全局额度弹窗(QuotaNotifier)知道原因;此处只负责把本地状态机解锁。
+  // 永久禁用、stop 也救不了(评审 F2)。socket.quotaExceeded 单调自增 → 处理:
+  //   ① 本轮标 **blocked**(不再标 paused):fold 对 blocked 轮置 complete=true 并在对齐游标
+  //      跳过它 —— StreamingIndicator 不再对着永不完成的轮永续转,后续真实轮的流帧也不会错位
+  //      折进这条死轮(旧「paused + complete 永远 false」的两个自认风险一并消除);渲染层
+  //      (PrismMessageTurn)对 blocked 轮出 BlockedTurnCard(一键重发,无需重打)。
+  //   ② 消息按「项目+对话」持久化到 localStorage —— 跳支付宝充会员整页返回 / 换设备回来
+  //      都能在重入恢复 effect 里还原、一键重发。
+  // 用户已由全局额度弹窗(QuotaNotifier)知道原因;此处负责解锁本地状态机 + 保住这条消息。
   const lastQuotaRef = useRef(0);
   useEffect(() => {
     if (socket.quotaExceeded === 0 || socket.quotaExceeded === lastQuotaRef.current) return;
     lastQuotaRef.current = socket.quotaExceeded;
+    const payload = lastSubmitRef.current;
+    if (payload) setPrismBlockedMessage(projectId, sessionIdRef.current ?? null, payload);
     setPendingTurns((prev) =>
-      prev.length ? [...prev.slice(0, -1), { ...prev[prev.length - 1], paused: true }] : prev,
+      prev.length ? [...prev.slice(0, -1), { ...prev[prev.length - 1], blocked: true }] : prev,
     );
     roundActiveRef.current = false;
     setRoundState('idle');
@@ -749,6 +809,22 @@ export function usePrismChat(
     socket.appendLocalFrame({ type: 'message_complete', aborted: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket.resyncIdle]);
+
+  // 一键重发「未发送」消息(命中额度被拦的那条):清持久化 + 移除 blocked 轮,payload 交还调用方
+  // 走**现有发送路径**(PrismChatPanel → onSend → workspace sendChat → chat.send:编辑器 flush
+  // 落库 + prepareRound 铺源都不缺)。若额度仍未解,会再次被拦成 blocked(行为一致,不会卡死)。
+  const takeBlockedMessage = useCallback((): PrismBlockedMessage | null => {
+    const stored = getPrismBlockedMessage(projectId, sessionIdRef.current ?? null) ?? null;
+    clearPrismBlockedMessage(projectId, sessionIdRef.current ?? null);
+    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
+    return stored;
+  }, [projectId]);
+
+  // 忽略「未发送」消息:清持久化 + 移除 blocked 轮(用户决定不再发这条)。
+  const dismissBlocked = useCallback(() => {
+    clearPrismBlockedMessage(projectId, sessionIdRef.current ?? null);
+    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
+  }, [projectId]);
 
   const newChat = useCallback(() => {
     socket.clearMessages();
@@ -794,6 +870,9 @@ export function usePrismChat(
     reject,
     stop,
     newChat,
+    // 命中额度「未发送」轮:一键重发取回 payload(并清卡片/持久化)/ 忽略丢弃。
+    takeBlockedMessage,
+    dismissBlocked,
     // P2 模型目录:会话当前模型(服务端 runtime_config_updated 广播)+ 切换动作(hub 校验落 pinned_model)。
     sessionModel: socket.sessionModel,
     setModel: (id: string | null) => {

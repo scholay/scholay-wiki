@@ -27,7 +27,7 @@ export function BlogDetailPage() {
         breadcrumbs={[{ label: '学术资源', to: '/resources' }, { label: '产品博客', to: '/blog' }]}
         title="加载中…"
       >
-        <div className="py-16 text-center text-sm text-muted-foreground">正在加载文章…</div>
+        <div className="py-16 text-center text-12 text-muted-foreground">正在加载文章…</div>
       </HelpLayout>
     );
   }
@@ -80,11 +80,11 @@ export function BlogDetailPage() {
       {/* 标签 */}
       {article.tags.length > 0 && (
         <div className="mt-10 flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs text-faint">标签:</span>
+          <span className="text-12 text-faint">标签:</span>
           {article.tags.map((t) => (
             <span
               key={t}
-              className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-1 text-2xs text-muted-foreground"
+              className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-1 text-12 text-muted-foreground"
             >
               {t}
             </span>
@@ -94,21 +94,21 @@ export function BlogDetailPage() {
 
       {/* 作者卡 —— 升级:加 brand-green soft 头像背景 + 更宽 padding */}
       {author && (
-        <section className="mt-10 p-6 rounded-lg bg-surface-1 border border-border-soft">
+        <section className="mt-10 p-6 rounded-16 bg-surface-1 border border-border-soft">
           <div className="flex items-start gap-4">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green text-background text-base font-bold shrink-0">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green text-on-brand text-14 font-medium shrink-0">
               {author.name.slice(0, 1)}
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <p className="text-sm font-bold text-foreground">
+                <p className="text-14 font-medium text-foreground">
                   {author.name}
                 </p>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-12 text-muted-foreground">
                   · {author.role}
                 </span>
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+              <p className="mt-1.5 text-12 text-muted-foreground leading-paragraph">
                 {author.bio}
               </p>
             </div>
@@ -123,24 +123,24 @@ export function BlogDetailPage() {
 
       {related.length > 0 && (
         <section className="mt-12 pt-8 border-t border-border-soft">
-          <h2 className="text-base font-bold text-foreground mb-4">相关文章</h2>
+          <h2 className="text-14 font-medium text-foreground mb-4">相关文章</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {related.map((r) => (
               <Link
                 key={r.slug}
                 to={`/blog/${r.slug}`}
-                className="group flex flex-col gap-1.5 p-4 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+                className="group flex flex-col gap-1.5 p-4 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-colors"
               >
-                <p className="text-2xs text-faint">{r.category}</p>
-                <p className="text-sm font-bold text-foreground leading-snug line-clamp-2">
+                <p className="text-12 text-faint">{r.category}</p>
+                <p className="text-14 font-medium text-foreground line-clamp-2">
                   {r.title}
                 </p>
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                <p className="text-12 text-muted-foreground leading-paragraph line-clamp-2">
                   {r.excerpt}
                 </p>
-                <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-red group-hover:gap-2 transition-all">
+                <span className="mt-1 inline-flex items-center gap-1 text-12 font-medium text-brand-red">
                   阅读全文
-                  <ArrowRight className="size-3" />
+                  <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
                 </span>
               </Link>
             ))}

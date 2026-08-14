@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { http } from '@/shared/lib/http';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { http, toApiError } from '@/shared/lib/http';
 
 /**
  * OAuth / SSO 配置。后端按 provider 区分(各自独立 endpoint + 独立请求结构体),
@@ -170,6 +170,11 @@ export function useOAuthConfig(
 ) {
   return useQuery({
     queryKey: ['admin', 'oauth', provider, { showSensitive }],
+    // showSensitive 进了 queryKey —— 点密钥框的「眼睛」就是换 key 重取。
+    // 没有 keepPreviousData 的话新 key 无缓存 → isLoading 瞬时为 true → 上层守卫
+    // (ConfigPageGuard / `if (isLoading) return <Loading/>`)会把整张表单卸载重建,
+    // 管理员填了一半还没保存的内容会无声消失。保住旧值,表单始终挂载。
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<OAuthConfigRecord> => {
       try {
         const res = await http.get<{ data: OAuthConfigRecord }>(getEndpoint(provider), {
@@ -177,8 +182,14 @@ export function useOAuthConfig(
         });
         return res.data.data ?? {};
       } catch (e) {
-        // 微信尚无 active 配置时后端回 4404 —— 视为"还没配",给空表单(创建模式)。
-        if (provider === 'wechat') return {};
+        // 微信尚无 active 配置时后端回 HTTP 404 / 业务码 4404
+        // (backend/internal/wechat/handler.go:114)—— 视为"还没配",给空表单(创建模式)。
+        //
+        // 🔴 只吞 404。原来是 `if (provider === 'wechat') return {}`,把 500 / 断网
+        // 也一并当成"还没配":于是 GET 挂掉时渲染出一张正常的空表单,保存即把线上的
+        // app_id / app_secret / redirect_uri 全写空,还顺手把 is_active 写成 false。
+        const err = toApiError(e);
+        if (provider === 'wechat' && (err.status === 404 || err.code === 4404)) return {};
         throw e;
       }
     },

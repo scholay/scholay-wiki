@@ -230,8 +230,8 @@ func markAlreadySaved(h *Handler, userID uint64, hits []SearchHit) []SearchHit {
 }
 
 // enrichPmdAbstractsInHits —— PMD 命中行的 abstract 补全。
-// 上游 /v1/pmd/papers/search 不返 abstract,但单篇 /v1/stc/papers/get(后端
-// GetPaperBatch 会按 "pmd:" 前缀路由过去)能拿到 efetch abstract。
+// 上游 /v1/pmd/papers/search 不返 abstract，但单篇 /v1/pmd/papers/get
+// （GetPaperBatch 会按 pmd:/pubmed: 前缀路由）能拿到 efetch abstract。
 // 收集所有 PMD + abstract 为空的 hit 一次性请 GetPaperBatch,merge 回去;
 // 失败静默 fallback —— abstract 留空,主流程不挂。
 func (h *Handler) enrichPmdAbstractsInHits(ctx context.Context, hits []SearchHit) []SearchHit {

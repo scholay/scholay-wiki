@@ -17,10 +17,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/httpclient"
+	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/common/utils"
 
@@ -30,6 +32,37 @@ import (
 
 // oauthStateTTL OAuth state / nonce 在 Redis 中的生存期。
 const oauthStateTTL = 5 * time.Minute
+
+type oauthStateRecord struct {
+	// InviteCode 只是候选码；是否有效由 invite 域在新用户创建后统一校验。
+	InviteCode string `json:"invite_code,omitempty"`
+}
+
+func encodeOAuthStatePayload(ctx context.Context) string {
+	code := strings.ToUpper(strings.TrimSpace(middleware.InviteCodeFromContext(ctx)))
+	if code == "" {
+		return "1"
+	}
+	raw, err := json.Marshal(oauthStateRecord{InviteCode: code})
+	if err != nil {
+		return "1"
+	}
+	return string(raw)
+}
+
+func restoreOAuthStatePayload(ctx context.Context, payload string) (context.Context, bool) {
+	if payload == "1" { // 旧版已签发的 state，无邀请候选码。
+		return ctx, true
+	}
+	var record oauthStateRecord
+	if err := json.Unmarshal([]byte(payload), &record); err != nil {
+		return ctx, false
+	}
+	if record.InviteCode != "" {
+		ctx = middleware.ContextWithInviteCode(ctx, record.InviteCode)
+	}
+	return ctx, true
+}
 
 // newOAuthUpstream 给各 OAuth provider 构造统一的 upstream 客户端:
 // 共用 httpclient.OAuthClient 连接池 + 每 provider 独立 breaker + 结构化观测。
@@ -50,7 +83,7 @@ func newOAuthUpstream(name string) *upstream.Client {
 func issueOAuthState(c *gin.Context, prefix string) string {
 	state := utils.GenerateRandomString(32)
 	if rdb := cache.GetRedis(); rdb != nil {
-		rdb.Set(c.Request.Context(), prefix+state, "1", oauthStateTTL)
+		rdb.Set(c.Request.Context(), prefix+state, encodeOAuthStatePayload(c.Request.Context()), oauthStateTTL)
 	}
 	return state
 }
@@ -68,11 +101,16 @@ func validateOAuthState(c *gin.Context, prefix, state string) bool {
 		return true
 	}
 	key := prefix + state
-	val, err := rdb.Get(c.Request.Context(), key).Result()
-	if err != nil || val != "1" {
+	// GETDEL 原子消费，阻止两个并发 callback 都通过同一 state。
+	val, err := rdb.GetDel(c.Request.Context(), key).Result()
+	if err != nil {
 		return false
 	}
-	rdb.Del(c.Request.Context(), key)
+	restored, ok := restoreOAuthStatePayload(c.Request.Context(), val)
+	if !ok {
+		return false
+	}
+	c.Request = c.Request.WithContext(restored)
 	return true
 }
 
@@ -109,10 +147,10 @@ func respondOAuthSuccess(c *gin.Context, token string, user *User, isNewUser boo
 // 不签发 token,而是把 merge_token + 待合并目标摘要返给前端,引导用户确认。
 //
 // 前端拿到 requires_merge=true 后:
-//   1. 拉 /user/oauth/pending-merge?token=xxx 拿完整摘要(provider 头像/昵称)
-//   2. 展示「将 GitHub 账号绑定到 alice@example.com 的现有账户?」对话框
-//   3. 用户「确认」→ POST /user/oauth/confirm-merge {token} → 拿到 JWT 登入
-//      用户「新建独立账号」→ POST /user/oauth/cancel-merge {token} → 拿到 JWT 登入新号
+//  1. 拉 /user/oauth/pending-merge?token=xxx 拿完整摘要(provider 头像/昵称)
+//  2. 展示「将 GitHub 账号绑定到 alice@example.com 的现有账户?」对话框
+//  3. 用户「确认」→ POST /user/oauth/confirm-merge {token} → 拿到 JWT 登入
+//     用户「新建独立账号」→ POST /user/oauth/cancel-merge {token} → 拿到 JWT 登入新号
 func respondOAuthPendingMerge(c *gin.Context, mergeToken, provider, targetEmail string) {
 	utils.SuccessResponse(c, http.StatusOK, "merge_required", gin.H{
 		"requires_merge": true,
@@ -153,9 +191,9 @@ type oauthIdentity struct {
 
 // findOrCreateOAuthUser 是 GitHub/Google/Apple/Microsoft/Discourse 共享的「登录 / 新建 / 合并」分发逻辑。
 // 步骤:
-//   1. 已有 user_auth_providers 行(同 provider + provider_user_id)→ 直接登录
-//   2. 否则查 email 是否被其他 user 占用 → 占用则发 merge_token,等用户决策
-//   3. 否则新建 user + 加 user_auth_providers 链接 → 走「新用户登录」分支
+//  1. 已有 user_auth_providers 行(同 provider + provider_user_id)→ 直接登录
+//  2. 否则查 email 是否被其他 user 占用 → 占用则发 merge_token,等用户决策
+//  3. 否则新建 user + 加 user_auth_providers 链接 → 走「新用户登录」分支
 //
 // ORCID(无邮箱)/ WeChat(无邮箱 + 有 unionID)结构不同,各自保留自己的 finder。
 //
@@ -269,6 +307,10 @@ func (h *Handler) findOrCreateOAuthUser(ctx context.Context, identity oauthIdent
 	}); err != nil {
 		return oauthOutcome{}, err
 	}
+
+	// 邀请归因(best-effort):仅走到「新建 user」分支才归因,已绑定登录 / merge 分支都不算。
+	// method 直接用 provider 名(github/google/apple/microsoft/discourse)。
+	notifyInviteRegistered(ctx, user.ID, identity.Provider)
 
 	return oauthOutcome{User: user, IsNewUser: true}, nil
 }

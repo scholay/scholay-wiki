@@ -1,0 +1,45 @@
+{
+  "entryJsGzipBytes": 245760,
+  "entryCssGzipBytes": 66560,
+  "entryRequestCount": 8,
+  "largestJsChunkGzipBytes": 481280,
+  "totalJsGzipBytes": 4100000,
+  "jsChunkCount": 530,
+  "tinyJsChunkCount": 255,
+  "webVitalsMustBeAsync": true,
+  "routeClosures": {
+    "desktopHome": {
+      "sources": [
+        "src/app/layouts/AppShell.tsx",
+        "src/features/home/HomePage.tsx"
+      ],
+      "maxJsGzipBytes": 307200,
+      "maxJsRequestCount": 60
+    },
+    "mobileFeed": {
+      "sources": [
+        "src/features/mobile/layouts/MobileShell.tsx",
+        "src/features/mobile/components/FeedPrefetcher.tsx",
+        "src/features/mobile/pages/FeedPage.tsx"
+      ],
+      "maxJsGzipBytes": 337920,
+      "maxJsRequestCount": 48
+    },
+    "desktopClaw": {
+      "sources": [
+        "src/app/layouts/AppShell.tsx",
+        "src/features/claw/pages/ClawPage.tsx"
+      ],
+      "maxJsGzipBytes": 481280,
+      "maxJsRequestCount": 120
+    },
+    "mobileClaw": {
+      "sources": [
+        "src/features/mobile/layouts/MobileShell.tsx",
+        "src/features/claw/pages/mobile/MobileClawPage.tsx"
+      ],
+      "maxJsGzipBytes": 450560,
+      "maxJsRequestCount": 108
+    }
+  }
+}

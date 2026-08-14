@@ -20,9 +20,8 @@ func (s *Service) RecordAuthorDetailClick(seed *AuthorSeed) error {
 	if seed == nil || seed.AuthorID == "" || seed.Name == "" {
 		return errors.New("author detail click requires author_id and name")
 	}
-	if seed.Source == "" {
-		seed.Source = InferAuthorSource(seed.AuthorID)
-	}
+	// entity ID 是来源的权威信号；忽略公开请求中可伪造的 source。
+	seed.Source = InferAuthorSource(seed.AuthorID)
 	slug := GenerateAuthorSlug(seed.Name, seed.AuthorID)
 	affJSON := marshalStrings(seed.Affiliations)
 
@@ -51,31 +50,40 @@ func (s *Service) RecordAuthorSearchSeeds(seeds []AuthorSeed) (int, error) {
 	}
 
 	written := 0
-	pushPaths := make([]string, 0, len(seeds))
+	var writeErr error
+	pushRows := make([]*SEOAuthor, 0, len(seeds))
 	for i := range seeds {
 		seed := &seeds[i]
 		if seed.AuthorID == "" || seed.Name == "" {
 			continue
 		}
-		if seed.Source == "" {
-			seed.Source = InferAuthorSource(seed.AuthorID)
-		}
+		seed.Source = InferAuthorSource(seed.AuthorID)
 		slug := GenerateAuthorSlug(seed.Name, seed.AuthorID)
 		affJSON := marshalStrings(seed.Affiliations)
 
 		if err := s.repo.UpsertAuthorSeed(seed, slug, affJSON); err != nil {
 			slog.Warn("seo author seed upsert failed", "author_id", seed.AuthorID, "err", err)
+			writeErr = errors.Join(writeErr, err)
 			continue
 		}
 		written++
-		pushPaths = append(pushPaths, authorCanonicalPath(seed.Source, seed.AuthorID))
+
+		// Judge the persisted final row. Existing detail/enrichment data can make
+		// it eligible, while hidden/retired rows must never be proactively sent.
+		row, err := s.repo.GetAuthorByAuthorID(seed.AuthorID)
+		if err != nil {
+			slog.Warn("seo author seed eligibility read failed", "author_id", seed.AuthorID, "err", err)
+			writeErr = errors.Join(writeErr, err)
+			continue
+		}
+		pushRows = append(pushRows, row)
 	}
 
 	if written > 0 {
 		s.invalidateAuthorsCache()
-		s.enqueueAuthorPaths(pushPaths...)
+		s.enqueueIndexableAuthorRows(pushRows...)
 	}
-	return written, nil
+	return written, writeErr
 }
 
 // GetAuthorBySlug 路由解析（SSR 用）

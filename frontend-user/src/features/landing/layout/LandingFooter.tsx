@@ -40,7 +40,7 @@ function LinkCol({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <span className="text-xs font-semibold tracking-[0.15em] uppercase text-foreground">
+      <span className="text-12 font-medium uppercase text-foreground">
         {title}
       </span>
       <ul className="flex flex-col gap-2">
@@ -49,7 +49,7 @@ function LinkCol({
             <li key={it.label}>
               <Link
                 to={it.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-12 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {it.label}
               </Link>
@@ -58,7 +58,7 @@ function LinkCol({
             <li key={it.label}>
               <a
                 href={it.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-12 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {it.label}
               </a>
@@ -83,7 +83,7 @@ export function LandingFooter() {
           {/* 品牌列 */}
           <div className="col-span-2 flex flex-col gap-4">
             <BrandLogo size="sm" />
-            <p className="text-sm leading-[1.7] text-muted-foreground max-w-xs">
+            <p className="text-12 leading-paragraph text-muted-foreground max-w-xs">
               为学者打造的整套学术工作流,从读到写、从投稿到评审,一站完成。
             </p>
           </div>
@@ -95,10 +95,10 @@ export function LandingFooter() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-border-soft flex flex-col sm:flex-row items-center gap-3 justify-between">
-          <span className="text-xs text-faint">
+          <span className="text-12 text-faint">
             © {new Date().getFullYear()} <BrandName tone="subtle" /> · 让学术研究更聪明。
           </span>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4 text-12 text-muted-foreground">
             <span className="text-foreground font-medium">简体中文</span>
             <span>English</span>
             <span>日本語</span>

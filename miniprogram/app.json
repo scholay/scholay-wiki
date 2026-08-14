@@ -18,16 +18,16 @@
     "pages/change-password/change-password"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarBackgroundColor": "#F6F4EE",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "Scholay 学术",
-    "backgroundColor": "#f5f5f7",
+    "backgroundColor": "#F6F4EE",
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
     "custom": true,
-    "color": "#999999",
-    "selectedColor": "#111111",
+    "color": "#757580",
+    "selectedColor": "#1F1F23",
     "backgroundColor": "#ffffff",
     "list": [
       {

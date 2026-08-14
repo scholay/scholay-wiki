@@ -20,11 +20,11 @@ export const PrismReferencesList = memo(function PrismReferencesList({
   const refs = useMemo(() => buildReferenceList(numbering, bibliography), [numbering, bibliography]);
   if (refs.length === 0) return null;
   return (
-    <section className="mx-auto max-w-[720px] px-12 pb-12 font-serif text-md text-foreground">
-      <h2 className="mb-3 border-b border-border pb-1 text-lg font-bold">参考文献</h2>
+    <section className="mx-auto max-w-[720px] px-12 pb-12 font-serif text-14 text-foreground">
+      <h2 className="mb-3 border-b border-border pb-1 text-16 font-bold">参考文献</h2>
       <ol className="space-y-2">
         {refs.map(({ num, entry }) => (
-          <li key={`${entry.key}-${num}`} className="flex gap-2 text-sm leading-relaxed text-subtle">
+          <li key={`${entry.key}-${num}`} className="flex gap-2 text-12 leading-paragraph text-subtle">
             <span className="shrink-0 tabular-nums text-faint">[{num}]</span>
             <span className="min-w-0">
               {entry.authors && <span>{entry.authors}. </span>}

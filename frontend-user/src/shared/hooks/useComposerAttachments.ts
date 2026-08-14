@@ -1,5 +1,6 @@
 import { useRef, useState, type ClipboardEvent, type DragEvent } from 'react';
 import { toast } from 'sonner';
+import { useDeleteAgentAttachment } from '@/shared/api/agent-attach';
 import type { AttachmentDTO } from '@/shared/types/chat';
 
 /**
@@ -37,6 +38,10 @@ const LEGACY_OFFICE_EXTS = ['.doc', '.xls', '.ppt', '.ods', '.odp'];
 /** 上传入口统一的 accept 白名单(由上面的扩展名清单拼出,与 backend 白名单同源同步)。 */
 export const ATTACHMENT_ACCEPT = [...IMAGE_EXTS, ...DOC_EXTS, ...TEXT_EXTS].join(',');
 
+// SPSS / Stata / SAS 的专有二进制格式。单列一支是为了给出**可执行的出路**,
+// 而不是落进通用文案里那句「可上传图片、PDF、Office 文档」。
+const STAT_DATA_EXTS = ['.sav', '.zsav', '.por', '.dta', '.sas7bdat', '.xpt', '.rdata', '.rds'];
+
 const extOf = (name: string): string => {
   const i = name.lastIndexOf('.');
   return i >= 0 ? name.slice(i).toLowerCase() : '';
@@ -48,7 +53,7 @@ const extOf = (name: string): string => {
  * 必要性:accept 只是文件选择器的过滤建议,拖拽/粘贴完全绕过它 —— 没有这层,
  * 类型错误要等上传 RTT 才报(chip 红边),体验差且白耗一次请求。
  */
-function classifyFile(file: File): { kind: 'image' | 'file' } | { kind: 'unsupported'; reason: string } {
+export function classifyFile(file: File): { kind: 'image' | 'file' } | { kind: 'unsupported'; reason: string } {
   const mime = (file.type || '').toLowerCase();
   const ext = extOf(file.name || '');
   if (ext === '.svg' || mime === 'image/svg+xml') {
@@ -59,6 +64,21 @@ function classifyFile(file: File): { kind: 'image' | 'file' } | { kind: 'unsuppo
   }
   if (LEGACY_OFFICE_EXTS.includes(ext)) {
     return { kind: 'unsupported', reason: `暂不支持旧版 Office 格式 (${ext}),请另存为 docx / xlsx / pptx 后再上传` };
+  }
+  // 🔴 统计软件的专有数据格式单独一支。落进下面的通用分支时,文案会变成
+  //    「可上传图片、PDF、Office 文档」—— 对「数据分析」卡片是**误导**,而且
+  //    **不给 SPSS 用户任何出路**。2026-08-06 实测(AG-09):用户拖进 .sav 之后
+  //    模型宣称「.sav 我这边可以直接读取,不需要转成 Excel」,把用户推进无限重传的死循环。
+  //    这类用户恰恰是这张卡片最想接的人(他们手里就是 SPSS 数据),给一条能走的路比拒绝本身重要。
+  if (STAT_DATA_EXTS.includes(ext)) {
+    return {
+      kind: 'unsupported',
+      reason:
+        `暂不支持 ${ext} 格式(SPSS / Stata / SAS 的专有格式)。` +
+        `请在原软件里「文件 → 另存为」选 CSV 或 Excel 后再上传:` +
+        `SPSS 是「文件-另存为-保存类型选 CSV(*.csv)」。` +
+        `⚠️ 中文 Windows 导出的 CSV 常是 GBK 编码,我们能读;若不放心可选 xlsx。`,
+    };
   }
   // 图片:vision mime 白名单或扩展名任一命中(镜像后端 isImage;mime 缺失时扩展名回落,
   // 消除 5MB/30MB 档位错配)。tiff/heic/avif 等超白名单图片与后端同款拒收(agent 嵌不进模型)。
@@ -138,6 +158,8 @@ export function useComposerAttachments({
   acceptImages = true,
 }: UseComposerAttachmentsOptions) {
   const [items, setItems] = useState<ComposerAttachmentItem[]>([]);
+  // 点 × 撤销时真删后端附件(见 removeItem 的注释:不删 = 用户以为撤销了却永久占额度)。
+  const deleteAttachment = useDeleteAgentAttachment();
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   // 拖拽悬停态:计数器防子元素 dragenter/dragleave 抖动(拖过子节点会触发 leave)。
   const [dragOver, setDragOver] = useState(false);
@@ -238,12 +260,48 @@ export function useComposerAttachments({
     void runUpload(id, it.file);
   };
 
+  /**
+   * 移除一个待发送附件(chip 右上角的 ×)。
+   *
+   * 🔴 **必须真的发 DELETE**。此前这里只 filter 掉本地 state:用户点 × 以为撤销了,
+   * 而文件早已上传成功、并且**已经永久计入他的 2GB per-user 附件额度**。
+   * 一个「取消」动作留下不可见的永久占用,是最糟的那类静默不一致。
+   *
+   * scope 为什么是 permanent(而不是 session):
+   *   这条路径是**发送前撤销** —— 用户从没打算留下这个文件,他的心智是「我传错了 / 我不要它了」。
+   *   session 只删会话 cwd 的工作副本、字节仍留在 MinIO 继续占额度,那正是要修的病。
+   *   历史消息里的附件删除是另一回事(那份 chip 在 journal 里是永久的,删除走「我的附件」
+   *   弹窗,同样是 permanent,但用户是在明确知道「历史里点不开了」的前提下操作的)。
+   *
+   * 失败处理:**UI 照常移除**。用户表达的是「别把它带进这条消息」,这一点本地就能兑现;
+   * 删不掉只影响存储占用,用 toast 如实告知并指向「我的附件」,不把一个网络错误变成
+   * 「× 点了没反应」。
+   */
   const removeItem = (id: string) => {
+    const target = itemsRef.current.find((it) => it.id === id);
     setItems((prev) => {
-      const target = prev.find((it) => it.id === id);
-      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      const t = prev.find((it) => it.id === id);
+      if (t?.previewUrl) URL.revokeObjectURL(t.previewUrl);
       return prev.filter((it) => it.id !== id);
     });
+    const uuid = target?.dto?.uuid;
+    // 没有 uuid = 无从指认要删哪一个,只能跳过。两种情况:
+    //   ① 还在上传中 / 上传失败 —— 后端根本没有行(chip 一直是 uploading/error 态);
+    //   ② 老后端(0112 之前)不返回该字段。
+    // ⚠️ 注意 uuid **不能**用来判断「后端是否启用了耐久化」:降级路径(未配 MinIO)
+    // 同样会返回 uuid,只是没有行。那时这次 DELETE 会拿到 404 —— mutation 按幂等成功处理,
+    // 不打扰用户(见 useDeleteAgentAttachment)。
+    if (!uuid) return;
+    deleteAttachment.mutate(
+      { uuid, scope: 'permanent' },
+      {
+        onError: (err) => {
+          toast.error(
+            `${(err as Error).message || '删除失败'} —— 该文件仍占用你的附件空间,可在输入框「+」→「我的附件」里删除`,
+          );
+        },
+      },
+    );
   };
 
   /** 发送成功后调用:释放预览 object URL 并清空(已发送气泡的缩略图应改用后端代理 URL)。 */

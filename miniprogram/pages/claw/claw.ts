@@ -1,7 +1,7 @@
 import { syncTabBar } from '../../services/tabbar'
 import { errMsg, toastError } from '../../lib/feedback'
 import { isLoggedIn } from '../../store/auth'
-import { authedUrl, authHeader, handleAuthFailure } from '../../services/request'
+import { authedUrl, authHeader, handleAuthFailure, showQuotaModal } from '../../services/request'
 import { ensureLogin } from '../../services/auth'
 import { mdToHtml, extractBlockMath, extractInlineMath, extractInlineBlockMath, extractDiagrams } from '../../lib/markdown'
 import {
@@ -45,6 +45,7 @@ import { hasMath, setMath, mathVersion, MathImg } from '../../lib/math-cache'
 import { hasDiagram, setDiagram, diagramVersion } from '../../lib/diagram-cache'
 import { renderMath, renderMermaid } from '../../services/api/render'
 import { ICONS } from '../../lib/icons'
+import { reportActivity } from '../../services/activity'
 
 // 非响应式实例态(claw 单例 tab 页,模块级安全)。
 const S = {
@@ -106,6 +107,7 @@ function turnSig(t: Turn, blocked: boolean): string {
   }
   let s =
     t.id + '|' + (t.complete ? 1 : 0) + '|' + (t.paused ? 1 : 0) + '|' + (blocked ? 1 : 0) +
+    '|q' + (t.blocked ? 1 : 0) + // 命中额度「尚未发送」标记(与内容安全 blocked 是两回事)
     '|' + thinkBucket + '|' + (t.errorMessage || '') +
     '|' + (t.placeholder ? t.placeholder.verb || t.placeholder.state || 'p' : '') +
     '|u' + t.userText.length + '|v' + mathVersion() + '|g' + diagramVersion() + '|f' + folds + '|a' + S.artifactsVersion + '|'
@@ -118,7 +120,7 @@ function turnSig(t: Turn, blocked: boolean): string {
 }
 function sameVM(a: TurnVM, b: TurnVM): boolean {
   if (
-    a.complete !== b.complete || a.paused !== b.paused || a.error !== b.error ||
+    a.complete !== b.complete || a.paused !== b.paused || a.error !== b.error || a.blocked !== b.blocked ||
     a.thinking !== b.thinking || a.placeholder !== b.placeholder || a.blockedOutput !== b.blockedOutput ||
     a.thinkText !== b.thinkText || a.thinkPreview !== b.thinkPreview || a.thinkOpen !== b.thinkOpen ||
     a.userText !== b.userText || a.blocks.length !== b.blocks.length
@@ -434,7 +436,12 @@ Page({
     artTextHtml: '',
   },
 
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShow() {
+    reportActivity()
     syncTabBar(1)
     if (!S.inited) {
       this.init()
@@ -567,7 +574,10 @@ Page({
   rebuild(noScroll = false) {
     const live = foldMessagesIntoTurns(S.liveMessages, S.pendingTurns)
     const all = S.historyTurns.concat(live)
-    const busy = live.length > 0 && !live[live.length - 1].complete
+    // busy 排除 blocked 轮:配额拦下的轮永远等不到 message_complete,不排除会让
+    // composer 永久锁死(Web 端同款教训,见 useClawConversation 配额注释)。
+    const lastLive = live[live.length - 1]
+    const busy = !!lastLive && !lastLive.complete && !lastLive.blocked
     const vms = all.map((t) => decorateOne(t, S.blockedOutputs))
     const old = S.lastVMs
     S.lastVMs = vms
@@ -746,6 +756,7 @@ Page({
   },
 
   onInput(e: WechatMiniprogram.Input) {
+    reportActivity()
     const v = e.detail.value
     const patch: Record<string, unknown> = { input: v, canSend: this.computeCanSend(v) }
     // 删到比封顶时刻短 → 解除固定高度回到 auto-height(若仍超行,linechange 会立刻重新封顶)。
@@ -781,6 +792,7 @@ Page({
   },
 
   async onSend() {
+    reportActivity()
     const text = this.data.input.trim()
     const hasExtras = S.pendingAttachments.length > 0 || S.pendingRefs.length > 0
     // uploading 守卫:附件还在传时发送会把消息不带附件发出去,传完的 chip 会挂错到下一条。
@@ -815,7 +827,8 @@ Page({
 
     const id = 'live-' + Date.now()
     const userText = text || (attachments.length ? '📎 已发送附件' : '📚 已附引用文献')
-    S.pendingTurns.push({ id, userText })
+    // resend 载荷随轮携带:命中额度被拦后「重新发送」直接复用,无需重打(对标 Web setBlockedMessage)。
+    S.pendingTurns.push({ id, userText, resend: { text, content, attachments: attachments.length ? attachments : undefined } })
 
     const msg = attachments.length
       ? { type: 'user_message', content, clientTurnId: id, attachments }
@@ -826,6 +839,9 @@ Page({
       wx.showToast({ title: '发送失败', icon: 'none' })
       return
     }
+    // 输入框回填后手动重发的场景:同文的旧 blocked 轮已随本次发送兑现,移除防
+    // 「尚未发送」卡残留误导再点重发造成双发(仅文本轮做同文去重;附件轮只经重发按钮清)。
+    if (text) S.pendingTurns = S.pendingTurns.filter((t) => t.id === id || !(t.blocked && t.userText === text))
     // 清空输入 + 附件 + 引用
     S.pendingAttachments = []
     S.pendingRefs = []
@@ -841,10 +857,57 @@ Page({
     S.socket?.stop()
   },
 
+  // 命中额度:backend 在转发给 agent 之前就拒了这条 user_message(quota_exceeded 帧)。
+  // P0 消息保留:不再 pop 丢弃 —— 该轮标记 blocked 留在对话流(琥珀「尚未发送」卡 + 重新发送),
+  // 原文回填输入框;fold 游标跳过 blocked 轮、busy 排除它(否则 composer 永久锁死)。
   onQuota(msg: string) {
-    S.pendingTurns.pop()
+    const last = S.pendingTurns[S.pendingTurns.length - 1]
+    if (last) last.blocked = true
     this.rebuild()
-    wx.showModal({ title: '今日额度已用完', content: msg, showCancel: false })
+    // 原文回填输入框(仅文本轮且输入框为空时,不覆盖用户已在打的下一句)。
+    const backfill = last && last.resend ? last.resend.text : ''
+    if (backfill && !this.data.input) {
+      S.maxedAtLen = 0
+      this.setData({ input: backfill, canSend: this.computeCanSend(backfill), taMaxed: false })
+    }
+    // 统一额度弹窗(与 JSON 通道同一份文案与按钮):后端动态 message + 「去我的页 / 知道了」。
+    showQuotaModal(msg)
+  },
+
+  // blocked 轮「重新发送」:复用原始载荷(含引用块/附件)以新轮重发;仍超额会再收到
+  // quota_exceeded → 重新标记 blocked,不丢消息。
+  onResendBlocked(e: WechatMiniprogram.TouchEvent) {
+    const id = e.currentTarget.dataset.id as string
+    const idx = S.pendingTurns.findIndex((t) => t.id === id && t.blocked)
+    if (idx < 0) return
+    if (this.data.busy) {
+      wx.showToast({ title: '正在回答中,请稍候', icon: 'none' })
+      return
+    }
+    if (!S.socket || this.data.connState !== 'open') {
+      wx.showToast({ title: '连接中,请稍候', icon: 'none' })
+      return
+    }
+    const p = S.pendingTurns[idx]
+    // 兜底:老逻辑残留的无载荷 blocked 轮(理论不出现)退化为按展示文本重发
+    const payload = p.resend || { text: p.userText, content: p.userText, attachments: undefined }
+    const newId = 'live-' + Date.now()
+    const msg = payload.attachments && payload.attachments.length
+      ? { type: 'user_message', content: payload.content, clientTurnId: newId, attachments: payload.attachments }
+      : { type: 'user_message', content: payload.content, clientTurnId: newId }
+    if (!S.socket.send(msg)) {
+      wx.showToast({ title: '发送失败,请稍后重试', icon: 'none' })
+      return
+    }
+    // 旧 blocked 轮移除,以新轮进入正常流式(blocked 轮不参与帧对齐,中间移除安全)。
+    S.pendingTurns.splice(idx, 1)
+    S.pendingTurns.push({ id: newId, userText: p.userText, resend: payload })
+    // 输入框里还是 onQuota 回填的同一句 → 顺手清掉,防再点「发送」双发。
+    if (payload.text && this.data.input === payload.text) {
+      S.maxedAtLen = 0
+      this.setData({ input: '', canSend: this.computeCanSend(''), taMaxed: false })
+    }
+    this.rebuild()
   },
 
   onResyncUser(text: string) {

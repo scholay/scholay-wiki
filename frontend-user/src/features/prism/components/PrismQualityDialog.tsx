@@ -34,12 +34,12 @@ export function PrismQualityDialog({
     const parts: string[] = ['请修复以下由系统确定性检查发现的问题(逐条处理,别引入新内容):'];
     if (r.dangling_cites.length)
       parts.push(
-        `· 悬空文献引用(正文用了 [@键] 但 references.bib 里没有对应条目):${r.dangling_cites.map((k) => `[@${k}]`).join('、')}。` +
+        `· 悬空文献引用(正文用了 [@键] 但 references.bib 里没有对应条目):${r.dangling_cites.map((k) => `[@${k}] `).join('、')}。` +
           `请用 minicod 查到真实论文补进 references.bib,或删除该引用——绝不要编造条目。`,
       );
     if (r.undefined_xrefs.length)
       parts.push(
-        `· 未定义交叉引用(引了 [@键] 但没有对应打锚,编译会出 ??):${r.undefined_xrefs.map((k) => `[@${k}]`).join('、')}。` +
+        `· 未定义交叉引用(引了 [@键] 但没有对应打锚,编译会出 ??):${r.undefined_xrefs.map((k) => `[@${k}] `).join('、')}。` +
           `请给被引用的图/表/节补上 {#键} 锚,或修正引用键。`,
       );
     if (aiFixableFront.length) parts.push(`· 前置信息/投稿检查未通过:${aiFixableFront.join(';')}。请补齐。`);
@@ -70,12 +70,12 @@ export function PrismQualityDialog({
     if (keys.length === 0) return null;
     return (
       <div>
-        <p className="mb-1 text-2xs font-bold text-brand-red">
+        <p className="mb-1 text-12 font-medium text-brand-red">
           {title}({keys.length})
         </p>
         <div className="flex flex-wrap gap-1">
           {keys.map((k) => (
-            <span key={k} className="rounded bg-danger-soft px-1.5 py-0.5 text-2xs text-brand-red">
+            <span key={k} className="rounded-4 bg-danger-soft px-1.5 py-0.5 text-12 text-brand-red">
               {kind === 'plain' ? k : `[@${k}]`}
             </span>
           ))}
@@ -92,20 +92,20 @@ export function PrismQualityDialog({
         </DialogHeader>
 
         {q.isLoading ? (
-          <div className="flex items-center justify-center py-10 text-xs text-faint">
+          <div className="flex items-center justify-center py-10 text-12 text-faint">
             <Loader2 className="mr-1.5 size-4 animate-spin" /> 检查中…
           </div>
         ) : !r ? (
-          <p className="py-6 text-center text-xs text-faint">暂无法检查</p>
+          <p className="py-6 text-center text-12 text-faint">暂无法检查</p>
         ) : (
           <div className="space-y-3">
             {aiHardCount === 0 && authorFront.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-md bg-brand-green/10 px-3 py-2 text-xs text-brand-green">
+              <div className="flex items-center gap-2 rounded-12 bg-brand-green/10 px-3 py-2 text-12 text-brand-green">
                 <CheckCircle2 className="size-4 shrink-0" /> 未发现悬空引用 / 未定义交叉引用 / 前置缺失。
               </div>
             ) : hasHard ? (
               <>
-                <div className="flex items-start gap-2 rounded-md border border-brand-red/30 bg-danger-soft p-2.5 text-xs text-brand-red">
+                <div className="flex items-start gap-2 rounded-12 border border-brand-red/30 bg-danger-soft p-2.5 text-12 text-brand-red">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   <span>发现 {aiHardCount} 处 AI 可修的确定性问题(引用/交叉引用/前置)。一键交给 AI 修复(消耗一个额度轮)。</span>
                 </div>
@@ -117,13 +117,13 @@ export function PrismQualityDialog({
             ) : null}
             {/* 一致性(V4-⑥):术语变体/风格混用 —— 独立一轮「统一」修复 */}
             {consistency.length > 0 && (
-              <div className="space-y-1 rounded-md border border-border px-3 py-2">
+              <div className="space-y-1 rounded-12 border border-border px-3 py-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-2xs font-bold text-subtle">全文一致性({consistency.length})</p>
+                  <p className="text-12 font-medium text-subtle">全文一致性({consistency.length})</p>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-6 px-2 text-2xs"
+                    className="h-6 px-2 text-12"
                     disabled={disabled}
                     onClick={() => {
                       onFix(buildConsistencyInstruction());
@@ -134,7 +134,7 @@ export function PrismQualityDialog({
                   </Button>
                 </div>
                 {consistency.map((s, i) => (
-                  <p key={i} className="text-2xs text-muted-foreground">
+                  <p key={i} className="text-12 text-muted-foreground">
                     · {s}
                   </p>
                 ))}
@@ -142,31 +142,31 @@ export function PrismQualityDialog({
             )}
             {/* 作者/机构类:另立提示,AI 与当前 UI 都改不了(双重死端),不给「让 AI 修复」按钮 */}
             {authorFront.length > 0 && (
-              <div className="rounded-md border border-border bg-surface-1 px-3 py-2 text-2xs text-muted-foreground">
-                <p className="font-bold text-subtle">作者 / 机构信息</p>
+              <div className="rounded-12 border border-border bg-surface-1 px-3 py-2 text-12 text-muted-foreground">
+                <p className="font-medium text-subtle">作者 / 机构信息</p>
                 <p className="mt-0.5">{authorFront.join(';')}。</p>
                 <p className="mt-0.5 text-faint">在顶栏「作者/机构」里填写,AI 不代填(避免编造真实人名/单位)。</p>
               </div>
             )}
             {/* 生成侧信号(V2-A4):写作进度账,不计入硬问题数 */}
             {(r.stub_sections?.length > 0 || r.todo_count > 0 || (r.abbrev_issues?.length ?? 0) > 0) && (
-              <div className="space-y-1 rounded-md bg-surface-1 px-3 py-2">
-                <p className="text-2xs font-bold text-faint">写作进度(不计入问题数)</p>
+              <div className="space-y-1 rounded-12 bg-surface-1 px-3 py-2">
+                <p className="text-12 font-medium text-subtle">写作进度(不计入问题数)</p>
                 {r.stub_sections?.length > 0 && (
-                  <p className="text-2xs text-muted-foreground">
+                  <p className="text-12 text-muted-foreground">
                     待起草的骨架节({r.stub_sections.length}):{r.stub_sections.join('、')}
                   </p>
                 )}
                 {r.todo_count > 0 && (
-                  <p className="text-2xs text-muted-foreground">正文还有 {r.todo_count} 处 TODO 占位待回填。</p>
+                  <p className="text-12 text-muted-foreground">正文还有 {r.todo_count} 处 TODO 占位待回填。</p>
                 )}
                 {r.abbrev_issues?.length > 0 && (
-                  <p className="text-2xs text-muted-foreground">缩写一致性:{r.abbrev_issues.join(';')}</p>
+                  <p className="text-12 text-muted-foreground">缩写一致性:{r.abbrev_issues.join(';')}</p>
                 )}
               </div>
             )}
             {r.long_sentences > 0 && (
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-12 text-muted-foreground">
                 另有 {r.long_sentences} 处超长句(软提示,可加载 <code>wl-clarity</code> 让 AI 拆句;不计入上面的问题数)。
               </p>
             )}

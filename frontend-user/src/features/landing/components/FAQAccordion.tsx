@@ -29,18 +29,20 @@ function FAQItem({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full flex items-center justify-between gap-6 py-5 text-left hover:bg-surface-1 transition-colors px-2 -mx-2 rounded-sm"
+        className="w-full flex items-center justify-between gap-6 py-5 text-left hover:bg-surface-1 transition-colors px-2 -mx-2 rounded-8"
       >
-        <span className="text-md font-semibold text-foreground">{q}</span>
+        <span className="text-14 font-medium text-foreground">{q}</span>
         <Icon className="size-4 text-muted-foreground shrink-0" strokeWidth={2} />
       </button>
       <div
         className={cn(
-          'overflow-hidden transition-all duration-200',
+          // 只过渡真正在变的两个属性(max-height/padding-bottom),不用 transition-all
+          // 兜所有属性;时长保持 duration-200 不迁 token(四档与默认档无一相等,迁=视觉变化)。
+          'overflow-hidden transition-[max-height,padding-bottom] duration-200',
           open ? 'max-h-96 pb-6' : 'max-h-0'
         )}
       >
-        <p className="text-md leading-[1.7] text-subtle pr-10">{a}</p>
+        <p className="text-14 leading-paragraph text-subtle pr-10">{a}</p>
       </div>
     </div>
   );

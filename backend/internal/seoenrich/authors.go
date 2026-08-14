@@ -66,6 +66,15 @@ func (e *Enricher) RunAuthorBackfill(ctx context.Context) (int, error) {
 			attempted[r.AuthorID] = true
 			progressed = true
 
+			// 2026-07 线上审计:脏数据 "pmd:"(来源前缀后 ID 为空)打上游恒 500,被当暂时性
+			// 错误每 6h 一轮重试 6 次、永不收敛。前缀后空 ID 重试也不会变 —— 不打上游,
+			// 直接退休(打 enriched_at),Warn 一次留档原值。
+			if bareAuthorID(r.AuthorID) == "" {
+				done = append(done, r.AuthorID)
+				slog.Warn("seoenrich: empty bare author id, retiring without upstream call", "author_id", r.AuthorID)
+				continue
+			}
+
 			ok, fetchErr := e.enrichOneAuthor(ctx, r.AuthorID)
 			switch {
 			case fetchErr == nil:
@@ -98,27 +107,51 @@ func (e *Enricher) RunAuthorBackfill(ctx context.Context) (int, error) {
 	}
 }
 
+// bareAuthorID 剥掉来源前缀("pmd:"/"olx:" 等 "<src>:")后返回裸 ID;无前缀则原样返回(去空白)。
+// 2026-07 线上审计:用于识别 "pmd:" 这类「前缀后 ID 为空」的脏数据,避免打上游永久重试。
+func bareAuthorID(id string) string {
+	if i := strings.Index(id, ":"); i >= 0 {
+		return strings.TrimSpace(id[i+1:])
+	}
+	return strings.TrimSpace(id)
+}
+
 // EnrichAuthorOnMiss 供 SSR 冷门作者 URL(seo 无行)现拉一次落库并返回 meta(M2)。拉不到返回 (nil,nil)。
 func (e *Enricher) EnrichAuthorOnMiss(ctx context.Context, source, authorID string) (*seo.AuthorSSRMeta, error) {
-	if authorID == "" {
+	// 2026-07 线上审计:空 / 前缀后空 ID("pmd:")直接短路,不打上游(同 RunAuthorBackfill 口径)。
+	if bareAuthorID(authorID) == "" || !seo.IsCanonicalSource(source) {
 		return nil, nil
+	}
+	if hasNegativeOnMiss(ctx, "author", source, authorID) {
+		return nil, nil // 15 分钟内已确认不存在,不再打上游
 	}
 	a, err := e.mc.GetAuthor(ctx, authorID, authorEnrichFields)
 	if err != nil {
+		// 同 EnrichPaperOnMiss:上游 404 折叠为 (nil, nil) → SSR 走 404;故障才 503。
+		if minicod.IsNotFoundError(err) {
+			setNegativeOnMiss(ctx, "author", source, authorID)
+			return nil, nil
+		}
 		return nil, err
 	}
 	if a == nil || strings.TrimSpace(a.Name) == "" {
+		setNegativeOnMiss(ctx, "author", source, authorID)
 		return nil, nil // 失效/伪造 ID
 	}
-	// 先落一条基础行(搜索种子路径,tier-2 插入),再补机构/代表作。
+	canonicalID := strings.TrimSpace(a.AuthorID)
+	if canonicalID == "" {
+		canonicalID = authorID
+	}
+	canonicalSource := seo.AuthoritativeSource(a.Source, canonicalID)
+	// 先落一条基础行；source 只信上游/已归一 ID，不信 URL。
 	seed := seo.AuthorSeed{
-		AuthorID:      authorID,
+		AuthorID:      canonicalID,
 		Name:          a.Name,
 		Affiliations:  a.Affiliations,
 		Homepage:      a.Homepage,
 		PaperCount:    a.PaperCount,
 		CitationCount: a.CitationCount,
-		Source:        source,
+		Source:        canonicalSource,
 		ORCID:         a.ORCID,
 	}
 	if a.HIndex > 0 {
@@ -126,13 +159,14 @@ func (e *Enricher) EnrichAuthorOnMiss(ctx context.Context, source, authorID stri
 		seed.HIndex = &h
 	}
 	if _, err := e.svc.RecordAuthorSearchSeeds([]seo.AuthorSeed{seed}); err != nil {
-		slog.Warn("seoenrich: author on-miss record failed", "author_id", authorID, "err", err)
+		slog.Warn("seoenrich: author on-miss record failed", "author_id", canonicalID, "err", err)
+		return nil, err
 	}
 	// 补代表作(EnrichAuthor 走「更完整才覆盖」,不改 tier / 不推送)。
-	if _, err := e.enrichOneAuthor(ctx, authorID); err != nil {
-		slog.Warn("seoenrich: author on-miss enrich failed", "author_id", authorID, "err", err)
+	if _, err := e.enrichOneAuthor(ctx, canonicalID); err != nil {
+		slog.Warn("seoenrich: author on-miss enrich failed", "author_id", canonicalID, "err", err)
 	}
-	return e.svc.ResolveByAuthorID(source, authorID)
+	return e.svc.ResolveByAuthorID(canonicalSource, canonicalID)
 }
 
 // enrichOneAuthor 拉一个作者的完整元数据 + 代表作,补进 seo。返回是否补到实质内容(机构或代表作)。

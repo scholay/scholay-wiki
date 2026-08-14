@@ -40,6 +40,14 @@ type CleanupService struct {
 	// 升级满血「待兑现」补偿(注入 vip.Service.ReconcilePendingRefills):删锚遇 Redis 抖动失败后,
 	// Redis 恢复时补删锚。用函数型避免 import vip。
 	pendingRefillReconciler PendingRefillReconciler
+
+	// 会员到期后的额度窗口对齐(注入 vip.Service.RealignExpiredMembershipWindows)。
+	expiredWindowRealigner ExpiredMembershipWindowRealigner
+
+	// 额度窗口 Redis↔MySQL 漂移对账 + 旧窗口清扫(注入 vip.Service,0103)。
+	quotaWindowDriftChecker  QuotaWindowDriftChecker
+	quotaWindowOrphanChecker QuotaWindowDriftChecker // 反向:Redis 有锚但 DB 无行
+	quotaWindowPurger        QuotaWindowPurger
 }
 
 // CreditExpireSweeper 把已过期临时经费批次清零并写 expire 流水,返回清理批次数。
@@ -50,6 +58,17 @@ type PendingOrderCanceller func(ttl time.Duration) (int64, error)
 
 // PendingRefillReconciler 补偿未兑现的升级满血(删锚),返回本轮成功条数。
 type PendingRefillReconciler func(ctx context.Context) (int, error)
+
+// ExpiredMembershipWindowRealigner 把「刚到期的会员」在高档期开的额度窗口作废,返回本轮处理条数。
+// lookback 应明显大于调度间隔(重叠扫描无害,实现侧自带幂等判据)。用函数型避免 import vip。
+type ExpiredMembershipWindowRealigner func(ctx context.Context, lookback time.Duration) (int, error)
+
+// QuotaWindowDriftChecker 抽样比对额度窗口的 Redis anchor 与 MySQL 兜底副本,返回(检查数, 漂移数)。
+// 只读不修 —— 它的职责是让「沉默的坏掉」变成「吵闹的坏掉」。
+type QuotaWindowDriftChecker func(ctx context.Context, sample int) (int, int, error)
+
+// QuotaWindowPurger 删除超过保留期的旧额度窗口行,返回删除行数。
+type QuotaWindowPurger func(retainDays int) (int64, error)
 
 // NewCleanupService creates a new cleanup service
 func NewCleanupService(db *gorm.DB) *CleanupService {
@@ -86,6 +105,18 @@ func (s *CleanupService) SetPendingOrderCanceller(cancel PendingOrderCanceller) 
 // SetPendingRefillReconciler 注入升级满血待兑现补偿(vip.Service.ReconcilePendingRefills)。
 func (s *CleanupService) SetPendingRefillReconciler(fn PendingRefillReconciler) {
 	s.pendingRefillReconciler = fn
+}
+
+// SetExpiredMembershipWindowRealigner 注入会员到期后的额度窗口对齐(vip.Service.RealignExpiredMembershipWindows)。
+func (s *CleanupService) SetExpiredMembershipWindowRealigner(fn ExpiredMembershipWindowRealigner) {
+	s.expiredWindowRealigner = fn
+}
+
+// SetQuotaWindowMaintainers 注入额度窗口副本的漂移对账与保留期清扫(vip.Service,0103)。
+func (s *CleanupService) SetQuotaWindowMaintainers(drift, orphans QuotaWindowDriftChecker, purge QuotaWindowPurger) {
+	s.quotaWindowDriftChecker = drift
+	s.quotaWindowOrphanChecker = orphans
+	s.quotaWindowPurger = purge
 }
 
 // Start starts all cleanup tasks as background goroutines
@@ -126,6 +157,46 @@ func (s *CleanupService) Start() {
 		})
 	}
 
+	// 会员到期 → 作废高档期开的额度窗口(审计 P1-2)。5 分钟一轮、回看 30 分钟:
+	// 重叠扫描是有意的(容忍漏跑/重启),幂等由「只删早于到期时刻的锚」保证。
+	// 到期这件事没有事件源(vip_expires_at 是惰性判定的),只能靠扫;5 分钟是「用户几乎无感」
+	// 与「一次轻量 SELECT」之间的折中。
+	if s.expiredWindowRealigner != nil {
+		safego.Go("cleanup-expired-membership-windows", func() {
+			s.runPeriodic("expired_membership_window", 5*time.Minute, s.realignExpiredMembershipWindows)
+		})
+	}
+
+	// 额度窗口副本漂移对账(0103)。**这条任务存在的理由不是它能修什么,而是它每 15 分钟
+	// 走一遍恢复路径依赖的那份数据。** 恢复路径本身平时不跑,真出事那天才第一次被执行 ——
+	// 本仓库有两次「只在灾难时跑的代码长期是坏的」前科(flushTokenWatermark 的注释宣称它防
+	// 优雅重启丢水位,而 SIGTERM 路径从不调用它;AddUsageCostOnly 带着「已接线」的注释却是
+	// 零调用点的孤儿)。没有这条对账,「MySQL 副本其实一直没写进去」会安静地藏到出事那一刻。
+	// 15 分钟 + 200 行抽样:一次 PK 前缀正序扫(user_id 游标轮转)+ **一次 pipeline** 取回全部 anchor。
+	// ⚠️ 这句话此前写的是「一次带 LIMIT 的主键范围扫,开销可忽略」,而当时的实现是
+	// `ORDER BY updated_at DESC`(该列无索引)—— LIMIT 根本下推不了,实际是二级索引 range +
+	// 全量回表 + filesort,10 万在飞行实测 799ms~3.29s、推 512MB 冷页过 buffer pool。
+	// **这句错注释正是那个问题在评审时被放过的原因**,留档提醒:注释声称的复杂度不等于真实计划,
+	// 说「开销可忽略」之前先 EXPLAIN。
+	if s.quotaWindowDriftChecker != nil {
+		safego.Go("cleanup-quota-window-drift", func() {
+			s.runPeriodic("quota_window_drift", 15*time.Minute, s.checkQuotaWindowDrift)
+		})
+	}
+	// 反向对账(Redis 有活锚 → DB 应有行)。**不能与上面那条合并** —— 上面是 DB→Redis,
+	// 结构上看不见「副本压根没写进去」这个形状,而那恰恰是这套持久化最该防的故障。
+	if s.quotaWindowOrphanChecker != nil {
+		safego.Go("cleanup-quota-window-orphans", func() {
+			s.runPeriodic("quota_window_orphans", 15*time.Minute, s.checkQuotaWindowOrphans)
+		})
+	}
+	// 旧窗口清扫:一行/用户/周,增长有界,但没有上界就是没有上界。每天 05:25。
+	if s.quotaWindowPurger != nil {
+		safego.Go("cleanup-quota-windows", func() {
+			s.runDaily("quota_windows", 5, 25, s.purgeQuotaWindows)
+		})
+	}
+
 	// 归属表对账(self-heal):启动先跑一次(补上部署间隙/历史漂移),之后每天 04:35 兜底。
 	if s.agentReconciler != nil && len(s.reconcileTargets) > 0 {
 		safego.Go("reconcile-agent-session-owners", func() {
@@ -138,6 +209,15 @@ func (s *CleanupService) Start() {
 
 	// 文献集:MinIO 孤儿 PDF 对账 reaper(05:00)+ 过期/撤销分享的子表清理(05:15)。
 	s.startLibraryCleanupTasks()
+
+	// 智能审稿:稿件桶孤儿对象对账(05:05)。接替被摘掉的 tmp/ 24h ILM —— 这一版认识 DB,
+	// 只删 peer_review_assets 已无引用的对象,不会像 ILM 那样把在用的稿件删成死链。
+	s.startPeerReviewCleanupTasks()
+
+	// 输入框附件:MinIO att/ 前缀的孤儿对象对账(05:45,默认 dry-run)。
+	// 上传时序「PUT → Upsert → 推 cwd」的中间失败必然产生无人可发现的孤儿,
+	// upload.go / store.go 的注释一直在依赖这个 reaper —— 这一行就是它的接线。
+	s.startAgentAttachCleanupTasks()
 
 	// agent 事件日志分区延展(性能审计 P0):把 agent_turn_events 的月度 RANGE 分区持续向后延展,
 	// 防数据堆进 p_future(见迁移 0071)。迁移只在部署时延展一次;这里每天维持领先,即使长期不重部署
@@ -299,6 +379,67 @@ func (s *CleanupService) reconcilePendingRefills() error {
 	}
 	if n > 0 {
 		slog.Info("Reconciled pending quota refills", "count", n)
+	}
+	return nil
+}
+
+// realignExpiredMembershipWindows 把刚到期的会员在高档期开的额度窗口作废(审计 P1-2)。
+func (s *CleanupService) realignExpiredMembershipWindows() error {
+	if s.expiredWindowRealigner == nil {
+		return nil
+	}
+	n, err := s.expiredWindowRealigner(s.ctx, 30*time.Minute)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		slog.Info("Realigned quota windows after membership expiry", "count", n)
+	}
+	return nil
+}
+
+// checkQuotaWindowDrift 抽样比对额度窗口的 Redis 与 MySQL 副本(0103)。只读、只告警。
+func (s *CleanupService) checkQuotaWindowDrift() error {
+	if s.quotaWindowDriftChecker == nil {
+		return nil
+	}
+	checked, drift, err := s.quotaWindowDriftChecker(s.ctx, 200)
+	if err != nil {
+		return err
+	}
+	// 🔴 用 Info 不用 Debug。生产 logger 是 LevelInfo(common/logger/logger.go),Debug 不输出 ——
+	// 那会让「健康(checked=200, drift=0)」与「这条任务其实什么都没查到(checked=0)」在生产日志里
+	// **完全同形,都是 0 字节**。而 checked=0 恰恰是最该被看见的状态:它意味着兜底副本可能压根没在写。
+	// 每 15 分钟一条 = 96 行/天,占 backend 日志总量(约 2.5 万行/天)的 0.4%,淹不掉任何东西。
+	slog.Info("Checked quota window drift", "checked", checked, "drift", drift)
+	return nil
+}
+
+// checkQuotaWindowOrphans 反向对账:Redis 有活锚但 MySQL 无行 = 副本没在写(0103)。
+// 与上面那条方向相反且不可互相替代,理由见 vip.ReconcileQuotaWindowOrphans 的红字。
+func (s *CleanupService) checkQuotaWindowOrphans() error {
+	if s.quotaWindowOrphanChecker == nil {
+		return nil
+	}
+	checked, missing, err := s.quotaWindowOrphanChecker(s.ctx, 200)
+	if err != nil {
+		return err
+	}
+	slog.Info("Checked quota window orphans", "checked", checked, "missing", missing)
+	return nil
+}
+
+// purgeQuotaWindows 清扫超保留期的额度窗口副本行(0103)。
+func (s *CleanupService) purgeQuotaWindows() error {
+	if s.quotaWindowPurger == nil {
+		return nil
+	}
+	n, err := s.quotaWindowPurger(400)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		slog.Info("Purged old quota windows", "rows", n)
 	}
 	return nil
 }

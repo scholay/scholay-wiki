@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Select } from '@/shared/ui/select';
+import { Textarea } from '@/shared/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +48,15 @@ export interface SimpleCrudPageProps<T extends { id: number }> {
   description?: ReactNode;
   rows: T[] | undefined;
   loading?: boolean;
+  /**
+   * query 的 error —— **必须透传**,否则请求失败会和"真的没有记录"一样落进空态,
+   * 表格显示「这里还没有数据」(说反话)。详见 DataTable 的同名 prop。
+   */
+  error?: unknown;
+  /** 重试(通常传 query.refetch) */
+  onRetry?: () => void;
+  /** 空态主文案 —— 默认「这里还没有数据」 */
+  emptyMessage?: string;
   columns: Column<T>[];
   fields: FormField<T>[];
   /** 创建按钮文案(默认 "新建") */
@@ -54,8 +65,15 @@ export interface SimpleCrudPageProps<T extends { id: number }> {
   onCreate: (data: Partial<T>) => Promise<unknown>;
   onUpdate: (id: number, data: Partial<T>) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
-  /** 删除二次确认提示文案,默认 "确定删除?" */
-  deleteConfirm?: (row: T) => string;
+  /**
+   * 删除二次确认文案 —— **必填**,而且必须点名删的是哪一行。
+   *
+   * 原来这里是可选的、默认「确定删除?」:行操作按钮在表格最右侧、行高只有 40px,
+   * 一句不带对象的确认等于没有确认。当前唯一调用方(代码片段库,管的是**全站脚本注入**)
+   * 本来就传了自定义文案,所以改必填的成本为零 —— 而下一个接入方沿用那个默认值
+   * 就是误删事故的温床。
+   */
+  deleteConfirm: (row: T) => string;
   /** 嵌入模式:去掉 AdminPageLayout 外壳(title/description 收进顶部工具条),供并入多 tab 页时用 */
   embedded?: boolean;
 }
@@ -65,6 +83,9 @@ export function SimpleCrudPage<T extends { id: number }>({
   description,
   rows,
   loading,
+  error,
+  onRetry,
+  emptyMessage,
   columns,
   fields,
   createLabel = '新建',
@@ -82,7 +103,8 @@ export function SimpleCrudPage<T extends { id: number }>({
 
   const handleDelete = async (row: T) => {
     const ok = await confirm({
-      title: deleteConfirm ? deleteConfirm(row) : '确定删除?',
+      title: deleteConfirm(row),
+      description: '删除后不可恢复。',
       danger: true,
       confirmText: '删除',
     });
@@ -119,7 +141,14 @@ export function SimpleCrudPage<T extends { id: number }>({
 
   const body = (
     <>
-      <DataTable columns={allColumns} rows={rows} loading={loading} />
+      <DataTable
+        columns={allColumns}
+        rows={rows}
+        loading={loading}
+        error={error}
+        onRetry={onRetry}
+        emptyMessage={emptyMessage}
+      />
 
       <Dialog open={!!mode} onOpenChange={(o) => !o && setMode(null)}>
         <DialogContent className="max-w-2xl">
@@ -150,7 +179,7 @@ export function SimpleCrudPage<T extends { id: number }>({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          {description ? <p className="text-xs text-muted-foreground">{description}</p> : <span />}
+          {description ? <p className="text-12 text-muted-foreground">{description}</p> : <span />}
           {addButton}
         </div>
         {body}
@@ -174,12 +203,17 @@ function CrudForm<T>({
   fields: FormField<T>[];
   initial: Partial<T>;
   onCancel: () => void;
-  onSubmit: (data: Partial<T>) => void;
+  onSubmit: (data: Partial<T>) => Promise<void>;
 }) {
+  // 保存按钮此前无 pending:它服务的是分析维度、代码片段这类资源,
+  // 慢一点的网络下双击就是**真的建出两条重复记录**(片段 code_key 唯一还会撞库报错)。
+  const [submitting, setSubmitting] = useState(false);
+
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
+        if (submitting) return;
         const fd = new FormData(e.currentTarget);
         const result = {} as Partial<T>;
         for (const f of fields) {
@@ -192,7 +226,12 @@ function CrudForm<T>({
             (result as Record<string, unknown>)[f.name] = v == null ? '' : String(v);
           }
         }
-        onSubmit(result);
+        setSubmitting(true);
+        try {
+          await onSubmit(result);
+        } finally {
+          setSubmitting(false);
+        }
       }}
       className="space-y-3"
     >
@@ -201,26 +240,25 @@ function CrudForm<T>({
           <div key={f.name} className={f.span === 2 ? 'space-y-1.5 sm:col-span-2' : 'space-y-1.5'}>
             <Label htmlFor={f.name}>{f.label}</Label>
             {f.type === 'textarea' ? (
-              <textarea
+              <Textarea
                 id={f.name}
                 name={f.name}
                 rows={f.rows ?? 4}
                 required={f.required}
                 placeholder={f.placeholder}
                 defaultValue={(initial[f.name] as string) ?? ''}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             ) : f.type === 'select' && f.options ? (
-              <select
+              <Select
                 id={f.name}
                 name={f.name}
                 defaultValue={(initial[f.name] as string) ?? f.options[0]?.value}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                className="h-9"
               >
                 {f.options.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
-              </select>
+              </Select>
             ) : f.type === 'checkbox' ? (
               <div className="flex items-center h-9 gap-2">
                 <input
@@ -230,7 +268,7 @@ function CrudForm<T>({
                   defaultChecked={(initial[f.name] as boolean) ?? false}
                   className="size-4"
                 />
-                <span className="text-xs text-muted-foreground">{f.placeholder}</span>
+                <span className="text-12 text-muted-foreground">{f.placeholder}</span>
               </div>
             ) : (
               <Input
@@ -246,8 +284,11 @@ function CrudForm<T>({
         ))}
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>取消</Button>
-        <Button type="submit">保存</Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>取消</Button>
+        <Button type="submit" disabled={submitting}>
+          {submitting && <Loader2 className="size-3.5 animate-spin" />}
+          保存
+        </Button>
       </DialogFooter>
     </form>
   );

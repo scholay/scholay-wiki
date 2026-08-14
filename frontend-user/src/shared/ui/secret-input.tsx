@@ -34,7 +34,7 @@ export const SecretInput = React.forwardRef<HTMLInputElement, SecretInputProps>(
         onClick={onToggleReveal}
         aria-label={revealed ? '隐藏原值' : '查看原值'}
         title={revealed ? '隐藏' : '查看原值'}
-        className="absolute right-1 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
+        className="absolute right-1 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-4 text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
       >
         {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </button>

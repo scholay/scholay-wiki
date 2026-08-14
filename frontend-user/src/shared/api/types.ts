@@ -24,7 +24,7 @@
 export type UpstreamSource = 'stc' | 'olx' | 'pmd';
 
 /**
- * 文献集论文的 source 字段全集 —— 上游三源 + 'local'(AI 识别的自由文件)。
+ * 文件夹内论文的 source 字段全集 —— 上游三源 + 'local'(AI 识别的自由文件)。
  * 'local' 只能由后端"上传 PDF 智能识别" 流程产生,前端不能主动 POST。
  */
 export type PaperSource = UpstreamSource | 'local';
@@ -112,7 +112,7 @@ export interface AuthorSuggestion {
 }
 
 // ============================================================================
-// 文献集(我的文献集) —— 对应 backend user_library_papers + user_library_folders
+// 我的文件夹 —— 对应 backend user_library_papers + user_library_folders
 //
 // 模型:一级文件夹 + 论文。folder_id 为 null 表示论文直接放在根目录。
 // 文件夹本身不嵌套。
@@ -176,7 +176,7 @@ export interface UserLibraryPaper {
    *   - 'search' = 用户在搜索 / 详情 / QuickAdd 点了收藏
    *   - 'upload' = 用户上传 PDF 走 PdfImportWizard 走出来的(无论后续是否关联到上游)
    *
-   * 文献集行用它决定主操作:search 行管 PDF(补充/更换/移除),upload 行管关联
+   * 文件夹内的论文行用它决定主操作:search 行管 PDF(补充/更换/移除),upload 行管关联
    * (关联/编辑/取消关联)。后端默认 'search',旧数据按 link_state+pdf 推断回补。
    */
   origin: 'search' | 'upload';
@@ -235,6 +235,8 @@ export interface AuthorPapersResult {
 export interface Journal {
   id: number;
   canonical_name: string;
+  /** 后端 Go 生成的权威 canonical slug；未返回时只使用 /journal/{id}。 */
+  seo_slug?: string;
   issns?: string[];
   publisher?: string;
   country?: string;
@@ -275,6 +277,7 @@ export interface JournalSearchResult {
 export interface JournalListUnified {
   id: number;
   canonical_name: string;
+  seo_slug?: string;
   issn_l?: string | null;
   print_issn?: string | null;
   electronic_issn?: string | null;
@@ -473,7 +476,7 @@ export interface DimensionSettingItem extends AnalysisDimension {
 }
 
 // ============================================================================
-// 分享对象 —— 论文 single / 期刊 journal / 文献集 collection 三态
+// 分享对象 —— 论文 single / 期刊 journal / 文件夹 collection 三态
 //
 // 放在 shared/api/types(而非 ShareSheet 组件)以满足分层铁律:
 // stores/(share.store)、shared/components/ 都能引用,而 stores 不允许 import

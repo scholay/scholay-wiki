@@ -10,7 +10,6 @@ import {
   LayoutGrid,
 } from 'lucide-react';
 import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
-import { PRISM_COMING_SOON } from '@/shared/lib/feature-flags';
 
 /**
  * 全站功能菜单 —— 唯一来源(对照 .pen `S72unz` 全站功能菜单浮层)。
@@ -93,7 +92,6 @@ export const MENUS: Menu[] = [
     href: '/prism',
     category: 'ai',
     match: startsWith('/prism'),
-    comingSoon: PRISM_COMING_SOON, // 临时:本版上线先标「即将推出」,迭代完把 env 关掉即去角标
   },
   {
     id: 'peer-review',

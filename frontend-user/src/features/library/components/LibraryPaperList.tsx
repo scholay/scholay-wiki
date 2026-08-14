@@ -9,7 +9,7 @@ import type { LibrarySelectionApi } from '../hooks/useLibrarySelection';
 import { LibraryPaperRow } from './paper-row/LibraryPaperRow';
 
 /**
- * 文献集论文列表 —— **纯展示**:papers / 文件夹 / 选择状态全从 props 进来。
+ * 文件夹内的论文列表 —— **纯展示**:papers / 文件夹 / 选择状态全从 props 进来。
  * 选择状态由父级 LibraryFolderView 持有(`useLibrarySelection`),批量操作 toolbar
  * 也在父级外层 header 渲染,本组件只负责行 + 分页 + 跨页统计。
  *
@@ -80,7 +80,7 @@ export function LibraryPaperList({
   }
   if (error) {
     return (
-      <div className="px-6 py-8 text-xs text-brand-red">
+      <div className="px-6 py-8 text-12 text-brand-red">
         文献列表暂时没能加载出来,请稍后重试
       </div>
     );
@@ -89,7 +89,7 @@ export function LibraryPaperList({
     return (
       <EmptyState
         icon={Inbox}
-        title={filter === 'root' ? '你的文献集还没有论文' : '这个文件夹还没有论文'}
+        title={filter === 'root' ? '你还没有收藏任何论文' : '这个文件夹还没有论文'}
         description={
           filter === 'root'
             ? '在搜索结果里点「收藏」就能把论文加进来'
@@ -108,8 +108,8 @@ export function LibraryPaperList({
       {/* inner header —— 跨页统计 + 本页 PDF 计数 + 排序/视图描述
           注:total 是跨页总数,pdfStats 是本页统计(分页下只反映本页) */}
       <header className="flex items-center justify-between gap-3 pt-1 pb-2">
-        <div className="flex items-center gap-2.5 text-xs">
-          <span className="font-bold text-foreground">
+        <div className="flex items-center gap-2.5 text-12">
+          <span className="font-medium text-foreground">
             共 {total.toLocaleString()} 篇
           </span>
           {papers.length > 0 && (
@@ -124,13 +124,13 @@ export function LibraryPaperList({
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 text-xs text-subtle">
+        <div className="flex items-center gap-3 text-12 text-subtle">
           {/* 排序按钮 —— 当前仅一个维度 "加入时间",点击翻转 asc/desc;
               "视图: 列表" 标识已删除(本就只有列表一种视图) */}
           <button
             type="button"
             onClick={onToggleSortOrder}
-            className="inline-flex items-center gap-1 h-6 px-2 rounded-sm hover:bg-surface-1 hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1 h-6 px-2 rounded-8 hover:bg-surface-1 hover:text-foreground transition-colors"
             title={
               sortOrder === 'asc'
                 ? '当前升序(早加入在前),点击切降序'

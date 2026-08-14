@@ -43,7 +43,7 @@ function TB({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={cn(
-        'flex size-7 items-center justify-center rounded-md text-subtle transition-colors',
+        'flex size-7 items-center justify-center rounded-8 text-subtle transition-colors',
         'hover:bg-surface-2 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent',
         active && 'bg-surface-2 text-foreground',
       )}
@@ -85,7 +85,7 @@ export function StructEditorToolbar({
     fn(editor.chain().focus()).run();
 
   return (
-    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur">
+    <div className="sticky top-0 z-raised flex flex-wrap items-center gap-0.5 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur">
       <TB active={st?.bold} title="加粗" onClick={run((c) => c.toggleBold())}>
         <Bold className="size-3.5" />
       </TB>

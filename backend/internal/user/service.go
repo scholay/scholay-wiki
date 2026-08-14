@@ -14,7 +14,6 @@ import (
 	"log/slog"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/model"
-	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"time"
 )
@@ -177,56 +176,60 @@ func (s *Service) UpdateLastLoginWithIP(id uint, ip string) error {
 	return s.repo.UpdateLastLoginWithIP(id, ip)
 }
 
-// RecordActivity 记一次用户活跃 —— 每次通过鉴权的 user 请求都会调到,故**全异步 + Redis 节流**,
-// 零请求路径开销。由 middleware.SetActivityHook 注入。两件事并列(各自独立节流):
-//  1. last_active_at:单列覆盖「最后一次真实使用」时间(5min 节流,近似即可)。
-//  2. user_daily_active 台账(0069):每人每本地日一行,append-only,重建历史每日活跃序列
-//     (last_active_at 单列覆盖做不到)。用 date-scoped key 独立节流 → 跨零点安全,不会因 5min
-//     last_active 节流恰好跨午夜而漏记第二天。语义 = 「打开即活跃」(登录后有任意真实请求)。
-// Redis 不可用则不节流直接写(降级 best-effort;台账 INSERT IGNORE 依 PK 幂等,至多多几次空写)。
-func (s *Service) RecordActivity(userID uint) {
+// RecordActivity 记一次由前端「可信真人交互」触发的用户活跃。
+// 它只由 POST /user/activity 显式调用,不再挂到通用鉴权中间件;轮询、WS ticket、
+// 缓存刷新等页面自动流量因此不会伪造「最后活跃」。整条写入同步完成,失败返回
+// 给 handler,让客户端后续真实交互可重试。
+//
+// 两个数据源使用同一个服务端 eventAt:
+//  1. users.last_active_at 在 SQL 中原子限制为约每分钟最多一写,不使用 Redis
+//     SETNX,所以不会把 5 分钟窗口内后续真人事件全部吞掉;
+//  2. user_daily_active 每人每本地日一行。Redis 只缓存「DB 已成功」的确认结果;
+//     Redis 故障时直接降级到 DB 幂等写。不在 DB 前抢 key,避免并发请求看到
+//     pre-claim 后提前返回、而真正写 DB 的请求随后失败所造成的整日漏记。
+func (s *Service) RecordActivity(ctx context.Context, userID uint) error {
 	if userID == 0 {
-		return
+		return errors.New("user: record activity requires an authenticated user")
 	}
-	safego.Go("user-activity", func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		rdb := cache.GetRedis()
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
-		// 1) last_active_at —— 5min 节流:SETNX 抢到(5min 内首次)才写。
-		writeLast := true
-		if rdb != nil {
-			if ok, err := rdb.SetNX(ctx, fmt.Sprintf("user:lastactive:%d", userID), "1", 5*time.Minute).Result(); err == nil && !ok {
-				writeLast = false
-			}
-		}
-		if writeLast {
-			if err := s.repo.UpdateLastActive(userID); err != nil {
-				slog.Debug("user: update last_active failed", "user_id", userID, "err", err)
-			}
-		}
+	eventAt := time.Now()
+	var recordErr error
+	if err := s.repo.UpdateLastActive(ctx, userID, eventAt); err != nil {
+		recordErr = fmt.Errorf("update last_active_at: %w", err)
+	}
 
-		// 2) 每日活跃台账 —— 每人每本地日至多一次 DB 写(date-scoped key,TTL 26h 覆盖跨零点)。
-		//    SETNX 抢到才写;**写失败则 DEL 掉节流键**放行本日后续请求重试 —— 否则首写恰好撞上
-		//    DB 抖动(部署窗口/死锁/连接抖动)就会被 26h 键压住、整天丢记该用户(该用户当天若只有
-		//    非埋点请求,不产生 usage_events,回填也救不回,永久丢一天)。
-		today := time.Now().Format("2006-01-02")
-		dauKey := fmt.Sprintf("user:dau:%d:%s", userID, today)
-		writeDaily := true
-		if rdb != nil {
-			if ok, err := rdb.SetNX(ctx, dauKey, "1", 26*time.Hour).Result(); err == nil && !ok {
-				writeDaily = false
+	today := eventAt.Format("2006-01-02")
+	// v2 是「DB 成功后才写」的 confirmed key;不复用旧 user:dau:* pre-claim key,
+	// 否则发布当天的旧键会让新逻辑误以为 DB 已落行。
+	dauKey := fmt.Sprintf("user:dau:v2:confirmed:%d:%s", userID, today)
+	writeDaily := true
+	rdb := cache.GetRedis()
+	if rdb != nil {
+		confirmed, err := rdb.Exists(ctx, dauKey).Result()
+		if err != nil {
+			// Redis 只是避免重复空写的优化;故障时必须 fail-open 到 DB。
+			slog.Debug("user: activity daily cache unavailable, falling back to database", "user_id", userID, "err", err)
+		} else if confirmed > 0 {
+			writeDaily = false
+		}
+	}
+
+	if writeDaily {
+		if err := s.repo.RecordDailyActive(ctx, userID, today); err != nil {
+			recordErr = errors.Join(recordErr, fmt.Errorf("record daily activity: %w", err))
+		} else if rdb != nil {
+			// 只有 DB 成功后才发布 confirmed key。并发首批可能多做几次 INSERT IGNORE,
+			// 但不会因某个抢锁者失败而让其他请求错误跳过 DB。写缓存失败不影响真值。
+			if err := rdb.Set(ctx, dauKey, "1", 26*time.Hour).Err(); err != nil {
+				slog.Debug("user: failed to cache confirmed daily activity", "user_id", userID, "err", err)
 			}
 		}
-		if writeDaily {
-			if err := s.repo.RecordDailyActive(userID, today); err != nil {
-				slog.Debug("user: record daily active failed", "user_id", userID, "err", err)
-				if rdb != nil {
-					rdb.Del(ctx, dauKey) // 首写失败别让节流键压住整天,放行下一请求重试
-				}
-			}
-		}
-	})
+	}
+
+	return recordErr
 }
 
 func (s *Service) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {

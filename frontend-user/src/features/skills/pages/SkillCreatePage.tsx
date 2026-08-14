@@ -11,7 +11,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
-import { Button } from '@/shared/ui';
+import { Button, Input, Textarea } from '@/shared/ui';
 import { useCreateSkill } from '@/shared/api/skills';
 
 type UploadMode = 'file' | 'chat';
@@ -106,23 +106,23 @@ export function SkillCreatePage() {
       <div className="mb-6 flex items-center gap-6">
         <Link
           to="/skills/mine"
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           返回
         </Link>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-3 text-12">
           <StepDot n={1} active={step === 1} done={step > 1} label="上传源码" />
           <div className="h-px w-16 bg-border" />
           <StepDot n={2} active={step === 2} done={false} label="填写信息" />
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-16 border border-border bg-surface-card p-6">
         {step === 1 ? (
           <>
-            <h2 className="text-md font-semibold text-foreground">选择上传方式</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <h2 className="text-14 font-medium text-foreground">选择上传方式</h2>
+            <p className="mt-1 text-12 text-muted-foreground">
               选择以下任意一种方式上传你的 Skill 源码
             </p>
 
@@ -161,13 +161,13 @@ export function SkillCreatePage() {
                     }
                     setTextMode(false);
                   }}
-                  className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border-strong bg-surface-1 px-4 py-10 text-center"
+                  className="flex flex-col items-center gap-3 rounded-12 border border-dashed border-border-strong bg-surface-1 px-4 py-10 text-center"
                 >
                   <UploadCloud className="h-8 w-8 text-faint" />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-12 text-muted-foreground">
                     拖拽 <span className="font-medium text-foreground">zip 文件</span> 到此处,或用下方按钮选择文件夹 / zip
                   </p>
-                  <p className="text-2xs text-faint">
+                  <p className="text-12 text-faint">
                     支持 .md/.txt/.py/.js/.css/.json/.xml 等;单文件 ≤10MB,总 ≤30MB
                   </p>
                   <div className="mt-1 flex gap-2">
@@ -200,7 +200,7 @@ export function SkillCreatePage() {
                 </div>
 
                 {/* 已选内容 / 纯文本切换 */}
-                <div className="mt-2 flex items-center justify-between text-xs">
+                <div className="mt-2 flex items-center justify-between text-12">
                   <SelectedSummary zip={zip} files={files} />
                   <button
                     className="text-brand-green hover:underline"
@@ -215,25 +215,25 @@ export function SkillCreatePage() {
                 </div>
 
                 {textMode && (
-                  <textarea
+                  <Textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     spellCheck={false}
-                    className="mt-2 h-56 w-full resize-none rounded-md border border-border bg-surface-1 p-3 font-mono text-xs leading-relaxed outline-none focus:border-border-strong"
+                    className="mt-2 h-56 resize-none bg-surface-1 p-3 font-mono leading-paragraph"
                   />
                 )}
               </div>
             )}
 
             {mode === 'chat' && (
-              <div className="mt-4 rounded-lg border border-dashed border-border bg-surface-1 px-4 py-10 text-center text-sm text-muted-foreground">
+              <div className="mt-4 rounded-12 border border-dashed border-border bg-surface-1 px-4 py-10 text-center text-12 text-muted-foreground">
                 「通过对话上传」即将上线:届时可让智能助手帮你把想法生成为 Skill。
               </div>
             )}
 
             {/* 内容来源 */}
             <div className="mt-6">
-              <div className="mb-2 text-sm font-medium text-foreground">选择内容来源</div>
+              <div className="mb-2 text-12 font-medium text-foreground">选择内容来源</div>
               <div className="grid grid-cols-2 gap-3">
                 <SourceOption
                   active={source === 'original'}
@@ -249,7 +249,7 @@ export function SkillCreatePage() {
             </div>
 
             {/* 安全规范 */}
-            <label className="mt-5 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <label className="mt-5 flex items-center justify-center gap-2 text-12 text-muted-foreground">
               <input
                 type="checkbox"
                 checked={agreed}
@@ -274,36 +274,36 @@ export function SkillCreatePage() {
           </>
         ) : (
           <>
-            <h2 className="text-md font-semibold text-foreground">填写信息</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <h2 className="text-14 font-medium text-foreground">填写信息</h2>
+            <p className="mt-1 text-12 text-muted-foreground">
               这些信息会展示在市场卡片与详情页。SKILL.md 内的元数据由平台自动提取。
             </p>
             <div className="mt-4 space-y-3">
               <Field label="名称">
-                <input
+                <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={120}
                   placeholder="例:系统性文献综述法"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-border-strong"
+                  className="h-9"
                 />
               </Field>
               <Field label="一句话简介">
-                <input
+                <Input
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
                   maxLength={255}
                   placeholder="简述这个技能能帮什么忙"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-border-strong"
+                  className="h-9"
                 />
               </Field>
               <Field label="分类(可选)">
-                <input
+                <Input
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   maxLength={40}
                   placeholder="如 research / writing / analysis"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-border-strong"
+                  className="h-9"
                 />
               </Field>
             </div>
@@ -328,8 +328,8 @@ function StepDot({ n, active, done, label }: { n: number; active: boolean; done:
     <span className="flex items-center gap-1.5">
       <span
         className={
-          'flex h-5 w-5 items-center justify-center rounded-pill text-2xs ' +
-          (active || done ? 'bg-foreground text-background' : 'bg-surface-2 text-faint')
+          'flex h-5 w-5 items-center justify-center rounded-pill text-12 ' +
+          (active || done ? 'bg-foreground text-on-dark' : 'bg-surface-2 text-faint')
         }
       >
         {done ? <Check className="h-3 w-3" /> : n}
@@ -357,16 +357,16 @@ function ModeButton({
       onClick={onClick}
       disabled={disabled}
       className={
-        'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ' +
+        'flex items-center gap-1.5 rounded-8 border px-3 py-1.5 text-12 ' +
         (active
           ? 'border-border-strong bg-surface-2 text-foreground'
-          : 'border-border bg-background text-muted-foreground hover:bg-surface-1') +
+          : 'border-border bg-surface-card text-muted-foreground hover:bg-surface-1') +
         (disabled ? ' cursor-not-allowed opacity-50' : '')
       }
     >
       <Icon className="h-4 w-4" />
       {label}
-      {disabled && <span className="text-2xs text-faint">即将上线</span>}
+      {disabled && <span className="text-12 text-faint">即将上线</span>}
     </button>
   );
 }
@@ -376,7 +376,7 @@ function SourceOption({ active, label, onClick }: { active: boolean; label: stri
     <button
       onClick={onClick}
       className={
-        'flex items-center gap-2 rounded-md border px-4 py-3 text-sm ' +
+        'flex items-center gap-2 rounded-8 border px-4 py-3 text-12 ' +
         (active ? 'border-brand-green bg-brand-green/5 text-foreground' : 'border-border text-muted-foreground hover:bg-surface-1')
       }
     >
@@ -416,7 +416,7 @@ function SelectedSummary({ zip, files }: { zip: File | null; files: File[] }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+      <label className="mb-1 block text-12 text-muted-foreground">{label}</label>
       {children}
     </div>
   );

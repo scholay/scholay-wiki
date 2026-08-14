@@ -43,7 +43,7 @@ export function PrismStructSidebar({
           type="button"
           onClick={onBack}
           title="返回项目列表"
-          className="group flex w-full items-center gap-1 px-3 pb-1 pt-3 text-left text-xs font-bold text-foreground"
+          className="group flex w-full items-center gap-1 px-3 pb-1 pt-3 text-left text-14 font-medium text-foreground"
         >
           <ChevronLeft className="size-3.5 shrink-0 text-faint transition-colors group-hover:text-brand-red" />
           <span className="truncate group-hover:text-brand-red">{title || '未命名项目'}</span>
@@ -61,7 +61,7 @@ export function PrismStructSidebar({
               />
             ))
           ) : (
-            <p className="px-4 py-1 text-2xs text-faint">正文暂无标题</p>
+            <p className="px-4 py-1 text-12 text-faint">正文暂无标题</p>
           )}
         </SidebarSection>
 

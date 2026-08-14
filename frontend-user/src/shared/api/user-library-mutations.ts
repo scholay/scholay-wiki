@@ -16,7 +16,7 @@ import type {
  * 之前位于 `features/search/api/library.ts`,被 library 等其他 feature 跨 import,
  * 违反"features 之间不互 import"约束。移到 `shared/api/` 是唯一干净路径。
  *
- * queryKey 统一以 `['library', ...]` 前缀,与文献集页的列表 cache 共享,
+ * queryKey 统一以 `['library', ...]` 前缀,与文件夹页的列表 cache 共享,
  * useFavoritePaper.onSuccess 后 invalidate 一次能刷掉所有相关视图。
  */
 
@@ -52,7 +52,7 @@ function extractDOI(externalIds?: Record<string, unknown>): string | undefined {
 }
 
 /**
- * 批量查"这一页论文是否已经在我的文献集" —— 后端 `POST /user/library/check` 一次拿全。
+ * 批量查"这一页论文是否已经在我的文件夹" —— 后端 `POST /user/library/check` 一次拿全。
  *
  * queryKey 包含 source + paper_ids 数组(react-query 深比对,内容不变就命中缓存)。
  * useFavoritePaper.onSuccess 会 invalidate ['library'] 前缀,自动同步本 check 缓存。
@@ -131,7 +131,7 @@ export function useUnfavoritePaper() {
 /**
  * 收藏结果 —— 幂等命中已有行时后端在行字段之外多带 already_existed=true
  * (mirrors backend/internal/library/handler.go respondAddExisting),
- * 调用方据此把成功提示从「已加入」改成「已在文献集中」。
+ * 调用方据此把成功提示从「已加入」改成「已在文件夹中」。
  */
 export type FavoritePaperResult = UserLibraryPaper & {
   already_existed?: boolean;

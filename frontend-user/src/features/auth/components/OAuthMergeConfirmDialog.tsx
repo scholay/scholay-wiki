@@ -60,7 +60,7 @@ export function OAuthMergeConfirmDialog({
     return (
       <>
         <Loader2 className="size-7 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">正在加载合并选项…</p>
+        <p className="text-12 text-muted-foreground">正在加载合并选项…</p>
       </>
     );
   }
@@ -68,8 +68,8 @@ export function OAuthMergeConfirmDialog({
     return (
       <>
         <AlertCircle className="size-7 text-brand-red" />
-        <p className="text-base font-semibold text-foreground">链接已过期</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-14 font-medium text-foreground">链接已过期</p>
+        <p className="text-12 text-muted-foreground">
           请重新发起第三方登录(10 分钟内未确认会自动失效)
         </p>
       </>
@@ -100,18 +100,21 @@ export function OAuthMergeConfirmDialog({
   // 登录成功后 AuthDialog 自关,本页重渲染进入 isTargetAccount 态。
   const handleLoginToTarget = () => {
     if (isAuthenticated && !isTargetAccount) clearSession();
-    openAuthDialog('login', { accountType: 'email' });
+    openAuthDialog('login', {
+      accountType: 'email',
+      suppressInviteFlow: true,
+    });
   };
 
   return (
     <div className="flex flex-col items-center gap-5 w-full">
-      <h1 className="font-display italic font-semibold text-2xl text-foreground">
+      <h1 className="font-display italic font-medium text-24 text-foreground">
         发现已存在的账号
       </h1>
-      <p className="text-sm leading-[1.7] text-subtle text-center max-w-md">
-        你的 <span className="font-semibold text-foreground">{providerLabel}</span>{' '}
+      <p className="text-12 leading-paragraph text-subtle text-center max-w-md">
+        你的 <span className="font-medium text-foreground">{providerLabel}</span>{' '}
         账号邮箱{' '}
-        <span className="font-semibold text-foreground">{info.provider_email}</span>{' '}
+        <span className="font-medium text-foreground">{info.provider_email}</span>{' '}
         已被 Scholay 上一个账号注册。请选择:
       </p>
 
@@ -122,15 +125,15 @@ export function OAuthMergeConfirmDialog({
             type="button"
             onClick={handleMerge}
             disabled={pending}
-            className="flex flex-col items-start gap-2 p-4 rounded-md border-2 border-foreground text-left bg-background hover:bg-surface-1 transition-colors disabled:opacity-50"
+            className="flex flex-col items-start gap-2 p-4 rounded-16 border-2 border-foreground text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
           >
             <div className="flex items-center justify-between w-full">
-              <span className="text-sm font-semibold text-foreground">
+              <span className="text-14 font-medium text-foreground">
                 确认绑定到当前账号 <span className="text-brand-amber">(推荐)</span>
               </span>
               <ArrowRight className="size-4 text-foreground" />
             </div>
-            <p className="text-xs leading-[1.6] text-muted-foreground">
+            <p className="text-12 leading-paragraph text-muted-foreground">
               当前已登录{' '}
               <span className="text-foreground">{info.target_email}</span>,确认后即可用邮箱或{' '}
               {providerLabel} 任一方式登录。
@@ -141,15 +144,15 @@ export function OAuthMergeConfirmDialog({
             type="button"
             onClick={handleLoginToTarget}
             disabled={pending}
-            className="flex flex-col items-start gap-2 p-4 rounded-md border-2 border-foreground text-left bg-background hover:bg-surface-1 transition-colors disabled:opacity-50"
+            className="flex flex-col items-start gap-2 p-4 rounded-16 border-2 border-foreground text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
           >
             <div className="flex items-center justify-between w-full">
-              <span className="text-sm font-semibold text-foreground">
+              <span className="text-14 font-medium text-foreground">
                 登录该账号后绑定 <span className="text-brand-amber">(推荐)</span>
               </span>
               <LogIn className="size-4 text-foreground" />
             </div>
-            <p className="text-xs leading-[1.6] text-muted-foreground">
+            <p className="text-12 leading-paragraph text-muted-foreground">
               {isAuthenticated && !isTargetAccount ? (
                 <>
                   你当前登录的不是{' '}
@@ -171,15 +174,15 @@ export function OAuthMergeConfirmDialog({
           type="button"
           onClick={handleNew}
           disabled={pending}
-          className="flex flex-col items-start gap-2 p-4 rounded-md border border-border text-left bg-background hover:bg-surface-1 transition-colors disabled:opacity-50"
+          className="flex flex-col items-start gap-2 p-4 rounded-16 border border-border text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
         >
           <div className="flex items-center justify-between w-full">
-            <span className="text-sm font-semibold text-foreground">
+            <span className="text-14 font-medium text-foreground">
               新建一个独立账号
             </span>
             <ArrowRight className="size-4 text-muted-foreground" />
           </div>
-          <p className="text-xs leading-[1.6] text-muted-foreground">
+          <p className="text-12 leading-paragraph text-muted-foreground">
             创建一个新的 Scholay 账号,只能用 {providerLabel} 登录(没有邮箱)。
             两个账号互不相干,数据不共享。
           </p>
@@ -187,7 +190,7 @@ export function OAuthMergeConfirmDialog({
       </div>
 
       {pending && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-12 text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />
           <span>处理中…</span>
         </div>
@@ -198,7 +201,7 @@ export function OAuthMergeConfirmDialog({
         size="sm"
         onClick={() => (window.location.href = '/')}
         disabled={pending}
-        className="text-xs text-muted-foreground"
+        className="text-12 text-muted-foreground"
       >
         取消并返回首页
       </Button>

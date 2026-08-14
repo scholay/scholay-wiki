@@ -23,7 +23,7 @@ export function JournalExploreOverview() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-[88px] rounded-md bg-background border border-border-soft animate-pulse"
+            className="h-[88px] rounded-16 bg-surface-card border border-border-soft animate-pulse"
           />
         ))}
       </div>
@@ -82,7 +82,7 @@ export function JournalExploreOverview() {
           items={jcrDist.map((x) => ({ label: x.q, count: x.cnt }))}
           colors={{
             Q1: 'bg-brand-green',
-            Q2: 'bg-brand-blue',
+            Q2: 'bg-cat-blue',
             Q3: 'bg-brand-amber',
             Q4: 'bg-brand-red',
           }}
@@ -91,25 +91,25 @@ export function JournalExploreOverview() {
           title="中科院分区分布"
           items={fqbDist.map((x) => ({ label: `${x.q} 区`, count: x.cnt }))}
           colors={{
-            '1 区': 'bg-brand-green',
-            '2 区': 'bg-brand-blue',
-            '3 区': 'bg-brand-amber',
-            '4 区': 'bg-brand-red',
+            '1 区' : 'bg-brand-green',
+            '2 区' : 'bg-cat-blue',
+            '3 区' : 'bg-brand-amber',
+            '4 区' : 'bg-brand-red',
           }}
         />
       </div>
 
       {/* 数据源覆盖 */}
       {data.sourceCoverage && Object.keys(data.sourceCoverage).length > 0 && (
-        <div className="rounded-md bg-background border border-border-soft px-4 py-3">
-          <h3 className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+        <div className="rounded-16 bg-surface-card border border-border-soft px-4 py-3">
+          <h3 className="text-12 font-medium uppercase text-faint">
             数据源覆盖
           </h3>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs">
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-12">
             {Object.entries(data.sourceCoverage).map(([src, cnt]) => (
               <span key={src} className="inline-flex items-baseline gap-1">
                 <span className="font-mono text-muted-foreground">{src}</span>
-                <span className="font-bold text-foreground tabular-nums">
+                <span className="font-medium text-foreground tabular-nums">
                   {Number(cnt).toLocaleString()}
                 </span>
               </span>
@@ -126,7 +126,7 @@ export function JournalExploreOverview() {
 const TONE_BG: Record<string, string> = {
   red: 'bg-brand-red/10 text-brand-red',
   green: 'bg-brand-green/10 text-brand-green',
-  blue: 'bg-brand-blue-soft text-brand-blue',
+  blue: 'bg-cat-blue-soft text-cat-blue',
   amber: 'bg-brand-amber/10 text-brand-amber',
 };
 
@@ -144,22 +144,22 @@ function KpiCard({
   tone: 'red' | 'green' | 'blue' | 'amber';
 }) {
   return (
-    <div className="flex flex-col gap-2 px-4 py-3 rounded-md bg-background border border-border">
+    <div className="flex flex-col gap-2 px-4 py-3 rounded-16 bg-surface-card border border-border">
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'inline-flex h-7 w-7 items-center justify-center rounded-sm',
+            'inline-flex h-7 w-7 items-center justify-center rounded-8',
             TONE_BG[tone]
           )}
         >
           {icon}
         </span>
-        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-12 text-muted-foreground">{label}</span>
       </div>
-      <div className="text-xl font-bold text-foreground tabular-nums leading-none">
+      <div className="text-20 font-medium text-foreground tabular-nums leading-none">
         {value}
       </div>
-      {sub && <div className="text-2xs text-faint">{sub}</div>}
+      {sub && <div className="text-12 text-faint">{sub}</div>}
     </div>
   );
 }
@@ -175,17 +175,17 @@ function DistributionPanel({
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
-    <div className="rounded-md bg-background border border-border-soft px-4 py-3">
-      <h3 className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+    <div className="rounded-16 bg-surface-card border border-border-soft px-4 py-3">
+      <h3 className="text-12 font-medium uppercase text-faint">
         {title}
       </h3>
       <div className="mt-3 space-y-2">
         {items.length === 0 ? (
-          <div className="text-2xs text-faint">无数据</div>
+          <div className="text-12 text-faint">无数据</div>
         ) : (
           items.map((it) => (
             <div key={it.label} className="flex items-center gap-3">
-              <span className="w-12 text-xs text-subtle font-semibold shrink-0">
+              <span className="w-12 text-12 text-subtle font-medium shrink-0">
                 {it.label}
               </span>
               <div className="flex-1 h-2 rounded-pill bg-surface-2 overflow-hidden">
@@ -197,7 +197,7 @@ function DistributionPanel({
                   style={{ width: `${Math.max(2, (it.count / max) * 100)}%` }}
                 />
               </div>
-              <span className="text-xs text-muted-foreground tabular-nums w-16 text-right shrink-0">
+              <span className="text-12 text-muted-foreground tabular-nums w-16 text-right shrink-0">
                 {it.count.toLocaleString()}
               </span>
             </div>

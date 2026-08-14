@@ -52,8 +52,8 @@ export class ErrorBoundary extends Component<
         <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-destructive/10 text-destructive">
           <AlertTriangle className="size-6" />
         </div>
-        <h3 className="text-base font-semibold">页面没能正常打开</h3>
-        <p className="max-w-md text-sm text-muted-foreground">
+        <h3 className="text-16 font-medium">页面没能正常打开</h3>
+        <p className="max-w-md text-14 text-muted-foreground">
           点下方按钮可以重试,如果一直出错请刷新页面试试。
         </p>
         <Button variant="outline" size="sm" onClick={this.reset}>

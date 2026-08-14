@@ -135,7 +135,7 @@ export function GoogleSignInButton() {
       ref={containerRef}
       title="使用 Google 登录"
       // GIS 注入的按钮尺寸固定 ~36px,与 OAuthRow 其他按钮齐平
-      className="inline-flex h-9 items-center justify-center rounded-md overflow-hidden"
+      className="inline-flex h-9 items-center justify-center rounded-8 overflow-hidden"
     />
   );
 }

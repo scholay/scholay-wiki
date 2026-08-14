@@ -15,6 +15,10 @@ when_to_use: 用户上传了数据文件要你分析/统计/画图,或要根据�
 - **没有 `/proc`**:`ps`、`top`、读 `/proc/*` 都不可用(用不到,忽略即可)。
 - **没有 `/dev/stdout` `/dev/stderr` `/dev/fd`**:所以 `cmd > /dev/stdout`、`tee /dev/stderr`、**进程替换** `diff <(a) <(b)`、`while read; do …; done < <(cmd)` **都会失败**。改用**临时文件**:`cmd > /tmp/a; other /tmp/a`(`/tmp` 与工作目录 `/work` 都可写)。
 - 只有当前会话的工作目录可写;`Glob`/`Grep` 也只在本会话内搜。
+- **装不了新包**:jail 里 `/usr` 是只读挂载、镜像内也没有 pip,`pip install` 必定失败,别花轮次去试。
+  可用的 python 库就是已装的这些(2026-08 容器实测):
+  `numpy` `pandas` `scipy` `statsmodels` `sklearn` `lifelines` `matplotlib` `openpyxl` `docx`(python-docx)。
+  清单外的 `import` 会直接失败,**别写依赖它们的代码**。**也没有 R / Rscript** —— 要给 R 代码可以,但要说明本环境没跑过它。
 
 ## Step 1 · 先摸清数据(别急着算)
 - 数据在工作目录里。**先看结构**:`Bash` 跑 `head`、或 python 读一下(`pandas.read_csv/read_excel`),看**形状 / 列名 / 类型 / 缺失 / 单位 / 量纲**。
@@ -25,7 +29,7 @@ when_to_use: 用户上传了数据文件要你分析/统计/画图,或要根据�
 描述统计?组间对比?相关/回归?趋势?还是"给我一张能放进论文的图"?不明确就先问一句。方法学层面的取舍(用什么检验、前提是否满足)拿不准就顺带**加载 `methods-stats` 指南**。
 
 ## Step 3 · 分析(用 python)
-- pandas / numpy 做清洗与统计;scipy / statsmodels 做检验与建模。
+- pandas / numpy 做清洗与统计;建模按结局类型选引擎:`scipy`(经典假设检验)、`statsmodels`(回归 / ANOVA / **混合效应模型** / 多重比较校正 / 功效与样本量)、`lifelines`(**生存分析**:KM、log-rank、Cox)、`sklearn`(预测建模、交叉验证)。方法学取舍拿不准时加载 `methods-stats`。
 - **报告要诚实**:样本量、缺失怎么处理、检验的前提是否满足、效应量 + 置信区间(不要只给 p 值)。
 - 结果异常先自查(单位/量纲/缺失/离群),别直接下结论。
 

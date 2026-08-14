@@ -1,0 +1,60 @@
+# 成果交付链路验收基线 · 20260807-133937 · 口径:仅统计 2026-08-07 13:34:00 之后新增(分子分母同口径)
+
+## 1. 轮次总量与终态分布
+   判据 V0-5 的分母来源。注意:异常轮里绝大多数是上游 overloaded、根本没产出文件,
+   所以「异常轮零帧」这个数**不能**直接当作产物丢失量(2026-08-07 曾据此高估 30 倍)。
+status	turns
+complete	708
+failed	162
+aborted	6
+blocked	3
+## 2. 异常轮里真正写过文件的有几轮(V0-5 的诚实分母)
+status	turns	turns_writing	turns_with_frame
+aborted	6	0	0
+blocked	3	0	0
+failed	162	2	0
+## 3. 🔴 V1-1 主判据:写过文件的会话 vs 真的留下产物行的会话
+   这是「文件输出在用户端看不到」的直接度量。修复前 claw 是 13 → 7(46% 丢失)。
+   轮末收割钩子上线后,两列应当基本相等(prism 除外 —— 它没有产物路由,写文件是正常的)。
+feature_key	sessions_with_write	sessions_with_artifact	capture_pct
+claw	1	1	100.0
+## 4. 产物行的质量画像(V0-1 / V0-2 / V1-4)
+   基线:1035 行 / title 非空 0 行 / 含 ≥8 位 hex 名 629 行(60.8%) / .py 209 行(20.2%)
+k	v
+产物行数	1
+有 title(友好名)	0
+文件名含 >=8 位 hex	0
+.py 当交付物	0
+-N 后缀副本(路径分叉)	0
+被原地更新过(编辑生效)	1
+## 5. 正文路径泄漏率(V0-3),分 feature
+   基线:全站 31.2%(221/709)· sci_draw 76.5% · stat_lab 36.0% · claw 7.5% · prism 0%
+   注意 GROUP_CONCAT 默认 1024 字节会腰斩正文、把泄漏率压到约 13% —— 必须先放大。
+feature_key	turns	leak_out	pct	dotout_only	leak_bundle
+stat_lab	559	201	36.0	0	60
+claw	81	6	7.4	2	0
+smart_search	30	0	0.0	0	0
+prism	19	0	0.0	0	0
+sci_draw	17	13	76.5	2	0
+boltslides	4	1	25.0	0	0
+## 6. 工具调用分布(判断改动打在哪儿的依据)
+tool	c
+Bash	1383
+StatRun	426
+AskUserQuestion	277
+mcp__minicod__search_papers	217
+StatReport	212
+Read	172
+Write	106
+Edit	51
+ExportDocument	41
+Glob	33
+mcp__minicod__match_paper	21
+mcp__minicod__get_paper	19
+mcp__minicod__get_paper_by_doi	9
+BuildDeck	9
+ReadDocument	6
+## 7. 工具失败信号(Edit 契约手术的分母)
+   基线:Edit 调用 51 次,old_string not found **0 次** —— 所以「改不到」不是匹配失败。
+edit_notfound	binary_read_refused	write_failed	total_tool_results
+0	3	1	3026

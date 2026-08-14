@@ -3,13 +3,50 @@
 // 执行器不再让前端「扫 ./out/ + 信正文 + 匹配工具名」,而是**自己从文件系统结果检测产物**:
 // turnLoop 开头 snapshot ./out/,结尾 diff,新增/变更条目作为 `artifact` 帧带外声明。
 // 工具无关 —— 覆盖 Write/Edit/ExportDocument/Bash/Python 全部(检测的是文件,不是工具名)。
-// 一个 turn 的产物 = 该 turn 期间 ./out/ 的增量。
+// 一个 turn 的产物 = 该 turn 期间 ./out/ 的增量 + 会话根目录可交付扩展名文件的增量
+// (2026-07 线上审计扩面:越界写入 slides/index.html 等不再丢失)。越界条目在上抛前会被
+// **复制进 ./out/**(relocateStrays)—— backend 产物链路是 out/ 单一真源,详见该函数注释。
 
-import { readdir, stat } from "node:fs/promises";
-import { join, extname } from "node:path";
+import { readdir, stat, copyFile, mkdir, writeFile, readFile } from "node:fs/promises";
+import { join, extname, basename } from "node:path";
+import { log } from "../obs/log.ts";
+import { resolveFileForDelivery } from "../evidence/deliver.ts";
+import { EVIDENCE_DIR } from "../evidence/paths.ts";
+import { ANALYSIS_DIR, inReservedLexical } from "../sandbox/reserved.ts";
+
+/** 越界交付物的「源路径 → out/ 名」映射表,落在引擎保留区(模型写不进)。见 relocateStrays。 */
+const RELOCATE_MAP = ".relocate-map.json";
+import { runDeliveryGate } from "./deliveryGate.ts";
 import type { EventSink } from "./types.ts";
 
 const OUT_DIR = "out";
+
+// 2026-07 线上审计:只认 ./out/ 让越界写入的交付物永远丢失(线上 26 条:slides/index.html、
+// work/xxx.md、home/bun/... 假目录)。diff 面扩到「会话根目录下本轮新增/变更的可交付扩展名文件」,
+// 沿用同一 snapshot/diff 机制;根扫描仅收**文件**、深度/数量有界防失控(模板/依赖树不扫)。
+const DELIVERABLE_EXTS = new Set([".md", ".docx", ".xlsx", ".pptx", ".pdf", ".csv", ".html", ".svg"]);
+// 非交付目录:out 由专列逻辑覆盖(目录=zip 语义);uploads/references 是附件与引用物料;
+// node_modules/dist* / src/public 是 boltslides 模板依赖与构建产物(BuildDeck 的交付走 out/)。
+const ROOT_SKIP_DIRS = new Set([OUT_DIR, "uploads", "references", "node_modules", "dist", "dist-single", "src", "public"]);
+// 2026-07 审查 [8]:整棵跳过原先只在 depth===0 生效,`data/venv/**`、`repo/target/**` 这类
+// 嵌套重目录会被完整走一遍,把 400 个文件预算按 readdir 顺序先到先得地吃光(真交付物反而进不了
+// 快照,且无任何日志)。改成**按目录名在任意层**跳过,并补齐常见依赖/构建/缓存目录名。
+// OUT_DIR 不在内:out/ 只在根层由专列逻辑覆盖,嵌套的 `foo/out/bar.md` 仍是要上抛的越界交付物。
+const DEEP_SKIP_DIRS = new Set([
+  ...[...ROOT_SKIP_DIRS].filter((d) => d !== OUT_DIR),
+  "__pycache__", "venv", ".venv", "env", "site-packages", "target", "build", "vendor", "tmp", "cache", ".cache",
+]);
+// 会话根目录的工作文件(prism 主稿/引用库/术语表、boltslides 幻灯源码、模板自述):非本轮交付物。
+// 只按**根目录相对路径**排除 —— 子目录同名文件(如 slides/index.html)仍是要上抛的越界交付物。
+const ROOT_SKIP_FILES = new Set(["document.md", "references.bib", "terminology.md", "index.html", "README.md", "CONTRIBUTING.md"]);
+const ROOT_SCAN_MAX_DEPTH = 6;
+const ROOT_SCAN_MAX_FILES = 400;
+// 2026-07 审查 [8]:目录数预算 —— 冷 FS / overlayfs 上「文件预算没吃满但目录极多」的长尾同样要收敛。
+const ROOT_SCAN_MAX_DIRS = 2000;
+// 2026-07 审查 [8]:一轮最多发多少张产物卡。400 帧会同时放大成 400 行 journal + 400 次 copyFile +
+// 下次收割 400 个 MinIO 对象(harvest 是 upsert-only 永不回收),且把对话糊满。
+// 截断在 relocateStrays **之前**做,复制次数一并受限。
+const ARTIFACT_MAX_FRAMES = 20;
 
 // 产物 mime(比 workspace.mimeOf 更全:docx/xlsx/pptx/pdf/svg/zip/csv/md…)。目录 → zip。
 const ARTIFACT_MIME: Record<string, string> = {
@@ -59,7 +96,8 @@ async function dirSig(dir: string): Promise<{ size: number; mtimeMs: number }> {
   return { size, mtimeMs };
 }
 
-/** snapshotOut:列 ./out/ 顶层(文件 + 一级子目录聚合;与产物模型一致:一文件 / 一目录=一个 zip)。 */
+/** snapshotOut:列 ./out/ 顶层(文件 + 一级子目录聚合;与产物模型一致:一文件 / 一目录=一个 zip),
+ *  外加会话根目录的可交付扩展名文件(2026-07 线上审计:捕获越界写入的交付物)。 */
 export async function snapshotOut(workDir: string): Promise<OutSnapshot> {
   const snap: OutSnapshot = new Map();
   const outAbs = join(workDir, OUT_DIR);
@@ -67,9 +105,9 @@ export async function snapshotOut(workDir: string): Promise<OutSnapshot> {
   try {
     entries = await readdir(outAbs, { withFileTypes: true });
   } catch {
-    return snap; // ./out/ 不存在 → 空快照(smart_search 等无产物 feature 自然零帧)
+    entries = null; // ./out/ 不存在 → 该面为空(smart_search 等无产物 feature 自然零帧)
   }
-  for (const e of entries) {
+  for (const e of entries ?? []) {
     if (e.name.startsWith(".")) continue; // 隐藏/草稿不交付
     const rel = `${OUT_DIR}/${e.name}`;
     if (e.isDirectory()) {
@@ -84,7 +122,56 @@ export async function snapshotOut(workDir: string): Promise<OutSnapshot> {
       }
     }
   }
+  // 2026-07 线上审计:根目录扫描面(越界交付物)。out/ 已在上方覆盖,DEEP_SKIP_DIRS 排除。
+  await scanRootDeliverables(workDir, snap);
   return snap;
+}
+
+/** 递归收集会话根目录下可交付扩展名的文件进快照(key = 相对 workDir 路径)。有界:深度/文件数/目录数三上限。 */
+async function scanRootDeliverables(workDir: string, snap: OutSnapshot): Promise<void> {
+  let fileBudget = ROOT_SCAN_MAX_FILES;
+  let dirBudget = ROOT_SCAN_MAX_DIRS;
+  const walk = async (dir: string, rel: string, depth: number): Promise<void> => {
+    if (depth > ROOT_SCAN_MAX_DEPTH || fileBudget <= 0 || dirBudget <= 0) return;
+    dirBudget--;
+    let ents;
+    try {
+      ents = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of ents) {
+      if (fileBudget <= 0 || dirBudget <= 0) return;
+      if (e.name.startsWith(".")) continue; // 隐藏目录/文件(.git/.skills 等)不扫
+      const childRel = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (depth === 0 && e.name === OUT_DIR) continue; // out/ 由 snapshotOut 专列逻辑覆盖
+        if (DEEP_SKIP_DIRS.has(e.name)) continue; // 2026-07 审查 [8]:非交付/依赖/构建目录任意层整棵跳过
+        await walk(join(dir, e.name), childRel, depth + 1);
+      } else if (e.isFile()) {
+        if (!DELIVERABLE_EXTS.has(extname(e.name).toLowerCase())) continue;
+        if (depth === 0 && ROOT_SKIP_FILES.has(e.name)) continue; // 根目录工作文件不上抛
+        try {
+          const st = await stat(join(dir, e.name));
+          snap.set(childRel, { size: st.size, mtimeMs: st.mtimeMs, kind: "file" });
+          fileBudget--;
+        } catch {
+          /* skip */
+        }
+      }
+    }
+  };
+  await walk(workDir, "", 0);
+  // 2026-07 审查 [8]:预算耗尽 = 快照按 readdir 顺序被截断,真交付物可能没进来 —— 原先完全静默。
+  if (fileBudget <= 0 || dirBudget <= 0) {
+    log.warn("artifact root scan budget exhausted", {
+      workDir,
+      maxFiles: ROOT_SCAN_MAX_FILES,
+      maxDirs: ROOT_SCAN_MAX_DIRS,
+      hitFileCap: fileBudget <= 0,
+      hitDirCap: dirBudget <= 0,
+    });
+  }
 }
 
 export interface ArtifactDecl {
@@ -101,7 +188,8 @@ export function diffOut(baseline: OutSnapshot, current: OutSnapshot): ArtifactDe
   for (const [rel, cur] of current) {
     const prev = baseline.get(rel);
     if (prev && prev.size === cur.size && prev.mtimeMs === cur.mtimeMs) continue; // 未变
-    const name = rel.slice(OUT_DIR.length + 1);
+    // out/ 顶层沿用原语义(name = 顶层名);根扫描面的文件 name = 文件名(path 保留完整相对路径)。
+    const name = rel.startsWith(`${OUT_DIR}/`) ? rel.slice(OUT_DIR.length + 1) : basename(rel);
     decls.push({
       name,
       path: rel,
@@ -110,14 +198,265 @@ export function diffOut(baseline: OutSnapshot, current: OutSnapshot): ArtifactDe
       size: cur.size,
     });
   }
-  return decls;
+  // 2026-07 线上审计 · 中间态降噪:同轮同名 X.docx 与 X.docx.md 并存时(pandoc 转档的 markdown
+  // 中间稿),.docx.md 不上抛 —— 线上一轮 4 张卡片干扰用户找文件。仅当成品同轮在列时才压。
+  const paths = new Set(decls.map((d) => d.path));
+  return decls.filter((d) => {
+    if (!d.path.toLowerCase().endsWith(".md")) return true;
+    const base = d.path.slice(0, -3); // 去掉 ".md" → 疑似成品路径(X.docx)
+    const baseExt = extname(base).toLowerCase();
+    return !(baseExt && baseExt !== ".md" && paths.has(base));
+  });
+}
+
+/**
+ * 落点纠偏(2026-07 线上审计):把检测到的**越界交付物**复制进 ./out/ 再上抛。
+ *
+ * 为什么不直接上抛越界路径:backend 的产物链路(claw/artifact.go `artifactRelPath` 只认
+ * `out/<basename>`、`artifact_harvest.go` 只 list `out/`)是 out/ 单一真源 —— 上抛别处的路径
+ * 会给用户一张点了 404 的卡,比原来「没有卡」更糟。复制进 out/ 后收割/MinIO/下载全链零改动。
+ * (审计原建议即「写完后硬链一份进 out/」;这里用 copyFile,跨 bind-mount 比 link 稳。)
+ *
+ * 返回改写后的声明;复制失败的条目**丢弃不上抛**(宁可少一张卡,不给死链接)。
+ *
+ * 2026-07 审查 [4]/[18]:`taken` 原先只由**本轮 decls 里的 out/ 条目**播种,而「上一轮已交付、
+ * 本轮未变」的 out/ 文件不进 diff → 不进 taken → 越界同名文件连后缀都不加地 copyFile 盖上去。
+ * 下游 backend 按 `out/<basename>` 懒读、dedup anchor = sessionID+relPath,于是卡片 URL/标题不变
+ * 而内容被换掉,用户上一轮的交付物被无声顶掉。修法:taken 用**当前快照的全部 out/ 键**播种,
+ * 落盘前再 stat 探一次目标(防快照过期/同轮并发),两道都过才用原名;改名/覆盖各留一条 warn。
+ */
+async function relocateStrays(
+  workDir: string,
+  decls: ArtifactDecl[],
+  current: OutSnapshot,
+): Promise<ArtifactDecl[]> {
+  // 🔴 引擎保留区(evidence/)**永远不是交付物来源**。2026-08-02 真实会话实测:
+  //    evidence/INDEX.md 被当成 stray 反复复制成 out/INDEX-3.md、INDEX-4.md……每轮一份,
+  //    既污染用户交付面,又让用户看到本该只属于引擎的账本内部文件。
+  //    这与保留区拒写是同一条边界的两侧:模型不能写进去,引擎也不该把里面的东西当成用户产物搬出来。
+  //
+  // ⚠️ 2026-08-05 修:上一版把保留区排除只写进 `strays`,而 `strays` **只喂了下面那行早退判断** ——
+  //    复制循环遍历的是未过滤的 `decls`、循环体内只跳过 out/。于是两条路径各漏一半:
+  //      ① 早退路径(无其它越界物):不复制,但 `return decls` 仍把 evidence/ 条目发成产物帧;
+  //      ② 非早退路径(还有别的越界物):evidence/ 照旧被复制进 out/,与修复前无异。
+  //    正解是在**入口**就把保留区剔出可交付集,让两条路径共用同一份 `deliverable`。
+  //    (旧回归测试是源码文本断言 —— 只能证明「那行字写了」,证明不了「那行字起作用」,
+  //     故一并换成走 emitArtifacts 的行为断言,见 artifacts.test.ts。)
+  const inReserved = inReservedLexical;
+  const deliverable = decls.filter((d) => !inReserved(d.path));
+  const strays = deliverable.filter((d) => !d.path.startsWith(`${OUT_DIR}/`));
+  if (strays.length === 0) return deliverable;
+  const outAbs = join(workDir, OUT_DIR);
+  try {
+    await mkdir(outAbs, { recursive: true });
+  } catch (e) {
+    // 2026-08-07:这条早退原先完全静默 —— 它会让**本轮所有越界交付物一次性消失**,
+    // 而用户侧只表现为「文件没出来」。会丢东西的路径必须留痕。
+    log.warn("artifact relocate skipped: cannot create out/", {
+      workDir, strays: strays.length, err: String((e as Error)?.message ?? e),
+    });
+    return deliverable.filter((d) => d.path.startsWith(`${OUT_DIR}/`)); // out/ 建不出来 → 只留原生 out/ 产物
+  }
+
+  // ── 身份映射:同一个源文件恒定映射到同一个 out/ 名(2026-08-07 修 R1)────────────
+  //
+  // 🔴 病灶(生产实测 14 条,其中 13 条是 .csv):`xxx_long.csv` 这类文件由 StatRun/Bash 里的
+  //    python 每轮重新生成在会话根。第一轮复制成 `out/xxx_long.csv`;第二轮源文件变了、
+  //    进了 diff,而 `occupied("xxx_long.csv")` 因为上一轮的副本**恒为真** ⇒ 改名成
+  //    `xxx_long-2.csv`,第三轮 `-3`。下游 harvest 是 upsert-only 且 dedup_anchor = 路径,
+  //    于是三份并存、用户第一张卡的内容**永远停在第一版**。这就是「编辑了却改不到」。
+  //
+  // 🔴 只把名字改成「源路径确定性派生」**修不好**这个 —— 派生名对同一个源确实恒定,
+  //    但第二轮它照样撞上自己上一轮留下的副本。真正缺的是**「这个 out/ 名归谁所有」**。
+  //    所以这里维护一张 源相对路径 → out 名 的映射:
+  //      · 映射命中 → **覆盖**(这是同一份东西的新版本,正是用户要的「改到了」);
+  //      · 未命中而名字被别人占 → 才加 `-N`(slides/index.html 与 out/index.html 确实是两份东西)。
+  //
+  // 表放 `analysis/`(引擎保留区):模型物理上写不进去(confine + bwrap 两道闸),
+  // 而执行器进程不进 jail、写得进;且保留区被 inReservedLexical 排除在交付面之外,
+  // 用户永远看不到这张簿记。放 out/ 里则要多依赖「所有消费者都跳过点开头文件」这条约定。
+  const mapPath = join(workDir, ANALYSIS_DIR, RELOCATE_MAP);
+  let ownerOf: Record<string, string> = {};
+  try {
+    ownerOf = JSON.parse(await readFile(mapPath, "utf8")) as Record<string, string>;
+    if (typeof ownerOf !== "object" || ownerOf === null || Array.isArray(ownerOf)) ownerOf = {};
+  } catch {
+    ownerOf = {}; // 不存在/损坏 → 当空表。最坏结果是这一轮多排一个 -N,不丢数据
+  }
+  const ownedNames = new Set(Object.values(ownerOf));
+
+  // 播种 = out/ 目录当前真实存在的全部条目(含跨轮历史交付物),不是只有本轮 diff 出来的那些。
+  const taken = new Set([...current.keys()].filter((k) => k.startsWith(`${OUT_DIR}/`)));
+  const occupied = async (name: string): Promise<boolean> => {
+    if (taken.has(`${OUT_DIR}/${name}`)) return true;
+    try {
+      await stat(join(outAbs, name)); // 快照可能已过期(同轮内其它写入)→ 再探一次真实盘面
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  let mapDirty = false;
+  const out: ArtifactDecl[] = [];
+  for (const d of deliverable) {
+    if (d.path.startsWith(`${OUT_DIR}/`)) {
+      out.push(d);
+      continue;
+    }
+    let name = ownerOf[d.path];
+    if (name) {
+      // 同源重来 → 覆盖自己上一轮那份。**不再排 -N**,这正是修复点。
+      log.info("artifact relocate updates existing delivery", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
+    } else {
+      // 首次见到这个源:名字由源路径确定性派生(末两级目录 + 文件名),同源永远算出同一个。
+      const base = derivedName(d.path);
+      const ext = extname(base);
+      const stem = ext ? base.slice(0, -ext.length) : base;
+      name = base;
+      for (let i = 2; (ownedNames.has(name) || (await occupied(name))) && i < 50; i++) {
+        name = `${stem}-${i}${ext}`;
+      }
+      if (ownedNames.has(name) || (await occupied(name))) {
+        // 50 个后缀都被占满 —— 极罕见;此处 copyFile 会覆盖,必须留痕。
+        log.warn("artifact relocate overwrites existing out/ file", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
+      } else if (name !== d.name) {
+        log.info("artifact relocate named by source path", { workDir, from: d.path, to: `${OUT_DIR}/${name}` });
+      }
+    }
+    try {
+      await copyFile(join(workDir, d.path), join(outAbs, name));
+    } catch (e) {
+      // 2026-08-07:原先是裸 `catch { continue }` —— 静默丢掉一件用户以为已经交付的东西。
+      log.warn("artifact relocate copy failed (declaration dropped)", {
+        workDir, from: d.path, to: `${OUT_DIR}/${name}`, err: String((e as Error)?.message ?? e),
+      });
+      continue; // 复制失败(文件已被删/权限)→ 丢弃该声明,不给用户死链接
+    }
+    if (ownerOf[d.path] !== name) {
+      ownerOf[d.path] = name;
+      ownedNames.add(name);
+      mapDirty = true;
+    }
+    taken.add(`${OUT_DIR}/${name}`);
+    out.push({ ...d, name, path: `${OUT_DIR}/${name}` });
+  }
+  if (mapDirty) {
+    try {
+      await mkdir(join(workDir, ANALYSIS_DIR), { recursive: true });
+      await writeFile(mapPath, JSON.stringify(ownerOf, null, 2), "utf8");
+    } catch (e) {
+      // 写不下 → 下一轮回落成「首次见到」,可能排出一个 -N。是退化不是损坏,故只 warn。
+      log.warn("artifact relocate map persist failed", { workDir, err: String((e as Error)?.message ?? e) });
+    }
+  }
+  return out;
+}
+
+/**
+ * derivedName —— 由**源相对路径**确定性派生出 out/ 下的名字。
+ *
+ * 规则:取末两级目录 + 文件名,用 `-` 连接(`a/b/c/report.md` → `b-c-report.md`);
+ * 会话根的文件保持原名(`报告.docx` → `报告.docx`)—— 那是绝大多数情况,
+ * 保持原名才能让用户在卡片上看到他预期的名字。
+ *
+ * 为什么带上目录:`slides/index.html` 与 `docs/index.html` 是两份不同的东西,
+ * 只取 basename 会让它们互相排 `-N`,而排出来的 `index-2.html` 对用户毫无意义。
+ * 带上目录后名字自解释,且**两个不同的源几乎不会派生出同名**(真撞了仍有 `-N` 兜底)。
+ */
+export function derivedName(srcRel: string): string {
+  const parts = srcRel.split("/").filter(Boolean);
+  if (parts.length <= 1) return parts[0] ?? srcRel;
+  return parts.slice(-3).join("-");
+}
+
+// ── 引用句柄 resolve 闸(2026-08 证据账本 P1)──────────────────────────────────
+// 可能含 `[[E7]]` 的**文本**交付物扩展名。docx/pptx/pdf 是二进制,它们的闸在 ExportDocument/BuildDeck
+// 的生成时刻(那才是唯一还能改内容的地方);走到这里的二进制产物内容已经定型,跳过。
+const CITABLE_EXTS = new Set([".md", ".markdown", ".txt", ".html", ".htm", ".csv", ".svg"]);
+// 单文件读盘上限。BuildDeck 的单文件 deck 可到 12MB,但它在自己的边界已经过闸(过闸后 out/ 里
+// 已无句柄,这里的 includes("[[") 快路径也就直接放行),不必在这儿再吃一次十几 MB 的读。
+const CITE_RESOLVE_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * 发帧前就地展开交付文件里的 [[E<n>]]。
+ *
+ * 🔴 这里用 onMissing="mark"(可见破引用标记)而**不是**"不发帧",因为不发帧在本仓库是一道**假闸**:
+ *    backend 的产物收割是 on-list 的 —— `claw/artifact.go:201` GetSessionArtifacts → `artifact_harvest.go:34`
+ *    harvestSession 直接 ListWorkspaceFiles(out/),**与 artifact 帧无关**。压掉帧只会让用户在产物列表里
+ *    照样拿到那个文件、却少一张卡和任何解释。「一条永远绿的规则」和「一条不存在的规则」等价 ——
+ *    这个边界上真正有权威的动作只有一个:改写落在盘上的那份文件本身。
+ *    伪造的句柄因此绝不会变成一条看起来像真的题录,而是变成用户一眼可见的破引用。
+ *    (构建型边界 ExportDocument / BuildDeck 有 tool_result 回路,那里是真的硬失败 + 自救指引。)
+ */
+async function resolveCitations(workDir: string, decls: ArtifactDecl[]): Promise<void> {
+  for (const d of decls) {
+    if (d.kind !== "file" || !CITABLE_EXTS.has(extname(d.name).toLowerCase())) continue;
+    if (d.size > CITE_RESOLVE_MAX_BYTES) {
+      log.warn("artifact citation resolve skipped (too large)", { workDir, path: d.path, size: d.size });
+      continue;
+    }
+    try {
+      const r = await resolveFileForDelivery(workDir, join(workDir, d.path), { onMissing: "mark" });
+      if (!r || !r.changed) continue;
+      await writeFile(join(workDir, d.path), r.text, "utf8");
+      d.size = Buffer.byteLength(r.text, "utf8"); // 帧里的 size 必须是改写后的
+      // missing > 0 = 模型试图编造一条引用(终稿 W2「resolve 闸计数器」,今天完全不可观测)。
+      const fn = r.missing.length > 0 ? log.warn : log.info;
+      fn("evidence_citation_resolve", {
+        session: workDir.split("/").pop() ?? "",
+        path: d.path,
+        hits: r.hits,
+        used: r.used.length,
+        missing: r.missing.length,
+        missing_ids: r.missing.join(","),
+        ledger_total: r.ledgerTotal,
+      });
+    } catch (e) {
+      log.warn("artifact citation resolve failed", { workDir, path: d.path, err: String((e as Error)?.message ?? e) });
+    }
+  }
 }
 
 /** emitArtifacts:diff ./out/ vs 基线,把新增/变更条目作为 `artifact` 帧发出(在 message_complete 之前)。 */
 export async function emitArtifacts(workDir: string, baseline: OutSnapshot, sink: EventSink): Promise<void> {
   const current = await snapshotOut(workDir);
-  const decls = diffOut(baseline, current);
-  for (const d of decls) {
+  const all = diffOut(baseline, current);
+  // 2026-07 审查 [8]:帧数上限。截断先于 relocateStrays,避免 copyFile 也被放大到几百次。
+  // 快照顺序天然是「out/ 原生产物在前、根扫描越界物在后」,截断优先保住真产物。
+  const capped = all.slice(0, ARTIFACT_MAX_FRAMES);
+  if (capped.length < all.length) {
+    log.warn("artifact frames truncated", { workDir, total: all.length, emitted: capped.length, cap: ARTIFACT_MAX_FRAMES });
+  }
+  const decls = await relocateStrays(workDir, capped, current);
+
+  // ── 交付闸(D2)—— 必须在 relocateStrays **之后** ────────────────────────────
+  //
+  // 🔴 2026-08-06 修的时序洞:闸原本跑在 `snapshotOut` 之前,理由是「被隔离的文件要在
+  //    diff 看到它之前就离开 out/」。但 numcheck **只扫 `out/`**,而模型最常见的落点是
+  //    会话根(`Write("MBI分析结果.docx")`)—— 那份文件在闸跑的时候还不在 out/ 里,
+  //    随后才被 relocateStrays 搬进去。⇒ **交付当轮 100% 免检**,
+  //    而分析交付通常就发生在最后一轮。
+  //
+  //    现在闸跑在搬运之后(看得见全部待交付文件),用**返回值**过滤 decls 而不是靠时序:
+  //    模块头那条约束(「闸必须动盘上的文件,压帧是假闸」)仍然成立 ——
+  //    enforce 档下文件已被物理移进 `analysis/quarantine/`,backend 的
+  //    `ListWorkspaceFiles(out/)` 收割不到;这里过滤只是让产物卡也别出现。
+  const gate = await runDeliveryGate(workDir).catch((e) => {
+    // 闸自身出错不阻断交付,但**必须大声说** —— 静默失败 = 用户以为有闸而其实没有。
+    log.error("交付闸执行异常(本次未拦截)", { workDir, err: String((e as Error)?.message ?? e) });
+    return null;
+  });
+  const quarantined = new Set((gate?.quarantined ?? []).map((f) => f.replace(/^out\//, "")));
+  const shipped = quarantined.size
+    ? decls.filter((d) => !quarantined.has(d.name) && !quarantined.has(d.path.replace(/^out\//, "")))
+    : decls;
+  if (quarantined.size) {
+    log.warn("交付闸:已隔离的产物不发帧", { workDir, quarantined: [...quarantined] });
+  }
+
+  // 2026-08 证据账本 P1:发帧前展开 [[E<n>]] —— 在 relocateStrays 之后,改写的是最终落在 out/ 的那份。
+  await resolveCitations(workDir, shipped);
+  for (const d of shipped) {
     sink.frame({ type: "artifact", name: d.name, path: d.path, kind: d.kind, mime: d.mime, size: d.size });
   }
 }

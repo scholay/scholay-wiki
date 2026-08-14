@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useApiToast } from '@/shared/hooks';
-import { Button, Input } from '@/shared/ui';
+import { Button, Input, Textarea } from '@/shared/ui';
 import { useProfile } from '@/shared/api/profile';
 
 /**
@@ -41,7 +41,7 @@ export function ProfilePage() {
     onError: apiToast.onError('没能保存成功,请检查网络后再试'),
   });
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">正在加载…</p>;
+  if (isLoading) return <p className="text-12 text-muted-foreground">正在加载…</p>;
 
   return (
     <form
@@ -52,12 +52,12 @@ export function ProfilePage() {
       }}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-foreground">个人资料</h2>
-        <p className="text-sm text-muted-foreground">这里填的内容会出现在你的公开主页和评论里。</p>
+        <h2 className="text-16 font-medium text-foreground">个人资料</h2>
+        <p className="text-12 text-muted-foreground">这里填的内容会出现在你的公开主页和评论里。</p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-foreground">昵称</label>
+        <label className="text-12 font-medium text-foreground">昵称</label>
         <Input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -68,19 +68,19 @@ export function ProfilePage() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-foreground">简介</label>
-        <textarea
+        <label className="text-12 font-medium text-foreground">简介</label>
+        <Textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           maxLength={200}
           placeholder="一两句话介绍自己…"
           rows={3}
-          className="w-full px-3 py-2 rounded-sm border border-border bg-background text-sm resize-none focus:outline-none focus:border-foreground"
+          className="resize-none"
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-foreground">头像图片地址</label>
+        <label className="text-12 font-medium text-foreground">头像图片地址</label>
         <Input
           value={avatarUrl}
           onChange={(e) => setAvatarUrl(e.target.value)}

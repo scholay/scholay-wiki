@@ -34,21 +34,21 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
 
   return (
-    <div className="flex flex-col rounded-md border border-border bg-background overflow-hidden">
+    <div className="flex flex-col rounded-12 border border-border bg-surface-card overflow-hidden">
       {/* 文件名行 */}
       <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border-soft">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-danger-soft text-brand-red text-[9px] font-bold leading-none">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-danger-soft text-brand-red text-12 font-medium leading-none">
             PDF
           </span>
           <div className="min-w-0">
             <div
-              className="truncate text-xs font-semibold text-foreground"
+              className="truncate text-12 font-medium text-foreground"
               title={file.name}
             >
               {file.name}
             </div>
-            <div className="text-2xs text-faint tabular-nums">
+            <div className="text-12 text-faint tabular-nums">
               {formatSize(file.size)}
               {numPages != null && ` · ${numPages} 页`}
             </div>
@@ -57,7 +57,7 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
         <button
           type="button"
           aria-label="更多"
-          className="inline-flex size-6 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+          className="inline-flex size-6 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
         >
           <MoreHorizontal className="size-3.5" />
         </button>
@@ -71,11 +71,11 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
             aria-label="上一页"
             disabled={pageIndex <= 0}
             onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
-            className="inline-flex size-6 items-center justify-center rounded-sm text-faint hover:text-foreground disabled:opacity-30"
+            className="inline-flex size-6 items-center justify-center rounded-8 text-faint hover:text-foreground disabled:opacity-30"
           >
             <ChevronLeft className="size-3.5" />
           </button>
-          <span className="text-2xs text-muted-foreground tabular-nums">
+          <span className="text-12 text-muted-foreground tabular-nums">
             {pageIndex + 1} / {numPages}
           </span>
           <button
@@ -83,7 +83,7 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
             aria-label="下一页"
             disabled={pageIndex >= numPages - 1}
             onClick={() => setPageIndex((i) => Math.min(numPages - 1, i + 1))}
-            className="inline-flex size-6 items-center justify-center rounded-sm text-faint hover:text-foreground disabled:opacity-30"
+            className="inline-flex size-6 items-center justify-center rounded-8 text-faint hover:text-foreground disabled:opacity-30"
           >
             <ChevronRight className="size-3.5" />
           </button>
@@ -104,15 +104,15 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
 
       {/* parsed 元数据(标题 + 作者)—— 解析完成后才显示,辅助识别 */}
       {parsed?.title && (
-        <div className="px-3 py-2 border-t border-border-soft bg-background">
+        <div className="px-3 py-2 border-t border-border-soft bg-surface-card">
           <div
-            className="line-clamp-2 text-xs font-semibold text-foreground"
+            className="line-clamp-2 text-12 font-medium text-foreground"
             title={parsed.title}
           >
             {parsed.title}
           </div>
           {parsed.authors && parsed.authors.length > 0 && (
-            <div className="mt-0.5 text-2xs text-muted-foreground line-clamp-1">
+            <div className="mt-0.5 text-12 text-muted-foreground line-clamp-1">
               {parsed.authors.slice(0, 3).join(', ')}
               {parsed.authors.length > 3 && ' et al.'}
             </div>
@@ -128,7 +128,7 @@ function ThumbnailFallback() {
     <div className="flex items-center justify-center w-full min-h-[320px] text-faint">
       <div className="flex flex-col items-center gap-2">
         <FileText className="size-6" strokeWidth={1.5} />
-        <span className="text-2xs">加载预览…</span>
+        <span className="text-12">加载预览…</span>
       </div>
     </div>
   );

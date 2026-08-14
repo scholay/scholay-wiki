@@ -165,7 +165,7 @@ export async function composeFigure(spec: FigureSpec): Promise<string> {
   }
 
   const H = y + 20;
-  const out: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${R(H)}" width="${W}" height="${R(H)}" font-family="system-ui,'PingFang SC','Noto Sans SC',sans-serif">`];
+  const out: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${R(H)}" width="${W}" height="${R(H)}" font-family="'Helvetica Neue','Segoe UI',Arial,'Noto Serif SC','Songti SC',SimSun,'Source Han Serif SC','Noto Serif CJK SC',system-ui,serif">`];
   out.push(`<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#4b5563"/></marker><marker id="tbar" markerWidth="10" markerHeight="12" refX="1" refY="6" orient="auto"><line x1="1" y1="1" x2="1" y2="11" stroke="#c0392b" stroke-width="2.4"/></marker></defs>`);
   out.push(`<rect x="0" y="0" width="${W}" height="${R(H)}" fill="#ffffff"/>`);
   if (spec.title) out.push(`<text x="${W / 2}" y="40" text-anchor="middle" font-size="23" font-weight="700" fill="#111">${esc(spec.title)}</text>`);

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 /**
@@ -56,6 +56,11 @@ export interface ThirdPartyAccount {
 export function useThirdPartyAccounts({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
     queryKey: ['admin', 'third-party', 'list', { showSensitive }],
+    // showSensitive 进了 queryKey —— 点密钥框的「眼睛」就是换 key 重取。
+    // 没有 keepPreviousData 的话新 key 无缓存 → isLoading 瞬时为 true → 上层守卫
+    // (ConfigPageGuard / `if (isLoading) return <Loading/>`)会把整张表单卸载重建,
+    // 管理员填了一半还没保存的内容会无声消失。保住旧值,表单始终挂载。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { accounts: ThirdPartyAccount[]; total: number } }>(
         '/admin/third-party-accounts',
@@ -63,6 +68,11 @@ export function useThirdPartyAccounts({ showSensitive }: { showSensitive: boolea
       );
       return r.data.data.accounts ?? [];
     },
+    // 这一页展示的是调用数 / 成功率 / 最近使用时间 —— 是个监控面,不是配置页。
+    // 全局 refetchOnWindowFocus 是关的(query-config.ts),没有这条就只能 F5 整页。
+    // 后台标签页不轮询(refetchIntervalInBackground: false),避免明文模式下常驻拉密钥。
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 

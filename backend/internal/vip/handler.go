@@ -6,6 +6,7 @@ package vip
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"scholar-backend/internal/common/utils"
@@ -105,7 +106,8 @@ func (h *Handler) GenerateCodes(c *gin.Context) {
 		Count              int    `json:"count"`
 		GrantKind          string `json:"grant_kind"` // tier(默认) | credit
 		Tier               string `json:"tier"`       // tier 码: pro|max
-		GrantDays          int    `json:"grant_days"`
+		GrantDays          int    `json:"grant_days"` // 数量;单位见 GrantUnit
+		GrantUnit          string `json:"grant_unit"` // day|month|year;空=day
 		GrantCredits       int    `json:"grant_credits"`        // credit 码: 经费数
 		CreditKind         string `json:"credit_kind"`          // temp|perm
 		CreditValidityDays int    `json:"credit_validity_days"` // credit temp 时有效天数
@@ -121,8 +123,9 @@ func (h *Handler) GenerateCodes(c *gin.Context) {
 		u := adminID
 		createdBy = &u
 	}
-	codes, err := h.svc.GenerateCodes(GenerateCodesInput{
-		Count: req.Count, GrantKind: req.GrantKind, Tier: req.Tier, GrantDays: req.GrantDays,
+	batch, err := h.svc.GenerateCodeBatch(GenerateCodesInput{
+		Count: req.Count, GrantKind: req.GrantKind, Tier: req.Tier,
+		GrantDays: req.GrantDays, GrantUnit: req.GrantUnit,
 		GrantCredits: req.GrantCredits, CreditKind: req.CreditKind, CreditValidityDays: req.CreditValidityDays,
 		MaxUses: req.MaxUses, ValidDays: req.ValidDays, Note: req.Note,
 	}, createdBy)
@@ -130,7 +133,7 @@ func (h *Handler) GenerateCodes(c *gin.Context) {
 		utils.InternalError(c, 500, "生成兑换码失败", err)
 		return
 	}
-	utils.SuccessWithMessage(c, "已生成", gin.H{"codes": codes, "count": len(codes)})
+	utils.SuccessWithMessage(c, "已生成", batch)
 }
 
 // AdminUserVIPStatus GET /admin/users/:id/vip —— 某用户的等级/到期 + 今日各功能额度(给用户详情抽屉)。
@@ -157,9 +160,16 @@ func (h *Handler) AdminGrantVIP(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Tier  string `json:"tier"`
-		Days  int    `json:"days"`
+		Tier string `json:"tier"`
+		// Days 授予**数量**;单位见 Unit。字段名保留 days 是为了不破坏既有前端契约。
+		Days int    `json:"days"`
+		Unit string `json:"unit"`  // day|month|year;空=day(老客户端不传即天,行为不变)
 		Cycle string `json:"cycle"` // ""=不改 | monthly | yearly
+		//
+		// ⚠️ Unit 与 Cycle 是**两个不同的东西**:
+		//   Unit  = 这次发多久(1 个月 / 1 年 / 30 天)
+		//   Cycle = 用户的计费周期**徽标**(年费会员显示「年度」),不影响时长
+		// 前端 UI 上两个下拉并排,文案必须区分,否则运营会当成一个。
 	}
 	if !utils.BindJSON(c, &req) {
 		return
@@ -167,7 +177,7 @@ func (h *Handler) AdminGrantVIP(c *gin.Context) {
 	if req.Cycle != "" {
 		req.Cycle = normCycle(req.Cycle)
 	}
-	exp, err := h.svc.GrantToUser(uint(id), req.Tier, req.Days, req.Cycle)
+	exp, err := h.svc.GrantToUser(uint(id), req.Tier, req.Days, req.Unit, req.Cycle)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			utils.BadRequest(c, "用户不存在")
@@ -176,6 +186,11 @@ func (h *Handler) AdminGrantVIP(c *gin.Context) {
 		utils.InternalError(c, 500, "授予会员失败", err)
 		return
 	}
+	// 审计留痕:直授会员绕过支付,谁给谁发了什么必须可追溯。
+	adminID, _ := utils.GetUserID(c)
+	slog.Info("audit: admin 授予会员", "admin_id", adminID, "target_user_id", id,
+		"tier", req.Tier, "amount", req.Days, "unit", NormGrantUnit(req.Unit),
+		"cycle", req.Cycle, "expires_at", exp)
 	utils.SuccessWithMessage(c, "已授予会员", gin.H{"expires_at": exp})
 }
 
@@ -194,6 +209,9 @@ func (h *Handler) AdminRevokeVIP(c *gin.Context) {
 		utils.InternalError(c, 500, "取消会员失败", err)
 		return
 	}
+	// 审计留痕:取消会员是剥夺已付费权益的操作,操作人必须可追溯。
+	adminID, _ := utils.GetUserID(c)
+	slog.Info("audit: admin 取消会员", "admin_id", adminID, "target_user_id", id)
 	utils.SuccessWithMessage(c, "已取消会员", nil)
 }
 
@@ -275,8 +293,9 @@ func (h *Handler) IncreaseCodeUses(c *gin.Context) {
 	utils.SuccessWithMessage(c, "已加次数", code)
 }
 
-// SetCodeGrantDays PUT /admin/vip-codes/:id/grant-days {days} —— 修改会员码授予的会员天数。
-// 只影响之后的兑换(兑换时实时读 grant_days),已兑换用户不受影响。仅限 tier(会员)码。
+// SetCodeGrantDays PUT /admin/vip-codes/:id/grant-days {days, unit} —— 修改会员码授予的时长。
+// 只影响之后的兑换(兑换时实时读 grant_days + grant_unit),已兑换用户不受影响。仅限 tier(会员)码。
+// 路径名保留 grant-days 是为了不破坏既有前端调用;body 里 days 现在是**数量**,unit 是单位。
 func (h *Handler) SetCodeGrantDays(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -284,12 +303,13 @@ func (h *Handler) SetCodeGrantDays(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Days int `json:"days"`
+		Days int    `json:"days"` // 数量
+		Unit string `json:"unit"` // day|month|year;空=day
 	}
 	if !utils.BindJSON(c, &req) {
 		return
 	}
-	code, err := h.svc.SetCodeGrantDays(id, req.Days)
+	code, err := h.svc.SetCodeGrantDays(id, req.Days, req.Unit)
 	if err != nil {
 		if errors.Is(err, ErrCodeNotFound) {
 			utils.BadRequest(c, "兑换码不存在")

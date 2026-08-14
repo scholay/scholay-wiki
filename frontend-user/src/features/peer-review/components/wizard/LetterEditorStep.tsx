@@ -9,6 +9,7 @@
  * 毕业模式:致评阅老师投稿信(中文)
  */
 import { AIOverlay } from '@/shared/ui/ai-overlay';
+import { Textarea } from '@/shared/ui/textarea';
 
 export interface LetterEditorStepProps {
   submissionId: number;
@@ -34,8 +35,6 @@ const COPY = {
   },
 };
 
-// submissionId 当前只是给将来"插入引用 / 摘要"等富功能预留,目前未使用
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function LetterEditorStep({
   submissionId: _submissionId,
   variant,
@@ -44,28 +43,30 @@ export function LetterEditorStep({
   computing,
   statusNote,
 }: LetterEditorStepProps) {
+  // submissionId 保留给后续的“插入引用 / 摘要”功能。
+  void _submissionId;
   const copy = COPY[variant];
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4">
       <div>
-        <h2 className="text-base font-bold text-foreground">{copy.title}</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <h2 className="text-14 font-medium text-foreground">{copy.title}</h2>
+        <p className="mt-0.5 text-12 text-muted-foreground">
           {computing ? (statusNote || '正在起草…') + ' · 内容会逐字写入下方' : copy.hint}
         </p>
       </div>
 
       {/* 蒙层只盖到"第一个字写进来"为止:开始流式起草后立即撤,内容逐字写入用户可见 */}
       <AIOverlay active={computing && !value.trim()} label="AI 正在起草投稿信">
-        <textarea
+        <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={computing ? '正在起草投稿信…' : copy.placeholder}
-          className="min-h-[480px] w-full resize-y rounded-md border border-border bg-background p-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-faint focus:border-brand-red focus:outline-none"
+          className="min-h-[480px] p-4 font-mono leading-paragraph"
         />
       </AIOverlay>
 
-      <p className="text-xs text-faint">
+      <p className="text-12 text-faint">
         已 {value.length} 字 · 提交后随稿件一起递交给审稿人参考
       </p>
     </div>

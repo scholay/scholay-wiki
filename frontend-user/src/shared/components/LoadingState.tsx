@@ -20,7 +20,7 @@ export const LoadingState = forwardRef<HTMLDivElement, LoadingStateProps>(
       <div
         ref={ref}
         className={cn(
-          'flex items-center justify-center gap-2 text-sm text-muted-foreground',
+          'flex items-center justify-center gap-2 text-12 text-muted-foreground',
           dense ? 'py-6' : 'py-16',
           className
         )}
@@ -51,7 +51,7 @@ export const ListSkeleton = forwardRef<HTMLDivElement, ListSkeletonProps>(
       >
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3">
-            <Skeleton className="h-4 w-4 rounded-sm" />
+            <Skeleton className="h-4 w-4 rounded-4" />
             <Skeleton className="h-4 flex-1 max-w-72" />
             {withTrailing && <Skeleton className="h-3 w-12" />}
           </div>

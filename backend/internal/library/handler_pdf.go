@@ -11,9 +11,14 @@
 //   - object_key 规范:papers/<user_id>/<paper_id>/<sha256>.pdf
 //     同 hash 复用,不同 hash 删旧 + 写新(保持单一引用)
 //   - 大小上限 50 MiB(超出 413)—— 学术 PDF 几乎不会更大,真有超大需求再放宽
-//   - MIME 严格只允许 application/pdf;同时检查首部 magic bytes %PDF-
-//     (前端可被绕过,服务端必须自验)
-//   - PUT 期间用 streaming(io.TeeReader 边读边算 sha256),不缓全文进内存
+//   - 只按**扩展名 + 首部 magic bytes %PDF-** 校验(不看 Content-Type,浏览器给的
+//     那个字段本来就不可信);前端可被绕过,服务端必须自验
+//   - 全文缓进内存后再算 sha256(MinIO 单 part 上传要求预知 size),不是 streaming
+//
+// ⚠️ 阈值说明(2026-08-07 排查):本文件里的 413 分支目前**不可达** ——
+// nginx/nginx.conf 的 client_max_body_size 50m 与 middleware.UploadMaxBodySize
+// 完全等值,外层墙恒先命中并返回 HTML。这些分支保留是为了 nginx 阈值抬高后立即生效,
+// 也是为了不依赖单一一道墙。改阈值时两边必须一起看。
 // ============================================================================
 
 package library
@@ -33,6 +38,7 @@ import (
 
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/storage"
@@ -105,33 +111,40 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 		return
 	}
 
-	// 限大小 —— Gin 的 MaxMultipartMemory 已经全局设过,但这里再守一道
+	// 限大小 —— Gin 的 MaxMultipartMemory 已经全局设过,但这里再守一道。
+	// 容差 1 MiB 用于 multipart 编码 overhead(boundary + Content-Disposition + 文件名)。
 	if c.Request.ContentLength > maxPDFSize+1<<20 {
-		// 容差 1 MiB 用于 multipart 编码 overhead
-		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge,
-			fmt.Sprintf("文件过大,上限 %d MiB", maxPDFSize/1024/1024))
+		utils.ErrorWithStatus(c, http.StatusRequestEntityTooLarge, errcode.UploadTooLarge,
+			fmt.Sprintf("文件过大,单文件上限 %d MB,请压缩后再试", maxPDFSize/1024/1024))
 		return
 	}
 
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "缺少 file 字段或上传中断: "+err.Error())
+		// 高频路径:用户中途取消 / 断网 / 关弹窗。原始 err 是 Go 内部串
+		// ("http: no such file"、"unexpected EOF"),回显给用户既看不懂也泄漏实现。
+		slog.Warn("library: 读取 multipart file 字段失败", "err", err, "user_id", uid, "paper_id", paperID)
+		utils.Error(c, http.StatusBadRequest, "上传中断,请重试")
 		return
 	}
 	if fileHeader.Size > maxPDFSize {
-		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge,
-			fmt.Sprintf("文件过大(%d 字节),上限 %d MiB", fileHeader.Size, maxPDFSize/1024/1024))
+		utils.ErrorWithStatus(c, http.StatusRequestEntityTooLarge, errcode.UploadTooLarge,
+			fmt.Sprintf("文件过大(%.1f MB),单文件上限 %d MB,请压缩后再试",
+				float64(fileHeader.Size)/1024/1024, maxPDFSize/1024/1024))
 		return
 	}
 	if fileHeader.Size == 0 {
-		utils.Error(c, http.StatusBadRequest, "上传文件为空")
+		utils.ErrorWithStatus(c, http.StatusBadRequest, errcode.UploadInvalidType,
+			"文件为空,可能是云盘同步中的占位文件,请先下载到本地再上传")
 		return
 	}
 
-	// 校验扩展名(轻量过滤,真凭 magic bytes 才作数)
-	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	// 校验扩展名(轻量过滤,真凭 magic bytes 才作数)。
+	// TrimSpace 与 handler_upload_resolve.go 的判据对齐 —— 不 trim 会把 "paper.pdf "(末尾空格)误拒。
+	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(fileHeader.Filename)))
 	if ext != ".pdf" {
-		utils.Error(c, http.StatusBadRequest, "目前只支持上传 PDF(.pdf)文件")
+		utils.ErrorWithStatus(c, http.StatusBadRequest, errcode.UploadInvalidType,
+			"只支持 .pdf 文件,请确认文件扩展名")
 		return
 	}
 
@@ -145,13 +158,16 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 
 	buf := make([]byte, fileHeader.Size)
 	if _, err := io.ReadFull(src, buf); err != nil {
-		utils.Error(c, http.StatusBadRequest, "读取上传内容失败: "+err.Error())
+		// 同 FormFile:上传中断 / 连接重置的高频路径,原始 err 不回显。
+		slog.Warn("library: 读取上传内容失败", "err", err, "user_id", uid, "paper_id", paperID)
+		utils.Error(c, http.StatusBadRequest, "读取上传内容失败,请重试")
 		return
 	}
 
 	// magic bytes 校验 —— 防止伪装成 .pdf 扩展名的非 PDF
 	if len(buf) < len(pdfMagicPrefix) || string(buf[:len(pdfMagicPrefix)]) != pdfMagicPrefix {
-		utils.Error(c, http.StatusBadRequest, "文件不是合法的 PDF(magic bytes 校验失败)")
+		utils.ErrorWithStatus(c, http.StatusBadRequest, errcode.UploadInvalidType,
+			"这个文件不是 PDF(可能只是改了扩展名,或文件已损坏),请用阅读器打开确认后重试")
 		return
 	}
 
@@ -163,7 +179,8 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 
 	// 已经是同一 hash → 秒传:不重传对象,只刷新元数据(filename / uploaded_at)
 	// 即使 newKey == paper.PdfObjectKey 也不跳过元数据更新 —— 用户可能改了文件名
-	if paper.PdfObjectKey != newKey {
+	putNewObject := paper.PdfObjectKey != newKey
+	if putNewObject {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 		defer cancel()
 		if _, err := storage.PutObject(ctx, bucket, newKey, bytesReader(buf), int64(len(buf)),
@@ -175,16 +192,21 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 				},
 			}); err != nil {
 			slog.Error("library: PutObject 失败", "err", err, "user_id", uid, "paper_id", paper.ID)
-			utils.Error(c, http.StatusInternalServerError, "上传到对象存储失败")
+			utils.ErrorWithStatus(c, http.StatusInternalServerError, errcode.UploadStorageFailed,
+				"存储服务暂时不可用,请稍后重试")
 			return
 		}
 	}
 
-	// 元数据落库 —— 用 Update 而不是 Save 避免覆盖其他列
+	// 元数据落库 —— 用 Update 而不是 Save 避免覆盖其他列。
+	// 文件名按列宽 rune 截断:pdf_original_filename 是 varchar(255),且 sql_mode 含
+	// STRICT_TRANS_TABLES ⇒ 超长不是静默截断而是 Error 1406,整个上传 500。
+	// (同 package 的 handler_upload_resolve.go:227 早有这道截断,此处属单边修复漏网。)
+	origName := truncateRunes(fileHeader.Filename, origFilenameMaxRunes)
 	now := time.Now()
 	updates := map[string]interface{}{
 		"pdf_object_key":        newKey,
-		"pdf_original_filename": fileHeader.Filename,
+		"pdf_original_filename": origName,
 		"pdf_size":              fileHeader.Size,
 		"pdf_sha256":            sha,
 		"pdf_mime":              pdfContentType,
@@ -193,7 +215,18 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 	if err := db.Model(&UserLibraryPaper{}).
 		Where("id = ? AND user_id = ?", paper.ID, uid).
 		Updates(updates).Error; err != nil {
-		utils.InternalError(c, 500, "保存元数据失败", err)
+		// 对象已经落在 papers/ 前缀下(不受 tmp/ 的 24h ILM 覆盖)—— 落库失败必须显式回收,
+		// 否则每失败一次留一个永久孤儿对象。仅回收本次新写的,秒传路径不能删(那是既有引用)。
+		if putNewObject {
+			safego.Go("library-upload-rollback", func() {
+				ctx, cancel := ctxutil.With(ctxutil.QuickIO)
+				defer cancel()
+				if delErr := storage.DeleteObject(ctx, bucket, newKey); delErr != nil {
+					slog.Warn("library: 回滚孤儿 PDF 对象失败", "err", delErr, "key", newKey)
+				}
+			})
+		}
+		utils.InternalError(c, 500, "保存失败,请稍后重试", err)
 		return
 	}
 
@@ -209,9 +242,9 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 		})
 	}
 
-	// 回填新值返回(用户立即看到更新)
+	// 回填新值返回(用户立即看到更新)—— 用截断后的 origName,与库里落的值保持一致
 	paper.PdfObjectKey = newKey
-	paper.PdfOriginalFilename = fileHeader.Filename
+	paper.PdfOriginalFilename = origName
 	paper.PdfSize = fileHeader.Size
 	paper.PdfSHA256 = sha
 	paper.PdfMime = pdfContentType

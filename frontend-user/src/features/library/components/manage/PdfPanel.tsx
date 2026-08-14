@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { toApiError } from '@/shared/lib/http';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
 import type { UserLibraryPaper } from '@/shared/api/types';
 import { UPLOAD_CANCELLED, useDeletePaperPdf, useUploadPaperPdf } from '../../api/pdf';
@@ -24,7 +25,7 @@ import {
   footerPrimaryCn,
   type DialogTabDef,
 } from '../shared/dialog-chrome';
-import { validateFile } from '../shared/validate-pdf';
+import { checkPdfFile, pdfCheckErrorText } from '../shared/validate-pdf';
 import { CurrentPaperCard, FileTab, UrlTab } from './pdf-parts';
 
 /**
@@ -76,13 +77,18 @@ export function PdfPanel({
   const isPending = uploadMut.isPending;
   const isDeleting = deleteMut.isPending;
 
-  const acceptFile = useCallback((f: File) => {
-    if (!validateFile(f, setError)) {
+  // async:magic bytes 预检要读文件前 5 字节。两个入口(拖拽 / 文件选择器)共用。
+  const acceptFile = useCallback(async (f: File) => {
+    const check = await checkPdfFile(f);
+    if (!check.ok) {
+      setError(pdfCheckErrorText(check));
       setFile(null);
       return;
     }
     setError(null);
     setFile(f);
+    // 放行但有事要说(如文件名会被截短)—— 警告不是错误,不占错误条
+    if (check.warning) toast.warning(check.warning);
   }, []);
 
   const handleUpload = () => {
@@ -100,7 +106,11 @@ export function PdfPanel({
         },
         onError: (err: unknown) => {
           abortRef.current = null;
-          const msg = err instanceof Error ? err.message : '上传失败';
+          // 🔴 别写回 `err instanceof Error`:pdf.ts 抛的是 toApiError() 的返回值,
+          // 那是**对象字面量**(shared/lib/http.ts 里 ApiError 只是 interface,没有 class),
+          // instanceof 恒 false ⇒ 后端 message / 状态码全被丢掉,一切失败都显示"上传失败"。
+          // toApiError 幂等,对真 Error 走非 axios 分支保留 message,取消 sentinel 照常成立。
+          const msg = toApiError(err).message || '上传失败';
           if (msg === UPLOAD_CANCELLED) {
             setProgress(0);
             return;
@@ -119,7 +129,7 @@ export function PdfPanel({
       toast.success('已移除 PDF');
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '移除失败');
+      setError(toApiError(err).message || '移除失败');
     }
   };
 
@@ -205,23 +215,23 @@ export function PdfPanel({
           />
 
           {tab === 'file' && !error && (
-            <div className="mt-4 flex items-start gap-2 rounded-sm bg-brand-blue-soft border border-brand-blue/20 px-3 py-2">
-              <Info className="size-3.5 text-brand-blue shrink-0 mt-0.5" />
-              <span className="text-xs text-muted-foreground">
+            <div className="mt-4 flex items-start gap-2 rounded-8 bg-brand-amber-soft border border-brand-amber/20 px-3 py-2">
+              <Info className="size-3.5 text-brand-amber shrink-0 mt-0.5" />
+              <span className="text-12 text-muted-foreground">
                 仅支持 PDF,最大 50 MB · 文件只对你自己可见
               </span>
             </div>
           )}
 
           {hasExisting && tab === 'file' && (
-            <div className="mt-3 flex items-start gap-2 rounded-sm bg-danger-soft border border-brand-red/20 px-3 py-2">
+            <div className="mt-3 flex items-start gap-2 rounded-8 bg-danger-soft border border-brand-red/20 px-3 py-2">
               <AlertTriangle className="size-3.5 text-brand-red shrink-0 mt-0.5" />
-              <span className="text-xs text-brand-red">上传成功后将替换当前 PDF;旧文件不可恢复</span>
+              <span className="text-12 text-brand-red">上传成功后将替换当前 PDF;旧文件不可恢复</span>
             </div>
           )}
 
           {error && !isPending && (
-            <div className="mt-3 px-3 py-2 rounded-sm bg-danger-soft text-xs text-brand-red">{error}</div>
+            <div className="mt-3 px-3 py-2 rounded-8 bg-danger-soft text-12 text-brand-red">{error}</div>
           )}
         </div>
       </div>
@@ -242,7 +252,7 @@ export function PdfPanel({
               disabled
               title="移除后这条收藏就没有内容了;不需要的话可以直接删除这条收藏"
               className={cn(
-                'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-background text-sm font-semibold text-brand-red',
+                'inline-flex items-center gap-1 h-8 px-3 rounded-8 border border-brand-red/30 bg-surface-card text-14 font-medium text-brand-red',
                 'opacity-60 cursor-not-allowed'
               )}
             >
@@ -264,7 +274,7 @@ export function PdfPanel({
                 type="button"
                 disabled={isPending || isDeleting}
                 className={cn(
-                  'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-background text-sm font-semibold text-brand-red',
+                  'inline-flex items-center gap-1 h-8 px-3 rounded-8 border border-brand-red/30 bg-surface-card text-14 font-medium text-brand-red',
                   'hover:bg-danger-soft disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
                 )}
               >

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 import { Copy, ImageDown, Link2, Loader2, LogIn, MessageCircle, QrCode, Share2, ShieldCheck } from 'lucide-react';
 import {
@@ -17,6 +16,7 @@ import { toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import type { Paper, ShareTarget } from '@/shared/api/types';
+import { tokenValue } from '@/shared/lib/theme-bridge';
 import { ACCESS_TYPE_LABEL, PRICE_TYPE_LABEL } from '@/types/feature-tool';
 import {
   buildShareText,
@@ -60,7 +60,7 @@ export type { ShareTarget };
 const KIND_TITLE: Record<ShareTarget['kind'], string> = {
   single: '论文',
   journal: '期刊',
-  collection: '文献集',
+  collection: '文件夹',
   tool: '功能',
 };
 
@@ -86,7 +86,7 @@ export function ShareSheet({
     return (
       <MobileBottomSheet open={open} onOpenChange={onOpenChange} title={titleText}>
         <div className="px-4 pb-2 pt-1">
-          <h2 className="text-md font-semibold text-foreground">{titleText}</h2>
+          <h2 className="text-14 font-medium text-foreground">{titleText}</h2>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {target && <ShareBody key={shareTargetKey(target)} target={target} />}
@@ -99,7 +99,7 @@ export function ShareSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full gap-0 overflow-y-auto p-0">
         <SheetHeader className="px-4 py-3 pr-10">
-          <SheetTitle className="text-md">{titleText}</SheetTitle>
+          <SheetTitle className="text-14">{titleText}</SheetTitle>
         </SheetHeader>
         {target && <ShareBody key={shareTargetKey(target)} target={target} />}
       </SheetContent>
@@ -136,7 +136,7 @@ function citeHighlight(n: number): string | undefined {
 function ShareBody({ target }: { target: ShareTarget }) {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const authenticated = useAuthStore((s) => !!s.token);
-  const user = useAuthStore((s) => s.user); // 文献集海报「整理人」
+  const user = useAuthStore((s) => s.user); // 文件夹海报「整理人」
   const cardRef = useRef<HTMLDivElement>(null);
   const posterRef = useRef<HTMLDivElement>(null);
   const collectionPosterRef = useRef<HTMLDivElement>(null);
@@ -146,7 +146,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
   const [created, setCreated] = useState<CreatedShare | null>(null);
   const create = useCreateShare();
 
-  // 分享 URL:单篇 / 期刊 / 文献集都走 /s/:token **短链**(create 后才有)→ 打开的是「被分享落地页」,
+  // 分享 URL:单篇 / 期刊 / 文件夹都走 /s/:token **短链**(create 后才有)→ 打开的是「被分享落地页」,
   // 而非详情页(期刊落地页也带分享人横幅 + 期刊卡 + 在 Scholay 打开)。
   // 功能/工具:公开页直链(无短链 token);其余走 /s/:token 短链(create 后才有)。
   const shareUrl =
@@ -155,7 +155,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
       : created
         ? `${origin}/s/${created.token}`
         : '';
-  const urlLabel = shareUrl ? shareUrl.replace(/^https?:\/\//, '') : 'scholay.com/s/…';
+  const urlLabel = shareUrl ? shareUrl.replace(/^https?:\/\//, '') : '短链生成中…';
 
   // 单篇 / 期刊:登录态下进面板即自动生成短链(永久 / 无提取码),即用即分享,对齐设计(无「生成」步骤)。
   // 依赖 authenticated:面板内通过底部登录弹窗登录后,authenticated 翻 true → 这里补生成短链(只一次)。
@@ -195,10 +195,10 @@ function ShareBody({ target }: { target: ShareTarget }) {
       : undefined;
   const sampleTitles = collectionSamplePapers?.map((p) => p.title);
 
-  // 文献集「保存图片」富海报数据(对齐 .pen 文献集卡组);ShareCard 仍作面板内预览。
+  // 文件夹「保存图片」富海报数据(对齐 .pen 文件夹卡组);ShareCard 仍作面板内预览。
   // 导出按钮只在 created 后出现 → 这里也只在 created 后产数据(null 时不挂屏外海报),
   // QR 直接带提取码(与 ShareCard 一致,扫码免输码直达合集);不再有「未创建落首页」的兜底死路。
-  // samplePapers 用 created.papers(服务端快照前 8 篇)→ 无论从文献集列表 / 集内 / PC 入口都能渲染前几篇。
+  // samplePapers 用 created.papers(服务端快照前 8 篇)→ 无论从文件夹列表 / 文件夹内 / PC 入口都能渲染前几篇。
   const collectionPosterData: CollectionSharePosterData | null = useMemo(() => {
     if (target.kind !== 'collection' || !created) return null;
     const qr = created.extract_code ? `${shareUrl}?code=${created.extract_code}` : shareUrl;
@@ -268,11 +268,11 @@ function ShareBody({ target }: { target: ShareTarget }) {
       paperCount: created?.paper_count ?? target.paperCount,
       sampleTitles,
       qrValue: qr,
-      urlLabel: created ? urlLabel : 'scholay.com/s/…',
+      urlLabel: created ? urlLabel : '短链生成中…',
     };
   }, [target, created, origin, shareUrl, urlLabel, sampleTitles]);
 
-  // 单篇/期刊「保存图片」导出富海报(SharePoster);文献集仍导出预览卡(ShareCard,堆叠封面)。
+  // 单篇/期刊「保存图片」导出富海报(SharePoster);文件夹仍导出预览卡(ShareCard,堆叠封面)。
   const posterData: SharePosterData | null = useMemo(() => {
     if (target.kind === 'single') {
       const p = target.paper;
@@ -335,7 +335,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
         urlLabel,
       };
     }
-    return null; // 文献集走 ShareCard 导出
+    return null; // 文件夹走 ShareCard 导出
   }, [target, shareUrl, urlLabel, origin]);
 
   const copy = async (text: string, label: string) => {
@@ -344,7 +344,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
   };
 
   const saveImage = async () => {
-    // 导出目标:文献集 → 富海报 CollectionSharePoster;单篇/期刊/功能 → SharePoster;兜底 → ShareCard。
+    // 导出目标:文件夹 → 富海报 CollectionSharePoster;单篇/期刊/功能 → SharePoster;兜底 → ShareCard。
     const node = collectionPosterData
       ? collectionPosterRef.current
       : posterData
@@ -352,7 +352,15 @@ function ShareBody({ target }: { target: ShareTarget }) {
         : cardRef.current;
     if (!node) return;
     try {
-      const dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      // html-to-image 只在用户点「保存图片」时下载；普通打开分享面板、复制链接不承担它的体积。
+      const { toPng } = await import('html-to-image');
+      // 导出画布底色 = 页面米白。走 tokenValue 而非写死 hex ——
+      // 这是 JS 字面量位置(canvas 背景),给不了类名,但也不该硬编码:
+      // 改造前这里是 '#ffffff',--background 从纯白改米白后导出图边缘就出白边了。
+      const dataUrl = await toPng(node, {
+        pixelRatio: 2,
+        backgroundColor: tokenValue('--background', '#F6F4EE'),
+      });
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = `scholay-share-${created?.token ?? 'card'}.png`;
@@ -391,7 +399,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* 预览卡(文献集的分享图导出目标;单篇/期刊预览也用它,导出走下方屏外 SharePoster) */}
+      {/* 预览卡(文件夹的分享图导出目标;单篇/期刊预览也用它,导出走下方屏外 SharePoster) */}
       <ShareCard ref={cardRef} data={cardData} />
 
       {/* 屏外渲染的「保存图片」富海报(单篇/期刊/功能)——html-to-image 的真正导出目标 */}
@@ -400,7 +408,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
           <SharePoster ref={posterRef} data={posterData} />
         </div>
       )}
-      {/* 文献集富海报(屏外导出目标);面板内预览仍是上面的 ShareCard。 */}
+      {/* 文件夹富海报(屏外导出目标);面板内预览仍是上面的 ShareCard。 */}
       {collectionPosterData && (
         <div aria-hidden className="pointer-events-none fixed left-[-9999px] top-0">
           <CollectionSharePoster ref={collectionPosterRef} data={collectionPosterData} />
@@ -410,7 +418,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
       {target.kind === 'tool' || ((target.kind === 'single' || target.kind === 'journal') && created) ? (
         <>
           <div>
-            <p className="mb-2 text-xs text-faint">分享到</p>
+            <p className="mb-2 text-12 text-faint">分享到</p>
             <div className="grid grid-cols-4 gap-2">
               <ChannelBtn icon={<MessageCircle className="size-5" />} label="微信" onClick={shareDirect} />
               <ChannelBtn icon={<Link2 className="size-5" />} label="复制链接" onClick={() => copy(shareUrl, '链接')} />
@@ -422,7 +430,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
             <Share2 className="size-4" />
             分享到微信
           </Button>
-          <p className="text-center text-2xs leading-relaxed text-faint">
+          <p className="text-center text-12 leading-paragraph text-faint">
             {target.kind === 'tool'
               ? '对方打开即可在 Scholay 体验该功能,无需登录'
               : `对方点开短链即可在 Scholay 查看${target.kind === 'single' ? '并收藏' : ''},无需登录`}
@@ -434,33 +442,33 @@ function ShareBody({ target }: { target: ShareTarget }) {
             <LogIn className="size-4" />
             登录后生成分享链接
           </Button>
-          <p className="text-center text-2xs leading-relaxed text-faint">
+          <p className="text-center text-12 leading-paragraph text-faint">
             生成专属短链后,对方打开即可查看这{target.kind === 'single' ? '篇论文' : '个期刊'}
           </p>
         </>
       ) : target.kind === 'single' || target.kind === 'journal' ? (
-        <div className="flex items-center justify-center gap-2 py-6 text-sm text-faint">
+        <div className="flex items-center justify-center gap-2 py-6 text-12 text-faint">
           <Loader2 className="size-4 animate-spin" />
           正在生成分享链接…
         </div>
       ) : !created ? (
         <>
-          <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-1 p-3">
+          <div className="flex flex-col gap-3 rounded-12 border border-border bg-surface-1 p-3">
             <label className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm text-subtle">
+              <span className="flex items-center gap-2 text-12 text-subtle">
                 <ShieldCheck className="size-4" /> 提取码保护(防盗链)
               </span>
               <Switch checked={withCode} onCheckedChange={setWithCode} />
             </label>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-subtle">有效期</span>
+              <span className="text-12 text-subtle">有效期</span>
               <div className="flex gap-1.5">
                 {EXPIRY_OPTIONS.map((o) => (
                   <button
                     key={o.days}
                     type="button"
                     onClick={() => setExpiryDays(o.days)}
-                    className={`rounded-sm border px-2.5 py-1 text-xs ${
+                    className={`rounded-8 border px-2.5 py-1 text-12 ${
                       expiryDays === o.days
                         ? 'border-brand-red bg-danger-soft text-brand-red'
                         : 'border-border text-muted-foreground'
@@ -480,15 +488,15 @@ function ShareBody({ target }: { target: ShareTarget }) {
       ) : (
         <>
           {created.extract_code && (
-            <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 px-3 py-2.5">
-              <span className="text-sm text-subtle">提取码</span>
-              <span className="font-mono text-lg font-bold tracking-widest text-brand-red">
+            <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-3 py-2.5">
+              <span className="text-12 text-subtle">提取码</span>
+              <span className="font-mono text-16 font-bold tracking-code text-brand-red">
                 {created.extract_code}
               </span>
             </div>
           )}
           <div>
-            <p className="mb-2 text-xs text-faint">分享渠道</p>
+            <p className="mb-2 text-12 text-faint">分享渠道</p>
             <div className="grid grid-cols-4 gap-2">
               <ChannelBtn icon={<Link2 className="size-5" />} label="复制链接" onClick={() => copy(`${origin}/s/${created.token}`, '链接')} />
               <ChannelBtn icon={<Copy className="size-5" />} label="复制口令" onClick={() => copy(buildShareText({ token: created.token, title: created.title, paper_count: created.paper_count, extract_code: created.extract_code }, origin), '口令')} />
@@ -496,7 +504,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
               <ChannelBtn icon={<QrCode className="size-5" />} label="二维码" onClick={() => toast.message('二维码已展示在上方卡片,长按或保存图片即可')} />
             </div>
           </div>
-          <p className="text-2xs leading-relaxed text-faint">
+          <p className="text-12 leading-paragraph text-faint">
             「复制口令」是纯文本(链接+提取码),在微信/微博等渠道不易被屏蔽;对方在浏览器打开链接、输入提取码即可查看并一键转存。
           </p>
         </>
@@ -510,10 +518,10 @@ function ChannelBtn({ icon, label, onClick }: { icon: React.ReactNode; label: st
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-1.5 rounded-md border border-border bg-background py-2.5 text-muted-foreground active:bg-surface-2"
+      className="flex flex-col items-center gap-1.5 rounded-8 border border-border bg-surface-card py-2.5 text-muted-foreground active:bg-surface-2"
     >
       {icon}
-      <span className="text-2xs text-subtle">{label}</span>
+      <span className="text-12 text-subtle">{label}</span>
     </button>
   );
 }

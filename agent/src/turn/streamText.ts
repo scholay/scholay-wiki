@@ -5,10 +5,17 @@
 // 难点:partial_json 是**转义 + 不完整**的 JSON 片段(如 `{"file_path":"document.md","content":"\\sec`)。
 // 不能裸推,必须容错解出「到目前为止已闭合的明文」(不含尾部未完成的转义/未闭合的 \uXXXX)。
 
-// 哪些工具的哪个字段做流式明文预览。**只 Write**:前端只把整份 Write.content 当预览;Edit.new_string
-// 是片段、无 old_string 无从定位预览,外发只会变前端从不消费的死帧(P1-1 review #5)。其它工具 → null。
+// 哪些工具的哪个字段做流式明文预览。
+//   - Write.content:prism 右侧文档面逐字长出 + 各 feature 工具 chip 构建态预览。
+//   - Edit.new_string(2026-07 放开):早期排除理由是「前端从不消费 → 死帧」(P1-1 review #5),
+//     该前提已失效 —— 前端 ToolCallBlock 构建态现在通用消费任意 toolInput(文件名 + 已写入字数
+//     + 尾部预览,不需要定位到文档);prism 的文档预览仍只认 Write(currentStreamingWrite 按
+//     toolName 门控),Edit 增量不会污染它。
+//   - MultiEdit 刻意不开:edits 数组含多个 new_string,FieldStreamer 只会咬住第一个,进度失真。
 export function streamFieldFor(toolName: string): string | null {
-  return toolName === "Write" ? "content" : null;
+  if (toolName === "Write") return "content";
+  if (toolName === "Edit") return "new_string";
+  return null;
 }
 
 // 超大入参保护:JSON 超过此长度不再做流式抽取,直接等 tool_use_complete 一次性出。正常论文正文远在此之下。

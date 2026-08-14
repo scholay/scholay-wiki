@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Loader2, MailOpen, PenLine, RefreshCw, Reply } from 'lucide-react';
+import { toast } from 'sonner';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { Pagination } from '../components/Pagination';
+import { TimeCell } from '../components/TimeCell';
 import { useApiToast } from '../hooks/useApiToast';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ResourceError } from '@/shared/components/ResourceError';
 import { cn } from '@/shared/lib/utils';
 import {
   useInboxList,
@@ -51,7 +56,7 @@ export function MailCenterPage() {
     setSelectedId(null);
   }, [status, keyword, page]);
 
-  const { data, isLoading } = useInboxList({
+  const { data, isLoading, isError, error, refetch, isFetching } = useInboxList({
     status: status || undefined,
     keyword: keyword || undefined,
     page,
@@ -60,18 +65,29 @@ export function MailCenterPage() {
   const poll = usePollIMAPNow();
   const apiToast = useApiToast();
 
-  const handlePoll = () =>
-    apiToast(poll.mutateAsync(), {
-      success: '拉取完成',
+  // 「立即拉取」= 让后端连一次 IMAP。**必须把拉到几封说出来**:
+  // 固定文案「拉取完成」时,点完既不知道是 0 封还是 5 封,列表刷新又是异步的,
+  // 于是「到底有没有新邮件」只能靠数列表,而这正是点这个按钮的唯一目的。
+  const handlePoll = async () => {
+    const r = await apiToast(poll.mutateAsync(), {
       failure: '拉取失败(检查「客服配置」里的 IMAP 设置)',
     });
+    if (r === null) return;
+    const n = r.new_mails ?? 0;
+    if (n > 0) toast.success(`拉取完成 · 新邮件 ${n} 封`);
+    else toast.success('拉取完成 · 没有新邮件');
+  };
 
+  const filtered = !!status || !!keyword;
   const items = data?.items ?? [];
 
   return (
     <AdminPageLayout
       title="邮件中心"
-      description={`客服邮箱收件箱 · 未读 ${data?.unread ?? 0} 封 · 收/发信配置见「客服配置」`}
+      // 取数失败时未读数写「—」而不是 0:「未读 0 封」是个会被当真的结论
+      description={`客服邮箱收件箱 · 未读 ${isError ? '—' : (data?.unread ?? 0)} 封 · 收/发信配置见「客服配置」`}
+      onRefresh={() => void refetch()}
+      refreshing={isFetching}
       actions={
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={poll.isPending} onClick={handlePoll}>
@@ -94,9 +110,9 @@ export function MailCenterPage() {
               type="button"
               onClick={() => setStatus(o.value)}
               className={cn(
-                'h-7 rounded-md px-2.5 text-xs font-medium transition-colors',
+                'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 o.value === status
-                  ? 'bg-foreground text-background'
+                  ? 'bg-foreground text-on-dark'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground',
               )}
             >
@@ -125,17 +141,50 @@ export function MailCenterPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
         {/* 列表 */}
         <div className="flex min-w-0 flex-col gap-3">
-          <div className="overflow-hidden rounded-md border border-border bg-background">
-            {isLoading ? (
-              <div className="py-16 text-center text-sm text-faint">
+          <div className="overflow-hidden rounded-16 border border-border bg-surface-card">
+            {/* 🔴 error 必须先于 loading、更要先于空态判断:改造前只解构了 data/isLoading,
+                接口一挂 items 退化成 [],页面斩钉截铁地说「收件箱为空(在客服配置启用 IMAP 后自动拉取)」
+                —— 把一次后端故障说成配置没做,运维会跑去客服配置页排查一个不存在的问题。 */}
+            {isError ? (
+              <ResourceError
+                error={error}
+                resourceName="收件箱"
+                onRetry={() => void refetch()}
+                autoRedirect={false}
+                className="h-auto bg-surface-card py-10"
+              />
+            ) : isLoading ? (
+              <div className="py-16 text-center text-12 text-faint">
                 <Loader2 className="mx-auto size-4 animate-spin" />
               </div>
             ) : items.length === 0 ? (
-              <div className="py-16 text-center text-sm text-faint">
-                收件箱为空(在「客服配置」启用 IMAP 后自动拉取)
-              </div>
+              <EmptyState
+                dense
+                icon={MailOpen}
+                title={filtered ? '没有符合条件的邮件' : '收件箱为空'}
+                description={
+                  filtered
+                    ? '换个关键词或状态筛选试试'
+                    : '在「客服配置 → 收信(IMAP)」启用后会自动拉取,也可点右上角「立即拉取」'
+                }
+                action={
+                  filtered ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setStatus('');
+                        setKwInput('');
+                        setKeyword('');
+                      }}
+                    >
+                      清除筛选
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
-              <ul className="max-h-[70vh] divide-y divide-border-soft overflow-y-auto">
+              <ul className="max-h-[70dvh] divide-y divide-border-soft overflow-y-auto">
                 {items.map((m) => (
                   <MailRow
                     key={m.id}
@@ -173,18 +222,17 @@ function MailRow({ mail, active, onClick }: { mail: InboxMail; active: boolean; 
         )}
       >
         <div className="flex items-center gap-1.5">
-          {unread && <span className="size-1.5 shrink-0 rounded-full bg-brand-red" />}
-          <span className={cn('min-w-0 flex-1 truncate text-xs', unread ? 'font-bold text-foreground' : 'text-subtle')}>
+          {unread && <span className="size-1.5 shrink-0 rounded-pill bg-brand-red" />}
+          <span className={cn('min-w-0 flex-1 truncate text-12', unread ? 'font-medium text-foreground' : 'text-subtle')}>
             {mail.from_name || mail.from_addr}
           </span>
-          <span className="shrink-0 text-2xs tabular-nums text-faint">
-            {(mail.sent_at ?? mail.created_at)?.slice(5, 16).replace('T', ' ')}
-          </span>
+          {/* 「这封是刚到的还是上周的」是扫这一列的唯一目的 —— 原来的 slice(5,16) 连年都砍了 */}
+          <TimeCell value={mail.sent_at ?? mail.created_at} className="shrink-0 text-12" />
         </div>
-        <span className={cn('truncate text-xs', unread ? 'font-semibold text-foreground' : 'text-subtle')}>
+        <span className={cn('truncate text-12', unread ? 'font-medium text-foreground' : 'text-subtle')}>
           {mail.subject}
         </span>
-        <span className="truncate text-2xs text-faint">{mail.snippet}</span>
+        <span className="truncate text-12 text-faint">{mail.snippet}</span>
       </button>
     </li>
   );
@@ -192,7 +240,7 @@ function MailRow({ mail, active, onClick }: { mail: InboxMail; active: boolean; 
 
 /** 阅读面板 —— 选中信件全文 + 回信框;未选时占位。 */
 function ReadingPane({ id }: { id: number | null }) {
-  const { data: mail, isLoading } = useInboxMail(id);
+  const { data: mail, isLoading, isError, error, refetch } = useInboxMail(id);
   const reply = useReplyInbox();
   const apiToast = useApiToast();
   const [body, setBody] = useState('');
@@ -203,7 +251,7 @@ function ReadingPane({ id }: { id: number | null }) {
 
   if (id == null) {
     return (
-      <div className="flex min-h-[300px] items-center justify-center rounded-md border border-dashed border-border bg-surface-1/40 text-sm text-faint">
+      <div className="flex min-h-[300px] items-center justify-center rounded-16 border border-dashed border-border bg-surface-1/40 text-12 text-faint">
         <span className="inline-flex flex-col items-center gap-2">
           <MailOpen className="size-6 text-faint" />
           选择左侧一封邮件查看
@@ -214,34 +262,46 @@ function ReadingPane({ id }: { id: number | null }) {
 
   const handleReply = async () => {
     if (!body.trim()) return;
-    await apiToast(reply.mutateAsync({ id, body }), {
+    const ok = await apiToast(reply.mutateAsync({ id, body }), {
       success: '已回复(从客服邮箱发出,见「发送记录」)',
       failure: '发送失败',
     });
-    setBody('');
+    // 发失败时**绝不清空**:SMTP 挂了 / 收件地址被拒时,清空等于把刚写完的回复扔掉,
+    // 而屏幕上只有一闪而过的 error toast。
+    if (ok !== null) setBody('');
   };
 
   return (
-    <div className="flex min-w-0 flex-col rounded-md border border-border bg-background">
-      {isLoading || !mail ? (
-        <div className="py-16 text-center text-sm text-faint">
+    <div className="flex min-w-0 flex-col rounded-16 border border-border bg-surface-card">
+      {/* 🔴 error 必须先判:原写法 `isLoading || !mail` 一把抓 —— 详情请求失败时
+          isLoading 变 false、mail 是 undefined,条件恒真 → 永久转圈,不给原因也没有重试。 */}
+      {isError ? (
+        <ResourceError
+          error={error}
+          resourceName="邮件"
+          onRetry={() => void refetch()}
+          autoRedirect={false}
+          className="h-auto bg-surface-card py-10"
+        />
+      ) : isLoading || !mail ? (
+        <div className="py-16 text-center text-12 text-faint">
           <Loader2 className="mx-auto size-4 animate-spin" />
         </div>
       ) : (
         <>
           {/* 头部 */}
           <div className="border-b border-border-soft px-5 py-4">
-            <h2 className="text-base font-bold text-foreground">{mail.subject}</h2>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
+            <h2 className="text-16 font-medium text-foreground">{mail.subject}</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-faint">
               <span className="text-subtle">
                 {mail.from_name ? `${mail.from_name} <${mail.from_addr}>` : mail.from_addr}
               </span>
-              <span>{(mail.sent_at ?? mail.created_at)?.slice(0, 19).replace('T', ' ')}</span>
+              <TimeCell value={mail.sent_at ?? mail.created_at} absolute className="text-12" />
               <Badge variant={mail.status === 'replied' ? 'default' : mail.status === 'unread' ? 'warning' : 'muted'}>
                 {STATUS_LABEL[mail.status]}
               </Badge>
               {mail.replied_at && (
-                <span className="text-brand-green">已于 {mail.replied_at.slice(5, 16).replace('T', ' ')} 回复</span>
+                <TimeCell value={mail.replied_at} prefix="已于 " className="text-12 text-brand-green" />
               )}
             </div>
           </div>
@@ -249,7 +309,7 @@ function ReadingPane({ id }: { id: number | null }) {
           {/* 正文:优先纯文本;只有 HTML 时用沙箱 iframe 隔离渲染 */}
           <div className="px-5 py-4">
             {mail.text_body ? (
-              <pre className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-sm leading-relaxed text-subtle">
+              <pre className="max-h-[45dvh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-12 leading-paragraph text-subtle">
                 {mail.text_body}
               </pre>
             ) : mail.html_body ? (
@@ -257,24 +317,23 @@ function ReadingPane({ id }: { id: number | null }) {
                 sandbox=""
                 srcDoc={mail.html_body}
                 title="邮件正文"
-                className="h-[45vh] w-full rounded-sm border border-border-soft bg-background"
+                className="h-[45dvh] w-full rounded-12 border border-border-soft bg-surface-card"
               />
             ) : (
-              <p className="text-xs text-faint">(无正文)</p>
+              <p className="text-12 text-faint">(无正文)</p>
             )}
           </div>
 
           {/* 回信 */}
           <div className="border-t border-border-soft px-5 py-4">
-            <label className="mb-2 block text-2xs font-bold tracking-[0.12em] text-faint">
+            <label className="mb-2 block text-12 font-medium text-faint">
               回复 {mail.from_addr}(主题自动加 Re:)
             </label>
-            <textarea
+            <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
               placeholder="输入回复内容…"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <div className="mt-2 flex justify-end">
               <Button onClick={handleReply} disabled={reply.isPending || !body.trim()}>
@@ -297,11 +356,15 @@ function ComposeDialog({ open, onClose }: { open: boolean; onClose: () => void }
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
 
+  // 🔴 apiToast 失败时返回 null(useApiToast 的 catch 分支)。原写法丢弃返回值后
+  // 无条件清空 + 关窗 —— SMTP 挂了或收件地址被拒时,弹窗照样关闭、整封信被抹掉,
+  // 视觉上和发送成功一模一样,只差一个一闪而过的 error toast。
   const handleSend = async () => {
-    await apiToast(compose.mutateAsync({ to: to.trim(), subject: subject.trim(), body }), {
+    const ok = await apiToast(compose.mutateAsync({ to: to.trim(), subject: subject.trim(), body }), {
       success: '已发送(见「发送记录」)',
       failure: '发送失败',
     });
+    if (ok === null) return; // 失败:原样留在弹窗里,改完再发
     setTo('');
     setSubject('');
     setBody('');
@@ -320,12 +383,11 @@ function ComposeDialog({ open, onClose }: { open: boolean; onClose: () => void }
         <div className="flex flex-col gap-3">
           <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="收件邮箱(用户邮箱见「用户管理」)" />
           <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="主题" />
-          <textarea
+          <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={8}
             placeholder="正文…"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="flex justify-end">
             <Button onClick={handleSend} disabled={compose.isPending || !to.trim() || !subject.trim() || !body.trim()}>

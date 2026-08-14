@@ -10,6 +10,23 @@
 const SLIDE_W_IN = 13.333;
 const SLIDE_H_IN = 7.5;
 
+// ── 品牌调色板 ───────────────────────────────────────────────────────────────
+// 🔴 这里的颜色会随用户导出的 pptx【流到站外】(投稿 / 汇报 / 转发),等于对外的
+//    品牌形象,不是内部实现细节。
+//    真源:frontend-user/src/styles/globals.css(其上游是 Figma,提取产物见
+//    docs/figma-design-spec-2026-07.md)。pptxgenjs 只认【不带 # 的六位十六进制】,
+//    故本常量是 globals 的手工镜像 —— 改 globals 必须同步这里。
+//    2026-07-28 同步前的实况:emitComparison 仍在用两代前的品牌绿 2A7A2A,配一个
+//    体系外的红 C0392B(Flat-UI 调色板,从来不属于本设计系统)。
+const BRAND = {
+  red: '882828', // --brand-red    朱砂 · 否定 / danger      (旧 C0392B)
+  green: '2F4D29', // --brand-green  松青 · 肯定 / 成功        (旧 2A7A2A)
+  onBrand: 'FFFFFF', // --on-brand     实心品牌底上的前景
+  hair: 'D6D6D8', // --border-strong 玄墨 22% 叠白,表格描边  (旧 D8D8D8)
+  track: 'E8E5DC', // --surface-2    环形图余量轨道           (旧 E8E8E8)
+  slideBg: 'FFFFFF', // deck 未给主题时的兜底页底(投影/打印保持纯白,不用米白)
+} as const;
+
 export interface Box {
   x: number;
   y: number;
@@ -100,7 +117,7 @@ export async function buildEditablePptx(
   pptx.layout = 'DECK169';
 
   const theme = slides.find((s) => s?.theme?.bg)?.theme;
-  const bgHex = toHex(theme?.bg) || 'FFFFFF';
+  const bgHex = toHex(theme?.bg) || BRAND.slideBg;
   pptx.defineSlideMaster({
     title: 'DECK',
     background: { color: bgHex },
@@ -304,7 +321,7 @@ function emitTable(slide: unknown, op: ExportOp, se: SlideExport, c: Conv): void
   if (headers.length === 0 && dataRows.length === 0) return;
   const primary = toHex(se.theme.primary);
   const fg = toHex(se.theme.fg);
-  const hair = 'D8D8D8';
+  const hair = BRAND.hair;
   const aligns = (m.aligns || []).map((a) => (a === 'right' || a === 'center' ? a : 'left'));
   const alignOf = (i: number) => aligns[i] || 'left';
 
@@ -315,7 +332,7 @@ function emitTable(slide: unknown, op: ExportOp, se: SlideExport, c: Conv): void
       text: hdr,
       options: {
         bold: true,
-        color: 'FFFFFF',
+        color: BRAND.onBrand,
         fill: { color: primary },
         align: alignOf(ci),
         valign: 'middle',
@@ -370,7 +387,7 @@ function emitComparison(slide: unknown, op: ExportOp, se: SlideExport, c: Conv):
   rows.push(
     cols.map((cc) => ({
       text: String(cc ?? ''),
-      options: { bold: true, color: 'FFFFFF', fill: { color: primary }, align: 'center', valign: 'middle' },
+      options: { bold: true, color: BRAND.onBrand, fill: { color: primary }, align: 'center', valign: 'middle' },
     })),
   );
   dataRows.forEach((r) => {
@@ -382,7 +399,7 @@ function emitComparison(slide: unknown, op: ExportOp, se: SlideExport, c: Conv):
       cells.push({
         text: isBool ? (v ? '✓' : '✗') : String(v),
         options: {
-          color: isBool ? (v ? '2A7A2A' : 'C0392B') : fg,
+          color: isBool ? (v ? BRAND.green : BRAND.red) : fg,
           bold: isBool,
           align: 'center',
           valign: 'middle',
@@ -398,7 +415,7 @@ function emitComparison(slide: unknown, op: ExportOp, se: SlideExport, c: Conv):
     y: c.inY(op.box.y),
     w: c.inW(op.box.w),
     h: c.inH(op.box.h),
-    border: { type: 'solid', pt: 0.5, color: 'D8D8D8' },
+    border: { type: 'solid', pt: 0.5, color: BRAND.hair },
     autoPage: false,
     fontSize: 12,
     valign: 'middle',
@@ -410,6 +427,9 @@ function emitChart(slide: unknown, op: ExportOp, se: SlideExport, c: Conv): void
   const chartType = String(m.chartType || 'bar');
   const primary = toHex(se.theme.primary);
   // 色盲友好序列色(Okabe-Ito,与 SciCharts 对齐);单序列只给一个色(避 pptxgenjs #285 误渲)。
+  // ⚠️ 刻意【不】收口到 globals 的 --chart-1..8:Okabe-Ito 是学术图表的通用无障碍序列,
+  //    且同一份 deck 里的 SciCharts 出图用的就是它,换成品牌色阶会让两者在同一页打架。
+  //    首色仍取 deck 主题 primary,保证品牌感由主题而非序列色承担。
   const PALETTE = [primary, 'E69F00', '56B4E9', '009E73', 'CC79A7', 'D55E00', '0072B2'];
   const pos = { x: c.inX(op.box.x), y: c.inY(op.box.y), w: c.inW(op.box.w), h: c.inH(op.box.h) };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -440,7 +460,7 @@ function emitChart(slide: unknown, op: ExportOp, se: SlideExport, c: Conv): void
     const label = (m.label as string) || '';
     s.addChart('doughnut', [{ name: label || 'Value', labels: [label || 'Value', ''], values: [value, Math.max(0, 100 - value)] }], {
       ...pos,
-      chartColors: [primary, 'E8E8E8'],
+      chartColors: [primary, BRAND.track],
       showLegend: false,
       showValue: false,
       holeSize: 70,

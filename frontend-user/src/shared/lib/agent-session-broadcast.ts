@@ -22,7 +22,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 /** 频道命名 — 跟 feature key 一一对应。改名会让旧版 tab 跟新版 tab 互相收不到消息。 */
-type FeatureChannel = 'smart-search' | 'claw' | 'boltslides' | 'sci_draw';
+type FeatureChannel = 'smart-search' | 'claw' | 'boltslides' | 'sci_draw' | 'stat_lab';
 
 /** 消息载荷。type 字段未来扩展不破坏旧 listener (switch default 忽略未知)。 */
 type BroadcastMessage = {

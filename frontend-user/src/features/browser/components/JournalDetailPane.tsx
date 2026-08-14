@@ -1,14 +1,16 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
-import { useMatch } from 'react-router-dom';
+import { useMatch, useNavigate } from 'react-router-dom';
 import { AlertCircle, ExternalLink, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { RouteSEO } from '@/shared/components/RouteSEO';
 import { JournalCover } from '@/shared/components/JournalCover';
 import { JournalSubmissionCard } from '@/shared/components/JournalSubmissionCard';
 import { JournalMetricsGroups } from '@/shared/components/JournalMetricsGroups';
 import { JournalDecisionCard } from '@/shared/components/JournalDecisionCard';
 import { cn } from '@/shared/lib/utils';
+import { journalCanonicalPath } from '@/shared/lib/seo-paths';
 import {
   journalTabKey,
   useBrowserTabs,
@@ -25,8 +27,8 @@ const JournalTrendChart = lazy(() =>
 );
 
 /**
- * 期刊详情面板 —— 文献集右侧 pane 的内容(kind='journal' tab 命中时渲染),
- * 同时也复用给 /journals/:id 路由(文献集外打开)。
+ * 期刊详情面板 —— 文件夹右侧 pane 的内容(kind='journal' tab 命中时渲染),
+ * 同时也复用给 /journals/:id 路由(文件夹外打开)。
  *
  * 设计稿 .pen `gsFps`(期刊详情页) 五段:
  *   ┌─ Breadcrumb
@@ -43,6 +45,7 @@ export function JournalDetailPane() {
   // /journal/:id 和 /journal/:id/:slug 都 match; slug 仅做 SEO, 这里只读 id。
   const match = useMatch('/journal/:id/*');
   const id = match?.params.id ? Number(match.params.id) : NaN;
+  const navigate = useNavigate();
   const tabId = Number.isFinite(id) ? journalTabKey(id) : '';
 
   const tab = useBrowserTabs((s) => {
@@ -68,6 +71,7 @@ export function JournalDetailPane() {
   const validId = Number.isFinite(id) && id > 0;
   const fullQ = useJournalFullDetail(validId ? id : 0, validId);
   const unified = fullQ.data?.unified;
+  const authoritativeSlug = unified?.seo_slug ?? journal?.seo_slug;
   // 投稿资源真实结构在 sources.submission(main.has_* + latex.class);规整成卡片要的精简态。
   const subSrc = fullQ.data?.sources?.submission;
   const submissionInfo = subSrc
@@ -86,6 +90,14 @@ export function JournalDetailPane() {
     () => (journal?.issns ?? []).filter(Boolean).join(' / '),
     [journal]
   );
+
+  useEffect(() => {
+    if (!validId || !authoritativeSlug) return;
+    const canonical = journalCanonicalPath(id, authoritativeSlug);
+    if (window.location.pathname !== canonical) {
+      navigate(canonical, { replace: true });
+    }
+  }, [authoritativeSlug, id, navigate, validId]);
 
   if (!journal) {
     if (fallback.isLoading) {
@@ -115,15 +127,27 @@ export function JournalDetailPane() {
     );
   }
 
+  const seoDescription = buildDescription(journal).slice(0, 180);
+
   return (
-    <div className="h-full overflow-auto">
+    <>
+      <RouteSEO
+        title={`${journal.canonical_name} - 期刊详情 | Scholay学术`}
+        description={seoDescription}
+        keywords={`${journal.canonical_name},期刊,影响因子,ISSN,期刊分区`}
+        canonical={journalCanonicalPath(journal.id, authoritativeSlug)}
+      />
+      <div className="h-full overflow-auto">
       <div className="max-w-6xl mx-auto px-4 py-4 sm:px-10 sm:py-7 space-y-4 sm:space-y-6">
         {/* breadcrumb 已删除 —— 浏览器 tabs 条已经能交代"我从哪来 / 现在看什么",
             再叠一层"我的收藏 › 期刊 › <name>"反而冗余 */}
 
-        {/* ───── Hero —— .pen `L3sjEN`(rounded-10 bg-FAFAFA border);移动端封面在上、信息在下 ───── */}
-        <section className="rounded-lg bg-surface-1 border border-border-soft p-4 sm:p-6 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-6">
-          {/* Cover —— .pen `oWWC5` 140x180,移动端略缩 */}
+        {/* ───── Hero —— rounded-16(Figma §3 主力容器圆角)+ surface-1 弱卡片底 + 发丝边。
+             原注释写 .pen `L3sjEN` 的 `rounded-10 bg-FAFAFA` —— 该真源与那两个值都已退休。
+             移动端封面在上、信息在下 ───── */}
+        <section className="rounded-16 bg-surface-1 border border-border-soft p-4 sm:p-6 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-6">
+          {/* Cover —— 期刊封面 140×180(移动端 110×145)。Figma 未给期刊封面规格,
+              token 侧也无对应尺寸档,属内容图的固有比例(≈0.78),保留 arbitrary。 */}
           <JournalCover
             id={journal.id}
             name={journal.canonical_name}
@@ -135,59 +159,60 @@ export function JournalDetailPane() {
             {/* metaTop —— badge 行 */}
             <div className="flex items-center gap-2 flex-wrap">
               {journal.publisher && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-background border border-border text-2xs font-bold text-subtle">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-surface-card border border-border text-12 font-medium text-subtle">
                   {journal.publisher}
                 </span>
               )}
               {journal.country && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-background border border-border text-2xs font-bold text-subtle">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-surface-card border border-border text-12 font-medium text-subtle">
                   {journal.country}
                 </span>
               )}
               {journal.type && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-foreground text-background text-2xs font-bold uppercase tracking-wide">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-foreground text-on-dark text-12 font-medium uppercase">
                   {journal.type}
                 </span>
               )}
               {journal.is_oa && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-brand-green/10 text-brand-green text-2xs font-bold">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-brand-green/10 text-brand-green text-12 font-medium">
                   Open Access
                 </span>
               )}
               {journal.xr_quartile && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-brand-green/10 text-brand-green text-2xs font-bold">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-brand-green/10 text-brand-green text-12 font-medium">
                   新锐 {journal.xr_quartile} 区{journal.xr_top ? ' · Top' : ''}
                 </span>
               )}
               {journal.gjqk_warning && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-warning-soft text-brand-amber text-2xs font-bold">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-warning-soft text-brand-amber text-12 font-medium">
                   ⚠ 中科院预警
                 </span>
               )}
             </div>
 
-            {/* Title —— .pen `n9lzJB` 32/700 Playfair(arbitrary,token 表最大 24);移动端收到 text-2xl */}
-            <h1 className="font-display font-bold leading-tight text-2xl sm:text-[32px] text-foreground">
+            {/* Title —— 详情页 h1。32px 已是当前 dev.pen 正式档位,
+                与 PaperHeader / AuthorHero 统一；移动端保持 24px。 */}
+            <h1 className="font-display font-bold leading-display-tight text-24 sm:text-32 text-foreground">
               {journal.canonical_name}
             </h1>
 
             {/* Description —— 上游不提供 abstract / scope，前置 metadata 拼一句 */}
-            <p className="text-base text-subtle leading-relaxed">
+            <p className="text-14 text-subtle leading-paragraph">
               {buildDescription(journal)}
             </p>
 
             {/* metaBot —— h-index / ISSN / 数据源数 */}
-            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-faint">
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-12 text-faint">
               {issns && <span className="font-mono">ISSN {issns}</span>}
               {journal.openalex_h_index != null && (
                 <span>
-                  <span className="text-subtle font-bold">h-index </span>
+                  <span className="text-subtle font-medium">h-index </span>
                   <span className="tabular-nums">{journal.openalex_h_index}</span>
                 </span>
               )}
               {(journal.source_count ?? 0) > 0 && (
                 <span>
-                  <span className="text-subtle font-bold">已收录于 </span>
+                  <span className="text-subtle font-medium">已收录于 </span>
                   <span className="tabular-nums">{journal.source_count}</span> 个数据源
                 </span>
               )}
@@ -204,7 +229,7 @@ export function JournalDetailPane() {
                   href={`https://portal.issn.org/resource/ISSN/${encodeURIComponent(journal.issns[0])}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-on-dark text-12 font-medium hover:opacity-90 transition-opacity"
                 >
                   <ExternalLink className="size-3" strokeWidth={2.5} />
                   查询原刊
@@ -220,7 +245,7 @@ export function JournalDetailPane() {
                   if (ok) toast.success('已复制期刊链接');
                   else toast.error('复制失败,请手动复制地址栏链接');
                 }}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
               >
                 <Share2 className="size-3" strokeWidth={2.5} />
                 分享
@@ -244,7 +269,7 @@ export function JournalDetailPane() {
         <JournalDecisionCard journal={journal} unified={unified} />
 
         {/* ───── 分区与影响因子 —— .pen `lVZBz` / `pBYQd` ───── */}
-        <h2 className="font-display font-bold text-lg leading-none text-foreground">
+        <h2 className="font-display font-bold text-16 leading-none text-foreground">
           分区与影响因子
         </h2>
 
@@ -295,11 +320,11 @@ export function JournalDetailPane() {
 
         {/* 出版与收录 —— 真数据。评分 / 投稿要求 / 发稿周期 / 编委会 / 研究论坛(评论)等
             社区占位卡按需求已移除(后端未上线),只保留有真实数据的区块。 */}
-        <section className="rounded-lg bg-background border border-border p-5 space-y-3">
-          <h3 className="font-display font-bold text-md leading-none text-foreground">
+        <section className="rounded-16 bg-surface-card border border-border p-5 space-y-3">
+          <h3 className="font-display font-bold text-14 leading-none text-foreground">
             出版与收录
           </h3>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-12">
             <Field label="出版社" value={journal.publisher ?? '—'} />
             <Field label="国家 / 地区" value={journal.country ?? '—'} />
             <Field label="期刊类型" value={journal.type ?? '—'} mono />
@@ -307,7 +332,8 @@ export function JournalDetailPane() {
           </div>
         </section>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -349,32 +375,32 @@ function IndexCard({
   return (
     <div
       className={cn(
-        'rounded-lg p-5 space-y-1.5',
+        'rounded-16 p-5 space-y-1.5',
         highlight
-          ? 'bg-foreground text-background'
-          : 'bg-background border border-border'
+          ? 'bg-foreground text-on-dark'
+          : 'bg-surface-card border border-border'
       )}
     >
       <div
         className={cn(
-          'text-2xs font-bold uppercase tracking-[0.16em]',
-          highlight ? 'text-background/60' : 'text-faint'
+          'text-12 font-medium uppercase',
+          highlight ? 'text-on-dark/60' : 'text-faint'
         )}
       >
         {label}
       </div>
       <div
         className={cn(
-          'font-display font-bold text-2xl leading-none tabular-nums',
-          highlight ? 'text-background' : 'text-foreground'
+          'font-display font-bold text-24 leading-none tabular-nums',
+          highlight ? 'text-on-dark' : 'text-foreground'
         )}
       >
         {value}
       </div>
       <div
         className={cn(
-          'text-xs',
-          highlight ? 'text-background/60' : 'text-muted-foreground'
+          'text-12',
+          highlight ? 'text-on-dark/60' : 'text-muted-foreground'
         )}
       >
         {sub}
@@ -394,7 +420,7 @@ function Field({
 }) {
   return (
     <div>
-      <div className="text-2xs font-bold uppercase tracking-[0.12em] text-faint">
+      <div className="text-12 font-medium uppercase text-faint">
         {label}
       </div>
       <div
@@ -408,4 +434,3 @@ function Field({
     </div>
   );
 }
-

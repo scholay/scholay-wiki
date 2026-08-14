@@ -31,11 +31,27 @@ when_to_use: 用户问"该用什么统计检验""这个设计对不对""样本�
   - **过拟合 / 无独立验证集**;**用序数数据当连续**滥用均值。
 
 ## Step 4 · 样本量 & 功效
-需要:预期**效应量** + α(通常 .05) + 目标 power(通常 .8) + 检验类型 → 反推 N。提醒功效分析应在**做实验前**做;事后"观察到的功效"意义有限。claw 能用 python(statsmodels)真算,需要就加载 `data-figures` 一起做。
+需要:预期**效应量** + α(通常 .05) + 目标 power(通常 .8) + 检验类型 → 反推 N。提醒功效分析应在**做实验前**做;事后"观察到的功效"意义有限。样本量/功效**能真算**(`statsmodels.stats.power`,见下方运行时清单);要连用户的数据一起做就加载 `data-figures`。
 
 ## Step 5 · 报告规范
 - **效应量 + 置信区间**,不要只给 p 值;写清检验名、自由度、统计量。
 - 按研究类型对齐报告标准:RCT→CONSORT,观察性→STROBE,系统综述→PRISMA,诊断→STARD。
+
+## 运行时清单(2026-08 容器实测,以此为准)
+
+上面 Step 2–4 提到的方法,**哪些能在本环境真跑出来**:
+
+| 库(可直接 `import`) | 覆盖本指南的哪些方法 |
+|---|---|
+| `scipy` | t / Wilcoxon / Mann-Whitney / 卡方 / Fisher / Kruskal-Wallis / Pearson / Spearman |
+| `statsmodels` | ANOVA、线性/逻辑/泊松回归、**混合效应模型**(`MixedLM`)、多重比较校正(`stats.multitest`)、**样本量与功效**(`stats.power`) |
+| `lifelines` | **生存分析**:Kaplan-Meier、log-rank、**Cox 回归** |
+| `sklearn` | 预测建模、交叉验证 |
+| `numpy` / `pandas` / `matplotlib` / `openpyxl` | 读数、清洗、描述统计、出图 |
+
+**本环境没有的:**
+- **没有 R / Rscript**。可以给用户 R 代码带走自己跑,但那段代码**在这里没有被执行过**,说清楚。
+- 沙箱里 `/usr` 只读、且没有 pip,**装不了新包** —— 上表之外的库 `import` 会直接失败。
 
 ## 红线
 - 给**方向和依据**,不下"就用这个准没错"的定论;让用户结合数据实际与领域惯例核实。

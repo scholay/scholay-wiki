@@ -38,7 +38,11 @@ import type {
   ToolBlock,
   Turn,
 } from '@/shared/types/chat';
-import { markPendingToolsAborted } from '@/shared/types/chat';
+import {
+  appendToolInputStream,
+  finishToolInputStream,
+  markPendingToolsAborted,
+} from '@/shared/types/chat';
 
 /**
  * 把 server 事件流折叠成 turns。每次 messages 更新就跑一遍(O(N))。
@@ -54,16 +58,23 @@ import { markPendingToolsAborted } from '@/shared/types/chat';
  */
 export function foldMessagesIntoTurns(
   messages: ServerMessage[],
-  pendingTurns: Pick<Turn, 'id' | 'userText' | 'paused' | 'blocked'>[]
+  pendingTurns: Pick<
+    Turn,
+    'id' | 'userText' | 'paused' | 'blocked' | 'userAttachments' | 'userReferences'
+  >[]
 ): Turn[] {
   const turns: Turn[] = pendingTurns.map((p) => ({
     id: p.id,
     userText: p.userText,
+    // 附件/引用 chip 透传(实时轮由 handleSubmit 的乐观 turn 填,blocked 恢复轮由 localStorage
+    // 还原)。此前 Pick 漏了这两个字段 → 实时轮的 chip 被 fold 静默丢弃(claw fold 一直有)。
+    userAttachments: p.userAttachments,
+    userReferences: p.userReferences,
     blocks: [],
     complete: false,
     // 点过 stop 的那轮 —— 本地标记透传到 Turn, 末尾渲染「已暂停」
     paused: p.paused,
-    // 命中每日额度、未发送的那轮 —— 透传到 Turn, busy 判定排除它 + 末尾渲染「未发送」
+    // 命中每日额度、未发送的那轮 —— 透传到 Turn, busy 判定排除它 + 渲染 BlockedTurnCard
     blocked: p.blocked,
   }));
 
@@ -113,8 +124,21 @@ export function foldMessagesIntoTurns(
       case 'content_delta': {
         if (currentTextBlock && typeof msg.text === 'string') {
           currentTextBlock.text += msg.text;
+        } else if (currentToolBlock && typeof msg.toolInput === 'string' && msg.toolInput) {
+          // 构建期流式入参(此前丢弃):挂到在途工具块 → ToolCallBlock 实时预览(shared 同款)。
+          appendToolInputStream(currentToolBlock, msg.toolInput, msg.toolPath);
         }
-        // toolInput 增量不渲染 —— 等 tool_use_complete 拿到完整 input
+        break;
+      }
+      case 'round_discarded': {
+        // DSML 作废重打(审计 [10]):只摘掉当前在途的文本块(残缺前缀)。该路径保证无 tool_use,
+        // 前缀就在 currentTextBlock;不清整个 current.blocks(会误删本轮更早 round 的工具/文本块)。
+        // 与 claw / prism fold 逐字同款(2026-07 审查发现 search 漏此分支,三份 fold 曾漂移)。
+        if (currentTextBlock) {
+          const idx = current.blocks.lastIndexOf(currentTextBlock);
+          if (idx !== -1) current.blocks.splice(idx, 1);
+          currentTextBlock = null;
+        }
         break;
       }
       case 'tool_use_complete': {
@@ -122,6 +146,8 @@ export function foldMessagesIntoTurns(
         if (block) {
           block.toolName = msg.toolName;
           block.input = msg.input;
+          finishToolInputStream(block);
+          if (block === currentToolBlock) currentToolBlock = null;
         }
         break;
       }

@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 引用生成器 —— 独立工具页(挂 AppShell)。
@@ -7,9 +8,6 @@ import type { RouteObject } from 'react-router-dom';
 export const citationRoutes: RouteObject[] = [
   {
     path: 'citation-generator',
-    lazy: () =>
-      import('./pages/CitationGeneratorPage').then((m) => ({
-        Component: m.CitationGeneratorPage,
-      })),
+    element: lazyRoute(() => import('./pages/CitationGeneratorPage'), 'CitationGeneratorPage'),
   },
 ];

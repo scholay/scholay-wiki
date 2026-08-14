@@ -131,21 +131,21 @@ export function JournalMetricsGroups({ unified }: { unified: JournalListUnified 
 
   return (
     <section className="space-y-3">
-      <h2 className="font-display font-bold text-lg leading-none text-foreground">
+      <h2 className="font-display font-bold text-16 leading-none text-foreground">
         全部指标
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {groups.map((g) => (
           <div
             key={g.title}
-            className="rounded-lg bg-background border border-border p-4 space-y-2.5"
+            className="rounded-16 bg-surface-card border border-border p-4 space-y-2.5"
           >
-            <div className="text-2xs font-bold uppercase tracking-[0.12em] text-faint">
+            <div className="text-12 font-medium uppercase text-faint">
               {g.title}
             </div>
             <dl className="space-y-1.5">
               {g.items.map(([label, value]) => (
-                <div key={label} className="flex items-baseline justify-between gap-3 text-xs">
+                <div key={label} className="flex items-baseline justify-between gap-3 text-12">
                   <dt className="shrink-0 text-muted-foreground">{label}</dt>
                   <dd className="min-w-0 truncate text-right font-medium text-foreground tabular-nums">
                     {value}

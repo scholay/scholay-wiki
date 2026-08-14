@@ -17,14 +17,16 @@ import { cn } from '@/shared/lib/utils';
 // 导出供 LatexDiffEditor 复用(同一套暗色 LaTeX 编辑风格)。
 export const prismEditorTheme = EditorView.theme(
   {
-    '&': { backgroundColor: 'var(--prism-editor-bg)', color: 'var(--prism-editor-fg)', height: '100%', fontSize: '12px' },
-    '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: '1.65' },
-    '.cm-gutters': { backgroundColor: 'var(--prism-editor-gutter-bg)', color: 'var(--prism-editor-gutter-fg)', border: 'none' },
-    '.cm-activeLine': { backgroundColor: 'var(--prism-editor-active)' },
-    '.cm-activeLineGutter': { backgroundColor: 'var(--prism-editor-active)' },
-    '.cm-cursor': { borderLeftColor: 'var(--prism-editor-cursor)' },
-    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--prism-editor-selection)' },
-    '&.cm-focused': { outline: 'none' },
+    '&' : { backgroundColor: 'var(--prism-editor-bg)', color: 'var(--prism-editor-fg)', height: '100%', fontSize: 'var(--text-12)' },
+    // lineHeight 走 --leading-code(1.65)—— 代码编辑器有自己的一档,不属于字族档
+    // (最接近的 --leading-paragraph 1.7 语义是长段中文正文,且 0.05em × 每一行 = 编辑器整体高度变化)。
+    '.cm-scroller' : { fontFamily: 'var(--font-mono)', lineHeight: 'var(--leading-code)' },
+    '.cm-gutters' : { backgroundColor: 'var(--prism-editor-gutter-bg)', color: 'var(--prism-editor-gutter-fg)', border: 'none' },
+    '.cm-activeLine' : { backgroundColor: 'var(--prism-editor-active)' },
+    '.cm-activeLineGutter' : { backgroundColor: 'var(--prism-editor-active)' },
+    '.cm-cursor' : { borderLeftColor: 'var(--prism-editor-cursor)' },
+    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground' : { backgroundColor: 'var(--prism-editor-selection)' },
+    '&.cm-focused' : { outline: 'none' },
   },
   { dark: true }
 );

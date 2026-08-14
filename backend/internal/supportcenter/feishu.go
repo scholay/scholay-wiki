@@ -166,7 +166,7 @@ func (s *Service) NotifyPayment(p PaymentNotice) {
 	if p.OrderType == "recharge" {
 		lines = append(lines,
 			"类型:经费充值",
-			fmt.Sprintf("到账经费:%d 永久经费", p.Credits),
+			fmt.Sprintf("到账经费:%d 经费", p.Credits),
 		)
 	} else {
 		plan := "Pro"
@@ -178,9 +178,7 @@ func (s *Service) NotifyPayment(p PaymentNotice) {
 			action = "开通"
 		}
 		lines = append(lines, "类型:会员"+action+" · "+plan)
-		if p.Credits > 0 {
-			lines = append(lines, fmt.Sprintf("赠送经费:%d 经费", p.Credits))
-		}
+		// 0090:订阅不再赠送经费(充值那一支的「到账经费」保留 —— 那是真的到账)。
 	}
 	lines = append(lines,
 		"用户:"+who,

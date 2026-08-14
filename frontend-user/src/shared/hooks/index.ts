@@ -5,11 +5,19 @@ export { useThrottledValue } from './useThrottledValue';
 export { useHotkey } from './useHotkey';
 export { useLocalStorage } from './useLocalStorage';
 export { useMediaQuery } from './useMediaQuery';
+export { useAfterPageLoad } from './useAfterPageLoad';
 export {
   useOpenAuthorInBrowser,
   useOpenJournalInBrowser,
   useOpenPaperInBrowser,
   useOpenPdfInBrowser,
+  // 纯路径 helpers + 修饰键守卫 —— <Link to> 的 href 与 SPA navigate 的单一真源
+  paperPath,
+  authorPath,
+  journalPath,
+  pdfPath,
+  isModifiedClick,
+  type OpenInBrowserFn,
 } from './useOpenInBrowser';
 export {
   useOpenPaperDetail,

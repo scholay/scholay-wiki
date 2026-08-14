@@ -6,6 +6,7 @@ export { EmptyState } from './EmptyState';
 export { ErrorBoundary } from './ErrorBoundary';
 export { Footer } from './Footer';
 export { IconButton } from './IconButton';
+export { lazyRoute, RouteFallback } from './LazyRoute';
 export { ListSkeleton, LoadingState } from './LoadingState';
 export { PageHeader } from './PageHeader';
 export { ResourceError } from './ResourceError';
@@ -17,6 +18,9 @@ export {
   planYearlyEnabled,
   planYearlySavings,
   maxYearlySavingsPct,
+  monthlyEquivalentCents,
+  resolveDefaultCycle,
+  yuanText,
   type MembershipPlanData,
   type MembershipPlanCardProps,
   type BillingCycle,
@@ -28,6 +32,8 @@ export {
   type SubscribeDialogProps,
   type SubQuote,
 } from './subscribe-dialog';
+export { WechatPayDialog, type WechatPayDialogProps } from './wechat-pay-dialog';
+export { PayMethodLogo, type PayMethod } from './PayMethodLogo';
 export {
   ConfirmDialog,
   ConfirmDialogRoot,
@@ -39,6 +45,7 @@ export {
 export { JournalCover } from './JournalCover';
 export { FavoriteBurst } from './FavoriteBurst';
 export { RouteSEO } from './RouteSEO';
+export { ToastHost } from './ToastHost';
 
 export {
   Sidebar,
@@ -52,3 +59,5 @@ export {
   SidebarCollapseButton,
   SidebarLayout,
 } from './sidebar';
+
+export { MembershipActionDialog, type MembershipActionDialogProps } from './membership-action-dialog';

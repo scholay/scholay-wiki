@@ -24,7 +24,7 @@ interface PdfViewerContentProps {
   onLoadError: (err: Error) => void;
 }
 
-const pageCommonClass = 'shadow-[0_2px_8px_rgba(15,23,42,0.10)] bg-background';
+const pageCommonClass ='shadow-raised bg-surface-card';
 
 /**
  * Document + Page 渲染区。

@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
+import { Button } from '@/shared/ui';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
@@ -26,7 +27,7 @@ import type { UserLibraryFolderItem } from '@/shared/api/types';
 import { useLibraryFolders, useCreateFolder } from '../../api/folders';
 
 /**
- * 移动端「我的收藏」(/m/library) —— 对应设计稿 `RXT6C`(期刊集暂未上线,已下线该分段,仅文献集)。
+ * 移动端「我的收藏」(/m/library) —— 对应设计稿 `RXT6C`(期刊集暂未上线,已下线该分段,仅文件夹)。
  *
  * 大标题 + 副标题 + 红色「新建」 / 「共 N 个」+ 排序下拉 /
  * 堆叠书脊封面卡片(名称 + 篇数·更新时间 + 圆形分享按钮)。
@@ -91,8 +92,8 @@ export function MobileLibraryPage() {
         {/* 标题 + 新建 */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-foreground">我的收藏</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <h1 className="text-20 font-medium text-foreground">我的收藏</h1>
+            <p className="mt-0.5 text-12 text-muted-foreground">
               按主题整理你收藏的文献
             </p>
           </div>
@@ -103,7 +104,7 @@ export function MobileLibraryPage() {
               if (!creating) primeMobileKeyboard();
               setCreating((v) => !v);
             }}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-brand-red px-3.5 text-base font-medium text-white transition-transform active:scale-95 active:opacity-90"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-8 bg-brand-red px-3.5 text-14 font-medium text-on-brand transition-transform active:scale-95 active:opacity-90"
           >
             <Plus className="size-3.5" /> 新建
           </button>
@@ -111,7 +112,8 @@ export function MobileLibraryPage() {
 
         {/* 新建输入(点「新建」展开) */}
         {creating && (
-              <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background p-2">
+              <div className="mt-3 flex items-center gap-2 rounded-12 border border-border bg-surface-card p-2 focus-within:border-border-control transition-colors">
+                {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-border-control 提供 */}
                 <input
                   autoFocus
                   value={newName}
@@ -119,30 +121,31 @@ export function MobileLibraryPage() {
                   onKeyDown={(e) => e.key === 'Enter' && submitCreate()}
                   placeholder="文件夹名称"
                   maxLength={32}
-                  className="min-w-0 flex-1 bg-transparent px-1 text-md text-foreground outline-none placeholder:text-faint"
+                  className="min-w-0 flex-1 bg-transparent px-1 text-14 text-foreground outline-none placeholder:text-faint"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="destructive"
                   onClick={submitCreate}
                   disabled={createFolder.isPending}
-                  className="flex h-8 items-center rounded-sm bg-brand-red px-3 text-xs font-medium text-white active:opacity-90"
+                  className="active:opacity-90 [&_svg]:size-3.5"
                 >
                   {createFolder.isPending ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
                     '创建'
                   )}
-                </button>
+                </Button>
               </div>
             )}
 
             {/* 计数 + 排序 */}
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                共 {folders.length} 个文献集
+              <span className="text-12 text-muted-foreground">
+                共 {folders.length} 个文件夹
               </span>
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-1 text-xs text-muted-foreground outline-none active:opacity-60">
+                <DropdownMenuTrigger className="flex items-center gap-1 text-12 text-muted-foreground active:opacity-60">
                   {SORT_OPTIONS.find((o) => o.key === sort)?.label}
                   <ChevronDown className="size-3.5 text-faint" />
                 </DropdownMenuTrigger>
@@ -167,7 +170,7 @@ export function MobileLibraryPage() {
                 <Loader2 className="size-5 animate-spin text-faint" />
               </div>
             ) : sorted.length === 0 ? (
-              <EmptyHint text="还没有文献集,点右上角「新建」开始收藏" />
+              <EmptyHint text="还没有文件夹,点右上角「新建」开始收藏" />
             ) : (
               <ul ref={listRef} className="mt-3 space-y-2.5">
                 {sorted.map((f, i) => (
@@ -216,15 +219,15 @@ function FolderCard({
 }) {
   const canShare = f.paper_count > 0;
   return (
-    <li className="flex items-center gap-3 rounded-md border border-border bg-background p-3.5">
+    <li className="flex items-center gap-3 rounded-16 border border-border bg-surface-card p-3.5">
       <Link
         to={`/m/library/${f.id}`}
         className="flex min-w-0 flex-1 items-center gap-3 transition-transform active:scale-[0.98] active:opacity-70"
       >
         <FolderCover accent={accent} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-md font-semibold text-foreground">{f.name}</p>
-          <p className="mt-1.5 truncate text-xs text-muted-foreground">
+          <p className="truncate text-14 font-medium text-foreground">{f.name}</p>
+          <p className="mt-1.5 truncate text-12 text-muted-foreground">
             {f.paper_count} 篇 · {relativeTimeZh(f.updated_at)}更新
           </p>
         </div>
@@ -235,7 +238,7 @@ function FolderCard({
         disabled={!canShare}
         onClick={onShare}
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground active:bg-surface-2',
+          'flex size-8 shrink-0 items-center justify-center rounded-pill border border-border text-muted-foreground active:bg-surface-2',
           !canShare && 'opacity-40'
         )}
       >
@@ -252,12 +255,12 @@ function FolderCard({
 function FolderCover({ accent }: { accent: 'green' | 'amber' }) {
   return (
     <div className="relative h-[74px] w-[70px] shrink-0">
-      <div className="absolute left-[18px] top-2 h-[58px] w-11 rounded-sm border border-border bg-surface-1" />
-      <div className="absolute left-[9px] top-1 h-[62px] w-11 rounded-sm border border-border bg-background" />
-      <div className="absolute left-0 top-0 flex h-[66px] w-[46px] flex-col gap-[5px] rounded-sm border border-border-strong bg-background p-[7px]">
+      <div className="absolute left-[18px] top-2 h-[58px] w-11 rounded-8 border border-border bg-surface-1" />
+      <div className="absolute left-[9px] top-1 h-[62px] w-11 rounded-8 border border-border bg-surface-card" />
+      <div className="absolute left-0 top-0 flex h-[66px] w-[46px] flex-col gap-[5px] rounded-8 border border-border-strong bg-surface-card p-[7px]">
         <div
           className={cn(
-            'h-[3px] w-[18px] rounded-sm',
+            'h-[3px] w-[18px] rounded-4',
             accent === 'green' ? 'bg-brand-green' : 'bg-brand-amber'
           )}
         />
@@ -270,5 +273,5 @@ function FolderCover({ accent }: { accent: 'green' | 'amber' }) {
 }
 
 function EmptyHint({ text }: { text: string }) {
-  return <p className="py-12 text-center text-sm text-faint">{text}</p>;
+  return <p className="py-12 text-center text-14 text-faint">{text}</p>;
 }

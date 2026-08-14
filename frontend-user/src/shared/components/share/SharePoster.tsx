@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { BookOpen, FileText, LayoutGrid, Quote, Sparkles, TrendingUp } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
+import { BrandLogo } from '../BrandLogo';
 
 /**
  * 「保存图片」海报 —— 严格对齐 scholay-mobile.pen「单文献卡 · 分享图片」(j4K0y / Poster xjsqc):
@@ -33,18 +34,8 @@ export interface SharePosterData {
   highlight?: string; // "被引 128,430 · 高被引论文"
   qrValue: string;
   scanLabel?: string; // "长按识别二维码 · 在 Scholay 查看全文"
-  urlLabel: string; // "scholay.com/p/attention"
+  urlLabel: string; // 去掉 scheme 后的展示用短链,如 "example.com/p/attention"
 }
-
-const LOGO = [
-  { c: 'S', color: '#CD2323' },
-  { c: 'c', color: '#2A7A2A' },
-  { c: 'h', color: '#2A7A2A' },
-  { c: 'o', color: '#DD9D13' },
-  { c: 'l', color: '#111111' },
-  { c: 'a', color: '#CD2323' },
-  { c: 'y', color: '#2A7A2A' },
-];
 
 export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>(
   function SharePoster({ data }, ref) {
@@ -54,43 +45,37 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
     const title = data.quoteTitle ? `“${data.title}”` : data.title;
     return (
       // Stage(浅灰托)—— 让白卡的圆角/阴影落在灰底上,导出图更精致(对齐 .pen Stage)
-      <div ref={ref} className="w-[390px] bg-[#F5F5F5] p-4 font-sans">
+      <div ref={ref} className="w-[390px] bg-surface-1 p-4 font-sans">
         {/* 白卡 */}
-        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-white shadow-[0_12px_32px_-8px_#1111111f]">
+        <div className="overflow-hidden rounded-8 border border-border bg-surface-card">
           {/* 三色品牌条 */}
           <div className="flex h-1">
-            <div className="flex-1 bg-[#CD2323]" />
-            <div className="flex-1 bg-[#2A7A2A]" />
-            <div className="flex-1 bg-[#DD9D13]" />
+            <div className="flex-1 bg-brand-red" />
+            <div className="flex-1 bg-brand-green" />
+            <div className="flex-1 bg-brand-amber" />
           </div>
 
           <div className="flex flex-col gap-4 px-5 pb-[18px] pt-[18px]">
             {/* 头部:logo + 名片胶囊 */}
             <div className="flex items-center justify-between">
-              <div className="flex items-end font-display text-[17px] font-bold leading-none tracking-[-0.6px]">
-                {LOGO.map((l, i) => (
-                  <span key={i} style={{ color: l.color }}>
-                    {l.c}
-                  </span>
-                ))}
-              </div>
-              <div className="flex items-center gap-[5px] rounded-full bg-[#F1EADA] px-2.5 py-1">
-                <KindIcon className="size-3 text-[#DD9D13]" />
-                <span className="text-[11px] font-semibold text-[#DD9D13]">{data.kindLabel}</span>
+              <BrandLogo variant="wordmark" size="sm" />
+              <div className="flex items-center gap-[5px] rounded-pill bg-amber-soft px-2.5 py-1">
+                <KindIcon className="size-3 text-amber-soft-fg" />
+                <span className="text-[11px] font-medium text-amber-soft-fg">{data.kindLabel}</span>
               </div>
             </div>
 
             {/* 主体:文档块 + 标题/meta/胶囊 */}
             <div className="flex items-center gap-3.5">
               <div
-                className={`flex h-[84px] w-[66px] shrink-0 items-center justify-center rounded-[6px] ${isTool ? 'bg-[#CD2323]' : 'bg-[#111]'}`}
+                className={`flex h-[84px] w-[66px] shrink-0 items-center justify-center rounded-8 ${isTool ? 'bg-brand-red' : 'bg-foreground'}`}
               >
-                <TileIcon className="size-[30px] text-white" strokeWidth={1.6} />
+                <TileIcon className="size-[30px] text-on-brand" strokeWidth={1.6} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[7px]">
-                <h2 className="font-display text-[22px] font-bold leading-[1.2] text-[#111]">{title}</h2>
+                <h2 className="font-display text-[22px] font-bold leading-display-tight text-foreground">{title}</h2>
                 {data.metaLine && (
-                  <p className="text-[12px] leading-snug text-[#999]">{data.metaLine}</p>
+                  <p className="text-[12px] text-faint">{data.metaLine}</p>
                 )}
                 {data.pills && data.pills.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -104,31 +89,31 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 
             {/* 摘要 */}
             {data.blurb && (
-              <p className="line-clamp-4 text-[12.5px] leading-[1.6] text-[#666]">{data.blurb}</p>
+              <p className="line-clamp-4 text-[12.5px] leading-paragraph text-muted-foreground">{data.blurb}</p>
             )}
 
             {/* 高亮条:被引 · 影响力 */}
             {data.highlight && (
-              <div className="flex items-center gap-2 rounded bg-[#FAFAFA] px-3 py-2.5">
-                <TrendingUp className="size-3.5 shrink-0 text-[#2A7A2A]" />
-                <span className="text-[12px] font-medium text-[#666]">{data.highlight}</span>
+              <div className="flex items-center gap-2 rounded-4 bg-surface-1 px-3 py-2.5">
+                <TrendingUp className="size-3.5 shrink-0 text-brand-green" />
+                <span className="text-[12px] font-medium text-muted-foreground">{data.highlight}</span>
               </div>
             )}
 
             {/* 分隔线 */}
-            <div className="h-px bg-[#E9E9E9]" />
+            <div className="h-px bg-border" />
 
             {/* 二维码页脚(浅色) */}
             <div className="flex items-center gap-3.5">
-              <div className="flex size-16 shrink-0 items-center justify-center rounded border border-[#E9E9E9] bg-white">
+              <div className="flex size-16 shrink-0 items-center justify-center rounded-4 border border-border bg-surface-card">
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                <p className="text-[13px] font-semibold leading-snug text-[#111]">
+                <p className="text-[13px] font-medium text-foreground">
                   {data.scanLabel ?? '长按识别二维码 · 在 Scholay 查看全文'}
                 </p>
-                <p className="truncate text-[11px] text-[#999]">{data.urlLabel}</p>
-                <p className="text-[11px] text-[#666]">由 Scholay 学术分享生成</p>
+                <p className="truncate text-[11px] text-faint">{data.urlLabel}</p>
+                <p className="text-[11px] text-muted-foreground">由 Scholay 学术分享生成</p>
               </div>
             </div>
           </div>
@@ -141,22 +126,22 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 function PosterPillView({ pill }: { pill: PosterPill }) {
   if (pill.tone === 'red') {
     return (
-      <span className="flex items-center gap-1 rounded-full bg-[#CD2323] px-2.5 py-1 text-[11px] font-semibold text-white">
-        {pill.cite && <Quote className="size-[11px] fill-white text-white" />}
+      <span className="flex items-center gap-1 rounded-pill bg-brand-red px-2.5 py-1 text-[11px] font-medium text-on-brand">
+        {pill.cite && <Quote className="size-[11px] fill-on-brand text-on-brand" />}
         {pill.text}
       </span>
     );
   }
   if (pill.tone === 'outline') {
     return (
-      <span className="flex items-center gap-1 rounded-full border border-[#D8D8D8] bg-white px-2.5 py-1 text-[11px] font-medium">
-        <span className="text-[#999]">{pill.text}</span>
-        {pill.ifValue && <span className="font-bold text-[#DD9D13]">{pill.ifValue}</span>}
+      <span className="flex items-center gap-1 rounded-pill border border-border-strong bg-surface-card px-2.5 py-1 text-[11px] font-medium">
+        <span className="text-faint">{pill.text}</span>
+        {pill.ifValue && <span className="font-medium text-amber-soft-fg">{pill.ifValue}</span>}
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[11px] font-semibold text-[#666]">
+    <span className="rounded-pill bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-subtle">
       {pill.text}
     </span>
   );

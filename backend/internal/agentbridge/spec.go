@@ -54,10 +54,28 @@ type AgentUsage struct {
 // content 是 user_message.content 的原始字符串 (注入 prefix 之前); userID 已经过 JWT 校验。
 type PreUserMessageFn func(ctx context.Context, userID uint, content string) error
 
-// BudgetProviderFn(SS#2)返回该用户此刻的有界透支预算(raw token 口径):
-// soft = 到日上限还剩,hard = 到「上限+透支带」还剩(均可为负)。unlimited=true(不限额/收费关)
-// 时 hub 不盖章 → 执行器无预算 → 行为不变。只读、不预扣;计费仍走后置 AddUsage 精确累加。
+// BudgetProviderFn(SS#2)返回该用户此刻的单轮预算(**微元真实成本口径**,P5 成本制;
+// hub 盖章前会经 catalog.CostPerToken(微元/token)换算成执行器可比的 token 预算再下发):
+// soft = hard = 到窗口上限还剩(可为负;透支带已于 2026-07-30 取消,两个值保留是帧契约形状不动;
+// payg 用户会叠加钱包容量)。unlimited=true(不限额/收费关)时 hub 不盖章 → 执行器无预算 →
+// 行为不变。只读、不预扣;计费仍走后置 AddUsage 精确累加。
 type BudgetProviderFn func(ctx context.Context, userID uint) (soft, hard int64, unlimited bool)
+
+// TurnCostCapFn(逐帧硬闸)返回该用户此刻的**单轮成本硬顶**(微元真实成本)。
+//
+// 与 BudgetProviderFn 的区别是**谁执法**,不是算法:
+//   - BudgetProviderFn 给的是 cap × turnWindDownRatio 的**收尾触发点**,盖进 user_message 帧
+//     下发给执行器,由 agent 自己优雅收尾 —— 是**建议值**,agent 不听就没辙。
+//   - 本函数给的是**未打折的硬顶**,由 hub 在轮内逐帧累计真实成本后自己执法(越顶即
+//     stop_generation)。执行器配合与否都拦得住。
+//
+// 两者刻意各取一次而不是互相推导:vip 侧 TurnCostCap 与 RemainingBudget 本就同源
+// (后者 = 前者 × 0.75),在这里再做一次 ÷0.75 反推,会让「hub 认为的硬顶」随那个比例常量
+// 悄悄漂移 —— 而那个常量是给 agent 留收尾尾巴用的,与硬闸没有语义关系。
+//
+// unlimited=true(未登录 / 收费总开关关 / 该档不限额)→ hub 不设闸。nil = 不设闸
+// (peerreview 等任务型 feature 必须跑完,由它自己的起跑闸把关)。
+type TurnCostCapFn func(ctx context.Context, userID uint) (capMicro int64, unlimited bool)
 
 // SessionProfileFn(Phase 2, prism)返回该**会话**的项目级 in-band 注入块(如 prism 的写作画像)。
 // 与 MemoryBlocks(user 级)不同:身份是 sessionID(项目级),故单开一条 provider——hub seed 时它有
@@ -78,6 +96,17 @@ type OnTitleResultFn func(ctx context.Context, userID uint, sessionID, title str
 // OnMessageCompleteFn 在 agent 返回 message_complete 后异步调用 (safego 包起来不会阻塞 pipe)。
 // 典型用途: 把 usage 写到日志或账单表, 做事后审计。失败仅打 warn, 不影响业务。
 type OnMessageCompleteFn func(ctx context.Context, userID uint, usage AgentUsage)
+
+// OnTurnArtifactsFn 在**每一轮结束后**异步调用,把该会话交付目录里的产物收割进耐久存储。
+//
+// 刻意**不传「本轮声明了哪些产物」的路径列表**,只传会话 —— 实现方自己去列交付目录。
+// 理由:artifact 帧与 on-list 收割在本仓库历来是两条覆盖面不同的链路(帧会被轮末异常吞掉、
+// 会被 20 帧上限截断;收割会漏掉 out/ 之外的东西)。让钩子按「会话当前的交付目录全量」
+// 收割,而不是按「本轮帧说了什么」,能让这条耐久链路**独立于帧是否发全**而正确。
+// 代价是每轮一次全量列目录 —— 收割自带 size:mtime 签名比对,未变的文件不会重读字节。
+//
+// 契约见 FeatureSpec.OnTurnArtifacts 上的注释(幂等 / 自带容错 / 2min 上限)。
+type OnTurnArtifactsFn func(ctx context.Context, userID uint, sessionID string)
 
 // PermissionMode 是权限模型的「何时问人」轴 (C14, 2026-06)。
 //
@@ -117,6 +146,10 @@ const (
 //     单 prompt feature (smart_search/claw) 用 BySlugPicker;
 //     多视角 feature (peerreview) 用 PersonaRandomPicker (一个 persona 一个 picker)。
 type FeatureSpec struct {
+	// RunTemplates 本剖面支持的 Run 形态(2026-08 Phase 1)。
+	// **零值 = 不支持 Run**,行为与今天逐字等价 —— 这是 Phase 1 零回归的保证。
+	RunTemplates []RunTemplateJSON
+
 	// Key 是 agent_sessions.feature_key 的取值, 全局唯一, 用于
 	// (user_id, feature_key) 复合主键。简短的 snake_case, <= 64 字符。
 	// 例: smart_search / peerreview / claw。
@@ -179,13 +212,48 @@ type FeatureSpec struct {
 	// nil → 不做检查直接放行。详见 PreUserMessageFn 定义。
 	PreUserMessage PreUserMessageFn
 
-	// BudgetProvider(SS#2)非 nil 时,hub 每条 user_message 现算「有界透支预算」并盖到帧上,
+	// AttachmentRelocator 把「上一个会话 cwd 里的附件」按需物化进**当前轮的会话 cwd**
+	// (2026-07-31 线上审计 §五)。nil = 不启用, 行为等同改造前。
+	//
+	// 治的是:用户在 prism 的 A 对话上传, 切到 B 对话再发送 —— 附件路径仍指向 A 的 cwd,
+	// 而权限层 (ws.go pathWithin) 只认**本会话 cwd** 前缀, 于是 Read/ReadDocument 全被拒,
+	// 模型对用户说「技术层面上我无法打开它们」而该轮仍 status=complete。
+	// 路径同源后权限层一行不用改, 也不放宽任何边界 —— 这是治本而非放行。
+	// 实现见 internal/agentattach.NewRelocator; 鸭子类型声明在此避免 agentbridge → agentattach 成环。
+	AttachmentRelocator interface {
+		EnsureLocal(ctx context.Context, userID uint, sessionID, sessionWorkDir string, paths []string) ([]string, error)
+	}
+
+	// BudgetProvider(SS#2)非 nil 时,hub 每条 user_message 现算「单轮预算」并盖到帧上,
 	// 执行器据此让 agent 自我配速 + 到界优雅收尾。nil = 不盖(peerreview 任务型,必须跑完)。
 	BudgetProvider BudgetProviderFn
+
+	// TurnCostCap(逐帧硬闸)非 nil 时,hub 在 beginTurn 现算本轮硬顶,并用执行器逐帧上报的
+	// turn_usage_delta 在**轮内**累计真实成本;越顶即向 agent 发 stop_generation。
+	// nil = 不设闸(行为与本机制上线前逐字相同)。
+	TurnCostCap TurnCostCapFn
 
 	// OnMessageComplete 在每轮 agent 回答完 (拿到 message_complete) 后异步调用。
 	// nil → 不记账 (usage 仅在 agent 端 transcript 留底)。
 	OnMessageComplete OnMessageCompleteFn
+
+	// OnTurnArtifacts 在**每一轮结束后**(complete / error / 硬超时 / 上游断开都算)异步调用,
+	// 让 feature 把该会话交付目录里的产物收割进耐久存储(MinIO + agent_artifacts)。
+	// nil → 不收割(该 feature 退回「用户点开产物面板才落库」的旧行为)。
+	//
+	// 🔴 为什么这个钩子必须存在,而不能继续只靠 on-list 收割:
+	//    产物的耐久化原本只在 GET /<feature>/session/artifacts 里发生,而会话工作区是
+	//    临时的(容器重启即清、30 天 GC)。用户没在窗口期点过面板 → 产物永久丢失且零日志。
+	//    2026-08-07 生产实测:claw 13 个「写过文件」的会话里只有 7 个留下了产物行。
+	//    详见 artifact_dispatch.go 顶部的取证记录。
+	//
+	// 语义要求(实现方必须满足):
+	//   · **幂等**。同一会话会被重复调用(每轮一次,且并发重复是允许的),实现必须是
+	//     按 dedup_anchor 的 upsert,不能 append。
+	//   · **自带容错**。会话已删 / 工作区已清 / agent 暂时不可达都属正常,吞掉即可,
+	//     不要往上抛(调用方只会记一条日志,没有重试)。
+	//   · 不要阻塞很久。调用方给的 ctx 有 2min 上限。
+	OnTurnArtifacts OnTurnArtifactsFn
 
 	// OnTitleResult 在 agent 回 session_title_updated 帧(且 aiGenerated=true)时异步调用,
 	// 供「标题真源在 backend DB」的 feature 落库。claw/smart_search 的标题存 agent jsonl 自管 →
@@ -251,6 +319,31 @@ func specDeny(spec FeatureSpec) []string {
 	return deny
 }
 
+// RunTemplateJSON —— FeatureSpec 里声明的 Run 形态(2026-08 Phase 1)。
+//
+// 🔴 为什么在 agentbridge 里再声明一份、而不是直接 import agentrun.RunTemplate:
+//
+//	agentrun 依赖 agentbridge(它骑 SagaStepRow),反向 import 会成环。
+//	这里只放**纯数据**,由装配层(bootstrap)转成 agentrun.RunTemplate。
+//	字段名与 JSON tag 必须与 agentrun.RunTemplate 逐字对齐 ——
+//	由 agentrun 的 template_mirror_test.go 机械对咬,漂了当场红。
+//
+// **零值 = 该剖面不支持 Run**,行为与今天逐字等价。Phase 1 五个剖面全零值(opt-in)。
+// 方案 §Phase 3 起这条梯度会翻过来:内核新增的编排能力默认对所有剖面生效。
+type RunTemplateJSON struct {
+	Key   string        `json:"key"`
+	Title string        `json:"title"`
+	Steps []RunStepJSON `json:"steps"`
+}
+
+// RunStepJSON 见 RunTemplateJSON。
+type RunStepJSON struct {
+	Key       string `json:"key"`
+	Brief     string `json:"brief"`
+	MaxRounds int    `json:"max_rounds,omitempty"`
+	MaxRetry  int    `json:"max_retry,omitempty"`
+}
+
 // SessionDisallowedTools 是创建 agent session 时该 feature 应传给 --disallowed-tools 的工具集
 // (= specDeny 的同一真源)。BuildSpec 用它拼 SessionOptions.DisallowedTools,保证「agent 端禁的」
 // 与「backend 门禁的」完全一致,不漂移。导出供各 feature 的 BuildSpec 调用。
@@ -294,7 +387,7 @@ func (s FeatureSpec) TurnTimeoutOrDefault() time.Duration {
 //  2. PermissionMode 空 → 向后兼容旧 AutoApprovePermission:
 //     true  → PermissionAuto (现状: backend 自动裁决)
 //     false → PermissionPassthrough (旧代码 AutoApprovePermission=false 时根本不拦截
-//             permission_request, 等价于让它流向前端; 这里显式表达成 passthrough, 行为等价)。
+//     permission_request, 等价于让它流向前端; 这里显式表达成 passthrough, 行为等价)。
 //
 // 注: 历史上四个 feature 全是 AutoApprovePermission=true, 现已显式迁到 PermissionAuto。
 func (s FeatureSpec) EffectivePermissionMode() PermissionMode {

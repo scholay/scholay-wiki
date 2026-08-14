@@ -72,7 +72,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 1.5, opacity: 0 }}
             transition={{ duration: 0.32, ease: 'easeOut' }}
-            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+            className="pointer-events-none absolute inset-0 z-raised flex items-center justify-center"
           >
             <Heart className="size-24 fill-brand-red text-brand-red drop-shadow-lg" />
           </m.div>
@@ -84,11 +84,11 @@ export const PaperFeedCard = memo(function PaperFeedCard({
           id={venueHash(venue)}
           name={venue}
           size="tile"
-          className="h-12 w-12 rounded-md"
+          className="h-12 w-12 rounded-8"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-md font-semibold text-foreground">{venue}</p>
-          <p className="mt-0.5 truncate text-xs text-faint">
+          <p className="truncate text-14 font-medium text-foreground">{venue}</p>
+          <p className="mt-0.5 truncate text-12 text-faint">
             {[paper.year, paper.publicationDate].filter(Boolean).find(Boolean)
               ? `${paper.publicationDate ?? paper.year} 发表`
               : '发表信息暂缺'}
@@ -98,21 +98,21 @@ export const PaperFeedCard = memo(function PaperFeedCard({
 
       {/* 标题 + 作者 */}
       <div className="shrink-0">
-        <h2 className="line-clamp-3 text-2xl leading-tight font-semibold text-foreground">
+        <h2 className="line-clamp-3 text-24 font-medium text-foreground">
           {paper.title}
         </h2>
         {authors && (
-          <p className="mt-1.5 truncate text-base text-muted-foreground">{authors}</p>
+          <p className="mt-1.5 truncate text-14 text-muted-foreground">{authors}</p>
         )}
       </div>
 
       {/* 徽章排(同期刊卡 Tag Row) */}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {paper.isOpenAccess && (
-          <Pill className="bg-brand-green text-white">开放获取</Pill>
+          <Pill className="bg-brand-green text-on-brand">开放获取</Pill>
         )}
         {paper.year && (
-          <Pill className="bg-foreground text-white">{paper.year}</Pill>
+          <Pill className="bg-foreground text-on-brand">{paper.year}</Pill>
         )}
         {(paper.fieldsOfStudy ?? []).slice(0, 2).map((f) => (
           <Pill key={f} className="bg-surface-2 text-muted-foreground">
@@ -122,7 +122,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       </div>
 
       {/* 指标 2×2 网格(同期刊卡 Metric 网格) */}
-      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border">
+      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-16 border border-border bg-border">
         <Metric label="被引" value={formatMetric(paper.citationCount)} highlight />
         <Metric label="参考文献" value={formatMetric(paper.referenceCount)} />
         <Metric
@@ -139,16 +139,16 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       <div className="min-h-0 shrink">
         {paper.abstract ? (
           <>
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-faint">
+            <p className="flex items-center gap-1.5 text-12 font-medium text-faint">
               <AlignLeft className="size-3" />
               摘要
             </p>
-            <p className="mt-1.5 line-clamp-[8] text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 line-clamp-[8] text-12 leading-paragraph text-muted-foreground">
               {paper.abstract}
             </p>
           </>
         ) : (
-          <p className="text-sm text-faint">该论文暂无摘要</p>
+          <p className="text-12 text-faint">该论文暂无摘要</p>
         )}
       </div>
 
@@ -156,7 +156,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       <div className="absolute top-1/2 right-2.5 flex -translate-y-1/2 flex-col items-center gap-4">
         <RailItem label="作者">
           <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green">
-            <span className="text-lg font-semibold text-white">
+            <span className="text-16 font-medium text-on-brand">
               {firstAuthorInitial}
             </span>
           </div>
@@ -167,7 +167,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
             isFavorited={isFavorited}
             variant="icon"
             size="lg"
-            className="h-12 w-12 rounded-pill border border-border-strong bg-background"
+            className="h-12 w-12 rounded-pill border border-border-strong bg-surface-card"
             onSuccess={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, true) : undefined}
             onUnfavorited={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, false) : undefined}
           />
@@ -195,7 +195,7 @@ function Pill({
   children: React.ReactNode;
 }) {
   return (
-    <span className={cn('rounded-pill px-2.5 py-1 text-xs font-semibold', className)}>
+    <span className={cn('rounded-pill px-2.5 py-1 text-12 font-medium', className)}>
       {children}
     </span>
   );
@@ -213,10 +213,10 @@ function Metric({
   return (
     /* min-h 预留两行高度 —— 数值缺失/到达时不再撑动网格(防 CLS) */
     <div className="min-h-[62px] bg-surface-1 px-3 py-2.5">
-      <p className="text-2xs text-faint">{label}</p>
+      <p className="text-12 text-faint">{label}</p>
       <p
         className={cn(
-          'mt-0.5 text-lg font-semibold leading-snug',
+          'mt-0.5 text-16 font-medium',
           highlight ? 'text-brand-green' : 'text-foreground'
         )}
       >
@@ -236,7 +236,7 @@ function RailItem({
   return (
     <div className="flex flex-col items-center gap-1">
       {children}
-      <span className="text-2xs text-faint">{label}</span>
+      <span className="text-12 text-faint">{label}</span>
     </div>
   );
 }
@@ -255,7 +255,7 @@ function RailButton({
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
+      className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-surface-card text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
     >
       {children}
     </button>

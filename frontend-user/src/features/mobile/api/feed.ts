@@ -1,6 +1,7 @@
 import { useInfiniteQuery, type QueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import type { Paper, UpstreamSource } from '@/shared/api/types';
+import { readFeedPages } from '@/shared/lib/feed-cache';
 
 /** 每次请求取多少篇(一个种子词一页) */
 export const FEED_PAGE_SIZE = 10;
@@ -107,6 +108,9 @@ export function usePaperFeed(seed: number) {
     staleTime: Infinity,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
+    // 必须在 query 首次 render 前同步提供；父布局 effect 比子页面 effect 晚，
+    // 用 effect 灌入会先发网络并闪一帧 skeleton。
+    initialData: () => readFeedPages<Paper[], number>('papers', seed),
     queryFn: ({ pageParam }) => fetchPaperFeedPage(seed, pageParam),
   });
 }

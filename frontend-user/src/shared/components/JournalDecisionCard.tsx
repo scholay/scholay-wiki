@@ -70,20 +70,20 @@ export function JournalDecisionCard({
   return (
     <section
       className={cn(
-        'rounded-lg border p-4 sm:p-5 space-y-3',
+        'rounded-16 border p-4 sm:p-5 space-y-3',
         warned
           ? 'border-brand-amber/40 bg-warning-soft'
-          : 'border-border bg-background'
+          : 'border-border bg-surface-card'
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+        <span className="text-12 font-medium uppercase text-faint">
           投稿决策
         </span>
       </div>
 
       {/* 一句话综合 */}
-      <p className="text-base leading-relaxed text-foreground">
+      <p className="text-14 leading-paragraph text-foreground">
         {parts.join(' · ')}。
       </p>
 
@@ -112,12 +112,12 @@ export function JournalDecisionCard({
       </div>
 
       {warned && (
-        <p className="text-xs leading-relaxed text-brand-amber">
+        <p className="text-12 leading-paragraph text-brand-amber">
           该刊出现在中科院《国际期刊预警名单》,投稿前请结合学科、最新名单与导师意见审慎评估。
         </p>
       )}
 
-      <p className="text-2xs text-faint">
+      <p className="text-12 text-faint">
         数据综合自 JCR、中科院分区、SciRev、DOAJ 等来源,仅供选刊参考。
       </p>
     </section>
@@ -136,7 +136,7 @@ function Signal({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill text-xs font-bold',
+        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill text-12 font-medium',
         tone === 'green' && 'bg-brand-green/10 text-brand-green',
         tone === 'amber' && 'bg-brand-amber/10 text-brand-amber',
         tone === 'neutral' && 'bg-surface-2 text-subtle'

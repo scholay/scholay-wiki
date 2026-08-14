@@ -1,5 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+// mirrors backend/internal/peerreview/admin.go
+//   AdminPRListRow / AdminPRSubmission / AdminPRAsset / AdminPRReport / AdminPRDetail
+// 改字段时两侧一起改。
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { retryDetailQuery } from '@/shared/lib/query-config';
 
 export interface PRSubmissionRow {
   id: number;
@@ -105,6 +109,8 @@ export interface PRListParams {
 export function usePRSubmissions(params: PRListParams) {
   return useQuery({
     queryKey: ['admin', 'pr-monitor', 'list', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // 线上分页参数统一 page_size(与其余 ~16 个列表端点一致,架构报告 M3)。本地 TS 字段保留
       // pageSize 不动组件,只在出网这一处映射。后端已同时认 page_size / pageSize,过渡零中断。
@@ -116,11 +122,17 @@ export function usePRSubmissions(params: PRListParams) {
   });
 }
 
-/** 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。 */
+/**
+ * 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。
+ *
+ * `retry: retryDetailQuery` —— 4xx 不重试,失败态秒出。详情弹窗的三分支渲染依赖它:
+ * 默认重试会让「加载中…」多挂一个来回,而这里的失败恰恰长得像"慢"(见 PeerReviewMonitor)。
+ */
 export function usePRSubmissionDetail(id: number | null) {
   return useQuery({
     queryKey: ['admin', 'pr-monitor', 'detail', id],
     enabled: !!id,
+    retry: retryDetailQuery,
     queryFn: async () =>
       (await http.get<{ data: PRSubmissionDetail }>(`/admin/peer-review/submissions/${id}`)).data.data,
   });

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
-import { STALE_COOL } from '@/shared/lib/query-config';
+
+export const PUBLIC_CONFIG_STALE_TIME = 60_000;
 
 /**
  * 公开系统配置 —— 跨 feature 资源(登录页、注册页、设置页都要读)。
@@ -15,8 +16,12 @@ import { STALE_COOL } from '@/shared/lib/query-config';
  *   - enable_turnstile + turnstile_site_key: 是否渲染 Cloudflare Turnstile
  *   - github_client_id / google_client_id / discourse_site_url: provider 启用 + 公钥
  *   - apple_enabled / microsoft_enabled / orcid_enabled / wechat_enabled: provider 启用
+ *   - support_email: 本环境的客服邮箱(来自 backend 的 SUPPORT_EMAIL env)
  *
- * queryKey 用 'public-config' 区分 'auth' —— 这个跟谁登录无关,staleTime 5min。
+ * queryKey 用 'public-config' 区分 'auth' —— 这个跟谁登录无关。
+ * Turnstile / OAuth 是认证关键开关，前后端都不超过 60s 就要重验。
+ *
+ * mirrors backend/internal/config/handler_system.go GetSystemConfig 的公开响应
  */
 
 export interface PublicSystemConfig {
@@ -31,6 +36,15 @@ export interface PublicSystemConfig {
   microsoft_enabled?: boolean;
   orcid_enabled?: boolean;
   wechat_enabled?: boolean;
+  /**
+   * 本环境的客服邮箱(backend env SUPPORT_EMAIL,可能为空)。
+   *
+   * 之所以要有这个字段:客服邮箱此前在前端是写死的兜底常量,而兜底只在
+   * 「后台客服中心未配置」时生效 —— 恰恰是任何全新环境的必然状态。
+   * 结果就是每个新部署的环境都把用户导向另一个站点的真实客服信箱。
+   * 现在由本环境自己的配置下发,空则不展示邮箱入口。
+   */
+  support_email?: string;
 }
 
 export function usePublicConfig() {
@@ -42,10 +56,24 @@ export function usePublicConfig() {
       );
       return data.data;
     },
-    staleTime: STALE_COOL,
+    staleTime: PUBLIC_CONFIG_STALE_TIME,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     // 失败兜底:登录页才不至于因为配置挂掉就完全不显示按钮。
     retry: 1,
   });
+}
+
+/**
+ * 本环境的客服邮箱,来自 backend 的 SUPPORT_EMAIL env。未配置返回空串。
+ *
+ * 调用方拿到空串时应当**不渲染**邮箱入口,而不是回落到某个写死的地址 ——
+ * 写死的兜底会让每个新部署的环境把用户导向另一个站点的真实客服信箱,
+ * 而且这个兜底恰恰在「全新环境、后台还没配」时必然生效。
+ */
+export function useSiteSupportEmail(): string {
+  const { data } = usePublicConfig();
+  return data?.support_email?.trim() || '';
 }
 
 /**

@@ -13,20 +13,25 @@ export function AuthorHero({ author }: { author: Author }) {
   const aff = author.affiliations?.[0];
 
   return (
-    <section className="rounded-lg bg-surface-1 border border-border-soft p-4 sm:p-7 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-7">
-      {/* 圆形 avatar —— .pen `VcqDs` 140×140 圆;移动端缩到 88 */}
+    <section className="rounded-16 bg-surface-1 border border-border-soft p-4 sm:p-7 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-7">
+      {/* 圆形 avatar —— 140×140(移动端 88)。
+          原依据写 .pen `VcqDs`,该真源 2026-07 已作废;Figma §4.4 只给了卡片内 39×39 头像,
+          没有 hero 尺寸的头像规格,token 侧 `--size-avatar` 也只有 40px。
+          这是 hero 专属的展示尺寸,无对应档位,保留 arbitrary。 */}
       <div
-        className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-full flex items-center justify-center"
+        className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-pill flex items-center justify-center"
         style={{ backgroundColor: color }}
       >
-        <span className="font-display font-bold text-[40px] sm:text-[64px] text-white leading-none">
+        {/* 首字母字形 —— 移动端用 32px 正式档;桌面大头像用 dev.pen
+            Headline / Display 样张的独立 64px 档,不混入正文阶梯。 */}
+        <span className="font-display font-bold text-32 sm:text-display-64 text-on-brand leading-none">
           {initial}
         </span>
       </div>
 
       {/* 中间信息列 */}
       <div className="flex-1 min-w-0 space-y-3">
-        <div className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.2em]">
+        <div className="flex items-center gap-2 text-12 font-medium uppercase">
           <span className="text-brand-green">学者档案</span>
           <span className="text-border-strong">·</span>
           {/* 展示对外品牌名,绝不把内部 source code(stc/olx/pmd)或上游真名露给用户
@@ -36,12 +41,13 @@ export function AuthorHero({ author }: { author: Author }) {
           </span>
         </div>
 
-        <h1 className="font-display font-bold text-2xl sm:text-[36px] leading-tight text-foreground">
+        {/* 详情页 h1 —— 当前 dev.pen 的正式 24/32px 响应式阶梯。 */}
+        <h1 className="font-display font-bold text-24 sm:text-32 leading-display-tight text-foreground">
           {author.name}
         </h1>
 
         {aff && (
-          <div className="flex items-center gap-2 text-base text-subtle">
+          <div className="flex items-center gap-2 text-14 text-subtle">
             <span>{aff}</span>
             {author.affiliations && author.affiliations.length > 1 && (
               <span className="text-faint">
@@ -57,7 +63,7 @@ export function AuthorHero({ author }: { author: Author }) {
             href={`https://orcid.org/${author.orcid}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex w-fit items-center gap-1.5 h-6 px-2 rounded-pill bg-brand-green/10 text-brand-green text-2xs font-bold hover:bg-brand-green/15 transition-colors"
+            className="inline-flex w-fit items-center gap-1.5 h-6 px-2 rounded-pill bg-brand-green/10 text-brand-green text-12 font-medium hover:bg-brand-green/15 transition-colors"
             title="在 ORCID 查看该学者已验证档案"
           >
             <BadgeCheck className="size-3.5" strokeWidth={2.4} />
@@ -65,7 +71,7 @@ export function AuthorHero({ author }: { author: Author }) {
           </a>
         )}
 
-        {/* 4 个核心指标 —— .pen `jZJya` */}
+        {/* 4 个核心指标(.pen `jZJya` 真源已作废,现行真源见 docs/figma-design-spec-2026-07.md) */}
         <div className="pt-2 flex items-end gap-8 flex-wrap">
           <Stat value={author.paperCount} label="发表论文" />
           <Stat value={author.citationCount} label="被引次数" />
@@ -88,7 +94,7 @@ export function AuthorHero({ author }: { author: Author }) {
             href={author.homepage}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 px-4 items-center gap-2 rounded-md border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+            className="inline-flex h-9 px-4 items-center gap-2 rounded-8 border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
           >
             <ExternalLink className="size-3.5" strokeWidth={2.5} />
             个人主页
@@ -99,7 +105,7 @@ export function AuthorHero({ author }: { author: Author }) {
             href={author.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 px-4 items-center gap-2 rounded-md border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+            className="inline-flex h-9 px-4 items-center gap-2 rounded-8 border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
           >
             <ExternalLink className="size-3.5" strokeWidth={2.5} />
             原始档案
@@ -119,10 +125,10 @@ function Stat({
 }) {
   return (
     <div className="space-y-1">
-      <div className="font-display font-bold text-2xl leading-none text-foreground tabular-nums">
+      <div className="font-display font-bold text-24 leading-none text-foreground tabular-nums">
         {value != null ? value.toLocaleString() : '—'}
       </div>
-      <div className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+      <div className="text-12 font-medium uppercase text-faint">
         {label}
       </div>
     </div>

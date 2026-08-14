@@ -3,12 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ConfirmPopover } from './ConfirmPopover';
 
 /**
- * 「跳去文献集」专用包装链接 ——
+ * 「跳去我的文件夹」专用包装链接 ——
  *
- * 用户在 文献搜索 / 期刊搜索 等工作区里,侧栏顶部有"我的文献集"快捷入口
+ * 用户在 文献搜索 / 期刊搜索 等工作区里,侧栏顶部有"我的文件夹"快捷入口
  * (文件夹行、"管理"、"去创建"等)。直接点会离开当前搜索上下文,翻页 /
  * 关键词 / 筛选器都丢。所以这里挂一道二次确认 —— **就地 Popover**(不是全屏 Dialog),
- * 只在用户**当前不在 /library**时弹,避免文献集内部互跳也被拦。
+ * 只在用户**当前不在 /library**时弹,避免「我的文件夹」内部互跳也被拦。
  *
  * 行为细节:
  *   - `⌘/Ctrl + click` / 中键 / `target=_blank` —— 浏览器原生新标签页打开,直接放行
@@ -45,7 +45,7 @@ export const LeaveToLibraryLink = forwardRef<
     ) {
       return;
     }
-    // 已经在文献集内部 —— 文件夹间互跳是工作区内的常规操作,不弹
+    // 已经在「我的文件夹」内部 —— 文件夹间互跳是工作区内的常规操作,不弹
     if (location.pathname.startsWith('/library')) return;
 
     e.preventDefault();
@@ -58,8 +58,8 @@ export const LeaveToLibraryLink = forwardRef<
       open={confirmOpen}
       onOpenChange={setConfirmOpen}
       title="离开当前页面?"
-      description="将跳转到「我的文献集」,可通过浏览器后退返回搜索条件。"
-      confirmText="前往文献集"
+      description="将跳转到「我的文件夹」,可通过浏览器后退返回搜索条件。"
+      confirmText="前往文件夹"
       cancelText="继续在这里"
       side="right"
       align="start"

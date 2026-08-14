@@ -1,7 +1,19 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
+import { statusFallbackMessage } from '@/shared/lib/http-status-messages';
 import { getAnonId } from '@/shared/lib/anon-id';
-import { notifyQuotaExceeded, isQuotaSignal, AGENT_QUOTA_HTTP_CODE } from '@/shared/lib/quota-events';
+import { readInviteCode } from '@/shared/lib/invite-code';
+import {
+  notifyQuotaExceeded,
+  isQuotaSignal,
+  AGENT_QUOTA_HTTP_CODE,
+  type QuotaPayload,
+} from '@/shared/lib/quota-events';
+import {
+  openAttachmentManager,
+  isAttachmentQuotaSignal,
+  ATTACHMENT_QUOTA_HTTP_CODE,
+} from '@/shared/lib/attachment-events';
 
 /**
  * HTTP 客户端 — 走 nginx 反代,生产同源相对路径,开发走 vite proxy。
@@ -20,6 +32,10 @@ http.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // 匿名访客标识 —— 让后端"使用统计"对未登录用户也能按 anon_id 去重计人。
   config.headers['X-Anon-Id'] = getAnonId();
+  // 邀请归因 —— 落地页 /i/:code 存下的邀请码按 campaign 绑定时窗有效，读取时过期自清。
+  // 后端仅在「新用户创建成功」时消费此头(backend/internal/invite),平时携带无副作用。
+  const inviteCode = readInviteCode();
+  if (inviteCode) config.headers['X-Invite-Code'] = inviteCode;
   // 文件下载(blob/arraybuffer)豁免 30s API 超时(性能审计):30s 是「API 语义超时」,套到大文件/慢网下载
   // (zip/docx/pdf/导出)会把传输中途掐成坏文件。这里一处收口,覆盖全部现存+未来下载站点(此前需每站点手补)。
   // timeout=0=不限时,传输预算由后端 object-serve(APITimeoutMiddleware 10min)+ nginx 长流 location 兜底;
@@ -28,7 +44,20 @@ http.interceptors.request.use((config) => {
     // 仅当未显式指定超时(默认 30s 或 undefined,取决于 axios 何时合并实例默认)才豁免;显式传的超时尊重不动。
     if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 0;
   }
+  // FormData 上传同款豁免:axios 的 timeout 是含上传传输的总预算,30s 套在 50MB 稿件 /
+  // 30MB agent 附件上要求 >8~14Mbps 持续上行,弱上行(热点/校园网/跨境)确定性中断且被
+  // 报成「网络连接失败」误导重试。此前只有 library PDF 一个站点手补过(features/library/api/pdf.ts,
+  // 2026-08-07 事故),这里一处收口覆盖现存+未来所有上传站点。
+  // 不用 0(不限时):真挂死时用户永远转圈无反馈;600s 对齐后端 object-serve 的 10min 预算。
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 600_000;
+  }
   return config;
+}, undefined, {
+  // 必须同步冻结调用时会话：Axios 默认用 microtask 跑 request interceptor。
+  // 若 http.post(A 的操作)后紧接着换成 B，异步 interceptor 会误读 B token。
+  // 此 interceptor 内部全是同步逻辑，可安全启用 synchronous。
+  synchronous: true,
 });
 
 // 全局认证失效拦截 —— 任何 endpoint 返回 401 / TokenRevoked / TokenExpired 时, 统一走
@@ -39,12 +68,27 @@ http.interceptors.response.use(
   (resp) => resp,
   (err) => {
     const apiErr = toApiError(err);
-    if (isAuthError(apiErr)) {
+    // 本次请求是否带了 Authorization(请求时刻真值)—— 请求拦截器仅在 token 存在时设该头。
+    const requestHadToken =
+      err instanceof AxiosError && err.config?.headers?.Authorization != null;
+    if (isAuthError(apiErr, requestHadToken)) {
       notifyAuthLost({ code: apiErr.code, message: apiErr.message });
     }
     // AI 额度耗尽 → 汇入全局额度通知器(弹重置弹窗)。统一谓词,与 SSE/WS 同一判断(Theme 2)。
+    // 结构化载荷(冻结契约):6010 信封 data.quota = {reset_at, window_days,
+    // credit_balance_positive, credit_autopay};旧后端不带 quota 时传 undefined,弹窗走 overview 兜底。
+    // 附件存储额度满(7010):**必须**把用户直接送到能删附件的地方。
+    // 这条错误的旧形态是「空间已满,请删除不再需要的文件」+ 全站没有任何删除入口 ——
+    // 一句用户做不到的指引。收在拦截器而不是各 feature 的上传回调里:上传口有四个
+    // (claw / smart_search / stat_lab / prism),四份镜像漏一份就是那个 feature 的用户被卡死。
+    if (isAttachmentQuotaSignal(apiErr)) {
+      openAttachmentManager({ message: apiErr.message, quotaExceeded: true });
+    }
     if (isQuotaSignal(apiErr)) {
-      notifyQuotaExceeded({ message: apiErr.message });
+      const quota = (err instanceof AxiosError
+        ? (err.response?.data as { data?: { quota?: QuotaPayload } } | undefined)?.data?.quota
+        : undefined);
+      notifyQuotaExceeded({ message: apiErr.message, quota });
     }
     return Promise.reject(err);
   },
@@ -58,6 +102,7 @@ http.interceptors.response.use(
  * **已接线(真正驱动 UI 分支)**:
  *   - TokenRevoked / TokenExpired / 裸 401(且本地有 token)→ notifyAuthLost(清 token + 弹登录)
  *   - AgentQuotaExceeded(含 WS 字符串 'quota_exceeded')→ notifyQuotaExceeded(弹额度重置弹窗)
+ *   - AttachmentQuotaExceeded(7010)→ openAttachmentManager(弹「我的附件」,用户删旧附件腾空间)
  *
  * **保留位(已定义但前端尚未据其分支,后端也未必下发)**:SessionTakenByOtherLogin /
  *   TurnstileFailed / PaymentRequired / AgentUnreachable / AgentSessionExpired / Upload* ——
@@ -93,6 +138,8 @@ export const BizCode = {
   UploadTooLarge: 7001,
   UploadInvalidType: 7002,
   UploadStorageFailed: 7003,
+  /** per-user **附件存储额度**(2GB)已满 → openAttachmentManager(弹「我的附件」让用户删)。 */
+  AttachmentQuotaExceeded: ATTACHMENT_QUOTA_HTTP_CODE,
 } as const;
 
 export type BizCodeValue = (typeof BizCode)[keyof typeof BizCode];
@@ -109,6 +156,12 @@ export interface ApiError {
   message: string;
   /** 是否网络错 (axios 自身错 / 离线 / DNS 失败), 跟"后端返了 5xx" 区分开。 */
   isNetworkError: boolean;
+  /**
+   * 双通知治理约定:true = 这个错是「额度耗尽(6010/quota_exceeded)」,响应拦截器已经
+   * notifyQuotaExceeded 汇入全局 QuotaNotifier(弹窗/冷却 toast 都由它单点决定)。
+   * **调用方 onError 见此标记应跳过自身 toast** —— 否则同一次点击「额度弹窗 + 业务 toast」双响。
+   */
+  quotaHandled?: boolean;
 }
 
 /** 判定一个值是否已经是 ApiError(避免二次转换丢失 message)。 */
@@ -138,22 +191,20 @@ export function toApiError(err: unknown): ApiError {
       err.code === 'ERR_NETWORK' ||
       err.code === 'ENOTFOUND';
 
-    // 优先级: backend.message > axios 自带 message > 兜底文案
-    let message = err.response?.data?.message;
-    if (!message) {
-      if (isNetworkError) {
-        message = '网络连接失败,请检查网络后重试';
-      } else if (status >= 500) {
-        message = '服务器繁忙,请稍后重试';
-      } else {
-        message = err.message || '请求失败,请重试';
-      }
-    }
+    // 优先级: backend.message > 按状态码的中文兜底 > axios 自带 message > 通用兜底
+    const message =
+      err.response?.data?.message ||
+      (isNetworkError ? '网络连接失败,请检查网络后重试' : statusFallbackMessage(status)) ||
+      err.message ||
+      '请求失败,请重试';
 
     // backend code 可能是 number 也可能是 string (历史遗留), 统一成 number
     const rawCode = err.response?.data?.code;
     const code = typeof rawCode === 'number' ? rawCode : Number(rawCode) || undefined;
 
+    // 额度耗尽在响应拦截器已全局弹窗 —— 打标让调用方 onError 跳过自身 toast(见 ApiError.quotaHandled)。
+    // 在转换处统一派生(而非拦截器挂 flag):所有 toApiError 的调用路径都能拿到,且幂等分支天然保留。
+    if (isQuotaSignal({ code })) return { status, code, message, isNetworkError, quotaHandled: true };
     return { status, code, message, isNetworkError };
   }
   // 非 axios 错 (业务层 throw, 校验失败等)
@@ -173,9 +224,15 @@ export function toApiError(err: unknown): ApiError {
  *   全局登出(否则登录失败反而弹"登录已过期"+ 双 toast)。这是 defense-in-depth:
  *   后端也已把"邮箱验证码登录失败"从 2016(→401)改成 2004(→400),双保险。
  */
-export function isAuthError(err: ApiError): boolean {
+export function isAuthError(err: ApiError, requestHadToken?: boolean): boolean {
   if (err.code === BizCode.TokenRevoked || err.code === BizCode.TokenExpired) {
     return true;
   }
-  return err.status === BizCode.Unauthorized && getAuthToken() != null;
+  // 裸 401 是否算「会话丢失」取决于**本次请求是否带了凭证**。
+  // requestHadToken 由响应拦截器从 err.config 传入(请求时刻的真值);缺省才回落
+  // getAuthToken()(响应时刻现值)—— 后者有竞态:匿名请求在途中用户完成登录,
+  // 401 返回时现值非空会误清刚建立的会话(sse-post 已按请求时 token 修过同型竞态,
+  // 2026-08-12 审计指出主 HTTP 通道遗漏,这里补齐)。
+  const hadToken = requestHadToken ?? getAuthToken() != null;
+  return err.status === BizCode.Unauthorized && hadToken;
 }

@@ -1,0 +1,45 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "credit_to_points": 3,
+    "enabled": true,
+    "min_recharge_cents": 1000,
+    "payment_methods": {
+      "alipay": false,
+      "wechat": false
+    },
+    "plans": [
+      {
+        "multiplier": 1,
+        "original_cents": 0,
+        "price_cents": 0,
+        "tier": "free",
+        "year_original_cents": 0,
+        "year_price_cents": 0
+      },
+      {
+        "multiplier": 20,
+        "original_cents": 19900,
+        "price_cents": 5900,
+        "tier": "pro",
+        "year_original_cents": 238800,
+        "year_price_cents": 59000
+      },
+      {
+        "multiplier": 5,
+        "original_cents": 99900,
+        "price_cents": 26900,
+        "tier": "max",
+        "year_original_cents": 1198800,
+        "year_price_cents": 269000
+      }
+    ],
+    "popular_plan": "max",
+    "invite_reward_credits": 0,
+    "invite_reward_daily_cap": 0,
+    "recharge_rate": 100,
+    "test_payment": true,
+    "window_days": 7
+  }
+}

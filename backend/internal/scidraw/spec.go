@@ -71,10 +71,10 @@ func checkQuota(ctx context.Context, userID uint) error {
 	if vipChecker == nil {
 		return nil
 	}
-	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			return agentbridge.NewQuotaError(err.Error())
+			return agentbridge.NewQuotaErrorFrom(err) // 保链:error 帧带结构化 quota 字段
 		}
 		return err
 	}
@@ -86,6 +86,16 @@ func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimit
 		return 0, 0, true
 	}
 	return vipChecker.RemainingBudget(ctx, userID)
+}
+
+// turnCostCapProvider(逐帧硬闸)给 hub 在**轮起点**取一次本轮成本硬顶(微元真实成本)。
+// 与 budgetProvider 同源但刻意各取一次:vip 侧 RemainingBudget = TurnCostCap × 收尾比例,
+// 那个比例是留给 agent 优雅收尾的尾巴,与硬闸没有语义关系 —— 在这里反推会让硬顶随它悄悄漂移。
+func turnCostCapProvider(ctx context.Context, userID uint) (int64, bool) {
+	if vipChecker == nil {
+		return 0, true
+	}
+	return vipChecker.TurnCostCap(ctx, userID)
 }
 
 func recordQuestion(uid *uint) {
@@ -113,11 +123,28 @@ func sciDrawSkillAddDir() string {
 // 禁掉联网/子任务/notebook/多编辑/pandoc 导出(直接写 SVG 或 matplotlib savefig,不用 ExportDocument)。
 // ReadDocument 保留(用户上传数据/参考稿时读它)。
 var sciDrawDisallowedTools = []string{
+	// 🔴 2026-08-08:StatRun / StatReport(2026-08 新增的 builtin)必须显式列出。
+	// builtin 工具走 **deny-list** 模式 ⇒ 任何新增 builtin 对**所有老 feature 默认开放**:
+	// 它们发版当天就被本 feature 继承了,而 backend permissionAllowed(ws.go:387/400)对二者
+	// 无条件 return true。线上调用次数目前是 0(stat_lab 未放量),所以这是已成立的**暴露面**
+	// 与每轮 6.7KB 的 tools[] 浪费,不是已发生的事故。统计能力属于 stat_lab,别处不要继承。
+	"StatRun", "StatReport",
 	"MultiEdit", "NotebookEdit", "LS", "ExportDocument",
 	"WebFetch", "WebSearch", "Task", "Agent",
 	// 注:AskUserQuestion(交互提问)P1 起放开(绘图前问清图类型/配色/数据来源很自然;UI 复用 claw 的
 	// ConversationWorkspace 自动获得输入框上方分步面板),故**不**列入禁用。见 docs/research/ask-mode-2026-07。
 }
+
+// sciDrawAllowedMcpTools —— 对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
+//
+// 🔴 2026-08-08 补。缺这一项的后果是**每轮**把 minicod 全部 76 个检索工具塞进 tools[]:
+//    容器内实测本 feature 的每轮工具面 = 92 个工具 / 142,378 字节,冷起轮 input_tokens 落在
+//    40,623~43,411(对照配了白名单的 claw 16,615、prism 15,077)。而线上该 feature 的
+//    MCP 调用次数是 **0**(sci_draw 61 次工具调用里 MCP 0 次)—— 约 36,800 tokens/轮是纯死重,还稀释注意力。
+//    smart_search/spec.go 的注释早就警告过这一点,三个新 feature 全部漏配。
+//
+// 收敛到「引用接地」最小集:要给图/稿/报告标一条真实文献时够用,泛检索不给。
+var sciDrawAllowedMcpTools = []string{"search_papers", "get_paper", "get_paper_by_doi"}
 
 // BuildSpec 构造 sci_draw 的 FeatureSpec。
 func BuildSpec() agentbridge.FeatureSpec {
@@ -141,9 +168,12 @@ func BuildSpec() agentbridge.FeatureSpec {
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,
 		BudgetProvider:    budgetProvider,
+		TurnCostCap:       turnCostCapProvider,
 		SessionOptions: &agent.CreateSessionOptions{
 			// 放开文件工具(写 SVG)+ Bash(跑 matplotlib);禁网/子任务/pandoc 导出(allowBash=true)。
 			DisallowedTools: agentbridge.SessionDisallowedTools(sciDrawDisallowedTools, true),
+			// MCP 正向白名单:收敛 minicod 76 工具到引用接地最小集(见 sciDrawAllowedMcpTools)。
+			AllowedMcpTools: sciDrawAllowedMcpTools,
 			// 每个会话加载绘图创作 skill(--add-dir /sci-draw-add)。
 			AddDirs: []string{sciDrawSkillAddDir()},
 		},

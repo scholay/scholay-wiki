@@ -10,8 +10,8 @@ import { normalizeSourceBrand } from '@/shared/lib/data-source-brand';
 export function ToolHeaderExtras({ brand, query }: { brand?: string; query?: string }) {
   return (
     <>
-      {brand && <span className="text-2xs font-semibold text-brand-green shrink-0">{brand}</span>}
-      {query && <span className="truncate min-w-0 text-2xs text-muted-foreground">「{query}」</span>}
+      {brand && <span className="text-12 font-medium text-brand-green shrink-0">{brand}</span>}
+      {query && <span className="truncate min-w-0 text-12 text-muted-foreground">「{query}」</span>}
     </>
   );
 }

@@ -5,7 +5,7 @@ import { streamSsePost } from '@/shared/lib/sse-post';
 import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
 
 /**
- * 文献集 · 上传 PDF 智能识别 —— SSE 流式 + 同步 confirm 两段式。
+ * 文件夹 · 上传 PDF 智能识别 —— SSE 流式 + 同步 confirm 两段式。
  *
  * 流式协议(后端 handler_upload_resolve.go 推):
  *   event: parsed   { title, abstract, sha256, has_text }
@@ -73,6 +73,12 @@ export type UploadResolveEvent =
   | { type: 'parsed'; payload: ParsedEvent }
   | { type: 'searched'; payload: { papers: SearchHit[] } }
   | { type: 'ready'; payload: { job_id: string } }
+  /**
+   * 流程继续、但有事要告诉用户(如扫描件读不出文字 → 跳过在线匹配)。
+   * 🔴 与 error 的区别:**不打回第一步**。这类降级不妨碍用户直接保存 PDF,
+   * 当成错误处理会让用户以为上传失败了。此前后端只 slog、前端完全无感知。
+   */
+  | { type: 'warn'; payload: { message: string } }
   | { type: 'error'; payload: { message: string } };
 
 // ----------------------------------------------------------------------------
@@ -128,6 +134,12 @@ export async function uploadAndResolveStream({
           onEvent({ type: 'ready', payload: p });
           break;
         }
+        case 'warn': {
+          // 只透传,**不**写 sawError —— 流程要继续跑到 ready
+          const p = payload as { message: string };
+          if (p.message) onEvent({ type: 'warn', payload: p });
+          break;
+        }
         case 'error': {
           const p = payload as { message: string };
           sawError = p.message || '解析失败';
@@ -142,7 +154,9 @@ export async function uploadAndResolveStream({
   });
 
   if (sawError) throw new Error(sawError);
-  if (!jobId) throw new Error('未收到任务 ID');
+  // 流跑完却没拿到 job_id —— 多半是 SSE 中途被反代截断 / 连接被关。
+  // 原文案「未收到任务 ID」是把内部协议术语直接甩给用户,换成可行动的说法。
+  if (!jobId) throw new Error('上传未完成,请重试');
   return jobId;
 }
 
@@ -193,7 +207,10 @@ export function useConfirmUploadJob() {
             decision,
             link,
             folder_id: folderId ?? undefined,
-          }
+          },
+          // 这一步后端要把最多 50MB 的对象从 tmp/ 搬到 papers/ 再落库,
+          // http.ts 的 30s 默认超时对慢盘/大文件不够 —— 超时会伪装成"保存失败"。
+          { timeout: 120_000 }
         );
         return data.data;
       } catch (err) {

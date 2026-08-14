@@ -30,6 +30,9 @@ import {
 } from "./sessions.ts";
 import { runShadowTurn, type ShadowTurnRequest } from "./shadowTurn.ts";
 import { oneShotComplete, oneShotStream, type OneShotMessage } from "../turn/oneshot.ts";
+import { turnSlotsInUse, maxTurnSlots, rssAdmitLimitBytes, containerMemUsageBytes } from "./admission.ts";
+import { listAgents, getAgent, upsertAgent, isValidAgentName } from "./agents.ts";
+import { mcpInflightSnapshot } from "../mcp/minicodClient.ts";
 import {
   readWorkspaceFile,
   listWorkspaceTree,
@@ -203,6 +206,25 @@ export async function handleHTTP(req: Request): Promise<Response> {
     invalidateClient();
     log.info("provider activated", { provider_id: id });
     return json({ ok: true });
+  }
+
+  // ── 并发槽快照(2026-08-01 Phase 0)────────────────────────────────────────
+  // 给 backend 的 Run 引擎做**让路型** admission:认领下一个 Step 前查一次,
+  // `inUse >= max - 1` 就不认领 —— 把最后一个槽留给交互用户。
+  //
+  // 🔴 为什么让路闸建在 backend 而不是这里加第二个 admission:ServerSideChat 会去抢
+  //    **同一批已经不够的槽**(全容器 max=2),在 agent 侧再加一道只会自锁。
+  //    这个端点只**如实报数**,不做决策 —— 决策在会排队的那一侧。
+  // 顺带把 MCP inflight 也报出来:检索是 Run 里最容易堆积的一环,两个数要能一起看。
+  if (path === "/api/admission" && method === "GET") {
+    return json({
+      turns: { inUse: turnSlotsInUse(), max: maxTurnSlots() },
+      // 内存水位闸报数(2026-08-10):usedBytes = cgroup 全容器用量(含 statkit 等子进程,
+      // 减可回收页缓存;无 cgroup 回落进程 RSS),limitBytes = 准入水位(null = 未启用)。
+      // 排障「busy 到底是槽满还是内存闸」时先看这里。
+      memory: { usedBytes: containerMemUsageBytes(), limitBytes: rssAdmitLimitBytes() },
+      mcp: mcpInflightSnapshot(),
+    });
   }
 
   if (path === "/api/models" && method === "GET") {
@@ -405,6 +427,54 @@ export async function handleHTTP(req: Request): Promise<Response> {
       if (!r.ok) return err(422, "extract_failed", r.err);
       return json({ text: r.text, truncated: r.truncated });
     }
+    return err(405, "method_not_allowed", method + " " + path);
+  }
+
+  // ── subagent 定义注册表(backend skill sync 的对端;详见 agents.ts 头注释)──────
+  // 此前缺失,skill sync 撞 catch-all 501 被 backend 误诊为「镜像过旧」并永久停推。
+  // POST(body.name 为键)与 PUT(URL name 为键)是同一操作(backend 按 GET 探测结果选动词),
+  // 收敛到一个闭包,两个动词的校验/错误契约永不漂移。
+  if (path === "/api/agents" || path.startsWith("/api/agents/")) {
+    const doUpsert = async (name: string): Promise<Response> => {
+      const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+      if (!body) return err(400, "bad_request", "json body required");
+      // PUT 的 body.name 与 URL name 冲突 = 调用方 bug(编码错/改名漏改一侧),接受任何一侧
+      // 都会把 A 的定义注册到 B 名下 —— 未来 agentType 绑定上线即跨 feature 换 prompt。硬拒。
+      if (typeof body.name === "string" && body.name !== "" && body.name !== name) {
+        return err(400, "bad_request", `body.name ${JSON.stringify(body.name)} conflicts with URL name ${JSON.stringify(name)}`);
+      }
+      const r = await upsertAgent(name, body);
+      if (!r.ok) return err(400, "bad_request", r.error);
+      return json(r.def);
+    };
+
+    if (path === "/api/agents") {
+      if (method === "GET") return json({ agents: await listAgents() });
+      if (method === "POST") {
+        // body 要读两次不行(stream);先 clone 拿 name 再走统一闭包会复杂化 —— 直接在闭包里
+        // 以 body.name 为键:POST 场景把 URL name 视作 body.name 本身。
+        const body = (await req.clone().json().catch(() => null)) as Record<string, unknown> | null;
+        const name = typeof body?.name === "string" ? body.name : "";
+        if (!name) return err(400, "bad_request", "name required");
+        return doUpsert(name);
+      }
+      return err(405, "method_not_allowed", method + " " + path);
+    }
+
+    let name: string;
+    try {
+      name = decodeURIComponent(path.slice("/api/agents/".length));
+    } catch {
+      return err(404, "not_found", "unknown agent path"); // %zz 等畸形编码
+    }
+    // 与注册表同一份 name 契约(isValidAgentName):非法名不可能在注册表里,统一 404,
+    // 避免 http 层再养一套弱校验与 agents.ts 漂移。
+    if (!isValidAgentName(name)) return err(404, "not_found", "unknown agent path");
+    if (method === "GET") {
+      const def = await getAgent(name);
+      return def ? json(def) : err(404, "not_found", "agent not found: " + name);
+    }
+    if (method === "PUT") return doUpsert(name);
     return err(405, "method_not_allowed", method + " " + path);
   }
 

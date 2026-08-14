@@ -150,7 +150,7 @@ function fire(item: MenuItem, props: WritingMenuProps, origin: string) {
 /** 分类色图标 chip(图形化的最小单位)。 */
 function IconChip({ icon: Icon, iconCls, chipCls, size = 'md' }: { icon: typeof PenLine; iconCls: string; chipCls: string; size?: 'md' | 'lg' }) {
   return (
-    <span className={cn('flex shrink-0 items-center justify-center rounded-md', chipCls, size === 'lg' ? 'size-8' : 'size-6')}>
+    <span className={cn('flex shrink-0 items-center justify-center rounded-8', chipCls, size === 'lg' ? 'size-8' : 'size-6')}>
       <Icon className={cn(iconCls, size === 'lg' ? 'size-4' : 'size-3.5')} />
     </span>
   );
@@ -166,7 +166,7 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
           title="写作能力(起草 / 润色 / 翻译 / 投稿)"
           disabled={props.disabled}
           className={cn(
-            'inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors',
+            'inline-flex h-8 w-8 items-center justify-center rounded-8 text-muted-foreground transition-colors',
             'hover:bg-surface-2 hover:text-foreground disabled:opacity-40 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground',
           )}
         >
@@ -185,7 +185,7 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
               className="gap-2"
             >
               <IconChip icon={PenLine} iconCls="text-brand-green" chipCls="bg-brand-green/10" />
-              <span className="min-w-0 flex-1 truncate text-xs font-bold">起草《{props.stubSection}》</span>
+              <span className="min-w-0 flex-1 truncate text-12 font-medium">起草《{props.stubSection}》</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
@@ -196,13 +196,13 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
           <DropdownMenuSub key={g.key}>
             <DropdownMenuSubTrigger className="gap-2">
               <IconChip icon={g.icon} iconCls={g.iconCls} chipCls={g.chipCls} />
-              <span className="text-xs">{g.title}</span>
+              <span className="text-12">{g.title}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-44">
               {g.items.map((item) => (
                 <DropdownMenuItem key={item.key} onSelect={() => fire(item, props, 'menu')} title={item.hint} className="gap-2">
                   <item.icon className={cn('size-3.5 shrink-0', g.iconCls)} />
-                  <span className="min-w-0 flex-1 truncate text-xs">{item.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-12">{item.label}</span>
                   {item.kind === 'workflow' && <ArrowUpRight className="size-3 shrink-0 text-faint" />}
                 </DropdownMenuItem>
               ))}
@@ -216,7 +216,7 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
             <DropdownMenuSeparator />
             <div className="flex items-center gap-1.5 px-2 py-1.5">
               <UserPen className="size-3.5 shrink-0 text-faint" />
-              <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground" title={props.profile.name}>
+              <span className="min-w-0 flex-1 truncate text-12 text-muted-foreground" title={props.profile.name}>
                 {props.profile.detecting ? '识别中…' : props.profile.name || '画像未识别'}
               </span>
               <button
@@ -224,14 +224,14 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
                 disabled={props.profile.detecting}
                 onClick={() => props.profile!.onDetect()}
                 title="根据当前稿件重新识别文体/学科"
-                className="shrink-0 rounded p-1 text-faint transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+                className="shrink-0 rounded-4 p-1 text-faint transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
               >
                 {props.profile.detecting ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
               </button>
               <button
                 type="button"
                 onClick={() => props.profile!.onPick()}
-                className="shrink-0 rounded px-1 py-0.5 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
+                className="shrink-0 rounded-4 px-1 py-0.5 text-12 text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
               >
                 更换
               </button>
@@ -255,13 +255,13 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
     { item: GROUPS[3].items[2], g: GROUPS[3] }, // 数字校验
   ];
   const tileLabel: Record<string, string> = {
-    abstract: '生成摘要', 'polish-all': '全文润色', translate: '整篇翻译',
-    revision: '意见回应', 'submission-pack': '投稿材料', numbers: '数字校验',
+    abstract: '生成摘要', 'polish-all' : '全文润色', translate: '整篇翻译',
+    revision: '意见回应', 'submission-pack' : '投稿材料', numbers: '数字校验',
   };
   return (
     <div className="flex flex-1 items-center justify-center overflow-y-auto px-5 py-6">
       <div className="w-full max-w-xs">
-        <p className="text-center text-md font-bold text-foreground">想从哪里开始?</p>
+        <p className="text-center text-16 font-medium text-foreground">想从哪里开始?</p>
 
         {/* 智能引导卡:唯一带一句说明的元素 */}
         {props.stubSection && (
@@ -273,14 +273,14 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
               props.onPrefill(nudgeInstr(props.stubSection!));
             }}
             className={cn(
-              'mt-4 flex w-full items-center gap-2.5 rounded-lg border border-brand-green/30 bg-brand-green/5 px-3 py-2.5 text-left transition-colors',
+              'mt-4 flex w-full items-center gap-2.5 rounded-16 border border-brand-green/30 bg-brand-green/5 px-3 py-2.5 text-left transition-colors',
               'hover:bg-brand-green/10 disabled:opacity-50',
             )}
           >
             <IconChip icon={PenLine} iconCls="text-brand-green" chipCls="bg-brand-green/10" size="lg" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-foreground">起草《{props.stubSection}》</span>
-              <span className="block text-2xs text-muted-foreground">这一节还是空的,建议从它开始</span>
+              <span className="block truncate text-12 font-medium text-foreground">起草《{props.stubSection}》</span>
+              <span className="block text-12 text-muted-foreground">这一节还是空的,建议从它开始</span>
             </span>
           </button>
         )}
@@ -295,18 +295,18 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
               title={item.hint}
               onClick={() => fire(item, props, 'empty')}
               className={cn(
-                'flex flex-col items-center gap-1.5 rounded-lg border border-border py-3 transition-colors',
+                'flex flex-col items-center gap-1.5 rounded-12 border border-border py-3 transition-colors',
                 'hover:border-border-strong hover:bg-surface-1 disabled:opacity-50',
               )}
             >
               <IconChip icon={item.icon} iconCls={g.iconCls} chipCls={g.chipCls} size="lg" />
-              <span className="text-2xs text-subtle">{tileLabel[item.key] ?? item.label}</span>
+              <span className="text-12 text-subtle">{tileLabel[item.key] ?? item.label}</span>
             </button>
           ))}
         </div>
 
         {/* 脚注一行:更多入口 + 画像状态(合并,减字) */}
-        <p className="mt-3 flex items-center justify-center gap-1 text-center text-2xs text-faint">
+        <p className="mt-3 flex items-center justify-center gap-1 text-center text-12 text-faint">
           更多在 <WandSparkles className="inline size-3" />
           {props.profile && (
             <>

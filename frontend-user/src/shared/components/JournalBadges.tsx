@@ -75,10 +75,10 @@ export function journalBadges(j?: JournalBadgeInput | null): JournalBadge[] {
 }
 
 const TONE_CLS: Record<Tone, string> = {
-  'solid-green': 'bg-brand-green text-white',
-  'solid-amber': 'bg-brand-amber text-white',
-  'solid-red': 'bg-brand-red text-white',
-  neutral: 'bg-surface-2 text-subtle font-semibold',
+  'solid-green' : 'bg-brand-green text-on-brand',
+  'solid-amber' : 'bg-brand-amber text-foreground',
+  'solid-red' : 'bg-brand-red text-on-brand',
+  neutral: 'bg-surface-2 text-subtle font-medium',
   red: 'bg-danger-soft text-brand-red',
 };
 
@@ -97,7 +97,7 @@ export function JournalBadges({
       {badges.map((b) => (
         <span
           key={b.key}
-          className={cn('rounded-pill px-2 py-0.5 text-2xs font-medium', TONE_CLS[b.tone], className)}
+          className={cn('rounded-pill px-2 py-0.5 text-12 font-medium', TONE_CLS[b.tone], className)}
         >
           {b.label}
         </span>

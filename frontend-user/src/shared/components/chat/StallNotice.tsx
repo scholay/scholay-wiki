@@ -18,7 +18,7 @@ export function StallNotice({
   onDismiss: () => void;
 }) {
   return (
-    <div className="flex items-start gap-2 rounded-md border border-brand-amber/30 bg-warning-soft px-3 py-2.5 text-xs">
+    <div className="flex items-start gap-2 rounded-12 border border-brand-amber/30 bg-warning-soft px-3 py-2.5 text-12">
       <Hourglass className="mt-0.5 size-3.5 shrink-0 text-brand-amber" strokeWidth={2.2} />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-foreground">这一轮已较长时间没有新进展</p>

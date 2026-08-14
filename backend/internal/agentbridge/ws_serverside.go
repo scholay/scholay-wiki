@@ -201,7 +201,13 @@ func (b *Bridge) serverSideChatStreamingVia(
 	// error 与正常完成走**同一入账口径**(与交互路 hub.go 对齐):否则审稿多轮工具循环里前几轮
 	// 已完成的真实上游消耗(可达数十万 token),一旦末轮报错(round-cap/上游失败)就整轮漏记 ——
 	// 且 peerreview 报错即中止整场、无后续计费轮靠水位自愈,永久漏记 + 少扣配额。
-	recordTurn := func(u *ChatUsage, cl []AgentUsage, st *AgentUsage) {
+	// chargeUser=false → 平台自担:仍记账本留成本快照,但置 SkipQuota 不扣用户额度。
+	//
+	// 🔴 2026-08-02 计费审计 P0-7:此前这里写死 recordAgentTokens(必扣),既不看 error 帧的 code
+	// 也不走交互路那套 turnFailureChargedToUser。同一个 code="upstream":在 claw 里平台自担一分不扣,
+	// 在审稿里全额扣用户 —— 而审稿失败会 markFailedAndLog 置 failed,用户一份报告都没拿到,
+	// 点重试还得再过一次 CheckDailyQuota(额度已被这次失败吃掉)。归责口径必须两条路一致。
+	recordTurn := func(u *ChatUsage, cl []AgentUsage, st *AgentUsage, chargeUser bool) {
 		if b.llmRec == nil {
 			return
 		}
@@ -214,7 +220,11 @@ func (b *Bridge) serverSideChatStreamingVia(
 			uid, feat, sid, rec := call.UserID, feature, sessionID, b.llmRec
 			safego.Go("agentbridge-serverside-usage-record:"+feat, func() {
 				for i := range rows {
-					recordAgentTokens(rec, b.catalog, uid, feat, sid, rows[i])
+					if chargeUser {
+						recordAgentTokens(rec, b.catalog, uid, feat, sid, rows[i])
+					} else {
+						recordAgentTokensPlatformFault(rec, b.catalog, uid, feat, sid, rows[i])
+					}
 				}
 			})
 		}
@@ -313,7 +323,13 @@ func (b *Bridge) serverSideChatStreamingVia(
 		case "error":
 			// 入账后再返回:error 终帧携带失败前已完成 call 的 usage/calls/session_total(turnLoop.sendError),
 			// 与交互路 hub.go 的 error case 对齐,补齐 server-side 孪生路此前的整轮漏记。
-			recordTurn(ev.Usage, ev.Calls, ev.SessionTotal)
+			// 归责同样对齐(P0-7):用户任务导致的失败照扣,平台责任的失败只记账本不扣额度。
+			chargeUser := turnFailureChargedToUser(ev.Code)
+			if !chargeUser {
+				slog.Info("agentbridge serverside: 失败轮平台自担(记账本不扣额度)",
+					"session_id", sessionID, "code", ev.Code, "message", truncateBytes([]byte(ev.Message), 200))
+			}
+			recordTurn(ev.Usage, ev.Calls, ev.SessionTotal, chargeUser)
 			return "", nil, fmt.Errorf("agent error: %s", ev.Message)
 		}
 	}
@@ -322,7 +338,8 @@ func (b *Bridge) serverSideChatStreamingVia(
 	// 与会话累计(session_total)。归属(user/feature)取 ctx 里的 llmusage.Call。用 accrueTurnUsage
 	// 按会话累计水位算增量、自愈丢帧、防重连双计,与 WS pipe 路同一套。P3:残差按本轮 modelID 计价
 	// (peerreview 绑主模型最贵,残差不能落基准价)。error 路已在上面 case 里同口径入账。
-	recordTurn(usage, calls, sessionTotal)
+	// 正常完成 → 用户拿到了产出,照常计入用户额度。
+	recordTurn(usage, calls, sessionTotal, true)
 
 	return textBuf.String(), usage, nil
 }
@@ -342,7 +359,8 @@ func chatUsageToAgentUsage(u *ChatUsage) AgentUsage {
 }
 
 // serverEvent 是 agent S→C 消息的最小子集 — 只把我们 ServerSideChat 关心的字段抽出来。
-// 完整协议见 agent/src/server/ws/events.ts。
+// 完整协议**没有单一声明文件**(原 agent/src/server/ws/events.ts 已在 a30add8d2 删除):
+// 发帧点散在 agent/src/turn/{turnLoop,runTools,artifacts}.ts 与 agent/src/server/ws.ts。
 type serverEvent struct {
 	Type      string     `json:"type"`
 	Text      string     `json:"text,omitempty"`      // content_delta / thinking
@@ -355,6 +373,10 @@ type serverEvent struct {
 	// ─── 带内 token 账本(message_complete 携带)──────────────────────────────
 	Calls        []AgentUsage `json:"calls,omitempty"`         // 本轮每次模型调用的 per-call 明细
 	SessionTotal *AgentUsage  `json:"session_total,omitempty"` // 会话累计快照(水位自愈用)
+	// Code error 终帧的失败分类(upstream / round_cap / budget / …),用于归责:
+	// 决定这一轮的上游消耗算用户的还是平台的(turnFailureChargedToUser)。
+	// 2026-08-02 计费审计 P0-7 之前本结构体压根没解析它,server-side 路一律按「算用户的」入账。
+	Code string `json:"code,omitempty"`
 }
 
 // toolStatusNote — 把工具名翻译成给用户看的中文进度提示。

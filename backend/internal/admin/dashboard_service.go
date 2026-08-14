@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"scholar-backend/internal/common/utils"
 )
 
 // DashboardStatistics represents overall dashboard statistics
@@ -35,10 +37,19 @@ type DashboardStatistics struct {
 	FreeUsers     int64 `json:"free_users"`
 
 	// 收入统计(orders, status=paid)
+	// 🔴 这四个是**毛额**(orders.status='paid' 的 final_amount 之和),口径不变。
+	// 退款刻意不改 orders.status(见 migration 0107),所以它们不会因退款而减少 ——
+	// 净额请用下面的 Refunded* 自行相减,**不要**直接拿毛额当收入汇报,更不要用它算毛利。
 	TotalRevenue float64 `json:"total_revenue"`
 	RevenueToday float64 `json:"revenue_today"`
 	Revenue7d    float64 `json:"revenue_7d"`
 	Revenue30d   float64 `json:"revenue_30d"`
+	// 退款额(order_refunds,按退款**发生时间**归属)。与订单页「毛/退/净」同一套口径 ——
+	// 少了它,首页与订单页会对同一天给出互相矛盾的收入数字,且首页无从解释差额。
+	TotalRefunded float64 `json:"total_refunded"`
+	RefundedToday float64 `json:"refunded_today"`
+	Refunded7d    float64 `json:"refunded_7d"`
+	Refunded30d   float64 `json:"refunded_30d"`
 
 	// 订单统计
 	TotalOrders   int64 `json:"total_orders"`
@@ -126,8 +137,12 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	// 北京时间语义不变 —— 容器 TZ 即北京时, 直接取本地零点, 不做任何时区转换。
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	tomorrowStart := todayStart.AddDate(0, 0, 1)
-	start7d := todayStart.AddDate(0, 0, -7)
-	start30d := todayStart.AddDate(0, 0, -30)
+	// 🔴 2026-08-02 计费审计 P1-15:原来是 -7 / -30,零点对齐了但**多回看一天** ——
+	// 「30 日营收 / 30 日新增 / 30 日 AI 成本」三张 KPI 覆盖 31 个自然日,比**同一屏**的
+	// fillChartDays(_, 30) 折线(today-29..today)多整整一天,也比「订单与营收」页同样标
+	// 「近30天」的口径多一天。本文件 206-215 行的注释早就写明了正确口径,当时只改了图没改 KPI。
+	start7d := utils.WindowCutoff(7)
+	start30d := utils.WindowCutoff(30)
 
 	// 用户统计 —— 一律排除 admin/super_admin(与 internal/user/metrics.go 注册量同口径)。
 	// 历史 bug:此处不排除管理员 → 看板「今日新增/总用户」比用户管理页多算种子超管等管理员账号,
@@ -170,6 +185,27 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 		Select("COALESCE(SUM(final_amount), 0)").
 		Where("status = ? AND payment_time >= ? AND payment_time < ?", "paid", start30d, tomorrowStart).
 		Scan(&stats.Revenue30d)
+
+	// 退款额 —— 与上面的毛额并列,前端据此算净额。按 order_refunds.created_at 归属。
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ?", "done").
+		Scan(&stats.TotalRefunded)
+
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ? AND created_at >= ? AND created_at < ?", "done", todayStart, tomorrowStart).
+		Scan(&stats.RefundedToday)
+
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ? AND created_at >= ? AND created_at < ?", "done", start7d, tomorrowStart).
+		Scan(&stats.Refunded7d)
+
+	s.db.Table("order_refunds").
+		Select("COALESCE(SUM(amount), 0)").
+		Where("status = ? AND created_at >= ? AND created_at < ?", "done", start30d, tomorrowStart).
+		Scan(&stats.Refunded30d)
 
 	// 订单统计
 	s.db.Table("orders").Count(&stats.TotalOrders)

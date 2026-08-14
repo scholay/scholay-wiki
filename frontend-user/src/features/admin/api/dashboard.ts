@@ -21,10 +21,17 @@ export interface DashboardStatistics {
   paid_users: number;
   free_users: number;
   // 收入(单位:元,orders 表 status=paid)
+  // 🔴 revenue_* 是**毛额**(orders.status='paid' 之和)。退款不改 orders.status(见 0107),
+  // 所以它不会因退款减少 —— 要展示收入必须减去下面的 refunded_*,别直接拿毛额当收入。
   total_revenue: number;
   revenue_today: number;
   revenue_7d: number;
   revenue_30d: number;
+  /** 退款额(order_refunds,按退款发生时间归属)。净额 = 毛额 - 退款额。 */
+  total_refunded: number;
+  refunded_today: number;
+  refunded_7d: number;
+  refunded_30d: number;
   // 订单
   total_orders: number;
   paid_orders: number;

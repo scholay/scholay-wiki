@@ -5,6 +5,7 @@ import {
   type Turn,
 } from '@/shared/types/chat';
 import { CyclingHint } from '@/shared/components/CyclingHint';
+import { formatDurationSec, toolRunningVerb } from './tool-semantics';
 
 /**
  * 流式占位胶囊 —— turn 未完成且当前不在写 text 时, 在末尾持续显示。
@@ -58,62 +59,38 @@ export function StreamingIndicator({ turn }: StreamingIndicatorProps) {
       {sec >= 20 ? (
         <CyclingHint
           phrases={[text, ...LONG_WAIT_HINTS]}
-          className="text-xs font-medium text-muted-foreground truncate min-w-0"
+          className="text-12 font-medium text-muted-foreground truncate min-w-0"
         />
       ) : (
-        <span className="text-xs font-medium text-muted-foreground truncate min-w-0">
+        <span className="text-12 font-medium text-muted-foreground truncate min-w-0">
           {text}
         </span>
       )}
       {sec >= 5 && (
-        <span className="text-2xs text-faint shrink-0 tabular-nums">{formatWait(sec)}</span>
+        <span className="text-12 text-faint shrink-0 tabular-nums">{formatDurationSec(sec)}</span>
       )}
       <span className="chat-thinking-dots shrink-0" />
     </div>
   );
 }
 
-/** 等待时长展示:60s 内按秒,之后「N 分 M 秒」。 */
-function formatWait(sec: number): string {
-  if (sec < 60) return `${sec} 秒`;
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return s > 0 ? `${m} 分 ${s} 秒` : `${m} 分`;
-}
-
 function streamingText(turn: Turn): string {
   const pendingTool = findPendingToolBlock(turn);
-  if (pendingTool) return toolVerb(pendingTool.toolName);
+  if (pendingTool) return toolRunningVerb(pendingTool.toolName);
 
   switch (turn.placeholder?.state) {
-    case 'tool_executing':
+    case 'tool_executing' :
       return turn.placeholder.verb || '调用工具中';
-    case 'streaming':
+    case 'streaming' :
       return turn.placeholder.verb || '正在回复';
-    case 'permission_pending':
+    case 'permission_pending' :
       return turn.placeholder.verb || '等待授权';
-    case 'thinking':
-    case 'idle':
+    case 'thinking' :
+    case 'idle' :
     default:
       return turn.placeholder?.verb || 'AI 思考中';
   }
 }
 
-function toolVerb(toolName: string): string {
-  if (!toolName) return '调用工具中';
-  if (toolName.startsWith('mcp__minicod__')) {
-    const sub = toolName.slice('mcp__minicod__'.length);
-    if (sub.includes('author')) return '正在检索学者';
-    if (sub.includes('journal')) return '正在检索期刊';
-    if (sub.includes('paper')) return '正在检索论文';
-    if (sub.startsWith('list_')) return '正在加载学术资源';
-    return '正在检索学术资源';
-  }
-  if (toolName === 'Read') return '正在阅读资料';
-  if (toolName === 'Write') return '正在撰写文档';
-  if (toolName === 'Edit' || toolName === 'MultiEdit') return '正在修改文档';
-  if (toolName === 'Bash') return '正在执行命令';
-  if (toolName === 'WebFetch' || toolName === 'WebSearch') return '正在查询网页';
-  if (toolName === 'Skill') return '正在调用技能';
-  return '调用工具中';
-}
+// 工具名 → 进行时动词的映射已收口到 ./tool-semantics(toolRunningVerb),与 chip 标题同源。
+// 注意文案相对旧内联表是刻意升级(get_*→「获取」/recommend_*→「推荐」等),非逐字保持。

@@ -18,7 +18,7 @@ export {
 } from '@/shared/api/user-library-mutations';
 
 /**
- * 用户文献集(默认收藏夹)—— 与后端 `/user/library` (GET, protected) 对接。
+ * 用户文件夹(默认收藏夹)—— 与后端 `/user/library` (GET, protected) 对接。
  * 响应:
  *   { code:0, message:'success', data: { items: UserLibraryPaper[], total } }
  *
@@ -61,7 +61,7 @@ export function useLibrary({ source, pageSize = 8 }: UseLibraryOptions = {}) {
 }
 
 /**
- * 文件夹列表 —— SearchSidebar 用来展示用户的文献集结构(只读)。
+ * 文件夹列表 —— SearchSidebar 用来展示用户的收藏结构(只读)。
  *
  * 用与 features/library 同款 queryKey `['library', 'folders']` —— **共享缓存**。
  */

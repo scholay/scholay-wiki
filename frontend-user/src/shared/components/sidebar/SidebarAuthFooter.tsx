@@ -52,7 +52,7 @@ function LoadingUserFooter() {
   return (
     <div className="flex h-14 items-center gap-2 px-4 border-t border-border-soft shrink-0">
       <div className="size-8 rounded-pill bg-surface-2 animate-pulse shrink-0" />
-      <div className="h-3 w-24 rounded-sm bg-surface-2 animate-pulse" />
+      <div className="h-3 w-24 rounded-4 bg-surface-2 animate-pulse" />
     </div>
   );
 }
@@ -78,7 +78,7 @@ function UnauthedFooter({
       <button
         type="button"
         onClick={onLogin}
-        className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 transition-colors"
+        className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-8 bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 transition-colors"
       >
         <LogIn className="size-3" strokeWidth={2.5} />
         登录
@@ -86,7 +86,7 @@ function UnauthedFooter({
       <button
         type="button"
         onClick={onRegister}
-        className="flex-1 inline-flex items-center justify-center h-8 rounded-sm border border-border-strong text-xs font-bold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
+        className="flex-1 inline-flex items-center justify-center h-8 rounded-8 border border-border-strong text-12 font-medium text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
       >
         注册
       </button>

@@ -217,10 +217,12 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: 0
-      # correctness 键(验证码/吊销/配额)专用 noeviction 实例(scholar_redis_persist)。
-      # ⚠️ 与 dev 不同,生产默认**空 = 不启用**(沿用主 Redis,与历史线上行为一致):启用属存储切换,
-      # 相关键会在新实例从零开始 —— 要开就在 .env 显式设 REDIS_PERSIST_HOST=redis-persist 并选低峰窗口。
-      REDIS_PERSIST_HOST: ${REDIS_PERSIST_HOST:-}
+      # correctness 键(验证码/吊销/**周期额度**/SEO 队列)专用 noeviction 实例(scholar_redis_persist)。
+      # 🔴 2026-08-02 计费审计 P0-1:默认从空改成 redis-persist,与 dev compose 对齐。
+      # 空值(=回落主 Redis)不是「与历史一致」这么中性 —— 主池 allkeys-lru 逐出 quota:anchor 与
+      # 「窗口到期」在 loadWindow 里完全同形,用户白拿整窗额度且零日志。这条不该由 .env 是否设过决定。
+      # ⚠️ 首次生效是一次存储切换(在飞窗口/吊销标记/推送队列从零开始),选低峰窗口部署。
+      REDIS_PERSIST_HOST: ${REDIS_PERSIST_HOST:-redis-persist}
       REDIS_PERSIST_PORT: ${REDIS_PERSIST_PORT:-6379}
       REDIS_PERSIST_PASSWORD: ${REDIS_PERSIST_PASSWORD:-}
       REDIS_PERSIST_DB: ${REDIS_PERSIST_DB:-0}
@@ -231,10 +233,43 @@ services:
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?ADMIN_INITIAL_PASSWORD is required in prod}
       # 旧前端 frontend-user URL —— 后端发送邮件等场景里拼链接用
       FRONTEND_USER_URL: http://frontend-user:80
+      # 本机器扮演的角色:prod(权威生产站)/ test(测试·预发·克隆)/ dev。
+      # 一堆「两套环境要拨不同方向」的开关从它派生默认值(当前:SEO_INDEXABLE),
+      # 免得逐个记、迟早漏一个。显式设置的 env 永远优先于派生值。
+      # 未设置 = prod(向后兼容:本变量 2026-08-13 才引入,老 .env 里没有这行)。
+      APP_ENV: ${APP_ENV:-prod}
       # 站点 / 第三方服务地址(单一来源 .env 的 SITE_URL/SITE_NAME/..., fan-out 给 backend)
       SEO_BASE_URL: ${SITE_URL:?SITE_URL is required in prod}
+      # 公网 origin 原值也直接透传(邀请分享链接等要拼用户可达的公网 URL;
+      # FRONTEND_USER_URL 是容器内网地址,不能给用户)—— 与 dev compose 同步
+      SITE_URL: ${SITE_URL:?SITE_URL is required in prod}
       SITE_NAME: ${SITE_NAME:-Scholay}
-      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
+      # 🔴 默认值刻意留空,不再回落到某个真实客服邮箱。这个值会 ① 下发给前端当客服
+      #    邮箱(/config/system),② 拼进 Unpaywall / Crossref 的礼貌池请求(对方按
+      #    email 维度限速)。留一个真实邮箱当默认,等于让任何漏配的环境冒用它的身份
+      #    对外发请求,而被限速/被打扰的是那个邮箱的主人。空值时前端不展示邮箱入口、
+      #    后端跳过 Unpaywall 查询(见 internal/openaccess/openaccess.go)。
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+      # 对外学术 API(Crossref / Unpaywall)的礼貌池联系邮箱。留空则回落 SUPPORT_EMAIL;
+      # 两者都空 → 后端跳过 Unpaywall 查询(不拿别的环境的身份去打上游,那两家按 email 限速)。
+      CROSSREF_EMAIL: ${CROSSREF_EMAIL:-}
+      # 本环境是否允许被搜索引擎索引。默认 true = 维持现状,权威生产站无需改任何东西。
+      # 🔴 任何**非权威**环境(测试 / 预发 / 克隆)必须显式设 false,否则会被抓成一个
+      #    与权威站重复的镜像站,稀释权威站的收录。false 时:robots.txt 全站 Disallow、
+      #    sitemap 与 IndexNow key 文件 404、所有 SSR 响应带 noindex + X-Robots-Tag。
+      # 留空 = 从 APP_ENV 派生(prod → 可索引;test/dev → 不可索引)。只在需要偏离
+      # 那个默认时才显式填(例如 APP_ENV=test 但确实想让某个公开演示站被收录)。
+      SEO_INDEXABLE: ${SEO_INDEXABLE:-}
+      # 测试支付:开后「账户资产」出现「测试支付」按钮,下单后一键完成履约(不走真实网关)。
+      # 以前 prod compose 刻意不引用这个变量,导致用 prod compose 起的**测试环境**也无法
+      # 使用它 —— 验证支付只能接真实商户号(微信 v3 没有沙箱 = 真实扣款,且系统内无退款链路)。
+      # 现在透传:默认 false(生产行为不变),且 backend 在 GIN_MODE=release 下还有一道
+      # 硬闸会无视它(见 cmd/server/main.go),所以生产是双保险。
+      PAYMENT_TEST_ENABLED: ${PAYMENT_TEST_ENABLED:-false}
+      # SSR 冷门实体「现拉上游」的每小时全局配额。爬虫 UA 一律不放行(硬编码),这个数
+      # 只管非爬虫流量;0 = 不限,留空取默认 200。**必须在这里透传,否则 .env 里设了不生效** ——
+      # dev compose 一直有这行、prod 一直漏,于是非权威环境无法给共享的 minicod 配额降速。
+      SEO_ONMISS_HOURLY_BUDGET: ${SEO_ONMISS_HOURLY_BUDGET:-}
       # 主动 SEO 提交 (详见 .env 注释段)
       SEO_SUBMIT_ENABLED: ${SEO_SUBMIT_ENABLED:-false}
       INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
@@ -245,6 +280,8 @@ services:
       BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
       SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
       SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
+      # Google Search Console HTML-tag 验证(meta content 值;DNS TXT 验证时留空)
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       # SEO 完整性回填(H1 论文摘要 + M2 冷门 URL 现拉):默认关,置 true 才消耗 minicod 配额
       SEO_ENRICH_ENABLED: ${SEO_ENRICH_ENABLED:-false}
       # MinIO 对象存储 (用户上传 PDF)
@@ -252,11 +289,29 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required in prod}
       MINIO_BUCKET_PAPER_PDFS: ${MINIO_BUCKET_PAPER_PDFS:-scholar-paper-pdfs}
+      # agent 输入框上传附件(0112 耐久化)。⚠️ 其余几个桶(feedback/peer-review/prism/
+      # agent-artifacts/skill-bundles)靠 config.go 的默认值,不在这里透传;这一条显式写出来
+      # 是因为它已写进 .env.example —— 文档里有、compose 不透传 = 改了不生效的静默陷阱。
+      MINIO_BUCKET_AGENT_ATTACHMENTS: ${MINIO_BUCKET_AGENT_ATTACHMENTS:-scholar-agent-attachments}
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      # 附件孤儿对象 reaper 是否真删(默认 false = 只报告)。同上一条的理由必须显式透传:
+      # 写进了 .env.example 却不透传 = 运维照文档设了 true 却毫无效果的静默陷阱。
+      AGENT_ATTACHMENT_REAPER_DELETE: ${AGENT_ATTACHMENT_REAPER_DELETE:-false}
       # CORS 白名单 —— 生产必须列具体 origin
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required in prod}
       # Umami HTTP API 接入 —— admin /analytics 走 backend 自渲染图表
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # 爬虫监控专用 website(与用户统计站点分开):爬虫命中时服务端旁路上报,
+      # 后台「数据统计 → 搜索引擎抓取」读它。留空 = 中间件不挂载。
+      # ⚠️ compose 是显式 environment 映射,不写这两行则 .env 里配了也不生效。
+      UMAMI_CRAWLER_WEBSITE_ID: ${UMAMI_CRAWLER_WEBSITE_ID:-}
+      UMAMI_CRAWLER_BASE_URL: ${UMAMI_CRAWLER_BASE_URL:-}
+      # umami 管理员凭据。backend 靠登录 umami 拿 token 取统计数据,凭据在代码里是
+      # 编译期常量 admin/umami(umami 出厂默认)。留这两个 env 是为了:新装一个 umami
+      # 实例时若按安全实践改掉默认口令,/admin/analytics 的四个面板会同时 401 哑掉,
+      # 而报错只是 401 看不出根因。留空 = 用出厂默认(现状)。
+      UMAMI_ADMIN_USER: ${UMAMI_ADMIN_USER:-}
+      UMAMI_ADMIN_PASSWORD: ${UMAMI_ADMIN_PASSWORD:-}
       # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
@@ -265,7 +320,7 @@ services:
       # journal 是历史唯一真源(老会话回退 agent_session_archive),必须 shadow。
       AGENT_TURN_JOURNAL: ${AGENT_TURN_JOURNAL:-shadow}
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
-      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw,stat_lab}
       # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。
       AGENT_ARCHIVE_FROM_JSONL: ${AGENT_ARCHIVE_FROM_JSONL:-/fork-data}
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
@@ -282,6 +337,8 @@ services:
       BOLT_SLIDES_SKILL_ADDDIR: ${BOLT_SLIDES_SKILL_ADDDIR:-/bolt-slides-add}
       # 科研绘图(sci_draw)会话经 --add-dir 加载绘图 skill 的目录(agent 容器内 <此处>/.claude/skills)。
       SCI_DRAW_SKILL_ADDDIR: ${SCI_DRAW_SKILL_ADDDIR:-/sci-draw-add}
+      # 数据分析 skill 注入点(spec.go 的 statLabSkillAddDir 读它;缺省 /stat-lab-add)。
+      STAT_LAB_SKILL_ADDDIR: ${STAT_LAB_SKILL_ADDDIR:-/stat-lab-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -312,6 +369,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      # correctness 键池:必须等它 healthy 再起 backend。InitRedisPersist 连不上是**静默降级**
+      # (回落主 Redis + 一条 Warn),冷启动竞速会让额度键悄悄躺回会被 LRU 逐出的主池 ——
+      # 那正是 2026-08-02 审计 P0-1 的现网形态。用 depends_on 把它变成确定性的。
+      redis-persist:
+        condition: service_healthy
       minio:
         condition: service_healthy
       schema-sync:
@@ -323,9 +385,11 @@ services:
         reservations:
           memory: 512M
     networks:
-      - scholar-network
+      # 固定 IP —— nginx 的 upstream backend_upstream 只在启动时解析一次,详见文件末 networks 注释。
+      scholar-network:
+        ipv4_address: 172.31.250.200
       # backend 同时在 scholar-agent-net 上, 才能解析/调用 scholar_agent:3456 (CreateSession / ServerSideChat / WS)。
-      - scholar-agent-net
+      scholar-agent-net: {}
 
   # AI agent 服务 (Bun + TypeScript,源在 agent/)
   # 模型/端点配置最终走 DB,backend 启动后 POST 到 /api/providers 热更新;
@@ -336,6 +400,12 @@ services:
     image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/agent:${IMAGE_TAG:-latest}
     container_name: scholar_agent
     restart: unless-stopped
+    # init: true —— 让 docker 塞一个 PID 1 的 init 进程负责 reap 僵尸子进程。
+    # 🔴 不加这行的后果(dev 实测):单会话 4 分钟漏 78 个 pid、累计 82 个僵尸,PPID=1 永不回收。
+    #    Bash 工具每次起子进程(bwrap → sh → python/pandoc),bun 不是 init、不 reap ⇒ 只增不减。
+    #    prod 有 `pids: 512` 上限 ⇒ 约 6 个重 Bash 会话就打满,之后该容器所有 Bash 全失败,
+    #    且**只能靠重启复位**。Run 引擎会把 Bash 调用集中到少数 Step,压强只会更高。
+    init: true
     logging: *default-logging
     environment:
       <<: *tz-env
@@ -355,6 +425,10 @@ services:
       # ExportDocument 的 PDF 引擎(镜像已装 weasyprint;registry.ts 读此 env 启用 pdf 目标,
       # 缺省=pdf 优雅降级。2026-07 审计:此 env 从未配置是「半月 0 个 pdf」的另一半根因)。
       EXECUTOR_PDF_ENGINE: weasyprint
+      # 并发槽(2026-08-10 事故:默认 2 在部署后高峰被打满,第 3 个用户起每条消息瞬时 busy)。
+      # prod 提到 4;OOM 防线不再靠「最坏体积×槽数预留」,而是 admission.ts 的 RSS 真实水位闸
+      # (默认 cgroup 上限 70% ≈ 2.8G,超水位拒新 turn;可用 EXECUTOR_ADMIT_MAX_RSS_MB 覆盖)。
+      EXECUTOR_MAX_CONCURRENT_TURNS: ${EXECUTOR_MAX_CONCURRENT_TURNS:-4}
       # 沙箱:none(默认) | bwrap(生产真内核,需放开 userns)。bash 凭据安全已由 env 白名单兜底,
     expose:
       - "3456"
@@ -364,13 +438,20 @@ services:
       - ./agent-skills/prism-skills:/prism-add/.claude/skills:ro
       # Prism 写作 lens(craft/rigor):按需加载(guides/ → 菜单行常驻 + Skill 工具懒加载正文)。
       - ./agent-skills/prism-lenses:/prism-add/guides:ro
-      - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # ⚠️ 这里曾有 `./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro`,
+      #    2026-08 证据账本 P0-a 删除(与 docker-compose.yml 同步,理由详见那份的同位注释)。
+      #    要点:零调用者(peerreview 走 server-side,reviewerSkillAddDir 无调用点)+ 回归陷阱
+      #    (132KB / 33 份 SKILL.md 远超 loader TOTAL_CAP=40000,补一行 AddDirs 就会静默丢掉
+      #    排序在后的全部 6 个横切质量维度,日志只有一条 warn)。
+      #    backend 侧 `/app/reviewer-skills` 那份挂载在真读,**必须保留**。
       # smart_search 检索策略 skill(minicod-search-strategy):查询拆解 / 引文滚雪球 / 覆盖度自检。
       - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
       # 制作PPT(boltslides)bolt-slides 演示稿创作 skill。
       - ./agent-skills/bolt-slides-add:/bolt-slides-add/.claude/skills:ro
       # 科研绘图(sci_draw)绘图 skill(charts / figures / molecules / slides)。
       - ./agent-skills/sci-draw-skills:/sci-draw-add/.claude/skills:ro
+      # 数据分析 skill:问诊协议 / verb 编排 / 解读口径 / 红线话术(只在 stat_lab 会话装)
+      - ./agent-skills/stat-lab-skills:/stat-lab-add/.claude/skills:ro
       # 会话工作目录持久化(跨重部署不丢 cwd / 上传文件;产物耐久真源已在 MinIO+DB)。
       - ./data/agent-sessions:/home/bun/sessions
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
@@ -401,7 +482,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G               # LLM 流式 + Bash + PDF 解析; 单会话峰值 ~765MiB, 1.5G 给并发留头
+          # 2026-08-05「数据分析」能力(方案 R)上调 1.5G → 4G(statkit 子进程 ~800MB 要有位置)。
+          # 2026-08-10 并发口径更新:槽位提到 4(见上方 EXECUTOR_MAX_CONCURRENT_TURNS),
+          # OOM 防线从「最坏体积×槽数预留」改为 admission.ts 的 RSS 真实水位闸(cgroup 上限 70%
+          # 超水位即拒新 turn 回 busy)——轻负载时 4 槽全开,重负载时按真实内存收口,
+          # statkit 仍由 StatRun 信号量=1 单独约束。
+          memory: 4G
           cpus: "2.0"
           pids: 512                  # 挡 fork 炸弹(Bash 起子进程)
         reservations:
@@ -463,13 +549,51 @@ services:
     logging: *default-logging
     environment:
       <<: *tz-env
+      # ── 站点身份(运行时注入 index.html,见 docker-entrypoint.d/50-inject-site.sh)──
+      #
+      # 这几个值决定「本环境对外自称是谁」:og:url / og:image / JSON-LD 的 @id 与 url 图谱、
+      # ICP 备案号、Clarity 项目、标签页标题前缀。
+      #
+      # 🔴 必须是**运行时** env,不能走 build-arg:Vite 在编译期就把 VITE_* 字面替换进
+      # bundle,走 build-arg 等价于「换域名 = 换镜像」,与「同一个 tag 服务多套环境」冲突。
+      # 历史上 build-and-push.sh 传过 --build-arg VITE_SITE_URL/VITE_SITE_NAME,但
+      # Dockerfile 从没声明对应 ARG、源码也无消费点 —— 那两个参数被 docker 静默丢弃,
+      # 而脚本却打印「已注入」,是个「配了但永不生效」的陷阱。已删除。
+      #
+      # backend SSR 自动同步:它是 HTTP fetch 本容器的 `/` 拿 index.html
+      # (backend/internal/config/handler_ssr.go 的 getPageHTML),吃到的就是注入后的版本。
+      SITE_URL: ${SITE_URL:?SITE_URL is required in prod}
+      # Microsoft Clarity 项目 ID。留空 = 整段 tracker 不加载。
+      # 🔴 每套环境必须用**各自的**项目,共用会让非权威环境的会话录制、热图、点击流
+      #    全部以权威站的名义上报,而 Clarity 只能按 URL 过滤,污染无法事后剔除。
+      CLARITY_PROJECT_ID: ${CLARITY_PROJECT_ID:-}
+      # ICP 备案号。⚠️ 与【已备案的域名】绑定 —— 未接入备案的域名公开展示它属于错挂,
+      #    被举报/巡检时处理对象是那条备案本身。非权威环境**留空**。
+      ICP_BEIAN: ${ICP_BEIAN:-}
+      # 标签页标题前缀,如 "[TEST] "。生产留空;多环境并行时用它一眼分清当前在哪套。
+      SITE_TITLE_PREFIX: ${SITE_TITLE_PREFIX:-}
+      # 发版灰度保留几代构建(见 frontend-user/docker-entrypoint.d/40-sync-site.sh)。
+      # 上界 = legacy 残留(约 25-30MB,几次发版后老化掉) + KEEP × 单次构建(约 13MB)
+      #      ≈ 峰值 95MB、稳态 65MB。足以覆盖「连续排障连发几版」的场景。
+      # 「一代」= 一次**构建**:内容与上一代逐字节相同时复用代号,
+      #   所以纯后端 hotfix 触发的整栈重启不会烧掉灰度窗口(见脚本注释)。
+      # ⚠️ 2026-07-27 判据已从「保留 N 天」换成「保留 N 代」——旧的 ASSET_RETAIN_DAYS 不再生效。
+      #    换判据的原因:按天时体积 = 天数 × 构建频率,同一份配置在 dev/prod 差 30 倍;
+      #    且 mtime 不表达代数,旧脚本得靠 touch 伪造 mtime,那个补丁失手过一次(全站白屏 P0)。
+      ASSET_KEEP_GENERATIONS: "5"
     volumes:
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
-      # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨发版保留(默认 7 天,见
-      # frontend-user/docker-entrypoint.d/40-sync-site.sh)→ 老标签页发版后跳转不再「页面加载失败」。
+      # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨发版保留最近 5 代 → 发版前就开着的
+      # 标签页仍能拉到它那一版的 chunk,不会被迫硬刷新(而硬刷新会吞掉对话草稿 / 审稿表单)。
       - ./data/frontend-assets:/usr/share/nginx/html/assets
     expose:
       - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
     depends_on:
       - backend
     deploy:
@@ -479,7 +603,9 @@ services:
         reservations:
           memory: 128M
     networks:
-      - scholar-network
+      # 固定 IP —— nginx 的 upstream frontend_upstream 只在启动时解析一次,详见文件末 networks 注释。
+      scholar-network:
+        ipv4_address: 172.31.250.201
 
 
   # Umami 自托管分析 —— 单容器,共用 scholar_mysql 的 `umami` 库
@@ -523,10 +649,15 @@ services:
         reservations:
           memory: 128M
     networks:
-      - scholar-network
+      # 固定 IP —— nginx 的 upstream umami_upstream 只在启动时解析一次,详见文件末 networks 注释。
+      scholar-network:
+        ipv4_address: 172.31.250.202
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: scholar-nginx
     container_name: scholar_nginx
     restart: unless-stopped
     logging: *default-logging
@@ -534,15 +665,46 @@ services:
       <<: *tz-env
     ports:
       # 主入口 (含 /admin 路径)。umami UI / tracker 都通过这个端口的反代,不另开端口。
-      - "${HTTP_PORT:-5411}:80"
+      # 默认只绑回环:TLS 由宿主 Caddy 终结,不允许绕过 Caddy/TLS 直连。
+      #
+      # 🔴 绑定地址必须可覆盖,不能写死 127.0.0.1。写死时的故障形态极具误导性:
+      #    新机器上 deploy.sh 跑完、所有容器 healthy、日志全绿,但站点外网 100% 打不开,
+      #    而在 .env 里设 HTTP_BIND_ADDRESS(.env.example 里有文档的变量)完全无效 ——
+      #    排查方向会被带去 nginx / 防火墙 / DNS,而根因在这一行。
+      #    dev compose 一直是可覆盖形式,这里补齐,默认值不变(生产行为零变化)。
+      #
+      # ⚠️ 设成 0.0.0.0 前先确认前置代理:nginx.conf 的 $fwd_proto map 依赖上游传
+      #    X-Forwarded-Proto,real_ip 也只信任 172.16/12 与回环 —— 直接裸奔会让
+      #    生成的分享链变 http:// 并让按 IP 的限流退化。
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-5411}:80"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
+      # 容器重建不再清空 hash 静态资源的代理缓存。
+      - nginx-static-cache:/var/cache/nginx/static
+    # nginx 加载配置时会解析 upstream 里的每个主机名,任一个解析不到就
+    # 「host not found in upstream」直接退出 → 靠 restart policy 反复重启(指数退避最长 60s)。
+    # 所以这三个必须先在:backend/frontend 等到 healthy,umami 只需 started(nginx 只要它的
+    # DNS 名可解析即可,而 umami 冷启动 healthy 最长要 210s,不该把整站入口堵在它后面)。
     depends_on:
-      - backend
-      - frontend-user
-      - umami
+      backend:
+        condition: service_healthy
+      frontend-user:
+        condition: service_healthy
+      umami:
+        condition: service_started
+    healthcheck:
+      # 两个 upstream 都探:/health 走 backend_upstream,/ 走 frontend_upstream。
+      # 只探 /health 时,frontend 侧的 upstream 失效(如 IP 漂移、frontend 挂掉)
+      # 会出现「nginx healthy + 全站 502」这种最难归因的形态 —— 健康灯必须能反映它。
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health && wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
     deploy:
       resources:
         limits:
@@ -552,9 +714,37 @@ services:
     networks:
       - scholar-network
 
+volumes:
+  nginx-static-cache:
+
 networks:
+  # 🔴 固定子网 + 给 nginx 的三个 upstream 目标钉死 IP(见 backend / frontend-user / umami
+  # 的 ipv4_address)。理由是一个只在【宿主重启后】现形的故障:
+  #
+  #   OSS nginx 的 upstream 块里写主机名 (server scholar_backend:8080) 时,DNS 只在
+  #   nginx 启动加载配置时解析一次,结果缓存在进程里直到进程退出 —— 运行期永不重解析
+  #   (`resolve` 参数是 nginx Plus 独有)。
+  #   而 docker 的容器 IP 是每次 **启动** 时从网段池里动态分配的,重启不保证拿回原 IP。
+  #   宿主重启时 docker daemon 按 restart policy 并发拉起容器,**完全不遵守 compose 的
+  #   depends_on 顺序**(那是 compose CLI 的编排,不是 daemon 的);于是 backend 常常先起、
+  #   连不上还在做 InnoDB 崩溃恢复的 MySQL → log.Fatalf 退出 → 重启 → 换了个 IP。
+  #   只要这次重启发生在 nginx 之后,nginx 就永远往旧 IP 打 → 502,而两边容器各自
+  #   healthy(nginx 的健康检查只探自己的 /health)。必须整栈重启才恢复 —— 因为那让
+  #   nginx 进程重新解析了一次。
+  #
+  #   钉死 IP 后,"重启换 IP"这个前提消失,nginx 缓存的解析结果永远正确。
+  #
+  # 换网段:改下面 subnet 的同时,必须同步改三处 ipv4_address(它们必须落在网段内)。
+  # 选 172.31.250.0/24 的理由:docker 默认地址池是 172.17.0.0/12 按 /16 自动切分,
+  # 172.31 是池尾、最后才会被自动分配;/24 又只占 254 个地址,与宿主 LAN 撞车概率极低。
+  # 上线前确认没冲突:  docker network inspect $(docker network ls -q) | grep -i subnet
+  #                   ip route | grep 172.31
+  # 动态分配从 .2 起递增,静态 IP 放在 .200+ 避开(本栈容器数 ~12,够不着)。
   scholar-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
   # 安全隔离: backend↔agent 内部网,internal=无 NAT —— agent 碰不到 mysql/redis/minio。
   scholar-agent-net:
     driver: bridge

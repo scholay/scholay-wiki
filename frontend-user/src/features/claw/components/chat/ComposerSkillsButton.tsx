@@ -34,11 +34,11 @@ export function ComposerSkillsButton({
           disabled={disabled}
           aria-label="技能 —— 本会话将启用的能力"
           title="技能 —— 本会话将启用的能力"
-          className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+          className="inline-flex h-8 items-center gap-1 rounded-8 px-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
         >
           <Puzzle className="h-4 w-4" strokeWidth={2.2} />
           {enabledCount > 0 && (
-            <span className="text-2xs font-semibold text-brand-green">
+            <span className="text-12 font-medium text-brand-green">
               {enabledCount}
             </span>
           )}
@@ -46,12 +46,12 @@ export function ComposerSkillsButton({
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-72 p-0">
         <div className="flex items-center justify-between border-b border-border-soft px-3 py-2">
-          <span className="text-xs font-semibold text-foreground">
+          <span className="text-14 font-medium text-foreground">
             技能 · {enabledCount}/{maxEnabled}
           </span>
           <Link
             to="/tools/skills"
-            className="flex items-center gap-0.5 text-2xs text-brand-green hover:underline"
+            className="flex items-center gap-0.5 text-12 text-brand-green hover:underline"
           >
             市场
             <ArrowRight className="h-3 w-3" />

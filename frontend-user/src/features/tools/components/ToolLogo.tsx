@@ -9,7 +9,7 @@ import type { FeatureTool } from '@/types/feature-tool';
 export function ToolLogo({
   tool,
   className,
-  textClass = 'text-base',
+  textClass = 'text-14',
 }: {
   tool: Pick<FeatureTool, 'logo' | 'name' | 'name_en'>;
   className?: string;
@@ -17,11 +17,11 @@ export function ToolLogo({
 }) {
   const [failed, setFailed] = useState(false);
   const initial = (tool.name_en || tool.name || '?').trim().charAt(0).toUpperCase();
-  const box = cn('shrink-0 rounded-md border border-border-soft', className);
+  const box = cn('shrink-0 rounded-8 border border-border-soft', className);
 
   if (!tool.logo || failed) {
     return (
-      <span className={cn(box, 'flex items-center justify-center bg-surface-2 font-bold text-subtle', textClass)}>
+      <span className={cn(box, 'flex items-center justify-center bg-surface-2 font-medium text-subtle', textClass)}>
         {initial}
       </span>
     );
@@ -32,7 +32,7 @@ export function ToolLogo({
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}
-      className={cn(box, 'bg-background object-contain')}
+      className={cn(box, 'bg-surface-card object-contain')}
     />
   );
 }

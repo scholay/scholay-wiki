@@ -28,6 +28,7 @@ type ListFilter struct {
 	AccessType string
 	PriceType  string
 	OpenSource string // "" 不限 | "open" 仅开源 | "closed" 仅闭源
+	SEOReview  string // "" 不限 | "indexable" 已审核 | "pending" 未审核
 	Keyword    string // 搜索词:>=2 字走 FULLTEXT(ngram), 1 字回退 LIKE
 	Page       int
 	PageSize   int
@@ -66,6 +67,12 @@ func (r *Repository) applyFilter(q *gorm.DB, f ListFilter) *gorm.DB {
 		q = q.Where("is_open_source = 1")
 	case "closed":
 		q = q.Where("is_open_source = 0")
+	}
+	switch f.SEOReview {
+	case "indexable":
+		q = q.Where("seo_indexable = ?", true)
+	case "pending":
+		q = q.Where("seo_indexable = ?", false)
 	}
 	// 搜索:优先标题(name/name_en)其次内容(tagline/description_md)。
 	// >=2 rune 走 ngram FULLTEXT(对 10W+ 行可用索引, 不全表扫); 1 rune 回退 LIKE。
@@ -217,7 +224,7 @@ func (r *Repository) SlugExists(slug string, exceptID uint64) (bool, error) {
 // ── 导入任务 ─────────────────────────────────────────────────────────────────
 
 func (r *Repository) CreateJob(j *ImportJob) error { return r.db.Create(j).Error }
-func (r *Repository) SaveJob(j *ImportJob) error    { return r.db.Save(j).Error }
+func (r *Repository) SaveJob(j *ImportJob) error   { return r.db.Save(j).Error }
 
 // UpdateJobLogoDone 只更新 logo_done 单列 —— 上传阶段由独立 ticker goroutine 调用,
 // 不碰 job 结构体其余字段, 避免和主流程并发写同一行/同一对象造成竞态。
@@ -256,8 +263,8 @@ func (r *Repository) ListJobs(page, pageSize int) ([]ImportJob, int64, error) {
 // ── Webhook ──────────────────────────────────────────────────────────────────
 
 func (r *Repository) CreateWebhook(w *Webhook) error { return r.db.Create(w).Error }
-func (r *Repository) SaveWebhook(w *Webhook) error    { return r.db.Save(w).Error }
-func (r *Repository) DeleteWebhook(id uint64) error   { return r.db.Delete(&Webhook{}, id).Error }
+func (r *Repository) SaveWebhook(w *Webhook) error   { return r.db.Save(w).Error }
+func (r *Repository) DeleteWebhook(id uint64) error  { return r.db.Delete(&Webhook{}, id).Error }
 
 func (r *Repository) GetWebhook(id uint64) (*Webhook, error) {
 	var w Webhook
@@ -309,23 +316,59 @@ type SitemapRow struct {
 	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
 
-// SitemapCount 已上线工具总数 + 全表最近 updated_at。
-func (r *Repository) SitemapCount() (int64, time.Time, error) {
-	var cnt int64
-	if err := r.db.Model(&Tool{}).Where("status = ?", "published").Count(&cnt).Error; err != nil {
-		return 0, time.Time{}, err
-	}
-	var maxT *time.Time
-	_ = r.db.Model(&Tool{}).Where("status = ?", "published").
-		Select("MAX(updated_at)").Scan(&maxT).Error
-	t := time.Now()
-	if maxT != nil {
-		t = *maxT
-	}
-	return cnt, t, nil
+func (r *Repository) sitemapEligibleTools() *gorm.DB {
+	return r.db.Model(&Tool{}).
+		Where("status = ? AND seo_indexable = ?", "published", true)
 }
 
-// SitemapPage 第 page 页(1-based)已上线工具 slug+updated_at,按 id 升序稳定分页。
+// SEOReviewCandidates 返回「已发布但尚未过 SEO 审核」的完整行,按 id 升序、
+// id > afterID 取 limit 条 —— 供 BatchSEOReview 游标分批扫描。
+func (r *Repository) SEOReviewCandidates(afterID uint64, limit int) ([]Tool, error) {
+	var items []Tool
+	err := r.db.Where("status = ? AND seo_indexable = ? AND id > ?", "published", false, afterID).
+		Order("id ASC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
+// ApproveSEOBatch 批量置位 seo_indexable 并落审计字段。只影响仍未置位的行(幂等,
+// 且不会覆盖并发的人工审核结果)。返回实际置位条数。
+func (r *Repository) ApproveSEOBatch(ids []uint64, adminID *uint, at time.Time) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := r.db.Model(&Tool{}).
+		Where("id IN ? AND seo_indexable = ?", ids, false).
+		Updates(map[string]any{
+			"seo_indexable":   true,
+			"seo_reviewed_at": at,
+			"seo_reviewed_by": adminID,
+		})
+	return res.RowsAffected, res.Error
+}
+
+// SitemapCount 仅统计已上线且经过 SEO 人工审核的工具。产品可见与搜索引擎可索引
+// 是两套独立状态，批量导入绝不能自动扩张 sitemap。
+func (r *Repository) SitemapCount() (int64, time.Time, error) {
+	var aggregate struct {
+		Count   int64      `gorm:"column:count"`
+		LastMod *time.Time `gorm:"column:last_mod"`
+	}
+	// Keep count and lastmod in one aggregate statement. Two independent
+	// queries could observe opposite sides of a concurrent review change and
+	// produce count>0 with a NULL/zero lastmod in the sitemap index.
+	if err := r.sitemapEligibleTools().
+		Select("COUNT(*) AS count, MAX(updated_at) AS last_mod").
+		Scan(&aggregate).Error; err != nil {
+		return 0, time.Time{}, err
+	}
+	var t time.Time
+	if aggregate.LastMod != nil {
+		t = *aggregate.LastMod
+	}
+	return aggregate.Count, t, nil
+}
+
+// SitemapPage 第 page 页(1-based)已上线且通过 SEO 审核的工具，按 id 稳定分页。
 func (r *Repository) SitemapPage(page, size int) ([]SitemapRow, error) {
 	if page < 1 {
 		page = 1
@@ -334,9 +377,27 @@ func (r *Repository) SitemapPage(page, size int) ([]SitemapRow, error) {
 		size = 20000
 	}
 	var rows []SitemapRow
-	err := r.db.Model(&Tool{}).Select("slug, updated_at").
-		Where("status = ?", "published").
+	err := r.sitemapEligibleTools().Select("slug, updated_at").
 		Order("id ASC").Offset((page - 1) * size).Limit(size).
 		Scan(&rows).Error
 	return rows, err
+}
+
+// ListIndexableForSEO returns a bounded set of editorially approved tools for
+// the crawlable /tools hub. It deliberately reuses the sitemap scope so the hub
+// can never link a page that the sitemap quality gate excludes.
+func (r *Repository) ListIndexableForSEO(limit int) ([]Tool, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	var tools []Tool
+	err := r.sitemapEligibleTools().
+		Select("slug, name, tagline, seo_indexable").
+		Order("sort_weight DESC, updated_at DESC, id ASC").
+		Limit(limit).
+		Find(&tools).Error
+	return tools, err
 }

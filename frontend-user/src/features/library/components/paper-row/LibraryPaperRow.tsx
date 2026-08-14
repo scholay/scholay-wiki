@@ -48,7 +48,7 @@ interface RowProps {
 }
 
 /**
- * 文献集单行 —— 5 段竖排:[TypeBadge + title] / meta / abstract / 主操作 / 次操作。
+ * 文件夹内的论文单行 —— 5 段竖排:[TypeBadge + title] / meta / abstract / 主操作 / 次操作。
  *
  * **主操作三种模式**(按 (link_state, origin) 分流):
  *
@@ -180,6 +180,9 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
   return (
     <li
       className={cn(
+        // before:w-[3px] = 选中行的左侧强调竖条,对应 globals.css §十一 的 --rule-accent(3px):
+        // Figma 描边只有 1 / 1.5px,3px 强调条是代码内生共识;--rule-accent 未注册成 Tailwind
+        // 命名空间(无 --spacing-rule-accent),所以只能写 arbitrary,值以该 token 为准。
         'group relative flex items-start gap-3 py-3.5 transition-colors pl-4',
         'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:transition-colors',
         selected
@@ -197,10 +200,10 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           onToggle(paper.id, rowIndex, e.shiftKey);
         }}
         className={cn(
-          'shrink-0 mt-1 inline-flex h-4 w-4 items-center justify-center rounded-sm border transition-all cursor-pointer',
+          'shrink-0 mt-1 inline-flex h-4 w-4 items-center justify-center rounded-4 border transition-all cursor-pointer',
           selected
-            ? 'bg-brand-red border-brand-red text-white opacity-100'
-            : 'bg-background border-border-strong text-transparent opacity-0 group-hover:opacity-100 hover:!border-foreground'
+            ? 'bg-brand-red border-brand-red text-on-brand opacity-100'
+            : 'bg-surface-card border-border-strong text-transparent opacity-0 group-hover:opacity-100 hover:!border-foreground'
         )}
       >
         {selected && <Check className="size-3" strokeWidth={3} />}
@@ -212,7 +215,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           <TypeBadge isFree={isFree} source={paper.source as UpstreamSource | 'local'} />
           <h3
             onClick={openDetail}
-            className="flex-1 min-w-0 text-15 font-semibold leading-[1.4] text-foreground hover:text-brand-red transition-colors line-clamp-2 cursor-pointer"
+            className="flex-1 min-w-0 text-16 font-medium text-foreground hover:text-brand-red transition-colors line-clamp-2 cursor-pointer"
             title="打开论文详情"
           >
             {displayTitle || '无标题'}
@@ -250,8 +253,8 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
         {displayAbstract && (
           <TruncatedText
             lines={2}
-            className="text-xs text-subtle leading-[1.7]"
-            popoverClassName="max-w-md text-xs leading-relaxed"
+            className="text-12 text-subtle leading-paragraph"
+            popoverClassName="max-w-md text-12 leading-paragraph"
           >
             {displayAbstract}
           </TruncatedText>
@@ -281,7 +284,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           <button
             type="button"
             onClick={handleOpenCitation}
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm border border-brand-amber/50 text-2xs font-semibold text-brand-amber hover:bg-brand-amber/[0.05] transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 border border-brand-amber/50 text-12 font-medium text-brand-amber hover:bg-brand-amber/[0.05] transition-colors shrink-0"
             title="查看引用格式"
           >
             <Quote className="size-3" strokeWidth={2} />
@@ -318,7 +321,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
 
           {addedDate && (
             <span
-              className="ml-auto text-2xs text-faint"
+              className="ml-auto text-12 text-faint"
               title={`加入于 ${addedDateFull}`}
             >
               加入于 {addedDate}
@@ -375,7 +378,7 @@ function TypeBadge({
   if (isFree || source === 'local') {
     return (
       <span
-        className="shrink-0 mt-0.5 inline-flex items-center h-4 px-1.5 rounded-sm bg-surface-2 text-faint text-2xs font-bold"
+        className="shrink-0 mt-0.5 inline-flex items-center h-4 px-1.5 rounded-4 bg-surface-2 text-faint text-12 font-medium"
         title="这篇文献还没有关联在线论文,内容由你自己维护"
       >
         本地

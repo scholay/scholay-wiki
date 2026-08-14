@@ -20,17 +20,21 @@ const KPI_TONE: Record<NonNullable<FeatureCard['kpi']>['tone'], string> = {
 function Card({ card }: { card: FeatureCard }) {
   const dark = !!card.dark;
   return (
+    // data-surface="dark" —— 暗卡是【整块暗底】(不是浅底上的深色按钮),环画在卡片自身底色上。
+    // 默认 --ring rgb(31 31 35 / .50) 压在 bg-foreground #1F1F23 上 = 1.000:1 完全隐形
+    // (globals.css §13 的 [data-surface='dark'] 覆写把它换成 --ring-on-dark-emphasis)。
     <div
+      data-surface={dark ? 'dark' : undefined}
       className={cn(
-        'flex flex-col gap-5 p-8 rounded-lg border h-full',
+        'flex flex-col gap-5 p-8 rounded-16 border h-full',
         dark
-          ? 'bg-foreground border-foreground text-background'
-          : 'bg-background border-border'
+          ? 'bg-foreground border-foreground text-on-dark'
+          : 'bg-surface-card border-border'
       )}
     >
       <span
         className={cn(
-          'text-2xs font-semibold tracking-[0.2em] uppercase',
+          'text-12 font-medium uppercase',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -38,15 +42,15 @@ function Card({ card }: { card: FeatureCard }) {
       </span>
       <h3
         className={cn(
-          'font-display italic font-semibold leading-[1.25] text-xl',
-          dark ? 'text-background' : 'text-foreground'
+          'font-display italic font-medium leading-display-tight text-20',
+          dark ? 'text-on-dark' : 'text-foreground'
         )}
       >
         {card.title}
       </h3>
       <p
         className={cn(
-          'text-md leading-[1.6] flex-1',
+          'text-14 leading-paragraph flex-1',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -55,7 +59,7 @@ function Card({ card }: { card: FeatureCard }) {
       {card.kpi && (
         <span
           className={cn(
-            'text-xs font-semibold mt-auto',
+            'text-12 font-medium mt-auto',
             // 暗卡用 amber 提亮,其余按 tone token
             dark ? 'text-brand-amber' : KPI_TONE[card.kpi.tone]
           )}

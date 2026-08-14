@@ -99,8 +99,8 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		// umami tracker 运行时配置 —— 前端 index.html 加载时 fetch
 		publicAPI.GET("/umami-config", h.umami.GetTrackerConfig)
 
-		// SEO 搜索曝光批量 seed (前端搜索结果加载后上报)
-		// 限流: 每 IP 每分钟最多 60 次
+		// 历史 SEO expose 兼容 ACK：客户端元数据不再写库，真实 seed
+		// 只来自 minicod 服务端已验证响应。保留限流避免旧客户端流量滥用。
 		publicAPI.POST("/seo/expose",
 			middleware.RateLimitMiddleware(60, time.Minute),
 			h.seo.ExposeSeeds,
@@ -132,6 +132,13 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
 		publicAPI.GET("/seo/author/:slug", h.seo.ResolveAuthorBySlug)
 
+		// 期刊枢纽(发现层)—— SPA 的 /journals/browse 等枢纽页取数。
+		// SSR 由 config 包直连 seo.Service 渲染整页 HTML,这两条只服务浏览器端 React;
+		// 匿名、utils.Success 信封、限流继承 public 组。响应形状是与前端的精确契约
+		// (JournalCard 见 internal/seo/journal_hub.go)。
+		publicAPI.GET("/journal-hubs/overview", h.seo.JournalHubOverviewAPI)
+		publicAPI.GET("/journal-hubs/list", h.seo.JournalHubListAPI)
+
 		// JNL Journal (前端用到 search/list/get/stats/suggest/byNames; filters/byIssn/compare/batch 已下线)
 		publicAPI.POST("/journals/search", middleware.OptionalUserAuthMiddleware(), h.scholar.SearchJournals)
 		publicAPI.POST("/journals/list", h.scholar.ListJournals)
@@ -148,6 +155,10 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		publicAPI.GET("/tools/detail/:idOrSlug", h.featureTool.PublicGet)
 		// 工具 logo 从 MinIO 流式服务 (导入 zip 时上传), 永久缓存
 		publicAPI.GET("/tools/logo/:slug", h.featureTool.PublicLogo)
+
+		// 情报封面缩略图从 MinIO 流式服务 (webhook 后台生成的 ~640px JPEG);
+		// URL 内嵌原图哈希, 换图即换 URL → 可 immutable 永久缓存
+		publicAPI.GET("/news/cover/:file", h.news.PublicCoverThumb)
 
 		// 社区技能(Skills 市场)公开浏览 —— 让技能像全网工具一样可匿名浏览/被收录(功能广场融合)。
 		// OptionalUserAuthMiddleware:带 token 则 ListMarket 显示 installed 标记,匿名则 user_id=0 无标记。

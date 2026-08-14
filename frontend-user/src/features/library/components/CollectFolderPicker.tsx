@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LazyMotion, domMax } from 'framer-motion';
+import { LazyMotion, domMax, MotionConfig } from 'framer-motion';
 import { BookmarkCheck, Check, ChevronRight, Library, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -7,13 +7,14 @@ import { toApiError } from '@/shared/lib/http';
 import { isPhoneDevice } from '@/shared/lib/device';
 import { MobileBottomSheet } from '@/shared/components/MobileBottomSheet';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
+import { Button } from '@/shared/ui';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 import { useLibraryFolders, useCreateFolder } from '../api/folders';
 
 /**
- * 全局「收藏到文献集」文件夹选择器 —— 对齐 scholay-mobile.pen `mLHNI`(收藏 / 文献→文献集):
- * 顶部标题 + 新建文献集 + 文件夹单选列表(默认夹预选)+「完成收藏」。
+ * 全局「收藏到文件夹」选择器 —— 对齐 scholay-mobile.pen `mLHNI`(收藏 / 文献→文件夹):
+ * 顶部标题 + 新建文件夹 + 单选列表(默认夹预选)+「完成收藏」。
  * 移动端用底部抽屉、PC 用居中弹窗(同一份内容);由 providers 全局挂一份,任意收藏按钮 openCollect 触发。
  * 只负责选文件夹(含新建),选定后回调 request.onPick(folderId);真正收藏由 FavoritePaperButton 做。
  *
@@ -62,52 +63,67 @@ export function CollectFolderPicker() {
     });
   };
 
-  const body = (
-    <div className="flex max-h-[70vh] flex-col">
-      {/* 头部 */}
-      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-5 pb-3.5 pt-0.5">
+  /**
+   * 两套壳共用一份内容。`showClose` 只在移动端为 true:
+   * MobileBottomSheet 自己不渲染关闭按钮(只有抓手 + 下滑关闭),抽屉里必须自带一个;
+   * 而 PC 的 `DialogContent` 基座**永远**在 right-4 top-4 渲染一枚 Close(shared/ui/dialog.tsx),
+   * 这里再放一枚就是右上角两个 X(2026-08-13 视觉 bug)。PC 一律跟随基座那枚,与其它弹窗一致。
+   */
+  const renderBody = (showClose: boolean) => (
+    <div className="flex max-h-[70dvh] flex-col">
+      {/* 头部 —— 标题区上下各 12px(py-3);PC 无自带按钮时留 pr-10 给基座右上角那枚 Close 让位 */}
+      <div
+        className={cn(
+          'flex shrink-0 items-start justify-between gap-2 border-b border-border px-5 py-3',
+          !showClose && 'pr-10'
+        )}
+      >
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-lg font-bold text-foreground">收藏到文献集</h2>
-          <p className="text-xs text-muted-foreground">
-            {request?.paperTitle ? `把《${request.paperTitle}》保存到一个文献集` : '将这篇论文保存到一个文献集'}
+          <h2 className="text-16 font-medium text-foreground">收藏到文件夹</h2>
+          <p className="text-12 text-muted-foreground">
+            {request?.paperTitle ? `把《${request.paperTitle}》保存到一个文件夹` : '将这篇论文保存到一个文件夹'}
           </p>
         </div>
-        <button
-          type="button"
-          aria-label="关闭"
-          onClick={close}
-          className="flex size-7 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-muted-foreground active:opacity-70"
-        >
-          <X className="size-4" />
-        </button>
+        {showClose && (
+          <button
+            type="button"
+            aria-label="关闭"
+            onClick={close}
+            className="flex size-7 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-muted-foreground active:opacity-70"
+          >
+            <X className="size-4" />
+          </button>
+        )}
       </div>
 
       {/* 列表 */}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
-        {/* 新建文献集 */}
+        {/* 新建文件夹 */}
         {creating ? (
-          <div className="flex items-center gap-2 rounded-md border border-border-button bg-background p-2">
+          <div className="flex items-center gap-2 rounded-12 border border-border-button bg-surface-card p-2 focus-within:border-border-control transition-colors">
+            {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-border-control 提供 */}
             <input
               autoFocus
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submitCreate()}
-              placeholder="新文献集名称"
+              placeholder="新文件夹名称"
               maxLength={32}
-              className="min-w-0 flex-1 bg-transparent px-1.5 text-md text-foreground outline-none placeholder:text-faint"
+              className="min-w-0 flex-1 bg-transparent px-1.5 text-14 text-foreground outline-none placeholder:text-faint"
             />
-            <button
+            <Button
               type="button"
+              variant="destructive"
               onClick={submitCreate}
               disabled={!newName.trim() || createMut.isPending}
-              className="flex h-8 items-center gap-1 rounded-sm bg-brand-red px-3 text-xs font-medium text-white active:opacity-90 disabled:opacity-50"
+              className="gap-1 active:opacity-90 [&_svg]:size-3.5"
             >
               {createMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : '创建'}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="px-1.5 text-xs text-muted-foreground active:opacity-60"
+              className="px-1.5 text-12 text-muted-foreground active:opacity-60"
             >
               取消
             </button>
@@ -116,14 +132,14 @@ export function CollectFolderPicker() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex w-full items-center gap-3 rounded-md border border-border-button bg-background p-3 text-left active:bg-surface-1"
+            className="flex w-full items-center gap-3 rounded-12 border border-border-button bg-surface-card p-3 text-left active:bg-surface-1"
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-surface-1">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-8 border border-border bg-surface-1">
               <Plus className="size-5 text-brand-green" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm font-semibold text-foreground">新建文献集</span>
-              <span className="text-xs text-faint">创建一个新的论文分组</span>
+              <span className="text-14 font-medium text-foreground">新建文件夹</span>
+              <span className="text-12 text-faint">创建一个新的论文分组</span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-faint" />
           </button>
@@ -146,12 +162,14 @@ export function CollectFolderPicker() {
         )}
       </div>
 
-      {/* 完成收藏 */}
-      <div className="shrink-0 border-t border-border px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
+      {/* 完成收藏 —— 安全区让位已上移到 MobileBottomSheet 根壳(统一 pb-[env(safe-area-inset-bottom)]),
+          这里若再留一份手搓的 max(env,16px) 会在 iPhone 上叠成双份内边距。
+          本 body 由 PC Dialog 与移动 sheet 共用:pb-4 = 原 max() 在桌面的取值,桌面逐像素不变。 */}
+      <div className="shrink-0 border-t border-border px-4 pb-4 pt-3">
         <button
           type="button"
           onClick={confirm}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-red text-base font-semibold text-white active:opacity-90"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-8 bg-brand-red text-14 font-medium text-on-brand active:opacity-90"
         >
           <BookmarkCheck className="size-4" />
           完成收藏
@@ -165,10 +183,15 @@ export function CollectFolderPicker() {
     // 拿不到壳里的 LazyMotion),故自带一层(domMax 与 MobileShell 同款,同模块零额外体积),
     // 否则滑入/退场动画与拖拽关闭全失效。
     return (
+      // MotionConfig reducedMotion="user":本组件挂在 providers(MobileShell 之外),拿不到壳里的
+      // MotionConfig —— 没有它,「减少动态」下这个 providers 级孤岛的弹簧滑入照常播放
+      // (globals.css 的 @media 只杀 CSS 动画,管不到 framer 的 inline style,2026-08-12 审计)。
       <LazyMotion features={domMax}>
-        <MobileBottomSheet open={open} onOpenChange={(v) => !v && close()} title="收藏到文献集">
-          {body}
-        </MobileBottomSheet>
+        <MotionConfig reducedMotion="user">
+          <MobileBottomSheet open={open} onOpenChange={(v) => !v && close()} title="收藏到文件夹">
+            {renderBody(true)}
+          </MobileBottomSheet>
+        </MotionConfig>
       </LazyMotion>
     );
   }
@@ -176,14 +199,25 @@ export function CollectFolderPicker() {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
       <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
-        <DialogTitle className="sr-only">收藏到文献集</DialogTitle>
-        {body}
+        <DialogTitle className="sr-only">收藏到文件夹</DialogTitle>
+        {renderBody(false)}
       </DialogContent>
     </Dialog>
   );
 }
 
-const SPINE_COLORS = ['bg-brand-green', 'bg-brand-amber', 'bg-brand-red', 'bg-[#7C9E82]'];
+/**
+ * 文件夹书脊色 —— 按列表下标散列到分类色板 `--cat-*` 四档(每个色相取一档),
+ * 与同 feature 的 SharedReceivePage.AVATAR_TONES 用同一组槽位,保持 library 内一致。
+ *
+ * 旧实现是「3 个品牌色 + 1 个体系外硬编码 #7C9E82(灰绿)」的半迁移状态,两处问题:
+ *   1. #7C9E82 不在 Figma 四色阶的任何一档上;
+ *   2. 书脊色是**按下标轮转**的纯装饰,不带语义,用品牌色会让用户误读
+ *      「绿文件夹 = AI / 红文件夹 = 重要」—— 这正是 globals.css §七 建 --cat-* 的原因。
+ * 数组长度未变(仍是 4,`index % 4`),同一位置的文件夹仍永远同色。
+ * 色脊上不压任何文字/图标,不涉及对比度。
+ */
+const SPINE_COLORS = ['bg-cat-2', 'bg-cat-4', 'bg-cat-6', 'bg-cat-8'];
 
 function FolderRow({
   folder,
@@ -201,28 +235,33 @@ function FolderRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex w-full items-center gap-3 rounded-md border bg-background p-2.5 text-left transition-colors',
+        // border-[1.5px]:选中态加粗描边。1.5px 在 Figma 描边集合 {1, 1.5} 内(§4.5 图标描边 1.5px),
+        // Tailwind 边框只有 0/1/2/4/8 档,无 1.5,故保留 arbitrary value。
+        'flex w-full items-center gap-3 rounded-12 border bg-surface-card p-2.5 text-left transition-colors',
         selected ? 'border-[1.5px] border-brand-green' : 'border-border active:bg-surface-1'
       )}
     >
       {/* 文件夹封面(简化版堆叠封面:色脊 + 折角) */}
-      <span className="relative flex size-10 shrink-0 items-center justify-center rounded-sm bg-surface-1">
+      <span className="relative flex size-10 shrink-0 items-center justify-center rounded-8 bg-surface-1">
         <Library className={cn('size-5', selected ? 'text-brand-green' : 'text-muted-foreground')} />
         <span
-          className={cn('absolute left-0 top-0 h-1.5 w-full rounded-t-sm', SPINE_COLORS[index % SPINE_COLORS.length])}
+          className={cn('absolute left-0 top-0 h-1.5 w-full rounded-t-4', SPINE_COLORS[index % SPINE_COLORS.length])}
         />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold text-foreground">
+        <span className="truncate text-14 font-medium text-foreground">
           {folder.name}
-          {folder.is_default && <span className="ml-1.5 text-2xs font-normal text-faint">默认</span>}
+          {folder.is_default && <span className="ml-1.5 text-12 font-normal text-faint">默认</span>}
         </span>
-        <span className="text-xs text-muted-foreground">{folder.paper_count} 篇论文</span>
+        <span className="text-12 text-muted-foreground">{folder.paper_count} 篇论文</span>
       </span>
+      {/* 单选勾选圈。size-[22px]:Figma 未给单选控件规格,22 落在 Tailwind size-5(20)/size-6(24)
+          之间,改任一档都会挪动整行的视觉重心,故保留原值待设计师补规范;
+          border-[1.5px] 依据同上(Figma 描边集合 {1, 1.5},Tailwind 无该档)。 */}
       <span
         className={cn(
-          'flex size-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px]',
-          selected ? 'border-brand-green bg-brand-green text-white' : 'border-border-button'
+          'flex size-[22px] shrink-0 items-center justify-center rounded-pill border-[1.5px]',
+          selected ? 'border-brand-green bg-brand-green text-on-brand' : 'border-border-button'
         )}
       >
         {selected && <Check className="size-3.5" />}

@@ -7,6 +7,7 @@ require (
 	github.com/alibabacloud-go/dysmsapi-20170525/v3 v3.0.6
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.6
+	github.com/dromara/carbon/v2 v2.6.16
 	github.com/emersion/go-imap v1.2.1
 	github.com/emersion/go-message v0.18.1
 	github.com/gin-contrib/cors v1.7.2
@@ -21,6 +22,7 @@ require (
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/sony/gobreaker v1.0.0
 	golang.org/x/crypto v0.26.0
+	golang.org/x/image v0.18.0
 	golang.org/x/sync v0.8.0
 	golang.org/x/time v0.5.0
 	gorm.io/driver/mysql v1.5.2

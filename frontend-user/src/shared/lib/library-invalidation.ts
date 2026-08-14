@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 /**
- * 失效用户文献集相关缓存 —— 收口所有 library 写操作(收藏/取消/建夹/转存/换源/上传 PDF…)的失效逻辑。
+ * 失效用户文件夹相关缓存 —— 收口所有 library 写操作(收藏/取消/建夹/转存/换源/上传 PDF…)的失效逻辑。
  *
  * 失效范围 = `['library']` 前缀下的全部查询,**但排除 `'quick-search'`**:
  * 在线学术检索(stc/olx/pmd 三源 fan-out,每次 3 个上游请求)与「往库里增删论文/文件夹」无关 ——

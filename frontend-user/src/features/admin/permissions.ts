@@ -16,6 +16,13 @@ export const PERM = {
   configManage: 'config.manage',
   contentManage: 'content.manage',
   analyticsView: 'analytics.view',
+  /**
+   * 订单退款登记 —— 全后台唯一一个「点一下就把公司的钱转出去 + 回收用户权益」的动作。
+   * 单列一个权限点(而非复用 config.manage),便于独立授予/收回。
+   * 运营(operations)**不给**:订单只读接口在 analytics.view 组里,运营看得到订单,
+   * 但看得到 ≠ 退得了。
+   */
+  financeRefund: 'finance.refund',
 } as const;
 
 export type Permission = (typeof PERM)[keyof typeof PERM];
@@ -29,11 +36,13 @@ export function permissionsForRole(role?: Role): Permission[] {
       return [
         PERM.usersView, PERM.usersManage, PERM.usersRoleAssign,
         PERM.configManage, PERM.contentManage, PERM.analyticsView,
+        PERM.financeRefund,
       ];
     case 'admin':
       return [
         PERM.usersView, PERM.usersManage,
         PERM.configManage, PERM.contentManage, PERM.analyticsView,
+        PERM.financeRefund,
       ];
     case 'operations':
       return [PERM.usersView, PERM.contentManage, PERM.analyticsView];
@@ -78,7 +87,13 @@ export function roleBadgeVariant(role?: Role): BadgeVariant {
   }
 }
 
-/** 角色展示名(未知角色回落到原字符串)。 */
+/**
+ * 角色展示名(未知角色回落到**原字符串**)。
+ *
+ * 🔴 别改回 `|| '用户'`:那样任何不在 ROLE_LABEL 四项里的 role 都会被渲染成"用户"。
+ * 后端将来加一个 finance / reviewer 角色,用户列表与详情抽屉会把他显示成普通用户,
+ * 管理员据此判断"这人没权限"就是错的 —— 未知要显示成未知,不能伪装成已知。
+ */
 export function roleLabel(role?: string): string {
-  return (role && ROLE_LABEL[role as Role]) || '用户';
+  return role ? ROLE_LABEL[role as Role] || role : '用户';
 }

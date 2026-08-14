@@ -1,14 +1,14 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
- * 我的文献集(`/library`) —— 论文 / 期刊 / 学者详情已迁出到 features/browser
+ * 我的文件夹(`/library`) —— 论文 / 期刊 / 学者详情已迁出到 features/browser
  * (路由 `/browser/*`),这里只保留文件夹 + 论文列表。
  */
 export const libraryRoutes: RouteObject[] = [
   {
     path: 'library',
-    lazy: () =>
-      import('./pages/LibraryPage').then((m) => ({ Component: m.LibraryPage })),
+    element: lazyRoute(() => import('./pages/LibraryPage'), 'LibraryPage'),
   },
 ];
 
@@ -19,31 +19,24 @@ export const libraryRoutes: RouteObject[] = [
 export const shareReceiveRoutes: RouteObject[] = [
   {
     path: 's/:token',
-    lazy: () =>
-      import('./pages/SharedReceivePage').then((m) => ({
-        Component: m.SharedReceivePage,
-      })),
+    element: lazyRoute(() => import('./pages/SharedReceivePage'), 'SharedReceivePage', {
+      full: true,
+    }),
   },
 ];
 
 /**
- * 移动版文献集 —— 挂在 /m/* (MobileShell) 下,由 app/router.tsx 组装。
+ * 移动版文件夹 —— 挂在 /m/* (MobileShell) 下,由 app/router.tsx 组装。
  *   /m/library            我的收藏(文件夹列表 + 分享)
  *   /m/library/:folderId  文件夹详情(论文列表 + 单篇/整本分享)
  */
 export const libraryMobileRoutes: RouteObject[] = [
   {
     path: 'library',
-    lazy: () =>
-      import('./pages/mobile/MobileLibraryPage').then((m) => ({
-        Component: m.MobileLibraryPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileLibraryPage'), 'MobileLibraryPage'),
   },
   {
     path: 'library/:folderId',
-    lazy: () =>
-      import('./pages/mobile/MobileFolderPage').then((m) => ({
-        Component: m.MobileFolderPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileFolderPage'), 'MobileFolderPage'),
   },
 ];

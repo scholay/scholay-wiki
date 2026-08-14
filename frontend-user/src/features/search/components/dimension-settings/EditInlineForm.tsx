@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApiToast } from '@/shared/hooks';
+import { Button, Input, Textarea } from '@/shared/ui';
 import type { DimensionSettingItem } from '../../api/analysis';
 import { useSaveDimension } from './use-save-dimension';
 
@@ -59,11 +60,11 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
 
   if (mode === 'name') {
     return (
-      <div className="flex items-center gap-2 h-[58px] px-[18px] bg-brand-blue-soft border-l-[3px] border-l-brand-blue border-b border-border-soft">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-green text-white shrink-0">
+      <div className="flex items-center gap-2 h-[58px] px-[18px] bg-brand-amber-soft border-l-[3px] border-l-brand-amber border-b border-border-soft">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-green text-on-brand shrink-0">
           <Check className="size-2.5" strokeWidth={3} />
         </span>
-        <input
+        <Input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -72,7 +73,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
             if (e.key === 'Enter') handleSave();
             else if (e.key === 'Escape') onDone();
           }}
-          className="flex-1 h-7 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-blue"
+          className="flex-1 h-7 focus-visible:border-brand-amber"
         />
         <SaveCancelButtons busy={busy} onSave={handleSave} onCancel={onDone} />
       </div>
@@ -83,46 +84,44 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
   return (
     <div className="flex flex-col gap-2 px-[18px] py-3 bg-warning-soft/40 border-l-[3px] border-l-brand-amber border-b border-border-soft">
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-green text-white shrink-0">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-green text-on-brand shrink-0">
           <Check className="size-2.5" strokeWidth={3} />
         </span>
-        <input
+        <Input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="维度名称"
-          className="flex-1 h-7 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-amber"
+          className="flex-1 h-7 focus-visible:border-brand-amber"
         />
       </div>
       <div>
-        <label className="text-2xs font-bold text-faint">AI 分析指示词</label>
-        <textarea
+        <label className="text-12 font-medium text-faint">AI 分析指示词</label>
+        <Textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={4}
           maxLength={500}
           placeholder="例:抽取该论文核心研究问题与目标,简短归纳成一句话。"
-          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-brand-amber resize-none"
+          className="mt-1 leading-paragraph resize-none focus-visible:border-brand-amber"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">
-        <button
-          type="button"
-          onClick={onDone}
-          className="h-7 px-3 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={onDone}>
           取消
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="primary"
+          size="sm"
           onClick={handleSave}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-green text-white text-xs font-bold hover:bg-brand-green/85 disabled:opacity-50"
+          className="gap-1 [&_svg]:size-3"
         >
-          {busy && <Loader2 className="size-3 animate-spin" />}
+          {busy && <Loader2 className="animate-spin" />}
           保存
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -143,7 +142,7 @@ function SaveCancelButtons({
         type="button"
         onClick={onSave}
         disabled={busy}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-brand-green text-white hover:bg-brand-green/85 disabled:opacity-50"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-8 bg-brand-green text-on-brand hover:bg-brand-green/85 disabled:opacity-50"
         title="保存"
       >
         {busy ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" strokeWidth={3} />}
@@ -151,7 +150,7 @@ function SaveCancelButtons({
       <button
         type="button"
         onClick={onCancel}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-surface-2 text-muted-foreground hover:bg-surface-1"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-8 bg-surface-2 text-muted-foreground hover:bg-surface-1"
         title="取消"
       >
         <X className="size-3" />

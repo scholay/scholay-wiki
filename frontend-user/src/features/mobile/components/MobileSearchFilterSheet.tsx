@@ -68,7 +68,7 @@ export function MobileSearchFilterSheet({
       {open && (
         <>
           <m.div
-            className="absolute inset-0 z-[60] bg-foreground/40"
+            className="absolute inset-0 z-overlay bg-foreground/40"
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -76,7 +76,7 @@ export function MobileSearchFilterSheet({
             transition={{ duration: 0.15 }}
           />
           <m.div
-            className="absolute inset-x-0 bottom-0 z-[61] flex max-h-[82%] flex-col rounded-t-2xl bg-background shadow-2xl"
+            className="absolute inset-x-0 bottom-0 z-modal flex max-h-[82%] flex-col rounded-t-16 bg-surface-card shadow-overlay"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -98,15 +98,15 @@ export function MobileSearchFilterSheet({
               onPointerDown={(e) => dragControls.start(e)}
               className="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2.5 active:cursor-grabbing"
             >
-              <div className="h-1 w-9 rounded-full bg-border-strong" />
+              <div className="h-1 w-9 rounded-pill bg-border-strong" />
             </div>
             <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
-              <span className="text-base font-semibold text-foreground">筛选</span>
+              <span className="text-14 font-medium text-foreground">筛选</span>
               <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => onChange(DEFAULT_FILTERS)}
-                  className="text-xs text-muted-foreground active:opacity-60"
+                  className="text-12 text-muted-foreground active:opacity-60"
                 >
                   重置
                 </button>
@@ -152,7 +152,7 @@ export function MobileSearchFilterSheet({
 
               {sourceSupports(filters.source, 'openAccess') && (
                 <div className="flex items-center justify-between border-t border-border-soft py-3">
-                  <span className="text-sm font-medium text-foreground">仅开放获取</span>
+                  <span className="text-12 font-medium text-foreground">仅开放获取</span>
                   <Switch checked={filters.openAccess} onCheckedChange={(v) => set({ openAccess: v })} />
                 </div>
               )}
@@ -200,11 +200,14 @@ export function MobileSearchFilterSheet({
               )}
             </div>
 
-            <div className="border-t border-border-soft p-3">
+            {/* 「完成」贴在屏幕最底 —— 用 --safe-bottom(= max(env(safe-area-inset-bottom), 1rem))
+                给全面屏 home indicator 让位:无刘海/桌面 = 16px(与原 p-3 的 12px 同量级),
+                iPhone X+ = 34px,按钮不再落在指示条下面。(render-audit-2026-07-28 P1-6) */}
+            <div className="border-t border-border-soft px-3 pt-3 pb-[var(--safe-bottom)]">
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-pill bg-brand-red py-3 text-sm font-semibold text-white active:opacity-90"
+                className="w-full rounded-pill bg-brand-red py-3 text-12 font-medium text-on-brand active:opacity-90"
               >
                 完成
               </button>
@@ -219,7 +222,7 @@ export function MobileSearchFilterSheet({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-t border-border-soft py-3 first:border-t-0">
-      <p className="mb-2 text-xs font-semibold text-faint">{title}</p>
+      <p className="mb-2 text-12 font-medium text-faint">{title}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -239,10 +242,10 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-pill border px-3 py-1.5 text-xs transition-colors',
+        'rounded-pill border px-3 py-1.5 text-12 transition-colors',
         active
-          ? 'border-brand-red bg-brand-red text-white'
-          : 'border-border bg-background text-muted-foreground active:bg-surface-1'
+          ? 'border-brand-red bg-brand-red text-on-brand'
+          : 'border-border bg-surface-card text-muted-foreground active:bg-surface-1'
       )}
     >
       {children}

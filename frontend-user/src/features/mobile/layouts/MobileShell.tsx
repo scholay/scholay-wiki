@@ -1,12 +1,27 @@
+import { lazy, Suspense, useRef } from 'react';
 import { useLocation, useOutlet } from 'react-router-dom';
 import { AnimatePresence, LazyMotion, domMax, MotionConfig, m } from 'framer-motion';
 import { useMobileSearchOverlay } from '@/stores/mobile-search.store';
 import { useShareSheet } from '@/stores/share.store';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useReplayPendingAction } from '@/shared/hooks';
-import { ShareSheet } from '@/shared/components/share/ShareSheet';
-import { MobileAuthSheet } from '@/features/auth/components/MobileAuthSheet';
 import { MobileBottomNav } from '../components/MobileBottomNav';
-import { MobileSearchOverlay } from '../components/MobileSearchOverlay';
+
+const ShareSheet = lazy(() =>
+  import('@/shared/components/share/ShareSheet').then((m) => ({
+    default: m.ShareSheet,
+  })),
+);
+const MobileAuthSheet = lazy(() =>
+  import('@/features/auth/components/MobileAuthSheet').then((m) => ({
+    default: m.MobileAuthSheet,
+  })),
+);
+const MobileSearchOverlay = lazy(() =>
+  import('../components/MobileSearchOverlay').then((m) => ({
+    default: m.MobileSearchOverlay,
+  })),
+);
 
 /**
  * 移动端壳(.pen `tdZMB` 等移动画板的公共骨架):
@@ -41,9 +56,15 @@ export function MobileShell() {
   // 列表↔详情、设置子页)key 不变 → 即时切换、不淡入,tab/钻取更跟手,也避免给已在 remount 的页叠淡入。
   const sectionKey = '/' + location.pathname.split('/').filter(Boolean).slice(0, 2).join('/');
 
-  // 全局分享面板:论文/期刊/文献集的「分享」按钮统一弹这一份(多方式:海报/二维码/链接/口令)。
+  // 全局分享面板:论文/期刊/文件夹的「分享」按钮统一弹这一份(多方式:海报/二维码/链接/口令)。
   const shareTarget = useShareSheet((s) => s.target);
   const closeShare = useShareSheet((s) => s.closeShare);
+  const authOpen = useAuthDialog((s) => s.open);
+  const authMode = useAuthDialog((s) => s.mode);
+  const shareEverOpened = useRef(false);
+  const authEverOpened = useRef(false);
+  if (shareTarget) shareEverOpened.current = true;
+  if (authOpen && authMode !== 'wechat-qr') authEverOpened.current = true;
 
   return (
     // LazyMotion(domMax)= 只装 dom 动画特性(drag/layout/手势),比整包 motion 小;
@@ -70,13 +91,29 @@ export function MobileShell() {
           <MobileBottomNav />
 
           {/* 悬浮搜索浮层(absolute 覆盖整个移动列,含底部 Tab);仅 feed 路由 + open 时挂载,进退场带动效。 */}
-          <AnimatePresence>{searchOpen && isFeedRoute && <MobileSearchOverlay />}</AnimatePresence>
+          <Suspense fallback={null}>
+            <AnimatePresence>
+              {searchOpen && isFeedRoute && <MobileSearchOverlay />}
+            </AnimatePresence>
+          </Suspense>
 
-          {/* 全局分享面板(论文/期刊/文献集通用) */}
-          <ShareSheet target={shareTarget} open={!!shareTarget} onOpenChange={(v) => !v && closeShare()} />
+          {/* 全局分享面板:首次打开再下载，之后保持挂载让 Sheet 正常完成关闭清理。 */}
+          {shareEverOpened.current && (
+            <Suspense fallback={null}>
+              <ShareSheet
+                target={shareTarget}
+                open={!!shareTarget}
+                onOpenChange={(v) => !v && closeShare()}
+              />
+            </Suspense>
+          )}
 
-          {/* 全局登录/注册底部弹窗(openDialog 触发,就地登录不跳页) */}
-          <MobileAuthSheet />
+          {/* 登录表单全家桶仅在首次打开底部弹窗时下载，关闭后仍保持挂载。 */}
+          {authEverOpened.current && (
+            <Suspense fallback={null}>
+              <MobileAuthSheet />
+            </Suspense>
+          )}
         </div>
       </MotionConfig>
     </LazyMotion>

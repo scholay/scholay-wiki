@@ -1,0 +1,55 @@
+# 前提检验卡。⚠️ 前提检验是三夺权之一:由引擎实测,**不交给模型判断**。
+# 依据:StatQA 实测 LLM 的首要错误类型是 applicability error(知道该做 t 检验,
+# 但没意识到这份数据不满足前提),而这一类 100% 可机械判定 —— 是 ROI 最高的一条防线。
+checks:
+  - id: shapiro_by_group
+    name_zh: 各组正态性(Shapiro-Wilk)
+    engine: "lib:scipy.stats.shapiro"
+    applies_when: "not paired and continuous"
+    produces: [normal_by_group]
+    alpha: 0.05
+    notes_zh: >-
+      逐组跑,全部 p≥α 才判 normal_by_group=true。
+      ⚠️ scipy 明示 n>5000 时 p 值失真 —— 大样本走固定 seed 子抽样,该行为进 golden 钉死。
+    citations:
+      - id: ghasemi2012-normality
+        role: primary
+        access: oa
+        cite: "Ghasemi A, Zahediasl S. Normality tests for statistical analysis: a guide for non-statisticians. Int J Endocrinol Metab. 2012;10(2):486-489. doi:10.5812/ijem.3505"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3693611/"
+
+  - id: levene_center_median
+    name_zh: 方差齐性(Levene, center=median)
+    engine: "lib:scipy.stats.levene"
+    applies_when: "not paired and continuous"
+    produces: [levene_equal]
+    alpha: 0.05
+    notes_zh: >-
+      🔴 `center='median'`(即 Brown-Forsythe)是**刻意选择**,不是默认值:对非正态更稳健。
+      这个参数必须与 golden 的 R 参考脚本 `leveneTest(center=median)` 一致 ——
+      2026-08-05 红队点名:卡片与 golden 共享同一个参数选择时,两者不是独立证据,
+      故 golden 只能证明「实现算对了这个参数下的值」,证明不了「这个参数选对了」。
+      后者由 primary 出处与方法学评审承担。
+    citations:
+      - id: brown1974-robust
+        role: primary
+        access: free_to_read
+        cite: "Brown MB, Forsythe AB. Robust tests for the equality of variances. JASA. 1974;69(346):364-367. doi:10.1080/01621459.1974.10482955"
+        url: "https://www.tandfonline.com/doi/abs/10.1080/01621459.1974.10482955"
+
+  - id: shapiro_diff
+    name_zh: 配对差值正态性(Shapiro-Wilk)
+    engine: "lib:scipy.stats.shapiro"
+    applies_when: "paired and continuous"
+    # S4:显式标出这张卡检的是**差值**而不是原始因变量 —— 此前这个区别只活在
+    # engines/checks.py 的实现里(它取 diff 参数),卡片上看不出来。
+    target: diff
+    produces: [diff_normal]
+    alpha: 0.05
+    notes_zh: 配对设计检验的是**差值**的正态性,不是两组各自的正态性(常见误用)。
+    citations:
+      - id: whitley2002-means
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 5: Comparison of means. Critical Care. 2002;6(5):424-428."
+        url: "https://europepmc.org/articles/PMC137324"

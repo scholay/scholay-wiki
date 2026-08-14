@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 移动端路由 —— 全新设计逻辑的移动版,**不挂 AppShell**,自带 MobileShell
@@ -16,20 +17,21 @@ export const mobileRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="/m/feed" replace /> },
   {
     path: 'feed',
-    lazy: () =>
-      import('./pages/FeedPage').then((m) => ({ Component: m.FeedPage })),
-  },
-  {
-    path: 'feed/journals',
-    lazy: () =>
-      import('./pages/JournalFeedPage').then((m) => ({
-        Component: m.JournalFeedPage,
-      })),
-  },
-  {
-    path: 'feed/news',
-    lazy: () =>
-      import('./pages/NewsPage').then((m) => ({ Component: m.NewsPage })),
+    element: lazyRoute(() => import('./components/FeedPrefetcher'), 'FeedPrefetchLayout'),
+    children: [
+      {
+        index: true,
+        element: lazyRoute(() => import('./pages/FeedPage'), 'FeedPage'),
+      },
+      {
+        path: 'journals',
+        element: lazyRoute(() => import('./pages/JournalFeedPage'), 'JournalFeedPage'),
+      },
+      {
+        path: 'news',
+        element: lazyRoute(() => import('./pages/NewsPage'), 'NewsPage'),
+      },
+    ],
   },
   {
     // 旧的独立搜索页已被「悬浮搜索浮层」(MobileSearchOverlay)取代;保留路径做重定向,

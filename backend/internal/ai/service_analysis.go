@@ -12,6 +12,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -138,6 +139,12 @@ func (s *Service) analyzeWithRetry(ctx context.Context, paperTitle, abstract str
 	}
 
 	for attempt := 1; attempt <= AnalysisMaxRetries; attempt++ {
+		// 2026-07 线上审计:调用方已取消(用户关页/上层超时)不是故障 —— 旧逻辑对已取消的
+		// ctx 空转重打 3 次,ERROR 翻 3 倍(占错误日志 39%)。取消即刻退出,只留一条 INFO。
+		if ctx.Err() != nil {
+			slog.Info("Analysis canceled by caller", "attempt", attempt, "paperId", paperId, "reason", ctx.Err())
+			return nil, false
+		}
 		if attempt > 1 {
 			slog.Info("Analysis retry", "attempt", attempt, "maxRetries", AnalysisMaxRetries, "paperId", paperId)
 		}
@@ -146,6 +153,11 @@ func (s *Service) analyzeWithRetry(ctx context.Context, paperTitle, abstract str
 		// 未接线时 CompleteText 内部回退旧第三方路径(ModelLow)。
 		raw, err := s.CompleteText(ctx, messages, PurposeAnalysis)
 		if err != nil {
+			// 同上:取消类失败不计 ERROR、不再重试(errors.Is 兼顾 ctx 半路取消与包装链)。
+			if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+				slog.Info("Analysis canceled by caller", "attempt", attempt, "paperId", paperId, "err", err)
+				return nil, false
+			}
 			slog.Error("AI analysis failed", "attempt", attempt, "err", err)
 			continue
 		}
@@ -205,6 +217,10 @@ func (s *Service) analyzeInBatches(ctx context.Context, paperTitle, abstract str
 
 	// 将维度分成多个批次
 	for i := 0; i < len(dimensions); i += DimensionsPerBatch {
+		// 2026-07 线上审计:ctx 已取消时不再逐批空转(每批都会立即失败,徒增日志)。
+		if ctx.Err() != nil {
+			return resultMap, false
+		}
 		end := i + DimensionsPerBatch
 		if end > len(dimensions) {
 			end = len(dimensions)

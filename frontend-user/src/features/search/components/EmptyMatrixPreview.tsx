@@ -87,12 +87,20 @@ export const MOCK_ROWS: MockRow[] = [
   },
 ];
 
+/**
+ * ⚠️ 五个 tone 现在【全部指向同一配色】—— 与真矩阵 DimensionCell 保持一致。
+ * 真矩阵的 tag 高亮已按设计稿收敛成单色(松青 10%),本组件是它的空态预览,
+ * 若这里还是红/琥珀/蓝多色,等于向用户预告一个真实产品里并不存在的语义。
+ * gray 保留:它对应「未提及」这种【没有值】的状态,不是一个类别色。
+ * (tone 字段本身没删 —— MOCK_ROWS 的数据结构还在用,留着以便将来若设计师
+ *  重新引入语义色时只改这张映射表。)
+ */
 export const MOCK_TONE_CLS: Record<MockTagTone, string> = {
-  red: 'bg-danger-soft text-brand-red',
-  amber: 'bg-warning-soft text-brand-amber',
+  red: 'bg-brand-green/10 text-brand-green',
+  amber: 'bg-brand-green/10 text-brand-green',
   green: 'bg-brand-green/10 text-brand-green',
   gray: 'bg-surface-2 text-muted-foreground',
-  blue: 'bg-brand-blue-soft text-brand-blue',
+  blue: 'bg-brand-green/10 text-brand-green',
 };
 
 /**
@@ -105,7 +113,7 @@ export function MockMatrixPreview() {
       aria-hidden="true"
       className="opacity-20 pointer-events-none select-none"
     >
-      <table className="w-full table-fixed border-separate border-spacing-0 text-xs">
+      <table className="w-full table-fixed border-separate border-spacing-0 text-12">
         <colgroup>
           {/* 论文列 = 上方 header 的 "工作区" 区固定宽度 (PAPER_COL_WIDTH),
               与 MatrixColumn / WelcomeBoard header 中"工作区"框宽度对齐。
@@ -121,13 +129,13 @@ export function MockMatrixPreview() {
                 这里放 StagingTabs(A/B/+ 标签),而不是再起一个 "论文" 列头。
                 数据行的左格仍然是论文卡(暂存区里的论文展示)—— 这种 tabs-as-header
                 + cards-as-body 的二层结构和真实矩阵完全对齐。 */}
-            <th className="bg-background border-b border-r border-border p-0 h-9">
+            <th className="bg-surface-card border-b border-r border-border p-0 h-9">
               <FakeStagingTabs />
             </th>
             {MOCK_DIMENSIONS.map((d) => (
               <th
                 key={d}
-                className="bg-surface-1 border-b border-r border-border last:border-r-0 text-left px-3 h-9 text-xs font-bold text-muted-foreground"
+                className="bg-surface-1 border-b border-r border-border last:border-r-0 text-left px-3 h-9 text-12 font-medium text-muted-foreground"
               >
                 {d}
               </th>
@@ -137,20 +145,20 @@ export function MockMatrixPreview() {
         <tbody>
           {MOCK_ROWS.map((row, i) => (
             <tr key={i}>
-              <td className="align-top bg-background border-b border-r border-border p-3.5">
+              <td className="align-top bg-surface-card border-b border-r border-border p-3.5">
                 <div className="flex flex-col gap-2">
                   <span
                     className={cn(
-                      'inline-flex w-fit items-center px-1.5 py-0.5 rounded-sm text-2xs font-bold',
+                      'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-12 font-medium',
                       MOCK_TONE_CLS[row.paperTag.tone]
                     )}
                   >
                     {row.paperTag.label}
                   </span>
-                  <p className="text-sm font-bold text-foreground leading-snug">
+                  <p className="text-16 font-medium text-foreground">
                     {row.title}
                   </p>
-                  <p className="text-xs text-subtle leading-relaxed line-clamp-3">
+                  <p className="text-12 text-subtle leading-paragraph line-clamp-3">
                     {row.abstract}
                   </p>
                 </div>
@@ -158,18 +166,18 @@ export function MockMatrixPreview() {
               {row.cells.map((c, j) => (
                 <td
                   key={j}
-                  className="align-top bg-background border-b border-r border-border last:border-r-0 p-3"
+                  className="align-top bg-surface-card border-b border-r border-border last:border-r-0 p-3"
                 >
                   <div className="flex flex-col gap-1.5">
                     <span
                       className={cn(
-                        'inline-flex w-fit items-center px-1.5 py-0.5 rounded-sm text-2xs font-bold',
+                        'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-12 font-medium',
                         MOCK_TONE_CLS[c.tone]
                       )}
                     >
                       {c.tag}
                     </span>
-                    <p className="text-xs text-subtle leading-relaxed">
+                    <p className="text-12 text-subtle leading-paragraph">
                       {c.content}
                     </p>
                   </div>
@@ -198,7 +206,7 @@ function FakeStagingTabs() {
         type="button"
         tabIndex={-1}
         aria-hidden="true"
-        className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground ml-1"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-8 text-muted-foreground ml-1"
       >
         <Plus className="size-3" strokeWidth={2.5} />
       </button>
@@ -218,7 +226,7 @@ function FakeStagingTab({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm text-xs font-bold',
+        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 text-12 font-medium',
         active
           ? 'text-foreground border-b-2 border-brand-red'
           : 'text-muted-foreground'
@@ -227,9 +235,9 @@ function FakeStagingTab({
       {label}
       <span
         className={cn(
-          'inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill text-2xs font-bold tabular-nums',
+          'inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill text-12 font-medium tabular-nums',
           active
-            ? 'bg-brand-red text-background'
+            ? 'bg-brand-red text-on-brand'
             : 'bg-surface-2 text-muted-foreground'
         )}
       >
@@ -297,7 +305,7 @@ export function EmptyImportButton() {
         onClick={handleClick}
         disabled={disabled}
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-background text-xs font-bold transition-colors shadow-sm',
+          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-on-brand text-14 font-medium transition-colors',
           'hover:bg-brand-red/90 disabled:opacity-70 disabled:cursor-not-allowed'
         )}
       >

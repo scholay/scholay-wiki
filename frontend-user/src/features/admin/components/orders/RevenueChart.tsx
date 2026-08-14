@@ -9,8 +9,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AlertTriangle } from 'lucide-react';
 import { isTodayBucket, withWeekday } from '@/shared/lib/daily-trend';
 import { compactYuanAxis } from '@/shared/lib/chart-format';
+import { chartTheme } from '@/shared/lib/theme-bridge';
+import { toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
 import type { AdminRevenueDay } from '../../api/orders';
 
@@ -20,12 +23,16 @@ import type { AdminRevenueDay } from '../../api/orders';
  *
  * 头部自带:近 N 天**区间总计**(总营收 + 充值/订阅拆分)+ 7/30/90 天筛选(与整页 days 同一状态,
  * 也驱动上方 KPI 与下方订单表)。今日为进行中 → 一条竖向虚线标注,不当最终值看。
+ *
+ * 🔴 `error` 必须由调用方透传:接口失败时 daily=[],不区分的话图里会写「窗口内还没有已支付订单」——
+ * 那是在肯定地宣称"这段时间零收入",而后端 queryRev 自己都注释着这两者不可分辨。
  */
 
 const DAY_PRESETS = [7, 30, 90];
 
+// 🔴 undefined 一律「—」而不是「¥0」:总计缺失时不能显示成"确实是 0 元"。
 const yuan = (n?: number) =>
-  typeof n === 'number' ? `¥${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '¥0';
+  typeof n === 'number' ? `¥${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—';
 
 function RevenueTooltip(props: {
   active?: boolean;
@@ -37,11 +44,13 @@ function RevenueTooltip(props: {
   const items = payload.filter((p) => Number(p.value) > 0);
   const total = payload.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return (
-    <div className="rounded-md border border-border bg-background px-3 py-2 text-xs shadow-sm">
+    <div className="rounded-12 border border-border bg-surface-card px-3 py-2 text-12 shadow-overlay">
       <div className="mb-1 text-faint">{withWeekday(String(label ?? ''), label)}</div>
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-subtle">
+            {/* 8px 图例色块用 2px 圆角 —— 档位缺口豁免,同 TokenDailyChart,
+                见 tests/design-system-guard.test.ts「禁止 arbitrary 圆角」 */}
             <span className="size-2 rounded-[2px]" style={{ backgroundColor: p.color ?? p.stroke }} />
             {p.name}
           </span>
@@ -62,6 +71,7 @@ export function RevenueChart({
   daily,
   days,
   onDaysChange,
+  error,
   totalRevenue,
   totalRecharge,
   totalSubscription,
@@ -70,6 +80,8 @@ export function RevenueChart({
   daily: AdminRevenueDay[];
   days: number;
   onDaysChange: (d: number) => void;
+  /** 统计接口的 error —— 传了就渲染失败态,而不是「窗口内还没有已支付订单」 */
+  error?: unknown;
   /** 区间总计(后端 totals.revenue / recharge_revenue / subscription_revenue / paid_count) */
   totalRevenue?: number;
   totalRecharge?: number;
@@ -80,21 +92,21 @@ export function RevenueChart({
   const todayBucket = daily.find((d) => isTodayBucket(d.date))?.date;
 
   return (
-    <section className="mb-6 rounded-md border border-border bg-background p-4">
+    <section className="mb-6 rounded-16 border border-border bg-surface-card p-4">
       {/* 头部:标题 + 区间总计 · 右侧 7/30/90 筛选 */}
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-foreground">每日营收 · 趋势</h3>
+          <h3 className="text-14 font-medium text-foreground">每日营收 · 趋势</h3>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <span className="text-lg font-bold tabular-nums text-foreground">{yuan(totalRevenue)}</span>
-            <span className="text-2xs text-faint">近 {days} 天总计</span>
-            <span className="text-2xs tabular-nums text-subtle">
-              订单 {(totalOrders ?? 0).toLocaleString()} 笔
+            <span className="text-16 font-medium tabular-nums text-foreground">{yuan(totalRevenue)}</span>
+            <span className="text-12 text-faint">近 {days} 天总计</span>
+            <span className="text-12 tabular-nums text-subtle">
+              订单 {totalOrders == null ? '—' : totalOrders.toLocaleString()} 笔
             </span>
-            <span className="text-2xs tabular-nums" style={{ color: 'var(--color-brand-green)' }}>
+            <span className="text-12 tabular-nums" style={{ color: 'var(--color-brand-green)' }}>
               充值 {yuan(totalRecharge)}
             </span>
-            <span className="text-2xs tabular-nums" style={{ color: 'var(--color-brand-amber)' }}>
+            <span className="text-12 tabular-nums" style={{ color: 'var(--color-brand-amber)' }}>
               订阅 {yuan(totalSubscription)}
             </span>
           </div>
@@ -106,9 +118,9 @@ export function RevenueChart({
               type="button"
               onClick={() => onDaysChange(d)}
               className={cn(
-                'h-7 rounded-md px-2.5 text-xs font-medium transition-colors',
+                'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 d === days
-                  ? 'bg-foreground text-background'
+                  ? 'bg-foreground text-on-dark'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
               )}
             >
@@ -119,8 +131,14 @@ export function RevenueChart({
       </div>
 
       <div className="h-56">
-        {daily.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-xs text-faint">窗口内还没有已支付订单</div>
+        {error ? (
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-12 text-brand-red">
+            <AlertTriangle className="size-4" />
+            <span>营收趋势加载失败</span>
+            <span className="text-subtle">{toApiError(error).message}</span>
+          </div>
+        ) : daily.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-12 text-faint">窗口内还没有已支付订单</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={daily} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
@@ -134,30 +152,35 @@ export function RevenueChart({
                   <stop offset="100%" stopColor="var(--color-brand-amber)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
-                axisLine={{ stroke: 'var(--color-border)' }}
+                tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
+                axisLine={{ stroke: chartTheme.grid }}
                 tickLine={false}
                 tickFormatter={(d: string) => d.slice(5)}
                 minTickGap={24}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+                tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
                 axisLine={false}
                 tickLine={false}
                 width={44}
                 tickFormatter={compactYuanAxis}
               />
-              <Tooltip content={<RevenueTooltip />} cursor={{ stroke: 'var(--color-border)' }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} iconType="square" iconSize={8} />
+              <Tooltip content={<RevenueTooltip />} cursor={{ stroke: chartTheme.grid }} />
+              <Legend wrapperStyle={{ fontSize: chartTheme.fontSize }} iconType="square" iconSize={8} />
               {todayBucket && (
                 <ReferenceLine
                   x={todayBucket}
                   stroke="var(--color-faint)"
                   strokeDasharray="4 4"
-                  label={{ value: '今日', position: 'insideTopRight', fontSize: 10, fill: 'var(--color-faint)' }}
+                  label={{
+                    value: '今日',
+                    position: 'insideTopRight',
+                    fontSize: chartTheme.fontSize,
+                    fill: 'var(--color-faint)',
+                  }}
                 />
               )}
               <Area

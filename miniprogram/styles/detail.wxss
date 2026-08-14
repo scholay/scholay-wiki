@@ -30,7 +30,7 @@
   display: block;
   margin-top: 16rpx;
   font-size: 26rpx;
-  color: var(--text-subtle, #444);
+  color: var(--text-subtle);
 }
 .badges {
   display: flex;
@@ -42,18 +42,18 @@
   font-size: 22rpx;
   padding: 4rpx 14rpx;
   border-radius: 8rpx;
-  background: #fff;
+  background: var(--card);
   color: var(--text-weak);
 }
 .badge.oa,
 .badge.jcr,
 .badge.if {
-  background: #eaf7ee;
-  color: #2a7a2a;
+  background: var(--green-soft);
+  color: var(--green);
 }
 .badge.warn {
-  background: #fff5f5;
-  color: #cc2222;
+  background: var(--red-soft);
+  color: var(--red);
 }
 .stat-row {
   margin-top: 20rpx;
@@ -67,7 +67,7 @@
 }
 .section {
   margin-top: 40rpx;
-  background: #fff;
+  background: var(--card);
   border-radius: 16rpx;
   padding: 28rpx;
 }
@@ -78,7 +78,7 @@
   margin-bottom: 16rpx;
 }
 .body {
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 1.7;
   color: var(--text);
   white-space: pre-wrap;
@@ -93,7 +93,7 @@
 .metric {
   flex: 1;
   min-width: 30%;
-  background: #fff;
+  background: var(--card);
   border-radius: 12rpx;
   padding: 20rpx 8rpx;
   display: flex;
@@ -121,8 +121,10 @@
   line-height: 1.6;
   color: var(--text);
 }
+/* 链接色 = 品牌松青(与 lib/markdown.ts 的 LINK_STYLE 一致)。
+ * 旧值是 #1a56db —— 那是已退休的 --brand-blue,体系里没有蓝系。 */
 .ref-line.link {
-  color: #1a56db;
+  color: var(--green);
 }
 
 /* 底部 sheet(引用格式等) */
@@ -136,7 +138,7 @@
   justify-content: flex-end;
 }
 .sheet {
-  background: #fff;
+  background: var(--card);
   border-radius: 24rpx 24rpx 0 0;
   padding: 24rpx 24rpx calc(32rpx + env(safe-area-inset-bottom));
   max-height: 76vh;
@@ -163,8 +165,8 @@
   color: var(--text-weak);
 }
 .fmt-tab.on {
-  background: #cc2222;
-  color: #fff;
+  background: var(--red);
+  color: var(--on-brand);
 }
 .cite-text {
   font-size: 26rpx;
@@ -180,16 +182,16 @@
 }
 .sheet-confirm {
   margin-top: 20rpx;
-  background: #cc2222;
-  color: #fff;
+  background: var(--red);
+  color: var(--on-brand);
   border-radius: 16rpx;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 84rpx;
 }
 
 /* AI 译文 */
 .section.trans {
-  border-left: 6rpx solid #2a7a2a;
+  border-left: 6rpx solid var(--green);
 }
 .trans-h {
   display: block;

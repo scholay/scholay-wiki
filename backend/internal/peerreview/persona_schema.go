@@ -62,7 +62,7 @@ const chiefJSONSchemaSpec = `你必须返回严格的 JSON 对象, 不要有任�
   "score": 0-100 综合分 (基于 3 位审稿人加权 + 你的独立判断),
   "recommendation": "小修 | 大修 | 拒稿  (三选一)",
   "ruling_summary": "主审决议一句话概要 (≤60 字, 强, 直接说清结论与最核心理由)",
-  "ruling_paragraph": "详细论述 (Playfair italic 风格的长段落, 300-500 字, 弱, 展开 ruling_summary 的依据与权衡)",
+  "ruling_paragraph": "详细论述 (衬线斜体风格的长段落, 300-500 字, 弱, 展开 ruling_summary 的依据与权衡)",
   "reviewer_responses": [
     {"reviewer": "审稿人 A", "judgment": "全部同意 | 部分同意 | 有所保留", "summary": "对该审稿人意见的一句话概要 (≤50 字, 强)", "body": "详细复审结论 (200-300 字, 弱)"},
     {"reviewer": "审稿人 B", "judgment": "...", "summary": "...", "body": "..."},

@@ -5,11 +5,12 @@ import { MobileBottomSheet } from '@/shared/components/MobileBottomSheet';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
-import { TITLES } from './AuthDialog';
+import { AUTH_TITLES } from './auth-titles';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
+import { InviteAuthNotice } from './InviteAuthNotice';
 
 /**
  * 移动端登录/注册 **底部弹窗**(MobileShell 挂一份,全局 useAuthDialog 驱动)。
@@ -27,7 +28,7 @@ export function MobileAuthSheet() {
   const close = useAuthDialog((s) => s.close);
 
   const visible = open && mode !== 'wechat-qr';
-  const t = mode === 'wechat-qr' ? TITLES.login : TITLES[mode];
+  const t = mode === 'wechat-qr' ? AUTH_TITLES.login : AUTH_TITLES[mode];
 
   // 关闭(点蒙层/Esc/下滑/✕)= 放弃登录 → 清掉待执行动作(与 PC AuthDialog.handleClose 一致);
   // 登录成功是表单自调 close()(token 已在),不会清。
@@ -56,12 +57,12 @@ export function MobileAuthSheet() {
           <X className="size-5" />
         </button>
         <BrandLogo size="md" />
-        <h1 className="mt-1.5 text-lg font-bold text-foreground">{t.title}</h1>
-        <p className="text-xs text-muted-foreground">{t.desc}</p>
+        <h1 className="mt-1.5 text-16 font-medium text-foreground">{t.title}</h1>
+        <p className="text-12 text-muted-foreground">{t.desc}</p>
       </div>
 
       {/* 表单(可滚)+ 第三方;放大触控目标(同整页),仅作用本弹窗。 */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 [&_input]:h-12 [&_input]:rounded-xl [&_input]:text-base [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-xl [&_button[type=submit]]:text-base">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 [&_input]:h-12 [&_input]:rounded-12 [&_input]:text-14 [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-14">
         {mode === 'login' && (
           <LoginForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
         )}
@@ -72,10 +73,11 @@ export function MobileAuthSheet() {
           <ForgotPasswordForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
         )}
 
+        {mode === 'register' && <InviteAuthNotice className="mx-0 mt-5" />}
         <div className="mt-6">
           <div className="relative flex items-center">
             <Separator className="flex-1" />
-            <span className="px-3 text-2xs uppercase tracking-widest text-faint">或继续使用</span>
+            <span className="px-3 text-12 uppercase text-faint">或继续使用</span>
             <Separator className="flex-1" />
           </div>
           <div className="mt-4">

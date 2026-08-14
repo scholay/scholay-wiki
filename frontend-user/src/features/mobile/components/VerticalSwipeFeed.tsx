@@ -149,21 +149,21 @@ export function VerticalSwipeFeed<T>({
         <div className="flex h-full items-center justify-center">
           <CyclingHint
             phrases={loadingHints}
-            className="text-sm text-muted-foreground"
+            className="text-12 text-muted-foreground"
           />
         </div>
       )}
 
       {(empty || (isError && items.length === 0)) && (
         <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-12 text-muted-foreground">
             {isError ? errorText : '暂时没有更多内容,换一批试试'}
           </p>
           <button
             type="button"
             // 空态(非错误)按钮要换 seed 拉新一批;错误态用 onRetry 重试同一批。
             onClick={empty ? (onEmptyRetry ?? onRetry) : onRetry}
-            className="flex items-center gap-1.5 rounded-pill border border-border-button px-4 py-1.5 text-sm text-foreground active:bg-surface-2"
+            className="flex items-center gap-1.5 rounded-pill border border-border-button px-4 py-1.5 text-12 text-foreground active:bg-surface-2"
           >
             <RotateCcw className="size-3.5" />
             {empty && !isError ? '换一批' : '重试'}
@@ -199,12 +199,12 @@ export function VerticalSwipeFeed<T>({
           {swipeHint && selected === 0 && (
             <div
               className={cn(
-                'pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill bg-background/80 px-3 py-1',
+                'pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill bg-surface-card/80 px-3 py-1',
                 swipeHintClassName ?? 'bottom-2.5'
               )}
             >
               <ChevronUp className="size-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{swipeHint}</span>
+              <span className="text-12 text-muted-foreground">{swipeHint}</span>
             </div>
           )}
 

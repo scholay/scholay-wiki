@@ -6,9 +6,9 @@ import { create } from 'zustand';
  *
  * 任何位置成功收藏一篇论文(走 [[useFavoritePaper.onSuccess]])就调一次 pushBurst:
  *   - 当前**至少一个**可见的 [[FavoriteBurst]] sink(`sinkCount > 0`)→ 推进 bursts
- *     队列,sink 渲染从"我的文献集"段头浮起的 "+1" 标签
+ *     队列,sink 渲染从"我的文件夹"段头浮起的 "+1" 标签
  *   - **没有可见 sink** —— 比如详情页(无 sidebar)/ sidebar 收起(anchor 不可见)→
- *     自动 fallback 到 `toast.success('已加入文献集')`,用户始终有反馈
+ *     自动 fallback 到 `toast.success('已加入文件夹')`,用户始终有反馈
  *
  * 可见性约定:[[FavoriteBurst]] 组件在 mount + `useSidebar.expanded === true` 时
  * 调 addSink 注册;反之 removeSink。注销后 sinkCount 归零 → 触发 toast fallback。
@@ -22,7 +22,7 @@ interface FavoriteBurstState {
   /**
    * 触发一次收藏成功反馈。
    * - 有可见 sink → push 进队列,sink 渲染浮起动画
-   * - 无可见 sink → 自动 toast.success('已加入文献集')
+   * - 无可见 sink → 自动 toast.success('已加入文件夹')
    */
   pushBurst: () => void;
   removeBurst: (id: number) => void;
@@ -43,7 +43,7 @@ export const useFavoriteBurst = create<FavoriteBurstState>((set, get) => ({
       set((s) => ({ bursts: [...s.bursts, id] }));
     } else {
       // 无 sink → toast fallback,避免静默成功
-      toast.success('已加入文献集');
+      toast.success('已加入文件夹');
     }
   },
   removeBurst: (id) =>

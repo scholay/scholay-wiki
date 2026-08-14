@@ -13,6 +13,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -76,7 +77,12 @@ func NewService(db *gorm.DB, aiService *ai.Service) *Service {
 	}
 }
 
-// GetConfig gets the WeChat Official Account configuration
+// ErrNotConfigured —— 公众号还没配置过(表里一行都没有)。
+// 与"读库失败"区分开:前者是正常的初始状态(管理员还没填),后者才是故障。
+var ErrNotConfigured = errors.New("公众号尚未配置")
+
+// GetConfig gets the WeChat Official Account configuration.
+// 「从未配置过」返回 (nil, nil) —— 调用方**必须**判 nil,见 repository.GetConfig 的注释。
 func (s *Service) GetConfig() (*WeChatOfficialConfig, error) {
 	return s.repo.GetConfig()
 }
@@ -128,6 +134,10 @@ func (s *Service) GetAccessToken(ctx context.Context) (string, error) {
 	config, err := s.GetConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to get config: %w", err)
+	}
+	// GetConfig 对「从未配置过」返回 (nil, nil) —— 这里必须显式挡,否则下面解引用直接 panic
+	if config == nil {
+		return "", ErrNotConfigured
 	}
 
 	// 8s ctx 兜底 —— 微信 token 接口正常 <500ms, 给 8s 已经非常宽松, 避免
@@ -202,6 +212,10 @@ func (s *Service) GetAIReplyWithImage(ctx context.Context, userMessage string, b
 	config, err := s.GetConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to get config: %w", err)
+	}
+	// 没配置过 = 自动回复当然也没开
+	if config == nil {
+		return "", ErrNotConfigured
 	}
 
 	if !config.AutoReplyEnabled {

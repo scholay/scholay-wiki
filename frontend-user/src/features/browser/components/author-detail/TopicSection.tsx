@@ -32,18 +32,18 @@ export function TopicSection({
     <section className="space-y-3">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <h2 className="font-display font-bold text-xl leading-none text-foreground">
+          <h2 className="font-display font-bold text-20 leading-none text-foreground">
             研究方向
           </h2>
           {topics.length > 0 && (
-            <span className="text-xs text-faint pb-0.5">
+            <span className="text-12 text-faint pb-0.5">
               {topics.length} 个方向
             </span>
           )}
         </div>
       </div>
       {loading && topics.length === 0 ? (
-        <div className="flex items-center gap-2 text-xs text-faint">
+        <div className="flex items-center gap-2 text-12 text-faint">
           <Loader2 className="size-3 animate-spin" />
           统计中…
         </div>
@@ -52,7 +52,7 @@ export function TopicSection({
           {topics.map(([name, count]) => (
             <span
               key={name}
-              className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-pill bg-surface-2 border border-border-soft text-xs"
+              className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-pill bg-surface-2 border border-border-soft text-12"
             >
               <span className="font-medium text-foreground">{name}</span>
               <span className="text-faint tabular-nums">{count}</span>

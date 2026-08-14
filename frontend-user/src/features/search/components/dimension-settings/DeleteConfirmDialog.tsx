@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
+import { Button } from '@/shared/ui';
 import { useApiToast } from '@/shared/hooks';
 import {
   useDeleteUserDimension,
@@ -51,34 +52,32 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
       <DialogContent className="p-0 gap-0 max-w-[360px] w-[360px]">
         <header className="flex items-center gap-2 h-13 px-5 pr-12 border-b border-border-soft">
           <AlertTriangle className="size-4 text-brand-red shrink-0" />
-          <DialogTitle className="text-sm font-bold text-foreground">
+          <DialogTitle className="text-14 font-medium text-foreground">
             {isReset
               ? `重置维度「${target.name}」?`
               : `确认删除维度「${target.name}」?`}
           </DialogTitle>
         </header>
-        <div className="px-5 py-4 text-xs text-subtle leading-relaxed">
+        <div className="px-5 py-4 text-12 text-subtle leading-paragraph">
           {isReset
             ? '将清除你对该维度的自定义(名字 / 提示词 / 是否隐藏),回到系统默认值。已生成的分析结果不会丢失。'
             : '将永久删除该自定义维度。已生成的相关分析结果会保留,但矩阵不再展示该列。'}
         </div>
         <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-7 px-3 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
             取消
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="destructive"
+            size="sm"
             onClick={confirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+            className="gap-1 [&_svg]:size-3"
           >
-            {busy && <Loader2 className="size-3 animate-spin" />}
+            {busy && <Loader2 className="animate-spin" />}
             {isReset ? '确认重置' : '确认删除'}
-          </button>
+          </Button>
         </footer>
       </DialogContent>
       )}

@@ -53,7 +53,7 @@ function RouteErrorRecovery({ error }: { error: unknown }) {
 
   if (reloadPending === null || reloadPending) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+      <div className="flex h-screen flex-col items-center justify-center gap-3 text-14 text-muted-foreground">
         <Loader2 className="size-5 animate-spin text-faint" />
         正在更新到最新版本…
       </div>
@@ -64,8 +64,8 @@ function RouteErrorRecovery({ error }: { error: unknown }) {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
       <AlertTriangle className="size-8 text-brand-amber" strokeWidth={1.5} />
-      <h1 className="text-2xl font-semibold text-foreground">页面加载失败</h1>
-      <p className="max-w-md text-sm text-muted-foreground">
+      <h1 className="text-24 font-medium text-foreground">页面加载失败</h1>
+      <p className="max-w-md text-14 text-muted-foreground">
         {chunkErr
           ? '可能是刚刚发布了新版本。点击刷新即可加载最新内容。'
           : '页面在加载时出了点问题,刷新通常能解决。'}

@@ -52,19 +52,19 @@ export function FigureSvgDisplay({
         <button
           type="button"
           onClick={exportSvg}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-2xs text-subtle hover:bg-surface-2"
+          className="inline-flex items-center gap-1 rounded-8 border border-border bg-surface-card px-2 py-1 text-12 text-subtle hover:bg-surface-2"
         >
           <Download className="h-3 w-3" /> SVG
         </button>
         <button
           type="button"
           onClick={exportPng}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-2xs text-subtle hover:bg-surface-2"
+          className="inline-flex items-center gap-1 rounded-8 border border-border bg-surface-card px-2 py-1 text-12 text-subtle hover:bg-surface-2"
         >
           <Download className="h-3 w-3" /> PNG
         </button>
       </div>
-      <div className="overflow-auto rounded-md border border-border bg-background p-3">
+      <div className="overflow-auto rounded-12 border border-border bg-surface-card p-3">
         <SafeSvg code={svg} className="mx-auto w-full [&>svg]:mx-auto [&>svg]:h-auto [&>svg]:max-w-full" />
       </div>
     </div>

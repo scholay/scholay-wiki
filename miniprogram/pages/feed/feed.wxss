@@ -12,7 +12,7 @@
   justify-content: space-between;
   height: 100rpx;
   padding: 0 28rpx;
-  background: #fff;
+  background: var(--card);
 }
 .top-ic {
   width: 56rpx;
@@ -39,7 +39,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   color: var(--text-faint);
   padding-bottom: 8rpx;
 }
@@ -87,7 +87,7 @@
   padding: 40rpx 40rpx 60rpx;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--card);
 }
 .ident {
   display: flex;
@@ -99,8 +99,8 @@
   width: 56rpx;
   height: 56rpx;
   border-radius: 10rpx;
-  color: #fff;
-  font-size: 30rpx;
+  color: var(--on-brand);
+  font-size: var(--fs-body);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -150,17 +150,17 @@
   color: var(--text-weak);
 }
 .badge.oa {
-  background: #eaf7ee;
-  color: #2a7a2a;
+  background: var(--green-soft);
+  color: var(--green);
 }
 .badge.if,
 .badge.jcr {
-  background: #eaf7ee;
-  color: #2a7a2a;
+  background: var(--green-soft);
+  color: var(--green);
 }
 .badge.warn {
-  background: #fff5f5;
-  color: #cc2222;
+  background: var(--red-soft);
+  color: var(--red);
 }
 .metrics {
   display: flex;
@@ -178,7 +178,7 @@
   gap: 6rpx;
 }
 .mv {
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   font-weight: 700;
 }
 .ml {
@@ -187,7 +187,7 @@
 }
 .abstract {
   margin-top: 28rpx;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 1.6;
   color: var(--text);
   flex: 1;
@@ -210,13 +210,13 @@
   margin-bottom: 16rpx;
 }
 .news-section {
-  color: #cc2222;
+  color: var(--red);
   font-size: 26rpx;
   font-weight: 600;
 }
 .news-featured {
-  background: #cc2222;
-  color: #fff;
+  background: var(--red);
+  color: var(--on-brand);
   font-size: 22rpx;
   padding: 2rpx 12rpx;
   border-radius: 6rpx;
@@ -235,7 +235,7 @@
 }
 .news-summary {
   margin-top: 20rpx;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 1.6;
   color: var(--text);
   flex: 1;
@@ -257,9 +257,9 @@
   color: var(--text-weak);
 }
 .news-heat {
-  color: #cc2222;
+  color: var(--red);
 }
 .news-surge {
-  color: #cc2222;
+  color: var(--red);
   font-weight: 600;
 }

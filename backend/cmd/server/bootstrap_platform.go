@@ -9,7 +9,6 @@
 package main
 
 import (
-
 	"gorm.io/gorm"
 
 	appconfig "scholar-backend/internal/common/config"
@@ -25,7 +24,6 @@ import (
 
 // platformBundle 聚合平台域构造产物。
 type platformBundle struct {
-
 	usageStat        *usagestat.Handler
 	usageStatService *usagestat.Service
 

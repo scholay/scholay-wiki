@@ -23,27 +23,53 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	neturl "net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/httpclient"
 )
 
 const (
 	unpaywallBase = "https://api.unpaywall.org/v2"
-	// Unpaywall 要求带 email(礼貌池,非鉴权)。换成机构真实邮箱可提升稳定性。
-	unpaywallEmail = "support@scholay.com"
 
 	cacheKeyPrefix = "oa:upw:"
 	ttlPositive    = 14 * 24 * time.Hour
 	ttlNegative    = 3 * 24 * time.Hour
 )
 
+// politeEmail 返回 Unpaywall 礼貌池要带的联系邮箱(非鉴权)。
+//
+// 🔴 这里以前是写死的常量。Unpaywall 的限速与封禁是**按 email 维度**做的 ——
+// 多个环境共用同一个邮箱,任何一个环境跑压测把额度打满,被限的是所有环境,
+// 而生产侧只会看到 OA 查询开始失败,归因不到别处。
+//
+// 取值优先 CROSSREF_EMAIL(本就是「对外学术 API 的联系邮箱」这个语义,
+// 且此前全仓无人消费),再回落 SUPPORT_EMAIL。两者都空 → 返回空串,
+// 调用方跳过 email 参数(Unpaywall 会拒绝,等于本环境不提供 OA 查询)——
+// 这比冒用别人的邮箱去消耗别人的额度要好。
+func politeEmail() string {
+	if appconfig.AppConfig == nil {
+		return ""
+	}
+	if v := strings.TrimSpace(appconfig.AppConfig.ExternalServices.CrossrefEmail); v != "" {
+		return v
+	}
+	return strings.TrimSpace(appconfig.AppConfig.ExternalServices.SupportEmail)
+}
+
 // doiPattern 粗校验 DOI 形状,顺带挡住把任意字符串塞进上游 URL。
 var doiPattern = regexp.MustCompile(`^10\.\d{4,9}/\S+$`)
+
+// warnNoPoliteEmailOnce 让「未配置礼貌池邮箱」这条告警每进程只打一次。
+// 不加 Once 的话,它会挂在每一次 cache miss 的 DOI 查询上 —— 论文详情页逐篇探测
+// OA 全文,批量浏览时能把日志刷满,反而淹掉真正的错误。
+var warnNoPoliteEmailOnce sync.Once
 
 // Result 是返回给前端的精简结构。IsOA=false 时其余字段为空。
 type Result struct {
@@ -121,7 +147,20 @@ func Resolve(ctx context.Context, rawDOI string) (*Result, error) {
 
 // fetchUnpaywall 调上游;第二个返回值表示结果是否「确定」(可缓存)。
 func fetchUnpaywall(ctx context.Context, doi string) (*Result, bool) {
-	url := fmt.Sprintf("%s/%s?email=%s", unpaywallBase, doi, unpaywallEmail)
+	email := politeEmail()
+	if email == "" {
+		// 没有可用的联系邮箱 —— 不拿别的环境的身份去打上游。
+		//
+		// 🔴 必须返回非 nil 的 *Result:调用方 Resolve 在 :129 无条件执行 `res.DOI = doi`,
+		// 返回 nil 就是必然的空指针 panic。本函数的其余所有分支(含 :185 的网络失败)
+		// 都返回 &Result{IsOA:false},这里保持一致。
+		// definitive=false ⇒ 不写缓存,配好邮箱后立刻恢复,不需要清缓存。
+		warnNoPoliteEmailOnce.Do(func() {
+			slog.Warn("openaccess: 未配置 CROSSREF_EMAIL / SUPPORT_EMAIL,Unpaywall 查询已跳过(本进程只提示一次)")
+		})
+		return &Result{IsOA: false}, false
+	}
+	url := fmt.Sprintf("%s/%s?email=%s", unpaywallBase, doi, neturl.QueryEscape(email))
 
 	out, err := circuitbreaker.UnpaywallBreaker.Execute(func() (any, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

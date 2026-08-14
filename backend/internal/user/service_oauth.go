@@ -25,9 +25,9 @@ import (
 // 安全设计:
 //   - 首次绑定(user.Email == nil):只需新邮箱的 bind 验证码,证明用户掌控新邮箱
 //   - 换绑场景(user.Email 已存在):需要 *两份* 验证码 ——
-//       1. 新邮箱的 bind code,证明用户控制新邮箱
-//       2. 旧邮箱的 change_email code,证明用户也控制旧邮箱(防止 session 被偷
-//          后攻击者把邮箱改到自己的然后走「忘记密码」夺号)
+//     1. 新邮箱的 bind code,证明用户控制新邮箱
+//     2. 旧邮箱的 change_email code,证明用户也控制旧邮箱(防止 session 被偷
+//     后攻击者把邮箱改到自己的然后走「忘记密码」夺号)
 //
 // oldEmailCode 在首次绑定场景下可以为空。换绑场景必填。
 func (s *Service) BindEmail(ctx context.Context, userID uint, email, code, oldEmailCode string) error {
@@ -259,6 +259,8 @@ func (s *Service) CancelPendingMergeAndCreateUser(ctx context.Context, token, ip
 	_ = cache.DeleteOAuthMerge(ctx, token)
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 	s.SendWelcomeMessage(user.ID)
+	// 邀请归因(best-effort):「新建独立账号」也是新用户;创建非事务,Create 已落库即可归因。
+	notifyInviteRegistered(ctx, user.ID, "oauth_merge")
 
 	jwtToken, err := s.generateTokenForUser(user, "")
 	if err != nil {
@@ -401,7 +403,7 @@ func (s *Service) UnbindDiscourse(userID uint) error {
 // source 为注册来源(仅新建号时写入 register_source):'wechat'=网页扫码 / 'wechat_miniprogram'=小程序。
 // 老用户登录不改动 register_source(注册渠道是历史事实,不随后续登录方式变)。
 func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip, invitationCode, source string) (*User, string, bool, error) {
-	_ = invitationCode // 邀请业务已移除，参数保留以兼容前端传参
+	_ = invitationCode // 旧参数仅兼容；归因真源是 middleware/OAuth state 恢复的 X-Invite-Code ctx。
 
 	// 锁 key 用 unionID(若有,跨 app 同一人)否则 openID。
 	lockKey := "wechat-login:" + unionID
@@ -483,6 +485,16 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 		}
 	}
 
+	// 2026-07 线上审计:微信昵称直接当 username 且无查重 —— 昵称重复(线上实证「神经蛙」/'.'/'???')
+	// 撞 uk_username 唯一键 → Error 1062 → 该昵称的新用户永远注册失败(获客阻断)。
+	// 注册前查重,重复则加时间戳后缀(与本文件 CancelPendingMergeAndCreateUser 的既有去重口径一致)。
+	// 附注('???' 根因排查):DB 连接 DSN(common/database/database.go)与 users.username 列
+	// (0001_baseline.sql)均为 utf8mb4,非本侧连接/列把 emoji 打成 '?';疑为微信接口侧对
+	// emoji/生僻字昵称的降级返回,根因在上游,留档待查。无论根因,查重+1062 重试已兜住撞键。
+	if existing, _ := s.repo.FindByUsername(uname); existing != nil {
+		uname = fmt.Sprintf("%s_%d", uname, time.Now().Unix())
+	}
+
 	// Create user with WeChat info
 	user := &User{
 		Username:       &uname,
@@ -493,7 +505,18 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	}
 
 	if err := s.repo.Create(user); err != nil {
-		return nil, "", false, err
+		// 并发窗口兜底:查重与 Create 之间仍可能被同昵称用户抢注(分布式锁只锁同一 openID,
+		// 不同微信用户同昵称不互斥)。捕获 1062 换随机后缀重试一次(错误形态判断与本文件
+		// FinalizePendingMerge 的既有口径一致:GORM 不暴露 mysql 错误码,用错误字符串兜底)。
+		if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "duplicate key") {
+			retryName := fmt.Sprintf("%s_%04d", uname, utils.SecureRandomIntn(10000))
+			user.Username = &retryName
+			if err2 := s.repo.Create(user); err2 != nil {
+				return nil, "", false, err2
+			}
+		} else {
+			return nil, "", false, err
+		}
 	}
 
 	// Update last login time and IP (registration counts as first login)
@@ -517,7 +540,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	authProvider = &UserAuthProvider{
 		UserID:          user.ID,
 		Provider:        "wechat",
-		ProviderUserID:  openID, // openID 作为主要标识
+		ProviderUserID:  openID,     // openID 作为主要标识
 		ProviderUnionID: unionIDPtr, // UnionID 作为跨应用标识
 		ProviderData:    &providerDataJSON,
 	}
@@ -626,4 +649,3 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 
 	return nil
 }
-

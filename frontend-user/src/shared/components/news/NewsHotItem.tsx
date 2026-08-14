@@ -5,9 +5,9 @@ import { formatHeat, isNewsSurging, type NewsCard } from '@/shared/api/news';
 
 /** 前三名领奖台配色(红/橙/黄),第 4 名起浅灰圆角数字。 */
 function rankClass(rank: number): string {
-  if (rank === 1) return 'bg-brand-red text-white';
-  if (rank === 2) return 'bg-brand-amber text-white';
-  if (rank === 3) return 'bg-brand-green text-white';
+  if (rank === 1) return 'bg-brand-red text-on-brand';
+  if (rank === 2) return 'bg-brand-amber text-foreground';
+  if (rank === 3) return 'bg-brand-green text-on-brand';
   return 'bg-surface-2 text-faint';
 }
 
@@ -24,17 +24,17 @@ export function NewsHotItem({ item, rank }: { item: NewsCard; rank: number }) {
     >
       <span
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-sm text-2xs font-bold',
+          'flex size-5 shrink-0 items-center justify-center rounded-4 text-12 font-medium',
           rankClass(rank),
         )}
       >
         {rank}
       </span>
-      <span className="min-w-0 flex-1 truncate text-xs text-subtle group-hover:text-brand-red">
+      <span className="min-w-0 flex-1 truncate text-12 text-subtle group-hover:text-brand-red">
         {item.title}
       </span>
       {item.heat_external > 0 && (
-        <span className="inline-flex shrink-0 items-center gap-0.5 text-2xs text-faint">
+        <span className="inline-flex shrink-0 items-center gap-0.5 text-12 text-faint">
           {formatHeat(item.heat_external)}
           {surging && <TrendingUp className="size-3 text-brand-red" />}
         </span>

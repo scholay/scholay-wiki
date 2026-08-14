@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * Landing 页路由 —— 功能介绍页统一挂在 /features/<slug> 下。
@@ -17,52 +18,31 @@ import { Navigate, type RouteObject } from 'react-router-dom';
 export const landingRoutes: RouteObject[] = [
   {
     path: 'features',
-    lazy: () =>
-      import('./pages/FeaturesOverviewPage').then((m) => ({
-        Component: m.FeaturesOverviewPage,
-      })),
+    element: lazyRoute(() => import('./pages/FeaturesOverviewPage'), 'FeaturesOverviewPage', { full: true }),
   },
   {
     path: 'features/search',
-    lazy: () =>
-      import('./pages/SearchLandingPage').then((m) => ({
-        Component: m.SearchLandingPage,
-      })),
+    element: lazyRoute(() => import('./pages/SearchLandingPage'), 'SearchLandingPage', { full: true }),
   },
   {
     path: 'features/library',
-    lazy: () =>
-      import('./pages/LibraryLandingPage').then((m) => ({
-        Component: m.LibraryLandingPage,
-      })),
+    element: lazyRoute(() => import('./pages/LibraryLandingPage'), 'LibraryLandingPage', { full: true }),
   },
   {
     path: 'features/prism',
-    lazy: () =>
-      import('./pages/PrismLandingPage').then((m) => ({
-        Component: m.PrismLandingPage,
-      })),
+    element: lazyRoute(() => import('./pages/PrismLandingPage'), 'PrismLandingPage', { full: true }),
   },
   {
     path: 'features/claw',
-    lazy: () =>
-      import('./pages/ClawLandingPage').then((m) => ({
-        Component: m.ClawLandingPage,
-      })),
+    element: lazyRoute(() => import('./pages/ClawLandingPage'), 'ClawLandingPage', { full: true }),
   },
   {
     path: 'features/submit',
-    lazy: () =>
-      import('./pages/SubmitLandingPage').then((m) => ({
-        Component: m.SubmitLandingPage,
-      })),
+    element: lazyRoute(() => import('./pages/SubmitLandingPage'), 'SubmitLandingPage', { full: true }),
   },
   {
     path: 'features/peer-review',
-    lazy: () =>
-      import('./pages/PeerReviewLandingPage').then((m) => ({
-        Component: m.PeerReviewLandingPage,
-      })),
+    element: lazyRoute(() => import('./pages/PeerReviewLandingPage'), 'PeerReviewLandingPage', { full: true }),
   },
   // 旧 SEO 链接 /features/latex-writer → 新统一为 /features/prism
   // 用 React Router 客户端 Navigate(replace=true)做软 301;若需要服务端
@@ -74,9 +54,12 @@ export const landingRoutes: RouteObject[] = [
   // 定价页 —— 旧 /pricing,本次以占位方案补全
   {
     path: 'pricing',
-    lazy: () =>
-      import('./pages/PricingPage').then((m) => ({
-        Component: m.PricingPage,
-      })),
+    element: lazyRoute(() => import('./pages/PricingPage'), 'PricingPage', { full: true }),
+  },
+  // 邀请落地页 /i/:code —— 无 UI 中转(存码 + open 计数 + 立即回首页),
+  // 不需要 LandingLayout;挂在 landing 是因为它同样「公开、不进 AppShell」。
+  {
+    path: 'i/:code',
+    element: lazyRoute(() => import('./pages/InviteLandingPage'), 'InviteLandingPage', { full: true }),
   },
 ];

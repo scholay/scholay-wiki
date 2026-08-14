@@ -16,7 +16,7 @@ interface PageHeaderProps {
 }
 
 /**
- * 业务页面统一标题区 — 文献集 / 投稿 / 设置等顶部 hero 抬头。
+ * 业务页面统一标题区 — 文件夹 / 投稿 / 设置等顶部 hero 抬头。
  * 与 SidebarHeader 不同的是:这里不是 56h 固定,可承载多行 description 和 tabs。
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
@@ -36,14 +36,14 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
           <div className="min-w-0 flex-1">
             <h1
               className={cn(
-                'font-semibold tracking-tight text-foreground truncate',
-                dense ? 'text-lg' : 'text-xl'
+                'font-medium text-foreground truncate',
+                dense ? 'text-16' : 'text-20'
               )}
             >
               {title}
             </h1>
             {description && (
-              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+              <p className="mt-1 text-14 text-muted-foreground">{description}</p>
             )}
           </div>
           {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}

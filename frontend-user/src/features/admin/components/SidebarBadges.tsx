@@ -22,8 +22,8 @@ export function CountBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-pill text-2xs font-bold tabular-nums',
-        tone === 'danger' && 'bg-brand-red text-white',
+        'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-pill text-12 font-medium tabular-nums',
+        tone === 'danger' && 'bg-brand-red text-on-brand',
         tone === 'muted' && 'bg-surface-2 text-faint',
         tone === 'brand' && 'bg-danger-soft text-brand-red'
       )}
@@ -42,8 +42,14 @@ export function CountBadge({
  */
 export function StatusDot({
   tone,
+  /**
+   * 具体是什么事 —— 一个没有 title 的圆点等于让人去每个 tab 里挨个翻。
+   * 必填不是洁癖:这个点唯一的作用就是引导点进去,不说清楚就只是个装饰。
+   */
+  title,
 }: {
   tone: 'warning' | 'danger' | 'success';
+  title: string;
 }) {
   const labels = { warning: '需要注意', danger: '告警', success: '正常' };
   return (
@@ -54,7 +60,8 @@ export function StatusDot({
         tone === 'danger' && 'bg-brand-red',
         tone === 'success' && 'bg-brand-green'
       )}
-      aria-label={labels[tone]}
+      title={title}
+      aria-label={`${labels[tone]}:${title}`}
     />
   );
 }

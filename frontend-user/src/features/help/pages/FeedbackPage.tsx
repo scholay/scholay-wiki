@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { BrandName } from '@/shared/components/BrandName';
 import { Button } from '@/shared/ui/button';
+import { Input, Textarea } from '@/shared/ui';
 import { Dialog, DialogContent } from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
 import { trackEvent } from '@/shared/lib/track';
@@ -122,7 +123,7 @@ export function FeedbackPage() {
       const { data } = await http.post<{
         data: { uploadKey: string; attachments: UploadedAttachment[] };
       }>('/public/feedback/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type' : 'multipart/form-data' },
       });
       setUploadKey(data.data.uploadKey);
       setAttachments((prev) => [...prev, ...(data.data.attachments ?? [])]);
@@ -179,6 +180,8 @@ export function FeedbackPage() {
     setCategory('feature');
   };
 
+  // 表单页:外壳仍是 1440(hero / 面包屑与全站对齐),但表单列**刻意不铺满** ——
+  // 输入框拉到 1000+ 宽会让「标签 → 输入框」的视线距离失控。1024 是表单的舒适上限。
   return (
     <HelpLayout
       breadcrumbs={[{ label: '帮助中心', to: '/help' }, { label: '产品反馈' }]}
@@ -204,11 +207,11 @@ export function FeedbackPage() {
           {/* 左:表单 */}
           <form
             onSubmit={handleSubmit}
-            className="space-y-5 rounded-lg border border-border-soft bg-surface-1 p-6 md:p-8"
+            className="space-y-5 rounded-16 border border-border-soft bg-surface-1 p-6 md:p-8"
           >
             {/* 分类 */}
             <div>
-              <label className="mb-2 block text-xs font-bold text-foreground">反馈类型</label>
+              <label className="mb-2 block text-12 font-medium text-foreground">反馈类型</label>
               <div className="grid grid-cols-3 gap-2">
                 {CATEGORIES.map((c) => {
                   const active = category === c.value;
@@ -220,20 +223,20 @@ export function FeedbackPage() {
                       onClick={() => setCategory(c.value)}
                       aria-pressed={active}
                       className={cn(
-                        'flex flex-col items-center gap-1 rounded-md border px-2 py-2.5 text-center transition-colors',
+                        'flex flex-col items-center gap-1 rounded-8 border px-2 py-2.5 text-center transition-colors',
                         active
                           ? 'border-brand-red/40 bg-danger-soft'
-                          : 'border-border bg-background hover:border-foreground/30 hover:bg-surface-2',
+                          : 'border-border bg-surface-card hover:border-foreground/30 hover:bg-surface-2',
                       )}
                     >
                       <Icon
                         className={cn('size-4', active ? 'text-brand-red' : 'text-subtle')}
                         strokeWidth={2}
                       />
-                      <span className={cn('text-xs font-bold', active ? 'text-foreground' : 'text-subtle')}>
+                      <span className={cn('text-12 font-medium', active ? 'text-foreground' : 'text-subtle')}>
                         {c.label}
                       </span>
-                      <span className="text-2xs text-faint">{c.hint}</span>
+                      <span className="text-12 text-faint">{c.hint}</span>
                     </button>
                   );
                 })}
@@ -242,10 +245,10 @@ export function FeedbackPage() {
 
             {/* 内容 */}
             <div>
-              <label htmlFor="feedback-content" className="mb-2 block text-xs font-bold text-foreground">
+              <label htmlFor="feedback-content" className="mb-2 block text-12 font-medium text-foreground">
                 反馈内容 <span className="text-brand-red">*</span>
               </label>
-              <textarea
+              <Textarea
                 id="feedback-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -255,13 +258,13 @@ export function FeedbackPage() {
                 aria-describedby="feedback-content-hint"
                 placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
                 className={cn(
-                  'w-full resize-y rounded-sm border bg-background px-3 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring/20',
-                  contentTooShort ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-foreground',
+                  'py-2.5 text-14 leading-paragraph',
+                  contentTooShort && 'border-brand-red focus-visible:border-brand-red',
                 )}
               />
               <p
                 id="feedback-content-hint"
-                className={cn('mt-1 text-2xs', contentTooShort ? 'text-brand-red' : 'text-faint')}
+                className={cn('mt-1 text-12', contentTooShort ? 'text-brand-red' : 'text-faint')}
               >
                 {contentTooShort
                   ? `还差 ${MIN_CONTENT - contentLen} 个字(至少 ${MIN_CONTENT} 字)`
@@ -271,21 +274,22 @@ export function FeedbackPage() {
 
             {/* 邮箱 */}
             <div>
-              <label htmlFor="feedback-email" className="mb-2 block text-xs font-bold text-foreground">
+              <label htmlFor="feedback-email" className="mb-2 block text-12 font-medium text-foreground">
                 邮箱 <span className="text-brand-red">*</span>{' '}
                 <span className="font-normal text-faint">(用于回复反馈结果)</span>
               </label>
-              <input
+              <Input
                 id="feedback-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                className="h-10 text-14"
               />
               {user?.email && email.trim() === user.email && (
-                <p className="mt-1 inline-flex items-center gap-1 text-2xs text-brand-green">
+                <p className="mt-1 inline-flex items-center gap-1 text-12 text-brand-green">
                   <CheckCircle2 className="size-3" />
                   已使用你的登录邮箱
                 </p>
@@ -294,7 +298,7 @@ export function FeedbackPage() {
 
             {/* 附件 — 拖拽或点击 */}
             <div>
-              <label className="mb-2 block text-xs font-bold text-foreground">
+              <label className="mb-2 block text-12 font-medium text-foreground">
                 截图 / 文件附件{' '}
                 <span className="font-normal text-faint">
                   (可选 · 图片 ≤10MB×{MAX_IMAGE_COUNT} · 文件 ≤10MB×{MAX_FILE_COUNT} · 总 ≤50MB)
@@ -306,7 +310,7 @@ export function FeedbackPage() {
                   {attachments.map((a) => (
                     <div
                       key={a.id}
-                      className="group relative overflow-hidden rounded-sm border border-border bg-background"
+                      className="group relative overflow-hidden rounded-8 border border-border bg-surface-card"
                     >
                       {a.type === 'image' ? (
                         <button
@@ -318,14 +322,14 @@ export function FeedbackPage() {
                           <img src={a.url} alt={a.name} className="h-20 w-full object-cover" />
                         </button>
                       ) : (
-                        <div className="flex h-20 w-full items-center justify-center p-2 text-center text-2xs text-muted-foreground">
+                        <div className="flex h-20 w-full items-center justify-center p-2 text-center text-12 text-muted-foreground">
                           {a.name}
                         </div>
                       )}
                       <button
                         type="button"
                         onClick={() => removeAttachment(a.id)}
-                        className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-full bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100"
+                        className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-pill bg-foreground/70 text-on-dark opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100"
                         aria-label="移除附件"
                       >
                         <X className="size-3" />
@@ -355,8 +359,8 @@ export function FeedbackPage() {
                   if (attachments.length < MAX_ATTACHMENTS) void handleFiles(e.dataTransfer.files);
                 }}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed py-5 text-center transition-colors',
-                  dragOver ? 'border-brand-green bg-brand-green/5' : 'border-border bg-background',
+                  'flex flex-col items-center justify-center gap-1.5 rounded-12 border border-dashed py-5 text-center transition-colors',
+                  dragOver ? 'border-brand-green bg-brand-green/5' : 'border-border bg-surface-card',
                 )}
               >
                 <Paperclip className="size-4 text-faint" />
@@ -378,7 +382,7 @@ export function FeedbackPage() {
                     '选择文件'
                   )}
                 </Button>
-                <span className="text-2xs text-faint">也可以把文件拖到这里</span>
+                <span className="text-12 text-faint">也可以把文件拖到这里</span>
               </div>
             </div>
 
@@ -413,7 +417,7 @@ export function FeedbackPage() {
       <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>
         <DialogContent className="max-w-3xl">
           {lightbox && (
-            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75vh] w-full rounded-sm object-contain" />
+            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75dvh] w-full rounded-8 object-contain" />
           )}
         </DialogContent>
       </Dialog>
@@ -424,19 +428,19 @@ export function FeedbackPage() {
 /** 「我们承诺」卡(品牌信心区)。 */
 function PromiseCard() {
   return (
-    <section className="rounded-lg border border-border-soft bg-background p-5">
-      <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-foreground">
+    <section className="rounded-12 border border-border-soft bg-surface-card p-5">
+      <h2 className="mb-3 inline-flex items-center gap-2 text-14 font-medium text-foreground">
         <Sparkles className="size-4 text-brand-amber" strokeWidth={2.2} />
         我们承诺
       </h2>
-      <ul className="space-y-2 text-xs leading-relaxed text-subtle">
+      <ul className="space-y-2 text-12 leading-paragraph text-subtle">
         {[
           '每一条反馈都会被产品团队看到',
           '明确的 bug 通常在 1–3 个工作日内修复',
           '功能建议会进入 backlog,采纳后单独邮件告知',
         ].map((t) => (
           <li key={t} className="flex items-start gap-2">
-            <span className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-brand-amber" />
+            <span className="mt-1.5 inline-block size-1 shrink-0 rounded-pill bg-brand-amber" />
             {t}
           </li>
         ))}
@@ -448,12 +452,12 @@ function PromiseCard() {
 /** 提交成功 inline 态 —— 取代静默清空,给明确的完成反馈 + 下一步。 */
 function SuccessPanel({ email, onAgain }: { email: string; onAgain: () => void }) {
   return (
-    <div className="rounded-lg border border-border-soft bg-surface-1 p-8 text-center md:p-12">
-      <span className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-brand-green/10">
+    <div className="rounded-16 border border-border-soft bg-surface-1 p-8 text-center md:p-12">
+      <span className="mx-auto inline-flex size-12 items-center justify-center rounded-pill bg-brand-green/10">
         <CheckCircle2 className="size-6 text-brand-green" strokeWidth={2.2} />
       </span>
-      <h2 className="mt-4 text-lg font-bold text-foreground">感谢你的反馈!</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+      <h2 className="mt-4 text-16 font-medium text-foreground">感谢你的反馈!</h2>
+      <p className="mx-auto mt-2 max-w-md text-12 leading-paragraph text-muted-foreground">
         <BrandName /> 团队会认真看每一条。如有结论,我们会通过{' '}
         {email ? <span className="font-medium text-subtle">{email}</span> : '你填写的邮箱'} 回复你。
       </p>

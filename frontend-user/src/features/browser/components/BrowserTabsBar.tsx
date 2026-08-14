@@ -117,14 +117,17 @@ export function BrowserTabsBar() {
       <button
         type="button"
         onClick={goReturn}
-        className="inline-flex items-center gap-1 h-7 px-2 rounded-sm text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
+        className="inline-flex items-center gap-1 h-7 px-2 rounded-8 text-12 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
         title={activeTab ? `返回 ${activeTab.returnTo}` : '返回'}
       >
         <ArrowLeft className="size-3" />
         返回
       </button>
 
-      <span aria-hidden className="h-[18px] w-px bg-border" />
+      {/* 组间竖线 —— 与顶栏 TopNav / MenuCarousel 同一形制。globals.css 的 `--divider`
+          条目原文就是「Nav/Toolbar 内组间竖线(h-5 w-px)」,这里按它落地:
+          高度从无依据的 `h-[18px]` 归到 h-5,颜色从通用容器色 bg-border 收口到 bg-divider。 */}
+      <span aria-hidden className="h-5 w-px bg-divider" />
 
       <div
         ref={scrollRef}
@@ -147,7 +150,7 @@ export function BrowserTabsBar() {
       <QuickOpenPaperDialog align="end">
         <button
           type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-8 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
           title="新建详情页签"
           aria-label="新建详情页签"
         >
@@ -190,7 +193,7 @@ function TabPill({ tab, active, onClick, onClose }: TabPillProps) {
     tab.kind === 'paper'
       ? 'text-foreground'
       : tab.kind === 'journal'
-        ? 'text-brand-blue'
+        ? 'text-brand-amber'
         : tab.kind === 'author'
           ? 'text-brand-green'
           : 'text-brand-red';
@@ -224,7 +227,7 @@ function TabPill({ tab, active, onClick, onClose }: TabPillProps) {
       />
       <span
         className={cn(
-          'truncate text-sm',
+          'truncate text-12',
           active ? 'font-medium' : 'font-normal'
         )}
         title={label}
@@ -234,7 +237,7 @@ function TabPill({ tab, active, onClick, onClose }: TabPillProps) {
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex h-4 w-4 items-center justify-center rounded-sm shrink-0 text-faint opacity-70 hover:opacity-100 hover:bg-surface-2 hover:text-foreground transition-opacity"
+        className="inline-flex h-4 w-4 items-center justify-center rounded-4 shrink-0 text-faint opacity-70 hover:opacity-100 hover:bg-surface-2 hover:text-foreground transition-opacity"
         aria-label="关闭页签"
         title="关闭(中键也可)"
       >

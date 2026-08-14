@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Download, FileWarning, Loader2 } from 'lucide-react';
 import { http } from '@/shared/lib/http';
 import { MarkdownRenderer } from '@/shared/components/chat';
+import { formatBytes } from '../lib/format';
 
 /**
  * 管理端文件内联预览器 —— 会话监控 / 审稿监控里「用户上传的文件、稿件、引用文档」共用。
@@ -60,6 +61,12 @@ interface State {
   kind?: Kind;
 }
 
+/** 下载进度 —— `total` 只有服务端给了 Content-Length 才有(gzip / chunked 时为 0/undefined)。 */
+interface Progress {
+  loaded: number;
+  total?: number;
+}
+
 export function AdminFileViewer({
   src,
   mime,
@@ -72,13 +79,24 @@ export function AdminFileViewer({
   filename: string;
 }) {
   const [state, setState] = useState<State>({ loading: true });
+  const [progress, setProgress] = useState<Progress | null>(null);
 
   useEffect(() => {
     let objectUrl: string | undefined;
     let cancelled = false;
     setState({ loading: true });
+    setProgress(null);
     http
-      .get(src, { responseType: 'blob' })
+      .get(src, {
+        responseType: 'blob',
+        // 稿件 PDF 常有几十 MB,而这里是**一次性取整份 blob**(端点走 AdminAuthMiddleware,
+        // 不能直接把 URL 丢给 <iframe>)。没有进度时,管理员面对的是一个不动的 spinner,
+        // 分不清"在下载"和"卡死了",于是反复关掉重开 —— 每次重开都从头再拉一遍整份文件。
+        onDownloadProgress: (e) => {
+          if (cancelled) return;
+          setProgress({ loaded: e.loaded ?? 0, total: e.total || undefined });
+        },
+      })
       .then(async (res) => {
         if (cancelled) return;
         const blob = res.data as Blob;
@@ -117,16 +135,35 @@ export function AdminFileViewer({
   const kind = state.kind ?? 'other';
 
   if (state.loading) {
+    // total 未知(gzip / chunked)时退化成"已加载多少",仍然比一个不动的 spinner 强:
+    // 数字在涨 = 链路是活的。
+    const pct =
+      progress && progress.total ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : null;
     return (
-      <div className="flex flex-col items-center gap-2 py-10 text-sm text-faint">
+      <div className="flex flex-col items-center gap-2 py-10 text-12 text-faint">
         <Loader2 className="size-5 animate-spin" />
-        加载文件中…
+        <span className="tabular-nums">
+          加载文件中…{pct != null ? ` ${pct}%` : ''}
+          {progress && progress.loaded > 0 && (
+            <>
+              {' · '}
+              {formatBytes(progress.loaded)}
+              {progress.total ? ` / ${formatBytes(progress.total)}` : ''}
+            </>
+          )}
+        </span>
+        {pct != null && (
+          <div className="h-1 w-40 overflow-hidden rounded-pill bg-surface-2">
+            {/* 动态宽度必须内联(设计约束允许:动态计算的尺寸) */}
+            <div className="h-full rounded-pill bg-brand-green transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        )}
       </div>
     );
   }
   if (state.error || !state.url) {
     return (
-      <div className="flex flex-col items-center gap-1 py-8 text-center text-sm text-brand-red">
+      <div className="flex flex-col items-center gap-1 py-8 text-center text-12 text-brand-red">
         <FileWarning className="size-5" />
         <span>加载失败:{state.error || '文件不可读'}</span>
       </div>
@@ -141,30 +178,30 @@ export function AdminFileViewer({
         <a
           href={state.url}
           download={filename}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground"
         >
           <Download className="size-3.5" /> 下载
         </a>
       </div>
 
       {kind === 'image' && (
-        <img src={state.url} alt={filename} className="mx-auto max-h-[68vh] rounded-md border border-border object-contain" />
+        <img src={state.url} alt={filename} className="mx-auto max-h-[68dvh] rounded-12 border border-border object-contain" />
       )}
       {kind === 'pdf' && (
-        <iframe src={state.url} title={filename} className="h-[68vh] w-full rounded-md border border-border" />
+        <iframe src={state.url} title={filename} className="h-[68dvh] w-full rounded-12 border border-border" />
       )}
       {kind === 'markdown' && (
-        <div className="max-h-[68vh] overflow-auto rounded-md border border-border bg-surface-1 p-3 text-sm text-subtle">
+        <div className="max-h-[68dvh] overflow-auto rounded-12 border border-border bg-surface-1 p-3 text-12 text-subtle">
           <MarkdownRenderer text={state.text ?? ''} />
         </div>
       )}
       {kind === 'text' && (
-        <pre className="max-h-[68vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-surface-1 p-3 text-xs text-subtle">
+        <pre className="max-h-[68dvh] overflow-auto whitespace-pre-wrap break-words rounded-12 border border-border bg-surface-1 p-3 text-12 text-subtle">
           {state.text}
         </pre>
       )}
       {kind === 'other' && (
-        <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-faint">
+        <div className="flex flex-col items-center gap-2 py-8 text-center text-12 text-faint">
           <FileWarning className="size-5" />
           <span>此类型({mime || '未知'})不支持内联预览,请下载查看。</span>
         </div>

@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useQueries, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { STALE_COOL } from '@/shared/lib/query-config';
+import { QUOTA_RECOVERED_EVENT } from '@/shared/lib/quota-events';
 import { useAuthStore } from '@/stores/auth.store';
 import type { Paper } from '@/shared/api/types';
 import { batchLoad } from './paperBatcher';
@@ -19,6 +20,9 @@ import { batchLoad } from './paperBatcher';
  */
 
 const MAX_PAPERS = 100;
+
+/** per-paper 分析缓存的 queryKey 前缀 —— 与下方 useQueries 的 ['analysis','paper',id] 保持一致。 */
+const ANALYSIS_PAPER_PREFIX = ['analysis', 'paper'] as const;
 
 export interface PaperAnalysisItem {
   paperId: string;
@@ -39,10 +43,31 @@ export interface MatrixAnalysisResult {
   /** 任意行 fetching —— 适合右上角小转圈 */
   isFetching: boolean;
   error?: Error;
+  /** 只重跑**失败态**的分析行(额度恢复后的手动「重试」);成功缓存原样保留,不闪不重算。 */
+  retryFailed: () => void;
+}
+
+/** 失效所有 error 态的 per-paper 分析 query(成功缓存不动)。active 的会立即重新 fetch。 */
+function invalidateFailedAnalysis(qc: QueryClient) {
+  void qc.invalidateQueries({
+    queryKey: ANALYSIS_PAPER_PREFIX,
+    predicate: (q) => q.state.status === 'error',
+  });
 }
 
 export function useMatrixAnalysis(papers: Paper[]): MatrixAnalysisResult {
   const token = useAuthStore((s) => s.token);
+  const qc = useQueryClient();
+
+  // 额度恢复(重置次数 / 升级套餐 / 开「用经费继续」→ QuotaNotifier 广播 QUOTA_RECOVERED_EVENT)
+  // → 自动把此前因 6010 等失败的分析行标失效重跑;成功行的缓存不受影响。
+  useEffect(() => {
+    const onRecovered = () => invalidateFailedAnalysis(qc);
+    window.addEventListener(QUOTA_RECOVERED_EVENT, onRecovered);
+    return () => window.removeEventListener(QUOTA_RECOVERED_EVENT, onRecovered);
+  }, [qc]);
+
+  const retryFailed = useCallback(() => invalidateFailedAnalysis(qc), [qc]);
 
   const { usable, skipped } = useMemo(() => {
     const usable: Paper[] = [];
@@ -94,6 +119,7 @@ export function useMatrixAnalysis(papers: Paper[]): MatrixAnalysisResult {
       isLoading: queries.some((q) => q.isLoading),
       isFetching: queries.some((q) => q.isFetching),
       error: firstErr,
+      retryFailed,
     };
-  }, [queries, usable, skipped]);
+  }, [queries, usable, skipped, retryFailed]);
 }

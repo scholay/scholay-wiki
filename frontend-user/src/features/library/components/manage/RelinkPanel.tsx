@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Check, Link2, Loader2, RotateCcw, Search } from 'lucide-react';
+import { Check, Link2, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { useApiToast, useDebounce } from '@/shared/hooks';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { useRelinkPaper, useRelinkSearch } from '../../api/relink';
 import { hasLocalOverride } from '@/shared/lib/pick-field';
 import { hitToConfirmLink, keyOfHit, sourceBrandLabel } from '../../lib/resolve-paper';
@@ -126,26 +127,26 @@ export function RelinkPanel({
       {/* 当前关联卡 —— linked 行先让用户看到"现在关联的是哪篇",再谈替换 */}
       {isLinked && (
         <div className="px-6 pt-4 shrink-0">
-          <div className="flex items-start gap-3 rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0 mt-0.5">
+          <div className="flex items-start gap-3 rounded-12 border border-border-soft bg-surface-1 px-4 py-2.5">
+            <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0 mt-0.5">
               <Link2 className="size-3.5 text-brand-amber" strokeWidth={2.25} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-2xs font-bold text-faint uppercase tracking-wide">
+                <span className="text-12 font-medium text-faint uppercase">
                   当前关联
                 </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase tracking-wide">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-12 font-medium leading-none uppercase">
                   {sourceBrandLabel(paper.source)}
                 </span>
               </div>
               <div
-                className="mt-0.5 text-sm font-semibold text-foreground line-clamp-1"
+                className="mt-0.5 text-14 font-medium text-foreground line-clamp-1"
                 title={paper.title || undefined}
               >
                 {paper.title || '(无标题)'}
               </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-faint">
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-12 text-faint">
                 {paper.venue && <span>{paper.venue}</span>}
                 {paper.year ? (
                   <>
@@ -170,42 +171,57 @@ export function RelinkPanel({
 
       {/* 搜索条 */}
       <div className="px-6 pt-4 pb-3 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 flex-1 h-10 px-3 rounded-md border border-border bg-background focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
+        {/* 🔴 2026-07-27 修:这里原本是普通 <div> —— 既不在 form 内、input 也没有 onKeyDown,
+            **回车完全无效**。全站 23 个检索框里唯一一个敲完关键词按回车毫无反应的,
+            用户只会认为「搜不出来」而不是「按错键了」。改成 form 后回车与点按同一条路径。 */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (searchQ.isFetching) return; // 与按钮的 disabled 对齐,防回车连击重复请求
+            setQueryOverride((q) => q ?? searchQ.data?.used_title ?? '');
+            void searchQ.refetch();
+          }}
+          className="flex items-center gap-2"
+        >
+          {/* 规格走 SEARCH_FIELD_SHELL(Figma §4.5)。修前 h-10(40)/ rounded-8 /
+              border-border(ink@12%),且焦点是**第四套**语言 —— 琥珀边 + ring-brand-amber/20
+              (那个 /20 的环对纯白只有 1.1:1,基本看不见)。一并收敛到朱砂 outline。 */}
+          <div className={cn('flex items-center gap-2 flex-1 px-3', SEARCH_FIELD_SHELL)}>
             <Search className="size-3.5 text-muted-foreground shrink-0" />
+            {/* outline-none 合法:焦点可供性由外层容器的 SEARCH_FIELD_FOCUS(朱砂 outline)提供 */}
             <input
-              type="text"
+              type="search"
+              enterKeyHint="search"
               value={queryText}
               onChange={(e) => setQueryOverride(e.target.value)}
               placeholder="标题 · DOI · 关键词"
-              className="flex-1 min-w-0 h-full bg-transparent text-sm text-foreground outline-none placeholder:text-faint"
+              className="flex-1 min-w-0 h-full bg-transparent text-14 text-foreground outline-none placeholder:text-faint"
             />
             {paper.doi && (
-              <span className="text-2xs text-faint font-mono whitespace-nowrap shrink-0">
+              <span className="text-12 text-faint font-mono whitespace-nowrap shrink-0">
                 DOI: {paper.doi}
               </span>
             )}
           </div>
           <button
-            type="button"
-            onClick={() => {
-              setQueryOverride((q) => q ?? searchQ.data?.used_title ?? '');
-              searchQ.refetch();
-            }}
+            type="submit"
             disabled={searchQ.isFetching}
             className={cn(
-              'inline-flex items-center gap-1.5 h-10 px-3 rounded-md border border-brand-amber text-brand-amber text-sm font-bold',
+              // h-control-xl(44):同排搜索框随 §4.5 从 40 升到 44,提交钮跟着抬平(修前同为 40)。
+              'inline-flex items-center gap-1.5 h-control-xl px-3 rounded-8 border border-brand-amber text-brand-amber text-14 font-medium',
               'hover:bg-warning-soft disabled:opacity-60 transition-colors'
             )}
           >
             {searchQ.isFetching ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
-              <RotateCcw className="size-3.5" />
+              /* 原为 RotateCcw(旋转箭头)—— 它是本框唯一的提交入口,而旋转箭头的通用语义是
+                 「重置 / 撤销」,首次使用极易被读成会清空已填内容而不敢点。改用放大镜。 */
+              <Search className="size-3.5" />
             )}
             重新检索
           </button>
-        </div>
+        </form>
       </div>
 
       {/* 结果 list */}

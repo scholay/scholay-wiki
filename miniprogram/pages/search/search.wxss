@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   z-index: 10;
-  background: #fff;
+  background: var(--card);
   border-bottom: 1rpx solid var(--border);
   padding: 16rpx 24rpx;
 }
@@ -19,11 +19,11 @@
   background: var(--bg);
   border-radius: 36rpx;
   padding: 0 28rpx;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
 }
 .search-go {
-  color: #cc2222;
-  font-size: 30rpx;
+  color: var(--red);
+  font-size: var(--fs-body);
   padding: 0 8rpx;
 }
 .search-body {
@@ -42,8 +42,8 @@
 }
 .fbadge {
   margin-left: 8rpx;
-  background: #cc2222;
-  color: #fff;
+  background: var(--red);
+  color: var(--on-brand);
   border-radius: 16rpx;
   padding: 0 10rpx;
   font-size: 22rpx;
@@ -58,7 +58,7 @@
   justify-content: flex-end;
 }
 .fsheet {
-  background: #fff;
+  background: var(--card);
   border-radius: 24rpx 24rpx 0 0;
   max-height: 82vh;
   display: flex;
@@ -98,8 +98,8 @@
   color: var(--text-weak);
 }
 .fchip.on {
-  background: #cc2222;
-  color: #fff;
+  background: var(--red);
+  color: var(--on-brand);
 }
 .fnote {
   color: var(--text-weak);
@@ -117,14 +117,14 @@
   padding: 0 32rpx;
   line-height: 80rpx;
   color: var(--text-weak);
-  font-size: 30rpx;
+  font-size: var(--fs-body);
 }
 .fapply {
   flex: 1;
-  background: #cc2222;
-  color: #fff;
+  background: var(--red);
+  color: var(--on-brand);
   border-radius: 16rpx;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 80rpx;
 }
 .state {
@@ -175,8 +175,8 @@
   color: var(--text-weak);
 }
 .badge.oa {
-  background: #eaf7ee;
-  color: #2a7a2a;
+  background: var(--green-soft);
+  color: var(--green);
 }
 .jrow {
   display: flex;
@@ -186,7 +186,7 @@
   width: 80rpx;
   height: 80rpx;
   border-radius: 12rpx;
-  color: #fff;
+  color: var(--on-brand);
   font-size: 36rpx;
   font-weight: 700;
   display: flex;

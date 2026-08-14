@@ -12,49 +12,56 @@ import "time"
 
 // Tool 工具主记录。
 type Tool struct {
-	ID               uint64       `gorm:"primaryKey" json:"id"`
-	Slug             string       `gorm:"column:slug" json:"slug"`
-	SourceTopicID    *int64       `gorm:"column:source_topic_id" json:"source_topic_id,omitempty"`
-	SourceURL        string       `gorm:"column:source_url" json:"source_url,omitempty"`
-	SourceCategoryID *int         `gorm:"column:source_category_id" json:"source_category_id,omitempty"`
-	Name             string       `gorm:"column:name" json:"name"`
-	NameEn           string       `gorm:"column:name_en" json:"name_en,omitempty"`
-	Aliases          []string     `gorm:"column:aliases;serializer:json" json:"aliases"`
-	Logo             string       `gorm:"column:logo" json:"logo,omitempty"`
-	Tagline          string       `gorm:"column:tagline" json:"tagline,omitempty"`
-	DescriptionMD    string       `gorm:"column:description_md" json:"description_md,omitempty"`
-	Category         string       `gorm:"column:category" json:"category"`
-	CategoryLabel    string       `gorm:"column:category_label" json:"category_label,omitempty"`
-	Tags             []string     `gorm:"column:tags;serializer:json" json:"tags"`
-	PriceType        string       `gorm:"column:price_type" json:"price_type"`
-	IsOpenSource     *bool        `gorm:"column:is_open_source" json:"is_open_source,omitempty"`
-	Languages        []string     `gorm:"column:languages;serializer:json" json:"languages"`
-	Platforms        []string     `gorm:"column:platforms;serializer:json" json:"platforms"`
-	AccessType       string       `gorm:"column:access_type" json:"access_type"`
-	OfficialURL      string       `gorm:"column:official_url" json:"official_url,omitempty"`
-	Access           *Access      `gorm:"column:access;serializer:json" json:"access,omitempty"`
-	Spec             *Spec        `gorm:"column:spec;serializer:json" json:"spec,omitempty"`
-	FAQ              []QA         `gorm:"column:faq;serializer:json" json:"faq"`
-	Disclaimer       string       `gorm:"column:disclaimer" json:"disclaimer,omitempty"`
-	UseCases         []UseCase    `gorm:"column:use_cases;serializer:json" json:"use_cases"`
-	Vendor           *Vendor      `gorm:"column:vendor;serializer:json" json:"vendor,omitempty"`
-	FoundedYear      *int         `gorm:"column:founded_year" json:"founded_year,omitempty"`
-	Country          string       `gorm:"column:country" json:"country,omitempty"`
-	Pricing          []PriceTier  `gorm:"column:pricing;serializer:json" json:"pricing"`
-	FreeTrial        string       `gorm:"column:free_trial" json:"free_trial,omitempty"`
+	ID               uint64        `gorm:"primaryKey" json:"id"`
+	Slug             string        `gorm:"column:slug" json:"slug"`
+	SourceTopicID    *int64        `gorm:"column:source_topic_id" json:"source_topic_id,omitempty"`
+	SourceURL        string        `gorm:"column:source_url" json:"source_url,omitempty"`
+	SourceCategoryID *int          `gorm:"column:source_category_id" json:"source_category_id,omitempty"`
+	Name             string        `gorm:"column:name" json:"name"`
+	NameEn           string        `gorm:"column:name_en" json:"name_en,omitempty"`
+	Aliases          []string      `gorm:"column:aliases;serializer:json" json:"aliases"`
+	Logo             string        `gorm:"column:logo" json:"logo,omitempty"`
+	Tagline          string        `gorm:"column:tagline" json:"tagline,omitempty"`
+	DescriptionMD    string        `gorm:"column:description_md" json:"description_md,omitempty"`
+	Category         string        `gorm:"column:category" json:"category"`
+	CategoryLabel    string        `gorm:"column:category_label" json:"category_label,omitempty"`
+	Tags             []string      `gorm:"column:tags;serializer:json" json:"tags"`
+	PriceType        string        `gorm:"column:price_type" json:"price_type"`
+	IsOpenSource     *bool         `gorm:"column:is_open_source" json:"is_open_source,omitempty"`
+	Languages        []string      `gorm:"column:languages;serializer:json" json:"languages"`
+	Platforms        []string      `gorm:"column:platforms;serializer:json" json:"platforms"`
+	AccessType       string        `gorm:"column:access_type" json:"access_type"`
+	OfficialURL      string        `gorm:"column:official_url" json:"official_url,omitempty"`
+	Access           *Access       `gorm:"column:access;serializer:json" json:"access,omitempty"`
+	Spec             *Spec         `gorm:"column:spec;serializer:json" json:"spec,omitempty"`
+	FAQ              []QA          `gorm:"column:faq;serializer:json" json:"faq"`
+	Disclaimer       string        `gorm:"column:disclaimer" json:"disclaimer,omitempty"`
+	UseCases         []UseCase     `gorm:"column:use_cases;serializer:json" json:"use_cases"`
+	Vendor           *Vendor       `gorm:"column:vendor;serializer:json" json:"vendor,omitempty"`
+	FoundedYear      *int          `gorm:"column:founded_year" json:"founded_year,omitempty"`
+	Country          string        `gorm:"column:country" json:"country,omitempty"`
+	Pricing          []PriceTier   `gorm:"column:pricing;serializer:json" json:"pricing"`
+	FreeTrial        string        `gorm:"column:free_trial" json:"free_trial,omitempty"`
 	Alternatives     []Alternative `gorm:"column:alternatives;serializer:json" json:"alternatives"`
-	Tutorials        []Tutorial   `gorm:"column:tutorials;serializer:json" json:"tutorials"`
-	Stats            *Stats       `gorm:"column:stats;serializer:json" json:"stats,omitempty"`
-	Reviews          []Review     `gorm:"column:reviews;serializer:json" json:"reviews"`
-	Status           string       `gorm:"column:status" json:"status"`
-	SortWeight       int          `gorm:"column:sort_weight" json:"sort_weight"`
-	ViewCount        int64        `gorm:"column:view_count" json:"view_count"`
-	FavoriteCount    int64        `gorm:"column:favorite_count" json:"favorite_count"`
-	DataQuality      *DataQuality `gorm:"column:data_quality;serializer:json" json:"data_quality,omitempty"`
-	CreatedBy        *uint        `gorm:"column:created_by" json:"created_by,omitempty"`
-	CreatedAt        time.Time    `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt        time.Time    `gorm:"column:updated_at" json:"updated_at"`
-	PublishedAt      *time.Time   `gorm:"column:published_at" json:"published_at,omitempty"`
+	Tutorials        []Tutorial    `gorm:"column:tutorials;serializer:json" json:"tutorials"`
+	Stats            *Stats        `gorm:"column:stats;serializer:json" json:"stats,omitempty"`
+	Reviews          []Review      `gorm:"column:reviews;serializer:json" json:"reviews"`
+	Status           string        `gorm:"column:status" json:"status"`
+	// Product publication and search-engine eligibility are deliberately separate.
+	// Bulk imports must never become indexable without an explicit editorial review.
+	SEOIndexable bool `gorm:"column:seo_indexable" json:"seo_indexable"`
+	// Audit identities stay server-side. Public list/detail responses only need
+	// seo_indexable and must not expose an internal administrator user id.
+	SEOReviewedAt *time.Time   `gorm:"column:seo_reviewed_at" json:"-"`
+	SEOReviewedBy *uint        `gorm:"column:seo_reviewed_by" json:"-"`
+	SortWeight    int          `gorm:"column:sort_weight" json:"sort_weight"`
+	ViewCount     int64        `gorm:"column:view_count" json:"view_count"`
+	FavoriteCount int64        `gorm:"column:favorite_count" json:"favorite_count"`
+	DataQuality   *DataQuality `gorm:"column:data_quality;serializer:json" json:"data_quality,omitempty"`
+	CreatedBy     *uint        `gorm:"column:created_by" json:"created_by,omitempty"`
+	CreatedAt     time.Time    `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt     time.Time    `gorm:"column:updated_at" json:"updated_at"`
+	PublishedAt   *time.Time   `gorm:"column:published_at" json:"published_at,omitempty"`
 }
 
 func (Tool) TableName() string { return "feature_tools" }

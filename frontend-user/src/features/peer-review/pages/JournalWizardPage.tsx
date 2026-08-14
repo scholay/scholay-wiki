@@ -13,10 +13,11 @@ import { FinalReviewStep } from '../components/wizard/FinalReviewStep';
 import { ManuscriptMetaForm, type ManuscriptMeta } from '../components/wizard/ManuscriptMetaForm';
 import { RightRailPanel } from '../components/wizard/RightRailPanel';
 import { Step4Rail } from '../components/wizard/Step4Rail';
+import { SubmitQuotaHint } from '../components/wizard/SubmitQuotaHint';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
-import { http } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
 import {
+  isQuotaHandled,
   useAdvanceStep,
   useCreateSubmission,
   useDeleteAsset,
@@ -27,11 +28,11 @@ import {
   useSubmissionAssets,
   useSubmitSubmission,
   useUploadAsset,
+  uploadSubmissionAsset,
   type UploadAssetParams,
 } from '../api/submissions';
-import { unwrap } from '../api/_unwrap';
 import { extractPartialMeta, useStreamingPartial } from '../api/stream';
-import type { ExtraMeta, JournalTarget, SubmissionAsset, WizardStep } from '../types';
+import type { ExtraMeta, JournalTarget, WizardStep } from '@/shared/lib/peer-review/types';
 
 const SUBKEY = (...rest: (string | number)[]) =>
   ['peer-review', 'submissions', ...rest] as const;
@@ -50,7 +51,8 @@ const TIPS: Record<WizardStep, { title: string; bullets: string[] }> = {
       '点击下一步,AI 会自动识别标题、摘要、关键词',
       '正文推荐 .docx 或 PDF · 图表、数据、投稿信草稿放到「附件」',
       '保护双盲评审:请提前脱敏作者姓名、单位、基金号',
-      '稿件 ≤ 200 MB · 附件最多 10 个 · 单个附件 ≤ 200 MB',
+      // 与 UploadStep 的 MAIN_MAX/ATT_MAX(后端 MaxManuscriptBytes/MaxAttachmentBytes)保持一致
+      '稿件 ≤ 50 MB · 附件最多 10 个 · 单个附件 ≤ 30 MB',
     ],
   },
   2: {
@@ -150,19 +152,12 @@ export function JournalWizardPage() {
   //   3. 路由 ?id=N 让 wizard 后续走标准路径
   //
   // 用单个 mutation 包住,前端 loading 状态完整覆盖整段流程。
+  const [lazyProgress, setLazyProgress] = useState<number | null>(null);
   const lazyUploadMut = useMutation({
     mutationFn: async (params: UploadAssetParams) => {
       const draft = await createMut.mutateAsync('journal');
-      const fd = new FormData();
-      fd.append('file', params.file);
-      fd.append('role', params.role);
-      if (params.category) fd.append('category', params.category);
-      const r = await http.post<{ data?: SubmissionAsset } & Partial<SubmissionAsset>>(
-        `/user/peer-review/submissions/${draft.id}/assets`,
-        fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
-      const asset = unwrap<SubmissionAsset>(r.data);
+      setLazyProgress(0);
+      const asset = await uploadSubmissionAsset(draft.id, params, setLazyProgress);
       // 让后续 useSubmission / useSubmissionAssets / latestDraft 都看到新数据
       qc.invalidateQueries({ queryKey: SUBKEY('detail', draft.id) });
       qc.invalidateQueries({ queryKey: SUBKEY('assets', draft.id) });
@@ -170,6 +165,7 @@ export function JournalWizardPage() {
       setParams({ id: String(draft.id), step: '1' }, { replace: true });
       return asset;
     },
+    onSettled: () => setLazyProgress(null),
     onError: (e) => toast.error(`上传失败:${(e as Error).message}`),
   });
 
@@ -284,6 +280,7 @@ export function JournalWizardPage() {
     return (
       <EmptyJournalWizard
         uploadPending={lazyUploadMut.isPending || createMut.isPending}
+        uploadProgress={lazyProgress}
         onUpload={(p) => lazyUploadMut.mutate(p)}
       />
     );
@@ -343,7 +340,11 @@ export function JournalWizardPage() {
           trackEvent('review_submit', { kind: 'journal' });
           navigate(`/peer-review/submitted/${s.id}`);
         },
-        onError: (e) => toast.error(`投递失败:${(e as Error).message}`),
+        // 6010 已由全局 QuotaNotifier 弹「额度耗尽」弹窗 —— 跳过本地 toast,避免双通知。
+        onError: (e) => {
+          if (isQuotaHandled(e)) return;
+          toast.error(`投递失败:${(e as Error).message}`);
+        },
       });
       return;
     }
@@ -353,7 +354,11 @@ export function JournalWizardPage() {
       onSuccess: (s) => {
         setParams({ id: String(id), step: String(s.step) }, { replace: true });
       },
-      onError: (e) => toast.error((e as Error).message || '前进失败,请稍后重试'),
+      // 同上:额度类失败弹窗已接管,不再叠 toast。
+      onError: (e) => {
+        if (isQuotaHandled(e)) return;
+        toast.error((e as Error).message || '前进失败,请稍后重试');
+      },
     });
   }
 
@@ -419,6 +424,7 @@ export function JournalWizardPage() {
       onJump={jumpTo}
       onCancel={submission.status === 'draft' ? cancelDraft : undefined}
       cancelLoading={deleteMut.isPending}
+      ctaHint={step === 4 ? <SubmitQuotaHint /> : undefined}
       rightPane={
         step === 4 ? (
           <Step4Rail
@@ -438,6 +444,7 @@ export function JournalWizardPage() {
         <UploadStep
           assets={assets}
           uploadPending={uploadMut.isPending}
+          uploadProgress={uploadMut.uploadProgress}
           onUpload={(p) => uploadMut.mutate(p)}
           deletePending={deleteAssetMut.isPending}
           onDelete={(aid) =>
@@ -515,14 +522,17 @@ export function JournalWizardPage() {
   );
 }
 
-// 右栏 step ≥ 2 显示的"已选期刊" mini 卡(.pen `jMiniJS2`)
+// 右栏 step ≥ 2 显示的"已选期刊" mini 卡(原注 .pen `jMiniJS2`,该真源已作废)。
+// border-l-[3px]:左侧强调边线,对应 globals.css §十一 的 --rule-accent(3px)——
+// Figma 描边集合只有 1 / 1.5px,3px 强调条是代码内生共识;该 token 未注册进 Tailwind
+// 命名空间,故只能写 arbitrary,值以 --rule-accent 为准。
 function SelectedJournalMini({ target }: { target: JournalTarget }) {
   return (
-    <section className="rounded-lg border border-brand-red border-l-[3px] bg-background p-4">
-      <p className="text-xs font-bold text-brand-red">已选期刊</p>
-      <h3 className="mt-1 text-sm font-bold text-foreground">{target.canonicalName}</h3>
+    <section className="rounded-16 border border-brand-red border-l-[3px] bg-surface-card p-4">
+      <p className="text-12 font-medium text-brand-red">已选期刊</p>
+      <h3 className="mt-1 text-14 font-medium text-foreground">{target.canonicalName}</h3>
       {(target.jcrImpactFactor != null || target.jcrQuartile) && (
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-12 text-muted-foreground">
           {target.jcrImpactFactor != null && `IF ${target.jcrImpactFactor.toFixed(2)}`}
           {target.jcrQuartile && ` · ${target.jcrQuartile}`}
         </p>
@@ -533,16 +543,16 @@ function SelectedJournalMini({ target }: { target: JournalTarget }) {
 
 function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-danger-soft p-4">
+    <div className="flex items-start gap-3 rounded-16 border border-destructive/40 bg-danger-soft p-4">
       <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-destructive">AI 暂时无响应</p>
-        <p className="mt-1 break-words text-xs text-muted-foreground">{error || '生成失败,请稍后重试'}</p>
+        <p className="text-12 font-medium text-destructive">AI 暂时无响应</p>
+        <p className="mt-1 break-words text-12 text-muted-foreground">{error || '生成失败,请稍后重试'}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="shrink-0 rounded-md border border-destructive/40 px-3 py-1 text-xs font-bold text-destructive hover:bg-destructive hover:text-background"
+        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-12 font-medium text-destructive hover:bg-destructive hover:text-on-brand"
       >
         重新生成
       </button>
@@ -573,9 +583,11 @@ function arrEq(a?: string[], b?: string[]) {
  */
 function EmptyJournalWizard({
   uploadPending,
+  uploadProgress,
   onUpload,
 }: {
   uploadPending: boolean;
+  uploadProgress?: number | null;
   onUpload: (p: UploadAssetParams) => void;
 }) {
   return (
@@ -588,6 +600,7 @@ function EmptyJournalWizard({
       <UploadStep
         assets={[]}
         uploadPending={uploadPending}
+        uploadProgress={uploadProgress}
         onUpload={onUpload}
         deletePending={false}
         onDelete={() => {}}

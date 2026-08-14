@@ -1,7 +1,7 @@
 /**
  * 「引用文献」选择器用的只读浏览 hooks —— 文件夹列表 + 文件夹内论文。
  *
- * 直接打文献集后端接口(/user/library/folders、/user/library?folder=),但**不 import
+ * 直接打文件夹后端接口(/user/library/folders、/user/library?folder=),但**不 import
  * features/library**(跨 feature 禁止):自有 queryKey,类型走 @/shared/api/types。
  * 2026-07 输入框统一:从 features/claw/api 上提 shared(三 agent feature 的引用选择器共用)。
  */
@@ -58,7 +58,7 @@ export function useLibraryBrowsePapers(
   });
 }
 
-/** 文献集论文的有效展示字段(og 覆盖 online)—— 与后端 references.go 的 pick 逻辑一致。 */
+/** 文件夹内论文的有效展示字段(og 覆盖 online)—— 与后端 references.go 的 pick 逻辑一致。 */
 export function effectivePaperTitle(p: UserLibraryPaper): string {
   return (p.og_title?.trim() || p.title?.trim() || '(无标题)');
 }

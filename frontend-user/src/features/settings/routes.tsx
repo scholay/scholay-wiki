@@ -1,4 +1,5 @@
 import { Navigate, redirect, type RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 账号设置 3 个子路由,统一挂在 /settings 下,共享 SettingsLayout(左侧 nav)。
@@ -25,31 +26,28 @@ export const settingsRoutes: RouteObject[] = [
   {
     path: 'settings',
     loader: ensureAuthed,
-    lazy: () =>
-      import('./pages/SettingsLayout').then((m) => ({ Component: m.SettingsLayout })),
+    element: lazyRoute(() => import('./pages/SettingsLayout'), 'SettingsLayout'),
     children: [
       { index: true, element: <Navigate to="profile" replace /> },
       {
         path: 'profile',
-        lazy: () =>
-          import('./pages/ProfilePage').then((m) => ({ Component: m.ProfilePage })),
+        element: lazyRoute(() => import('./pages/ProfilePage'), 'ProfilePage'),
       },
       {
         path: 'membership',
-        lazy: () =>
-          import('./pages/MembershipPage').then((m) => ({ Component: m.MembershipPage })),
+        element: lazyRoute(() => import('./pages/MembershipPage'), 'MembershipPage'),
+      },
+      {
+        path: 'invite',
+        element: lazyRoute(() => import('./pages/InvitePage'), 'InvitePage'),
       },
       {
         path: 'security',
-        lazy: () =>
-          import('./pages/SecurityPage').then((m) => ({ Component: m.SecurityPage })),
+        element: lazyRoute(() => import('./pages/SecurityPage'), 'SecurityPage'),
       },
       {
         path: 'connections',
-        lazy: () =>
-          import('./pages/ConnectionsPage').then((m) => ({
-            Component: m.ConnectionsPage,
-          })),
+        element: lazyRoute(() => import('./pages/ConnectionsPage'), 'ConnectionsPage'),
       },
     ],
   },
@@ -65,37 +63,26 @@ export const settingsRoutes: RouteObject[] = [
 export const settingsMobileRoutes: RouteObject[] = [
   {
     path: 'me',
-    lazy: () =>
-      import('./pages/mobile/MobileMePage').then((m) => ({
-        Component: m.MobileMePage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileMePage'), 'MobileMePage'),
   },
   {
     path: 'me/profile',
-    lazy: () =>
-      import('./pages/mobile/MobileProfilePage').then((m) => ({
-        Component: m.MobileProfilePage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileProfilePage'), 'MobileProfilePage'),
   },
   {
     path: 'me/security',
-    lazy: () =>
-      import('./pages/mobile/MobileSecurityPage').then((m) => ({
-        Component: m.MobileSecurityPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileSecurityPage'), 'MobileSecurityPage'),
   },
   {
     path: 'me/connections',
-    lazy: () =>
-      import('./pages/mobile/MobileConnectionsPage').then((m) => ({
-        Component: m.MobileConnectionsPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileConnectionsPage'), 'MobileConnectionsPage'),
   },
   {
     path: 'me/billing',
-    lazy: () =>
-      import('./pages/mobile/MobileBillingPage').then((m) => ({
-        Component: m.MobileBillingPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileBillingPage'), 'MobileBillingPage'),
+  },
+  {
+    path: 'me/invite',
+    element: lazyRoute(() => import('./pages/mobile/MobileInvitePage'), 'MobileInvitePage'),
   },
 ];

@@ -137,7 +137,7 @@ export function RegisterForm({
                   type={accountType === 'email' ? 'email' : 'tel'}
                   autoComplete={accountType === 'email' ? 'email' : 'tel'}
                   placeholder={accountType === 'email' ? 'you@example.com' : '11 位手机号'}
-                  className="h-10 text-sm"
+                  className="h-10 text-12"
                 />
               </FormControl>
               <FormMessage />
@@ -152,7 +152,7 @@ export function RegisterForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>验证码</FormLabel>
-                <div className="flex gap-2">
+                <div className="flex min-w-0 gap-2">
                   <FormControl>
                     <Input
                       {...field}
@@ -160,7 +160,7 @@ export function RegisterForm({
                       maxLength={6}
                       autoComplete="one-time-code"
                       placeholder="6 位数字"
-                      className="h-10 text-sm tracking-widest"
+                      className="h-10 min-w-0 flex-1 text-12 tracking-code"
                     />
                   </FormControl>
                   <SendCodeButton
@@ -188,7 +188,7 @@ export function RegisterForm({
                   type="password"
                   autoComplete="new-password"
                   placeholder="至少 8 位,建议字母+数字"
-                  className="h-10 text-sm"
+                  className="h-10 text-12"
                 />
               </FormControl>
               <FormMessage />
@@ -211,7 +211,7 @@ export function RegisterForm({
                 />
               </FormControl>
               <div className="space-y-1 leading-none">
-                <FormLabel className="text-xs text-muted-foreground font-normal">
+                <FormLabel className="text-12 text-muted-foreground font-normal">
                   我已阅读并同意{' '}
                   <a className="text-foreground hover:underline" href="/terms" target="_blank">
                     服务条款
@@ -240,7 +240,7 @@ export function RegisterForm({
           {pending ? '注册中…' : '注册并登录'}
         </Button>
 
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-12 text-muted-foreground">
           已有账号?{' '}
           <button
             type="button"

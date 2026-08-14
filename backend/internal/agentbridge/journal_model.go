@@ -32,7 +32,7 @@ type Turn struct {
 	RoleUserText   string     `gorm:"column:role_user_text;type:mediumtext"`
 	Status         string     `gorm:"column:status;type:varchar(16);not null;default:'running'"`
 	Kind           string     `gorm:"column:kind;type:varchar(24);not null;default:'interactive'"`
-	ModelMain      string     `gorm:"column:model_main;type:varchar(64);not null;default:''"`
+	ModelMain      string     `gorm:"column:model_main;type:varchar(200);not null;default:''"`
 	Attempt        int        `gorm:"column:attempt;not null;default:0"`                       // P3+ INERT
 	ExecutorID     string     `gorm:"column:executor_id;type:varchar(64);not null;default:''"` // P3+ INERT
 	LeaseUntil     *time.Time `gorm:"column:lease_until"`                                      // P3+ INERT

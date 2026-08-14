@@ -6,7 +6,7 @@ import type { UserLibraryPaper } from '@/shared/api/types';
 import type { ConfirmLink, SearchHit } from './upload-resolve';
 
 /**
- * 文献集 · 已收藏论文的后期关联
+ * 文件夹 · 已收藏论文的后期关联
  *
  *   POST /user/library/papers/:id/relink-search { title? }
  *     → { used_title, hits }   //  hits 内会标记 already_saved

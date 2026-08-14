@@ -28,7 +28,7 @@ export function SectionHeader({
     >
       <span
         className={cn(
-          'text-2xs font-semibold tracking-[0.25em] uppercase',
+          'text-12 font-medium uppercase',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -36,9 +36,11 @@ export function SectionHeader({
       </span>
       <h2
         className={cn(
-          'font-display italic font-medium leading-[1.15]',
+          'font-display italic font-medium leading-display-tight',
+          // landing 展示级标题:随视口连续缩放,token 的离散档表达不了 clamp → 保留 arbitrary。
+          // 取值区间落在展示档(display-36/56)两侧,不属于正文六档阶梯。
           'text-[clamp(32px,4vw,48px)]',
-          dark ? 'text-background' : 'text-foreground'
+          dark ? 'text-on-dark' : 'text-foreground'
         )}
       >
         {title}
@@ -46,7 +48,7 @@ export function SectionHeader({
       {sub && (
         <p
           className={cn(
-            'text-lg leading-[1.6] max-w-[720px]',
+            'text-16 leading-paragraph max-w-[720px]',
             dark ? 'text-faint' : 'text-subtle'
           )}
         >

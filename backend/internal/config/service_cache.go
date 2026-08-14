@@ -45,7 +45,8 @@ const (
 
 	// code_snippets 缓存粒度选"全部启用片段"一个 key —— SSR/首页就要这一份, 命中率最高;
 	// 想按 position 分组的, 在内存里再切一次, 不为每个 position 单独缓存。
-	cacheKeyCodeSnippetsEnabled = "config:code_snippets_enabled_v1"
+	// v2 增加 defer_until_idle；换 key 避免发版后继续命中不带新字段的旧 JSON。
+	cacheKeyCodeSnippetsEnabled = "config:code_snippets_enabled_v2"
 )
 
 // MaxEnabledCodeSnippets 是给前端注入代码片段的总数硬上限 —— 防止管理员误启用

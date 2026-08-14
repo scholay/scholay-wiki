@@ -11,9 +11,9 @@ import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
  *   - **用户 override**: 一旦点过标题, 不再受 isActive 影响, 维持用户的选择
  *
  * 视觉 token:
- *   - 容器: rounded-md + bg-surface-2/40 + border-border-soft/40 (低对比, 视觉退后)
- *   - 标题: text-2xs + text-muted-foreground (扫读时不抢眼)
- *   - 内容: monospace + text-2xs + max-h-72 + overflow-y-auto (累积多了不撑外层)
+ *   - 容器: rounded-8 + bg-surface-2/40 + border-border-soft/40 (低对比, 视觉退后)
+ *   - 标题: text-12 + text-muted-foreground (扫读时不抢眼)
+ *   - 内容: monospace + text-12 + max-h-72 + overflow-y-auto (累积多了不撑外层)
  *
  * 跟传统"全文展开"相比的优势:
  *   1. 预览能给用户"知道 AI 在想什么"的反馈, 又不喧宾夺主
@@ -88,14 +88,14 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
       className={
         // 更轻的容器(2026-07-15 重设计):去边框、更淡的底 —— 思考过程是次要信息,视觉退到最后,
         // 与 Claude/ChatGPT 把推理呈现为低调可折叠区块的做法一致。
-        'rounded-md bg-surface-1/60 ' +
+        'rounded-8 bg-surface-1/60 ' +
         (className ?? '')
       }
     >
       <button
         type="button"
         onClick={() => setOverride(!expanded)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-2xs text-muted-foreground hover:text-foreground transition-colors min-w-0"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-12 text-muted-foreground hover:text-foreground transition-colors min-w-0"
         aria-expanded={expanded}
       >
         {expanded ? (
@@ -124,7 +124,7 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
           )}
         </span>
         {!expanded && preview && (
-          <span className="min-w-0 flex-1 truncate font-mono text-2xs text-faint">
+          <span className="min-w-0 flex-1 truncate font-mono text-12 text-faint">
             {preview}
           </span>
         )}
@@ -132,7 +132,7 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
       {expanded && (
         <div
           ref={contentRef}
-          className="max-h-72 overflow-y-auto px-2.5 pb-2 text-2xs font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-words"
+          className="max-h-72 overflow-y-auto px-2.5 pb-2 text-12 font-mono leading-paragraph text-muted-foreground whitespace-pre-wrap break-words"
         >
           {text}
           {isActive && (

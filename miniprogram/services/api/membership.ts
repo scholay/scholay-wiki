@@ -5,10 +5,13 @@ export interface TokenStatus {
   percent: number
   unlimited: boolean
 }
+// 0090:经费只剩一种。0094:经费是**小数**(可直接消耗成额度)。
 export interface Balance {
-  total: number
-  temp: number
+  total: number // 展示用小数经费(= perm_micro / 1e6)
   perm: number
+  perm_micro: number // 真值,micro-credit = 经费 × 1e6
+  points: number // 折合算力点(2026-07-31 拍板:用户端不展示,字段保留兼容)
+  credit_autopay: boolean // 额度用完是否自动用经费续(默认关)
 }
 export interface BillingOverview {
   tier: 'free' | 'pro' | 'max'
@@ -17,7 +20,9 @@ export interface BillingOverview {
   expires_at?: string | null
   token: TokenStatus
   credit: Balance
-  reset_cost: number
+  /** 可用重置次数。0090 起取代 reset_cost —— 重置扣的是次数不是经费。 */
+  reset_passes: number
+  reset_pass_next_expiry: string | null
 }
 
 // GET /user/billing/overview
@@ -26,10 +31,17 @@ export function getBillingOverview(): Promise<BillingOverview> {
 }
 
 // ── 兑换码 / 重置 / 明细 ─────────────────────────────────────────────────
+// mirrors backend/internal/vip/service.go CodePreview
 export interface CodePreview {
   grant_kind: 'tier' | 'credit'
   grant_tier?: string
+  /** 授予**数量**(不是天数)—— 真正的时长 = grant_days × grant_unit。 */
   grant_days?: number
+  /** 授予时长的单位:day | month | year(0110)。缺省/未知按 day 解读
+   *  (与后端 vip.NormGrantUnit 同口径:存量码这一列是空串,语义就是「天」)。
+   *  🔴 小程序不在 frontend-user 的 tsc / 设计护栏范围内 —— 漏读这个字段
+   *  不会有任何红灯,只会在确认弹窗里把「1 个月」默默写成「1 天」。 */
+  grant_unit?: string
   grant_credits?: number
   credit_kind?: 'temp' | 'perm'
   note?: string
@@ -41,10 +53,11 @@ export interface RedeemResult {
   expires_at?: string
   credits?: number
 }
+// mirrors backend/internal/vip/quota.go ResetResult(经 StripAmounts 出口整形)
 export interface ResetResult {
-  used: number
-  ceiling: number
-  balance: Balance
+  used: number // 用户端恒 0(已抹除:用户只看百分比,不下发额度绝对值)
+  ceiling: number // 用户端:-1 = 不限,否则 0(已抹除)
+  balance: Balance // 经费余额是真值 —— 经费对用户可见
 }
 export interface CreditTxn {
   id: number

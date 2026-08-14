@@ -3,6 +3,7 @@ import { errMsg } from '../../lib/feedback'
 import { listTools, listToolCategories, FeatureTool, ToolCategoryMeta } from '../../services/api/tools'
 import { PRICE_TYPE_LABEL, coverColor, initial } from '../../lib/format'
 import { appendPatch } from '../../lib/setdata'
+import { reportActivity } from '../../services/activity'
 
 interface ToolVM {
   id: number
@@ -42,11 +43,17 @@ Page({
     page: 1,
   },
 
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShow() {
+    reportActivity()
     syncTabBar(2)
   },
 
   onShareAppMessage() {
+    reportActivity()
     return { title: 'Scholay 功能广场 · 科研工具导航', path: '/pages/tools/tools' }
   },
 
@@ -94,9 +101,11 @@ Page({
   },
 
   onInput(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ q: e.detail.value })
   },
   onSearch() {
+    reportActivity()
     this.reload()
   },
   pickCategory(e: WechatMiniprogram.TouchEvent) {

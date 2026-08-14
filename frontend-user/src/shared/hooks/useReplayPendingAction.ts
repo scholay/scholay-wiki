@@ -39,7 +39,7 @@ export function useReplayPendingAction() {
       favoriteMut.mutate(
         { paper: action.paper, folderId: action.folderId, silentSuccess: true },
         {
-          onSuccess: () => toast.success('已自动收藏这篇论文到文献集'),
+          onSuccess: () => toast.success('已自动收藏这篇论文到我的文件夹'),
           onError: (err: unknown) => {
             const msg = err instanceof Error ? err.message : '自动收藏失败,请到论文页重新点一次';
             toast.error(msg);

@@ -106,6 +106,40 @@ export async function listTools(): Promise<McpToolDef[]> {
 }
 
 // callTool 透传到 MCP,返回 Anthropic tool_result 形状的 content。
+// ── inflight 闸(2026-08-01 Phase 0)───────────────────────────────────────────
+// 🔴 今天就存在的**共享命运单点**:本模块是**模块级单例 stdio 客户端** + **模块级全局熔断**
+//    (consecutiveFailures >= 阈值 → 全站所有租户的检索一起快速失败 30s),
+//    而 runTools.ts:37 是**无上限**的 Promise.all 批 —— 一个用户一轮吐 12 个检索工具,
+//    就能把单例打到超时,连坐所有人。Run 引擎会把检索集中到少数 Step,压强只会更高。
+//
+// 设计要点(两条都不能少):
+//  ① **排队,不拒绝**。拒绝会变成模型眼里的"检索失败"→ 它要么重试(更挤)要么编(正是要治的病)。
+//  ② **计时器在拿到名额之后才起**。否则排队时间算进 CALL_TIMEOUT_MS → 超时 → 熔断 →
+//     这道本来用来保护上游的闸,自己制造了它要防止的那场故障。
+//     排队等待与传输失败因此在熔断计数上**天然分开**:排队根本不进 try 块。
+const MAX_INFLIGHT = Math.max(1, Number(process.env.MINICOD_MCP_MAX_INFLIGHT || 4));
+let inflight = 0;
+const waiters: Array<() => void> = [];
+
+function acquireSlot(): Promise<void> {
+  if (inflight < MAX_INFLIGHT) {
+    inflight++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => waiters.push(resolve));
+}
+
+function releaseSlot(): void {
+  const next = waiters.shift();
+  if (next) next(); // 名额直接转交下一个等待者(不减 inflight,避免中间态被抢)
+  else inflight--;
+}
+
+/** 观测用:当前占用与排队长度(进 slog,便于判断闸是不是设小了)。 */
+export function mcpInflightSnapshot(): { inflight: number; queued: number; max: number } {
+  return { inflight, queued: waiters.length, max: MAX_INFLIGHT };
+}
+
 export async function callTool(
   name: string,
   args: Record<string, unknown>,
@@ -118,7 +152,19 @@ export async function callTool(
       isError: true,
     };
   }
-  await ensureConnected();
+  // 排队拿名额 —— 在 try 之外,故排队本身**绝不计入熔断失败**(见上面 ② )。
+  const waitStart = Date.now();
+  await acquireSlot();
+  const waited = Date.now() - waitStart;
+  if (waited > 1000) {
+    log.info("minicod mcp inflight queued", { waited_ms: waited, ...mcpInflightSnapshot(), tool: name });
+  }
+  try {
+    await ensureConnected();
+  } catch (e) {
+    releaseSlot();
+    throw e;
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const call = client!.callTool({ name, arguments: args }) as Promise<{
@@ -152,5 +198,6 @@ export async function callTool(
     throw e;
   } finally {
     if (timer) clearTimeout(timer);
+    releaseSlot();
   }
 }

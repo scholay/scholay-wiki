@@ -33,9 +33,10 @@ type Usage struct {
 	CacheReadTokens     int
 	CacheCreationTokens int
 	RequestID           string
-	// SkipQuota —— 系统开销类调用(如后台记忆抽取):仍记账本(成本可见 + 按用户归属),
-	// 但**不触发 observer / 不扣用户每日额度**。用户未主动发起、又会高频后台跑的 AI 调用用它,
-	// 避免悄悄吃掉用户额度。默认 false = 正常计费。
+	// SkipQuota —— 记账本(成本可见 + 按用户归属)但**不触发 observer / 不扣用户额度**。
+	// ⚠️ 2026-07-30 owner 拍板「凡消耗 token 一律扣额度」后,原先的两个使用方
+	// (记忆抽取 / 上下文压缩)已改正常计费 —— 当前**零活跃设置点**,机制保留仅供未来
+	// 真正无法归因到用户主动行为的系统调用使用;新用途须先拍板。默认 false = 正常计费。
 	SkipQuota bool
 }
 
@@ -54,7 +55,8 @@ type UsageObserver func(userID uint, costMicroYuan int)
 // 在 Record 内、observer 门**之前**统一计算 —— SkipQuota(记忆抽取)与匿名(公众号)行也要
 // 有成本快照(挂在 observer 上会让最需要核账的系统开销行恒为 0)。实现必须只走内存缓存。
 type Pricer interface {
-	// PriceUsage 返回 (weightedTokens, costMicroYuan)。目录查不到 → weight=1 兜底(raw 口径)。
+	// PriceUsage 返回 (rawTotal, costMicroYuan)。目录查不到 → cost=0(不扣额度)+ 限流 WARN
+	// + 异步登记停用占位行供 admin 补价;"(reconciled)" 补差哨兵按 system.main 基准价计价。
 	PriceUsage(model string, input, output, cacheRead, cacheWrite int) (weighted int64, costMicroYuan int64)
 }
 
@@ -66,7 +68,8 @@ type Service struct {
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
 
-// SetObserver 注入用量观察者(bootstrap 接到 vip.AddUsage,P3 起口径=加权 token)。
+// SetObserver 注入用量观察者(bootstrap 接到 vip.AddUsage)。
+// P5 成本制起口径 = **真实成本(微元)**,不是加权 token —— 见上面 UsageObserver 的签名与注释。
 func (s *Service) SetObserver(o UsageObserver) { s.observer = o }
 
 // SetPricer 注入模型定价(bootstrap 接 modelcatalog;nil = 加权退化为 raw、成本恒 0)。

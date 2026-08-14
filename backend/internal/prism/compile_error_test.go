@@ -78,3 +78,44 @@ func TestExtractCompileError_NoError(t *testing.T) {
 		t.Fatalf("无 \"! \" 块应返回空, 实得 %q / %q", s, e)
 	}
 }
+
+// TestClassifyCompileErrorSource 锁定 2026-07 线上审计 #3:三类高频 bib 源错误
+// (条目未闭合 / 期刊名裸 & / 作者名重音)判 bibliography,供前端把自动修复分流出
+// 「改 document.md」回路(线上实测该方向 6~11 轮不收敛白烧)。
+func TestClassifyCompileErrorSource(t *testing.T) {
+	cases := []struct {
+		name    string
+		kind    string
+		summary string
+		excerpt string
+		want    string
+	}{
+		// bibtex 阶段直接报错(.bib 条目未闭合,线上 project 267)
+		{"bibtex-skipping", compileErrLatex, "I'm skipping whatever remains of this entry", "", compileSrcBib},
+		{"bibtex-expecting", compileErrLatex, `I was expecting a ',' or a '}'---line 12 of file references.bib`, "", compileSrcBib},
+		// 期刊名裸 &(线上 project 261:Soil & Tillage Research):真阳性形态的出错源码行落在
+		// .bbl 里,自带 \newblock/{\em 上下文 → 仍判 bibliography。
+		{"misplaced-tab-in-bbl", compileErrLatex, "第 14 行附近:Misplaced alignment tab character &",
+			"! Misplaced alignment tab character &.\nl.14 \\newblock {\\em Soil &", compileSrcBib},
+		// 2026-07 审查 [13]/[25]:同一条报错来自正文(opaque 原样 LaTeX / 没写 aligned 的 $$ 数学块)
+		// 时无 .bbl 上下文 → 必须判 body,否则用户同时失去原始报错文案与「让 AI 修复」按钮。
+		{"misplaced-tab-in-body", compileErrLatex, "第 12 行附近:Misplaced alignment tab character &",
+			"! Misplaced alignment tab character &.\nl.12 x &= y \\\\", compileSrcBody},
+		// 引擎错但上下文在 bibtex 产物(\newblock / {\em 行内的 Undefined control sequence:作者名重音)
+		{"undef-in-bbl", compileErrLatex, "Undefined control sequence",
+			"! Undefined control sequence.\nl.12 \\newblock {\\em Journal of Ap\\'{e}ry}", compileSrcBib},
+		// 正文错照旧 body
+		{"body-extra-brace", compileErrLatex, "第 380 行附近:Extra }, or forgotten $", "l.380 \\end{axis}", compileSrcBody},
+		{"body-undef", compileErrLatex, "Undefined control sequence", "l.42 \\toprule", compileSrcBody},
+		// 非 latex 的 error_kind 一律 infra
+		{"infra", "infra", "素材读取失败,请稍后重试", "", compileSrcInfra},
+		{"timeout", "timeout", "编译排队超时,请稍后重试", "", compileSrcInfra},
+		// 0072 迁移前的存量行(kind 为空)按信号判定
+		{"legacy-empty-kind", "", "I'm skipping whatever remains of this entry", "", compileSrcBib},
+	}
+	for _, c := range cases {
+		if got := classifyCompileErrorSource(c.kind, c.summary, c.excerpt); got != c.want {
+			t.Errorf("[%s] classifyCompileErrorSource = %q, want %q", c.name, got, c.want)
+		}
+	}
+}

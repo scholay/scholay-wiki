@@ -90,4 +90,11 @@ const (
 	UploadInvalidType = 7002
 	// UploadStorageFailed MinIO 落盘失败.
 	UploadStorageFailed = 7003
+	// AttachmentQuotaExceeded 用户的**耐久附件**存储额度已满 (per-user 2GB, 见 agentattach)。
+	//
+	// 与 AgentQuotaExceeded(6010, AI 用量额度)是两件不同的事,故必须是另一个码:
+	// 6010 的出口是「充值 / 等重置 / 升级」,这个码的出口是「删掉自己不要的附件」——
+	// 前端据此打开附件管理弹窗。**没有专属码 = 用户只看到一句做不到的指引**,
+	// 这正是本次要修的那个错误(旧文案叫用户「删除部分历史文件」而入口不存在)。
+	AttachmentQuotaExceeded = 7010
 )

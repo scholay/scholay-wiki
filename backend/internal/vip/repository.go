@@ -38,31 +38,30 @@ func (r *Repository) UpdateBillingConfig(c *BillingConfig) error {
 		return err
 	}
 	return r.db.Model(&existing).Updates(map[string]any{
-		"free_daily_tokens":        c.FreeDailyTokens,
-		"free_window_tokens":       c.FreeWindowTokens,
-		"window_days":              c.WindowDays,
-		"base_price_per_m":         c.BasePricePerM,
-		"pro_multiplier":           c.ProMultiplier,
-		"max_multiplier":           c.MaxMultiplier,
-		"pro_price_cents":          c.ProPriceCents,
-		"pro_original_cents":       c.ProOriginalCents,
-		"max_price_cents":          c.MaxPriceCents,
-		"max_original_cents":       c.MaxOriginalCents,
-		"pro_grant_credits":        c.ProGrantCredits,
-		"max_grant_credits":        c.MaxGrantCredits,
-		"pro_year_price_cents":     c.ProYearPriceCents,
-		"pro_year_original_cents":  c.ProYearOriginalCents,
-		"max_year_price_cents":     c.MaxYearPriceCents,
-		"max_year_original_cents":  c.MaxYearOriginalCents,
-		"pro_year_grant_credits":   c.ProYearGrantCredits,
-		"max_year_grant_credits":   c.MaxYearGrantCredits,
-		"subscription_year_days":   c.SubscriptionYearDays,
-		"recharge_rate":            c.RechargeRate,
-		"min_recharge_cents":       c.MinRechargeCents,
-		"reset_cost_credits":       c.ResetCostCredits,
-		"subscription_period_days": c.SubscriptionPeriodDays,
-		"popular_plan":             c.PopularPlan,
-		"enabled":                  c.Enabled,
+		"free_daily_tokens":       c.FreeDailyTokens,
+		"free_window_tokens":      c.FreeWindowTokens,
+		"window_days":             c.WindowDays,
+		"base_price_per_m":        c.BasePricePerM,
+		"pro_multiplier":          c.ProMultiplier,
+		"max_multiplier":          c.MaxMultiplier,
+		"pro_price_cents":         c.ProPriceCents,
+		"pro_original_cents":      c.ProOriginalCents,
+		"max_price_cents":         c.MaxPriceCents,
+		"max_original_cents":      c.MaxOriginalCents,
+		"pro_year_price_cents":    c.ProYearPriceCents,
+		"pro_year_original_cents": c.ProYearOriginalCents,
+		"max_year_price_cents":    c.MaxYearPriceCents,
+		"max_year_original_cents": c.MaxYearOriginalCents,
+		// 0090 退休:pro/max × 月/年 四个 grant 列 + 两个 subscription_*_days 列不再写回。
+		// 这个 map 刻意显式列举(为了不跳零值),所以「struct 删字段」与「map 删 key」必须同批 ——
+		// 只删一边:留 key = 编译错(好);留字段不删 key = 前端 PUT 缺 key 时零值刷掉
+		// 0090 声明要保留的回滚兜底值(坏)。
+		"recharge_rate":      c.RechargeRate,
+		"credit_to_points":   c.CreditToPoints, // 0094 按量付费兑换率
+		"min_recharge_cents": c.MinRechargeCents,
+		"reset_cost_credits": c.ResetCostCredits, // 运行时不读,但 0092 换算要用,必须继续写回
+		"popular_plan":       c.PopularPlan,
+		"enabled":            c.Enabled,
 	}).Error
 }
 
@@ -81,6 +80,16 @@ func (r *Repository) GetUserVIP(userID uint) (UserVIP, error) {
 		Where("id = ?", userID).
 		Scan(&uv).Error
 	return uv, err
+}
+
+// windowDays 读计费周期天数(兑换码满血资格判据用;兑换是低频操作,多一次查询无所谓)。
+// 读不到 → 7,与 BillingConfig.WindowDuration 的兜底同口径。
+func (r *Repository) windowDays() int {
+	var d int
+	if err := r.db.Table("billing_config").Select("window_days").Where("id = 1").Scan(&d).Error; err != nil || d <= 0 {
+		return 7
+	}
+	return d
 }
 
 // SetUserVIP 直接设置某用户的等级 + 到期(admin 直授/取消会员用)。expiresAt nil = 永久/清空。
@@ -245,10 +254,12 @@ func (r *Repository) AddMaxUses(id uint64, delta, capValue int) error {
 // SetGrantDays 覆盖会员码授予的会员天数(grant_days)。仅限 tier 码(WHERE grant_kind='tier')。
 // 兑换在 Redeem 时【实时读取本行 grant_days】(applyMembershipGrant),故改完只影响之后的兑换,
 // 已兑换的用户 vip_expires_at 早已落定、不受影响。RowsAffected==0 时区分「不存在」与「非 tier 码」。
-func (r *Repository) SetGrantDays(id uint64, days int) error {
+func (r *Repository) SetGrantDays(id uint64, amount int, unit string) error {
+	// 🔴 两列一起写。只写 grant_days 会让「改成 7」落在一张 unit='month' 的码上变成 7 个月 ——
+	// 数量与单位是一对,分开写就会产生语义不明的码。
 	res := r.db.Model(&RedemptionCode{}).
 		Where("id = ? AND grant_kind = ?", id, GrantKindTier).
-		UpdateColumn("grant_days", days)
+		Updates(map[string]any{"grant_days": amount, "grant_unit": NormGrantUnit(unit)})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -355,43 +366,36 @@ func (r *Repository) Redeem(userID uint, code string, now time.Time) (*RedeemRes
 		}
 
 		if rc.GrantKind == GrantKindCredit {
-			if rc.CreditKind == CreditKindPerm {
-				if err := grantPermInTx(tx, userID, rc.GrantCredits, SourceGift, code, TxGift); err != nil {
-					return err
-				}
-				result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindPerm}
-			} else {
-				days := rc.CreditValidityDays
-				if days <= 0 {
-					days = 30
-				}
-				exp := now.AddDate(0, 0, days)
-				if err := grantTempInTx(tx, userID, rc.GrantCredits, SourceGift, code, now, exp, TxGift); err != nil {
-					return err
-				}
-				result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindTemp}
+			// 0090:临时经费退休 —— 存量 credit_kind='temp' 的旧码**一律按永久发放**,
+			// 而不是拒兑。用户手里已发出去的码不能因为我们改模型就作废;
+			// 永久比临时对用户只多不少,是安全的降级方向。
+			if err := grantPermInTx(tx, userID, rc.GrantCredits, SourceGift, code, TxGift); err != nil {
+				return err
 			}
+			result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindPerm}
 			return nil
 		}
 
 		// 会员码:单调叠加(不降级 + 在期顺延)。
-		var uv UserVIP
-		if err := tx.Table("users").Select("vip_tier, vip_expires_at, vip_cycle").Where("id = ?", userID).Scan(&uv).Error; err != nil {
-			return err
-		}
-		newTier, newExpires := applyMembershipGrant(uv, rc.GrantTier, rc.GrantDays, now)
-		updates := map[string]any{"vip_tier": newTier, "vip_expires_at": newExpires}
-		// 周期标识防陈旧泄漏(0079):兑换码不是付费订阅,若用户**当前并非在期付费会员**
-		//(免费/已过期),把残留的 vip_cycle(如过期年费用户的 yearly)重置回 monthly,
-		// 否则兑换重新开通后会错误显示「年费会员」徽标。在期会员叠码则不动现值。
-		if !isPaidTier(effectiveTier(uv, now)) {
-			updates["vip_cycle"] = CycleMonthly
-		}
-		if err := tx.Table("users").Where("id = ?", userID).Updates(updates).Error; err != nil {
+		// 走 grantMembershipInTx 这个唯一串行化落点 —— 它持 users 行 FOR UPDATE(见其红字:
+		// 此前无锁读+整值覆盖会与订阅履约/另一张码互相吃掉授予),并顺手作废在途升级单。
+		// vip_cycle 的「防陈旧泄漏」规则也在里面(cycleOverride 传空 = 仅在非在期付费时回落 monthly)。
+		newTier, newExpires, prevTier, err := grantMembershipInTx(tx, userID, rc.GrantTier, rc.GrantDays, rc.GrantUnit, "", now)
+		if err != nil {
 			return err
 		}
 		exp := newExpires
-		result = &RedeemResult{Kind: GrantKindTier, Tier: newTier, ExpiresAt: &exp}
+		result = &RedeemResult{
+			Kind: GrantKindTier, Tier: newTier, ExpiresAt: &exp,
+			// 满血资格在事务内算(此处才拿得到 prevTier 与本码的时长),见 Service.Redeem 红字。
+			//
+			// 🔴 必须先把「数量 + 单位」折算成天再与窗口天数比。
+			// 直接拿 rc.GrantDays 比是**静默错**:一张「1 个月」的码 GrantDays=1 < 7,
+			// 会被判成「不够一个额度窗口」→ 兑换后不给满血重置,无报错、无日志、用户无从察觉;
+			// 反过来「1 年」的码 GrantDays=1 也一样被误判。
+			refillEligible: tierRank(newTier) > tierRank(prevTier) &&
+				GrantDurationDays(rc.GrantUnit, rc.GrantDays) >= r.windowDays(),
+		}
 		return nil
 	})
 	return result, err

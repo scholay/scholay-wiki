@@ -21,7 +21,7 @@ export function MetaRow({
 }) {
   const hasEnrichment = !!enrichment;
   return (
-    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-faint">
+    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-12 text-faint">
       {doi && (
         <span
           className="font-mono truncate max-w-[280px]"
@@ -55,22 +55,22 @@ export function MetaRow({
       {enrichment && (
         <>
           {enrichment.jcr_quartile && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-brand-amber/10 text-brand-amber text-[10px] font-bold tabular-nums">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-brand-amber/10 text-brand-amber text-12 font-medium tabular-nums">
               JCR {enrichment.jcr_quartile}
             </span>
           )}
           {enrichment.jcr_impact_factor != null && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-surface-2 border border-border text-foreground text-[10px] font-bold tabular-nums">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-surface-2 border border-border text-foreground text-12 font-medium tabular-nums">
               IF {enrichment.jcr_impact_factor.toFixed(1)}
             </span>
           )}
           {enrichment.fqb_quartile && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-brand-red/8 text-brand-red text-[10px] font-bold">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-brand-red/8 text-brand-red text-12 font-medium">
               中科院 {enrichment.fqb_quartile}区
             </span>
           )}
           {enrichment.ccf_rank && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-foreground text-background text-[10px] font-bold">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-foreground text-on-dark text-12 font-medium">
               CCF {enrichment.ccf_rank}
             </span>
           )}

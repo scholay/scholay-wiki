@@ -17,6 +17,8 @@ import { usePullToRefresh } from '@/shared/hooks';
 import { MobilePaperRow } from '@/shared/components/MobilePaperRow';
 import { MobilePaperRowSkeletonList } from '@/shared/components/MobilePaperRowSkeleton';
 import { PullToRefreshIndicator } from '@/shared/components/PullToRefreshIndicator';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
+import { cn } from '@/shared/lib/utils';
 import { MobileJournalResultCard } from './MobileJournalResultCard';
 import { MobileSearchFilterSheet } from './MobileSearchFilterSheet';
 import {
@@ -145,13 +147,11 @@ export function MobileSearchOverlay() {
   const submit = () => setQuery(input.trim());
   // 稳定回调(useCallback)—— 否则每次渲染都新建函数,使 memo 化的结果行全量重渲染。
   // 进详情前不关闭浮层:存滚动位置 + 标记 resume,返回 feed 时浮层复原结果与位置。
-  const openPaper = useCallback(
-    (p: Paper) => {
-      suspendForDetail(scrollRef.current?.scrollTop ?? 0);
-      navigate(`/paper/${p.source}/${encodeURIComponent(p.paperId)}`);
-    },
-    [navigate, suspendForDetail]
-  );
+  // 论文行导航已由 MobilePaperRow 内的真实 <Link href> 承担(SEO 硬约束),
+  // 这里只保留进详情前副作用:存滚动位置 + 标记 resume,返回 feed 时浮层复原。
+  const beforeOpenPaper = useCallback(() => {
+    suspendForDetail(scrollRef.current?.scrollTop ?? 0);
+  }, [suspendForDetail]);
   const openJournal = useCallback(
     (j: Journal) => {
       suspendForDetail(scrollRef.current?.scrollTop ?? 0);
@@ -175,7 +175,7 @@ export function MobileSearchOverlay() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className="absolute inset-0 z-50 flex flex-col"
+      className="absolute inset-0 z-modal flex flex-col"
     >
       {/* 搜索导航栏(顶,从上方轻微滑入) */}
       <m.header
@@ -192,15 +192,27 @@ export function MobileSearchOverlay() {
         >
           <X className="size-5" />
         </button>
-        <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-pill border border-border bg-surface-1 px-3 focus-within:border-brand-red">
+        {/* 走 SEARCH_FIELD_SHELL(Figma §4.5)。⏪ 此前是 h-9(36)+ rounded-pill +
+            border(ink@12%)+ bg-surface-1,焦点 `focus-within:border-brand-red`。
+            **这是 2026-07-28 搜索框收口时漏掉的第 9 个框** —— 它是移动端论文/期刊检索的
+            主输入(和已收口的 MobileToolsPage 那个 pill 同族),不是菜单里的过滤条;
+            两个移动端搜索框各留一套规格,正是这轮收口要消灭的分叉。
+            外层 header 是 h-14(56),44 + items-center 仍居中,不撑高。 */}
+        <div className={cn('flex min-w-0 flex-1 items-center gap-2 px-3', SEARCH_FIELD_SHELL)}>
           <Search className="size-4 shrink-0 text-faint" />
           <input
             ref={inputRef}
+            /* type=search + enterKeyHint:本框不在 <form> 内(靠 onKeyDown 提交),
+               不给这两个属性时 iOS 软键盘的回车键渲染成「换行」,用户看到「换行」就不会按 ——
+               而这里的回车其实是有效的。一行属性换回一条被隐藏的提交路径。 */
+            type="search"
+            enterKeyHint="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder={isPapers ? '搜索论文 / 关键词 / 作者' : '搜索期刊名 / 出版社'}
-            className="min-w-0 flex-1 bg-transparent text-md outline-none placeholder:text-faint"
+            /* outline-none 合法: 焦点由外层容器的 focus-within:border-brand-red 提示 */
+            className="min-w-0 flex-1 bg-transparent text-14 outline-none placeholder:text-faint"
           />
           {input && (
             <button
@@ -220,7 +232,7 @@ export function MobileSearchOverlay() {
         <button
           type="button"
           onClick={submit}
-          className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-xs font-medium text-white active:opacity-90"
+          className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-12 font-medium text-on-brand active:opacity-90"
         >
           搜索
         </button>
@@ -232,12 +244,12 @@ export function MobileSearchOverlay() {
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-xs text-foreground active:bg-surface-1"
+            className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-12 text-foreground active:bg-surface-1"
           >
             <SlidersHorizontal className="size-3.5" />
             筛选
             {activeCount > 0 && (
-              <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-white">
+              <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 font-medium text-on-brand">
                 {activeCount}
               </span>
             )}
@@ -245,14 +257,14 @@ export function MobileSearchOverlay() {
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
-            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-xs text-muted-foreground active:opacity-80"
+            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-12 text-muted-foreground active:opacity-80"
           >
             来源 · {sourceLabel}
           </button>
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
-            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-xs text-muted-foreground active:opacity-80"
+            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-12 text-muted-foreground active:opacity-80"
           >
             排序 · {sortLabel}
           </button>
@@ -270,16 +282,19 @@ export function MobileSearchOverlay() {
       ) : (
         <div
           ref={scrollRef}
-          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background"
+          /* 浮层是 absolute inset-0(盖住底部 Tab)→ 这个滚动列表的底边就是**屏幕底边**,
+             最后一行会压在全面屏 home indicator 下。pb 走 --safe-bottom:
+             无刘海/桌面 16px、iPhone X+ 34px。(render-audit-2026-07-28 P1-6) */
+          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-card pb-[var(--safe-bottom)]"
           {...ptr.handlers}
         >
           <PullToRefreshIndicator pull={ptr.pull} refreshing={ptr.refreshing} />
           {activeQ.isLoading ? (
             <MobilePaperRowSkeletonList />
           ) : activeQ.isError ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">搜索失败,请稍后重试</p>
+            <p className="py-12 text-center text-12 text-muted-foreground">搜索失败,请稍后重试</p>
           ) : resultCount === 0 ? (
-            <p className="py-12 text-center text-sm text-faint">没有找到「{query}」相关结果</p>
+            <p className="py-12 text-center text-12 text-faint">没有找到「{query}」相关结果</p>
           ) : (
             <>
               {/* 虚拟化容器:撑满总高,逐行 absolute + translateY 定位,只挂载视口附近行 */}
@@ -307,7 +322,7 @@ export function MobileSearchOverlay() {
                           paper={paper}
                           isFavorited={favOverrides.get(paper.paperId) ?? paper.isFavorited ?? false}
                           enrichment={paper.venue ? enrichments[paper.venue] : null}
-                          onOpen={openPaper}
+                          onBeforeOpen={beforeOpenPaper}
                           onShare={sharePaper}
                           onCite={setCitePaper}
                           onFavoriteToggle={handleFavToggle}
@@ -327,7 +342,7 @@ export function MobileSearchOverlay() {
                 {activeQ.isFetchingNextPage ? (
                   <Loader2 className="size-4 animate-spin text-faint" />
                 ) : !activeQ.hasNextPage ? (
-                  <span className="text-2xs text-faint">没有更多了</span>
+                  <span className="text-12 text-faint">没有更多了</span>
                 ) : null}
               </div>
             </>

@@ -23,6 +23,8 @@ import {
   Headset,
   Sparkles,
   Newspaper,
+  UserPlus,
+  DatabaseZap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PERM, type Permission } from './permissions';
@@ -74,7 +76,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'orders', label: '订单与营收', icon: ShoppingCart, href: '/admin/orders', requires: PERM.analyticsView },
       { id: 'vip-codes', label: '会员兑换码', icon: Gift, href: '/admin/vip-codes', requires: PERM.configManage },
-      { id: 'promo-config', label: '限时领取会员', icon: Sparkles, href: '/admin/promo-config', requires: PERM.contentManage },
+      // 同页分 tab 管理“邀请有礼”与“限时领取会员”，两者独立真源。
+      { id: 'activities', label: '活动管理', icon: Sparkles, href: '/admin/activities', requires: PERM.contentManage },
       { id: 'billing-config', label: '计费配置', icon: Coins, href: '/admin/billing-config', requires: PERM.configManage },
     ],
   },
@@ -85,6 +88,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // 代码片段库 = 全站脚本注入(安全高危),归入仅管理员;不是运营内容项。
       { id: 'announcements', label: '公告', icon: Megaphone, href: '/admin/announcements', requires: PERM.contentManage },
       { id: 'hot-content', label: '热门内容', icon: Flame, href: '/admin/hot-content', requires: PERM.analyticsView },
+      // 期刊全量摄取/发布(SEO 主动化)—— 同步烧上游配额、发布直改 sitemap,后端在 config.manage 组
+      { id: 'journal-sync', label: '期刊数据同步', icon: DatabaseZap, href: '/admin/journal-sync', requires: PERM.configManage },
       { id: 'tools', label: '功能广场', icon: Boxes, href: '/admin/tools', requires: PERM.contentManage },
       { id: 'skills-review', label: 'Skill 审核', icon: Sparkles, href: '/admin/skills-review', requires: PERM.contentManage },
     ],
@@ -107,7 +112,9 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { id: 'session-monitor', label: '用户会话监控', icon: ScanEye, href: '/admin/session-monitor', requires: PERM.analyticsView },
       { id: 'analytics', label: '数据统计', icon: BarChart3, href: '/admin/analytics', requires: PERM.analyticsView },
       { id: 'usage-stats', label: '使用统计', icon: BarChart2, href: '/admin/usage-stats', requires: PERM.analyticsView },
-      { id: 'token-usage', label: 'Token 用量', icon: Coins, href: '/admin/token-usage', requires: PERM.analyticsView },
+      // href / id 保持 token-usage:URL 是外部可书签的,改名只改文案不改路径。
+      { id: 'token-usage', label: '算力用量', icon: Coins, href: '/admin/token-usage', requires: PERM.analyticsView },
+      { id: 'invites', label: '邀请监控', icon: UserPlus, href: '/admin/invites', requires: PERM.analyticsView },
     ],
   },
   {

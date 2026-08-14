@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useProfile } from '@/shared/api/profile';
+import { Input } from '@/shared/ui';
 import { MeSubpageShell } from '../../components/mobile/MeSubpageShell';
 
 /**
@@ -24,8 +25,8 @@ function SecurityBody() {
 
   return (
     <div className="space-y-3 p-3">
-      <section className="space-y-3 rounded-lg border border-border bg-background p-4">
-        <h2 className="text-xs font-medium text-muted-foreground">绑定状态</h2>
+      <section className="space-y-3 rounded-16 border border-border bg-surface-card p-4">
+        <h2 className="text-12 font-medium text-muted-foreground">绑定状态</h2>
         <BindRow
           label="邮箱"
           value={profile?.email || null}
@@ -36,7 +37,7 @@ function SecurityBody() {
           value={profile?.phone || null}
           verified={!!profile?.phone_verified}
         />
-        <p className="text-xs leading-relaxed text-faint">
+        <p className="text-12 leading-paragraph text-faint">
           换绑邮箱 / 手机号需要双重验证码确认,请先在电脑端「设置 → 安全设置」操作
         </p>
       </section>
@@ -57,8 +58,8 @@ function BindRow({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-foreground">{label}</span>
-      <span className="flex items-center gap-1.5 text-sm">
+      <span className="text-14 text-foreground">{label}</span>
+      <span className="flex items-center gap-1.5 text-14">
         <span className={value ? 'text-foreground' : 'text-faint'}>
           {value ?? '未绑定'}
         </span>
@@ -102,20 +103,20 @@ function ChangePasswordCard() {
 
   return (
     <form
-      className="space-y-3 rounded-lg border border-border bg-background p-4"
+      className="space-y-3 rounded-16 border border-border bg-surface-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         change.mutate();
       }}
     >
-      <h2 className="text-xs font-medium text-muted-foreground">修改密码</h2>
+      <h2 className="text-12 font-medium text-muted-foreground">修改密码</h2>
       <PwdInput placeholder="当前密码" value={oldPwd} onChange={setOldPwd} />
       <PwdInput placeholder="新密码(至少 8 位)" value={newPwd} onChange={setNewPwd} />
       <PwdInput placeholder="再输一遍新密码" value={confirmPwd} onChange={setConfirmPwd} />
       <button
         type="submit"
         disabled={change.isPending || !oldPwd || !newPwd || !confirmPwd}
-        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-foreground text-md font-medium text-white active:opacity-80 disabled:opacity-50"
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-8 bg-foreground text-14 font-medium text-on-brand active:opacity-80 disabled:opacity-50"
       >
         {change.isPending && <Loader2 className="size-4 animate-spin" />}
         确认修改
@@ -134,13 +135,13 @@ function PwdInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <input
+    <Input
       type="password"
       autoComplete="new-password"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus:border-border-strong"
+      className="h-auto bg-surface-1 py-2 text-14"
     />
   );
 }

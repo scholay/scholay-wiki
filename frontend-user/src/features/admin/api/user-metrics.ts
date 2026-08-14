@@ -28,8 +28,9 @@ export interface UserMetrics {
   sources: CategoryCount[];
   hourly_activity: HourlyPoint[];
   mau_trend: MetricsPoint[];
-  /** 每日活跃(去重)用户数,按天。口径「打开即活跃」=当天有过任意鉴权请求的去重用户
-   *  (user_daily_active 台账,0069;排除注册当天;last_active_at 单列无法重建历史每日序列)。 */
+  /** 每日活跃(去重)用户数,按天。口径=当天在可见客户端产生过真人输入的去重用户
+   *  (口径切换前的历史沿用旧「任意鉴权请求」统计,切换后才排除轮询/WS 重连/挂机;
+   *  user_daily_active 台账,0069;排除注册当天)。 */
   daily_active: MetricsPoint[];
   /** 窗口内新注册总数(= registrations 各桶之和)。 */
   registrations_total: number;

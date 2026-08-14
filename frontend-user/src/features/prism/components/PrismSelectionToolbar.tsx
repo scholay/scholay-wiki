@@ -21,14 +21,14 @@ export function PrismSelectionToolbar({
 
   return (
     <div
-      style={{ position: 'fixed', left, top, zIndex: 40 }}
+      style={{ position: 'fixed', left, top }}
       onMouseDown={(e) => e.preventDefault()}
-      className="flex items-center gap-0.5 rounded-lg border border-border bg-popover p-0.5 shadow-lg"
+      className="z-popover flex items-center gap-0.5 rounded-12 border border-border bg-popover p-0.5 shadow-overlay"
     >
       <button
         type="button"
         onClick={onEdit}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
+        className="flex items-center gap-1 rounded-8 px-2 py-1 text-12 text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
       >
         <Sparkles className="size-3 text-brand-green" /> 编辑此处
       </button>
@@ -36,7 +36,7 @@ export function PrismSelectionToolbar({
       <button
         type="button"
         onClick={onQuote}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
+        className="flex items-center gap-1 rounded-8 px-2 py-1 text-12 text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
       >
         <Quote className="size-3" /> 引用此处
       </button>

@@ -15,43 +15,49 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentartifact"
 	"scholar-backend/internal/agentattach"
+	"scholar-backend/internal/agentattachstore"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
+	"scholar-backend/internal/agentrun"
 	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/boltslides"
 	"scholar-backend/internal/claw"
-	"scholar-backend/internal/scidraw"
-	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
-	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
+	"scholar-backend/internal/invite"
 	"scholar-backend/internal/library"
 	"scholar-backend/internal/modelcatalog"
 	"scholar-backend/internal/news"
 	"scholar-backend/internal/openaccess"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/prism"
+	"scholar-backend/internal/promo"
 	"scholar-backend/internal/promptregistry"
+	"scholar-backend/internal/scidraw"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seoenrich"
+	"scholar-backend/internal/seoingest"
 	"scholar-backend/internal/seosubmit"
-	"scholar-backend/internal/promo"
+	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
+	"scholar-backend/internal/statlab"
 	"scholar-backend/internal/storage"
 	"scholar-backend/internal/supportcenter"
 	"scholar-backend/internal/thirdparty"
@@ -63,12 +69,20 @@ import (
 	"scholar-backend/internal/wechat"
 )
 
-// domainFromSiteURL 从 https://www.scholay.com → www.scholay.com,给 umami
-// auto-create website 时填 domain 字段。失败回落 localhost(纯本地起服不影响)。
+// domainFromSiteURL 从 https://www.example.com → www.example.com,给 umami
+// auto-create website 时填 domain 字段。
+//
+// 回落链:SITE_URL → CanonicalBaseURL()(= SEO_BASE_URL,compose 里两者同源)
+// → "localhost"。**刻意不回落任何真实域名** —— 这个值决定 umami 里自动建出来的
+// website 叫什么、统计归到哪个 domain 名下,回落成生产域名会让一个全新环境的
+// 统计面板看起来就是生产站,两套环境的数据在人眼里再也分不开。
 func domainFromSiteURL() string {
 	raw := os.Getenv("SITE_URL")
 	if raw == "" {
-		raw = "https://www.scholay.com"
+		if h := appconfig.CanonicalHost(); h != "" {
+			return h
+		}
+		return "localhost"
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
@@ -77,12 +91,21 @@ func domainFromSiteURL() string {
 	return u.Host
 }
 
-// siteName 从 SITE_NAME env 拿,缺省 Scholay。
+// siteName 从 SITE_NAME env 拿。缺省返回空串,由调用方决定怎么降级 ——
+// 不再兜底成品牌名,理由同 domainFromSiteURL:漏配时不该冒充别的站点。
 func siteName() string {
-	if v := os.Getenv("SITE_NAME"); v != "" {
-		return v
+	return strings.TrimSpace(os.Getenv("SITE_NAME"))
+}
+
+// newCrawlerAnalyticsClient 爬虫监控 website 的 umami 查询客户端。
+// UMAMI_CRAWLER_WEBSITE_ID 未配置 → nil(「搜索引擎抓取」面板返 configured:false)。
+// base URL 与写入侧 crawlerwatch 同一套 env(UMAMI_CRAWLER_BASE_URL,空 → 内网默认)。
+func newCrawlerAnalyticsClient() *umami.Client {
+	id := appconfig.AppConfig.Umami.CrawlerWebsiteID
+	if id == "" {
+		return nil
 	}
-	return "Scholay"
+	return umami.NewCrawlerClient(appconfig.AppConfig.Umami.CrawlerBaseURL, id)
 }
 
 // services 聚合所有服务与 handler，供 main 使用
@@ -93,11 +116,16 @@ type services struct {
 	thirdPartyService *thirdparty.Service
 	seoService        *seo.Service
 	seoSubmitService  *seosubmit.Service
+	seoIngestService  *seoingest.Service // 期刊全量摄取(background.go 注册每日增量检查)
+	newsService       *news.Service      // 情报(background.go 启动封面缩略图回填)
 	wsHub             *websocket.Hub
 	// supportCenter 客服与联系中心(IMAP 收件轮询在 startBackgroundTasks 启动)
 	supportCenterService *supportcenter.Service
 	// agentBridge 顶层暴露给 main:跨实例 displacement 订阅 goroutine 需用 bgCtx 启动 (C2)。
 	agentBridge *agentbridge.Bridge
+	// stopQuotaPersist 停额度窗口 used 刷盘器,退出前同步刷最后一批(0103)。
+	// 与 FlushAllTokenWatermarks 同一类:必须真的在 SIGTERM 序列里被调用。
+	stopQuotaPersist func()
 }
 
 // bootstrapServices 初始化全部模块与依赖注入。
@@ -260,8 +288,90 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 科研绘图 (sci_draw): 智能助手页模板卡切入;独立 session 池,生成原创矢量 SVG(P0,仿 boltslides 集成)。
 	sciDrawSpec := scidraw.BuildSpec()
 	sciDrawFeature := agentBridge.For(sciDrawSpec)
+
+	statLabSpec := statlab.BuildSpec()
+	statLabFeature := agentBridge.For(statLabSpec)
 	// 智能写作 (Prism): AI 定点编辑走 ServerSideChatStreaming;会话禁写盘工具(见 prism.BuildSpec)。
 	prismFeature := agentBridge.For(prism.BuildSpec())
+
+	// 跨会话附件物化(2026-07-31 线上审计 §五):用户在 A 对话上传、切到 B 对话再发送时,
+	// 附件路径仍指向 A 的会话 cwd,而权限层只认本会话 cwd 前缀 → Read/ReadDocument 全被拒,
+	// 模型只能对用户说「我打不开你的文件」而该轮仍 complete。这里让附件在转发前物化进当前
+	// 会话,使路径永远同源 —— 权限边界一点没放宽。prism 是主场景(一项目多对话),claw 家族
+	// 同样支持附件。必须在 For() 之后注入(实现方需要 *FeatureBridge,见 SetAttachmentRelocator)。
+	attachFeatures := map[string]*agentbridge.FeatureBridge{
+		prismFeature.Spec().Key:       prismFeature,
+		clawFeature.Spec().Key:        clawFeature,
+		smartSearchFeature.Spec().Key: smartSearchFeature,
+		boltSlidesFeature.Spec().Key:  boltSlidesFeature,
+		sciDrawFeature.Spec().Key:     sciDrawFeature,
+		statLabFeature.Spec().Key:     statLabFeature,
+	}
+	for _, af := range attachFeatures {
+		af.SetAttachmentRelocator(agentattach.NewRelocator(af))
+	}
+
+	// ── 输入框附件耐久化(0112:MinIO 真源 + cwd 工作副本 + agent_attachments 身份)──
+	//
+	// 治的病(docs/research/agent-data-storage-2026-08/01-uploads.md):上传附件的字节此前
+	// **只在**会话 cwd —— 删会话/重置立刻没,30 天 workdir GC 一到永久消失;而 journal 里
+	// 的 @"path" 永不过期 ⇒ 老会话里 chip 还在、点开必裂图。产出物早就落 MinIO 了,用户自己
+	// 传的原始数据反而没有。
+	//
+	// 🔴 **装配即接线**:store 走包级默认值(agentattach 有 6 个构造点分散在四个 feature 包的
+	//    NewHandler 里,改签名要动四个包且构造顺序各异);这一行不调,整套耐久化在生产上等于
+	//    不存在 —— 而且**没有任何红灯**,因为降级路径就是改造前的行为。本仓库咬过七次的形状。
+	// ⚠️ 判空必须在**具体类型**上做:NewRepository(nil) 返回 typed-nil,直接塞进 Store 接口
+	//    会得到一个「!= nil 却不能调方法」的值,所有下游判空全部失效(Go 的经典陷阱)。
+	var attachmentHandler *agentattach.ServeHandler
+	if attachmentStore := agentattachstore.NewRepository(db); attachmentStore != nil {
+		agentattach.SetDefaultStore(attachmentStore)
+		agentBridge.SetAdminAttachmentRepository(attachmentStore)
+		// 删会话 / 重置会话 → 清该会话的附件行 + 引用计数归零的对象。挂在 Bridge 上一次覆盖
+		// 全部 feature(交付物那套是四份 handler 镜像,smart_search / prism 至今没有)。
+		agentBridge.SetSessionDataCleaner(agentattach.NewSessionCleaner(attachmentStore))
+		// 统一取回/删除端点。执行器解析器让「只删本会话的 cwd 副本」这个动作能找到对应 feature
+		// 的 agent 客户端(附件行只记 feature_key,不持有 bridge)。
+		attachmentHandler = agentattach.NewServeHandler(attachmentStore).
+			WithExecutorResolver(func(featureKey string) agent.Executor {
+				if f := attachFeatures[featureKey]; f != nil {
+					return f.AgentClient()
+				}
+				return nil
+			})
+	}
+
+	// ── Run 引擎(2026-08 科研内核 Phase 1)────────────────────────────────────
+	// 一条科研请求 = 一个持久 Run;Run = 一串 Step,每步走既有的 ServerSideChatStreaming
+	// (**不新建执行路径**)。交接靠 MySQL + workDir 产物,不靠内存 messages。
+	//
+	// 🔴 装配即接线:本仓库「引擎造好没接线」已经吃过七次(artifact 契约 / Relocator /
+	//    research_state 帧 / SubmitAnswer 放行 / prefetch 字段 / markRead / EvidenceGet 权限)。
+	//    模板零值时引擎对该剖面完全不动,所以这里可以无条件装配 —— 装了但没模板 = 行为零变化,
+	//    而**不装**则是"代码在仓库里、生产上不存在",正是那七次的形状。
+	runTemplates := agentrun.NewSpecTemplateSource()
+	runEngine := agentrun.NewEngine(
+		agentrun.NewRepo(db), runTemplates,
+		&agentrun.HTTPSlotProbe{
+			BaseURL: os.Getenv("AGENT_EXECUTOR_BASE_URL"),
+			Token:   os.Getenv("AGENT_AUTH_TOKEN"),
+		},
+		os.Getenv("HOSTNAME"),
+	)
+	for _, rf := range []*agentbridge.FeatureBridge{
+		clawFeature, prismFeature, smartSearchFeature, peerReviewFeature, boltSlidesFeature, sciDrawFeature, statLabFeature,
+	} {
+		spec := rf.Spec()
+		tpls := agentrun.FromSpecTemplates(spec.RunTemplates)
+		if err := runTemplates.Add(spec.Key, tpls); err != nil {
+			// 起服断言:非法模板(如 step_key 重复)会在 uk_saga_step 上撞唯一键,
+			// 那时错误发生在用户的一次真实请求里、表现成「Run 卡住」而不是「模板写错了」。宁可起不来。
+			slog.Error("FATAL agentrun: 非法 RunTemplate,拒绝启动", "feature", spec.Key, "err", err)
+			os.Exit(1)
+		}
+		runEngine.Register(agentrun.NewBridgeExecutor(rf))
+	}
+	runEngine.Start(context.Background())
 
 	// Skills 市场:用户上传/分享 skill + claw 动态加载(tier-1 纯指令,内联物化到 executor guides 层)。
 	// 持有上限的会员档解析器(需 plat.vipService)在下方 SetVIPChecker 附近注入(那时 plat 已就绪)。
@@ -277,7 +387,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 状态直到下次重启(本机实测复现:启动窗口 4 个 feature 全失败后 9 小时无人补推)。
 	// 改为线性退避重试,只重推失败的 spec,直到全部成功或耗尽(~11 分钟,覆盖 agent 冷启/熔断恢复)。
 	safego.Go("agent-skill-startup-sync", func() {
-		pending := []agentbridge.FeatureSpec{smartSearchSpec, peerreview.Spec, clawSpec, boltSlidesSpec, sciDrawSpec}
+		pending := []agentbridge.FeatureSpec{smartSearchSpec, peerreview.Spec, clawSpec, boltSlidesSpec, sciDrawSpec, statLabSpec}
 		for attempt := 0; attempt < 10 && len(pending) > 0; attempt++ {
 			if attempt > 0 {
 				time.Sleep(time.Duration(attempt) * 15 * time.Second)
@@ -331,10 +441,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// core 域：config → user/feedback（邮件发送依赖 config）
 	core.userService.SetConfigService(core.configService)
 	core.feedbackService.SetConfigService(core.configService)
-	// 「最后活跃时间」记录器: 每次通过鉴权的 user 请求节流更新 users.last_active_at,
-	// 让后台看到的是用户最后实际使用时间, 而非仅登录动作(last_login_at)。
-	middleware.SetActivityHook(core.userService.RecordActivity)
-
 	// core 域：user → feedback（工单里展示用户信息）
 	core.feedbackService.SetUserRepository(&feedbackUserRepoAdapter{userRepo: core.userRepo})
 
@@ -354,6 +460,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// platform → config (/journal/{id}/{slug} SSR 元数据提供)
 	core.configHandler.SetJournalSEOProvider(plat.seoService)
 
+	// platform → config (/journals/browse 等期刊枢纽页 SSR 列表/计数提供)
+	core.configHandler.SetJournalHubProvider(plat.seoService)
+
 	// wechat → config（public /config/system 返回 wechat_enabled 给前端 OAuth 按钮用)
 	// 走 GetActiveConfig() 是否非空判断,避免 config 包直接 import wechat 包形成循环依赖。
 	core.configHandler.SetWeChatOAuthEnabledProbe(func() bool {
@@ -361,9 +470,14 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		return err == nil && cfg != nil && cfg.AppID != "" && cfg.AppSecret != ""
 	})
 
-	// AI → seo（作者详情命中 → tier=1 写入 seo_authors）
+	// AI → seo：只由 minicod 已验证的上游搜索/详情响应落 SEO 种子。
+	// 匿名 /public/seo/expose 不再写库，防止伪造 title/metrics/detail tier 进 sitemap。
+	aiB.minicodHandler.SetPaperSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetAuthorSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetJournalSEORecorder(plat.seoService)
+	// 期刊详情的本地回落读路径:上游 /v1/jnl/get 挂掉时用 seo_journals 顶上,
+	// 避免期刊页对真实用户整体白屏(2026-08-13 事故;见 minicod/journal_fallback.go)。
+	aiB.minicodHandler.SetJournalFallback(plat.seoService)
 
 	// 已登录用户的论文搜索结果由 library 标注 isFavorited(省一次 /user/library/check 往返)
 	aiB.minicodHandler.SetFavoriteChecker(libraryHandler)
@@ -387,6 +501,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	claw.SetUsageRecorder(plat.usageStatService)
 	boltslides.SetUsageRecorder(plat.usageStatService)
 	scidraw.SetUsageRecorder(plat.usageStatService)
+	statlab.SetUsageRecorder(plat.usageStatService)
 	prism.SetUsageStatRecorder(plat.usageStatService) // WS preUserMessageChain 用(包级 var,区别于 Handler 方法)
 
 	// 统一 LLM token 账本 (llm_token_usage):
@@ -428,6 +543,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	claw.SetVIPChecker(plat.vipService)
 	boltslides.SetVIPChecker(plat.vipService)
 	scidraw.SetVIPChecker(plat.vipService)
+	statlab.SetVIPChecker(plat.vipService)
 	// Skills 市场持有上限按会员档:免费 10 / 付费 50(闭包运行时读 plat.vipService)。
 	skillMarketService.SetSkillCapResolver(func(userID uint) int {
 		if plat.vipService != nil && plat.vipService.EffectiveTier(userID) != "free" {
@@ -449,6 +565,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		"claw":         claw.VIPCheckerWired(),
 		"boltslides":   boltslides.VIPCheckerWired(),
 		"sci_draw":     scidraw.VIPCheckerWired(),
+		"stat_lab":     statlab.VIPCheckerWired(),
 		"prism":        prism.VIPCheckerWired(),
 		"ai":           aiB.aiHandler.VIPCheckerWired(),
 		"peerreview":   peerReviewService.VIPCheckerWired(),
@@ -492,8 +609,24 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// cleanup → 升级满血待兑现补偿(R6:删锚遇 Redis 抖动失败后,Redis 恢复时补删锚)。
 	cleanupService.SetPendingRefillReconciler(plat.vipService.ReconcilePendingRefills)
 
+	// cleanup → 会员到期后的额度窗口对齐(2026-08-02 计费审计 P1-2:窗口 used 跨档继承,
+	// 到期回落 free 后免费额度恒为 0、开了 autopay 的每次调用还会 100% 从经费实扣)。
+	cleanupService.SetExpiredMembershipWindowRealigner(plat.vipService.RealignExpiredMembershipWindows)
+
+	// cleanup → 额度窗口 Redis↔MySQL 副本的漂移对账 + 保留期清扫(0103)。
+	// 对账那条**不是为了修数据**(它只读只告警),是为了让恢复路径依赖的那份副本平时就被验证 ——
+	// 副本没写进去这件事,不该等到 Redis 真丢数据那天才被发现。
+	cleanupService.SetQuotaWindowMaintainers(
+		plat.vipService.ReconcileQuotaWindowDrift,
+		plat.vipService.ReconcileQuotaWindowOrphans,
+		plat.vipService.PurgeOldQuotaWindows,
+	)
+
 	// 依赖全部注入完成,启动后台清理 + 对账任务。
 	cleanupService.Start()
+
+	// 额度窗口 used 快照刷盘器(0103)。stop 走 main 的关停序列同步刷最后一批。
+	stopQuotaPersist := plat.vipService.StartQuotaPersistence()
 
 	// message + ws：站内信实时推送
 	plat.message.SetWebSocketHub(plat.wsHub)
@@ -514,9 +647,31 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// ---- 限时领取会员推广(开关 / 微信客服二维码 / 文案)----
 	promoHandler := promo.NewHandler(promo.NewService(promo.NewRepository(db)))
 
+	// ---- 邀请注册(一人一码 + 落地页打开计数 + 新用户归因)----
+	// 归因接线(方案 A,ctx 贯穿):routes.go 的 InviteCodeMiddleware 把 X-Invite-Code
+	// 写进请求 ctx;user 各注册成功路径(事务提交后)经包级钩子回调到 invite.Service
+	// 取码落归因。nil 安全 + best-effort:归因失败只 slog,绝不影响注册返回。
+	inviteService := invite.NewService(invite.NewRepository(db))
+	user.SetInviteAttributor(inviteService.AttributeFromContext)
+	// 0117/0118:invite 独立单行配置是真源；关系/里程碑/grant/钱包流水共用事务。
+	inviteService.SetTxRewardGranter(plat.vipService.GrantInviteRewardInTx)
+	inviteService.SetTxRewardReclaimer(plat.vipService.ReclaimInviteRewardInTx)
+	inviteService.SetRewardNotifier(plat.vipService.NotifyInviteCampaignReward)
+	// 充值和订阅均经 OrderService.fulfill，在 paid 事务 commit 前调首单 hook。
+	plat.vipService.Order().SetPaidOrderHook(inviteService.HandlePaidOrderInTx)
+	plat.vipService.Order().SetRefundRewardHook(inviteService.HandleRefundInTx)
+	inviteHandler := invite.NewHandler(inviteService)
+
 	// ---- 情报(学术新闻):上游 webhook 接收/落库 + 公开读 + admin 配置 ----
 	newsService := news.NewService(news.NewRepository(db))
 	newsHandler := news.NewHandler(newsService)
+	// 封面缩略图管线取 minicod 原图时优先经内部 nginx 的 /img-remote —— 同一次回源
+	// 顺带预热 30d proxy_cache(详情页大图受益)。容器外裸跑连不上 nginx 时自动回落直连。
+	nginxInternalURL := os.Getenv("NGINX_INTERNAL_URL")
+	if nginxInternalURL == "" {
+		nginxInternalURL = "http://nginx"
+	}
+	newsService.SetCoverProxyBase(nginxInternalURL)
 	// 情报详情/列表页 /news SSR 元数据(NewsArticle JSON-LD + 全文 noscript;功能关闭时 provider 返回 nil)
 	core.configHandler.SetNewsSEOProvider(newsService)
 	// 情报内容首发/更新 → 主动推送该 URL 入收录队列(freshness 闭环;队列未启用时 no-op)
@@ -573,11 +728,18 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	featureToolRepo := featuretool.NewRepository(db)
 	featureToolDisp := featuretool.NewDispatcher(featureToolRepo)
 	featureToolSvc := featuretool.NewService(featureToolRepo, featureToolDisp)
+	featureToolSvc.SetPushSubmitter(plat.seoSubmitService)
 	featureToolHandler := featuretool.NewHandler(featureToolSvc, featureToolDisp)
 	// 功能大全工具详情页 /tools/{slug} SSR 元数据(匿名 SEO)
 	core.configHandler.SetToolSEOProvider(featureToolSvc)
 	// 主 sitemap 索引直接列出各工具分片 /sitemap-tools-N.xml(扁平化,避免索引套索引)
 	plat.seoHandler.SetToolSitemapProvider(featureToolSvc.SitemapPages)
+
+	// 期刊全量摄取(SEO 主动化,2026-08-11):minicod /v1/jnl 全量 → seo_journals
+	// staged 行,admin 分批发布。worker 本体由 admin API 触发 / 每日增量检查自动
+	// 触发(background.go);这里只做装配 + 崩溃残留 run 的开机对账。
+	seoIngestService := seoingest.NewService(seoingest.NewRepository(db), plat.seoService, aiB.minicodManager)
+	seoIngestService.ReconcileOnBoot()
 
 	// SEO 完整性回填(H1 论文摘要批量回填 + M2 冷门 URL 现拉落库)。
 	// 默认关闭 —— 设 SEO_ENRICH_ENABLED=true 才消耗 minicod 配额;关闭时冷门 URL 仍由 M1 打 noindex 兜底。
@@ -604,10 +766,21 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		// 否则 prism 切到 executor 后,会话创建/稿件物化/回读走 fork、聊天走 executor → 文件系统脑裂、零改动落库。
 		prismFeature.AgentClient(),
 	)
-	prism.SetTitleSink(prismService) // agent 回传标题落库的反查入口(见 handleAgentTitle)
-	prism.SetProfileSink(prismService) // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
+	prism.SetTitleSink(prismService)            // agent 回传标题落库的反查入口(见 handleAgentTitle)
+	prism.SetProfileSink(prismService)          // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
 	prism.SetModelResolver(modelCatalogService) // planner 选择轮按 prism.planner 绑定取便宜模型(P1)
-	prismService.StartBackgroundGC()  // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
+	// 编译状态推送(2026-08-12):经全站常连的通知 WS 按 userID 下发 compile_status 帧,
+	// 前端收帧 setQueryData,把 1s 编译轮询降级为 5s 兜底。best-effort:序列化/发送失败静默,
+	// DB 是真源。用通知 WS 而非 prism 的 agent pipe:编译是 project 维度、pipe 是 session 维度,
+	// 一项目多对话会漏推(见 internal/prism/compile_notify.go)。
+	prism.SetCompileNotifier(func(userID uint, cm *prism.Compile) {
+		data, err := json.Marshal(cm)
+		if err != nil {
+			return
+		}
+		_ = plat.wsHub.SendToUser(userID, &websocket.Message{Type: websocket.MessageTypeCompileStatus, Data: data})
+	})
+	prismService.StartBackgroundGC()            // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
 	// 输入框附件(上传 / 引用文献)—— prism 会话 per-project, handler 自己解析会话后走
@@ -617,9 +790,32 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		agentattach.NewReferencer(prismFeature, libReader, nil),
 	)
 
+	// ---- 成果交付:轮末产物收割钩子接线(2026-08-07 · B1)----
+	//
+	// 🔴 **构造即接线** —— 本仓库咬过多次的形状(ws.go 的注释自陈 permissionAllowed 漏接线
+	//    已是第五次):钩子字段在 FeatureSpec 里声明了、四个 Handler 的实现也写了,但没人调
+	//    Set*,于是 endTurn 里的 `if hook != nil` 恒 false,整套机制等于不存在,还没有任何红灯。
+	//    2026-07 设计过的 `FeatureSpec.OnArtifact` 就是这么消失的(全仓 grep 零实现)。
+	//    所以这四个 Handler 的构造被从下面的 struct 字面量里**提出来**,与接线贴在一起:
+	//    谁都不许把它们再拆开。回归防线见 agentbridge/artifact_dispatch_test.go。
+	//
+	// 治的病(生产实测):产物耐久化原本只在用户点开产物面板时发生,而会话工作区是临时的
+	// —— 用户没点过面板,产物就永久丢失且零日志。claw 13 个「写过文件」的会话只有 7 个留下了行。
+	artifactRepo := agentartifact.NewRepository(db)
+	agentBridge.SetAdminArtifactRepository(artifactRepo)
+	clawHandler := claw.NewHandler(clawFeature, artifactRepo, libReader)
+	boltSlidesHandler := boltslides.NewHandler(boltSlidesFeature, artifactRepo)
+	sciDrawHandler := scidraw.NewHandler(sciDrawFeature, artifactRepo)
+	statLabHandler := statlab.NewHandler(statLabFeature, artifactRepo)
+	clawFeature.SetArtifactHarvester(clawHandler.HarvestTurnArtifacts)
+	boltSlidesFeature.SetArtifactHarvester(boltSlidesHandler.HarvestTurnArtifacts)
+	sciDrawFeature.SetArtifactHarvester(sciDrawHandler.HarvestTurnArtifacts)
+	statLabFeature.SetArtifactHarvester(statLabHandler.HarvestTurnArtifacts)
+
 	// ---- 聚合 handlers ----
 	return &services{
 		handlers: &allHandlers{
+			attachment:     attachmentHandler,
 			admin:          core.admin,
 			dashboard:      core.dashboard,
 			user:           core.userHandler,
@@ -635,6 +831,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			vip:            plat.vipHandler,
 			hotContent:     plat.hotContent,
 			seo:            plat.seoHandler,
+			seoIngest:      seoingest.NewHandler(seoIngestService),
 			message:        plat.message,
 			feedback:       core.feedback,
 			emailLog:       emailLogHandler,
@@ -650,34 +847,45 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			peerReview:     peerReviewHandler,
 			memory:         usermemory.NewHandler(userMemoryService),
 			openAccess:     openaccess.NewHandler(),
-			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), libReader),
-			boltSlides:     boltslides.NewHandler(boltSlidesFeature, agentartifact.NewRepository(db)),
-			sciDraw:        scidraw.NewHandler(sciDrawFeature, agentartifact.NewRepository(db)),
-			skillMarket:    skillMarketHandler,
-			featureTool:    featureToolHandler,
-			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
+			claw:           clawHandler,
+			// 🔴 构造即接线:上面 routes_user.go 的 Run 路由有 `if h.agentRun != nil` 守卫,
+			//    这里不填就是"路由代码在仓库里、生产上不存在" —— 本仓库咬过七次的形状。
+			agentRun:    agentrun.NewHandler(runEngine, agentrun.NewRepo(db), clawFeature),
+			boltSlides:  boltSlidesHandler,
+			sciDraw:     sciDrawHandler,
+			statLab:     statLabHandler,
+			skillMarket: skillMarketHandler,
+			featureTool: featureToolHandler,
+			agentBridge: agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
 			// 智能写作 (Prism): DB 真源 + 编译沙箱(共享卷 watcher)+ AI 定点编辑(prismFeature/agent)。
 			prism: prismHandler,
 			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap
 			// 详见 internal/umami/client.go:EnsureWebsiteID。
 			// WebsiteID env 配了用配的;空 → 启动后首次需要时 list+create 自动建一个 Scholay website。
+			// WithCrawler:「搜索引擎抓取」面板(/admin/analytics/crawler)。
+			// UMAMI_CRAWLER_WEBSITE_ID 未配置 → client 为 nil → 端点返 {configured:false},
+			// 与 crawlerwatch 中间件的开关口径一致(同一个 env 同时控制写入与展示)。
 			umami: umami.NewHandler(umami.NewClient(
 				"", "", "",
 				appconfig.AppConfig.Umami.WebsiteID,
 				siteName(),
 				domainFromSiteURL(),
-			)),
+			)).WithCrawler(newCrawlerAnalyticsClient(), db),
 			supportCenter: supportCenterHandler,
 			promo:         promoHandler,
 			news:          newsHandler,
+			invite:        inviteHandler,
 		},
 		userService:          core.userService,
 		cleanupService:       cleanupService,
 		thirdPartyService:    aiB.thirdPartyService,
 		seoService:           plat.seoService,
 		seoSubmitService:     plat.seoSubmitService,
+		seoIngestService:     seoIngestService,
+		newsService:          newsService,
 		wsHub:                plat.wsHub,
 		supportCenterService: supportCenterService,
 		agentBridge:          agentBridge,
+		stopQuotaPersist:     stopQuotaPersist,
 	}
 }

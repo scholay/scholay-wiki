@@ -13,7 +13,7 @@ import { useStagingSync } from '@/features/search/hooks/useStagingSync';
  * 全局壳:顶部导航 + 主体。
  *
  * **注意**:不再全局渲染 `<Footer />`。
- * 只有首页(/)和宣传页才需要 footer,其余功能页(搜索、文献集、Prism 等)
+ * 只有首页(/)和宣传页才需要 footer,其余功能页(搜索、文件夹、Prism 等)
  * 都是工作面 UI,加底栏只会挤占工作区。
  * 需要 footer 的页面自己 `import { Footer } from '@/shared/components/Footer'`
  * 在自己 JSX 末尾渲染。

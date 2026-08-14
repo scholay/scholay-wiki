@@ -3,6 +3,7 @@ import { Languages, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { Textarea } from '@/shared/ui/textarea';
 import { toApiError } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
 import { getTerminology, putTerminology } from '../api/prism';
@@ -70,16 +71,16 @@ export function PrismTranslateDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-2 text-xs text-subtle">
-          <div className="rounded-md border border-border p-2.5">
-            <p className="font-bold text-foreground">第一步 · 逐节忠实直译</p>
-            <p className="mt-0.5 text-2xs text-muted-foreground">
+        <div className="space-y-2 text-12 text-subtle">
+          <div className="rounded-12 border border-border p-2.5">
+            <p className="text-14 font-medium text-foreground">第一步 · 逐节忠实直译</p>
+            <p className="mt-0.5 text-12 text-muted-foreground">
               一轮一节;数字/单位/引用键逐字保真;首译术语会写回术语表。每节译完在 diff 里确认应用,再译下一节。
             </p>
             <Button
               size="sm"
               variant="outline"
-              className="mt-1.5 h-7 text-2xs"
+              className="mt-1.5 h-7 text-12"
               disabled={!chatIdle}
               onClick={() =>
                 step(
@@ -92,15 +93,15 @@ export function PrismTranslateDialog({
             </Button>
           </div>
 
-          <div className="rounded-md border border-border p-2.5">
-            <p className="font-bold text-foreground">第二步 · 开新对话(关键)</p>
-            <p className="mt-0.5 text-2xs text-muted-foreground">
+          <div className="rounded-12 border border-border p-2.5">
+            <p className="text-14 font-medium text-foreground">第二步 · 开新对话(关键)</p>
+            <p className="mt-0.5 text-12 text-muted-foreground">
               全部直译并应用后开一条新对话:润色必须在「只见译文」的干净上下文里做,否则中文原文一直在历史里,翻译腔磨不掉。同一篇论文继续写,文稿/术语表不丢。
             </p>
             <Button
               size="sm"
               variant="outline"
-              className="mt-1.5 h-7 text-2xs"
+              className="mt-1.5 h-7 text-12"
               disabled={!chatIdle}
               onClick={async () => {
                 await onResetSession();
@@ -111,13 +112,13 @@ export function PrismTranslateDialog({
             </Button>
           </div>
 
-          <div className="rounded-md border border-border p-2.5">
-            <p className="font-bold text-foreground">第三步 · 逐批单语润色</p>
-            <p className="mt-0.5 text-2xs text-muted-foreground">只读译文去翻译腔(拆长句/补主语/时态惯例);只改表达不改事实。</p>
+          <div className="rounded-12 border border-border p-2.5">
+            <p className="text-14 font-medium text-foreground">第三步 · 逐批单语润色</p>
+            <p className="mt-0.5 text-12 text-muted-foreground">只读译文去翻译腔(拆长句/补主语/时态惯例);只改表达不改事实。</p>
             <Button
               size="sm"
               variant="outline"
-              className="mt-1.5 h-7 text-2xs"
+              className="mt-1.5 h-7 text-12"
               disabled={!chatIdle}
               onClick={() =>
                 step(
@@ -134,17 +135,17 @@ export function PrismTranslateDialog({
         {/* 术语表(soft constraint;直接编辑,下一轮生效) */}
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <p className="text-2xs font-bold text-faint">项目术语表(原文 | 译文,每行一条;agent 翻译时遵从并回填)</p>
-            <Button size="sm" variant="ghost" className="h-6 px-2 text-2xs" onClick={saveTerm} disabled={saving || !loaded}>
+            <p className="text-12 font-medium text-faint">项目术语表(原文 | 译文,每行一条;agent 翻译时遵从并回填)</p>
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-12" onClick={saveTerm} disabled={saving || !loaded}>
               {saving ? <Loader2 className="size-3 animate-spin" /> : null} 保存
             </Button>
           </div>
-          <textarea
+          <Textarea
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             rows={5}
             placeholder={'| 原文 | 译文 | 备注 |\n| --- | --- | --- |\n| 注意力机制 | attention mechanism | |'}
-            className="w-full resize-y rounded-md border border-border bg-surface-1 p-2 font-mono text-2xs outline-none placeholder:text-faint"
+            className="bg-surface-1 p-2 font-mono"
           />
         </div>
       </DialogContent>

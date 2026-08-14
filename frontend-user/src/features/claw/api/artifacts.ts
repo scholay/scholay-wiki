@@ -47,9 +47,9 @@ function unwrap<T>(raw: { data?: T } & Partial<T>): T {
  * ArtifactBasePath —— 交付物端点前缀,决定走哪个 feature 的产物路由。
  * '/user/claw'(智能助手) | '/user/boltslides'(制作PPT)。默认 claw,保旧调用点不变。
  */
-export type ArtifactBasePath = '/user/claw' | '/user/boltslides' | '/user/sci_draw';
+export type ArtifactBasePath = '/user/claw' | '/user/boltslides' | '/user/sci_draw' | '/user/stat_lab';
 
-/** feature 段(queryKey 根 + bytes key 命名空间):从 basePath 末段取(claw / boltslides / sci_draw)。 */
+/** feature 段(queryKey 根 + bytes key 命名空间):从 basePath 末段取(claw / boltslides / sci_draw / stat_lab)。 */
 function featureOf(basePath: ArtifactBasePath): string {
   return basePath.slice('/user/'.length);
 }
@@ -170,4 +170,11 @@ export function useBoltslidesArtifacts(sessionId: string | null | undefined) {
 // ─── sci_draw 具名实例(basePath='/user/sci_draw')——— 科研绘图 复用 ────────────────
 export function useSciDrawArtifacts(sessionId: string | null | undefined) {
   return useAgentArtifacts(sessionId, '/user/sci_draw');
+}
+
+// ─── stat_lab 具名实例(basePath='/user/stat_lab')——— 数据分析 复用 ────────────────
+// 产物是三线表 docx / Results md / analysis.py —— artifact-format.ts 对这三类都已有预览器,
+// 故这里零新增渲染逻辑,只是换个 basePath。
+export function useStatLabArtifacts(sessionId: string | null | undefined) {
+  return useAgentArtifacts(sessionId, '/user/stat_lab');
 }

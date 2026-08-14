@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"strconv"
@@ -85,10 +84,16 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	if config.AppConfig != nil && config.AppConfig.App.IsRelease && req.Amount != orderRecord.Amount {
-		utils.Error(c, 4005, "支付金额与订单不一致")
-		return
+	// 🔴 2026-08-02 计费审计 P1-4:金额不再「校验客户端报的值」,而是**直接覆盖成订单行的真源**。
+	// 旧写法有两处问题:① 被 IsRelease 包着 —— 只要生产误用 debug 模式(仓库自带的 dev .env
+	// 就是 GIN_MODE=debug,整份拷到生产即可复现)这道闸就消失;② 比对的是 Amount 而非履约侧
+	// 真正校验的 FinalAmount,今天两者恒等所以没暴雷,但只要将来引入优惠券/差价就会分叉。
+	// 覆盖比校验更强:客户端根本没有能力影响下单金额,少一条需要维护的一致性规则。
+	if req.Amount != orderRecord.FinalAmount {
+		slog.Warn("alipay create: 客户端上报金额与订单不符,已按订单真源覆盖",
+			"order_no", req.OrderNo, "client_amount", req.Amount, "order_final_amount", orderRecord.FinalAmount)
 	}
+	req.Amount = orderRecord.FinalAmount
 
 	response, err := h.alipayService.CreatePayment(req)
 	if err != nil {

@@ -1,43 +1,116 @@
-/* 全局样式。色板/圆角对齐 mobile 端设计(frontend-user/src/styles/globals.css)。
-   语义色:红=CTA/danger/论文 · 绿=AI/primary/成功 · 蓝=期刊检索 · 琥珀=会员/警告。 */
+/* =============================================================================
+ * Scholay 小程序 · 全局样式 (app.wxss)
+ * -----------------------------------------------------------------------------
+ * 🔴 下面这套 token 是 frontend-user/src/styles/globals.css 的【人工镜像】。
+ *    wxss 既不能 @import Web 端 CSS、也没有构建期注入 —— 只能人工同步。
+ *
+ *    · 唯一真源:frontend-user/src/styles/globals.css
+ *      (其上游是 Pencil 设计源文件 dev.pen)
+ *    · 改真源 = 必须同步改本文件。否则小程序会静默漂移:本文件在 2026-07-28
+ *      之前就整整落后两代(#cc2222 / #2a7a2a / #d4a017 / #1a56db / #111111),
+ *      而文件头却一直声称"对齐 globals.css"。
+ *    · 上次同步:2026-08-08   ← 每次同步务必更新这一行
+ *
+ * 语义色:朱砂=CTA/danger/论文 · 松青=AI/成功 · 琥珀=期刊线/会员/警告 · 玄墨=文字。
+ * ⚠️ 体系内【没有蓝系】(Pencil 四色阶完全不含蓝)。旧 --blue(#1a56db)承担的
+ *    "期刊检索线"已改由琥珀承担;只有"必须多色相区分"的数据可视化场景保留
+ *    --cat-blue(对应 globals 的同名 token,它自己也标注为"规范外的第五色相")。
+ * ============================================================================= */
 page {
-  /* 灰阶(对齐设计 token) */
-  --bg: #f5f5f5;             /* surface-2 页面 chrome */
-  --surface-1: #fafafa;     /* 弱卡片 */
-  --card: #ffffff;          /* 容器/卡片 */
-  --text: #111111;          /* foreground 主标题/正文 */
-  --text-weak: #666666;     /* muted-foreground 描述/次要 */
-  --text-faint: #999999;    /* faint 更弱/占位 */
-  --border: #e8e8e8;        /* 标准边框(最常见) */
-  --border-strong: #d8d8d8; /* 强调描边 */
-  /* 语义品牌色 */
-  --red: #cc2222;
-  --green: #2a7a2a;
-  --blue: #1a56db;
-  --amber: #d4a017;
-  --blue-soft: #f8faff;     /* 期刊行软底 */
-  --journal-soft: #faf8f2;
-  --brand: #cc2222;         /* 旧 --brand 引用统一 → 红(主 CTA);别再用错的蓝 */
-  /* 圆角(对齐设计 4/6/8px,偏锐) */
-  --r-sm: 8rpx;
-  --r: 12rpx;
-  --r-lg: 16rpx;
-  --r-pill: 9999rpx;
-  /* ══ 全站字号标尺(2026-07 对齐主流阅读类 App 比例;新写样式一律引 token)══
-     hero 40 / 页面主标题 36 / 区块·卡片标题 32 / 正文 30 / 次要 26 / meta 22-24 */
-  --fs-hero: 40rpx;
-  --fs-title: 36rpx;
-  --fs-card: 32rpx;
-  --fs-body: 30rpx;
-  --fs-sub: 26rpx;
-  --fs-meta: 24rpx;
-  --fs-tag: 22rpx;
+  /* ── 表面层(globals §二)──────────────────────────────────────────────
+     🔴 页面底不再是灰白,而是米白 #F6F4EE;卡片才是纯白 —— 分层靠这层明度差。 */
+  --bg:        #F6F4EE;   /* background    页面/外层容器米白底 (旧 #f5f5f5) */
+  --card:      #FFFFFF;   /* surface-card  内层卡片/输入框纯白 */
+  --surface-1: #EFEDE5;   /* surface-1     工具栏/弱卡片      (旧 #fafafa) */
+  --surface-2: #E8E5DC;   /* surface-2     hover/选中/页面 chrome */
+
+  /* ── 文字层(globals §三,对比度均按米白底 #F6F4EE 实测)────────────── */
+  --text:          #1F1F23;  /* foreground          14.93:1 AAA (旧 #111111) */
+  --text-subtle:   #505059;  /* subtle-foreground    7.25:1 AAA
+                              * ⚠️ 改造前本 token 从未定义,4 处 var(--text-subtle, #444)
+                              *    一直在吃 fallback —— 现在补上真值 */
+  --text-weak:     #686873;  /* muted-foreground     5.00:1 AA  (旧 #666666) */
+  --text-faint:    #6E6E78;  /* faint-foreground     4.58:1 AA  (旧 #999999,仅 2.9:1;
+                              * 它承载 12px 文本,WCAG 的"大字 3:1"豁免不适用) */
+  --text-disabled: #757580;  /* disabled-foreground(WCAG 1.4.3 对禁用控件有豁免,
+                              * 刻意【不】跟随 --text-faint 提亮) */
+  --on-brand:      #FFFFFF;  /* 实心品牌按钮/深底上的前景 */
+
+  /* ── 边框层(globals §四)──────────────────────────────────────────────
+     🔴 用 alpha 而非实色:同时存在米白页底与纯白卡底,一个 token 自动适配两种底
+        (米白上 ≈#DCDAD6、纯白上 ≈#E4E4E5)。实色做不到。 */
+  --border-soft:   rgba(31, 31, 35, 0.08);  /* 极弱内分隔        (旧 #eee) */
+  --border:        rgba(31, 31, 35, 0.12);  /* ★ 标准容器边框    (旧 #e8e8e8) */
+  --border-strong: rgba(31, 31, 35, 0.22);  /* 强调描边          (旧 #d8d8d8) */
+
+  /* ── 品牌色(globals §五)────────────────────────────────────────────── */
+  --red:      #882828;  /* brand-red   朱砂 · CTA / danger / 论文  (旧 #cc2222) */
+  --green:    #2F4D29;  /* brand-green 松青 · AI / 成功            (旧 #2a7a2a) */
+  --amber:    #B4880E;  /* brand-amber 琥珀 · 期刊线 / 会员 / 警告  (旧 #e5a800) */
+  --brand:    #882828;  /* 主 CTA = 朱砂(= --red) */
+  --red-deep: #661E1E;  /* = red-4,按压态/渐变深端 */
+  /* 🟡 规范外的第五色相,【不是品牌色】—— 只给"必须多色相区分"的图表/公式块用,
+   *    对应 globals 的 --cat-blue。绝不可拿它当链接色或期刊线色。
+   * 🚫 旧的 --blue / --blue-soft / --journal-soft 已随 --brand-blue 一起退休。 */
+  --cat-blue: #2E5AA8;
+
+  /* 品牌软底 + 软描边 —— 软底取 globals 的现成值,描边 = 品牌色 25% 叠白(比软底深一档) */
+  --red-soft:   #F3E9E9;  --red-line:   #E1C9C9;  /* = globals --brand-red-soft   (旧 #fff5f5) */
+  --green-soft: #E9F0E6;  --green-line: #CBD3CA;  /* = globals --status-success-soft (旧 #eaf7ee) */
+  --amber-soft: #F7EFDC;  --amber-line: #ECE1C3;  /* = globals --status-warning-soft;line = #B4880E 25% 叠白 */
+  --amber-ink:  #805E00;  /* 琥珀软底上的文字 = globals --status-warning,on -soft 实测 5.21:1 AA。
+                           * ⚠️ 品牌琥珀不得直接承载小号正文;浅底上请用 --amber-ink。 */
+  /* 琥珀"软底高亮块" = globals --amber-soft-bg / --amber-soft-fg。
+   * ⚠️ 与 --amber-soft 不是一回事:#F7EFDC 落在米白页底 #F6F4EE 上几乎看不见,只适合
+   *    待在纯白卡里;需要直接落在米白底上还能"跳出来"的提示块用下面这一对。 */
+  --amber-block:     #E5DFCE;
+  --amber-block-ink: #664B00;  /* on --amber-block 实测 6.14:1 AA */
+
+  /* ── 圆角(globals §六档 4/8/12/16/20/pill;小程序 1px = 2rpx)────────
+     旧的 --r-sm/--r/--r-lg(4/6/8px)里的 6px 不在六档内,已并入 8px。 */
+  --r-4:    8rpx;    /* 4px   内联 chip / 小方块 */
+  --r-8:    16rpx;   /* 8px   ★ 按钮 / 输入框 / 列表项 */
+  --r-12:   24rpx;   /* 12px  浮层 / 嵌套子面板 */
+  --r-16:   32rpx;   /* 16px  ★ 主力容器:卡片 / 页面区块 / sheet */
+  --r-20:   40rpx;   /* 20px  最外层大区块(应极克制) */
+  --r-pill: 9999rpx; /* 胶囊:实心按钮 / Badge / 进度条 / 头像 */
+
+  /* ── 字号(globals §十 八档 12/14/16/18/20/24/28/32px;小程序 1px = 2rpx)── */
+  --fs-12: 24rpx;
+  --fs-14: 28rpx;   /* ★ 正文基准 */
+  --fs-16: 32rpx;
+  --fs-18: 36rpx;
+  --fs-20: 40rpx;
+  --fs-24: 48rpx;
+  --fs-28: 56rpx;
+  --fs-32: 64rpx;
+  /* 语义别名 —— 只是给上面八档起个说人话的名字,不得引入第九个值 */
+  --fs-hero:  var(--fs-24);   /* 移动端 hero / 详情页 h1 */
+  --fs-title: var(--fs-20);   /* 页面主标题       (旧 18px 已纳入阶梯,标题语义统一用 20px) */
+  --fs-card:  var(--fs-16);   /* 区块 · 卡片标题 */
+  --fs-body:  var(--fs-14);   /* 正文             (旧 30rpx=15px,不在八档内) */
+  --fs-sub:   var(--fs-12);   /* 次要             (旧 26rpx=13px,不在八档内) */
+  --fs-meta:  var(--fs-12);   /* meta / 时间戳 */
+  --fs-tag:   var(--fs-12);   /* 标签             (旧 22rpx=11px,不在八档内) */
   --lh-body: 1.6;
   background: var(--bg);
   color: var(--text);
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 1.6;
-  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Segoe UI", sans-serif;
+  /* 字族镜像 Web 真源(frontend-user globals.css,2026-08-11):
+   * UI 栈 = 系统 UI 字体(iOS 苹方 / Android 各厂黑体);衬线/展示栈 = 具名
+   * Latin 字体 + Noto Serif SC(Web 端唯一 webfont;小程序未 wx.loadFontFace,
+   * 真机上落到后面的宋体系兜底,这正是设计给的离线兜底链)。
+   * system-ui 不得排在 Noto/宋体前(系统级联会截获 CJK)。
+   * 设计护栏(design-system-guard「小程序字号阶梯与字体栈必须镜像 Web 真源」)
+   * 会归一化比对这三条与 globals.css 同名 token,改动必须两侧同步。 */
+  --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Helvetica Neue", "Segoe UI", Arial, "Noto Serif SC", "Songti SC",
+    STSong, SimSun, "Source Han Serif SC", "Noto Serif CJK SC", system-ui, serif;
+  --font-display: "Helvetica Neue", "Segoe UI", Arial, "Noto Serif SC", "Songti SC",
+    STSong, SimSun, "Source Han Serif SC", "Noto Serif CJK SC", system-ui, serif;
+  font-family: var(--font-sans);
 }
 
 .page {
@@ -51,13 +124,13 @@ page {
   background: var(--card);
   color: var(--text);
   border: 1rpx solid var(--border);
-  border-radius: 16rpx;
-  font-size: 30rpx;
+  border-radius: var(--r-8);
+  font-size: var(--fs-body);
   line-height: 88rpx;
 }
 .btn.primary {
   background: var(--brand);
-  color: #fff;
+  color: var(--on-brand);
   border: none;
 }
 .btn.danger {
@@ -98,7 +171,8 @@ page {
   opacity: 0.9;
 }
 .hover-bg {
-  background-color: rgba(0, 0, 0, 0.05);
+  /* 按压压深叠色用玄墨 31/31/35 而非纯黑 —— 与 --border 同一套 alpha 派生口径 */
+  background-color: rgba(31, 31, 35, 0.05);
 }
 .hover-op {
   opacity: 0.5;
@@ -124,10 +198,11 @@ page {
 /* 加载骨架屏:灰块 + 流光。替换干巴巴的"加载中…"。 */
 @keyframes shimmer { from { background-position: -240rpx 0; } to { background-position: 240rpx 0; } }
 .skeleton {
-  background: linear-gradient(90deg, #ececef 25%, #f6f6f8 37%, #ececef 63%);
+  /* 灰块取 surface-2 / 流光取页面米白底 —— 旧值 #ececef/#f6f6f8 是冷灰,落在米白底上发青 */
+  background: linear-gradient(90deg, #E8E5DC 25%, #F6F4EE 37%, #E8E5DC 63%);
   background-size: 480rpx 100%;
   animation: shimmer 1.3s ease-in-out infinite;
-  border-radius: 8rpx;
+  border-radius: var(--r-4);
 }
 
 /* 全局按钮按压(.btn 常是 view/button;:active 兜一层,配合上面 hover-class 更稳)。 */
@@ -151,7 +226,7 @@ page {
   transition: background-color var(--dur-fast) var(--ease);
 }
 .row:active, .jrow:active, .ref:active, .tool-row:active, .menu-item:active, .link-row:active {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(31, 31, 35, 0.05);
 }
 /* 图标/文字按钮/筛选 chip/tab:变淡 */
 .chip, .fchip, .fmt-tab, .tab, .search-btn, .search-go, .filter-btn, .freset {
@@ -170,7 +245,7 @@ page {
   padding: 28rpx 24rpx;
   margin-bottom: 16rpx;
   background: var(--card);
-  border-radius: 16rpx;
+  border-radius: var(--r-8);
 }
 .sk-bar { height: 26rpx; margin-bottom: 18rpx; }
 .sk-bar:last-child { margin-bottom: 0; }
@@ -182,7 +257,8 @@ page {
 .sk-detail { padding: 24rpx 8rpx; }
 .sk-title-lg { height: 46rpx; width: 78%; margin-bottom: 26rpx; }
 .sk-chips { margin-bottom: 30rpx; }
-.sk-chip { display: inline-block; height: 40rpx; width: 110rpx; margin-right: 14rpx; border-radius: 20rpx; }
+/* 20rpx = 高度的一半,本就是胶囊 → 直接用 pill token,零像素变化 */
+.sk-chip { display: inline-block; height: 40rpx; width: 110rpx; margin-right: 14rpx; border-radius: var(--r-pill); }
 .sk-body-line { height: 26rpx; margin-bottom: 22rpx; }
 
 /* 登录页/游客态的「其他方式登录」次入口。 */
@@ -190,6 +266,6 @@ page {
   display: inline-block;
   margin-top: 28rpx;
   color: var(--text-weak);
-  font-size: 26rpx;
+  font-size: var(--fs-sub);
   text-decoration: underline;
 }

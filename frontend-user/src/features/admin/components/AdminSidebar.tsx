@@ -35,7 +35,7 @@ export function AdminSidebar() {
           <ArrowLeft />
         </SidebarHeaderIcon>
         <SidebarHeaderCenter>
-          <span className="text-sm font-semibold text-foreground">管理员后台</span>
+          <span className="text-14 font-medium text-foreground">管理员后台</span>
         </SidebarHeaderCenter>
         <SidebarHeaderIcon aria-label="角色标识">
           <Shield />
@@ -77,16 +77,24 @@ export function AdminSidebar() {
  */
 function badgeFor(item: AdminNavItem, a: AdminAlerts): React.ReactNode {
   switch (item.id) {
-    case 'feedback':
+    case 'feedback' :
       return a.pendingFeedback > 0 ? <CountBadge tone="danger" n={a.pendingFeedback} /> : null;
-    case 'messages':
+    case 'messages' :
       return a.draftMessages > 0 ? <CountBadge tone="muted" n={a.draftMessages} /> : null;
-    case 'third-party':
+    case 'third-party' :
       return a.unhealthyThirdParty > 0 ? <CountBadge tone="danger" n={a.unhealthyThirdParty} /> : null;
-    case 'payment':
-      return !a.hasActiveAlipay || !a.hasActiveWechatPay ? <StatusDot tone="warning" /> : null;
-    case 'system':
-      return a.maintenanceMode ? <StatusDot tone="warning" /> : null;
+    case 'payment' :
+      // 🔴 判据是「两个渠道**都**没启用」,不是「任一未启用」。
+      // 用 `||` 的话,商户本来就只接支付宝不接微信(完全正常的经营选择)会让黄点永久常亮,
+      // 几周后就没人再看它了 —— 一个永远亮着的告警等于没有告警(狼来了)。
+      // 两个都没启用才是真事故:用户点支付会无路可走。
+      return !a.hasActiveAlipay && !a.hasActiveWechatPay
+        ? <StatusDot tone="warning" title="支付宝与微信支付均未启用,用户当前无法完成支付" />
+        : null;
+    case 'system' :
+      return a.maintenanceMode
+        ? <StatusDot tone="warning" title="维护模式已开启,全站只读" />
+        : null;
     default:
       return null;
   }

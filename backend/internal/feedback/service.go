@@ -298,8 +298,10 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 	// 站内信通知:登录用户(有 user_id)才发 —— 可靠、不依赖 SMTP;匿名反馈无账号,只能走下面的邮件。
 	// best-effort:失败只记日志,不影响回复主流程(回复已落库)。
 	if feedback.UserID != nil && *feedback.UserID != 0 && s.notifier != nil {
-		title := "您的反馈已收到回复"
-		content := "您之前提交的反馈已由客服回复:\n\n" + replyContent
+		// 站内信正文直接就是回复内容:用户点开就是想看回复,再套一句「您之前提交的反馈已由
+		// 客服回复:」是把标题又说了一遍,白占一屏(移动端站内信卡片很矮)。
+		title := "客服已回复您的反馈"
+		content := replyContent
 		if err := s.notifier.SendToUser(*feedback.UserID, title, content, "system", "", ""); err != nil {
 			slog.Error("failed to send in-app feedback reply notification", "feedback_id", id, "user_id", *feedback.UserID, "err", err)
 		} else {
@@ -320,7 +322,7 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 		} else {
 			slog.Info("email config loaded", "host", emailConfig.SMTPHost, "port", emailConfig.SMTPPort, "from", emailConfig.FromEmail)
 
-			subject := "您的反馈已收到回复 - Scholay"
+			subject := utils.EmailSubject("客服已回复您的反馈")
 			body := s.buildReplyEmailBody(feedback, replyContent)
 
 			config := utils.EmailConfig{
@@ -346,14 +348,18 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 	return nil
 }
 
-// buildReplyEmailBody 构建回复邮件内容
+// buildReplyEmailBody 构建回复邮件内容。
+//
+// 版式:回复正文在前(用户要看的就是它),原始反馈用引用块垫在后面做上下文 ——
+// 旧版把「原始反馈」放前、回复塞进 Outro,读起来要先翻过自己写的东西才看到答案。
+// ⚠️ 引用块的领起句必须并进 Intro:RenderBrandedEmail 的渲染顺序是
+// Title→Intro→Quote→Code→Rows→Outro→CTA→Note,写进 Outro 会排到引用块**后面**。
 func (s *Service) buildReplyEmailBody(feedback *Feedback, replyContent string) string {
 	return utils.RenderBrandedEmail(utils.EmailContent{
-		Title: "您的反馈已收到回复",
-		Intro: "感谢您的反馈,我们已经处理了您的问题。您的原始反馈:",
+		Title: "客服已回复您的反馈",
+		Intro: replyContent + "\n\n以下是您提交的原始内容:",
 		Quote: feedback.Content,
-		Outro: "我们的回复:\n" + replyContent,
-		Note:  "如果您还有其他问题,欢迎继续向我们反馈。",
+		Note:  "如仍有疑问,可继续在站内提交反馈。",
 	})
 }
 

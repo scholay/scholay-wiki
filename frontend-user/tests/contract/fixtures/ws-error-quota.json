@@ -1,6 +1,12 @@
 {
   "type": "error",
   "code": "quota_exceeded",
-  "message": "本周期 AI 额度已用完,将于 7月17日 15:30 自动重置;也可消耗 60 经费立即重置。",
-  "retryable": false
+  "message": "本周期 AI 额度已用完",
+  "retryable": false,
+  "quota": {
+    "reset_at": "2026-07-17T15:30:00+08:00",
+    "window_days": 7,
+    "credit_balance_positive": true,
+    "credit_autopay": false
+  }
 }

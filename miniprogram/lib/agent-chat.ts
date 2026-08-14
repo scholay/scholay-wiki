@@ -53,6 +53,13 @@ export interface PendingTurn {
   userText: string
   paused?: boolean
   blocked?: boolean
+  // 原始发送载荷(命中额度被拦后「重新发送」用,无需重打):text=输入框原文,
+  // content=实际下发内容(含引用块),attachments=已上传附件描述(与 user_message 帧同构)。
+  resend?: {
+    text: string
+    content: string
+    attachments?: { type: string; name: string; mimeType: string; path: string }[]
+  }
 }
 
 // ── 流式合并 / 续流截断(搬自 shared/lib/agent-stream.ts)────────────────────
@@ -95,6 +102,10 @@ export function foldMessagesIntoTurns(messages: AgentFrame[], pendingTurns: Pend
   const toolByUseId = new Map<string, ToolBlock>()
 
   for (const msg of messages) {
+    // blocked 轮(配额拦下,消息从未到达 agent)不产生任何流帧 —— 对齐游标跳过它们(对齐 Web fold.ts)。
+    // 不跳会让后续真实轮的帧错位折进 blocked 轮(例:命中额度被拦后不重发、直接问下一句,
+    // 新一轮的回答会挂到 blocked 轮上、自己则永远 complete=false → busy 卡死)。
+    while (turns[turnIdx] && turns[turnIdx].blocked) turnIdx++
     const current = turns[turnIdx]
     if (!current) break
     switch (msg.type) {
@@ -116,6 +127,17 @@ export function foldMessagesIntoTurns(messages: AgentFrame[], pendingTurns: Pend
         break
       case 'content_delta':
         if (currentText && typeof msg.text === 'string') currentText.text += msg.text
+        break
+      case 'round_discarded':
+        // 2026-07 审查 [9]:本轮作废重打(DSML 泄漏 / 瞬态流错误重试)——只摘掉当前在途的文本块
+        // (残缺前缀),不清整个 current.blocks(会误删本轮更早 round 的工具/文本块)。
+        // 与 Web 三份 fold(claw / prism / smart-search)逐字同款;此前小程序缺这一支,
+        // 微信端会稳定出现「残缺前缀 + 正式答案」两段重复。
+        if (currentText) {
+          const idx = current.blocks.lastIndexOf(currentText)
+          if (idx !== -1) current.blocks.splice(idx, 1)
+          currentText = null
+        }
         break
       case 'tool_use_complete':
         if (msg.toolUseId) {
@@ -374,6 +396,7 @@ export interface TurnVM {
   thinkFoldKey?: string // 页面层回填:turnId:think,配 openFolds 记忆
   placeholder: string
   blockedOutput: boolean // 输出侧内容安全命中 → 隐藏回复
+  blocked?: boolean // 命中额度未发送的那轮 → 琥珀「尚未发送」卡 + 重新发送(对标 Web blocked 轮)
   // 页面层回填:本轮 Write/Edit 产出且仍在 ./out 的文件(对标 Web TurnArtifacts,挂回答下方)
   turnArtifacts?: { index: number; name: string; sizeText: string; isDir: boolean }[]
 }
@@ -473,8 +496,9 @@ export function decorateTurns(
     // 最后一个工具已回结果但轮未完成(agent 在想下一步,3~20s 常见),没有指示会像卡死。
     const last = t.blocks[t.blocks.length - 1]
     const tailGap = !!last && last.kind === 'tool' && last.result !== undefined
+    // blocked 轮(配额拦下,永远等不到回复)不显示「正在思考…」占位,由琥珀「尚未发送」卡接管。
     const placeholder =
-      !t.complete && !t.errorMessage && (!hasContent || tailGap) ? t.placeholder?.verb || '正在思考…' : ''
+      !t.complete && !t.errorMessage && !t.blocked && (!hasContent || tailGap) ? t.placeholder?.verb || '正在思考…' : ''
     const thinkText = t.thinkingText || ''
     return {
       id: t.id,
@@ -488,6 +512,7 @@ export function decorateTurns(
       thinkPreview: thinkPreviewOf(thinkText),
       placeholder,
       blockedOutput: false,
+      blocked: !!t.blocked,
     }
   })
 }

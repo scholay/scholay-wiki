@@ -1,335 +1,1201 @@
 @import 'tailwindcss';
+
+/* 🔴 把 tests/ 排除出 Tailwind 的扫描面(2026-08-02)。
+ *
+ * Tailwind v4 默认自动扫描项目源码,而它**不认识注释、也不认识"这是一个测试断言"** ——
+ * 任何形如 `前缀-[值]` 的字符串都会被当成真用法编译成一条 CSS 规则。
+ * 后果是 design-system-guard 这个**用来检测违规写法**的测试文件,自己把被检测的样例
+ * (如带省略号的占位任意值)注进了生产 CSS:产物里真的多出 `--tw-shadow:...` 这种非法声明,
+ * lightningcss 每次构建都报 Unexpected token。护栏反过来污染了它要保护的产物。
+ * 同族的两处注释占位值已就地改成中文描述(MobileBottomNav.tsx / dialog.tsx 的红字)。 */
+@source not "../../tests";
 @import 'tw-animate-css';
+/* Noto Serif SC:唯一保留的 webfont(见下方「字体策略」)。首屏 UI 常用字
+   一个小子集收敛请求,其余 101 个 unicode-range 分片按标题实际命中的字按需加载。 */
+@import './fonts/noto-serif-sc.css';
 
 /* =============================================================================
- * 字体 —— 自托管 Playfair Display 700,Inter 走系统字体
+ * 字体策略 —— UI 系统字体 + 标题 Noto Serif SC(2026-08-11 用户两段指令)
  * ----------------------------------------------------------------------------
- * 为什么这样配:
- *   - Inter 与 SF Pro(macOS)/ Segoe UI(Windows)视觉差异极小,
- *     用 system-ui 第一优先级既快又无 FOUT(无需下载就能用)。
- *     用户系统装了 Inter 也会优先用本地 Inter(无网络代价)。
- *   - Playfair Display 是品牌 logo 字,衬线对比明显,必须确保不会
- *     先用 Times New Roman 再切换 —— 用 font-display: block 保证
- *     "短暂不可见 → 直接显示真字体",配合 index.html 的 preload,
- *     20KB woff2 在首帧前就到位,实际看不到不可见窗口。
- *   - 没装 Inter 自托管:多 4 个 weights(~150KB)对首屏没必要,
- *     旧 frontend-user 也是这么处理的,实战已验证可行。
+ * 指令一:全站字体资产改走系统字体(mac/win 各用自带),不能拖慢渲染。
+ * 指令二(随后补充):侧栏面板标题 / 页面与 section 标题这类「标题层」
+ *         中文必须用回 Noto Serif SC。
+ * 落地:
+ *   - Google Sans / Playfair Display 的 webfont【保持移除】,零回流。
+ *   - --font-sans(全站 UI / 正文 / 控件)= 纯系统栈,零下载:
+ *       mac → SF Pro(system-ui)+ 苹方;win → Segoe UI + 微软雅黑。
+ *   - --font-serif / --font-display(标题/衬线角色)的 CJK = 自托管
+ *     Noto Serif SC(可变 300–900,101 个 unicode-range 分片 + 首屏 UI 子集,
+ *     scripts/sync-noto-serif-sc.mjs 生成);Latin 仍是系统无衬线。
+ *     性能:font-display: swap 不阻塞渲染;只有标题真用到的分片才会下载
+ *     (典型页面 1–3 个分片,几十 KB);UI 子集 preload 覆盖首屏标题常用字,
+ *     正文/控件完全不碰 webfont。
+ *   - 品牌「Scholay」文本走系统 Didone(Didot / Georgia),Playfair 仅 local 命中。
+ *
+ * 保留不动的:
+ *   - KaTeX 数学字体(build 产物内,数学页按需加载)—— 数学排版无系统等价物。
+ *   - Logo D5gC67 / SCHOLAY wordmark V2IJR 是 SVG 路径,本来就不吃字体文件。
+ *
+ * 两条实现铁律(改字族 token 前必读):
+ *   1. system-ui / -apple-system 自带【系统级联】,会在 CSS 栈轮到后续家族之前
+ *      把 CJK 交给苹方/雅黑。UI 栈(--font-sans)正要这个效果;但衬线栈里
+ *      它们绝不能排在 Noto/宋体前面,否则衬线中文永远轮不上。
+ *   2. 衬线栈的 Latin 段必须用【具名普通字体】(Helvetica Neue / Segoe UI / Arial,
+ *      均无 CJK 字形),CJK 才能可靠落到 Noto Serif SC(断网/分片 404 时
+ *      再落 Songti SC / SimSun 宋体兜底)。
  * ============================================================================= */
-@font-face {
-  font-family: 'Playfair Display';
-  font-style: normal;
-  font-weight: 700;
-  font-display: block;
-  src: url('/fonts/playfair-display-700.woff2') format('woff2');
-}
 
 /* =============================================================================
- * Scholay 设计 Token —— 唯一真相源 (single source of truth)
- * 全部值来自 scholay.pen 设计稿,按视觉重要度从最浅到最深分级。
+ * Scholay 设计 Token —— 运行时唯一真相源 (single source of truth)
+ * ----------------------------------------------------------------------------
+ * 上游设计证据: `/Users/youngp/Downloads/scholay设计源文件/dev.pen`
+ * Pencil MCP 画板: `Scholay设计系统` / `rfNKU`。
+ * 提取产物见 docs/pen-design-spec-2026-08.md；2026-07 Figma 文档仅作历史审计记录。
+ * 外部设计文件不参与构建,本文件仍是 Web / 小程序镜像 / 导出物的可执行真源。
  *
  * 使用约定:
- *   ✅ 组件只用 Tailwind 工具类(bg-surface-1 / text-foreground / border-border ...)
- *   ❌ 禁止在组件里写 #色码 / Tailwind 默认色板(gray-500 等) / styled-components
- *   ❌ 禁止 dark: 前缀,暗色态由 .dark 自动切换 CSS 变量
- *   ⚠️ 与设计稿不一致的边角案例必须加 `/* .pen frame XXX *‍/` 注释
- *
- * 修改任意 token = 修改设计系统,需要同步更新 .pen 设计稿。
+ *   ✅ 组件只用 Tailwind 工具类(bg-background / text-foreground / border-border ...)
+ *   ❌ 禁止在组件里写 #色码 / Tailwind 默认色板 / styled-components
+ *   ❌ 禁止直接引用色阶原语(--ink-* / --red-* ...),只能用语义 token
+ *   ⚠️ 偏离当前 dev.pen 的地方必须注明「偏离原因」,便于 review
  * ============================================================================= */
 
-@layer base {
-  :root {
-    /* -----------------------------------------------------------------------
-     * 中性 — Surface(背景层)
-     * 从纯白到稍灰共 4 档,按设计稿真实使用频率排序。
-     * --------------------------------------------------------------------- */
-    --background:    0 0% 100%;     /* #FFFFFF  容器主底 / Card / Dialog */
-    --surface-1:     0 0% 98%;      /* #FAFAFA  工具栏 / 弱卡片 / 弱区分 */
-    --surface-2:     0 0% 96.1%;    /* #F5F5F5  hover/选中/页面 chrome/header icon 容器  (.pen F4F4F4 视觉无差,统一映射到此) */
-    --surface-3:     0 0% 97.3%;    /* #F8F8F8  Prism 编译状态条专用,窄场景 */
+:root {
+  /* ===========================================================================
+   * 一、色阶原语 (primitives)
+   * ---------------------------------------------------------------------------
+   * 四条 12 档色阶,由 Pencil MCP 从 dev.pen 实际色块读取。★ 标基准色。
+   *
+   * 🔴 2026-07-28 接线: 下面的语义 token 凡是与某一档【完全等值】的,已全部改写成
+   *    `var(--<原语>)`。在此之前这 48 个原语是**纯装饰** —— 语义层各抄一份字面 hex,
+   *    再用「= green-4」式注释宣称一个并不存在的推导关系,结果是「改原语不会移动一个像素」。
+   *    现在改原语【会】移动像素,这一层才真的是统一管理的入口。
+   *    仍保留字面值的少数几个,每处旁边都写了保留理由(纯白/纯黑锚点、契约测试锚点、
+   *    非色阶来源的 logo 配色、规范外补色等)。
+   *
+   * 【业务代码禁止直接引用】只能用下面的语义 token。
+   * ⚠️ 已知的唯一例外(有意为之): shared/lib/theme-bridge.ts 的 mermaidTheme() 在运行期
+   *    getComputedStyle 读 --ink-6 / --ink-9 当连线色与分组描边色 —— mermaid 只吃字面值,
+   *    而这两档没有对应的语义 token。所以「原语零引用」只对 CSS var() 成立,不对 JS 成立。
+   * ========================================================================= */
 
-    /* -----------------------------------------------------------------------
-     * 中性 — Text(文字层)
-     * .pen 实际出现的灰阶有 #111/#444/#555/#666/#999/#AAA 六档,
-     * 视觉差异 < 6% 的 (#444↔#555, #999↔#AAA) 已合并到最近档,避免 token 通胀。
-     * --------------------------------------------------------------------- */
-    --foreground:           0 0% 6.7%;   /* #111111  主标题 / 正文加重 / icon 主色 */
-    --subtle-foreground:    0 0% 26.7%;  /* #444444  二级文本 / 文件树常态 / Prism 工具栏  (合并 .pen #555) */
-    --muted-foreground:     0 0% 40%;    /* #666666  帮助说明 / 描述 / 次要副文 */
-    --faint-foreground:     0 0% 60%;    /* #999999  uppercase 段标 / placeholder / 计数  (合并 .pen #AAA) */
+  /* Primary 朱砂 */
+  --red-1:  #1A0707;  --red-2:  #330F0F;  --red-3:  #4D1616;  --red-4:  #661E1E;
+  --red-5:  #882828;  --red-6:  #802525;  --red-7:  #992C2C;  --red-8:  #B23434;
+  --red-9:  #CC3B3B;  --red-10: #E54343;  --red-11: #FF4A4A;  --red-12: #FF8080;
+  /*        ★ = red-5 基准 */
 
-    /* -----------------------------------------------------------------------
-     * 中性 — Border(边框层)
-     * 5 档,每档有明确职责,不要随手乱选。
-     * --------------------------------------------------------------------- */
-    --border-soft:        0 0% 93.3%;  /* #EEEEEE  极弱内分隔(breadcrumb 底 / sidebar header 底) */
-    --border:             0 0% 91.4%;  /* #E8E8E8  ★ 标准容器边框 / 页面区段(最常见) */
-    --border-separator:   0 0% 87.8%;  /* #E0E0E0  Nav/Toolbar 内组间小竖线(高度 20-22) */
-    --border-strong:      0 0% 84.7%;  /* #D8D8D8  强调描边(home 搜索条 / 重点输入) */
-    --border-button:      0 0% 78.4%;  /* #C8C8C8  outlined 按钮边(LaTeX 工具栏次操作) */
+  /* Secondary 松青 */
+  --green-1:  #101A0E;  --green-2:  #1F331B;  --green-3:  #2F4D29;  --green-4:  #3F6636;
+  --green-5:  #4E8044;  --green-6:  #5E9952;  --green-7:  #66A658;  --green-8:  #6DB25F;
+  --green-9:  #75BF66;  --green-10: #7DCC6D;  --green-11: #85D974;  --green-12: #95F281;
+  /*                                                      ★ = green-3 基准 */
+  /*  ⚠️ 2026-07-28 修正: ★ 原先画在第 2 列(green-2 #1F331B),与基准色不符。 */
 
-    /* -----------------------------------------------------------------------
-     * Surface — 状态化软底色(与品牌色配对使用)
-     * --------------------------------------------------------------------- */
-    --danger-soft-bg:   0 100% 98%;     /* #FFF5F5  danger active(.pen sidebar `YRwmo` / Prism `oQJtt`) */
-    --warning-soft-bg:  41 47% 90%;     /* 浅黄 warning 弱底,Badge warning 变体使用 */
+  /* Tertiary 琥珀 —— 保持 dev.pen 的节点顺序,不擅自按亮度重新排序。 */
+  --amber-1:  #664B00;  --amber-2:  #805E00;  --amber-3:  #997000;  --amber-4:  #B4880E;
+  --amber-5:  #B28300;  --amber-6:  #CC9600;  --amber-7:  #E5B122;  --amber-8:  #E5BA45;
+  --amber-9:  #E5C367;  --amber-10: #E5CD89;  --amber-11: #E5D6AC;  --amber-12: #E5DFCE;
+  /*                                  ★ = amber-4 基准 */
+  /* `#B4880E` 同时来自 Tertiary 标题与基准色块。它替代旧实现的 #E5A800;
+   * logo/Scholay 字标继续使用下方独立的 --logo-* 亮色组,本次不联动。 */
 
-    /* -----------------------------------------------------------------------
-     * Landing 营销页"恒暗"段落专用 —— 这些不是 app dark-mode,而是 landing
-     * 内"亮 / 暗" 主题段交替设计;暗段背景比 `--foreground` 略浅,内嵌表 / 分隔
-     * 又比段背景再浅一档,共 3 层。
-     * 仅在 features/landing/* 用。
-     * --------------------------------------------------------------------- */
-    --landing-dark-1:        0 0% 10.2%;  /* #1A1A1A  section 主体下沉表 / 卡片底 */
-    --landing-dark-2:        0 0% 13.3%;  /* #222222  表头 / 表内分组浅一档 */
-    --landing-dark-divider:  0 0% 16.5%;  /* #2A2A2A  暗段内的行 / 列分隔线 */
-    --journal-soft-bg:  45 50% 97%;     /* #FAF8F2  期刊推荐区软底(.pen 搜索联想 `a17q5P`) */
+  /* Neutral 玄墨 —— 「偏蓝色墨黑」,注意 R≈G<B */
+  --ink-1:  #09090A;  --ink-2:  #1F1F23;  --ink-3:  #2B2B30;  --ink-4:  #383840;
+  --ink-5:  #505059;  --ink-6:  #686873;  --ink-7:  #757580;  --ink-8:  #9A9AA6;
+  --ink-9:  #B4B4BF;  --ink-10: #CECED9;  --ink-11: #E6E6F2;  --ink-12: #FFFFFF;
+  /*                            ★ = ink-2 基准 */
 
-    /* -----------------------------------------------------------------------
-     * 品牌色 — 三色系统,语义明确
-     * --------------------------------------------------------------------- */
-    --brand-red:    0 71% 47%;      /* #CC2222  CTA 主色 / 审稿活跃 / danger 强调 / Logo "S/a" 字母 */
-    --brand-green:  120 49% 32%;    /* #2A7A2A  AI 操作 / status success / 主头像 / Logo "ch/y" 字母 */
-    --brand-amber:  41 84% 47%;     /* #D4A017  构建中 / 警告 / Logo "o" 字母 */
-    --brand-blue:   219 79% 48%;    /* #1A56DB  期刊检索 CTA(对齐 .pen `F0bgA`,论文红/期刊蓝区分) */
-    --brand-blue-soft-bg: 220 100% 98%; /* #F8FAFF  期刊检索行软底(.pen `u2Yc0I`) */
+  /* ===========================================================================
+   * 二、语义 token — Surface(背景层)
+   * ---------------------------------------------------------------------------
+   * 🔴 本次改造最关键的结构变化: --background 一拆为二。
+   *    旧体系 --background 同时是「页面底」和「卡片底」(全站 518 处 bg-background)。
+   *    Figma §4.4 明确区分: 外层展示区 #F6F4EE 米白 / 内层卡片 #FFFFFF 纯白。
+   *    一刀切改米白 → 全站卡片失去层次。迁移时 518 处需逐处判断归属。
+   * ========================================================================= */
 
-    /* -----------------------------------------------------------------------
-     * Prism 模块专用 token
-     * --------------------------------------------------------------------- */
-    --prism-badge-bg:   41 36% 85%;   /* #F0E8D8  Prism · AI 写作 角标 */
-    --prism-badge-fg:   41 51% 33%;   /* #806A2E  对应文字色 */
+  --background:     #F6F4EE;  /* ★ 页面 / 外层容器米白底 (Figma §1.3,取代纯白)
+                               * 不接原语: 米白不在四条色阶里,它是 §1.3 的独立底色。 */
+  --surface-card:   #FFFFFF;  /* ★ 内层卡片 / 输入框 / 搜索框纯白 (Figma §4.4 / §4.5)
+                               * 刻意【不】接 var(--ink-12): 纯白/纯黑是绝对锚点,不是色阶上的一档 ——
+                               * Figma 在 §4.4/§4.5 直接指定 #FFFFFF,而 ink-12 恰好也是白属于巧合。
+                               * 把卡片底挂到玄墨色阶上,等于让「调墨色」有机会改掉卡片底。 */
+  --surface-1:      #EFEDE5;  /* 工具栏 / 弱卡片 —— 米白压深 1 档 (推导,替代旧 #FAFAFA) */
+  --surface-2:      #E8E5DC;  /* hover / 选中 / 页面 chrome (推导,替代旧 #F5F5F5) */
+  --surface-3:      #F1EFE8;  /* Prism 编译状态条,窄场景 (推导) */
 
-    /* Prism 代码编辑器面板 —— 深色 code surface(同 .pen `prism-editor`)。
-     * 集中成 token 供 CodeMirror 主题用 var() 引用(CM 主题取具体 CSS 值,这里直接给 hex/rgba,
-     * 不走 hsl() 三元组);组件内不再硬编码 hex。要做亮色编辑器在 .dark 或专用 scope 里重定义即可。 */
-    --prism-editor-bg:            #111111;
-    --prism-editor-fg:            #e6e6e6;
-    --prism-editor-gutter-bg:     #0a0a0a;
-    --prism-editor-gutter-fg:     #555555;
-    --prism-editor-active:        rgba(255, 255, 255, 0.04);
-    --prism-editor-cursor:        #e6e6e6;
-    --prism-editor-selection:     rgba(204, 34, 34, 0.25);
-    --prism-editor-chrome-bg:     #1a1a1a;
-    --prism-editor-chrome-border: #333333;
-    --prism-editor-chrome-muted:  #999999;
-    /* LaTeX 语法高亮 —— 给非程序员的柔和配色:正文(默认 fg)最亮最突出,标记(命令/括号/注释)
-     * 柔和上色并适度弱化,让结构清晰但不喧宾夺主。不用刺眼的开发者高对比配色。 */
-    --prism-editor-cmd:           #7aa2f7;  /* \命令(\section/\usepackage 等)柔和蓝 */
-    --prism-editor-comment:       #6a7d6a;  /* % 注释 柔和灰绿,弱化 */
-    --prism-editor-brace:         #8a8f98;  /* {} [] 暗灰,退到背景 */
-    --prism-editor-math:          #d8a657;  /* 数学/atom 柔和琥珀 */
-    --prism-editor-num:           #b58bd1;  /* 数字 柔和紫 */
-    /* 内联 diff(@codemirror/merge)—— 柔和半透明叠色,避免整屏刺眼亮绿/红;
-     * -soft=整行底色,-strong=词级精确改动,-accent=行首竖条,del-fg=删除文本(带删除线)。 */
-    --prism-editor-diff-ins-soft:   rgba(63, 185, 80, 0.12);
-    --prism-editor-diff-ins-strong: rgba(63, 185, 80, 0.28);
-    --prism-editor-diff-ins-accent: rgba(63, 185, 80, 0.65);
-    --prism-editor-diff-del-soft:   rgba(248, 81, 73, 0.11);
-    --prism-editor-diff-del-strong: rgba(248, 81, 73, 0.26);
-    --prism-editor-diff-del-accent: rgba(248, 81, 73, 0.55);
-    --prism-editor-diff-del-fg:     #cf938e;
+  /* 琥珀软底高亮块 —— 收口旧的 #F1EADA(6处) + --prism-badge-bg #F0E8D8
+   * ⚠️ 这个色不是页面底色的近亲。#F1EADA 与 #F6F4EE 视觉接近但语义完全不同,
+   *    合并会让提示卡与页面底融成一片彻底看不见。 */
+  --amber-soft-bg:  var(--amber-12);  /* #E5DFCE。2026-07-28 前写死字面值 + 注释「= amber-11」;
+                                       * 现接线到原语,且因末两档归一化排序改名为 amber-12 ——
+                                       * 【颜色值一模一样,零像素变化】。 */
+  --amber-soft-fg:  var(--amber-1);   /* #664B00。对应文字色,on --amber-soft-bg 实测 6.14:1 AA
+                                       * ⚠️ 2026-07-27 审计修正: 旧值 #806A2E 的注释写「5.1:1 达标」,
+                                       *    但那是【量错了背景】—— 它在纯白上才 5.1,在它唯一真正
+                                       *    待着的 #E5DFCE 琥珀软底上只有 3.93:1,而调用点全是 12px。 */
 
-    /* -----------------------------------------------------------------------
-     * 语义别名 — 这些 var 给 shadcn 组件直接用,本质是上面 token 的指针,
-     * 不要在业务代码里直接引用,业务用 `bg-card` / `bg-primary` 等更语义的类。
-     * --------------------------------------------------------------------- */
-    --card:                   var(--background);
-    --card-foreground:        var(--foreground);
-    --popover:                var(--background);
-    --popover-foreground:     var(--foreground);
-    --primary:                var(--brand-green);
-    --primary-foreground:     0 0% 100%;
-    --destructive:            var(--brand-red);
-    --destructive-foreground: 0 0% 100%;
-    --secondary:              var(--surface-2);
-    --secondary-foreground:   var(--foreground);
-    --accent:                 var(--surface-2);
-    --accent-foreground:      var(--foreground);
-    --muted:                  var(--surface-2);
-    --input:                  var(--border);
-    --ring:                   var(--foreground);
+  /* ===========================================================================
+   * 三、语义 token — 文字层
+   * ---------------------------------------------------------------------------
+   * 所有档位的对比度均已按米白底 #F6F4EE 实测(见每行注释)。
+   * ========================================================================= */
 
-    /* -----------------------------------------------------------------------
-     * 圆角 — 4 档,与 .pen 真实出现的圆角对齐
-     * --------------------------------------------------------------------- */
-    --radius-sm:    0.25rem;    /* 4   搜索条 / 主按钮 / 卡片(.pen 圆角 4 最常见) */
-    --radius:       0.375rem;   /* 6   header 图标按钮 / 主菜单项 */
-    --radius-lg:    0.5rem;     /* 8   header 容器 / userPill 容器(.pen `okb3F`) */
-    --radius-pill:  9999px;     /* 头像 / 圆形徽章 / userPill 形状 */
+  --foreground:      var(--ink-2);   /* #1F1F23 ★ 主标题/正文/icon 主色  14.93:1 AAA
+                                      * Figma 色卡标称 #141414,但设计稿 54 处实际用 #1F1F23,
+                                      * 且「偏蓝墨黑」的描述对应后者。以实际用值为准。 */
+  --subtle-foreground:     var(--ink-5);  /* #505059 二级文本 / 文件树常态   7.25:1  AAA */
+  --muted-foreground:      var(--ink-6);  /* #686873 帮助说明 / 描述 / 副文  5.00:1  AA  */
+  --faint-foreground:      #6E6E78;  /* uppercase 段标 / 计数    4.58:1  AA
+                                      * ⚠️ 保留字面值: 它【不等于任何一档原语】,是 ink-6 与 ink-7
+                                      *    之间的插值,不能接 var()。
+                                      * ⚠️ 偏离台账建议值 ink-8 #9A9AA6(2.53:1 不合格)。
+                                      *    2026-07-27 审计再修一次: 原取 ink-7 #757580 = 4.14:1,
+                                      *    而它承载大量【12px】文本 —— WCAG 的「AA大字 3:1」
+                                      *    豁免只适用于 ≥18.66px(或 ≥14px 粗体),12px 必须 ≥4.5:1。
+                                      *    压到 #6E6E78 达 4.58:1,视觉上仍是最弱档。 */
+  --disabled-foreground: var(--ink-7);  /* #757580 禁用态文字
+                                      * ⚠️ 刻意【不】跟随 --faint 提亮: WCAG 1.4.3 对禁用控件
+                                      *    有明确豁免,禁用态需要「看起来就是不可用」的弱对比。 */
 
-    /* -----------------------------------------------------------------------
-     * 字体
-     * ---------------------------------------------------------------------
-     * system-ui 优先 —— macOS → SF Pro,Windows → Segoe UI,Linux → 系统默认
-     * 用户系统装了 Inter 也会用本地 Inter(无网络代价);
-     * 中文走 PingFang SC / Microsoft YaHei,完全本地无下载。
-     * --font-display 是 Playfair Display(自托 700,见上方 @font-face)
-     * --------------------------------------------------------------------- */
-    --font-sans:    system-ui, -apple-system, 'Inter', 'PingFang SC',
-                    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-    --font-mono:    ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
-    --font-display: 'Playfair Display', 'Times New Roman', serif;
+  /* placeholder —— Figma §4.5 用「主文字 25% 透明」建模(非独立灰色 token)。
+   * ⚠️ 偏离: 25% 在纯白上等效 #C7C7C8 = 1.69:1,完全不可读。提到 50%(3.23:1)。
+   *    placeholder 承载「该填什么」的信息,不是纯装饰,不适用禁用态豁免。 */
+  --placeholder-foreground: color-mix(in srgb, var(--foreground) 50%, transparent);
 
-    /* -----------------------------------------------------------------------
-     * 字号 — 8 档,对齐 .pen 真实出现的 10/11/12/13/14/16/20/24 px
-     * 注意:13px(text-base)是正文基准,不是 16!
-     * --------------------------------------------------------------------- */
-    --text-2xs:   0.625rem;    /* 10  letterSpacing 段标 / 小徽章 */
-    --text-xs:    0.6875rem;   /* 11  列表 trailing / 计数 / 收起按钮 */
-    --text-sm:    0.75rem;     /* 12  sidebar 子项 / 帮助说明 */
-    --text-base:  0.8125rem;   /* 13  ★ 正文基准 / sidebar 主项 / 按钮文 */
-    --text-md:    0.875rem;    /* 14  sidebar 主菜单 tab / 加重按钮 */
-    --text-lg:    1rem;        /* 16  page header */
-    --text-xl:    1.25rem;     /* 20  page title */
-    --text-2xl:   1.5rem;      /* 24  hero subtitle */
-  }
+  /* 深色底上的前景(实心品牌按钮 / 恒暗段 / Prism 编辑器 chrome) */
+  --on-brand:        #FFFFFF;         /* 与 --surface-card 同理: 纯白是绝对锚点(Figma §4.1/§4.2
+                                       * 按钮与 Badge 直接标 #FFFFFF),不接 var(--ink-12)。 */
+  --on-dark:         var(--ink-11);   /* #E6E6F2,暗底上不用纯白避免过曝 */
+  --on-dark-muted:   var(--ink-8);    /* #9A9AA6 */
 
-  /* 暗色态 — 维持相同语义层级的反推 */
-  .dark {
-    --background:           0 0% 7%;
-    --surface-1:            0 0% 9.4%;
-    --surface-2:            0 0% 12.2%;
-    --surface-3:            0 0% 10.6%;
-    --foreground:           0 0% 96%;
-    --subtle-foreground:    0 0% 78%;
-    --muted-foreground:     0 0% 60%;
-    --faint-foreground:     0 0% 45%;
-    --border-soft:          0 0% 14%;
-    --border:               0 0% 16.5%;
-    --border-separator:     0 0% 20%;
-    --border-strong:        0 0% 24%;
-    --border-button:        0 0% 30%;
-    --danger-soft-bg:       0 30% 14%;
-    --journal-soft-bg:      45 18% 12%;
-    --warning-soft-bg:      41 20% 18%;
-    --primary:              120 40% 50%;
-    --destructive:          0 65% 55%;
-  }
+  /* ===========================================================================
+   * 四、语义 token — 边框层
+   * ---------------------------------------------------------------------------
+   * 🔴 用 alpha 而非实色是本层的核心决策:
+   *    新体系同时存在 #F6F4EE 页面底与 #FFFFFF 卡片底,alpha 描边一个 token
+   *    自动适配两种底(米白上 ≈#DDDBD7、纯白上 ≈#E2E2E3)。实色做不到。
+   *
+   * 🔴 Figma 的「深色 1px 细线」不是现有浅灰描边的新值,而是【另一个 token 族】。
+   *    Figma 卡片规格(§4.4)根本没有描边 —— 分层靠白卡落米白底的明度差。
+   *    那两处深色 1px 全部出现在【可点击控件】上(搜索框 / Tertiary 按钮)。
+   *    若把 571 处 border-border 直接换成 #1F1F23,全站会变成线框图。
+   * ========================================================================= */
+
+  /* —— 容器族: 弱分隔,alpha 派生 ——
+   * ⚠️ 通道值 31 31 35 就是 ink-2(#1F1F23),但这一族【刻意保留字面 rgb()】:
+   *    rgb() 的通道位不接受 var(),唯一的接线写法是 color-mix(in srgb, var(--ink-2) N%, transparent)。
+   *    那不是纯接线 —— 自定义属性的计算值只做 var() 替换、不做函数求值,消费方
+   *    (theme-bridge 的 resolved 模式 = getComputedStyle)会从拿到 `rgb(31 31 35 / .12)`
+   *    变成拿到未求值的 `color-mix(...)` 字符串。属于行为变更,超出本轮「零像素接线」的范围。 */
+  --border-hairline: rgb(31 31 35 / 0.08);  /* 极弱内分隔(breadcrumb 底 / 卡内分组线) */
+  --border:          rgb(31 31 35 / 0.12);  /* ★ 标准容器边框(全站最高频 571 处) */
+  --border-strong:   rgb(31 31 35 / 0.22);  /* 强调描边(搜索条 / 重点输入 / outlined 按钮)
+                                             * 合并旧 --border-strong(#D8D8D8) + --border-button(#C8C8C8),
+                                             * 二者明度差 6%,符合本文件自定的「<6% 合并」原则 */
+  --divider:         rgb(31 31 35 / 0.14);  /* Nav/Toolbar 内组间竖线(h-5 w-px)
+                                             * 旧名 --border-separator。它作为 border- 类零使用,
+                                             * 实际 6 处全是 bg-/text-,挂在 border 族里是误导 */
+
+  /* —— 控件族: Figma 的深色实边,仅用于可点击控件 —— */
+  --border-control:          var(--ink-2);  /* #1F1F23 搜索框 / 输入框 (Figma §4.5 border 1px) */
+  --border-control-emphasis: #0D0C0B;  /* Tertiary(幽灵)按钮描边 (Figma §4.1)
+                                        * 保留字面值: #0D0C0B 不在玄墨色阶上(最近的 ink-1 是 #09090A),
+                                        * 是 Figma §4.1 直接给的描边色。 */
+
+  /* ===========================================================================
+   * 五、语义 token — 品牌色
+   * ---------------------------------------------------------------------------
+   * ⚠️ 改造前存在事实漂移: SharePoster 写 #CD2323 / #DD9D13,而 token 真源是
+   *    #CC2222 / #D4A017 —— 两套「品牌红/黄」并存。
+   *    ✅ 2026-07-28 更正本段原注释。原文写「收口到 theme-bridge 的 posterPalette,
+   *       并加不变量测试防止再漂」—— 这两件事【都没发生,也都不需要发生】:
+   *         · theme-bridge.ts 里从来没有 posterPalette 这个导出(全仓 grep 只命中本行注释);
+   *         · 海报也不需要防漂不变量测试 —— html-to-image@1.11 的 clone-node 走
+   *           getComputedStyle 再 setProperty 到克隆节点,var() 在克隆前就已被解析成
+   *           字面量,结构上无从漂移(theme-bridge 文件头「③ 不需要桥接」把推导写全了)。
+   *       实际收口方式是最普通的那种: 海报组件直接用 design token 类名。
+   * ========================================================================= */
+
+  /* ✅ 2026-07-28 接线收尾 —— 这三个是最后三个「与某一档完全等值、却还各抄一份字面 hex」
+   *    的语义 token。接线前【实测比对】而不是信注释(注释写的档位这次恰好是对的,
+   *    但上面 --amber-soft-bg 的「= amber-11」就曾经写错过一档,必须自己验):
+   *      --brand-red   #882828 == --red-5   #882828
+   *      --brand-green #2F4D29 == --green-3 #2F4D29
+   *      --brand-amber #B4880E == --amber-4 #B4880E
+   *    三者逐字节相等,所以这是纯接线、零像素变化:
+   *      · 工具类产物不变 —— bg-brand-red 仍旧是 `background-color: var(--brand-red)`;
+   *      · 自定义属性的 var() 在【计算值时刻】就被替换,所以 theme-bridge 的
+   *        getComputedStyle('--brand-red') 拿到的依旧是 `#882828`。同文件的
+   *        --chart-1: var(--red-5) 早就这么跑着,tokenValue('--chart-1') 喂 recharts /
+   *        mermaid 一直正常 —— 这是现成的在仓证据,不是推理。
+   *    ⚠️ 别把这里和 --border-hairline 那一族混为一谈: 那边不接线是因为唯一写法是
+   *       color-mix(),而**函数不在计算值时刻求值**,getComputedStyle 会拿到未求值的
+   *       字符串,属于行为变更。var() 会求值,color-mix() 不会 —— 差别在这儿。
+   *    🔴 已知代价(本轮无权改 tests/,交给下一棒):
+   *       tests/design-tokens-compiled.test.ts 的「品牌三色 = Figma 四色阶基准色」
+   *       用正则【按文本】读 :root(`--brand-red:\s*([^;]+);` 再 match /#882828/),
+   *       看不穿一层 var() 间接 —— 那条断言会因本次接线变红。
+   *       修法在测试侧: rootValue() 遇到 `var(--x)` 再解析一层即可。
+   *    🚫 千万【不要】写成 `var(--red-5, #882828)` 去骗过正则: 那样一旦 --red-5 被改坏,
+   *       契约仍因 fallback 文本存在而显示绿色 —— 比不接线更坏。 */
+  --brand-red:    var(--red-5);    /* #882828 朱砂 · Primary / CTA / danger */
+  --brand-green:  var(--green-3);  /* #2F4D29 松青 · Secondary / AI / success */
+  --brand-amber:  var(--amber-4);  /* #B4880E 琥珀 · Tertiary / 期刊线 / 构建中 */
+
+  /* —— Logo 专用配色 —— 【与语义品牌色分开,不要合并】
+   * Figma 的 Scholay wordmark 是 7 个描边字形,逐字母上色,四色循环:
+   *   S 朱砂 · c 亮黄 · h 中绿 · o 纯黑 · l 朱砂 · a 亮黄 · y 中绿
+   *
+   * ✅ 2026-08-02 视觉优化稿定稿:【标志 mark(犀牛六芒星)也改用这组】——
+   *    ScholayMark.tsx / favicon 从历史品牌 UI 色换成
+   *    (#882828/#427935/#F1BF45),标志与字标自此同一亮色组,本组 token 即其真源镜像
+   *    (真源 zh4HSb7R3eRBY7Hexfgjm6 node 2:7604;深底另有全白单色变体)。
+   *
+   * 为什么不复用 --brand-*:
+   *   设计说明要求 UI「整体饱和度调低」,所以语义品牌色是压暗的
+   *   (brand-amber #B4880E / brand-green #2F4D29)。
+   *   但 logo 作为标志需要更亮更跳才立得住,Figma 给的是另一组值
+   *   (#F1BF45 / #427935),只有红恰好与 brand-red 同值。
+   *   若合并,以后为「警告态可读性」调 --brand-amber 会连带改掉 logo,
+   *   那是两件不该耦合的事。
+   *
+   * ⚠️ --logo-ink 是纯黑,与「纯黑白改为偏蓝墨黑」的全局方向相反 ——
+   *    这是 Figma 稿里 logo 字形的实际取值(其余三色都被精心调过,
+   *    黑大概率也是刻意的:标志需要最大对比)。如设计师确认应随 UI 改用墨黑,
+   *    改这一行即可。 */
+  /* ⚠️ 这四个【刻意都不接原语】,包括恰好等于 red-5 的 --logo-red:
+   *    logo 配色的来源是 Figma wordmark 字形本身,与 12 档色阶是两个独立来源
+   *    (amber/green 根本不在色阶上,只有红碰巧同值)。接上去等于把「调品牌色阶」
+   *    和「改标志」偷偷绑成一件事,正是上面那段说不要做的耦合。 */
+  --logo-red:   #882828;
+  --logo-amber: #F1BF45;
+  --logo-green: #427935;
+  --logo-ink:   #000000;
+
+  /* 品牌软底 —— 供 chip / 高亮行 / 弱强调块使用 */
+  --brand-red-soft:    color-mix(in srgb, var(--brand-red)   10%, var(--surface-card));
+  --brand-green-soft:  color-mix(in srgb, var(--brand-green) 10%, var(--surface-card));
+  --brand-amber-soft:  color-mix(in srgb, var(--brand-amber) 14%, var(--surface-card));
+
+  /* 🚫 --brand-blue 已退休。
+   *    Figma 四色阶完全没有蓝系。旧体系用「论文红 / 期刊蓝」做检索线区分,
+   *    改为「论文朱砂 / 期刊琥珀」—— 两者色相距离足够远,且不在统一后的体系上开洞。
+   *    27 处 brand-blue + 2 处 bg-[#0066FF] 于 B4 批次收口。 */
+
+  /* ===========================================================================
+   * 六、语义 token — 状态色
+   * ---------------------------------------------------------------------------
+   * 🟡 【临时值,待设计师确认】
+   *    Figma 设计说明明确要求「与界面中出现的成功/失败/进行中等状态区分开」,
+   *    但 §1.4 未给出任何状态色定义。以下为推导值,规范到位后只需改这一段。
+   *
+   * 推导原则: 不另开色相(会撕裂四色阶体系),改为「同色阶取不同档 + 强制软底
+   *          chip 形态」,靠明度差 + 形态差双重区分。「进行中」彻底剥离色相。
+   *
+   * B7 批次先做结构收口(47 处手搓状态芯片 → <Badge> 组件),色值等规范。
+   * ========================================================================= */
+
+  /* ⚠️ 实心档已全部接线到原语;-soft 软底档【全部保留字面值】——
+   *    它们是「实心色 on 米白/白卡」推导出来的极浅底,不落在任何一档色阶上。 */
+  --status-success:       var(--green-4);  /* #3F6636 (品牌绿 green-3 给实心 CTA,状态绿取下一档) */
+  --status-success-soft:  #E9F0E6;
+  --status-error:         var(--red-8);    /* #B23434 (品牌红 red-5 是深砖红,状态红更亮更鲜) */
+  --status-error-soft:    #F7E9E9;
+  --status-warning:       var(--amber-2);  /* #805E00。on -soft 实测 5.21:1 AA
+                                     * ⚠️ 2026-07-27 审计修正: 原推导值 amber-4 #B28300
+                                     *    on #F7EFDC 只有 2.99:1,连非文本 3:1 都不到。
+                                     *    「唯一反向取值」的方向是对的,只是没走够 —— 再暗两档。 */
+  --status-warning-soft:  #F7EFDC;
+  --status-running:       var(--ink-5);    /* #505059 + 脉冲动效,不占色相 —— 对「与品牌色区分」最彻底的解释 */
+  --status-running-soft:  #EFEEE9;
+  --status-neutral:       var(--ink-6);    /* #686873 (未开始 / 排队 / 已禁用)。on -soft 实测 4.70:1 AA
+                                     * ⚠️ 2026-07-27 审计修正: 原推导值 ink-7 #757580 只有 3.89:1。 */
+  --status-neutral-soft:  #F0EDE4;
+  --status-info:          #2E5AA8;  /* 收口现有 #0066FF,降饱和贴合整体调性。
+                                     * 保留字面值: Figma 四色阶【没有蓝系】,这是规范外补色。 */
+  --status-info-soft:     #E7ECF5;
+
+  /* ===========================================================================
+   * 七、语义 token — 分类色板 & 图表序列色
+   * ---------------------------------------------------------------------------
+   * 分类色: 一次性收口现存五份互相重复的独立色板(26 处):
+   *   JournalCover.PALETTE(8) / pick-avatar-color.AVATAR_PALETTE(7) /
+   *   SharedReceivePage.AVATAR_COLORS(4) / CollectionSharePoster.IDX_COLORS(1) /
+   *   JournalPickerStep.colorForInitial(6)
+   * 四色阶各取 2 个深档 —— 既足够深以压白字,又互相可分辨,且全在 Figma 色阶内。
+   * (旧色板 8 个里 5 个蓝调,与四色系统直接冲突;且混进了品牌色,
+   *  会让用户误以为「绿头像有语义」。)
+   * ========================================================================= */
+
+  --cat-1: var(--red-3);    --cat-2: var(--red-4);    /* 朱砂深档 #4D1616 / #661E1E */
+  --cat-3: var(--green-2);  --cat-4: var(--green-3);  /* 松青深档 #1F331B / #2F4D29 */
+  --cat-5: var(--amber-1);  --cat-6: var(--amber-2);  /* 琥珀深档 #664B00 / #805E00 */
+  --cat-7: var(--ink-2);    --cat-8: var(--ink-4);    /* 玄墨深档 #1F1F23 / #383840 */
+
+  /* 分类色的软底变体 —— 供「软底 + 同色文字」的标签/芯片调色板使用。
+   * 上面 8 个深档是给「深底 + 白字」用的(头像/期刊封面),
+   * 而 tag / KPI / 分区分布这类需要的是「浅底 + 深色文字」,是另一套形态。
+   * ✅ 2026-07-27:原先记在这里的「DimensionCell 8 色 tag 调色板色相不够用」这条张力
+   *    已由设计师从另一个方向解决 —— 视觉优化稿明确把矩阵 tag 高亮收敛成【一种颜色】
+   *    (松青 10% 底 + 松青字)。理由也站得住:那 8 个颜色是按字符串哈希分配的,
+   *    彼此之间没有任何语义关系,用户却会本能去解读(红=差?绿=好?)。
+   *    顺带修掉一个真实缺陷:旧板里「琥珀字 on 琥珀 15% 底」实测仅 1.89:1,完全不可读;
+   *    收敛后是 8.04:1。
+   *    仍需设计师补规范的只剩:JCR/中科院分区 Q1~Q4 这类【真的需要多色相】的场景。 */
+  /* 🟡 规范外的第五色相 —— 分类调色板专用,【不是品牌色】
+   * Figma 四色阶(红/绿/黄/中性)做 4 色以内分类够用,但仍有一类场景需要更多可区分色:
+   *   - 期刊分区 Q1~Q4 / 中科院 1~4 区(四档必须一眼可分)
+   *     实际调用点: features/peer-review/.../JournalPickerStep.tsx(I 档)
+   *                 features/journals/.../JournalExploreOverview.tsx(Q2 / 2 区)
+   * 把这类场景里的蓝折叠进琥珀会产生【重复色】,直接破坏「可区分」这个唯一目的。
+   * 故保留一个蓝作为分类色,取自 --status-info 同色系(降饱和,贴合整体调性)。
+   *
+   * ✅ 2026-07-28 更正: 本段原先把「DimensionCell 的 8 色哈希 tag 调色板」也列为存在理由,
+   *    与紧邻上一段自相矛盾 —— 上一段已经写明该调色板在 2026-07-27 被收敛成【单一松青】。
+   *    实测 DimensionCell.tsx 现在是 `TAG_TONE = 'bg-brand-green/10 text-brand-green'` 一个常量,
+   *    压根不消费 cat-blue。该条已删,cat-blue 的存在理由只剩分区场景。
+   * ⚠️ 这仍是规范缺口的临时补丁,需设计师确认: 要么补蓝色阶,要么接受分类色上限为 4。
+   * ⚠️ 与已退休的 --brand-blue 无关 —— 那个是品牌语义(期刊线),已改用琥珀。
+   * ⚠️ 保留字面值: Figma 四色阶没有蓝系,接不上任何原语。 */
+  --cat-blue:      #2E5AA8;
+  --cat-blue-soft: color-mix(in srgb, var(--cat-blue) 10%, var(--surface-card));
+
+  --cat-1-soft: color-mix(in srgb, var(--cat-1) 10%, var(--surface-card));
+  --cat-2-soft: color-mix(in srgb, var(--cat-2) 10%, var(--surface-card));
+  --cat-3-soft: color-mix(in srgb, var(--cat-3) 10%, var(--surface-card));
+  --cat-4-soft: color-mix(in srgb, var(--cat-4) 10%, var(--surface-card));
+  --cat-5-soft: color-mix(in srgb, var(--cat-5) 12%, var(--surface-card));
+  --cat-6-soft: color-mix(in srgb, var(--cat-6) 12%, var(--surface-card));
+  --cat-7-soft: color-mix(in srgb, var(--cat-7) 8%,  var(--surface-card));
+  --cat-8-soft: color-mix(in srgb, var(--cat-8) 10%, var(--surface-card));
+
+  /* 图表序列色 —— 前 3 档绑品牌三色,后 5 档取中间亮度档。
+   *
+   * 🔴 TODO(需设计师/数据可视化决策): 本段原注释写「深浅交错保证相邻系列明度差 ≥15%
+   *    (色盲可分)」—— 该断言【不成立】。2026-07-28 实算各档 CIE L*:
+   *      chart-1 #882828 → 31.6   chart-2 #2F4D29 → 29.6   ΔL* = 2.0  ❌
+   *      chart-2 → chart-3(72.7)ΔL* 43 · 3→4(41.5)31 · 4→5(57.8)16 ·
+   *      5→6(77.4)20 · 6→7(44.4)33 · 7→8(23.8)21   ✅
+   *    也就是说只有【第一对】不达标,而它恰恰是「只有两个系列」时用到的那一对:
+   *    深朱砂与深松青明度几乎相同,deuteranopia(红绿色盲)下两者都塌成暗黄褐,
+   *    近乎同色 —— 双系列折线/柱状图对色盲用户等于没有区分。
+   *    暂只更正注释、不动色值(前 3 档绑品牌三色是有意的语义锚点,改值要设计师拍板)。
+   *    可选解法: ① chart-2 换到 green-5 #4E8044(L*≈43,ΔL*≈11);
+   *              ② 双系列图强制加形状/线型区分(dasharray + marker),不依赖色相。 */
+  --chart-1: var(--red-5);    --chart-2: var(--green-3);  /* #882828 / #2F4D29 */
+  --chart-3: var(--amber-4);  --chart-4: var(--red-8);    /* #B4880E / #B23434 */
+  --chart-5: var(--green-6);  --chart-6: var(--amber-8);  /* #5E9952 / #E5BA45 */
+  --chart-7: var(--ink-6);    --chart-8: var(--ink-4);    /* #686873 / #383840 */
+  --chart-grid:    var(--ink-10);  /* #CECED9 网格线,与通用 --border 解耦 */
+  --chart-axis-fg: var(--ink-7);   /* #757580 轴标签 */
+
+  /* ===========================================================================
+   * 八、恒暗段 & Prism 编辑器 —— 注意: 这些【不是】app 暗色态
+   * ---------------------------------------------------------------------------
+   * --landing-*: landing 营销页「亮段/暗段交替」的设计,仅 features/landing/* 用。
+   * --prism-editor-*: CodeMirror 主题必须给具体 CSS 值(不能给类名),
+   *                   已 100% var() 驱动,是全站第三方主题适配的样板。
+   * ========================================================================= */
+
+  --landing-dark-1:       var(--ink-2);  /* #1F1F23 section 主体下沉表 / 卡片底 (旧 #1A1A1A) */
+  --landing-dark-2:       var(--ink-3);  /* #2B2B30 表头 / 表内分组浅一档      (旧 #222222) */
+  --landing-dark-divider: var(--ink-4);  /* #383840 暗段内的行/列分隔线        (旧 #2A2A2A) */
+
+  /* ⚠️ 偏离说明(下面这批规范外的裸 hex / rgba,2026-07-28 补): 代码编辑器的语法高亮、
+   *    行号槽与 diff 叠色【有意脱离品牌四色阶】—— 它们的唯一目标是「在纯暗底上把不同
+   *    语法角色拉开区分度、且长时间盯屏不刺眼」,与「整体降饱和、四色循环」的品牌目标
+   *    正交。玄墨色阶最亮的可用档是 ink-11 #E6E6F2(带蓝调),压在代码上会让整片正文
+   *    发蓝;#e6e6e6 是同亮度的中性灰。行号槽 #050506 比 ink-1 再暗一档以沉下去,
+   *    色阶里没有这一档。这是【合理偏离】,不是漏改。 */
+  --prism-editor-bg:            var(--ink-1);  /* #09090A (旧 #111111) */
+  --prism-editor-fg:            #e6e6e6;       /* 中性灰正文 —— 见上「偏离说明」 */
+  --prism-editor-gutter-bg:     #050506;       /* 比 ink-1 再暗一档的行号槽,色阶外 */
+  --prism-editor-gutter-fg:     #555555;       /* 行号字,中性灰(ink-5 #505059 带蓝调) */
+  --prism-editor-active:        rgba(255, 255, 255, 0.04);
+  --prism-editor-cursor:        #e6e6e6;       /* 与 --prism-editor-fg 同值 */
+  --prism-editor-selection:     color-mix(in srgb, var(--brand-red) 25%, transparent);
+                                          /* ⚠️ 旧值内嵌 rgba(204,34,34,.25) 是硬编码的旧品牌红,
+                                           *    改 token 时会静默漏改,故改为派生 */
+  --prism-editor-chrome-bg:     var(--ink-3);  /* #2B2B30 (旧 #1a1a1a) */
+  --prism-editor-chrome-border: var(--ink-4);  /* #383840 (旧 #333333) */
+  --prism-editor-chrome-muted:  var(--ink-8);  /* #9A9AA6 (旧 #999999) */
+
+  /* LaTeX 语法高亮 —— 给非程序员的柔和配色: 正文最亮最突出,标记柔和上色并适度弱化。
+   * 不受品牌四色阶约束(代码可读性需求优先)。 */
+  --prism-editor-cmd:     #7aa2f7;  /* \命令 柔和蓝 */
+  --prism-editor-comment: #6a7d6a;  /* % 注释 柔和灰绿 */
+  --prism-editor-brace:   #8a8f98;  /* {} [] 暗灰,退到背景 */
+  --prism-editor-math:    #d8a657;  /* 数学/atom 柔和琥珀 */
+  --prism-editor-num:     #b58bd1;  /* 数字 柔和紫 */
+
+  /* 内联 diff(@codemirror/merge)—— 柔和半透明叠色。
+   * ⚠️ 偏离说明(2026-07-28 补): 增/删用的亮绿 rgb(63,185,80) 与亮红 rgb(248,81,73)
+   *    是 GitHub diff 的既定配色,【有意不换成品牌红/绿】: 品牌松青 #2F4D29 与朱砂 #882828
+   *    都是压暗降饱和的深色,在纯暗底(#09090A)上叠 12%~28% 透明度后几乎看不见,
+   *    而 diff 底色的全部作用就是「一眼看出这行是加还是删」。这里需要的是高亮度、高饱和,
+   *    与品牌调性正交。同理 --prism-editor-diff-del-fg #cf938e 是删除行的暗红文字。 */
+  --prism-editor-diff-ins-soft:   rgba(63, 185, 80, 0.12);
+  --prism-editor-diff-ins-strong: rgba(63, 185, 80, 0.28);
+  --prism-editor-diff-ins-accent: rgba(63, 185, 80, 0.65);
+  --prism-editor-diff-del-soft:   rgba(248, 81, 73, 0.11);
+  --prism-editor-diff-del-strong: rgba(248, 81, 73, 0.26);
+  --prism-editor-diff-del-accent: rgba(248, 81, 73, 0.55);
+  --prism-editor-diff-del-fg:     #cf938e;
+
+  /* ===========================================================================
+   * 十、字体排印
+   * ========================================================================= */
+
+  /* —— 字族 —— */
+  /* 全站 UI 主字体栈 = 各平台系统 UI 字体,零下载(策略见文件头「字体策略」)。
+   * mac: SF Pro + 苹方 / win: Segoe UI + 微软雅黑 / android·linux: system-ui 兜底。
+   * system-ui 在首位会以系统级联接管 CJK —— UI 栈正要这个效果:控件基座是
+   * text-12,宋体在 12px 的 Windows 渲染质量不可接受,UI 中文必须走黑体系。 */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+               'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+
+  /* 衬线/展示角色(标题层):「英文系统无衬线 + 中文 Noto Serif SC」。
+   * 2026-08-11 用户指令:标题中文必须是 Noto Serif SC —— 唯一保留的 webfont,
+   * 全部字重真字面(可变 300–900),swap 按需分片加载,不阻塞渲染。
+   * ⚠️ Latin 段必须是具名普通字体,不能放 system-ui/-apple-system ——
+   * 它们的系统级联会在轮到 Noto 之前吃掉 CJK(铁律见文件头)。
+   * Helvetica Neue(mac)/ Segoe UI(win)/ Arial 均无 CJK 字形,
+   * CJK 可靠命中 Noto Serif SC;宋体系(Songti SC / SimSun / 思源宋体)只是
+   * 断网、分片 404 时的离线兜底,正常情况下永远轮不到。 */
+  --font-serif: 'Helvetica Neue', 'Segoe UI', Arial, 'Noto Serif SC', 'Songti SC',
+                STSong, SimSun, 'Source Han Serif SC', 'Noto Serif CJK SC', system-ui, serif;
+
+  /* 普通展示标题与衬线角色同一分流,仅行高不同(见 --leading-*)。 */
+  --font-display: 'Helvetica Neue', 'Segoe UI', Arial, 'Noto Serif SC', 'Songti SC',
+                  STSong, SimSun, 'Source Han Serif SC', 'Noto Serif CJK SC', system-ui, serif;
+
+  /* 品牌「Scholay」文本(BrandName 专用)。Logo D5gC67 / wordmark V2IJR 是
+   * SVG 路径,不吃这里。系统高对比衬线近似 Playfair:mac 自带 Didot(同为
+   * Didone 体,最接近)/ win 无 Didone → Georgia。'Playfair Display' 留在首位
+   * 只做 local 匹配 —— 本机装了的访客零成本命中原品牌字,绝不触发下载。 */
+  --font-brand: 'Playfair Display', Didot, 'Bodoni MT', Georgia,
+                'Times New Roman', 'Songti SC', SimSun, serif;
+
+  --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  /* —— 字重: 只服务「拿不到 Tailwind 工具类的场景」 ——
+   * 🔴 组件层【不要】用它。组件写 font-normal / font-medium 类名即可 ——
+   *    这一族的存在理由只有一个: **JS 字符串里的裸 CSS**。那类 CSS 不经过 Tailwind
+   *    编译,没有工具类可用,过去只能写裸数字,于是「改设计系统时它不跟着变」:
+   *      · shared/components/chat/styles.tsx —— <style> 注入的会话样式表,
+   *        `.chat-md-ol-li::before { font-weight: 500 }` 旁边自陈「500 = font-medium」,
+   *        整张表其余的色/字号/圆角都已 var() 化,只有字重因为没有 token 而卡住。
+   *        (同一个文件头就记着它曾静默停在两代前的品牌绿 #2A7A2A —— 正是这种漂移。)
+   *      · CodeMirror 的 EditorView.theme() 同理(吃 JS 对象里的裸 CSS)。
+   * 取值与 Tailwind 内建【逐字节相同】(node_modules/tailwindcss/theme.css:377-378:
+   *    --font-weight-normal: 400 / --font-weight-medium: 500),所以把现有任何一处
+   *    `font-weight: 400|500` 换成 var(--weight-*) 都是零像素变化。
+   * ⚠️ 刻意【不】注册进 @theme: 注册 --font-weight-* 会覆写 Tailwind 内建的同名档,
+   *    纯增加改动面而不带来任何新能力 —— font-normal / font-medium 本来就能编译。
+   * ⚠️ 刻意【不】补 600 / 700: 护栏规定 sans 上禁止 font-semibold,font-bold 只留给
+   *    serif / display / mono。补出来等于给违规提供一个 var() 形态的后门。 */
+  --weight-normal: 400;
+  --weight-medium: 500;
+
+  /* —— 行高: 按【字族】绑定,不按字号档 ——
+   * 当前沿用历史稿实测的三个与字号无关的恒定比值(12px~64px)。
+   * 🔴 实现陷阱: Tailwind v4 支持 `--text-14--line-height` 配套声明。一旦定义,
+   *    text-14 会同时输出 font-size 和 line-height,字号档会盖掉字族层行高,
+   *    整套设计当场作废。故字号 token【只声明 font-size】。 */
+  --leading-sans:          1.25;   /* 沿用 webfont 时代按 Google Sans 实测的比值。
+                                    * 2026-08-11 换系统栈后刻意【不重调】:三档是全站
+                                    * 排版节奏,跟随字体微调 = 全站高度变化,需设计拍板 */
+  --leading-display:       1.333;  /* 展示标题节奏(同上,沿用不重调) */
+  --leading-serif:         1.437;  /* 按 Noto Serif SC 实测 16→22.992 / 32→45.984(该字族已恢复为衬线角色主字体) */
+  --leading-paragraph:     1.7;    /* 长段中文正文(推导): Figma 全是单行短标签,
+                                    * 没有一个多行段落样本;1.25 套到中文段落会挤成一坨 */
+  --leading-display-tight: 1.15;   /* ≥28px 展示标题(推导): 字号越大行高比值越应越小 */
+  --leading-code:          1.65;   /* 代码编辑器正文(CodeMirror .cm-scroller)。
+                                    * 🔴 值必须是 1.65,【不是】1.7 —— 换值就是视觉变化。
+                                    *    唯一现存写法是 features/prism/components/LatexEditor.tsx
+                                    *    的 EditorView.theme() 里 `lineHeight: '1.65'`(CodeMirror
+                                    *    吃的是 JS 对象里的裸 CSS,拿不到工具类),旁边已自陈
+                                    *    「保留字面量:代码编辑器不属于 --leading-* 的字族档」。
+                                    * ⚠️ 别合并进 --leading-paragraph(1.7): 那一档的语义是
+                                    *    「长段中文正文」,靠字高撑开可读性;代码是等宽拉丁 +
+                                    *    大量空行,而且 0.05em × 每一行 = 编辑器整体高度变化。
+                                    *    等值才叫接线,近似值叫改设计。
+                                    * ⚠️ 历史: --leading-prose(1.65) 曾存在、因零引用于 B0 删除。
+                                    *    这次不是又建一个孤儿 —— 调用点已经定位好(上面那一处),
+                                    *    但改 .tsx 不在本轮职权内,接线是下一棒的动作。 */
+  /* B0 已删除: --leading-snug-x(1.4) —— 实测全项目零引用 */
+
+  /* —— 字间距: 只保留 2 个 ——
+   * Figma §2.5 中 letterSpacing 几乎全为 0,仅 3 处 0.02em(12px 上 = 0.24px,肉眼不可辨)。
+   * 改造前代码有 91 处 tracking / 13 个不同值 —— 新规范里【这套体系根本不存在】,
+   * 162 处全部删除。只留下面两个【功能性而非装饰性】的:
+   *
+   * 为什么不为 uppercase 段标留一个 token:
+   *   1. Figma 唯一的 uppercase 样本 letterSpacing 也是 0
+   *   2. 这批段标从 10px 升到 12px,x-height 变大本身就补回了可读性
+   *   3. 实际文本全是 2-6 字符极短英文(DOI/PDF/SKILL/OA)
+   *   4. 最关键: 58 处 uppercase 段标用了 11 个不同值做同一件事。只要留一个
+   *      「uppercase 专用」token,历史证明它会立刻重新裂变 —— 当前的 13 值
+   *      局面就是这么来的。 */
+  --tracking-code:  0.25em;   /* 验证码/提取码/兑换码 —— 逐位核对时必须拉开字距才不会误读 1/l、0/O */
+  --tracking-brand: -0.03em;  /* Scholay wordmark 光学收紧 —— 七字母彩色 lockup 须收紧才成为整体标志 */
+
+  /* ===========================================================================
+   * 十一、布局与尺寸
+   * ---------------------------------------------------------------------------
+   * ⚠️ 采用率现状(2026-07-28 实测,别把这一节当成「现状描述」):本节除
+   *    --control-h-md(1 处 h-control-md) 与 --pane-news-h(1 处 h-pane-news) 外,
+   *    **其余全部零消费** —— size-avatar / size-icon(-inline) / max-w-page / max-w-reading /
+   *    rail-* / panel-* / dialog-* / scroll-pane / overlay-max-h* / rule-accent / bubble-max-w
+   *    都还没有任何调用点。下面各行写的「收口现有 N 个值」是【迁移目标】,不是已完成的事实。
+   *    写它们是对的(它们是规范),但你会是全站第一/第二个用户。
+   *    复现: rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src
+   * ========================================================================= */
+
+  /* —— 控件高度阶梯 (Figma §4) ——
+   * 改造前 8 档(18/20/28/32/36/40/42/44)→ 目标 5 档。天然对齐的只有 32 和 44。 */
+  --control-h-xs: 1.5rem;    /* 24px  Badge / chip      (Figma 46×23,取整到 24) */
+  --control-h-sm: 2rem;      /* 32px  默认控件/图标钮    (Figma §4.4 图标钮 32×32) ✅ 已对齐 */
+  --control-h-md: 2.25rem;   /* 36px  Tab / 工具栏       (推导: Figma 无此档,但 112 处 h-9 无处可归;
+                              *        归 32 会让 tab 条过窄,归 42 会让工具栏过高) */
+  --control-h-lg: 2.625rem;  /* 42px  大控件 / 主按钮    (Figma §4.1 按钮 120×42) */
+  --control-h-xl: 2.75rem;   /* 44px  搜索 / 输入        (Figma §4.5 搜索框 312×44) ✅ 已对齐
+                              * ⚠️ Figma 自身不自洽: 按钮 42 vs 搜索框 44,同类控件差 2px。
+                              *    暂保留双档,待设计师确认能否统一到 44。 */
+
+  --size-avatar:      2.5rem;   /* 40px  卡片头像 (Figma §4.4 头像 39×39) */
+  --size-icon:        1.5rem;   /* 24px  图标画板 (Figma §4.6 全部 24×24 画板) */
+  --size-icon-inline: 1.25rem;  /* 20px  内联图标 (Figma §4.5 搜索框图标 20×20)
+                                 * 注: Figma 的 24 是【画板】,可见图形实测 7×13 ~ 22×20,
+                                 * 故代码里的 size-3.5(14)/size-4(16) 只需上调一档,
+                                 * 不是全站图标放大 50%。 */
+  --h-progress:       0.5rem;   /* 8px   进度条 (Figma §4.3) */
+
+  /* —— 内边距 —— */
+  --pad-card:     1rem;         /* 16px  卡片 (Figma §4.4) */
+  --card-gap:     0.5rem;       /* 8px   卡片内 gap (Figma §4.4) */
+  --pad-dialog:   1.5rem;       /* 24px  对话框 (推导) */
+  --pad-menu:     0.25rem;      /* 4px   菜单容器 (推导) */
+
+  /* —— 布局容器 —— */
+  /* 🔴 命名陷阱(2026-07-27 审计修复): Tailwind v4 的 --container-* 命名空间【用 token 后缀
+   *    直接生成类名】—— 曾经叫 --container-max,生成的就是 w-max / max-w-max / min-w-max,
+   *    与内建的 max-content 语义类【同名】,且 theme 版排在后面胜出。
+   *    实测后果: MenuDock / SpreadsheetPreview 的 w-max 从 max-content 静默变成 1440px 定宽。
+   *    ⚠️ 给 @theme 的 --container-* / --spacing-* 起名时,后缀不能撞 Tailwind 保留字
+   *      (max / min / fit / full / none / px / screen / auto)。已加护栏见 design-system-guard。
+   *    工具类名是 max-w-page(不是 max-w-container-page)。 */
+  --container-page:     90rem;    /* 1440px 整站中心内容最大宽 (Figma §5 原文)
+                                   * ⚠️ 改造前代码里【没有任何一处是 1440】,
+                                   *    靠 max-w-7xl/6xl/5xl/4xl + 7 个 arbitrary 共 11 套口径凑 */
+  --container-reading:  45rem;    /* 720px  长文阅读区 (推导,取代码众数) */
+  --rail-w-sm:  13.75rem;  /* 220px */
+  --rail-w-md:  18.75rem;  /* 300px */
+  --rail-w-lg:  23.75rem;  /* 380px  右侧信息栏 3 档,收口现有 8 个值(200~560) */
+  --panel-w-sm: 12.5rem;   /* 200px */
+  --panel-w-md: 17.5rem;   /* 280px */
+  --panel-w-lg: 22.5rem;   /* 360px  弹层菜单宽,收口现有 14 个值 */
+  --dialog-w-md: 30rem;    /* 480px */
+  --dialog-w-lg: 45rem;    /* 720px */
+  --dialog-w-xl: 60rem;    /* 960px */
+
+  /* 弹窗最大高 —— 强制 dvh 而非 vh(移动 Safari 地址栏收起/展开会改 vh,弹层底部被盖住)。
+   * ✅ 2026-07-28 复核: 「其余 15 处仍是 vh」这句已过期 —— 全站实测【零处】裸 vh,
+   *    都换成 dvh 了(rg --text -o '[^d][0-9]+vh' src → 0)。
+   * ⚠️ 但收口只做了一半: 换成 dvh 的那些仍是各写各的字面量(85/75/70/68/60/50/46dvh…),
+   *    下面这两个 token 至今【零消费】。真正的收口是让它们用 var(--overlay-max-h)。 */
+  --overlay-max-h:       85dvh;
+  --overlay-max-h-sheet: 92dvh;
+  --scroll-pane-max-h:   16.25rem;  /* 260px 弹层内列表滚动区(5 处已自发一致) */
+  --pane-news-h:         22rem;     /* 352px 首页「学术情报」定高内部滚动区。
+                                     * 为什么定高而不是 flex-1 吃满剩余空间:
+                                     *   第一屏的契约是「hero 不被挤压 + Footer 常驻视口底」,
+                                     *   情报区必须【自己吞掉】溢出内容,而不是把 Footer 顶出视口。
+                                     * 22rem ≈ 3 张情报卡(h-28 + gap-3),再多用户也该点「全部资讯」了。 */
+
+  --rule-accent: 3px;   /* 强调竖条 / 左侧激活边线。Figma 描边只有 1px 与 1.5px,
+                         * 这是代码内生共识(w-[3px] 8 处 + border-l-[3px] 多处) */
+  --bubble-max-w: 80%;  /* 聊天气泡最大宽(4 文件已一致) */
+  --safe-bottom: max(env(safe-area-inset-bottom), 1rem);
+                        /* 全面屏 home indicator 让位。统一裸 env() 写法
+                         * (非全面屏返回 0 会贴边)与带兜底写法 */
+
+  /* ===========================================================================
+   * 十二、Elevation(阴影)
+   * ---------------------------------------------------------------------------
+   * Figma §6: 【0 个 DROP_SHADOW】,分层靠描边 + 米白底明度差。
+   * 但逐处核查后,两类场景物理上无法用描边替代,故保留 2 档:
+   *   overlay —— 浮层会盖在【任意】背景之上(可能正好是同色卡片),描边建立不了前后关系
+   *   raised  —— segmented control 活动块 / Switch thumb / 拖拽中元素 / PDF 拟物纸张
+   *              (浅滑块在浅槽里,加描边会撑大形状破坏 pill 几何)
+   * 改造前 78 处 / 12 个不同值 → 40 处 / 2 个 token,其余 38 处删除
+   * (其中 30 处已自带 border,删掉零视觉损失)。
+   *
+   * 阴影颜色统一锚到玄墨,清掉三个后门:
+   *   rgba(15,23,42,*) = Tailwind slate-900,7 处(明令禁止默认色板却从 rgba 溜进来)
+   *   裸 rgba(0,0,0,*) 15 处 · #1111111f 2 处
+   * ========================================================================= */
+
+  --shadow-overlay: 0 8px 24px -4px rgb(31 31 35 / 0.14),
+                    0 2px 6px -2px  rgb(31 31 35 / 0.08);
+  --shadow-raised:  0 1px 2px 0     rgb(31 31 35 / 0.07);
+
+  /* 🔴 --shadow-* 命名空间【至今未封闭】—— radius 与 text 都做了 `*: initial`,这一族没有。
+   *    后果: shadow-sm / md / lg / xl / 2xl / inner 与裸 shadow 仍能编译出 Tailwind 默认档
+   *    (2026-07-28 compile() 探针逐条实证),而本节上面刚说完「全站只该有 2 档」。
+   *
+   *    ⚠️ 本轮【刻意不补封闭】,但理由与台账/guard 写的不是同一个,别抄错:
+   *      · 流传的说法是「src 还剩 1 处消费者,封了它会静默失去阴影」。实测那 1 处是
+   *        features/mobile/components/PaperFeedCard.tsx 的 `drop-shadow-lg` ——
+   *        它走的是 **--drop-shadow-*** 命名空间,根本不读 --shadow-*。
+   *        探针实证: 加上 `--shadow-*: initial` 之后 drop-shadow-lg 照常编译,
+   *        shadow-none 也照常(它是 static utility,与 rounded-full 同理封不住)。
+   *        也就是说封闭【今天不会弄掉任何一处现存阴影】,那个理由是不成立的。
+   *      · guard 的 `\bshadow-(?!overlay|raised|none|…)` 正则会在字符串 "drop-shadow-lg"
+   *        里匹到 "shadow-lg"(`-` 是词边界),所以那条 ratchet 的基线 1 数的就是它 ——
+   *        是命名空间层面的误报,不是真的有人在用 Tailwind 默认阴影档。
+   *    真正没封的代价只是【回潮口】(将来有人写 shadow-lg 会照常生效),不是现存视觉。
+   *    封不封要人拍板 —— 本轮职责是零像素机制修复,只把事实钉在这里,不动一行渲染。
+   *    收口后应当补上 `--shadow-*: initial`,与 radius / text 同口径。 */
+
+  /* —— 遮罩模糊 (backdrop blur) ——
+   * Figma 未定义。这一档是从代码里【已经形成的共识】反推出来的:
+   *   shared/ui/dialog.tsx(Dialog 遮罩) · shared/ui/sheet.tsx(Sheet 遮罩) ·
+   *   shared/ui/ai-overlay.tsx(AI 蒙层),外加 features/library/.../dialog-chrome.tsx,
+   *   四处一致写着 backdrop-blur-[2px],且每处都留了同一句注释
+   *   「项目没有 blur token,Tailwind 最小内建档 blur-xs = 4px」。
+   * 设计意图是「底下的内容仍隐约可见」(ai-overlay 的文件头就这么写),4px 会把表单
+   * 彻底糊掉 —— 所以这不是「懒得找 token」,是 token 层真缺一档。补上之后那四处
+   * arbitrary 才有地方收口。⚠️ 收口是下一棒的事(改 .tsx 不在本轮职权内),
+   *    本轮只补 token —— 新增一个没人用的 token 不影响任何现有渲染。
+   *
+   * ⚠️ 命名踩过雷,起名前先用 compile() 探针验过(见上面 --container-max 劫持 w-max 的事故):
+   *    Tailwind v4 的 --blur-* 命名空间【用 token 后缀直接生成类名】→ blur-2 / backdrop-blur-2。
+   *    内建保留后缀是 xs/sm/md/lg/xl/2xl/3xl/none,`2` 不在其中。
+   *    实证两条: ① 改动前 `blur-2` / `backdrop-blur-2` 编译不出任何 CSS(不存在被覆盖的内建);
+   *              ② 改动后 8 个内建 blur 类与 9 个内建 backdrop-blur 类的编译产物逐字节未变。
+   *    用数值名(2 = 2px)也与 text-12 / rounded-4 的命名口径一致。 */
+  --blur-2: 2px;
+
+  /* ===========================================================================
+   * 十三、Focus ring
+   * ---------------------------------------------------------------------------
+   * Figma 未定义。改造前有 8+ 种写法散在 42 处
+   * (ring-ring solid 21 / /30 12 / /20 6 / /40 3,focus: 50 vs focus-visible: 38,
+   *  ring-offset 有无 7,外加 globals.css 的全局 outline 兜底 = 第 9 种)。
+   *
+   * alpha 的推导(2026-07-27 审计重算,原推导有两处错):
+   *   ❌ 原注释写「45% 可达标 ≥3:1」并援引 WCAG 2.2 SC 2.4.11 —— 两处都错:
+   *      · 实测 #1F1F23@45% 合成后 on #F6F4EE = 2.75:1、on #FFFFFF 白卡 = 2.81:1,【都不达标】,
+   *        原文「不能靠调淡来减轻存在感」的方向也反了 —— 是必须【调浓】。
+   *      · 焦点指示的 ≥3:1 要求出自 WCAG 2.1 **SC 1.4.11 Non-text Contrast**。
+   *        SC 2.4.11(WCAG 2.2)是「焦点不被遮挡」,与对比度无关。
+   *   ✅ 现值 50%: on 米白 3.14:1 · on 白卡 3.23:1,两种底色同时达标。
+   *      50% 是能同时过关的最低档,再淡即不合规 —— 这一句(而非原来那句)才是「不能调淡」的依据。
+   *
+   * ✅ 2026-07-28 更正一处失真描述。本段原写「offset 色做成【可被容器覆盖的变量】:
+   *    …若用固定白 offset 会画出白圈伪影」—— 该机制【从未存在】:
+   *      · 现实现是 `outline: 2px solid var(--ring)` + `outline-offset: 1px`,
+   *        outline-offset 让出来的是【透明】间隙,露出的就是父容器自己的底色,
+   *        根本没有「offset 色」这个概念(那是 Tailwind ring 体系的 --tw-ring-offset-color,
+   *        我们已弃用 ring 改用 outline,正是为了不需要它)。
+   *      · 与之配套的 --focus-ring-offset 变量因此是纯死变量: 全仓只有「写」没有「读」
+   *        (:root 一次 + [data-surface=dark] 一次,零个 var(--focus-ring-offset) 消费点)。
+   *        本轮已连同那两处赋值一并删除 —— 删死变量是零像素变化。
+   *      · 「白圈伪影」这个担心本身也不成立(透明间隙不会画圈),不必再为它保留机制。
+   *
+   * 🔴 深色底必须翻亮环色: outline 画在元素【外面】(offset>0),所以落的是【父容器】的底色。
+   *    实心按钮不受影响(环落在页面米白上),但【恒暗段内部】的元素会让深色环落在深色底上 ——
+   *    实测 #1F1F23@50% on --landing-dark-1(#1F1F23) = **1.00:1,完全隐形**。
+   *    故给暗容器一个 data-surface="dark" 开关(见 base 层),把环换成白色系。
+   * ========================================================================= */
+
+  --ring:                  rgb(31 31 35 / 0.50);
+  --ring-selected:         rgb(31 31 35 / 0.12);  /* 非焦点的「选中/激活」环 */
+  --ring-on-dark:          rgb(255 255 255 / 0.10);  /* 暗底上的弱环(选中/hover 可供性) */
+  --ring-on-dark-emphasis: rgb(255 255 255 / 0.45);  /* 暗底上的【焦点】环 —— on #1F1F23 实测 4.40:1。
+                                                      * ⚠️ 旧值 30% 只有 2.70:1,不达 3:1 */
+  /* 🚫 --focus-ring-offset 已于 2026-07-28 删除 —— 零消费死变量,见上面 §13 的更正说明。 */
+
+  /* ===========================================================================
+   * 十四、z-index 层级契约
+   * ---------------------------------------------------------------------------
+   * Figma 未定义。改造前【层级契约不自洽】:
+   *   Dialog 遮罩 / Dialog 内容 / Tooltip / Popover / Dropdown / HoverCard /
+   *   Sheet / 侧栏抽屉 —— 8 类语义完全不同的浮层全部 z-50(20 处),
+   *   谁盖谁纯粹由 portal 挂载顺序(即 React 渲染时机)决定。
+   *   「Tooltip 挂在 Dialog 内的按钮上时能不能盖住 Dialog」是运气。
+   * ========================================================================= */
+
+  --z-base: 0;      --z-raised: 10;   --z-sticky: 20;   --z-nav: 30;
+  --z-chrome: 35;
+  --z-scrim: 40;    --z-overlay: 50;  --z-modal: 60;    --z-popover: 70;
+  --z-tooltip: 80;  --z-toast: 90;    --z-fx: 100;
+
+  /* --z-chrome(35)—— 2026-07-29 新增。**悬浮的应用级 chrome**:目前唯一消费点是
+   * SidebarLayout 的「展开侧边栏」浮动按钮。它的层级约束是一对夹逼,原尺度里没有档位能满足:
+   *   > 页面内容(含页面自己的满幅覆盖层,那些用到 z-nav=30)—— 否则被盖住就点不到;
+   *   < 遮罩/弹层(z-scrim=40 起)—— 否则 Dialog 打开时它会浮在遮罩上面。
+   * 🔴 这不是「随便找个大数」:它此前是 z-raised(10),被 claw / 智能搜索 / Prism 三处
+   *    `absolute inset-0 z-nav` 的满幅空状态层整片盖住,hover 与点击**全部失效**
+   *    (用户实测报障)。给 chrome 一个高于内容层的专属档,才是结构性的解法 ——
+   *    逐个给页面覆盖层补 pointer-events-none 只能修已知的三处,下一个新页面照样会踩。 */
+
+  /* ===========================================================================
+   * 十五、Motion
+   * ---------------------------------------------------------------------------
+   * Figma 未定义。CSS 侧与 TS 侧(shared/lib/motion.ts)【必须共用同一组数值】——
+   * 这是 CSS transition 与 framer-motion 两条动画来源唯一的对齐办法。
+   * 改造前二者完全脱节(CSS 150/200/300/500ms vs framer 160/280/420/700ms),
+   * 同一次交互一半走 CSS 一半走 framer 会明显不同步。
+   *
+   * duration 聚类依据: 改造前 18 个 framer 值,每簇内相邻值差 ≤0.04s(肉眼不可分辨)。
+   * ease 是全站最健康的维度: 只有 3 条且分工清晰,不需增删。
+   *
+   * ⚠️ 下面这四个是【原始值】,它们本身生成不出 duration-* 工具类 ——
+   *    Tailwind v4 的 duration-* 读的是另一个命名空间。别名已在 @theme inline 段补上,
+   *    原因与实证见那里的红字。改这四个数会同时改到 CSS 类与别名,不必两头改。
+   * ========================================================================= */
+
+  --duration-fast:       160ms;
+  --duration-base:       280ms;
+  --duration-slow:       420ms;
+  --duration-deliberate: 700ms;
+  --ease-out:        cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out:     cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ===========================================================================
+   * 十六、字号与圆角的原始值
+   * ---------------------------------------------------------------------------
+   * ⚠️ 必须声明在 :root,不能只写在 @theme inline 里。
+   *    ✅ 2026-07-28 更正原理由。原文写「@theme inline 只把值内联进工具类,【不会】把变量
+   *       发到 :root」—— **这是错的**。用本仓库 tailwindcss@4.3.0 的 compile() 实测:
+   *       @theme inline 里【被 var() 引用到的】变量照样会被发进 `:root, :host`
+   *       (只有完全没被引用的才不发)。这个机制正是长期没人察觉的 13px 事故的成因:
+   *       body 的 font-size 写的是 `var(--text-base)`,而 --text-base 只在兼容层的
+   *       @theme inline 里声明过 —— 它之所以能生效并让全站隐式继承停在 13px,
+   *       就是因为被引用的 @theme inline 变量确实会发到 :root。
+   *    ✅ 真正的理由是另一个: @theme inline 发出去的那份是 Tailwind 按【它自己的规则】
+   *       决定发不发、发哪些;而下面这些原始值要被本文件其它段落(兼容层、base 层、
+   *       @utility)以及 theme-bridge 的 getComputedStyle 无条件读到,
+   *       不能把「变量存不存在」这件事交给编译器的引用分析。所以在 :root 显式声明一份。
+   * ========================================================================= */
+
+  /* dev.pen 英文阶梯:12/14/16/18/20/24/28/32。Headline / Body 样张另有 64px,
+   * 作为展示档单独命名,不混入普通 UI 阶梯。中文使用其中 24/28/32 档。 */
+  --text-12: 0.75rem;    /* 12px  Badge / 卡片次文 / 段标 / 计数 / 时间戳 / 图表刻度 */
+  --text-14: 0.875rem;   /* 14px  ★ 正文基准 / 按钮 / 输入框 / 卡片主文 / sidebar 主项 */
+  --text-16: 1rem;       /* 16px  区块标题 / 面板列头 */
+  --text-18: 1.125rem;   /* 18px  中型强调 / 小标题 */
+  --text-20: 1.25rem;    /* 20px  页面标题 / 数值强调 */
+  --text-24: 1.5rem;     /* 24px  Hero 副标题 / 详情页 h1 移动端 */
+  --text-28: 1.75rem;    /* 28px  Hero 主标题 / 详情页 h1 桌面 */
+  --text-32: 2rem;       /* 32px  大标题 / 中文展示 Bold */
+  --text-body:    var(--text-14);   /* 语义别名,便于表达意图 */
+  --text-caption: var(--text-12);
+  --text-display-64: 4rem;     /* Headline / Body 设计样张的 64px 展示档 */
+
+  /* 圆角: Figma §3 的 4/8/12/16/20 + 胶囊
+   * ---------------------------------------------------------------------------
+   * ⚠️ 用【数值命名】而非 xs/sm/md/lg/xl,与字号档同理由:
+   *    语义名 + 改值 = 同一个类名新旧两个值,改 token 必然一次性波及全部调用点,
+   *    无法分批迁移。本次改造已经在这上面翻过一次车(rounded-lg 8→16 让 32px
+   *    图标钮变成正圆),根因就是名字复用。
+   *    数值名让新旧标度可以共存: 旧 rounded-sm/md/lg 保持原值不动,
+   *    B5 批次把调用点逐处分类迁到 rounded-4/8/12/16/20,迁完再删旧名。
+   *
+   * 分层判定口诀:
+   *   直接坐在页面底色上的一块内容 → 16
+   *   嵌在另一个 16 里             → 12
+   *   是个控件                     → 8
+   *   是段文字里的装饰             → 4
+   * 【内层圆角必须严格小于外层】,否则子元素会「顶角」。 */
+  --radius-4:    0.25rem;   /* 4px   内联 chip / 行内 code / checkbox / kbd */
+  --radius-8:    0.5rem;    /* 8px   24~36px 图标钮 / 导航菜单项 / tab / 表单字段 */
+  --radius-12:   0.75rem;   /* 12px  浮层(Popover/Dropdown/Tooltip) / 嵌套子面板 / 表格外框 */
+  --radius-16:   1rem;      /* 16px  ★ 主力容器: 顶层卡片 / 页面区块 / Dialog / 主搜索框 */
+  --radius-20:   1.25rem;   /* 20px  最外层大区块 / 移动端 bottom sheet 顶角(应极克制) */
+  --radius-pill: 9999px;    /* 按钮实心 / Badge / 进度条 / 头像 / 状态圆点
+                             * —— 唯一与 Figma 完全对齐的既有档位 */
+
+  /* ✅ B5 过渡期的旧圆角标度(--radius-sm/md/lg/xl = 4/6/8/12)已于 2026-07-27 删除 ——
+   *    实测代码里类名与 var() 引用【均为 0】。留着的唯一效果是 `rounded-md` 还能编译成
+   *    Figma 点名要干掉的 6px,是纯粹的回潮口。 */
+
+  /* ===========================================================================
+   * 十七、shadcn 语义别名
+   * ---------------------------------------------------------------------------
+   * 这些给 shadcn 原子直接用,本质是上面 token 的指针。
+   * 业务代码用更语义的类(bg-card / text-foreground),不要直接引用这一层。
+   * ========================================================================= */
+
+  --card:                   var(--surface-card);
+  --card-foreground:        var(--foreground);
+  --popover:                var(--surface-card);
+  --popover-foreground:     var(--foreground);
+  /* Pencil 按钮 Primary 明确使用朱砂。松青继续由 brand-green / success / AI 消费。 */
+  --primary:                var(--brand-red);
+  --primary-foreground:     var(--on-brand);
+  --destructive:            var(--brand-red);
+  --destructive-foreground: var(--on-brand);
+  --secondary:              var(--surface-2);
+  --secondary-foreground:   var(--foreground);
+  --accent:                 var(--surface-2);
+  --accent-foreground:      var(--foreground);
+  --muted:                  var(--surface-2);
+  --input:                  var(--border);
 }
 
 /* =============================================================================
- * Tailwind v4 主题映射 —— 把上述 CSS 变量注册为工具类
- * 业务代码消费的就是这里的类名,例如 `bg-surface-1` / `text-subtle` / `border-border-strong`
+ * ⚠️ 暗色态已移除 (2026-07)
+ * -----------------------------------------------------------------------------
+ * 改造前存在 .dark 块(18 个 token 覆写)与 stores/theme.store.ts,但实测:
+ *   - useApplyTheme() 确实在 App.tsx:59 被调用,切换机制完整
+ *   - 但 setTheme 全站【零调用点】,设置页没有任何主题 UI
+ *   - theme 默认 'light' 且 persist,'system' 分支不可达
+ *   → .dark 类永远不会被挂上,那 18 个覆写从来没有生效过
+ * 按「快速落地」的设计前提,连同 theme.store.ts 一并移除,不留跑不到的代码。
+ * 将来若要做暗色态: 玄墨 12 档正好可与亮色互为镜像
+ * (亮色从亮端取 surface / 暗端取 text,暗色反过来),基于新色阶重新推导即可。
+ * ============================================================================= */
+
+/* =============================================================================
+ * Tailwind v4 主题映射
+ * -----------------------------------------------------------------------------
+ * 把上述 CSS 变量注册为工具类。业务代码消费的是这里的类名。
+ *
+ * 用 `@theme inline` 而非 `@theme`: 值被内联进工具类,不重复发一份变量。
+ * 语义变量本身在 :root 已显式声明,theme-bridge 可用 getComputedStyle 读到。
+ *
+ * 颜色一律用 hex / rgb(),不再用旧的 HSL 三元组 + hsl(var()) 包裹 ——
+ * Tailwind v4 的透明度修饰符(bg-brand-red/10)走 color-mix(),对 hex 原生支持,
+ * 不需要三元组那套体操。
+ * ✅ 改造前唯一直接消费三元组的 UserMenuContent.tsx `bg-[hsl(var(--brand-green)/0.12)]`
+ *    【已改完】(2026-07-28 复核: 全仓 `hsl(var(` 只剩本行注释)。原文写的是祈使句
+ *    「需同步改成 bg-brand-green/12」,读起来像还没做,已改成完成态。
  * ============================================================================= */
 
 @theme inline {
-  --color-background:           hsl(var(--background));
-  --color-foreground:           hsl(var(--foreground));
-  --color-surface-1:            hsl(var(--surface-1));
-  --color-surface-2:            hsl(var(--surface-2));
-  --color-surface-3:            hsl(var(--surface-3));
+  /* ═══ 命名空间封闭 ═══════════════════════════════════════════════════════
+   * 关掉 Tailwind 自带的圆角档,让「圆角只有 4/8/12/16/20 + 胶囊」成为【封闭集合】
+   * 而不是「在默认档之上补几个」。
+   *
+   * 为什么必须做: 改造前 @theme inline 只补档不封闭,导致 130 处(占 8.8%)
+   * 从后门绕过了「圆角只有 4 档」的约束照常生效 ——
+   *   裸 rounded(43,硬编码 .25rem 根本不走变量) / rounded-full(55) / rounded-2xl(15) / rounded-xl(12)
+   * 这些已在 B0 等值改名收编完毕,现在把门关上,防止回潮。
+   * 封闭后再写 rounded-3xl / text-3xl 之类会【编译不出类】—— 比 lint 更硬的护栏。
+   *
+   * ⚠️ 封不住的两个(2026-07-27 编译实证,原注释「封闭后 rounded-full 编译不出类」是错的):
+   *    `rounded-full` 与 `rounded-none` 是 Tailwind 的 **static utility**(硬编码
+   *    calc(infinity*1px) / 0,不读 --radius-* 命名空间),initial 对它们无效。
+   *    这两个只能靠 design-system-guard 的类名规则拦。
+   *
+   * ✅ --text-*: initial 已于 2026-07-27 补上 —— B6 完成后 text-3xl/4xl/5xl 实测已归零,
+   *    封闭前提满足。补之前它们能编译出 Tailwind 默认值(30/36/48px),是「编译得出 + CI 放行」
+   *    的双重后门。 */
+  --radius-*: initial;
+  --text-*:   initial;
 
-  --color-subtle:               hsl(var(--subtle-foreground));
-  --color-muted-foreground:     hsl(var(--muted-foreground));
-  --color-faint:                hsl(var(--faint-foreground));
+  /* ——— 字号: dev.pen 的 8 档 UI 阶梯 + 64px 展示档 ———
+   *
+   * 命名弃用 xs/sm/base/md/lg/xl 改数值名。理由: 本仓库已被 name≠value 咬过四次
+   * (text-base=13 / text-md=14 / text-15 / text-badge=9 且零使用),
+   * 且 Tailwind 默认语义名与项目的数值名无法建立稳定映射 ——
+   * 继续用语义名等于把同一个陷阱重埋。
+   *
+   * ⚠️ 只声明 font-size,【绝不声明配套 line-height】(见 --leading-* 注释的实现陷阱)。 */
+  --text-12: var(--text-12);
+  --text-14: var(--text-14);
+  --text-16: var(--text-16);
+  --text-18: var(--text-18);
+  --text-20: var(--text-20);
+  --text-24: var(--text-24);
+  --text-28: var(--text-28);
+  --text-32: var(--text-32);
+  --text-body:    var(--text-body);
+  --text-caption: var(--text-caption);
+  --text-display-64: var(--text-display-64);
 
-  --color-border:               hsl(var(--border));
-  --color-border-soft:          hsl(var(--border-soft));
-  --color-border-separator:     hsl(var(--border-separator));
-  --color-border-strong:        hsl(var(--border-strong));
-  --color-border-button:        hsl(var(--border-button));
+  /* ——— 行高 ——— */
+  --leading-sans:          var(--leading-sans);
+  --leading-display:       var(--leading-display);
+  --leading-serif:         var(--leading-serif);
+  --leading-paragraph:     var(--leading-paragraph);
+  --leading-display-tight: var(--leading-display-tight);
+  --leading-code:          var(--leading-code);   /* 1.65,代码编辑器专用 —— 见 :root §10 */
 
-  --color-danger-soft:          hsl(var(--danger-soft-bg));
-  --color-warning-soft:         hsl(var(--warning-soft-bg));
+  /* ——— 遮罩模糊 ———
+   * --blur-* 是 Tailwind v4 的命名空间,后缀直接生成 blur-2 / backdrop-blur-2。
+   * 后缀 `2` 不撞任何内建保留字(xs/sm/md/lg/xl/2xl/3xl/none),已用 compile() 探针
+   * 逐条核对「内建 blur / backdrop-blur 类的产物逐字节未变」。理由见 :root §12。 */
+  --blur-2: var(--blur-2);
 
-  /* Landing "恒暗"段配色 —— 仅 features/landing/* 使用 */
-  --color-landing-dark-1:       hsl(var(--landing-dark-1));
-  --color-landing-dark-2:       hsl(var(--landing-dark-2));
-  --color-landing-dark-divider: hsl(var(--landing-dark-divider));
+  /* ——— 字间距 ——— */
+  --tracking-code:  var(--tracking-code);
+  --tracking-brand: var(--tracking-brand);
 
-  --color-brand-red:            hsl(var(--brand-red));
-  --color-brand-green:          hsl(var(--brand-green));
-  --color-brand-amber:          hsl(var(--brand-amber));
-  --color-brand-blue:           hsl(var(--brand-blue));
-  --color-brand-blue-soft:      hsl(var(--brand-blue-soft-bg));
-
-  --color-prism-badge-bg:       hsl(var(--prism-badge-bg));
-  --color-prism-badge-fg:       hsl(var(--prism-badge-fg));
-  --color-journal-soft:         hsl(var(--journal-soft-bg));
-
-  --color-primary:                hsl(var(--primary));
-  --color-primary-foreground:     hsl(var(--primary-foreground));
-  --color-destructive:            hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-secondary:              hsl(var(--secondary));
-  --color-secondary-foreground:   hsl(var(--secondary-foreground));
-  --color-accent:                 hsl(var(--accent));
-  --color-accent-foreground:      hsl(var(--accent-foreground));
-  --color-muted:                  hsl(var(--muted));
-  --color-card:                   hsl(var(--card));
-  --color-card-foreground:        hsl(var(--card-foreground));
-  --color-popover:                hsl(var(--popover));
-  --color-popover-foreground:     hsl(var(--popover-foreground));
-  --color-input:                  hsl(var(--input));
-  --color-ring:                   hsl(var(--ring));
-
-  --radius-sm:    var(--radius-sm);
-  --radius-md:    var(--radius);
-  --radius-lg:    var(--radius-lg);
-  --radius-pill:  var(--radius-pill);
-
+  /* ——— 字族 ——— */
   --font-sans:    var(--font-sans);
-  --font-mono:    var(--font-mono);
+  --font-serif:   var(--font-serif);
   --font-display: var(--font-display);
+  --font-brand:   var(--font-brand);
+  --font-mono:    var(--font-mono);
 
-  /* 字号 token 注册到 Tailwind v4 工具类 —— text-2xs / text-base / text-md 等
-   * 没有这一段时,text-base 会 fallback 到 Tailwind 默认 16px,导致 sidebar
-   * 标题/副标题字号对比塌掉。 */
-  --text-2xs:    var(--text-2xs);
-  --text-xs:     var(--text-xs);
-  --text-sm:     var(--text-sm);
-  --text-base:   var(--text-base);
-  --text-md:     var(--text-md);
-  --text-lg:     var(--text-lg);
-  --text-xl:     var(--text-xl);
-  --text-2xl:    var(--text-2xl);
-  /* 列标题专用:.pen 多处 15px bold 列 header(搜索器 / 工作区 / 矩阵分析等)
-   * 工具类 `text-15`,替代散落的 `text-[15px]` arbitrary */
-  --text-15:     0.9375rem; /* 15px */
-  /* 角标 / 标签字号 —— "即将推出" 等胶囊标签固定 9px,工具类 `text-badge`
-   * 替代散落的 `text-[9px]` arbitrary */
-  --text-badge:  0.5625rem; /* 9px */
+  /* ——— 圆角: Figma §3 的 4/8/12/16/20 + 胶囊 ———
+   * 分层判定口诀:
+   *   直接坐在页面底色上的一块内容 → 16
+   *   嵌在另一个 16 里             → 12
+   *   是个控件                     → 8
+   *   是段文字里的装饰             → 4
+   * 【内层圆角必须严格小于外层】,否则子元素会「顶角」。
+   *
+   * ⚠️ Figma 明确要求干掉 6px。改造前 rounded-md=6 有 541 处使用,
+   *    迁移目标是 8 而非 4,三条代码内证见台账 §2.8。 */
+  /* 新标度(数值名) —— B5 的迁移目标 */
+  --radius-4:    var(--radius-4);
+  --radius-8:    var(--radius-8);
+  --radius-12:   var(--radius-12);
+  --radius-16:   var(--radius-16);
+  --radius-20:   var(--radius-20);
+  --radius-pill: var(--radius-pill);
+  /* 旧标度(语义名)已删除 —— 见 :root 段说明 */
 
-  /* line-height token —— 替代散落的 leading-[1.x],收口到 3 档:
-   *   leading-paragraph (1.7)  —— 学术正文 / 引用块 / 帮助说明,长段落呼吸
-   *   leading-prose     (1.65) —— 代码块 / 引用 prose / 备注块
-   *   leading-snug-x    (1.4)  —— 列表行标题(line-clamp 双行视觉舒服)
-   * (Tailwind 内置 leading-tight=1.25 / leading-snug=1.375 / leading-relaxed=1.625
-   *  够用的就别再加。) */
-  --leading-paragraph: 1.7;
-  --leading-prose:     1.65;
-  --leading-snug-x:    1.4;
+  /* ——— 颜色: Surface ——— */
+  --color-background:   var(--background);
+  --color-surface-card: var(--surface-card);
+  --color-surface-1:    var(--surface-1);
+  --color-surface-2:    var(--surface-2);
+  --color-surface-3:    var(--surface-3);
+  --color-amber-soft:   var(--amber-soft-bg);
+  --color-amber-soft-fg: var(--amber-soft-fg);
 
-  /* 补 Tailwind 默认 spacing 缺失的几档,匹配 .pen 设计稿固有高度
-   *   h-13 → 52px,dialog header/footer 与 journal 搜索条(.pen `xBNU4`),
-   *           介于 Tailwind 默认 h-12(48)与 h-14(56)之间
-   *   h-15 → 60px,sidebar 用户条(.pen `INJ5C` `aiEop`)
-   *   h-17 → 68px,预留(若后续 page hero 需要) */
-  --spacing-13:   3.25rem;
-  --spacing-15:   3.75rem;
-  --spacing-17:   4.25rem;
+  /* ——— 颜色: 文字 ——— */
+  --color-foreground:       var(--foreground);
+  --color-subtle:           var(--subtle-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint:            var(--faint-foreground);
+  --color-disabled:         var(--disabled-foreground);
+  --color-placeholder:      var(--placeholder-foreground);
+  --color-on-brand:         var(--on-brand);
+  --color-on-dark:          var(--on-dark);
+  --color-on-dark-muted:    var(--on-dark-muted);
 
-  /* "Tab 条"高度 —— LibraryTabsBar / HomeSidebar 等多处 42px tab/row
-   *   用 `h-tab` 替代散落的 `h-[42px]` arbitrary,集中改一处 */
-  --spacing-tab:  2.625rem; /* 42px */
+  /* ——— 颜色: 边框 ——— */
+  --color-border-hairline:         var(--border-hairline);
+  --color-border:                  var(--border);
+  --color-border-strong:           var(--border-strong);
+  --color-divider:                 var(--divider);
+  --color-border-control:          var(--border-control);
+  --color-border-control-emphasis: var(--border-control-emphasis);
 
-  /* sidebar section "flash" 动画 —— Rail chip 点击后让对应段闪一下高亮边框。
+  /* ——— 颜色: 品牌 ——— */
+  --color-brand-red:        var(--brand-red);
+  --color-brand-green:      var(--brand-green);
+  --color-brand-amber:      var(--brand-amber);
+  --color-brand-red-soft:   var(--brand-red-soft);
+  --color-brand-green-soft: var(--brand-green-soft);
+  --color-brand-amber-soft: var(--brand-amber-soft);
+
+  /* ——— 颜色: 状态(临时值,待设计师确认) ——— */
+  --color-status-success:      var(--status-success);
+  --color-status-success-soft: var(--status-success-soft);
+  --color-status-error:        var(--status-error);
+  --color-status-error-soft:   var(--status-error-soft);
+  --color-status-warning:      var(--status-warning);
+  --color-status-warning-soft: var(--status-warning-soft);
+  --color-status-running:      var(--status-running);
+  --color-status-running-soft: var(--status-running-soft);
+  --color-status-neutral:      var(--status-neutral);
+  --color-status-neutral-soft: var(--status-neutral-soft);
+  --color-status-info:         var(--status-info);
+  --color-status-info-soft:    var(--status-info-soft);
+
+  /* ——— 颜色: 分类 & 图表 ——— */
+  --color-cat-1: var(--cat-1);  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);  --color-cat-6: var(--cat-6);
+  --color-cat-7: var(--cat-7);  --color-cat-8: var(--cat-8);
+  --color-cat-blue:      var(--cat-blue);
+  --color-cat-blue-soft: var(--cat-blue-soft);
+  --color-cat-1-soft: var(--cat-1-soft);  --color-cat-2-soft: var(--cat-2-soft);
+  --color-cat-3-soft: var(--cat-3-soft);  --color-cat-4-soft: var(--cat-4-soft);
+  --color-cat-5-soft: var(--cat-5-soft);  --color-cat-6-soft: var(--cat-6-soft);
+  --color-cat-7-soft: var(--cat-7-soft);  --color-cat-8-soft: var(--cat-8-soft);
+  --color-chart-1: var(--chart-1);  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);  --color-chart-8: var(--chart-8);
+  --color-chart-grid:    var(--chart-grid);
+  --color-chart-axis-fg: var(--chart-axis-fg);
+
+  /* ——— 颜色: 恒暗段(landing 专用,非 dark-mode) ——— */
+  --color-landing-dark-1:       var(--landing-dark-1);
+  --color-landing-dark-2:       var(--landing-dark-2);
+  --color-landing-dark-divider: var(--landing-dark-divider);
+
+  /* ——— 颜色: shadcn 语义别名 ——— */
+  --color-primary:                var(--primary);
+  --color-primary-foreground:     var(--primary-foreground);
+  --color-destructive:            var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-secondary:              var(--secondary);
+  --color-secondary-foreground:   var(--secondary-foreground);
+  --color-accent:                 var(--accent);
+  --color-accent-foreground:      var(--accent-foreground);
+  --color-muted:                  var(--muted);
+  --color-card:                   var(--card);
+  --color-card-foreground:        var(--card-foreground);
+  --color-popover:                var(--popover);
+  --color-popover-foreground:     var(--popover-foreground);
+  --color-input:                  var(--input);
+  --color-ring:                   var(--ring);
+  --color-ring-selected:          var(--ring-selected);
+
+  /* ——— 控件高度 & 尺寸 ——— */
+  --spacing-control-xs: var(--control-h-xs);
+  --spacing-control-sm: var(--control-h-sm);
+  --spacing-control-md: var(--control-h-md);
+  --spacing-control-lg: var(--control-h-lg);
+  --spacing-control-xl: var(--control-h-xl);
+  --spacing-avatar:     var(--size-avatar);
+  --spacing-icon:       var(--size-icon);
+  --spacing-icon-inline: var(--size-icon-inline);
+  --spacing-progress:   var(--h-progress);
+
+  /* ——— 布局容器宽度 ——— */
+  --container-page:    var(--container-page);      /* → max-w-page (1440) */
+  --container-reading: var(--container-reading);   /* → max-w-reading (720) */
+  --spacing-rail-sm:   var(--rail-w-sm);
+  --spacing-rail-md:   var(--rail-w-md);
+  --spacing-rail-lg:   var(--rail-w-lg);
+  --spacing-panel-sm:  var(--panel-w-sm);
+  --spacing-panel-md:  var(--panel-w-md);
+  --spacing-panel-lg:  var(--panel-w-lg);
+  --spacing-dialog-md: var(--dialog-w-md);
+  --spacing-dialog-lg: var(--dialog-w-lg);
+  --spacing-dialog-xl: var(--dialog-w-xl);
+  --spacing-scroll-pane: var(--scroll-pane-max-h);
+  --spacing-pane-news:   var(--pane-news-h);
+
+  /* ——— Elevation ——— */
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-raised:  var(--shadow-raised);
+
+  /* ——— z-index 层级契约 ———
+   * Tailwind v4 的 z-index 命名空间是 --z-index-*,必须注册才有 z-modal 这类工具类。
+   * 只在 :root 声明 --z-modal 是不够的(这是本次改造踩过的坑)。 */
+  --z-index-base:    var(--z-base);
+  --z-index-raised:  var(--z-raised);
+  --z-index-sticky:  var(--z-sticky);
+  --z-index-nav:     var(--z-nav);
+  --z-index-chrome:  var(--z-chrome);
+  --z-index-scrim:   var(--z-scrim);
+  --z-index-overlay: var(--z-overlay);
+  --z-index-modal:   var(--z-modal);
+  --z-index-popover: var(--z-popover);
+  --z-index-tooltip: var(--z-tooltip);
+  --z-index-toast:   var(--z-toast);
+  --z-index-fx:      var(--z-fx);
+
+  /* ——— Motion ———
+   * 🔴 duration 的命名空间陷阱(2026-07-28 用 compile() 探针实证后修复)——
+   *    这是本文件已知代价最高的一处静默失效,修法只有下面四行:
+   *      :root 里的 --duration-* 是【原始值】,而 Tailwind v4 的 duration-* 工具类
+   *      只查 **--transition-duration-*** 命名空间(tailwindcss@4.3.0 源码里写死
+   *      `valueThemeKeys:["--transition-duration"]`)。名字差一截前缀,于是
+   *      duration-fast / base / slow / deliberate 长期【一个类都编译不出】。
+   *      而且它不报错: 元素只是变成「没有过渡」,肉眼只会觉得动画有点生硬 ——
+   *      CLAUDE.md 曾把这四个当作「可用 token」教,是已知最贵的一处误导。
+   *    ✅ 补上别名后探针结果:
+   *      duration-base → `--tw-duration: var(--duration-base); transition-duration: var(--duration-base)`
+   *    ⚠️ 这是【纯新增可用类】: 全量 diff(把 src 里所有 token 串喂进 compile())显示
+   *       既有类的编译产物一行未增未减未改,所以本次修复不移动任何一个像素。
+   *       收益要等调用点从 `duration-[var(--duration-base)]` / `duration-200` 迁过来才兑现,
+   *       那是下一棒的动作(改 .tsx 不在本轮职权内)。
+   *    ⚠️ 别把 :root 的 --duration-* 删掉改成只写这四行: shared/lib/motion.ts 之外,
+   *       `duration-[var(--duration-base)]` 这种 arbitrary 写法读的正是 :root 那份。 */
+  --transition-duration-fast:       var(--duration-fast);
+  --transition-duration-base:       var(--duration-base);
+  --transition-duration-slow:       var(--duration-slow);
+  --transition-duration-deliberate: var(--duration-deliberate);
+  --ease-out:        var(--ease-out);
+  --ease-in-out:     var(--ease-in-out);
+  --ease-emphasized: var(--ease-emphasized);
+
+  /* ——— 动画 ——— */
+  /* sidebar section「flash」—— Rail chip 点击后让对应段闪一下高亮边框。
    * 用 box-shadow ring 而非 border,不撑大 layout。
    * 1800ms 总时长(快速淡入 → 长保持 → 慢淡出),与 store setTimeout 对齐。 */
   --animate-sidebar-flash: sidebar-flash 1800ms ease-out;
   @keyframes sidebar-flash {
     /* 0..10% 快速淡入(180ms) */
-    0%   { box-shadow: inset 0 0 0 0 hsl(var(--brand-red) / 0); background-color: transparent; }
-    10%  { box-shadow: inset 0 0 0 2px hsl(var(--brand-red) / 0.7); background-color: hsl(var(--danger-soft-bg) / 0.55); }
+    0%   { box-shadow: inset 0 0 0 0 transparent; background-color: transparent; }
+    10%  { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--brand-red) 70%, transparent);
+           background-color: color-mix(in srgb, var(--brand-red) 8%, transparent); }
     /* 10..55% 保持峰值(810ms 稳态,用户能清晰看到) */
-    55%  { box-shadow: inset 0 0 0 2px hsl(var(--brand-red) / 0.6); background-color: hsl(var(--danger-soft-bg) / 0.5); }
+    55%  { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--brand-red) 60%, transparent);
+           background-color: color-mix(in srgb, var(--brand-red) 7%, transparent); }
     /* 55..100% 缓慢淡出(810ms) */
-    100% { box-shadow: inset 0 0 0 0 hsl(var(--brand-red) / 0); background-color: transparent; }
+    100% { box-shadow: inset 0 0 0 0 transparent; background-color: transparent; }
   }
 }
 
 /* =============================================================================
- * base 重置 + 全局滚动条 + input-otp 光标
+ * ⚠️ 过渡期兼容层 —— B1「等值改名」批次完成后【整段删除】
+ * -----------------------------------------------------------------------------
+ * 下面这些是旧 token 名,仍被一批调用点引用 —— 2026-07-28 实测 **495 处**
+ * (border-soft 270 / danger-soft 96 / warning-soft 68 / border-button 25 /
+ *  prism-badge-* 29 / border-separator 6 / journal-soft 1)。
+ * ⚠️ 本行原写「约 5800 处」,差了一个数量级 —— 那是改造启动时的数字,B1~B6 收口后早已不成立。
+ *    这类计数天生会腐烂,引用前请自己重跑一遍(命令见 frontend-user/CLAUDE.md 迁移状态表)。
+ * 它们全部指向新体系的对应值 —— 所以【全站会立刻呈现新的配色与圆角】,
+ * 而不是维持旧样子。这是有意的: 让你能直接打开 app 评估 token 设计,
+ * 而不是只读表格。
+ *
+ * 组件层的不一致(字重仍是 700/600、字号仍是 13/11/10、间距仍有半档)
+ * 要等 B1~B6 批次逐步收敛,现在看到的是「新 token + 旧用法」的中间态。
+ *
+ * 每一行都标注了它的迁移目标,B1 批次照着改调用点即可。
+ * ============================================================================= */
+
+@theme inline {
+  /* ✅ B6 过渡期的旧字号档(--text-2xs/xs/sm/base/md/lg/xl/2xl/15)已于 2026-07-27 删除 ——
+   *    实测代码里类名与 var() 引用【均为 0】,且 --text-*: initial 已封闭命名空间。
+   *    最后一个真实消费者是 body 的 font-size: var(--text-base)(13px),已改到 --text-14。
+   * B0 已删除: --text-badge(9px) —— 实测全项目零引用 */
+
+  /* —— 旧间距补档 → 控件阶梯(B3 迁移) —— */
+  --spacing-13:  3.25rem;              /* 52px · 12 处 → B3 归 48 或 56(台账建议删 52 档) */
+  --spacing-15:  3.75rem;              /* 60px ·  2 处 */
+  --spacing-tab: var(--control-h-lg);  /* 42px → 与 --control-h-lg 等值合并 ✓ */
+  /* B0 已删除: --spacing-17(68px) —— 实测全项目零引用(原注释自陈「预留」) */
+
+  /* —— 旧边框 token → 新 4 档(B4 迁移) —— */
+  --color-border-soft:      var(--border-hairline);  /* 旧 #EEEEEE,250 处 */
+  --color-border-separator: var(--divider);          /* 旧 #E0E0E0,6 处(全是 bg-/text- 用法) */
+  --color-border-button:    var(--border-strong);    /* 旧 #C8C8C8,25 处 → 并入 strong */
+
+  /* —— 旧软底色 → 新体系(B4 迁移) —— */
+  --color-danger-soft:  var(--brand-red-soft);    /* 旧 #FFF5F5 */
+  --color-warning-soft: var(--brand-amber-soft);  /* 旧 浅黄 */
+  --color-journal-soft: var(--brand-amber-soft);  /* 旧 #FAF8F2,期刊线改琥珀 */
+
+  /* B4 已完成: --brand-blue 彻底退休,调用点已按语义三分流 ——
+   *   期刊线/功能语义(24+6 处) → brand-amber
+   *   多色调色板的 blue 档(10 处) → cat-blue(规范外第五色相,保可区分度)
+   *   充值/经费成功(6 处 #0066FF) → status-info */
+
+  /* —— Prism 角标 → 琥珀软底(B4 迁移) —— */
+  --color-prism-badge-bg: var(--amber-soft-bg);   /* 旧 #F0E8D8 */
+  --color-prism-badge-fg: var(--amber-soft-fg);   /* 旧 #806A2E(等值) */
+}
+
+/* =============================================================================
+ * base 层: 重置 / 滚动条 / 无障碍
  * ============================================================================= */
 
 @layer base {
@@ -337,10 +1203,10 @@
   *::before,
   *::after {
     box-sizing: border-box;
-    border-color: hsl(var(--border));
+    border-color: var(--border);
   }
 
-  /* 隐藏 webkit / chrome 给 input[type=search] 的原生 X 按钮 ——
+  /* 隐藏 webkit/chrome 给 input[type=search] 的原生 X 按钮 ——
      我们在所有搜索框里自己渲了带 lucide X 的清空按钮(更可控),不需要两份。 */
   input[type='search']::-webkit-search-cancel-button,
   input[type='search']::-webkit-search-decoration {
@@ -354,11 +1220,24 @@
     height: 100%;
   }
 
+  /* 🔴 幽灵全局滚动条修复(2026-08-12 实测):sr-only 是 position:absolute,
+     它的包含块是最近的 relative 祖先(通常是 shell 层),**内部滚动容器裁不住它**。
+     当它的 static 位置深藏在一个已被滚走的列表里(如首页「学术情报」新闻卡的
+     h3.sr-only,实测把 body 可滚动区撑出 392px),这个 1px 盒子会落在视口之外,
+     把 body(overflow-x:hidden 使 overflow-y 隐式变 auto,是全窗口滚动容器)
+     的可滚动高度向下撑大 —— 出现一条滚过去全是空白的整页滚动条。
+     钉在包含块左上角后它不可能再向任何方向扩张滚动区;
+     对读屏/SEO 零影响(clip/尺寸裁剪原样保留,语义与可达性不变)。 */
+  .sr-only {
+    top: 0;
+    left: 0;
+  }
+
   html,
   body {
-    /* 移动端「左右晃荡 / 无限画布」根因:文档级横向 sub-pixel 溢出可横滚 + 触摸 overscroll 橡皮筋回弹。
+    /* 移动端「左右晃荡 / 无限画布」根因: 文档级横向 sub-pixel 溢出可横滚 + 触摸 overscroll 橡皮筋回弹。
        横向永远不需要文档滚动 → overflow-x 直接裁掉;overscroll-behavior 关掉两轴回弹与滚动链。
-       对桌面无副作用:纵向 body 滚动照常(只裁横向),桌面本就无触摸回弹。 */
+       对桌面无副作用: 纵向 body 滚动照常(只裁横向),桌面本就无触摸回弹。 */
     overflow-x: hidden;
     overscroll-behavior: none;
     /* 关掉「双击放大」与点按 300ms 延迟(iOS 忽略 viewport 的 user-scalable=no 走这条);
@@ -369,38 +1248,81 @@
 
   body {
     margin: 0;
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: var(--font-sans);
-    font-size: var(--text-base);
-    line-height: 1.5;
+    font-size: var(--text-14);          /* ★ 正文基准 = 14px (Figma §2.2)
+                                         * 2026-07-27 修正: B6 迁了 2792 处类名却【没改 body】,
+                                         * 导致全站隐式继承源头停在 --text-base = 13px ——
+                                         * 而 13 恰是 Figma 点名要干掉的奇数档,既不在六档内,
+                                         * 又是所有「没写字号类」的元素的实际取值。
+                                         * 影响面: 只波及未显式标字号的元素(Popover/HoverCard/
+                                         * CardContent 内容区、无字号类的 <td>/<p>),它们从 13→14。 */
+    line-height: var(--leading-sans);   /* 行高按字族绑定,不按字号档 */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* 移动端触控打磨:去掉点按时的蓝色高亮方块(改用受控的 active: 反馈),
+    /* 移动端触控打磨: 去掉点按时的蓝色高亮方块(改用受控的 active: 反馈),
        禁止 iOS 横竖屏自动放大正文字号。 */
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
   }
 
+  /* 字族层行高 —— 与 --leading-* 的「按字族绑定」策略配套 */
+  .font-display { line-height: var(--leading-display); }
+  .font-brand   { line-height: var(--leading-display); }
+  .font-serif   { line-height: var(--leading-serif); }
+
+  /* (纸张质感的规则见文件末尾「工具类」段 —— 它需要覆盖 .bg-background 这个
+      utilities 层的类,放在 @layer base 里会被层级顺序压过去。) */
+
+  /* ===========================================================================
+   * 焦点指示 —— 全站【唯一】实现
+   * ---------------------------------------------------------------------------
+   * 只对键盘焦点生效(:focus-visible),鼠标点击不出环。
+   *
+   * ⚠️ 组件层【不要】再写 focus-visible:ring-* / focus-visible:outline-none。
+   *    改造前有两套并存: 21 个文件用 Tailwind 的 ring(box-shadow),
+   *    其余 480+ 元素吃这条 outline —— 两者长得不一样,同一个界面上出现两种焦点环。
+   *    已删掉 72 处组件级重复实现,统一到这里。
+   *    (选 outline 而非 ring 的理由: outline 跟随 border-radius、不受元素自身
+   *     overflow 裁剪、不占布局;box-shadow 环这三点都更差。)
+   *
+   * 视觉参数的取舍:
+   *   width 2px + 50% alpha —— WCAG 2.1 SC 1.4.11 要求焦点指示与相邻色对比 ≥3:1。
+   *     实测 50% 在米白页面 3.14:1 / 白卡 3.23:1,是同时过关的最低档,
+   *     所以【不能靠调淡来减轻存在感】。(旧值 45% 实为 2.75:1,不合格,2026-07-27 修正。)
+   *   offset 1px —— 这里是可调的部分。原为 2px,离元素太远像个「括号」;
+   *     收到 1px 后贴着元素边缘,仍与实心按钮的填充色分得开。
+   *
+   * 组件层仍可以加【非环类】的聚焦可供性(输入框变边框色、菜单项变底色),那些不冲突。
+   * ========================================================================= */
   :focus-visible {
-    outline: 2px solid hsl(var(--ring));
+    outline: 2px solid var(--ring);
     outline-offset: 1px;
   }
 
-  /* 细滚动条 — Linear/Notion 工具感 */
+  /* 恒暗段内的焦点环翻亮 —— outline 落在【父容器】底色上,深底上深色环 1.00:1 完全隐形。
+     给暗容器挂 data-surface="dark" 即可,内部所有元素自动继承(CSS 变量沿 DOM 继承)。
+     用途: landing 暗段表格 / Prism 编辑器 chrome / 未来任何深色区块。 */
+  [data-surface='dark'] {
+    --ring: var(--ring-on-dark-emphasis);
+    /* (原先这里还覆写了 --focus-ring-offset,那是个零消费死变量,2026-07-28 随 §13 一并删除。) */
+  }
+
+  /* 细滚动条 —— Linear/Notion 工具感 */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border-strong));
+    background: var(--border-strong);
     border: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 8px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--faint-foreground));
+    background: var(--faint-foreground);
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-track {
@@ -408,7 +1330,265 @@
   }
 }
 
-/* 隐藏滚动条但保留滚动能力 —— tab 条 / 横向 chip 行专用 */
+/* =============================================================================
+ * 工具类
+ * ============================================================================= */
+
+/* 统一焦点环 —— 收口改造前的 8+ 种写法。
+   ✅ 2026-07-28 两处更正:
+     · 原注释「offset 色走变量,容器可覆盖(避免米白页面上画白圈伪影)」描述的机制不存在 ——
+       outline-offset 让出的是透明间隙,露出的是父容器底色,没有「offset 色」。
+       配套的死变量 --focus-ring-offset 已删,详见 :root §13。
+     · 原实现里 `outline-color: var(--ring)` 与上一行 shorthand 的 solid var(--ring) 重复声明
+       (同值同优先级,后者纯冗余),已删。
+   ⚠️ 现状:本工具类【零调用点】(rg --text 'focus-ring\b' src 只命中本文件)。
+      §13 已经把 :focus-visible 做成全站唯一实现,组件不需要再挂类。保留它只是为了
+      「个别元素想在非 :focus-visible 情况下画同款环」这个出口 —— 真要用请注意它的
+      outline-offset 是 2px,与全局规则的 1px 不同,同屏混用会有两种间距。 */
+@utility focus-ring {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+ * 承载面作用域 · 弱文字 ramp 覆写(2026-07-28 真实渲染取证后新增)
+ * -----------------------------------------------------------------------------
+ * 🔴 修的是什么:§三 的弱文字三档只按【页面底 #F6F4EE】验算过**一次**,而真实渲染里
+ *    它们 4/5 的落点根本不在页面底上。1440×900 实测 14 条公开路由(沿祖先链做 alpha
+ *    合成求实际生效背景色再算 WCAG):**189 / 2227 个文本元素不达标**,分布:
+ *      76 处 --faint on --surface-1   #EFEDE5 = 4.302   ❌
+ *      59 处 --faint on --landing-dark-1 #1F1F23 = 3.257 ❌
+ *      11 处 --faint on --surface-3   #F1EFE8 = 4.383   ❌
+ *       9 处 --muted on --surface-2   #E8E5DC = 4.369   ❌(其中 2 处走 /80 alpha)
+ *       7 处 --faint on --landing-dark-2 #2B2B30 = 2.793 ❌
+ *       6 处 --faint on --surface-2   #E8E5DC = 4.003   ❌
+ *    (取证报告 docs/render-audit-2026-07-28.md §2.2;它的口径是 194 处,
+ *     与这里的 189 差在路由集与视口宽,同一批缺陷。)
+ *
+ * 🔴 为什么【不能】把 token 基础值调深 —— 这是最顺手也最错的解:
+ *    --faint 要在 --surface-2(#E8E5DC)上达 4.5:1,需要 ≈#65656F;
+ *    而它**比 --muted(#686873)还深** → subtle > muted > faint 三档层级整个倒过来,
+ *    并且会把页面底 / 白卡上本来就达标的 600+ 处文字一起改掉(基础值是全站生效的)。
+ *
+ * ✅ 正确解:按【承载面】作用域覆写,与本文件既有的 [data-surface='dark'] 同一个模式。
+ *    页面底(#F6F4EE)与白卡(#FFFFFF)上的文字**一个像素都不动**。
+ *
+ * 🔴 三条落地时踩到的机制,改这一段前必须先读:
+ *
+ *  ① **透明度变体是另一个类名**。`bg-surface-1/60` 不匹配 `.bg-surface-1`
+ *     (class 属性里那是一个整 token)。全站现有 20 处斜杠变体,故每档都补一条
+ *     `[class*='bg-surface-N/']`。同一个坑刚让 sticky 顶栏丢了纸纹(见上一节)。
+ *
+ *  ② **color 是按计算值继承的,var() 不会在子元素上重新求值。**
+ *     若「声明 text-faint 的那个元素」在承载面**外面**、而承载面在它**里面**
+ *     (典型:`<a class="text-faint"><span class="bg-surface-1">快讯</span></a>` 这种
+ *     底色胶囊),子元素继承到的是**已经算好的** #6E6E78,本段覆写对它无效。
+ *     实测这类残留 24 处(全在 `bg-surface-1` 胶囊上),**必须在 tsx 上给胶囊自己
+ *     补一档文字色**才能修,不属于本文件的射程 —— 别再试图用选择器绕,CSS 里
+ *     没有「测试继承来的 color 是哪个 token」这种能力。
+ *
+ *  ③ **本段【刻意不碰 --ring】**。outline 画在元素**外面**,落的是【父容器】的底色,
+ *     所以焦点环的深浅只能由「整段是不是暗的」决定,不能由「这个元素自己是不是深色填充」
+ *     决定 —— 一个坐在米白页面上的 `bg-foreground` 深色按钮,若跟着翻成亮环,
+ *     那圈白环会画在米白底上(≈1.05:1,比现状更糟)。
+ *     暗底焦点环仍然只认 [data-surface='dark'](见 :root §13 与 @layer base 里那条)。
+ *
+ * 📐 取值口径:每个值都独立实算过 WCAG(相对亮度 → (L1+.05)/(L2+.05)),
+ *    目标是**在该承载面上重现它在页面底上的比值**(faint ≈4.58 / muted ≈5.00),
+ *    并保持 subtle > muted > faint 的顺序不倒。所有值仍是 ink 色阶的邻域插值,
+ *    与 --faint-foreground 基础值同理由保留字面值(它不等于任何一档原语)。
+ *
+ * ⚠️ 已知未覆盖(有意):hover/active 态的 `hover:bg-surface-2`(197 处)不在射程 ——
+ *    那是 CSS 里的另一个类名(`.hover\:bg-surface-2:hover`),要覆盖得写
+ *    `[class*='hover:bg-surface-2']:hover`,而那会让 200 处元素在 hover 时文字跟着变深
+ *    (transition-colors 会把它动画出来)。**这是设计决策不是 bug 修复**,留给设计师拍板。
+ * ============================================================================= */
+
+/* ——— 承载面:surface-3 #F1EFE8(Prism 编译状态条等窄场景) ———
+ *   faint  #6B6B75 on #F1EFE8 = 4.580 ✅(原 #6E6E78 = 4.383 ❌)
+ *   muted  #686873 on #F1EFE8 = 4.783 ✅ / subtle 6.933 ✅ → 不动
+ *   顺序检查:4.580 < 4.783 < 6.933,faint 仍是最弱档 ✅ */
+:where(.bg-surface-3, [class*='bg-surface-3/']) {
+  --faint-foreground: #6B6B75;
+}
+
+/* ——— 承载面:surface-1 #EFEDE5(工具栏 / 弱卡片,全站 377 处) ———
+ *   faint  #6A6A74 on #EFEDE5 = 4.562 ✅(原 #6E6E78 = 4.302 ❌)
+ *   muted  #686873 on #EFEDE5 = 4.694 ✅ / subtle 6.805 ✅ → 不动
+ *   顺序检查:4.562 < 4.694 < 6.805 ✅
+ *   ⚠️ 余量只有 0.062 —— 天花板是 muted 自己(4.694):再深就与 muted 同色,层级消失。
+ *      这一档的根本紧张来自 surface-1 与页面底只差 3.5% 明度,**不要拿它当「还能再压」的证据**。 */
+:where(.bg-surface-1, [class*='bg-surface-1/']) {
+  --faint-foreground: #6A6A74;
+}
+
+/* ——— 承载面:surface-2 #E8E5DC(hover/选中/页面 chrome,全站 332 处) ———
+ *   这是唯一一个 **muted 也不达标** 的浅底,故两档一起换,保持它们在页面底上的相对间距:
+ *   faint  #65656F on #E8E5DC = 4.575 ✅(原 #6E6E78 = 4.003 ❌;对照页面底 faint 4.585)
+ *   muted  #5F5F6A on #E8E5DC = 5.004 ✅(原 #686873 = 4.369 ❌;对照页面底 muted 5.003)
+ *   subtle #505059 on #E8E5DC = 6.333 ✅ → 不动
+ *   顺序检查:4.575 < 5.004 < 6.333 ✅
+ *   .bg-secondary / .bg-accent / .bg-muted 是 §17 shadcn 别名,值就是 var(--surface-2),
+ *   同一个承载面,一并纳入(否则同一块底色因为写法不同而有两种文字色)。 */
+:where(
+  .bg-surface-2, [class*='bg-surface-2/'],
+  .bg-secondary, [class*='bg-secondary/'],
+  .bg-accent, [class*='bg-accent/'],
+  .bg-muted, [class*='bg-muted/']
+) {
+  --faint-foreground: #65656F;
+  --muted-foreground: #5F5F6A;
+}
+
+/* ——— 承载面:恒暗段(§8)———
+ *   浅底那三档在深底上全线失败(faint 3.257 / muted 2.985 / subtle 2.059),
+ *   整条 ramp 沿 ink 色阶【镜像翻转】—— 亮端与暗端关于 ink-7.5 对称,不引入新色值:
+ *     subtle  ink-5  → ink-10 #CECED9 : on #1F1F23 = 10.524 ✅ / on #2B2B30 = 9.024 ✅
+ *     muted   ink-6  → ink-9  #B4B4BF : on #1F1F23 =  7.995 ✅ / on #2B2B30 = 6.856 ✅
+ *     faint   插值    → ink-8  #9A9AA6 : on #1F1F23 =  5.903 ✅ / on #2B2B30 = 5.062 ✅
+ *   (= --on-dark-muted 的值。风格与 --ring-on-dark-emphasis 一致:暗底上的弱档不用纯白,
+ *    靠 ink 色阶的亮端逐档退。)
+ *   `text-muted-foreground/80` 这类 alpha 变体也一并被修好:#B4B4BF@80% over #1F1F23
+ *   合成 ≈#96969F = 5.24 ✅(原 #686873@80% 合成 #595963 = 2.387 ❌,实测 4 处)。
+ *
+ *   为什么把 `.bg-foreground` / `.bg-landing-dark-*` 也列进来,而不是只认 data-surface:
+ *     [data-surface='dark'] 是 2026-07 就建好、但**至今 0 个 DOM 元素挂**的机制
+ *     (取证报告 §四.2)。而 landing 恒暗段实际是靠 `bg-foreground` + `bg-landing-dark-1/2`
+ *     画出来的(ComparisonTable.tsx:69/83/90)。文字色**画在元素自己身上**,
+ *     所以按「这个元素的底色是不是暗的」来判定是成立的(焦点环不成立,见上面 ③)。
+ *     data-surface 保留在列表首位:它仍是给整段打标的正式开关,两者并存不冲突。
+ *
+ *   ⚠️ 刻意**不含**半透明变体(`bg-foreground/40` 等):那是压在浅底上的一层暗膜,
+ *      合成后是中灰,亮暗两套 ramp 谁都不达标 —— 需要具体场景具体定,不能一刀切。
+ *   ⚠️ 刻意**不含**品牌实底(.bg-primary/.bg-brand-red/.bg-brand-green):它们更亮,
+ *      ink-8 在 #882828 上只有 3.170、在 #2F4D29 上 3.408,套这套 ramp 会造出新的不达标。
+ *      品牌实底上的弱文字要单独一档,是设计决策,留给设计师(当前实测零实例)。
+ *   ⚠️ 刻意**不含** --foreground / --placeholder-foreground:前者若在暗段被用是 1.00:1,
+ *      属于「用错 token」而非「token 不适配」(实测零实例);后者由 --foreground 派生,
+ *      改它会连带改掉 color-mix 的结果,而暗段里没有输入框。 */
+:where(
+  [data-surface='dark'],
+  .bg-foreground,
+  .bg-landing-dark-1,
+  .bg-landing-dark-2
+) {
+  --subtle-foreground: var(--ink-10);
+  --muted-foreground: var(--ink-9);
+  --faint-foreground: var(--ink-8);
+}
+
+/* ——— 承载面:软色调提示底(brand-*-soft / status-*-soft)———
+ *   这一族是「白卡 + 10~14% 品牌色」的浅色块,合成后落在 #E7ECF5 ~ #FBF3DB 之间。
+ *   faint 在**整族**上都不达标(4.254 ~ 4.549),统一压到 #696973:
+ *     最差 brand-red-soft  #F3E9E9 = 4.560 ✅(原 4.252 ❌,实测 /pricing 2 处)
+ *          status-info-soft #E7ECF5 = 4.579 ✅(原 4.254 ❌,全族最深)
+ *          status-warning   #F7EFDC = 4.739 ✅ / brand-amber-soft #FBF3DB = 4.897 ✅
+ *   muted #686873 在整族上是 4.623 ~ 4.964 ✅ → 不动。
+ *
+ *   ⚠️ brand-amber-soft 实底(#FBF3DB)本来就有 4.549,单看它可以不改;但它的
+ *      `/30` `/40` 变体合成到米白上是 #F0EBE1 = **4.244 ❌**(实测 /features/search 命中)。
+ *      同一个 token 两种结论只会制造下一个洞,故按【族】统一。
+ *   ⚠️ 这一族的 faint 与 muted 只差 1/255(4.560 vs 4.623),**视觉上已经是同一档** ——
+ *      天花板由 muted 自己给定,要拉开层级就得连 muted 一起压深,而 muted 在这族上是达标的。
+ *      「为了层级感去动一个达标的档」是设计决策,不在本次修复射程内。
+ *   ⚠️ --status-*-soft 目前是**待设计师确认的临时值**(§六 Q2):它们一旦改值,
+ *      本条的 4.5:1 必须重算。 */
+:where(
+  .bg-brand-red-soft, [class*='bg-brand-red-soft/'],
+  .bg-brand-green-soft, [class*='bg-brand-green-soft/'],
+  .bg-brand-amber-soft, [class*='bg-brand-amber-soft/'],
+  .bg-status-success-soft, [class*='bg-status-success-soft/'],
+  .bg-status-error-soft, [class*='bg-status-error-soft/'],
+  .bg-status-warning-soft, [class*='bg-status-warning-soft/'],
+  .bg-status-running-soft, [class*='bg-status-running-soft/'],
+  .bg-status-neutral-soft, [class*='bg-status-neutral-soft/'],
+  .bg-status-info-soft, [class*='bg-status-info-soft/'],
+  /* 🔴 过渡期兼容层的旧色名【必须一起列】—— 它们是同一块底色的另一个类名,
+   *    而调用点数量比新名多一个数量级(bg-danger-soft 78 / bg-warning-soft 58 vs
+   *    bg-brand-red-soft 1)。第一版只写了新名,实测 /pricing 那两处**没修好** ——
+   *    因为 PricingPage 用的是 `bg-danger-soft`。别名不列全 = 白改。 */
+  .bg-danger-soft, [class*='bg-danger-soft/'],       /* → --brand-red-soft */
+  .bg-warning-soft, [class*='bg-warning-soft/'],     /* → --brand-amber-soft */
+  .bg-journal-soft, [class*='bg-journal-soft/']      /* → --brand-amber-soft */
+) {
+  --faint-foreground: #696973;
+}
+
+/* ——— 承载面:琥珀软底高亮块 #E5DFCE(--amber-soft-bg,全站 10 处)———
+ *   它比上面那族深一档(是 amber-12 实色而非叠白的 tint),两档都不达标:
+ *     faint #61616B on #E5DFCE = 4.599 ✅(原 #6E6E78 = 3.789 ❌)
+ *     muted #5B5B66 on #E5DFCE = 5.036 ✅(原 #686873 = 4.134 ❌)
+ *     subtle #505059 on #E5DFCE = 5.993 ✅ → 不动
+ *   顺序检查:4.599 < 5.036 < 5.993 ✅
+ *   注:这个块**自带**文字色 --amber-soft-fg(#664B00,6.14:1),弱档在这儿是兜底不是主力;
+ *      实测当前零命中,属预防性覆写(同一块底上曾经出过「量错了背景」的事故,见 §二 注释)。 */
+:where(
+  .bg-amber-soft, [class*='bg-amber-soft/'],
+  /* 同上:兼容层旧名 --color-prism-badge-bg 就是 --amber-soft-bg,且它有 15 处调用点。 */
+  .bg-prism-badge-bg, [class*='bg-prism-badge-bg/']
+) {
+  --faint-foreground: #61616B;
+  --muted-foreground: #5B5B66;
+}
+
+/* ——— 复位:白卡 / 页面底把 ramp 拉回基础值 ———
+ *   承载面覆写会沿 DOM 继承,所以「浅卡片嵌在 surface-1 面板里」「白卡嵌在恒暗段里」
+ *   这两种嵌套必须由内层自己复位,否则白卡上的文字会跟着变深/翻亮。
+ *   值与 :root §三 逐字相同(**这三行不是新值,改 §三 时必须一起改**)。
+ *
+ *   ⚠️ 复位只认**不透明**的类:`bg-surface-card/10` 这类是压在暗底上的一层薄亮膜,
+ *      不建立浅色承载面,给它复位成深色 ramp 会在暗段里制造深色文字。
+ *   ⚠️ 放在最后:这几条与上面几条特异性同为 0(全在 :where 里),同一个元素上后写的赢。
+ *      正常不会有元素同时命中两组(没人会写 `bg-surface-1 bg-surface-card`),
+ *      但真撞上时「白卡赢」是对的 —— 元素自己的底色是白的。 */
+:where(.bg-background, .bg-surface-card, .bg-card, .bg-popover) {
+  --subtle-foreground: var(--ink-5); /* #505059  on #FFFFFF 7.976 / on #F6F4EE 7.252 */
+  --muted-foreground: var(--ink-6); /* #686873  on #FFFFFF 5.503 / on #F6F4EE 5.003 */
+  --faint-foreground: #6E6E78; /* on #FFFFFF 5.043 / on #F6F4EE 4.585 */
+}
+
+/* =============================================================================
+ * sonner 主题桥接 —— 收编「全站唯一设计系统管不到的颜色源」
+ * -----------------------------------------------------------------------------
+ * sonner 的 richColors 自带一整套调色板(success 用 hsl(140,100%,27%) 亮绿、
+ * error 用亮红),完全在设计系统之外 —— 台账 §2.14 点名的问题。
+ *
+ * ⚠️ 台账原文写「关掉 richColors,用 sonner 的 CSS 变量 hook 指到 --status-*」,
+ *    但实测该做法不成立: richColors 关掉后 sonner 根本不给 toast 加
+ *    [data-rich-colors='true'],那 12 个变量【一个都不会被消费】,结果是 toast
+ *    退化成中性灰、成功/失败失去颜色区分。
+ *    正确做法是【保留 richColors + 覆写它的 12 个变量】—— 语义分色还在,
+ *    但取值权回到 design token。
+ *
+ * 🟡 取值指向 --status-*(当前是待设计师确认的临时值)。这是有意的:
+ *    Q2 拍板后只改 globals.css 的 --status-* 一处,toast 自动跟随;
+ *    而维持 richColors 原样则设计师的决定永远影响不到 toast。
+ * ============================================================================= */
+[data-sonner-toaster][data-theme='light'] {
+  --normal-bg: var(--surface-card);
+  --normal-border: var(--border);
+  --normal-text: var(--foreground);
+
+  --success-bg: var(--status-success-soft);
+  --success-border: var(--status-success);
+  --success-text: var(--status-success);
+
+  --info-bg: var(--status-info-soft);
+  --info-border: var(--status-info);
+  --info-text: var(--status-info);
+
+  --warning-bg: var(--status-warning-soft);
+  --warning-border: var(--status-warning);
+  --warning-text: var(--status-warning);
+
+  --error-bg: var(--status-error-soft);
+  --error-border: var(--status-error);
+  --error-text: var(--status-error);
+}
+
+/* 隐藏滚动条但保留滚动能力 —— tab 条 / 横向 chip 行 / 首页情报区。
+   ⚠️ 只用在「滚动性由布局本身说明白」的地方(横向 chip 行天然可拖、情报区有定高+内容截断)。
+      正文长列表不要用:滚动条是可发现性的主要线索,隐掉会让用户以为内容到此为止。 */
 .scrollbar-none {
   scrollbar-width: none;          /* Firefox */
   -ms-overflow-style: none;       /* IE/Edge legacy */
@@ -427,7 +1607,7 @@
   scrollbar-color: transparent transparent;
 }
 .chat-scrollbar-autohide.is-scrolling {
-  scrollbar-color: hsl(var(--border-strong)) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }
 .chat-scrollbar-autohide::-webkit-scrollbar-thumb {
   background: transparent;                      /* 默认透明 = 不可见(宽度仍保留,显隐不抖动) */
@@ -436,11 +1616,11 @@
   border-radius: 8px;
 }
 .chat-scrollbar-autohide.is-scrolling::-webkit-scrollbar-thumb {
-  background: hsl(var(--border-strong));
+  background: var(--border-strong);
   background-clip: padding-box;
 }
 .chat-scrollbar-autohide.is-scrolling::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--faint-foreground));
+  background: var(--faint-foreground);
   background-clip: padding-box;
 }
 

@@ -10,6 +10,19 @@ import { localISO } from "../tools/clock.ts";
 
 const SESSIONS_ROOT = process.env.SESSIONS_ROOT || "/tmp/executor-sessions";
 
+// 🔴 会话累计 token 的落盘目录(2026-08-02 计费审计 P0-5)。
+//
+// 为什么必须落盘:cumUsage 此前只活在内存。轮终帧一旦丢失(上游断连 / hub grace 拆连 / backend 重启),
+// backend 不入账,唯一的补救是「下一轮 session_total 差额补回」;但 IDLE_TTL(默认 30min)一到
+// meta 被淘汰、cumUsage 归零,backend 看到累计回退就把水位 re-base 到 0(bridge.go accrueTurnUsage),
+// 那批已经烧掉的 token 从此追不回来。复现方式稳定得可以当操作手册:
+// 发一个重任务 → 10 秒后关标签页 → 隔天回来继续,循环即可白嫖。
+// 落盘后淘汰再水化能接着原累计走,backend 既有的 "(reconciled)" 差额补记机制自动把缺口补上。
+//
+// 为什么不放会话 workDir 里:那是模型可读可写的目录。把计费水位放进去 = 模型可以自己把它改小。
+// 单独一个根目录,不在任何 addDirs 里,jail 外。
+const USAGE_ROOT = process.env.EXECUTOR_USAGE_ROOT || "/tmp/executor-usage";
+
 // envNum:安全解析数值 env —— 非数字(如误配 "30d")回落默认值,绝不让 NaN 溜进比较逻辑
 // (审查发现:NaN 会让 GC 的三道保护比较全部恒 false → 首个 tick 删光所有未连接会话目录)。
 export function envNum(name: string, def: number): number {
@@ -214,7 +227,11 @@ export async function createSession(opts: CreateOpts): Promise<SessionMeta> {
     addDirs,
     appendSystemPrompt: opts.appendSystemPrompt,
     messages: [],
-    cumUsage: { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model: "" },
+    // 水化上次落盘的累计(审计 P0-5):内存淘汰后重连时接着原累计走,backend 的水位不会 re-base 到 0,
+    // 那些丢了终帧的轮由既有的 "(reconciled)" 差额补记机制补上。全新会话读不到文件 → 全 0,行为不变。
+    cumUsage: (await loadCumUsage(sid)) ?? {
+      input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model: "",
+    },
     createdAt: localISO(),
     lastActiveAt: Date.now(),
   };
@@ -227,11 +244,134 @@ export function getSession(sid: string): SessionMeta | null {
   return sessions.get(sid) ?? null;
 }
 
-// getOrCreateEphemeral:WS 连到未经 CreateSession 的 session(直连/迁移期)→ 建保守默认 meta。
+// ─── 会话累计 token 的落盘 / 水化(审计 P0-5)────────────────────────────────
+//
+// 只落 cumUsage 这一个字段:它是 backend 计费水位的唯一锚点,丢了就永久漏记;
+// messages 等其它字段的耐久真源在 backend 的事件溯源 journal,不归这里管。
+
+type CumUsage = SessionMeta["cumUsage"];
+
+function usagePathFor(sid: string): string {
+  return join(USAGE_ROOT, `${sid}.json`);
+}
+
+/** persistCumUsage 每轮终帧后落盘(fire-and-forget)。失败只留痕 —— 落盘失败最坏退回旧行为。 */
+export function persistCumUsage(sid: string, cum: CumUsage): void {
+  if (!validSessionId(sid)) return;
+  void (async () => {
+    try {
+      await mkdir(USAGE_ROOT, { recursive: true });
+      await writeFile(usagePathFor(sid), JSON.stringify(cum), "utf8");
+    } catch (e) {
+      log.warn("persist cumUsage failed (billing watermark may re-base on eviction)", {
+        session_id: sid, err: String((e as Error)?.message ?? e),
+      });
+    }
+  })();
+}
+
+/** loadCumUsage 建 meta 时水化。文件不存在 / 坏了 → 返回 null,按全 0 起算(即旧行为)。 */
+async function loadCumUsage(sid: string): Promise<CumUsage | null> {
+  try {
+    const raw = await readFile(usagePathFor(sid), "utf8");
+    const v = JSON.parse(raw) as Partial<CumUsage>;
+    const n = (x: unknown) => (typeof x === "number" && Number.isFinite(x) && x >= 0 ? x : 0);
+    return {
+      input_tokens: n(v.input_tokens),
+      output_tokens: n(v.output_tokens),
+      cache_read_tokens: n(v.cache_read_tokens),
+      cache_creation_tokens: n(v.cache_creation_tokens),
+      model: typeof v.model === "string" ? v.model : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function dropCumUsage(sid: string): void {
+  if (!validSessionId(sid)) return;
+  void rm(usagePathFor(sid), { force: true }).catch(() => {});
+}
+
+// 建 meta 的在途单飞表(sid → 正在建的 Promise)。见 getOrCreateEphemeral 注释。
+const creatingEphemeral = new Map<string, Promise<SessionMeta>>();
+
+// getOrCreateEphemeral:WS 连到未经 CreateSession 的 session(直连/迁移期/内存淘汰后重连)→ 建保守默认 meta。
+// **单飞**(2026-07 线上审计 §2.3「重连上下文竞态」):本函数第一步 `sessions.get` 到 createSession 里
+// `sessions.set` 之间隔着 await(mkdir / 物化 skills),同一 sid 的并发调用(seed_history 与 user_message
+// 两帧背靠背到达,或再叠加 HTTP workspace op)会各自 miss、各建一份 meta —— 后写入 Map 的覆盖前者,
+// 于是 seed 把历史灌进 A、本轮却跑在空的 B 上,模型明面失忆。用在途 Promise 表让并发调用共享同一份。
 export async function getOrCreateEphemeral(sid: string): Promise<SessionMeta> {
   const existing = sessions.get(sid);
   if (existing) return existing;
-  return createSession({ sessionId: sid });
+  const inflight = creatingEphemeral.get(sid);
+  if (inflight) return inflight;
+  const p = createSession({ sessionId: sid }).finally(() => {
+    if (creatingEphemeral.get(sid) === p) creatingEphemeral.delete(sid);
+  });
+  creatingEphemeral.set(sid, p);
+  return p;
+}
+
+// ── 上下文水合(resume)门 ─────────────────────────────────────────────────────
+// 2026-07 线上审计 §2.3「重连上下文竞态」(线上确证 1 例)。机制:ws 断开 → 5min idle sweep 淘汰
+// 内存 meta → 前端重连并**立刻补发**那条未 ack 的消息 → backend 建新 hub 时先写 seed_history
+// (journal 折叠的 87 条历史),user_message 紧随其后。两帧在 executor 侧都进 async 的 onMessage:
+// Bun 按到达序**派发**、却不串行**等待**,于是 seed_history 的处理链(建 meta / 物化 skills 全要 await)
+// 还没把历史写回 meta.messages,user_message 的链已经跑到 `meta.messages.push(...)`:
+//   ① seed 的「meta.messages.length === 0 才灌」守卫随即失效 → 87 条历史被整段丢弃;
+//   ② 两条链还可能各建一份 meta(见上面的单飞修复)。
+// 后果就是线上那句「不过目前我这边没有看到之前的对话上下文」,模型还试图用 Glob/Bash 自己去磁盘
+// 找上下文被 guard 拒。修法是结构性的、不加兜底:seed_history 帧一到达就**同步**登记「水合在途」,
+// user_message 必须等它落地才进轮。等待有明确超时与失败语义(超时 = 拒绝该轮并告诉用户,
+// 绝不带空上下文硬答)。没有 seed_history 的连接(peerreview server-side 从不 seed)零登记 →
+// 立即放行,行为与今天完全一致。
+const hydrating = new Map<string, { pending: number; promise: Promise<void>; resolve: () => void }>();
+
+/** beginHydration:seed_history 帧到达时**同步**登记(必须在该帧处理的任何 await 之前调)。 */
+export function beginHydration(sid: string): void {
+  const cur = hydrating.get(sid);
+  if (cur) {
+    cur.pending++; // hub 重 seed(seed fail-closed 重试)可能连发两帧,计数到零才放行
+    return;
+  }
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => (resolve = r));
+  hydrating.set(sid, { pending: 1, promise, resolve });
+}
+
+/** endHydration:seed_history 处理结束时调(成功/抛错都要调),放行等待中的 user_message。 */
+export function endHydration(sid: string): void {
+  const cur = hydrating.get(sid);
+  if (!cur) return;
+  cur.pending--;
+  if (cur.pending > 0) return;
+  hydrating.delete(sid);
+  cur.resolve();
+}
+
+/**
+ * awaitHydration:该会话有在途 seed_history 时等它落地。
+ * 返回 true = 可以进轮;false = 超时,调用方**必须**拒绝本轮(不允许带空上下文继续答)。
+ */
+export async function awaitHydration(sid: string, timeoutMs: number): Promise<boolean> {
+  const cur = hydrating.get(sid);
+  if (!cur) return true; // 无在途 seed(绝大多数轮 / peerreview server-side)→ 零等待
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const ok = await Promise.race([
+    cur.promise.then(() => true),
+    new Promise<boolean>((r) => {
+      timer = setTimeout(() => r(false), Math.max(1000, timeoutMs));
+    }),
+  ]);
+  if (timer) clearTimeout(timer);
+  if (!ok) {
+    log.error("session resume (seed_history) timed out; refusing turn instead of answering with empty context", {
+      session_id: sid,
+      timeout_ms: timeoutMs,
+    });
+  }
+  return ok;
 }
 
 export async function deleteSession(sid: string): Promise<boolean> {
@@ -243,6 +383,7 @@ export async function deleteSession(sid: string): Promise<boolean> {
   // 改为 Map miss 时回退按约定路径 safeSessionDir(SESSIONS_ROOT, sid) 删目录,让删除对重启幂等。
   const workDir = m?.workDir || safeSessionDir(SESSIONS_ROOT, sid);
   lastMarkerTouch.delete(sid);
+  dropCumUsage(sid); // 会话真的删了才清计费水位文件(内存淘汰不清 —— 那正是它存在的理由)
   try {
     await rm(workDir, { recursive: true, force: true });
     // 一并清理 per-session skill 物化目录(<workDir>.skills)、GC 活跃标记(.active)与模板标记(.template)。
@@ -383,6 +524,9 @@ export async function sweepStaleWorkdirs(): Promise<void> {
       await rm(dir, { recursive: true, force: true });
       await rm(dir + ".skills", { recursive: true, force: true });
       await rm(activityMarkerPath(dir), { force: true });
+      // 计费水位文件随会话目录一起回收(审计 P0-5:内存淘汰**不**清它,只有会话真的过期/被删才清 ——
+      // 否则它就失去了「淘汰后还能接着累计」这个唯一存在理由)。
+      dropCumUsage(name);
       sessions.delete(name);
       lastMarkerTouch.delete(name);
       removed++;

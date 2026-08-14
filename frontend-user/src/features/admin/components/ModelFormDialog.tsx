@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Select } from '@/shared/ui/select';
 import { Switch } from '@/shared/ui/switch';
 import {
   Dialog,
@@ -11,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
+import { cn } from '@/shared/lib/utils';
 import {
   useAdminProviders,
   MODEL_PRESETS,
@@ -20,9 +24,47 @@ import {
 } from '../api/model-catalog';
 
 /**
+ * 数字输入的**中间态**处理。
+ *
+ * 旧写法 `Number(e.target.value) || 0` 有两个致命面:
+ *   - 清空输入框 → `value` 是 ''(number input 对非法文本也回 '')→ 折成 0 写回受控 state,
+ *     输入框当场跳回 `0`,用户得先删掉那个 0 才能继续打字;
+ *   - 输入「0.」这类合法中间态同样被 sanitize 成 '' → 小数点被吞,而价格 step=0.0001
+ *     恰恰是最需要输小数的地方。
+ * 更要命的是 **0 在成本制里等于免费**:一次「先清空再重填」中途保存,就上线了一个白送的模型。
+ *
+ * 现在允许 NaN 停在 state 里(渲染成空串,DOM 里用户正在敲的原文不被 React 覆写),
+ * 提交前统一 `sanitizeNumbers` 归 0。
+ */
+const num = (v: number) => (Number.isNaN(v) ? 0 : v);
+const numValue = (v: number) => (Number.isNaN(v) ? '' : v);
+
+const NUMERIC_KEYS: (keyof AgentModelPayload)[] = [
+  'provider_id', 'context_window', 'max_input', 'max_output', 'sort_order',
+  'price_in', 'price_out', 'price_cache_r', 'price_cache_w',
+  'input_tier_threshold', 'price_in_hi', 'price_out_hi', 'price_cache_r_hi', 'price_cache_w_hi',
+  'input_tier_threshold_2', 'price_in_hi2', 'price_out_hi2', 'price_cache_r_hi2', 'price_cache_w_hi2',
+];
+
+function sanitizeNumbers(f: AgentModelPayload): AgentModelPayload {
+  const out: AgentModelPayload = { ...f };
+  for (const k of NUMERIC_KEYS) {
+    const v = out[k];
+    if (typeof v === 'number' && Number.isNaN(v)) (out as Record<string, unknown>)[k] = 0;
+  }
+  return out;
+}
+
+/** 输入 + 输出单价都是 0 → 成本制下 cost 恒为 0 → 该模型对所有用户等于免费。 */
+const isUnpriced = (f: AgentModelPayload) => !(num(f.price_in) > 0) && !(num(f.price_out) > 0);
+
+/**
  * ModelFormDialog — 模型目录的新建 / 编辑弹窗(ModelCatalogPage 专用)。
  * model=null 时为新建;编辑时 model_id 可改(后端校验唯一)。
- * 价格四项与计费倍率:P1 只是录入与展示,倍率在 P3(加权计费)才参与额度扣减。
+ *
+ * 🔴 四类单价**不是**"只是录入与展示"(旧注释如此写,已过时):P5 起是成本制计费,
+ * 用户额度按 cost_micro_yuan 扣,而 cost 就是这四个单价算出来的。单价 0 → cost 恒为 0
+ * → 该模型对所有用户免费。所以本弹窗有未计价警示 + 提交闸门,见 isUnpriced。
  */
 export function ModelFormDialog({
   open,
@@ -55,13 +97,22 @@ export function ModelFormDialog({
   const setCtxField = (key: 'context_window' | 'max_input' | 'max_output', v: number) =>
     setForm((f) => {
       const next = { ...f, [key]: v };
-      const zeros = [next.context_window, next.max_input, next.max_output].filter((x) => !x || x <= 0).length;
+      // 用户正在清空这一格(NaN 中间态)→ 不自动补,否则刚删完就被填回去,永远清不掉。
+      if (Number.isNaN(v)) return next;
+      const ctx = num(next.context_window);
+      const mi = num(next.max_input);
+      const mo = num(next.max_output);
+      const zeros = [ctx, mi, mo].filter((x) => x <= 0).length;
       if (zeros !== 1) return next; // 只在「恰好一个空」时自动补
-      if (!next.context_window) next.context_window = next.max_input + next.max_output;
-      else if (!next.max_input) next.max_input = Math.max(0, next.context_window - next.max_output);
-      else if (!next.max_output) next.max_output = Math.max(0, next.context_window - next.max_input);
+      if (ctx <= 0) next.context_window = mi + mo;
+      else if (mi <= 0) next.max_input = Math.max(0, ctx - mo);
+      else if (mo <= 0) next.max_output = Math.max(0, ctx - mi);
       return next;
     });
+
+  // 未计价警示 —— 价格区块上方常驻,「启用 + 用户可选」时升级成红框(那是真正会漏钱的组合)。
+  const unpriced = isUnpriced(form);
+  const unpricedAndLive = unpriced && form.enabled && form.user_selectable;
 
   // 上游 Provider:0 = 默认端点;openai 格式 provider 由 agent 出口自动翻译(F3)。
   const { data: providers } = useAdminProviders();
@@ -69,7 +120,7 @@ export function ModelFormDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       {open && (
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{model ? '编辑模型' : '新增模型'}</DialogTitle>
             <DialogDescription>
@@ -81,7 +132,16 @@ export function ModelFormDialog({
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              onSave(form);
+              const payload = sanitizeNumbers(form);
+              // 提交闸门:未计价 + 启用 + 用户可选 = 全站白送。必须先填价或先关掉一个开关。
+              if (isUnpriced(payload) && payload.enabled && payload.user_selectable) {
+                toast.error('输入 / 输出单价均为 0 —— 该模型对所有用户等于免费', {
+                  description:
+                    '成本制按四类单价算成本,单价 0 → cost 恒为 0,不扣任何额度。请填写真实单价,或先关闭「启用」/「用户可选」再保存。',
+                });
+                return;
+              }
+              onSave(payload);
             }}
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -126,8 +186,8 @@ export function ModelFormDialog({
                 <Input
                   id="m-ctx"
                   type="number"
-                  value={form.context_window}
-                  onChange={(e) => setCtxField('context_window', Number(e.target.value) || 0)}
+                  value={numValue(form.context_window)}
+                  onChange={(e) => setCtxField('context_window', e.target.valueAsNumber)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -135,8 +195,8 @@ export function ModelFormDialog({
                 <Input
                   id="m-maxin"
                   type="number"
-                  value={form.max_input}
-                  onChange={(e) => setCtxField('max_input', Number(e.target.value) || 0)}
+                  value={numValue(form.max_input)}
+                  onChange={(e) => setCtxField('max_input', e.target.valueAsNumber)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -144,8 +204,8 @@ export function ModelFormDialog({
                 <Input
                   id="m-maxout"
                   type="number"
-                  value={form.max_output}
-                  onChange={(e) => setCtxField('max_output', Number(e.target.value) || 0)}
+                  value={numValue(form.max_output)}
+                  onChange={(e) => setCtxField('max_output', e.target.valueAsNumber)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -153,23 +213,23 @@ export function ModelFormDialog({
                 <Input
                   id="m-sort"
                   type="number"
-                  value={form.sort_order}
-                  onChange={(e) => set('sort_order', Number(e.target.value) || 0)}
+                  value={numValue(form.sort_order)}
+                  onChange={(e) => set('sort_order', e.target.valueAsNumber)}
                 />
               </div>
             </div>
-            <p className="text-2xs text-faint">
+            <p className="text-12 text-faint">
               上下文 = 最大输入 + 最大输出(共享预算)。填其中两个会自动补第三个,也可各自强改。最大输入留空(0)时
               agent 压缩墙按「上下文 − 输出预留」自动算,保证 输入 + 输出 ≤ 上下文,不溢出。
             </p>
-            <p className="text-2xs text-faint">
+            <p className="text-12 text-faint">
               成本制计费:用户额度按下方四类单价(输入/输出/缓存读/缓存写)的真实成本扣减,贵模型自然扣得快,无需再配倍率。
             </p>
 
             {/* 官方预设模型:一键填入官方参数(官方文档口径,填后仍可手改) */}
             {MODEL_PRESETS[form.model_id] && (
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft bg-surface-1 p-3">
-                <p className="text-2xs text-muted-foreground">
+              <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft bg-surface-1 p-3">
+                <p className="text-12 text-muted-foreground">
                   这是官方预设模型 —— 可一键填入官方参数(上下文 / 输出 / 价格 / 倍率),填后仍可手改。
                 </p>
                 <Button
@@ -193,6 +253,32 @@ export function ModelFormDialog({
               </div>
             )}
 
+            {/* 🔴 未计价警示 —— 成本制下单价 0 = 该模型对所有用户免费。默认值就是 0,
+                而「启用 + 用户可选」也默认开着,只填 model_id + 展示名就能存下一个白送的模型。 */}
+            {unpriced && (
+              <div
+                className={cn(
+                  'flex items-start gap-2 rounded-12 border p-3',
+                  unpricedAndLive ? 'border-brand-red bg-danger-soft' : 'border-border-soft bg-surface-1',
+                )}
+              >
+                <TriangleAlert
+                  className={cn('size-3.5 shrink-0 mt-0.5', unpricedAndLive ? 'text-brand-red' : 'text-brand-amber')}
+                />
+                <div className="text-12">
+                  <p className={cn('font-medium', unpricedAndLive ? 'text-brand-red' : 'text-foreground')}>
+                    输入 / 输出单价都是 0 —— 该模型将不消耗任何用户额度
+                  </p>
+                  <p className="text-muted-foreground mt-0.5">
+                    成本制按四类单价算成本(cost 恒为 0 → 扣 0)。
+                    {unpricedAndLive
+                      ? '它当前还是「启用 + 用户可选」,保存后全站用户都能免费用 —— 请填真实单价,或先关掉下方任一开关(否则保存会被拦下)。'
+                      : '当前未同时处于「启用 + 用户可选」,可以先存;正式上线前请填入真实单价。'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {(
                 [
@@ -209,33 +295,36 @@ export function ModelFormDialog({
                     type="number"
                     step="0.0001"
                     min={0}
-                    value={form[key]}
-                    onChange={(e) => set(key, Number(e.target.value) || 0)}
+                    value={numValue(form[key])}
+                    onChange={(e) => set(key, e.target.valueAsNumber)}
+                    className={cn(
+                      unpricedAndLive && (key === 'price_in' || key === 'price_out') && 'border-brand-red',
+                    )}
                   />
                 </div>
               ))}
             </div>
 
             {/* 输入长度分档计价(千问等按 prompt 长度分 2~3 档;价格分档,平台不吃长上下文差价) */}
-            <div className="space-y-2 rounded-md border border-border-soft p-3">
+            <div className="space-y-2 rounded-12 border border-border-soft p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label htmlFor="m-tier-threshold" className="text-sm font-medium">
+                <Label htmlFor="m-tier-threshold" className="text-12 font-medium">
                   输入长度分档 · 档2 阈值(高档价)
                 </Label>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xs text-faint">prompt(输入+缓存)&gt;</span>
+                  <span className="text-12 text-faint">prompt(输入+缓存)&gt;</span>
                   <Input
                     id="m-tier-threshold"
                     type="number"
                     min={0}
-                    className="h-8 w-28"
-                    value={form.input_tier_threshold}
-                    onChange={(e) => set('input_tier_threshold', Number(e.target.value) || 0)}
+                    className="w-28"
+                    value={numValue(form.input_tier_threshold)}
+                    onChange={(e) => set('input_tier_threshold', e.target.valueAsNumber)}
                   />
-                  <span className="text-2xs text-faint">token 切档2</span>
+                  <span className="text-12 text-faint">token 切档2</span>
                 </div>
               </div>
-              <p className="text-2xs text-faint">
+              <p className="text-12 text-faint">
                 0 = 不分档(DeepSeek / 扁平模型)。千问 plus 填 256000、qwen3.7-flash 填 32000。高档价留空(0)回落基础值;成本按高档价扣。
               </p>
               {form.input_tier_threshold > 0 && (
@@ -250,34 +339,34 @@ export function ModelFormDialog({
                       ] as const
                     ).map(([key, label]) => (
                       <div key={key} className="space-y-1.5">
-                        <Label htmlFor={`m-${key}`} className="text-2xs">{label}</Label>
+                        <Label htmlFor={`m-${key}`} className="text-12">{label}</Label>
                         <Input
                           id={`m-${key}`}
                           type="number"
                           step="0.0001"
                           min={0}
-                          value={form[key]}
-                          onChange={(e) => set(key, Number(e.target.value) || 0)}
+                          value={numValue(form[key])}
+                          onChange={(e) => set(key, e.target.valueAsNumber)}
                         />
                       </div>
                     ))}
                   </div>
                   {/* 档3(可选第三档;须 > 档2 阈值)。qwen3.7-flash 填 256000。0 = 只 2 档。 */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <Label htmlFor="m-tier-threshold-2" className="text-sm font-medium">
+                    <Label htmlFor="m-tier-threshold-2" className="text-12 font-medium">
                       档3 阈值(更高档价,可选)
                     </Label>
                     <div className="flex items-center gap-2">
-                      <span className="text-2xs text-faint">prompt &gt;</span>
+                      <span className="text-12 text-faint">prompt &gt;</span>
                       <Input
                         id="m-tier-threshold-2"
                         type="number"
                         min={0}
-                        className="h-8 w-28"
-                        value={form.input_tier_threshold_2}
-                        onChange={(e) => set('input_tier_threshold_2', Number(e.target.value) || 0)}
+                        className="w-28"
+                        value={numValue(form.input_tier_threshold_2)}
+                        onChange={(e) => set('input_tier_threshold_2', e.target.valueAsNumber)}
                       />
-                      <span className="text-2xs text-faint">token 切档3</span>
+                      <span className="text-12 text-faint">token 切档3</span>
                     </div>
                   </div>
                   {form.input_tier_threshold_2 > 0 && (
@@ -291,14 +380,14 @@ export function ModelFormDialog({
                         ] as const
                       ).map(([key, label]) => (
                         <div key={key} className="space-y-1.5">
-                          <Label htmlFor={`m-${key}`} className="text-2xs">{label}</Label>
+                          <Label htmlFor={`m-${key}`} className="text-12">{label}</Label>
                           <Input
                             id={`m-${key}`}
                             type="number"
                             step="0.0001"
                             min={0}
-                            value={form[key]}
-                            onChange={(e) => set(key, Number(e.target.value) || 0)}
+                            value={numValue(form[key])}
+                            onChange={(e) => set(key, e.target.valueAsNumber)}
                           />
                         </div>
                       ))}
@@ -310,11 +399,11 @@ export function ModelFormDialog({
 
             <div className="space-y-1.5">
               <Label htmlFor="m-provider">上游 Provider</Label>
-              <select
+              <Select
                 id="m-provider"
                 value={form.provider_id}
                 onChange={(e) => set('provider_id', Number(e.target.value) || 0)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-9"
               >
                 <option value={0}>默认端点(AI Agent 服务页配置)</option>
                 {(providers ?? []).map((p) => (
@@ -322,43 +411,43 @@ export function ModelFormDialog({
                     {p.name}({p.api_format})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="m-speed">速度档(选择器徽标)</Label>
-                <select
+                <Select
                   id="m-speed"
                   value={form.speed_class}
                   onChange={(e) => set('speed_class', e.target.value as AgentModelPayload['speed_class'])}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-9"
                 >
                   <option value="fast">fast · 快</option>
                   <option value="balanced">balanced · 均衡</option>
                   <option value="powerful">powerful · 强推理</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="m-tier">档位门槛</Label>
-                <select
+                <Select
                   id="m-tier"
                   value={form.min_tier}
                   onChange={(e) => set('min_tier', e.target.value as AgentModelPayload['min_tier'])}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-9"
                 >
                   <option value="">全员可用</option>
                   <option value="pro">Pro 及以上</option>
                   <option value="max">仅 Max</option>
-                </select>
+                </Select>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft p-3">
+              <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-selectable" className="text-sm font-medium">用户可选</Label>
-                  <p className="text-2xs text-faint mt-0.5">出现在对话模型选择器中(P2 上线后生效)</p>
+                  <Label htmlFor="m-selectable" className="text-12 font-medium">用户可选</Label>
+                  <p className="text-12 text-faint mt-0.5">出现在对话模型选择器中(P2 上线后生效)</p>
                 </div>
                 <Switch
                   id="m-selectable"
@@ -366,24 +455,24 @@ export function ModelFormDialog({
                   onCheckedChange={(v) => set('user_selectable', v)}
                 />
               </div>
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft p-3">
+              <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-enabled" className="text-sm font-medium">启用</Label>
-                  <p className="text-2xs text-faint mt-0.5">停用后从选择器消失;能力绑定不受影响</p>
+                  <Label htmlFor="m-enabled" className="text-12 font-medium">启用</Label>
+                  <p className="text-12 text-faint mt-0.5">停用后从选择器消失;能力绑定不受影响</p>
                 </div>
                 <Switch id="m-enabled" checked={form.enabled} onCheckedChange={(v) => set('enabled', v)} />
               </div>
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft p-3">
+              <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-vision" className="text-sm font-medium">视觉能力(识图)</Label>
-                  <p className="text-2xs text-faint mt-0.5">支持图片输入的模型才勾;决定对话里能否上传图片</p>
+                  <Label htmlFor="m-vision" className="text-12 font-medium">视觉能力(识图)</Label>
+                  <p className="text-12 text-faint mt-0.5">支持图片输入的模型才勾;决定对话里能否上传图片</p>
                 </div>
                 <Switch id="m-vision" checked={form.vision} onCheckedChange={(v) => set('vision', v)} />
               </div>
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft p-3">
+              <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-flagship" className="text-sm font-medium">旗舰模型</Label>
-                  <p className="text-2xs text-faint mt-0.5">标为旗舰后,用户选择器里名字彩色高亮 + 「旗舰」标签,突出主推</p>
+                  <Label htmlFor="m-flagship" className="text-12 font-medium">旗舰模型</Label>
+                  <p className="text-12 text-faint mt-0.5">标为旗舰后,用户选择器里名字彩色高亮 + 「旗舰」标签,突出主推</p>
                 </div>
                 <Switch id="m-flagship" checked={form.flagship} onCheckedChange={(v) => set('flagship', v)} />
               </div>

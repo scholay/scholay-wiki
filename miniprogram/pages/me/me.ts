@@ -5,8 +5,39 @@ import { getProfile, UserProfile, bindMiniProgramPhone } from '../../services/ap
 import { getBillingOverview, BillingOverview, previewRedeemCode, redeemCode, resetQuota } from '../../services/api/membership'
 import { ensureLogin } from '../../services/auth'
 import { ICONS } from '../../lib/icons'
+import { reportActivity } from '../../services/activity'
 
 const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' }
+
+// 后端 RFC3339 串(本地时区)→ YYYY-MM-DD:优先直接截日期位,避免 Date 解析
+// 在 iOS JSCore 上的兼容/时区偏移坑;非标准串再退回 Date 解析,仍失败则原样显示。
+function fmtDate(iso?: string | null): string {
+  if (!iso) return ''
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(iso)
+  if (m) return m[1]
+  const t = new Date(iso)
+  if (!isFinite(t.getTime())) return iso
+  const p = (n: number) => (n < 10 ? '0' + n : '' + n)
+  return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate())
+}
+
+// 经费余额展示:整数直显,小数保留 2 位(0094 起经费是小数,直出会带全精度尾巴)。
+function fmtCredit(n?: number): string {
+  if (typeof n !== 'number' || !isFinite(n)) return '0'
+  return Number.isInteger(n) ? String(n) : n.toFixed(2)
+}
+
+// 授予时长单位的中文名(0110)—— 后端 vip.GrantUnitLabel 的镜像。
+// 未知 / 缺省回落「天」,与后端 vip.NormGrantUnit 同口径(存量兑换码这一列是空串,语义就是天)。
+const UNIT_LABEL: Record<string, string> = { day: '天', month: '个月', year: '年' }
+
+// 兑换码授予的会员时长文案。
+// 🔴 这是用户在小程序里点「确认」前看到的唯一时长承诺:必须带单位,否则
+// 「1 个月」的码会显示成「1 天」;数量缺失时只报等级,不编一个假天数出来。
+function fmtGrantDuration(n?: number, unit?: string): string {
+  if (typeof n !== 'number' || !isFinite(n) || n <= 0) return ''
+  return ' ' + n + ' ' + (UNIT_LABEL[unit || 'day'] || '天')
+}
 
 Page({
   data: {
@@ -18,9 +49,16 @@ Page({
     overview: null as BillingOverview | null,
     tierLabel: '',
     remaining: 0,
+    expiresAt: '', // YYYY-MM-DD(由 overview.expires_at 格式化,别在 wxml 直出 RFC3339)
+    creditTotal: '', // 经费余额展示串(整数直显 / 小数保留 2 位)
+  },
+
+  onUserActivity() {
+    reportActivity()
   },
 
   onShow() {
+    reportActivity()
     syncTabBar(3)
     this.refresh()
   },
@@ -53,6 +91,8 @@ Page({
       patch.overview = o
       patch.tierLabel = TIER_LABEL[o.tier] || o.tier
       patch.remaining = o.token.unlimited ? 100 : Math.max(0, 100 - (o.token.percent || 0))
+      patch.expiresAt = fmtDate(o.expires_at)
+      patch.creditTotal = fmtCredit(o.credit && o.credit.total)
     }
     this.setData(patch)
   },
@@ -128,8 +168,10 @@ Page({
         wx.hideLoading()
         const desc =
           preview.grant_kind === 'tier'
-            ? '会员 ' + (preview.grant_tier || '') + ' ' + (preview.grant_days || 0) + ' 天'
-            : '经费 ' + (preview.grant_credits || 0) + (preview.credit_kind === 'perm' ? '(永久)' : '(临时)')
+            ? '会员 ' +
+              (TIER_LABEL[preview.grant_tier || ''] || preview.grant_tier || '') +
+              fmtGrantDuration(preview.grant_days, preview.grant_unit)
+            : '经费 ' + (preview.grant_credits || 0) // 0090:经费不分类型,不再标注(永久)/(临时)
         wx.showModal({
           title: '确认兑换',
           content: '将获得:' + desc,
@@ -151,9 +193,18 @@ Page({
   onReset() {
     const ov = this.data.overview
     if (!ov) return
+    // 0090:重置扣的是**重置次数**不是经费。没次数时直接告知,不引导充值(经费买不到重置)。
+    if (!ov.reset_passes || ov.reset_passes <= 0) {
+      wx.showModal({
+        title: '重置次数已用完',
+        content: '你已没有可用的重置次数。可等本周期结束后额度自动恢复,或升级会员获得更高额度。',
+        showCancel: false,
+      })
+      return
+    }
     wx.showModal({
       title: '重置本周期额度',
-      content: '将消耗经费 ' + ov.reset_cost + ' 立即恢复本周期额度,确定?',
+      content: '将使用 1 次重置次数立即恢复本周期额度(剩余 ' + ov.reset_passes + ' 次),确定?',
       success: async (r) => {
         if (!r.confirm) return
         try {

@@ -9,7 +9,8 @@
 //
 // 配额:
 //   - 每天有上限(根据站点权重 50~1000 不等)
-//   - 我们用 Redis 计数器 SETEX 24h 软限,超过 quota 静默跳过本批,留给次日 worker
+//   - Redis 计数器做软限:host 过滤【之后】才预扣;提交失败/被拒部分【返还】;
+//     超配额的尾部由调用方(service.processBaidu)放回百度队列,次日 worker 真的能拿到
 //
 // 上游调用走 common/upstream — 统一观测 / 错误分类 / breaker 防雪崩。
 // ============================================================================
@@ -34,7 +35,14 @@ import (
 )
 
 const (
-	baiduPushEndpoint = "http://data.zz.baidu.com/urls"
+	// baiduPushHost / baiduPushPath 分开声明:upstream.buildURL 对空 Path 会拼成
+	// `baseURL + "/"`,若把完整 endpoint 塞进 BaseURL、Path 传 "",实际出站 URL 是
+	// `http://data.zz.baidu.com/urls/`(带尾斜杠)—— 百度对 `/urls/` 返回 404 XHTML
+	// 「Page Not Found」页,整条推送通道全灭且报错里看不出 URL 差异
+	// (2026-08-11 线上事故:站长平台验证通过后 worker 仍 404,宿主机 curl 却成功,
+	// 逐变量对照才定位到这个斜杠)。
+	baiduPushHost = "http://data.zz.baidu.com"
+	baiduPushPath = "/urls"
 	baiduDailyKeyFmt  = "seo:push:baidu:daily:%s" // %s = YYYYMMDD
 	baiduDailyKeyTTL  = 30 * time.Hour            // 留余量保险
 
@@ -54,7 +62,7 @@ func baidu() *upstream.Client {
 		// 百度接口正常 1s 内回, 10s 失败就视为挂了。
 		hc := &http.Client{Timeout: baiduPushTimeout}
 		baiduClient = upstream.New("baidu_push").
-			BaseURL(baiduPushEndpoint).
+			BaseURL(baiduPushHost).
 			HTTPClient(hc).
 			Breaker(upstream.BreakerConfig{
 				MaxRequests:  2,
@@ -79,111 +87,187 @@ type baiduResp struct {
 	Message     string   `json:"message"`
 }
 
+// errBaiduAPIReject 百度以 HTTP 200 + 业务错误码拒绝(token 失效/站点未验证等)。
+// 结构性失败:每 5 分钟重试只会原样再错一次,调用方应装冷却而非紧密重试。
+var errBaiduAPIReject = errors.New("baidu: api rejected")
+
+// BaiduSubmitOutcome SubmitBaidu 的结构化结果。
+type BaiduSubmitOutcome struct {
+	Submitted int      // 百度确认收下的条数
+	Unsent    []string // 配额不足未发送、或整批失败需调用方放回队列重试的 URL
+	Rejected  []string // 百度在 200 应答里明确拒收的 URL(not_valid/not_same_site):结构性,调用方落死信
+}
+
 // SubmitBaidu 推一批 URL 到百度普通收录 API。
 //   site:  已在站长平台验证的站点,形如 "www.scholay.com" (不带 scheme)
 //   token: 站长平台获取的 token
 //   urls:  完整 URL 列表(必须与 site 同 host,百度会校验)
-//   quota: 每天最多推送的 URL 数(软限,超过即跳过本批避免无效请求)
+//   quota: 每天最多推送的 URL 数(软限,超过部分进 Outcome.Unsent 返还给调用方)
 //
-// 返回:
-//   submitted = 实际推上去的条数(可能 = quota 剩余而 < 入参 len)
-//   error     = 网络/接口错误,业务错误日志记下不返回
-func SubmitBaidu(ctx context.Context, site, token string, urls []string, quota int) (int, error) {
+// 错误时 Outcome.Unsent = 全部可重试 URL(已发送部分的配额已返还);
+// token/站点级业务错误会 wrap errBaiduAPIReject,调用方据此装冷却。
+//
+// 配额语义(2026-08-10 修正):host 过滤【之后】才预扣(被过滤掉的不消耗配额);
+// 网络/接口失败、百度拒收(not_valid/not_same_site)的部分【返还】配额 ——
+// 旧实现先扣后滤、失败不返还,配额会被无效请求白白烧掉。
+func SubmitBaidu(ctx context.Context, site, token string, urls []string, quota int) (BaiduSubmitOutcome, error) {
+	var out BaiduSubmitOutcome
 	if token == "" || site == "" {
-		return 0, errors.New("baidu: missing site/token")
+		return out, fmt.Errorf("%w: missing site/token", errBaiduAPIReject)
 	}
 	if len(urls) == 0 {
-		return 0, nil
+		return out, nil
 	}
 
-	// 配额检查:用 Redis INCRBY 原子扣减
-	allow, err := reserveBaiduQuota(ctx, len(urls), quota)
+	// 过滤 host 不匹配的 URL(百度会把整批拒掉)。被过滤的属结构性错误,
+	// 进 Rejected 落死信(回队也永远推不上去)。
+	//
+	// site 参数支持两种登记形态(2026-08-10 线上实测):老式裸 host("www.scholay.com")
+	// 与百度新版控制台的带 scheme 形式("https://www.scholay.com")。query 参数按配置
+	// 原样传给百度;本地 host 比对先归一到裸 hostname —— 否则带 scheme 的 site 会让
+	// matchesHost 永不相等,整批 URL 被误判死信。
+	matchHost, hostErr := baiduMatchHost(site)
+	if hostErr != nil {
+		// 结构性配置错误:整批保留待重试(实际上 service 构造期校验会先拦住,这里是兜底),
+		// wrap errBaiduAPIReject 让调用方装冷却而非每 tick 重试。
+		out.Unsent = urls
+		return out, fmt.Errorf("%w: BAIDU_PUSH_SITE %q 无法解析出 host: %v", errBaiduAPIReject, site, hostErr)
+	}
+	filtered := make([]string, 0, len(urls))
+	for _, u := range urls {
+		if matchesHost(u, matchHost) {
+			filtered = append(filtered, u)
+		} else {
+			out.Rejected = append(out.Rejected, u)
+		}
+	}
+	if len(out.Rejected) > 0 {
+		slog.Warn("baidu dropped host-mismatched URLs before submit", "dropped", len(out.Rejected), "site", site)
+	}
+	if len(filtered) == 0 {
+		return out, nil
+	}
+
+	// 配额 key 在预扣时定死并贯穿返还:跨午夜的「预扣 A 日 / 返还 B 日」会把
+	// 次日 key 减成无 TTL 的负数计数器(永不过期 + 次日实际可超额)。
+	quotaKey := baiduDailyKey()
+	allow, reserved, err := reserveBaiduQuota(ctx, quotaKey, len(filtered), quota)
 	if err != nil {
 		// Redis 异常时偷偷推,大不了被百度自己 4xx;不能因此停推
 		slog.Warn("baidu quota check failed, proceeding without quota guard", "err", err)
-		allow = len(urls)
+		allow, reserved = len(filtered), false
 	}
 	if allow <= 0 {
-		slog.Info("baidu daily quota exhausted, skipping batch", "wanted", len(urls), "quota", quota)
-		return 0, nil
+		slog.Info("baidu daily quota exhausted, deferring batch", "wanted", len(filtered), "quota", quota)
+		out.Unsent = filtered
+		return out, nil
 	}
-	if allow > len(urls) {
-		allow = len(urls)
+	if allow > len(filtered) {
+		allow = len(filtered)
 	}
-	urls = urls[:allow]
-
-	// 过滤 host 不匹配的 URL,百度会把整批拒掉
-	filtered := make([]string, 0, len(urls))
-	for _, u := range urls {
-		if matchesHost(u, site) {
-			filtered = append(filtered, u)
-		}
-	}
-	if len(filtered) == 0 {
-		return 0, nil
-	}
+	send, deferred := filtered[:allow], filtered[allow:]
+	out.Unsent = deferred
 
 	resp, err := baidu().Do(ctx, upstream.Request{
 		Method: http.MethodPost,
-		Path:   "", // baseURL 已经是完整 endpoint
+		Path:   baiduPushPath, // ⚠️ 不能传 ""(见 baiduPushHost 注释:会产生尾斜杠 404)
 		Query:  url.Values{"site": []string{site}, "token": []string{token}},
 		Headers: http.Header{
 			"Content-Type": []string{"text/plain"},
 			"User-Agent":   []string{"ScholayBaiduPushClient/1.0"},
 		},
-		Body: bytes.NewReader([]byte(strings.Join(filtered, "\n"))),
+		Body: bytes.NewReader([]byte(strings.Join(send, "\n"))),
 	})
 	if err != nil {
+		if reserved {
+			releaseBaiduQuota(ctx, quotaKey, allow)
+		}
+		out.Unsent = filtered
 		// upstream.Error 已经带 status/body/kind, 这里直接 wrap 透传
-		return 0, fmt.Errorf("baidu: %w", err)
+		return out, fmt.Errorf("baidu: %w", err)
 	}
 
 	var parsed baiduResp
 	if err := json.Unmarshal(resp.Body, &parsed); err != nil {
-		return 0, fmt.Errorf("baidu: parse response %q: %w", string(resp.Body), err)
+		if reserved {
+			releaseBaiduQuota(ctx, quotaKey, allow)
+		}
+		out.Unsent = filtered
+		return out, fmt.Errorf("baidu: parse response %q: %w", string(resp.Body), err)
 	}
 	if parsed.Error != 0 {
-		return 0, fmt.Errorf("baidu: api error %d: %s", parsed.Error, parsed.Message)
+		if reserved {
+			releaseBaiduQuota(ctx, quotaKey, allow)
+		}
+		out.Unsent = filtered
+		return out, fmt.Errorf("%w: api error %d: %s", errBaiduAPIReject, parsed.Error, parsed.Message)
 	}
 
+	// 200 应答里被点名拒收的 URL:结构性失败,交调用方落死信(可枚举、可诊断),
+	// 不再只打 count 日志后静默蒸发。
 	if len(parsed.NotSameSite) > 0 {
 		slog.Warn("baidu rejected not_same_site URLs", "count", len(parsed.NotSameSite))
+		out.Rejected = append(out.Rejected, parsed.NotSameSite...)
 	}
 	if len(parsed.NotValid) > 0 {
 		slog.Warn("baidu rejected not_valid URLs", "count", len(parsed.NotValid))
+		out.Rejected = append(out.Rejected, parsed.NotValid...)
+	}
+	// 百度只确认收下 Success 条;被拒的(not_valid 等)返还配额 —— 它们没换来收录
+	if reserved && parsed.Success >= 0 && allow > parsed.Success {
+		releaseBaiduQuota(ctx, quotaKey, allow-parsed.Success)
 	}
 	slog.Info("baidu submit ok",
 		"submitted", parsed.Success,
 		"remain_today", parsed.Remain,
-		"sent", len(filtered),
+		"sent", len(send),
+		"deferred", len(deferred),
+		"rejected", len(out.Rejected),
 	)
-	return parsed.Success, nil
+	out.Submitted = parsed.Success
+	return out, nil
 }
 
-// reserveBaiduQuota 原子扣减今日配额,返回还能推多少条(<=wantN)。
-// 实现:INCRBY want → 若超过 quota,扣回多余部分;用 EXPIRE 设到第二天 0 点。
-func reserveBaiduQuota(ctx context.Context, wantN, quota int) (int, error) {
+// baiduMatchHost 把配置的 site(可能带 scheme,如百度新版控制台的
+// "https://www.scholay.com")归一成用于 URL host 比对的裸 hostname;
+// 老式裸 host 配置原样返回。解析失败(带端口/userinfo/畸形)返回 error ——
+// 【绝不静默回退原串】:原串带 "://" 时 matchesHost 永不相等,整批 URL 会被
+// 误判死信,正是本函数要防的事故换个 config 形态复发(2026-08-10 复审)。
+func baiduMatchHost(site string) (string, error) {
+	if !strings.Contains(site, "://") {
+		return site, nil
+	}
+	return extractHost(site)
+}
+
+func baiduDailyKey() string {
+	return fmt.Sprintf(baiduDailyKeyFmt, time.Now().Format("20060102"))
+}
+
+// reserveBaiduQuota 原子扣减 key 对应的当日配额,返回还能推多少条(<=wantN)与是否
+// 真的发生了预扣(reserved=false 表示无 Redis/不限额,失败路径无需返还)。
+// 实现:INCRBY want → 若超过 quota,扣回多余部分。
+func reserveBaiduQuota(ctx context.Context, key string, wantN, quota int) (int, bool, error) {
 	if quota <= 0 {
-		return wantN, nil // 配额配 0/负值 视为不限
+		return wantN, false, nil // 配额配 0/负值 视为不限
 	}
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
-		return wantN, nil
+		return wantN, false, nil
 	}
 	cctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
-	key := fmt.Sprintf(baiduDailyKeyFmt, time.Now().Format("20060102"))
 	used, err := rdb.IncrBy(cctx, key, int64(wantN)).Result()
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	// 第一次增长后设过期,避免无限驻留
 	if used == int64(wantN) {
 		_ = rdb.Expire(cctx, key, baiduDailyKeyTTL).Err()
 	}
 	if used <= int64(quota) {
-		return wantN, nil
+		return wantN, true, nil
 	}
 	// 超额了,部分回滚
 	overflow := used - int64(quota)
@@ -192,5 +276,22 @@ func reserveBaiduQuota(ctx context.Context, wantN, quota int) (int, error) {
 	if allow < 0 {
 		allow = 0
 	}
-	return int(allow), nil
+	return int(allow), allow > 0, nil
+}
+
+// releaseBaiduQuota 返还预扣但未兑现为收录的配额(提交失败/百度拒收部分)。
+// key 必须与预扣时同一个(见 SubmitBaidu 内注释)。
+func releaseBaiduQuota(ctx context.Context, key string, n int) {
+	if n <= 0 {
+		return
+	}
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return
+	}
+	cctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+	if _, err := rdb.DecrBy(cctx, key, int64(n)).Result(); err != nil {
+		slog.Warn("baidu quota release failed", "count", n, "err", err)
+	}
 }

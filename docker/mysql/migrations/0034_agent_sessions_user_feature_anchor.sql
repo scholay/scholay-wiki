@@ -1,12 +1,12 @@
 -- ============================================================================
 -- 0034 · agent_sessions「单会话 feature」补回唯一约束(代理键改造后丢失的硬守卫)。C6。
 --
--- ⚠️ 2026-07 更新:smart_search / boltslides(制作PPT)/ sci_draw(科研绘图)也是多会话(与 claw 同型),
+-- ⚠️ 2026-08 更新:smart_search / boltslides(制作PPT)/ sci_draw(科研绘图)/ stat_lab(数据分析)也是多会话,
 --   故本迁移的 CASE 与去重 WHERE 已把它们一并排除
---   (feature_key NOT IN ('claw','smart_search','boltslides','sci_draw'))——否则:
+--   (feature_key NOT IN ('claw','smart_search','boltslides','sci_draw','stat_lab'))——否则:
 --     · 生成列 anchor 仍取 "user:<feature>" → 唯一索引把它锁成单会话, CreateNewSession 撞 1062;
 --     · 去重 DELETE 每次重放会把该 feature 的多行删到只剩一行(多会话数据每次重启被清)。
---   既有库的 anchor 生成列定义由 0070(smart_search)/ 0076(boltslides)/ 0077(sci_draw)就地 MODIFY 修正。
+--   既有库的 anchor 生成列定义由 0070(smart_search)/ 0076(boltslides)/ 0077(sci_draw)/ 0111(stat_lab)就地 MODIFY 修正。
 --
 -- 背景:
 --   archive/0070 把 PK 从复合 (user_id, feature_key) 改成代理键 id 自增, 以支持
@@ -50,21 +50,21 @@ JOIN (
     ) AS UNSIGNED) AS keep_id
   FROM agent_sessions
   WHERE owner_kind IS NULL AND owner_id IS NULL
-    AND feature_key NOT IN ('claw', 'smart_search', 'boltslides', 'sci_draw')
+    AND feature_key NOT IN ('claw', 'smart_search', 'boltslides', 'sci_draw', 'stat_lab')
   GROUP BY user_id, feature_key
   HAVING COUNT(*) > 1
 ) k
   ON dup.user_id = k.user_id
  AND dup.feature_key = k.feature_key
 WHERE dup.owner_kind IS NULL AND dup.owner_id IS NULL
-  AND dup.feature_key NOT IN ('claw', 'smart_search', 'boltslides', 'sci_draw')
+  AND dup.feature_key NOT IN ('claw', 'smart_search', 'boltslides', 'sci_draw', 'stat_lab')
   AND dup.id <> k.keep_id;
 
 -- ② 生成列(STORED, 与 0013/0017 既有手法一致):用户级单会话取锚点, 其余 NULL。
 CALL add_column_if_not_exists(
   'agent_sessions',
   'user_feature_anchor',
-  "VARCHAR(96) GENERATED ALWAYS AS (CASE WHEN owner_kind IS NULL AND owner_id IS NULL AND feature_key NOT IN ('claw', 'smart_search', 'boltslides', 'sci_draw') THEN CONCAT(user_id, ':', feature_key) ELSE NULL END) STORED"
+  "VARCHAR(96) GENERATED ALWAYS AS (CASE WHEN owner_kind IS NULL AND owner_id IS NULL AND feature_key NOT IN ('claw', 'smart_search', 'boltslides', 'sci_draw', 'stat_lab') THEN CONCAT(user_id, ':', feature_key) ELSE NULL END) STORED"
 );
 
 -- ③ 唯一索引:每 (user_id, feature_key) 用户级单会话至多一行。

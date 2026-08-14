@@ -143,9 +143,9 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
     <nav
       ref={ref}
       aria-label="目录"
-      className={cn('text-xs', className)}
+      className={cn('text-12', className)}
     >
-      <p className="text-2xs font-bold uppercase tracking-[0.16em] text-faint mb-3">
+      <p className="text-12 font-medium uppercase text-faint mb-3">
         {title}
       </p>
       <ul className="space-y-1.5 border-l border-border-soft">
@@ -158,7 +158,7 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
                 'block py-0.5 -ml-px border-l-2 transition-colors',
                 h.level === 2 ? 'pl-3' : 'pl-6',
                 activeId === h.id
-                  ? 'border-foreground text-foreground font-semibold'
+                  ? 'border-foreground text-foreground font-medium'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >

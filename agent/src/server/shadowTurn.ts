@@ -14,14 +14,13 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { runTurn } from "../turn/turnLoop.ts";
+import { convertFlatToAnthropic, type FlatMessage } from "./replayHistory.ts";
 import type { EventSink, TurnInput } from "../turn/types.ts";
 import type { Tier } from "../config/models.ts";
 
-// daemon / journal-fold 的扁平消息形(每 block 一条 typed message)。
-export interface FlatMessage {
-  type: string; // user | assistant | tool_use | tool_result
-  content: unknown; // block 数组(text/thinking/tool_use/tool_result)
-}
+// 冷重播还原本体已搬到 server/replayHistory.ts —— 它是**每 7 轮就跑一次的生产路径**
+// (ws.ts seed_history 直接从那里 import),而 /api/turn 的 shadow 路径今天是 dormant 的;
+// 把生产路径挂在一个 dormant 文件里会持续误导评审(2026-08-08)。这里只是本文件自己要用。
 
 export interface ShadowTurnRequest {
   sessionId?: string;
@@ -33,30 +32,6 @@ export interface ShadowTurnRequest {
   tier?: Tier;
   appendSystemPrompt?: string;
   workDir?: string;
-}
-
-// convertFlatToAnthropic:daemon 扁平形(user/assistant/tool_use/tool_result 各独立 typed message)
-// → Anthropic MessageParam[]。**只保留 text 块**:history seeding 是给「上下文连续性」用,不是精确回放。
-//
-// 为什么丢 tool_use / tool_result / thinking:Anthropic 强约束「每个 tool_result 必须紧跟含对应
-// tool_use 的 assistant 消息」。journal 窗口切割 / 并行调用 / 中间夹 assistant 文本都可能产出无法配对
-// 的孤儿 tool_result → 400。而 assistant 的文本回答本就已概括工具结果,丢掉工具块不损上下文、且彻底
-// 杜绝配对错误。连续同角色合并成一条消息。
-export function convertFlatToAnthropic(flat: FlatMessage[]): Anthropic.MessageParam[] {
-  const out: Anthropic.MessageParam[] = [];
-  for (const m of flat) {
-    const role: "user" | "assistant" = m.type === "assistant" || m.type === "tool_use" ? "assistant" : "user";
-    const blocks = Array.isArray(m.content) ? (m.content as Array<Record<string, unknown>>) : [];
-    const kept = blocks.filter((b) => b && b.type === "text"); // 仅 text;丢 tool_use/tool_result/thinking
-    if (kept.length === 0) continue;
-    const last = out[out.length - 1];
-    if (last && last.role === role && Array.isArray(last.content)) {
-      (last.content as unknown[]).push(...kept);
-    } else {
-      out.push({ role, content: kept as unknown as Anthropic.MessageParam["content"] });
-    }
-  }
-  return out;
 }
 
 export interface ShadowTurnResult {

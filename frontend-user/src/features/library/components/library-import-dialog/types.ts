@@ -1,7 +1,7 @@
 import type { ParsedEvent, SearchHit } from '../../api/upload-resolve';
 
 /**
- * 文献集统一工作台 · 「添加」语境的 4 个 tab —— 4 个入口按钮都打开同一个工作台,
+ * 文件夹统一工作台 · 「添加」语境的 4 个 tab —— 4 个入口按钮都打开同一个工作台,
  * 只是定位在不同 tab。
  *
  *   - 'search':   在线搜索加入(嵌入式搜索 + 一键收藏)

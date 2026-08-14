@@ -73,17 +73,20 @@ export function QuickOpenPaperDialog({
           sideOffset={6}
           collisionPadding={12}
           className={cn(
-            'z-50 w-[520px] max-w-[calc(100vw-32px)]',
-            'flex flex-col max-h-[min(70vh,640px)] overflow-hidden',
-            'rounded-lg border border-border bg-background shadow-[0_8px_24px_rgba(15,23,42,0.12)]',
+            'z-modal w-[520px] max-w-[calc(100vw-32px)]',
+            // dvh 而非 vh:iOS Safari 地址栏收起/展开会改 vh,弹层底部会被盖住
+            'flex flex-col max-h-[min(70dvh,640px)] overflow-hidden',
+            'rounded-12 border border-border bg-surface-card shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
           )}
         >
-          {/* searchBar */}
-          <div className="flex items-center gap-2.5 h-[44px] px-3 border-b border-border-soft shrink-0">
+          {/* searchBar —— 高度走 h-control-xl(= 44px,Figma §4.5 搜索框 312×44),
+              原先是等值的 arbitrary `h-[44px]` */}
+          <div className="flex items-center gap-2.5 h-control-xl px-3 border-b border-border-soft focus-within:border-border-control transition-colors shrink-0">
             <Search className="size-3.5 text-muted-foreground shrink-0" />
+            {/* outline-none 合法:焦点可供性由外层搜索条的 focus-within:border-border-control 提供 */}
             <input
               ref={inputRef}
               type="text"
@@ -91,14 +94,14 @@ export function QuickOpenPaperDialog({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="输入论文标题关键词 …"
               maxLength={128}
-              className="flex-1 min-w-0 h-full bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-faint placeholder:font-normal"
+              className="flex-1 min-w-0 h-full bg-transparent text-12 font-medium text-foreground outline-none placeholder:text-faint placeholder:font-normal"
             />
             {query ? (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="清空"
-                className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
               >
                 <X className="size-3" />
               </button>
@@ -124,7 +127,7 @@ export function QuickOpenPaperDialog({
                 ))}
                 {/* 已有结果但还有源在加载 —— 列表尾部一个极简 inline 提示 */}
                 {!allDone && (
-                  <li className="flex items-center justify-center gap-2 px-3 py-3 text-2xs text-faint">
+                  <li className="flex items-center justify-center gap-2 px-3 py-3 text-12 text-faint">
                     <Loader2 className="size-3 animate-spin" />
                     其他源继续加载中…
                   </li>
@@ -135,7 +138,7 @@ export function QuickOpenPaperDialog({
 
           {/* footer */}
           <div className="flex items-center justify-end h-9 px-3 bg-surface-1 border-t border-border-soft shrink-0">
-            <span className="text-2xs text-muted-foreground">
+            <span className="text-12 text-muted-foreground">
               点击任一行打开详情
             </span>
           </div>
@@ -169,17 +172,17 @@ function PaperRow({
         className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-surface-1 transition-colors"
         title={`打开 "${paper.title}" 详情`}
       >
-        <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0">
+        <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0">
           <FileText className="size-3.5 text-subtle" strokeWidth={2} />
         </div>
         <div className="flex-1 min-w-0">
           <div
-            className="truncate text-sm font-semibold text-foreground"
+            className="truncate text-14 font-medium text-foreground"
             title={paper.title ?? '无标题'}
           >
             {paper.title ?? '无标题'}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 truncate">
+          <div className="flex items-center gap-2 text-12 text-muted-foreground mt-0.5 truncate">
             {/* source badge 行内放在 meta 行,知道来源但不抢标题视线 */}
             {source !== 'local' && (
               <SourceBadge source={source} variant="letter" size="sm" />
@@ -219,7 +222,7 @@ function PaperRow({
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="flex items-center justify-center py-16 px-6 text-center text-xs text-faint">
+    <div className="flex items-center justify-center py-16 px-6 text-center text-12 text-faint">
       {text}
     </div>
   );
@@ -227,7 +230,7 @@ function EmptyHint({ text }: { text: string }) {
 
 function CenterLoading() {
   return (
-    <div className="flex items-center justify-center gap-2 py-16 text-xs text-faint">
+    <div className="flex items-center justify-center gap-2 py-16 text-12 text-faint">
       <Loader2 className="size-4 animate-spin" />
       搜索中…
     </div>
@@ -237,15 +240,15 @@ function CenterLoading() {
 function NoResultsHint({ query }: { query: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-6 text-center gap-2">
-      <div className="text-sm text-muted-foreground">
+      <div className="text-12 text-muted-foreground">
         没有命中{' '}
-        <span className="font-semibold text-foreground">「{query}」</span>
+        <span className="font-medium text-foreground">「{query}」</span>
       </div>
-      <div className="text-xs text-faint">试试换个关键词或缩短词组</div>
+      <div className="text-12 text-faint">试试换个关键词或缩短词组</div>
     </div>
   );
 }
 
-// useArrivalOrderedPapers 已提升到 @/shared/api/quick-search(与文献集在线搜索共用)。
+// useArrivalOrderedPapers 已提升到 @/shared/api/quick-search(与文件夹在线搜索共用)。
 
 export default QuickOpenPaperDialog;

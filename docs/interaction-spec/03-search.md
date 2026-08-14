@@ -60,14 +60,21 @@
 | SRCH-019 | 论文卡 标签 | 期刊/引用/学科 chips | 渲染 | enrichment 或 citationCount 等存在 | 渲染 JCR/IF/中科院/CCF/预警/引用/学科标签(`pickTags`) | 全空→不渲染标签行 | `useJournalEnrichments` + paper 字段 | real；`tags.tsx:33-94` |
 | SRCH-020 | 论文卡 摘要 | 高亮 | 渲染 | 有 query + 非译文态 | `renderHighlight` 用 `<mark>` 包命中词 | 未命中→原文 | 纯前端 | real；`tags.tsx:111-124` |
 | SRCH-021 | 论文卡 摘要 | TruncatedText 2 行 | hover→「更多」 | 摘要超 2 行 | 弹 popover 看全文 | — | 纯前端 `TruncatedText` | real；`DefaultCard.tsx:105-112` |
-| SRCH-022 | 论文卡 action | 「+ 暂存」按钮 | click | 未暂存 | `onStage`→`stagePaper`，按钮变绿「已暂存」，卡 auto-collapse | 登录:重复→toast「已在该暂存区」；满 100→toast；未登录→走 zustand | `useStagingActions.stagePaper`；登录 `POST /user/staging-areas/{id}/papers` | real；`DefaultCard.tsx:117-137` |
-| SRCH-023 | 论文卡 action | 「已暂存」按钮 | click | 已暂存 | `onUnstage`→跨所有区 `removePaper` | — | 登录 `DELETE .../papers/{source}/{id}`；匿名 store | real；`SearchPage.tsx:139-149` |
+> **2026-07-27 统一**：展开态(`DefaultCard`)与折叠态(`StagedRow`)的暂存控件已合并为同一个
+> [`StageToggle`](../../frontend-user/src/shared/components/PaperResultCard/StageToggle.tsx)，
+> 且**位于同一个 x**(两边都是 `px-3.5` 容器 + `gap-2`、控件都在行首)。
+> 于是暂存/取消暂存导致卡片在展开与折叠之间切换时，这颗控件原地不动，只有空心/实心之别。
+> 原先展开态是底部 action 行里一颗带文案的红/绿胶囊，与折叠态那颗绿点毫无视觉关联。
+> 颜色语义沿用旧按钮：朱砂=待加入(CTA 色)、松青=已加入。
+
+| SRCH-022 | 论文卡 **标题行首** | `StageToggle` 空心圆(未暂存) | click | 未暂存 | `onStage`→`stagePaper`，圆变松青实心✓，卡 auto-collapse 成 StagedRow | 登录:重复→toast「已在该暂存区」；满 100→toast；未登录→走 zustand。hover/聚焦浮现淡勾预告 | `useStagingActions.stagePaper`；登录 `POST /user/staging-areas/{id}/papers` | real；`StageToggle.tsx:36`，调用点 `DefaultCard.tsx:71` |
+| SRCH-023 | 论文卡 **标题行首** | `StageToggle` 实心✓(已暂存) | click | 已暂存 | `onUnstage`→跨**所有**区 `removePaper` | hover/聚焦时 ✓ 变 ×；粗指针(平板)下静态显示 × | 登录 `DELETE .../papers/{source}/{id}`；匿名 store | real；`StageToggle.tsx:36`，链路 `SearchPage.tsx:147-157` |
 | SRCH-024 | 论文卡 action | 收藏按钮 | click | — | `FavoritePaperButton` toggle 收藏 | 未登录→弹登录(组件内) | `useFavoritePaper`(shared) | real(委托 shared 组件)；`DefaultCard.tsx:139-144` |
 | SRCH-025 | 论文卡 action | 「AI 翻译」按钮 | click | 标题/摘要含可译文本 | `TranslatePaperButton` 翻译，缓存 `zh`，切换显原文/译文 | 无可译文本→不渲染 | `useTranslatePaper`(shared) | real；`DefaultCard.tsx:146-160` |
 | SRCH-026 | 论文卡 action | 译文切换 | click(已有缓存) | 已翻译过 | `setShowZh(v=>!v)` 切原文/译文标题+摘要 | — | 纯前端 state | real；`DefaultCard.tsx:48-51,156` |
 | SRCH-027 | 论文卡 action | 「折叠」按钮 | hover 显→click | 未折叠 | `onFold`→加 `manuallyCollapsedIds`，卡收成 `CollapsedRow` 灰行 | 平时 opacity-0，hover/focus 才显 | 纯前端 state | real；`DefaultCard.tsx:165-173` |
-| SRCH-028 | 论文卡 折叠行(已暂存) | StagedRow ⌄ 展开 | click | 已暂存+已折叠 | `onUnfold`→加 `expandedOverrides`，还原完整卡(仍暂存) | — | 纯前端 state | real；`StagedRow.tsx:29-37` |
-| SRCH-029 | 论文卡 折叠行(已暂存) | StagedRow × 取消暂存 | click | 已暂存+已折叠 | `onUnstage` 从暂存区移除，变灰色 CollapsedRow | — | `removePaper` | real；`StagedRow.tsx:38-46` |
+| SRCH-028 | 论文卡 折叠行(已暂存) | StagedRow ⌄ 展开 | click | 已暂存+已折叠 | `onUnfold`→加 `expandedOverrides`，还原完整卡(仍暂存) | 箭头朝下=「点我向下展开」；配对的收起动作在 DefaultCard 上用 `Minimize2`，本行无配对 chevron | 纯前端 state | real；`StagedRow.tsx:85-93` |
+| SRCH-029 | 论文卡 折叠行(已暂存) | StagedRow ✓ 取消暂存 | click | 已暂存+已折叠 | `onUnstage` 从**所有**暂存区移除。之后落到哪种渲染取决于 `manuallyCollapsedIds`：未手动折叠过→展开成完整 `DefaultCard`；手动折叠过→仍是折叠态，变灰色 `CollapsedRow`(那里**没有**暂存入口，还原需两步) | 行 hover 绿点浮光环(ring/70=3.77:1)；指针/焦点落上去 ✓ 变 ×；**粗指针(平板)下光环常驻且图标直接是 ×** —— 平板会真的落在 /search，见 `device.ts` PAD_RE | `removePaper` | real；`StagedRow.tsx:68`(共用 `StageToggle`) |
 | SRCH-030 | 论文卡 折叠行(未暂存) | CollapsedRow 「还原」 | click | 未暂存+已折叠 | `onUnfold`→移出 manuallyCollapsed，展开完整卡 | — | 纯前端 state | real；`CollapsedRow.tsx:22-29` |
 | SRCH-031 | 搜索器 分页 | 页码按钮 | click | total>0 | `setPage(p)`→写 `?p`，重查该页 | 当前页 disabled；省略号不可点 | react-query offset | real；`SearcherPagination.tsx:86-99` |
 | SRCH-032 | 搜索器 分页 | 上一页/下一页 | click | total>0 | `onChange(page±1)` | page≤1 上一页 disabled；page≥totalPages 下一页 disabled | react-query | real；`SearcherPagination.tsx:68-76,101-109` |

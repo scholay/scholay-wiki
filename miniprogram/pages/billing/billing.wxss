@@ -15,7 +15,7 @@
 .tab.on {
   color: var(--text);
   font-weight: 700;
-  border-bottom: 4rpx solid #cc2222;
+  border-bottom: 4rpx solid var(--red);
 }
 .state {
   padding: 140rpx 0;
@@ -54,10 +54,10 @@
   font-weight: 600;
 }
 .amount.pos {
-  color: #2a7a2a;
+  color: var(--green);
 }
 .amount.neg {
-  color: #cc2222;
+  color: var(--red);
 }
 .order-right {
   display: flex;

@@ -12,10 +12,13 @@
 // 跨租户文件遍历物理不可能(其它会话 cwd 根本不在 mount 命名空间里)。
 
 import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { egressEnv } from "./egress.ts";
 import { log } from "../obs/log.ts";
+import { EVIDENCE_DIR } from "../evidence/paths.ts";
+import { RESERVED_DIRS } from "./reserved.ts";
 import type { SandboxProfile } from "./profile.ts";
 
 export type SandboxMode = "none" | "bwrap";
@@ -59,6 +62,12 @@ function probeBwrap(): boolean {
 
 // buildBwrapArgv:把 inner argv 包进 bubblewrap。返回完整 spawn argv(以 "bwrap" 开头)。
 export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string[] {
+  // 保留区目录必须先在:下面用的是 `--ro-bind`(非 `-try`),源缺失 bwrap 会**直接失败** ⇒
+  // 若靠"调用方记得先建",存量会话(prod 有 ./data/agent-sessions 绑定挂载,会话跨重启存活)
+  // 与三个调用点里任何一个漏掉,都会变成"这个会话所有 Bash 全挂"。
+  // 在**用它的这一点**上自己保证,是本仓库反复吃亏后的定式:别把不变式托付给远处的调用方。
+  // mkdirSync 幂等、一次 syscall;失败不吞 —— 建不出来说明 cwd 有更严重的问题,应当当场炸。
+  for (const d of RESERVED_DIRS) mkdirSync(join(profile.cwd, d), { recursive: true });
   const args: string[] = [
     "bwrap",
     "--unshare-all", // 全 namespace 隔离(含 net;net:open 下方再 --share-net)
@@ -102,6 +111,20 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
     "--ro-bind-try", "/etc/ssl", "/etc/ssl", // TLS CA(出网验证证书)
     "--ro-bind-try", "/etc/resolv.conf", "/etc/resolv.conf",
     "--bind", profile.cwd, "/work", // 唯一可写绑定 = 本会话 cwd
+    // 🔴 证据基座保留区:在上面那条可写 bind **之后**再叠一层只读覆盖(bwrap 按参数顺序应用,
+    //    后者盖前者)⇒ jail 内 `echo >> evidence/ledger.jsonl` 直接 EROFS。
+    //    不加这一层的话,「E 编号不可伪造」只挡住了进程内的 Write 工具,而 Bash **不走 confinePath**,
+    //    一句 shell 重定向就能造 E 编号,交付闸与 [[E]] 句柄展开同时被抽空(2026-08-01 实测)。
+    //
+    //    ⚠️ 刻意用 `--ro-bind` 而**不是** `--ro-bind-try`:`-try` 在源不存在时**静默跳过**,
+    //    那正好是最危险的一档 —— 新会话首轮 evidence/ 还没建,覆盖层被跳过、jail 可写,
+    //    而我们会以为闸在生效(又一条"永远绿的规则")。用非 -try 版则源缺失时 bwrap 直接失败,
+    //    因此调用方**必须**保证目录先在(见 sandbox/profile 的 ensureReservedDir)。
+    // 保留区只读覆盖层。`writableReserved` 里的目录**跳过**这一层 ——
+    // 那是 executor 侧 StatRun 工具的专用通道(引擎写 bundle),模型的 Bash 永远拿不到它。
+    ...RESERVED_DIRS.filter((d) => !(profile.writableReserved ?? []).includes(d)).flatMap(
+      (d) => ["--ro-bind", join(profile.cwd, d), "/work/" + d],
+    ),
     "--chdir", "/work",
   ];
 
@@ -139,6 +162,75 @@ export function wrapBash(profile: SandboxProfile, command: string): string[] {
 // /etc/alternatives 中转的 libblas.so.3),`import numpy` 就 ImportError,两条车道全部产不出图 ——
 // 而裸 exec 自检完全看不到。故这里用与生产**同一套 buildBwrapArgv**造 jail 跑最小 savefig +
 // MolDraw2DSVG,把「装了却在 jail 内挂不了」这类缺陷在启动日志里大声暴露(非致命,不拖垮整个 agent)。
+/**
+ * 证据保留区**真 jail 自检**(2026-08-01 Phase 0)。启动时跑一次:在真实 bwrap jail 里
+ * 尝试写 `/work/evidence/`,断言**写不进去**。
+ *
+ * 🔴 为什么 argv 断言不够(reserved.test.ts 已经断言过参数在场):
+ *    `--ro-bind` 覆盖 `--bind` 的**子路径**,其生效与否依赖 bwrap 版本与参数顺序。
+ *    参数写对了、内核没拦住,是完全可能的 —— 而那种情况下 Phase 0 只封住了一半
+ *    (进程内文件工具),三个 AllowBash 剖面照样能伪造 E 编号,**我们却以为封住了**。
+ *    「以为封住了」比「知道没封」危险得多,所以这一格必须用真 jail 实测,且失败要**大声**。
+ *
+ * 探不到 bwrap(EXECUTOR_SANDBOX_MODE=none / 本机裸跑)时跳过并**明确告警**:
+ * 那种模式下 Bash 确实能写 evidence/,这是已知且被文档记录的敞口,不是本函数的失败。
+ */
+export async function smokeTestEvidenceReadonly(): Promise<void> {
+  if (sandboxMode() !== "bwrap") {
+    log.warn(
+      "引擎保留区 jail 自检【已跳过】—— 未运行在 bwrap 模式,jail 内 Bash 可写 " +
+      RESERVED_DIRS.join(" / ") + "(已知敞口)。" +
+        "生产必须是 bwrap;若生产日志出现这一条,说明沙箱没起来,E 编号不可伪造这条立论当前不成立。",
+    );
+    return;
+  }
+  let dir = "";
+  try {
+    dir = await mkdtemp(join(tmpdir(), "evi-smoke-"));
+    const profile: SandboxProfile = { cwd: dir, net: "none", allowBash: true, roBinds: [] };
+    // 三种写法都试:重定向追加 / 新建文件 / 建子目录。任一成功即视为闸失效。
+    // 逐个保留区各探三种写法(重定向追加 / 新建文件 / 建子目录),任一成功即闸失效。
+    // 逐个探而不是只探第一个:2026-08-05 从单目录推广到清单时,若只探 evidence/,
+    // 新加的 analysis/ 漏挂 ro-bind 也照样全绿 —— 那正是「一条永远绿的规则」。
+    const code =
+      RESERVED_DIRS.map(
+        (d) =>
+          "(echo x >> /work/" + d + "/probe.jsonl) 2>/dev/null && echo LEAK_APPEND:" + d + "; " +
+          "(touch /work/" + d + "/forged.json) 2>/dev/null && echo LEAK_CREATE:" + d + "; " +
+          "(mkdir -p /work/" + d + "/sub) 2>/dev/null && echo LEAK_MKDIR:" + d + "; ",
+      ).join("") + "echo EVI_SMOKE_DONE";
+    const argv = buildBwrapArgv(profile, ["/bin/sh", "-c", code]);
+    const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe" });
+    const out = await new Response(proc.stdout).text();
+    await proc.exited;
+    if (!out.includes("EVI_SMOKE_DONE")) {
+      log.warn("引擎保留区 jail 自检**未能完成**(jail 未按预期启动),本次无法判定闸是否生效", { out: out.slice(0, 200) });
+      return;
+    }
+    const leaks = RESERVED_DIRS.flatMap((d) =>
+      ["LEAK_APPEND:" + d, "LEAK_CREATE:" + d, "LEAK_MKDIR:" + d].filter((k) => out.includes(k)),
+    );
+    if (leaks.length > 0) {
+      log.error(
+        "🔴 引擎保留区 jail 自检**失败**:jail 内仍可写保留区 —— " +
+        "evidence/ 失守 = E 编号可被模型伪造;analysis/ 失守 = 报告里的数字可被模型伪造。" +
+          "交付闸与 [[E]] 句柄展开当前**均不可信**。请检查 bwrap 版本与 --ro-bind 参数顺序。",
+        { leaks },
+      );
+      return;
+    }
+    // 日志如实列出**被验证过的每一个**目录:此前文案写死 "evidence/",
+    // 推广成清单后它就在少报 —— 「日志说得比验证的少」与「说得比验证的多」同样有害。
+    log.info("引擎保留区 jail 自检通过(真实 bwrap jail 内只读,三种写法全部被拒)", {
+      dirs: RESERVED_DIRS.join(","),
+    });
+  } catch (e) {
+    log.warn("引擎保留区 jail 自检异常(不阻断启动)", { err: String((e as Error)?.message ?? e) });
+  } finally {
+    if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 // 只在 bwrap 自探成功(真会进 jail)时有意义;探不到则跳过。
 export async function smokeTestSciDrawDeps(): Promise<void> {
   if (sandboxMode() !== "bwrap") return;

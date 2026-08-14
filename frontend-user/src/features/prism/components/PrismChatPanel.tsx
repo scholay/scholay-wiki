@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Check, FileText, Quote, X, WifiOff, ListChecks } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
@@ -100,6 +100,33 @@ export function PrismChatPanel({
 
   const hasThread = chat.turns.length > 0;
 
+  // 命中额度「未发送」轮的一键重发:取回持久化 payload(顺带清卡片/localStorage)→ 走**现有发送
+  // 路径**(onSend → workspace sendChat → chat.send,编辑器 flush / prepareRound 铺源都不缺)。
+  // ref-latest 包装:onSend / chat 每渲染换引用,直接进 useCallback 依赖会让回调不稳、击穿全部
+  // PrismMessageTurn 的 memo(长会话每键重渲染,智能页 CPU 风暴同款教训)。
+  const onSendRef = useRef(onSend);
+  onSendRef.current = onSend;
+  const takeBlockedRef = useRef(chat.takeBlockedMessage);
+  takeBlockedRef.current = chat.takeBlockedMessage;
+  const roundStateRef = useRef(chat.roundState);
+  roundStateRef.current = chat.roundState;
+  const handleResendBlocked = useCallback(() => {
+    // 非 idle(别端在途轮 / 待应用门)时不取 payload —— sendChat 会静默拒发,先取会把消息丢掉。
+    if (roundStateRef.current !== 'idle') {
+      toast.info('AI 回答结束后再重发');
+      return;
+    }
+    const payload = takeBlockedRef.current();
+    if (!payload) return;
+    onSendRef.current(payload.text, {
+      attachments: payload.attachments,
+      references: payload.references ?? [],
+    });
+  }, []);
+  const dismissBlockedRef = useRef(chat.dismissBlocked);
+  dismissBlockedRef.current = chat.dismissBlocked;
+  const handleDismissBlocked = useCallback(() => dismissBlockedRef.current(), []);
+
   const onThreadScroll = () => {
     const el = threadRef.current;
     if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
@@ -143,16 +170,16 @@ export function PrismChatPanel({
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
       {/* WS 状态条:重连/断开/被接管 */}
       {chat.displacedReason ? (
-        <div className="flex items-center justify-between gap-2 bg-warning-soft px-3.5 py-1.5 text-2xs text-prism-badge-fg">
+        <div className="flex items-center justify-between gap-2 bg-warning-soft px-3.5 py-1.5 text-12 text-prism-badge-fg">
           <span className="flex items-center gap-1.5"><WifiOff className="size-3" /> {chat.displacedReason}</span>
-          <button type="button" onClick={chat.takeOver} className="font-bold underline">切回这里</button>
+          <button type="button" onClick={chat.takeOver} className="font-medium underline">切回这里</button>
         </div>
       ) : chat.wsState === 'reconnecting' || chat.wsState === 'connecting' ? (
-        <div className="flex items-center gap-1.5 bg-surface-1 px-3.5 py-1 text-2xs text-faint">
+        <div className="flex items-center gap-1.5 bg-surface-1 px-3.5 py-1 text-12 text-faint">
           <Loader2 className="size-3 animate-spin" /> 连接中…
         </div>
       ) : chat.wsState === 'error' ? (
-        <div className="flex items-center gap-1.5 bg-danger-soft px-3.5 py-1 text-2xs text-brand-red">
+        <div className="flex items-center gap-1.5 bg-danger-soft px-3.5 py-1 text-12 text-brand-red">
           <WifiOff className="size-3" /> 连接断开,正在重试…
         </div>
       ) : null}
@@ -166,7 +193,7 @@ export function PrismChatPanel({
                 type="button"
                 onClick={chat.loadEarlier}
                 disabled={chat.loadingEarlier}
-                className="rounded-pill border border-border-button px-3 py-1 text-2xs text-muted-foreground transition-colors hover:bg-surface-2 disabled:opacity-60"
+                className="rounded-pill border border-border-button px-3 py-1 text-12 text-muted-foreground transition-colors hover:bg-surface-2 disabled:opacity-60"
               >
                 {chat.loadingEarlier ? '加载中…' : '加载更早'}
               </button>
@@ -201,6 +228,12 @@ export function PrismChatPanel({
         )}
         <Composer
           ref={composerRef}
+          quotaBlocked={
+            chat.turns.some((t) => t.blocked)
+              ? { onResend: handleResendBlocked, onDismiss: handleDismissBlocked }
+              : null
+          }
+          quotaWarn={chat.turns.length > 0}
           onSend={(t) => {
             if (blocked || !wsReady) return;
             trackEvent('prism_edit', { len: t.length, files: att.attachments.length, refs: references.length });
@@ -221,9 +254,9 @@ export function PrismChatPanel({
           topSlot={
             <>
               {quote && (
-                <div className="flex items-start gap-1.5 rounded-md border-l-2 border-brand-green bg-surface-1 px-2 py-1.5">
+                <div className="flex items-start gap-1.5 rounded-12 border-l-2 border-brand-green bg-surface-1 px-2 py-1.5">
                   <Quote className="mt-0.5 size-3 shrink-0 text-brand-green" />
-                  <span className="line-clamp-2 flex-1 whitespace-pre-wrap text-2xs leading-snug text-subtle">{quote}</span>
+                  <span className="line-clamp-2 flex-1 whitespace-pre-wrap text-12 text-subtle">{quote}</span>
                   <button type="button" onClick={onClearQuote} title="移除引用" className="shrink-0 text-faint transition-colors hover:text-foreground">
                     <X className="size-3" />
                   </button>
@@ -251,7 +284,7 @@ export function PrismChatPanel({
           containerProps={att.dragHandlers}
           overlay={
             att.dragOver ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
+              <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-surface-card/90 text-12 font-medium text-brand-green">
                 <Upload className="size-4" />
                 松开上传图片 / 文件
               </div>
@@ -276,7 +309,7 @@ export function PrismChatPanel({
                   disabled={blocked}
                   title="开启后 AI 改完文档先停在逐块 diff,你保留/删改后再应用(像改代码);关闭则改完直接应用"
                   className={cn(
-                    'inline-flex h-8 items-center gap-1 rounded-md px-2 text-2xs transition-colors disabled:opacity-50',
+                    'inline-flex h-8 items-center gap-1 rounded-8 px-2 text-12 transition-colors disabled:opacity-50',
                     reviewMode
                       ? 'bg-brand-green/10 text-brand-green hover:bg-brand-green/15'
                       : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
@@ -337,10 +370,10 @@ function ChangesetCard({
 }) {
   const awaiting = cs.state === 'awaiting_apply';
   return (
-    <div className="rounded-lg border border-border bg-surface-1">
+    <div className="rounded-16 border border-border bg-surface-1">
       <div className="flex items-center gap-2.5 px-3 py-2">
         <FileText className="size-4 shrink-0 text-brand-green" />
-        <div className="min-w-0 flex-1 truncate text-xs font-bold text-foreground">
+        <div className="min-w-0 flex-1 truncate text-12 font-medium text-foreground">
           AI 改动
           <span className="ml-1.5 font-normal text-faint">{cs.applied} 个文件</span>
         </div>
@@ -356,7 +389,7 @@ function ChangesetCard({
         ) : (
           <span
             className={cn(
-              'shrink-0 rounded-pill px-2 py-0.5 text-2xs',
+              'shrink-0 rounded-pill px-2 py-0.5 text-12',
               cs.state === 'applied' ? 'bg-brand-green/10 text-brand-green' : 'text-faint',
             )}
           >
@@ -365,7 +398,7 @@ function ChangesetCard({
         )}
       </div>
       {awaiting && (
-        <div className="border-t border-border-soft px-3 py-1.5 text-2xs text-faint">
+        <div className="border-t border-border-soft px-3 py-1.5 text-12 text-faint">
           在上方编辑器审阅 diff,确认后「应用」固化,或「丢弃」还原。
         </div>
       )}

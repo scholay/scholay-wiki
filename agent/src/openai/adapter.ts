@@ -20,6 +20,11 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { ProviderConfig } from "../config/providerStore.ts";
 import { log } from "../obs/log.ts";
+import { estimateTokens } from "../turn/context-budget.ts";
+
+/** 估算刻度:与 context-budget 的 CHARS_PER_TOKEN 同源(EXECUTOR_EST_CHARS_PER_TOKEN,默认 2.6)。
+ *  只用于 usage 兜底估算(P0-6),不参与正常轮的精确计费。 */
+const EST_CHARS_PER_TOKEN = Number(process.env.EXECUTOR_EST_CHARS_PER_TOKEN || 2.6);
 
 type AnyBlock = { type: string; [k: string]: unknown };
 type OAContentPart =
@@ -294,6 +299,32 @@ class OpenAIFakeStream {
       throw this.err;
     }
 
+    // 🔴 合成 message_start(2026-08-02 计费审计 P0-6)。
+    //
+    // turnLoop 靠 message_start / message_delta 累计 partialUsage,在**用户 stop** 与**瞬态重放**
+    // 时把它 push 进 calls,以免整轮的上游消耗漏记(turnLoop.ts:526-529 那段注释写得很明白:
+    // 「大 prompt『发出即 stop』整轮 input 漏记,而前置额度闸只读不预扣,故可被反复利用绕过配额」)。
+    // 但本适配器的生成器**只 yield content_block_*,从不 yield message_start/message_delta**,
+    // 于是 partialUsage 恒为 null,两处抢救对所有 openai 格式 provider 都是空操作。
+    //
+    // 上游的真实 usage 只会在流末尾随 include_usage 到达,abort 时根本等不到 —— 所以这里先用
+    // 估算值开个底,真实值一到就由下面的 message_delta 覆盖(真实优先,估算只是兜底)。
+    // 估算刻意偏保守(estimateTokens 是 chars/2.6,中文会低估、且不计 tools schema),
+    // 宁可少记一点也不要因为估高而多扣用户 —— 这条路只在异常轮生效,不影响正常轮的精确计费。
+    const estInputTokens =
+      estimateTokens(this.params.messages) + Math.ceil((this.params.system?.length ?? 0) / EST_CHARS_PER_TOKEN);
+    yield {
+      type: "message_start",
+      message: {
+        usage: {
+          input_tokens: estInputTokens,
+          output_tokens: 0,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    } as any;
+
     // 流式状态机:text/thinking 块 + 按 OpenAI tool_calls index 聚合的 tool 块。
     let nextBlock = 0;
     let textIdx = -1, thinkIdx = -1;
@@ -355,7 +386,12 @@ class OpenAIFakeStream {
           if (data === "[DONE]") continue;
           let chunk: any;
           try { chunk = JSON.parse(data); } catch { continue; }
-          if (chunk.usage) usage = normOAUsage(chunk.usage);
+          if (chunk.usage) {
+            usage = normOAUsage(chunk.usage);
+            // 真实 usage 一到就下发 message_delta 覆盖上面的估算(turnLoop 是覆盖式合并)。
+            // 部分上游每个 chunk 都带累计 usage,这里每次都发,turnLoop 侧幂等。
+            yield { type: "message_delta", usage } as any;
+          }
           const choice = chunk.choices?.[0];
           if (!choice) continue;
           if (choice.finish_reason) finish = choice.finish_reason;
@@ -426,7 +462,29 @@ class OpenAIFakeStream {
       });
     }
 
-    if (!usage) log.warn("openai adapter: upstream sent no usage (billing gap this call)", { model: this.params.model });
+    // 🔴 上游不吐 usage 时**不再造一份四项全 0**(2026-08-02 计费审计 P0-6)。
+    // 旧行为:normOAUsage(null) → 全 0 → calls 推一条全 0 → message_complete.usage 全 0 →
+    // session_total 不前进 → backend 的 accrueTurnUsage(delta<=0 直接 return)与
+    // llmusage.Record(TotalTokens==0 直接 return)双双兜掉 → **该轮在账本上根本不存在**,
+    // 用户拿到完整答案、平台拿到 0 收入,且事后无法对账追补。相当一部分国产中转不实现
+    // stream_options.include_usage,这不是边缘情况,是整条端点长期 100% 免费。
+    // 改成回落估算值:量级对得上、可对账、可扣额度,总比"这一轮不存在"好。
+    if (!usage) {
+      const estOutputChars = textBuf.length + thinkBuf.length + [...toolByOAIdx.values()].reduce((n, st) => n + st.args.length, 0);
+      usage = {
+        input_tokens: estInputTokens,
+        output_tokens: Math.ceil(estOutputChars / EST_CHARS_PER_TOKEN),
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+      };
+      // error 而非 warn:这是一条持续漏计费的通道,值得被 grep 到并去给该 provider 开
+      // stream_options.include_usage(或换端点),而不是每轮一条 warn 淹没在日志里。
+      log.error("openai adapter: upstream sent no usage — falling back to ESTIMATED usage (fix the endpoint: enable stream_options.include_usage)", {
+        model: this.params.model,
+        est_input: usage.input_tokens,
+        est_output: usage.output_tokens,
+      });
+    }
     const content: AnyBlock[] = [];
     if (this.provider.reasoningReplay && thinkBuf) content.push({ type: "thinking", thinking: thinkBuf, signature: "" });
     if (textBuf) content.push({ type: "text", text: textBuf });
@@ -467,7 +525,8 @@ class OpenAIFakeStream {
       // 全部 tool args 被截断丢弃时按 finish 原义(length→max_tokens)走 turnLoop 截断分支。
       stop_reason: (validTools > 0 ? "tool_use" : mapStopReason(finish)) as never,
       stop_sequence: null,
-      usage: (usage ?? normOAUsage(null)) as never,
+      // usage 在上面已保证非空(上游没吐就回落估算,见 P0-6 红字)—— 这里不再有 ?? 全 0 兜底。
+      usage: usage as never,
     } as unknown as Anthropic.Message;
   }
 

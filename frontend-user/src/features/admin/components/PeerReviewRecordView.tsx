@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
+import { Badge } from '@/shared/ui/badge';
 import { StatusGrid } from '@/shared/components/peer-review-record/StatusGrid';
 import { ReviewerDetailPanel } from '@/shared/components/peer-review-record/ReviewerDetailPanel';
 import { ChiefVerdictPanel } from '@/shared/components/peer-review-record/ChiefVerdictPanel';
@@ -8,7 +9,9 @@ import { effectiveResult } from '@/shared/lib/peer-review/partial-parse';
 import { recBadgeClasses, recShortLabel } from '@/shared/lib/peer-review/recommendation';
 import type { ReviewReport, ReviewerRole } from '@/shared/lib/peer-review/types';
 import { adaptReportMap, adaptSubmission } from '../lib/pr-record-adapter';
-import { AssetsSection, RawDebug, RecordTabsBar } from './PeerReviewRecordParts';
+import { prComputeStateLabel, prStatusBadgeVariant, prStatusLabel } from '../lib/pr-labels';
+import { AssetsSection, OpsInfo, RawDebug, RecordTabsBar } from './PeerReviewRecordParts';
+import { formatBackendTime } from './TimeCell';
 import type { AdminPreviewFile } from './AdminFilePreviewDialog';
 import type { PRSubmissionDetail } from '../api/peer-review-monitor';
 
@@ -20,22 +23,16 @@ import type { PRSubmissionDetail } from '../api/peer-review-monitor';
  * 状态分流(避免 draft「假装在审」):
  *   - draft / queued 或无任何报告 → 进行中/草稿视图(只展示 wizard 已采集的数据 + 附件),不渲染审稿面板;
  *   - reviewing / completed / failed 且有报告 → 完整记录视图(tab + 面板 + 侧栏)。
- * 底部保留可折叠「调试数据」(用户视图没有的运营字段:computeState/agentSession/token/抽取文本)。
+ * 底部保留两块用户视图没有的运营内容:
+ *   - 「运维信息」(OpsInfo):agent 会话 ID(可复制)/ 计算状态 / 失败原因 / 各轮耗时与 token;
+ *   - 可折叠「调试数据」(RawDebug):完整原始 DTO,一个字段都不丢。
  *
  * **刻意不镜像**「编辑部初审」:该面板是产品硬编码约定(投稿成功=初审通过 + 固定示例指标
  * 查重/AIGC/排版/选题),不是真实检测结果 —— 在用来排查真实问题的监控台展示会误导管理员,
  * 故 tab / 面板 / StatusGrid 那一格(hideEditorial)一并隐藏。用户端保持原样不受影响。
  */
-const fmtTime = (s?: string | null) => (s ? s.slice(0, 16).replace('T', ' ') : '—');
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: '草稿',
-  queued: '排队中',
-  reviewing: '审稿进行中',
-  completed: '已结案',
-  failed: '失败',
-};
-
+// 时间统一走 TimeCell 的解析器(Safari 对 `2026-08-03 14:00:00` 空格分隔格式会解析成 NaN,
+// 而 admin 接口正是这个格式)。中文状态映射走 ../lib/pr-labels,与列表列**同一份口径**。
 export function PeerReviewRecordView({
   detail,
   onPreview,
@@ -112,6 +109,7 @@ export function PeerReviewRecordView({
 
       {detail.assets.length > 0 && <AssetsSection assets={detail.assets} submissionId={sub.id} onPreview={onPreview} />}
 
+      <OpsInfo detail={detail} />
       <RawDebug detail={detail} />
     </div>
   );
@@ -125,28 +123,29 @@ function Header({ sub, chief }: { sub: ReturnType<typeof adaptSubmission>; chief
       ? (sub.journalTarget?.canonicalName ?? '通用 STM 期刊')
       : (sub.schoolTarget?.schoolName ?? '——');
   return (
-    <section className="flex flex-col gap-2 rounded-md border border-border bg-background p-4">
+    <section className="flex flex-col gap-2 rounded-16 border border-border bg-surface-card p-4">
       <div className="flex flex-wrap items-center gap-2.5">
         {chief ? (
           <span
             className={cn(
-              'rounded-sm px-2 py-0.5 text-xs font-bold',
+              'rounded-4 px-2 py-0.5 text-12 font-medium',
               chiefRec ? recBadgeClasses(chiefRec) : 'border border-border bg-surface-1 text-subtle',
             )}
           >
             {chiefRec ? `已决议 · ${recShortLabel(chiefRec)}` : '已决议'}
           </span>
         ) : (
-          <span className="rounded-sm border border-border bg-surface-1 px-2 py-0.5 text-xs font-bold text-subtle">
-            {STATUS_LABEL[sub.status] ?? sub.status}
-          </span>
+          <Badge variant={prStatusBadgeVariant(sub.status)} title={sub.status}>
+            {prStatusLabel(sub.status)}
+          </Badge>
         )}
-        <span className="text-xs text-muted-foreground">
-          {sub.submittedAt ? `投稿 ${fmtTime(sub.submittedAt)}` : '未提交'} · 更新 {fmtTime(sub.updatedAt)}
+        <span className="text-12 text-muted-foreground">
+          {sub.submittedAt ? `投稿 ${formatBackendTime(sub.submittedAt)}` : '未提交'} · 更新{' '}
+          {formatBackendTime(sub.updatedAt)}
         </span>
       </div>
-      <h1 className="font-serif text-lg font-bold leading-tight text-foreground">{sub.title || '(未填标题)'}</h1>
-      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+      <h1 className="font-serif text-16 font-bold leading-display-tight text-foreground">{sub.title ||'(未填标题)'}</h1>
+      <div className="flex flex-wrap items-center gap-3 text-12 text-muted-foreground">
         <span>{target}</span>
         {sub.extraMeta?.subjects && sub.extraMeta.subjects.length > 0 && (
           <>
@@ -162,12 +161,12 @@ function Header({ sub, chief }: { sub: ReturnType<typeof adaptSubmission>; chief
 /** 失败横幅 —— 审稿未完成的原因(failed_reason 优先,回落 compute_error)。只读:无「重新审稿」。 */
 function FailedNote({ reason }: { reason?: string }) {
   return (
-    <div className="rounded-md border border-brand-red/30 bg-danger-soft px-4 py-3">
-      <div className="text-sm font-bold text-brand-red">审稿未完成</div>
-      <div className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+    <div className="rounded-16 border border-brand-red/30 bg-danger-soft px-4 py-3">
+      <div className="text-12 font-medium text-brand-red">审稿未完成</div>
+      <div className="mt-1 whitespace-pre-wrap break-words text-12 text-muted-foreground">
         {reason?.trim() || '后端未记录失败原因(可查看下方调试数据 / 后端日志)。'}
       </div>
-      <div className="mt-1 text-2xs text-faint">已生成的部分意见仍保留在下方面板中。</div>
+      <div className="mt-1 text-12 text-faint">已生成的部分意见仍保留在下方面板中。</div>
     </div>
   );
 }
@@ -175,7 +174,7 @@ function FailedNote({ reason }: { reason?: string }) {
 /** 非失败态但带 compute_error(某一步 agent 调用出错,整体还没判失败)—— 弱提示,不喧宾夺主。 */
 function ComputeErrorNote({ error }: { error: string }) {
   return (
-    <div className="rounded-md border border-brand-amber/30 bg-warning-soft px-3 py-2 text-xs text-brand-amber">
+    <div className="rounded-12 border border-brand-amber/30 bg-warning-soft px-3 py-2 text-12 text-brand-amber">
       计算错误:{error}
     </div>
   );
@@ -185,10 +184,10 @@ function ComputeErrorNote({ error }: { error: string }) {
 function DraftBody({ sub }: { sub: ReturnType<typeof adaptSubmission> }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-md border border-border bg-surface-1 px-3 py-2 text-xs text-muted-foreground">
+      <div className="rounded-12 border border-border bg-surface-1 px-3 py-2 text-12 text-muted-foreground">
         {sub.status === 'draft' || sub.status === 'queued'
-          ? `${STATUS_LABEL[sub.status] ?? sub.status} · 第 ${sub.step}/4 步 · 计算状态 ${sub.computeState}`
-          : `${STATUS_LABEL[sub.status] ?? sub.status} · 尚无审稿报告`}
+          ? `${prStatusLabel(sub.status)} · 第 ${sub.step}/4 步 · ${prComputeStateLabel(sub.computeState)}`
+          : `${prStatusLabel(sub.status)} · 尚无审稿报告`}
       </div>
       <Captured label="标题" text={sub.title} />
       <Captured label="摘要" text={sub.abstract} />
@@ -210,9 +209,9 @@ function DraftBody({ sub }: { sub: ReturnType<typeof adaptSubmission> }) {
 function Captured({ label, text }: { label: string; text?: string }) {
   if (!text) return null;
   return (
-    <div className="rounded-md border border-border bg-surface-1 p-3">
-      <div className="mb-1 text-2xs text-faint tracking-[0.12em]">{label}</div>
-      <div className="whitespace-pre-wrap break-words text-sm text-subtle">{text}</div>
+    <div className="rounded-12 border border-border bg-surface-1 p-3">
+      <div className="mb-1 text-12 text-faint">{label}</div>
+      <div className="whitespace-pre-wrap break-words text-12 text-subtle">{text}</div>
     </div>
   );
 }

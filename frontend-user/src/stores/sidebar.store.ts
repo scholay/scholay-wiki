@@ -83,7 +83,7 @@ export const useSidebar = create<SidebarState>()(
  *
  * 示例:
  *   useRegisterSidebarRail([
- *     { id: 'all', label: '我的文献集', icon: Folder, sectionId: 'library' },
+ *     { id: 'all', label: '我的文件夹', icon: Folder, sectionId: 'library' },
  *     { id: 'filters', label: '筛选器', icon: Filter, sectionId: 'filters' },
  *   ]);
  */

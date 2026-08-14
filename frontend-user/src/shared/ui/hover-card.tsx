@@ -24,7 +24,9 @@ const HoverCardContent = React.forwardRef<
       align={align}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 rounded-md border border-border bg-popover text-popover-foreground shadow-md outline-none',
+        // 「outline-none」是 Radix Content 容器的惯例:浮层本身不是可交互目标,
+        // 打开时 Radix 自己接管焦点,给容器画一圈全局 :focus-visible 环只是噪音。
+        'z-popover rounded-12 border border-border bg-popover text-popover-foreground outline-none',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',

@@ -42,6 +42,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"path/filepath"
 	"regexp"
@@ -53,6 +54,7 @@ import (
 	"github.com/google/uuid"
 
 	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentattachstore"
 	"scholar-backend/internal/agentbridge"
 )
 
@@ -66,13 +68,19 @@ const (
 // 前端只需把 path 放进 user_message.attachments[].path; sessionId 用于"添加文件即开会话"
 // 场景下前端 adopt 这个新会话 (历史会话上传时 sessionId 不变)。
 // ⚠️ 字段名是前端契约 (sessionId/type/name/mimeType/size/path), 三 feature 共用, 不可改。
+//
+// UUID/ID 是 0112 耐久化新增的**加法**字段:前端拿 uuid 就能拼统一取回端点
+// GET /user/attachment/:uuid。缺省为空 = MinIO 未启用的降级路径,前端回落老的 per-feature
+// session/file 代理(见 ⑨ 前向兼容)。老客户端不读这两个字段,不受影响。
 type AttachmentDTO struct {
 	SessionID string `json:"sessionId"`
 	Type      string `json:"type"` // "image" | "file"
 	Name      string `json:"name"`
 	MimeType  string `json:"mimeType"`
 	Size      int64  `json:"size"`
-	Path      string `json:"path"` // agent 容器内绝对路径 (会话隔离 cwd 下)
+	Path      string `json:"path"`           // agent 容器内绝对路径 (会话隔离 cwd 下)
+	UUID      string `json:"uuid,omitempty"` // 落盘名前缀 = 附件持久身份;取回端点按它反查
+	ID        uint64 `json:"id,omitempty"`   // agent_attachments 行 id(有 = 已耐久)
 }
 
 // SessionResolver — 请求未带 session_id 时的会话解析策略, feature 语义差异所在:
@@ -90,6 +98,13 @@ type Uploader struct {
 	// 其 cwd 是 LaTeX 文档工作区,附件混进根目录会污染编译面(评审遗留,2026-07-14 补)。
 	// executor pushSessionFile 白名单解析文件名里的一层子目录,其余照旧 basename 防穿越。
 	subdir string
+	// store 覆盖包级默认 store(只有单测用;生产走 SetDefaultStore,见 store.go 的解释)。
+	store Store
+	// pushFn 覆盖「把字节推进会话 cwd」这一步。抽成字段只为可测:feature 是具体类型
+	// (*agentbridge.FeatureBridge),没法伪造,而本次要防的回归恰恰是**双写顺序**
+	// (MinIO 先于 cwd)与「cwd 失败后重试不重传」——不给这个缝就一条都断言不了。
+	// nil = 走真实 agent 客户端(生产恒为 nil)。
+	pushFn func(ctx context.Context, sessionID, relPath string, body []byte) (string, error)
 }
 
 // NewUploader — resolveEmpty 为 nil 时默认 CreateNewSession (即 claw 原语义, 保持行为不变)。
@@ -114,6 +129,12 @@ func (u *Uploader) WithSubdir(dir string) *Uploader {
 	if subdirRe.MatchString(dir) {
 		u.subdir = dir
 	}
+	return u
+}
+
+// WithStore 覆盖本实例的耐久化 store(单测隔离用;生产走 SetDefaultStore)。
+func (u *Uploader) WithStore(s Store) *Uploader {
+	u.store = s
 	return u
 }
 
@@ -148,18 +169,21 @@ func (u *Uploader) HandleUpload(c *gin.Context, userID uint) (*AttachmentDTO, er
 			return nil, fmt.Errorf("会话不可用: %w", err)
 		}
 	}
-	return u.pushToSession(c.Request.Context(), sessionID, fh, attType, outMime, body)
+	return u.pushToSession(c.Request.Context(), userID, sessionID, fh, attType, outMime, body)
 }
 
 // UploadToSession — 会话由调用方解析/鉴权好的直通入口 (prism: per-project 会话,
 // handler 先按 projectID 校验归属 + ensureProjectSession 拿 sessionID 再调这里)。
 // 只做 multipart 校验 + 推送, 不看 session_id 表单字段。
-func (u *Uploader) UploadToSession(c *gin.Context, sessionID string) (*AttachmentDTO, error) {
+//
+// userID 是 0112 耐久化新增的必填参数:附件行的归属列。prism 的会话归属是 project,
+// 但**上传的人**永远是一个已鉴权自然人 —— 附件表刻意按 user_id 归属(见 0112 表头注释)。
+func (u *Uploader) UploadToSession(c *gin.Context, userID uint, sessionID string) (*AttachmentDTO, error) {
 	fh, attType, outMime, body, err := parseAndValidateUpload(c)
 	if err != nil {
 		return nil, err
 	}
-	return u.pushToSession(c.Request.Context(), sessionID, fh, attType, outMime, body)
+	return u.pushToSession(c.Request.Context(), userID, sessionID, fh, attType, outMime, body)
 }
 
 // parseAndValidateUpload — multipart 解析 + 类型白名单 + 大小限额 (纯校验, 不碰会话)。
@@ -239,35 +263,174 @@ func parseAndValidateUpload(c *gin.Context) (fh *multipart.FileHeader, attType, 
 	return fh, attType, outMime, body, nil
 }
 
-// pushToSession — 把校验完的字节推给 agent 会话 cwd, 组装 DTO。
-func (u *Uploader) pushToSession(parent context.Context, sessionID string, fh *multipart.FileHeader, attType, outMime string, body []byte) (*AttachmentDTO, error) {
+// pushToSession — 把校验完的字节**先落耐久层、再落会话 cwd**, 组装 DTO。
+//
+// 🔴 顺序是 MinIO → DB → cwd,不是反过来。两种顺序最终都是双写,区别只在**失败时留下什么**:
+//   - cwd 优先:cwd 写成功、MinIO 挂了 → 得到一个「有字节没耐久性」的附件,而**用户看不出
+//     区别** —— 静默降级回改造前的行为,是最坏的失败模式(这类断层本仓库反复吃亏)。
+//   - MinIO 优先(采纳):cwd 写失败时字节仍然是安全的,用户拿到可执行错误去腾空间再重试,
+//     而**重试会命中 sha 去重、不重新上传一遍 30MB**,只补一次 cwd 推送。
+//
+// 代价:被 cwd 配额拒掉的上传会在 MinIO 留一个对象 + 一行 materialized_at IS NULL 的行。
+// 这不是垃圾 —— 那是一份用户确实上传成功的文件,可取回、可复用、可删。挡恶意刷量的是
+// per-user 配额,它在 PUT **之前**。
+func (u *Uploader) pushToSession(parent context.Context, userID uint, sessionID string, fh *multipart.FileHeader, attType, outMime string, body []byte) (*AttachmentDTO, error) {
 	ctx, cancel := context.WithTimeout(parent, pushFileTimeout)
 	defer cancel()
-	// body 已在内存(gin multipart 读出),包成 reader 流给 agent —— 至少省掉 client 端的 multipart 整份缓冲。
 	// 落盘名 = <uuid>-<原名>:①前端历史回放剥离器(agent-history STORED_UUID_PREFIX)只认带
 	// UUID 前缀的 @"path" 为附件标记;②防同名文件互相覆盖。展示名(DTO.Name)仍用原名。
-	storedName := uuid.NewString() + "-" + filepath.Base(fh.Filename)
+	// 0112 起这个 UUID 同时是**附件的持久身份键**:它已经写在存量 journal 的 @"path" 里且
+	// 永不过期 ⇒ 取回端点按它反查,存量历史零改造。这三重用途叠在同一个串上,更不能改格式。
+	attUUID := uuid.NewString()
+	storedName := attUUID + "-" + filepath.Base(fh.Filename)
+	relPath := storedName
 	if u.subdir != "" {
 		// 子目录经文件名携带(executor 白名单解析一层安全段),免动 multipart 协议。
-		storedName = u.subdir + "/" + storedName
+		relPath = u.subdir + "/" + storedName
 	}
-	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, storedName, bytes.NewReader(body))
+
+	row, derr := u.persistDurable(ctx, userID, sessionID, attUUID, storedName, relPath,
+		fh.Filename, attType, outMime, body)
+	if derr != nil {
+		return nil, derr
+	}
+
+	// body 已在内存(gin multipart 读出),包成 reader 流给 agent —— 至少省掉 client 端的 multipart 整份缓冲。
+	pushedPath, err := u.push(ctx, sessionID, relPath, body)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionQuotaExceeded) {
 			// agent 端会话累计配额帽(1GB/2000 文件):给用户可执行的指引,不走 infra 脱敏。
-			return nil, errors.New("当前会话的文件空间已满, 请删除部分历史文件、新开会话后再上传")
+			//
+			// 文案里的**两条出路今天都真的走得通**,这是本次收尾补上的:
+			//   ① 新开一个对话 —— 一直可行(新会话 cwd 是空的);
+			//   ② 输入框「+」→「我的附件」里删掉不用的附件 —— 删除会连带清掉会话 cwd 里的
+			//      工作副本,于是**真的**能腾出这道帽的空间。在删除入口落地之前这句话是说不得的
+			//      (改造前那句「请删除部分历史文件」正是因为没有入口而成了空话)。
+			// 括号里那半句是耐久化买到的改善:字节此刻已在 MinIO,重传命中 sha 去重,
+			// 不会再传一遍 30MB。
+			return nil, errors.New("当前会话的文件空间已满, 请新开一个对话, 或在输入框「+」→「我的附件」里删掉不再需要的文件后重试(已上传的文件不会丢失)")
 		}
 		return nil, fmt.Errorf("文件推送失败: %w", err)
 	}
+	if row != nil {
+		now := time.Now()
+		if merr := u.st().MarkMaterialized(row.ID, &now); merr != nil {
+			// 只影响「下次是否多做一次存在性探测」,不影响本次可用性 → warn 不阻断。
+			slog.Warn("agentattach: 标记 cwd 副本失败", "attachment_id", row.ID, "err", merr)
+		}
+	}
 
-	return &AttachmentDTO{
+	dto := &AttachmentDTO{
 		SessionID: sessionID,
 		Type:      attType,
 		Name:      fh.Filename,
 		MimeType:  outMime,
 		Size:      fh.Size,
-		Path:      pushed.Path,
-	}, nil
+		Path:      pushedPath,
+		UUID:      attUUID,
+	}
+	if row != nil {
+		dto.ID = row.ID
+	}
+	return dto, nil
+}
+
+// st 解析本次要用的 store(实例覆盖优先,否则包级默认)。见 store.go 里为什么是包级默认。
+func (u *Uploader) st() Store { return resolveStore(u.store) }
+
+// push 把字节写进会话 cwd,返回 agent 容器内绝对路径。
+func (u *Uploader) push(ctx context.Context, sessionID, relPath string, body []byte) (string, error) {
+	if u.pushFn != nil {
+		return u.pushFn(ctx, sessionID, relPath, body)
+	}
+	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, relPath, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	return pushed.Path, nil
+}
+
+// persistDurable —— 把字节写进 MinIO + 落一行 agent_attachments。
+// 返回 (nil, nil) 表示**降级放行**:未装配 store 或 MinIO 未启用(dev 常态),行为完全等同
+// 改造前 —— 本机开发不该被迫起一套 MinIO。
+//
+// 已启用但 PutObject 失败则 **fail-closed** 报错:这是暂时性故障,用户重试代价低;
+// 静默降级会造成「以为存了其实没存」,而这正是本次要消灭的那类断层。
+func (u *Uploader) persistDurable(ctx context.Context, userID uint, sessionID, attUUID, storedName, relPath, filename, attType, outMime string, body []byte) (*agentattachstore.Attachment, error) {
+	st := u.st()
+	if st == nil || !objects.Enabled() {
+		if st == nil {
+			slog.Warn("agentattach: 附件耐久化未装配,本次上传只落会话 cwd(30 天 GC 后消失)",
+				"session_id", sessionID)
+		}
+		return nil, nil
+	}
+
+	// ① per-user 耐久额度:在 PUT **之前**。超额时一个字节都不写。
+	//
+	// 🔴 sha 必须先算:额度是按 **DISTINCT content_sha256** 求和的(SumBytesByUser),
+	// 所以「已经存过的同一份字节」再传一次并不会让占用变大 —— 此时把 len(body) 加进去
+	// 就是**凭空多算一次**。这个错在两个真实场景里会直接卡死用户:
+	//   · 浏览器/前端重试同一次上传(网络抖动)—— 明明没多占一个字节却被判超额;
+	//   · 会话 cwd 满 → 用户腾完空间**重试**(这条路正是 MinIO 优先顺序买来的能力):
+	//     恰恰是快到顶的用户最需要它,而按旧算法他必然被自己的第一次上传挡在门外。
+	sha := sha256Hex(body)
+	incoming := int64(len(body))
+	if prev, ferr := st.FindLiveByUserSHA(uint64(userID), sha); ferr == nil && prev != nil {
+		incoming = 0
+	}
+	used, err := st.SumBytesByUser(uint64(userID))
+	if err != nil {
+		// 额度算不出来时放行:配额是保护措施,不该因为一次 DB 抖动就把用户的正常上传拒掉。
+		slog.Warn("agentattach: 附件额度统计失败,本次放行", "user_id", userID, "err", err)
+	} else if used+incoming > maxUserAttachmentBytes {
+		// 用 ErrUserAttachmentQuota 包一层:调用方(各 feature handler)据此回 7010,
+		// 前端才能把这条错误接到「打开附件管理 → 删掉旧文件」这个**真的做得到**的动作上。
+		// 只回一句文案而没有专属码 = 又一次「指引一件用户做不到的事」。
+		return nil, fmt.Errorf("%w (已用 %s / 上限 %s), 请删除不再需要的附件后重试",
+			ErrUserAttachmentQuota, humanBytes(used), humanBytes(maxUserAttachmentBytes))
+	}
+
+	// ② 内容寻址 PUT(同用户同内容命中既有对象则跳过传输)。
+	key, perr := putAttachmentObject(ctx, st, userID, sha, outMime, body)
+	if perr != nil {
+		slog.Error("agentattach: 附件写入对象存储失败(fail-closed)",
+			"user_id", userID, "session_id", sessionID, "err", perr)
+		return nil, errors.New("文件保存失败, 请稍后重试")
+	}
+
+	// ③ 落行。uk_session_uuid 让重复写幂等。
+	row := &agentattachstore.Attachment{
+		AttachmentUUID: attUUID,
+		UserID:         uint64(userID),
+		FeatureKey:     u.featureKey(),
+		SessionID:      sessionID,
+		StoredName:     storedName,
+		RelPath:        relPath,
+		Filename:       filename,
+		AttType:        attType,
+		Mime:           outMime,
+		SizeBytes:      int64(len(body)),
+		ContentSHA256:  sha,
+		StorageKey:     key,
+	}
+	if uerr := st.Upsert(row); uerr != nil {
+		// 对象已经在 MinIO 了但行落不下 → 该对象无人可发现(孤儿)。这里 fail-closed 而不是
+		// 放行:没有行就没有取回入口、没有配额计数、没有删除权,等于「存了但用户拿不到」。
+		// 孤儿对象由 reaper 兜底(与 library_cleanup 同款,Phase 3)。
+		slog.Error("agentattach: 附件元数据落库失败(对象已写入,留待 reaper 回收)",
+			"user_id", userID, "session_id", sessionID, "key", key, "err", uerr)
+		return nil, errors.New("文件保存失败, 请稍后重试")
+	}
+	return row, nil
+}
+
+// featureKey 取所属 feature 的 key(仅用于审计列;未装配时空串)。
+func (u *Uploader) featureKey() string {
+	if u == nil || u.feature == nil {
+		return ""
+	}
+	return u.feature.Spec().Key
 }
 
 // ─── 类型嗅探 helpers ────────────────────────────────────────────────────

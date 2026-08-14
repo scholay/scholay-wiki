@@ -16,10 +16,10 @@ export function PullToRefreshIndicator({
   const opacity = refreshing ? 1 : Math.min(pull / 50, 1);
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
+      className="pointer-events-none absolute inset-x-0 top-0 z-raised flex justify-center"
       style={{ transform: `translateY(${Math.max(pull - 28, 4)}px)`, opacity }}
     >
-      <div className="flex size-8 items-center justify-center rounded-full border border-border bg-background shadow-sm">
+      <div className="flex size-8 items-center justify-center rounded-pill border border-border bg-surface-card">
         <Loader2
           className={cn('size-4 text-muted-foreground', refreshing && 'animate-spin')}
           style={refreshing ? undefined : { transform: `rotate(${pull * 3}deg)` }}

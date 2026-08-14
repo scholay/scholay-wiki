@@ -1,0 +1,194 @@
+# 两组比较族方法卡。
+#
+# `reports_required` 是**数字锁唯一真正的执行点**:`emit` 校验这些字段齐全,缺一项拒收(退出码 2)。
+# 它同时是「六项最低必报项」(n / 效应量 / 95%CI / 精确 p / 前提与校正 / 缺失与软件版本)的机器可读形态 ——
+# 那六项跨 Nature Reporting Summary、SAMPL、ARRIVE、PRISMA、ICMJE 的交集,任何学科都不会错。
+#
+# 🔴 `p_exact` 存 **float 原值**,绝不存格式化后的字符串。
+#    `p=.000` / `p<.05` / `NS` 三种错误写法全部诞生于「在 bundle 里就已经是字符串」;
+#    格式化只发生在 report verb 的确定性函数里(吃目标体系 + 原始 p)。
+
+methods:
+  - id: student_t
+    name_zh: 独立样本 t 检验
+    name_en: Student's independent samples t-test
+    # S2:arity 与设计单位上卡片 —— 主流程不再硬编码「只支持两组」。
+    group_levels: {min: 2, max: 2}
+    units: independent
+    family: two_group
+    engine: "lib:scipy.stats.ttest_ind(equal_var=True)"
+    requires: [shapiro_by_group, levene_center_median]
+    effects: [cohens_d, hedges_g]
+    reports_required:
+      - n.by_group
+      - n.missing_excluded
+      - statistic
+      - df
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - assumptions
+      - software
+    golden: ["R:stats::t.test(var.equal=TRUE)", "fixture:two_group_normal_equalvar"]
+    mem_cells_max: 2000000
+    citations:
+      - id: kim2019-ttest
+        role: primary
+        access: oa
+        cite: "Kim HY. Statistical notes for clinical researchers: the independent samples t-test. Restor Dent Endod. 2019;44(3):e26."
+        url: "https://www.rde.ac/upload/pdf/rde-44-e26.pdf"
+
+  - id: welch_t
+    name_zh: Welch t 检验(不假定等方差)
+    name_short_zh: Welch t 检验
+    name_en: Welch's t-test
+    # S2:arity 与设计单位上卡片 —— 主流程不再硬编码「只支持两组」。
+    group_levels: {min: 2, max: 2}
+    units: independent
+    family: two_group
+    engine: "lib:scipy.stats.ttest_ind(equal_var=False)"
+    requires: [shapiro_by_group, levene_center_median]
+    # 🔴 第一个是**默认报告的那个**,必须与引擎实际产出一致(2026-08-06 修)。
+    #    此前写 [cohens_d, hedges_g] 而引擎产出的是 hedges_g —— 声明与实现漂移;
+    #    更要紧的是 hedges_g 的分母是**合并 SD**,那是等方差量:
+    #    走到 Welch 这一支的前提恰恰是「方差不齐」,拿合并方差去标准化自相矛盾,
+    #    蒙特卡洛实测该区间在「小样本那组方差大」时只覆盖 71%(标称 95%)。
+    effects: [hedges_g_av]
+    reports_required:
+      - n.by_group
+      - n.missing_excluded
+      - statistic
+      - df            # ⚠️ Welch 的 df 是**小数**(Welch–Satterthwaite),模板不得四舍五入成整数
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - assumptions
+      - software
+    golden: ["R:stats::t.test(var.equal=FALSE)", "fixture:two_group_normal_unequalvar"]
+    mem_cells_max: 2000000
+    notes_zh: >-
+      Delacre 等(2017)主张把它作为两组比较的**无条件默认**(不做方差齐性前置检验)。
+      本仓 base doctrine 取 pretest-classic(先测再分流),welch-always 作为用户可选 doctrine;
+      两派都在 D-01/D-03 的 citations 里登记,report 如实披露。
+    citations:
+      - id: delacre2017-welch
+        role: primary
+        access: oa
+        cite: "Delacre M, Lakens D, Leys C. Why psychologists should by default use Welch's t-test instead of Student's t-test. IRSP. 2017;30(1):92-101."
+        url: "https://rips-irsp.com/articles/10.5334/irsp.82/"
+
+  - id: mann_whitney
+    name_zh: Mann-Whitney U 检验(秩和)
+    name_short_zh: Mann-Whitney U 检验
+    name_en: Mann-Whitney U test
+    # S2:arity 与设计单位上卡片 —— 主流程不再硬编码「只支持两组」。
+    group_levels: {min: 2, max: 2}
+    units: independent
+    family: two_group
+    engine: "lib:scipy.stats.mannwhitneyu"
+    nonparametric: true
+    statistic_symbol: "U"
+    comparison_noun_zh: "分布位置差异"
+    requires: [shapiro_by_group]
+    effects: [rank_biserial]
+    reports_required:
+      - n.by_group
+      - n.missing_excluded
+      - statistic
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - descriptives   # 非参必报中位数与四分位,不能只报均数
+      - assumptions
+      - software
+    golden: ["R:stats::wilcox.test", "fixture:two_group_skewed"]
+    mem_cells_max: 2000000
+    notes_zh: >-
+      ⚠️ 它检验的是**分布位置**,不是「均数差」。Methods/Results 措辞不得写成「两组均数差异显著」——
+      report 模板对本方法走单独的措辞分支(常见误述,审稿人会抓)。
+    citations:
+      - id: whitley2002-nonparam
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 6: Nonparametric methods. Critical Care. 2002;6(6):509-513."
+        url: "https://europepmc.org/articles/PMC153434"
+
+  - id: paired_t
+    name_zh: 配对 t 检验
+    name_en: paired t-test
+    # S2:arity 与设计单位上卡片 —— 主流程不再硬编码「只支持两组」。
+    group_levels: {min: 2, max: 2}
+    units: paired
+    family: two_group
+    engine: "lib:scipy.stats.ttest_rel"
+    requires: [shapiro_diff]
+    effects: [cohens_d_z]
+    reports_required:
+      - n.pairs
+      - n.missing_excluded
+      - statistic
+      - df
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - assumptions
+      - software
+    golden: ["R:stats::t.test(paired=TRUE)", "fixture:paired_normal"]
+    mem_cells_max: 2000000
+    citations:
+      - id: whitley2002-means
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 5: Comparison of means. Critical Care. 2002;6(5):424-428."
+        url: "https://europepmc.org/articles/PMC137324"
+
+  - id: wilcoxon
+    name_zh: Wilcoxon 符号秩检验
+    name_en: Wilcoxon signed-rank test
+    # S2:arity 与设计单位上卡片 —— 主流程不再硬编码「只支持两组」。
+    group_levels: {min: 2, max: 2}
+    units: paired
+    family: two_group
+    engine: "lib:scipy.stats.wilcoxon"
+    nonparametric: true
+    statistic_symbol: "W"
+    comparison_noun_zh: "分布位置差异"
+    requires: [shapiro_diff]
+    effects: [matched_rank_biserial]
+    reports_required:
+      - n.pairs
+      - n.missing_excluded
+      - statistic
+      - p_exact
+      - effect.name
+      - effect.value
+      - effect.ci_low
+      - effect.ci_high
+      - effect.ci_method
+      - descriptives
+      - assumptions
+      - software
+      # 🔴 零差值对被 Wilcoxon 原法丢弃 —— 检验的有效 n 必须可见。
+      #    列进必报项 = 由数字锁强制存在;否则「n 报 15、检验只用了 5 对」会再次发生。
+      - n.pairs_effective
+      - n.zero_diffs
+    golden: ["R:stats::wilcox.test(paired=TRUE)", "fixture:paired_skewed"]
+    mem_cells_max: 2000000
+    citations:
+      - id: whitley2002-nonparam
+        role: primary
+        access: oa
+        cite: "Whitley E, Ball J. Statistics review 6: Nonparametric methods. Critical Care. 2002;6(6):509-513."
+        url: "https://europepmc.org/articles/PMC153434"

@@ -3,6 +3,7 @@ import { errMsg } from '../../lib/feedback'
 import { copyText } from '../../lib/clipboard'
 import { formatMetric } from '../../lib/format'
 import { currentPagePath } from '../../lib/share'
+import { reportActivity } from '../../services/activity'
 
 interface Stat { label: string; value: string }
 interface TopPaper { paperId: string; title: string; sub: string; cite: string }
@@ -19,7 +20,16 @@ Page({
     topPapers: [] as TopPaper[],
   },
 
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
+  },
+
   onShareAppMessage() {
+    reportActivity()
     return { title: this.data.name || '学者 · Scholay 学术', path: currentPagePath() }
   },
 

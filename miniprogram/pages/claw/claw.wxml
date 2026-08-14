@@ -1,4 +1,4 @@
-<view class="claw">
+<view class="claw" capture-bind:touchstart="onUserActivity">
   <!-- 未登录:对齐空白态 hero 视觉 -->
   <view wx:if="{{ready && !loggedIn}}" class="guest">
     <view class="hero">
@@ -194,6 +194,18 @@
                 <text class="te-title">回答失败</text>
                 <text class="te-msg">{{item.error}}</text>
               </view>
+            </view>
+
+            <!-- 命中额度「尚未发送」轮(对标 Web MessageTurn blocked 卡):保留用户气泡 + 一键重发 -->
+            <view wx:if="{{item.blocked}}" class="quota-blocked">
+              <view class="qb-head">
+                <image class="te-ic" src="{{ic.alertCircleAmber}}" />
+                <view class="qb-main">
+                  <text class="qb-title">本周期额度已用完,这条消息尚未发送</text>
+                  <text class="qb-sub">重置额度或升级会员后,点「重新发送」即可继续,无需重新输入。</text>
+                </view>
+              </view>
+              <view class="qb-resend tap" hover-class="hover-scale" data-id="{{item.id}}" bindtap="onResendBlocked">重新发送</view>
             </view>
 
             <!-- 已暂停 chip(对标 Web PausedNotice) -->

@@ -57,7 +57,8 @@ func (h *Handler) GetSession(c *gin.Context) {
 		utils.InternalError(c, codeAgentUnreachable, "智能助手暂时不可用,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 附带首连 ws ticket(best-effort),省掉前端首连前的 POST /session/ws-ticket 一跳。
+	utils.Success(c, agentbridge.SessionEnvelopeWithTicket(c.Request.Context(), h.feature, userID, sessionID))
 }
 
 func (h *Handler) ResetSession(c *gin.Context) {
@@ -247,7 +248,8 @@ func (h *Handler) CreateNewSession(c *gin.Context) {
 		utils.InternalError(c, codeAgentUnreachable, "新建会话失败,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 建后必连:附首连 ws ticket 省一跳 POST(best-effort,见 agentbridge.SessionEnvelopeWithTicket)。
+	utils.Success(c, agentbridge.SessionEnvelopeWithTicket(c.Request.Context(), h.feature, userID, sessionID))
 }
 
 // RenameSession — PATCH /claw/sessions/:id
@@ -322,7 +324,8 @@ func (h *Handler) ActivateSession(c *gin.Context) {
 		utils.InternalError(c, codeAgentUnreachable, "切换会话失败,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 切会话后 WS 必重连:附首连 ws ticket 省一跳 POST。
+	utils.Success(c, agentbridge.SessionEnvelopeWithTicket(c.Request.Context(), h.feature, userID, sessionID))
 }
 
 // isErrNotFound — 把 agentbridge.ErrNotFound 包到 handler 友好分支判断。
@@ -345,8 +348,9 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	att, err := h.uploader.HandleUpload(c, userID)
 	if err != nil {
-		// HandleUpload 的错误是面向用户的校验反馈(类型不支持 / 超限),原样回显。
-		utils.SafeError(c, codeUploadFailed, err)
+		// 错误多数是面向用户的校验反馈(类型不支持 / 超限),原样回显;
+		// **per-user 附件额度满**要单独回 7010,前端据此弹附件管理让用户自己腾空间。
+		agentattach.RespondUploadError(c, codeUploadFailed, err)
 		return
 	}
 	utils.Success(c, att)

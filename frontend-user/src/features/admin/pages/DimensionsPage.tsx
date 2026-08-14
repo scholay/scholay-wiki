@@ -3,6 +3,7 @@ import { Pencil } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { Label } from '@/shared/ui/label';
 import { Switch } from '@/shared/ui/switch';
 import {
@@ -13,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
+import { TruncatedText } from '@/shared/components/TruncatedText';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { useApiToast } from '../hooks/useApiToast';
@@ -33,7 +35,8 @@ import {
  * AI 分析 prompt 在每次请求时基于这里的维度动态拼出维度清单 + JSON schema。
  */
 export function DimensionsPage() {
-  const { data, isLoading } = useDimensions();
+  const q = useDimensions();
+  const { data, isLoading } = q;
   const update = useUpdateDimension();
   const apiToast = useApiToast();
   const [editing, setEditing] = useState<AnalysisDimension | null>(null);
@@ -51,24 +54,29 @@ export function DimensionsPage() {
       header: '维度',
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="font-bold text-foreground">{r.name}</span>
-          <span className="text-2xs text-faint font-mono">{r.dimensionKey}</span>
+          <span className="font-medium text-foreground">{r.name}</span>
+          <span className="text-12 text-faint font-mono">{r.dimensionKey}</span>
         </div>
       ),
     },
     {
       header: '描述 / AI 分析指示',
-      cell: (r) => (
-        <span className="text-xs text-muted-foreground line-clamp-2 max-w-xl">
-          {r.description || '—'}
-        </span>
-      ),
+      // 这段文本会被原样拼进每次论文分析的 prompt —— 只给两行截断且无 title 时,
+      // 想核对某个维度到底写了什么只能逐个点开编辑弹窗。TruncatedText 给「全部」查看入口。
+      cell: (r) =>
+        r.description ? (
+          <TruncatedText lines={2} className="text-12 text-muted-foreground max-w-xl">
+            {r.description}
+          </TruncatedText>
+        ) : (
+          <span className="text-12 text-faint">—</span>
+        ),
     },
     {
       header: '排序',
       width: 70,
       align: 'right',
-      cell: (r) => <span className="text-xs text-muted-foreground tabular-nums">{r.sortOrder}</span>,
+      cell: (r) => <span className="text-12 text-muted-foreground tabular-nums">{r.sortOrder}</span>,
     },
     {
       header: '状态',
@@ -97,9 +105,27 @@ export function DimensionsPage() {
   return (
     <AdminPageLayout
       title="分析维度"
-      description={`共 ${data?.length ?? 0} 个系统维度 · 名称 / 描述 / 排序 / 启用可改,key 锁定`}
+      // 接口失败时 `data?.length ?? 0` 会报「共 0 个系统维度」—— 分析维度是 AI 分析 prompt
+      // 的真源,显示成 0 会让人以为维度表被清空。失败就说失败,不报数。
+      description={
+        q.isError
+          ? '维度加载失败 · 下方为错误详情'
+          : isLoading
+            ? '正在加载系统维度…'
+            : `共 ${data?.length ?? 0} 个系统维度 · 名称 / 描述 / 排序 / 启用可改,key 锁定`
+      }
+      onRefresh={() => void q.refetch()}
+      refreshing={q.isFetching}
     >
-      <DataTable columns={columns} rows={data} loading={isLoading} />
+      <DataTable
+        columns={columns}
+        rows={data}
+        loading={isLoading}
+        error={q.error}
+        onRetry={() => void q.refetch()}
+        emptyMessage="没有任何系统维度"
+        emptyDescription="分析维度由后端种子数据初始化,列表为空通常意味着迁移未执行。"
+      />
 
       <DimensionEditDialog
         dimension={editing}
@@ -151,6 +177,7 @@ function DimensionEditDialog({
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
+            if (!Number.isFinite(sortOrder)) return;
             onSave(dimension.id, { name, description, sortOrder, isActive });
           }}
         >
@@ -168,16 +195,15 @@ function DimensionEditDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="dim-desc">AI 分析指示</Label>
-            <textarea
+            <Textarea
               id="dim-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
               rows={6}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="给 AI 的指示 —— 例如:请提取论文采用的研究方法,如实验、调查、案例分析等。"
             />
-            <p className="text-2xs text-faint">
+            <p className="text-12 text-faint">
               这里写的是给 AI 的"提示" —— 用大白话告诉它在这一个维度上要识别什么。每次论文分析时会拼进 prompt 里。
             </p>
           </div>
@@ -188,15 +214,17 @@ function DimensionEditDialog({
               <Input
                 id="dim-sort"
                 type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+                value={Number.isFinite(sortOrder) ? sortOrder : ''}
+                onChange={(e) =>
+                  setSortOrder(e.target.value === '' ? Number.NaN : Number(e.target.value))
+                }
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dim-active">启用</Label>
               <div className="flex items-center h-9 gap-2">
                 <Switch id="dim-active" checked={isActive} onCheckedChange={setIsActive} />
-                <span className="text-xs text-muted-foreground">
+                <span className="text-12 text-muted-foreground">
                   {isActive ? '矩阵分析会包含本维度' : '停用后所有调用都不传给 AI'}
                 </span>
               </div>
@@ -207,7 +235,7 @@ function DimensionEditDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               取消
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || !Number.isFinite(sortOrder)}>
               {saving ? '保存中…' : '保存'}
             </Button>
           </DialogFooter>

@@ -10,6 +10,11 @@ import type { MySkill } from '@/shared/api/skills';
  * 管理端 Skills 审核 —— 对接 /api/v1/admin/skills*。
  * mirrors backend/internal/skillmarket/{model.go,handler.go} 的 admin 接口。
  * queryKey:['admin','skills',status] 审核队列;['admin','skills','reports',status] 举报。
+ *
+ * ⚠️ 审核队列复用 `MySkill`(= Go 的 MySkillDTO),但 **service.AdminList 只填了其中一部分字段**:
+ * ID/Slug/Name/Tagline/Category/Visibility/ModerationStatus/ModerationNote/Status/InstallCount/UpdatedAt。
+ * `version` **没有被映射**,恒为 0 —— 页面上要么别显示,要么 `version > 0` 才渲染,
+ * 否则每一行都会印一个假的「v0」。(要修得动后端 AdminList 的 DTO 组装。)
  */
 
 export interface AdminSkillReport {

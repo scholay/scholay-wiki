@@ -25,14 +25,14 @@ import type { LandingFeature, UseCase } from '../data/landings';
  */
 
 const THEME_BG: Record<NonNullable<UseCase['theme']>, string> = {
-  light: 'bg-background border border-border',
+  light: 'bg-surface-card border border-border',
   dark: 'bg-foreground border border-foreground',
   amber: 'bg-prism-badge-bg border border-prism-badge-bg',
 };
 
 const THEME_TITLE: Record<NonNullable<UseCase['theme']>, string> = {
   light: 'text-foreground',
-  dark: 'text-background',
+  dark: 'text-on-dark',
   amber: 'text-foreground',
 };
 
@@ -58,11 +58,11 @@ const THEME_TAG: Record<NonNullable<UseCase['theme']>, string> = {
  *  不用 `import * as Icons` 否则会把整个 lucide 拖进 bundle,破坏 tree-shaking。
  *  新增 icon → 在这里 import + 注册一项。 */
 const ICON_MAP: Record<string, LucideIcon> = {
-  'graduation-cap': GraduationCap,
-  'flask-conical': FlaskConical,
+  'graduation-cap' : GraduationCap,
+  'flask-conical' : FlaskConical,
   users: Users,
   library: Library,
-  'refresh-ccw': RefreshCcw,
+  'refresh-ccw' : RefreshCcw,
 };
 function getIcon(name?: string): LucideIcon | null {
   if (!name) return null;
@@ -74,12 +74,18 @@ function Card({ uc }: { uc: UseCase }) {
   const Icon = getIcon(uc.icon);
 
   return (
-    <div className={cn('flex flex-col gap-5 p-8 rounded-lg h-full', THEME_BG[theme])}>
+    // data-surface="dark" —— dark 卡是【整块暗底】(不是浅底上的深色按钮),环画在卡片自身底色上。
+    // 默认 --ring rgb(31 31 35 / .50) 压在 bg-foreground #1F1F23 上 = 1.000:1 完全隐形
+    // (globals.css §13 的 [data-surface='dark'] 覆写把它换成 --ring-on-dark-emphasis)。
+    <div
+      data-surface={theme === 'dark' ? 'dark' : undefined}
+      className={cn('flex flex-col gap-5 p-8 rounded-16 h-full', THEME_BG[theme])}
+    >
       {/* tag —— Prism 风格,优先于 icon */}
       {uc.tag && (
         <span
           className={cn(
-            'inline-flex items-center self-start px-2.5 py-1 rounded-sm text-2xs font-bold tracking-[0.15em] uppercase',
+            'inline-flex items-center self-start px-2.5 py-1 rounded-4 text-12 font-medium uppercase',
             THEME_TAG[theme]
           )}
         >
@@ -91,32 +97,32 @@ function Card({ uc }: { uc: UseCase }) {
       {!uc.tag && Icon && (
         <div
           className={cn(
-            'inline-flex h-10 w-10 items-center justify-center rounded-full',
+            'inline-flex h-10 w-10 items-center justify-center rounded-pill',
             theme === 'dark' ? 'bg-surface-2' : 'bg-prism-badge-bg'
           )}
         >
           <Icon
-            className={cn('size-5', theme === 'dark' ? 'text-background' : 'text-foreground')}
+            className={cn('size-5', theme === 'dark' ? 'text-on-dark' : 'text-foreground')}
             strokeWidth={2}
           />
         </div>
       )}
 
-      <h3 className={cn('font-display italic font-semibold text-2xl leading-[1.1]', THEME_TITLE[theme])}>
+      <h3 className={cn('font-display italic font-medium text-24 leading-display-tight', THEME_TITLE[theme])}>
         {uc.title}
       </h3>
       {uc.subtitle && (
-        <span className={cn('font-display italic font-medium text-lg -mt-3', THEME_BODY[theme])}>
+        <span className={cn('font-display italic font-medium text-16 -mt-3', THEME_BODY[theme])}>
           {uc.subtitle}
         </span>
       )}
 
-      <p className={cn('text-md leading-[1.7]', THEME_BODY[theme])}>{uc.desc}</p>
+      <p className={cn('text-14 leading-paragraph', THEME_BODY[theme])}>{uc.desc}</p>
 
       <ul className="flex flex-col gap-2 mt-auto">
         {uc.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2 text-sm">
-            <span className={cn('font-bold mt-0.5', THEME_BULLET_DOT[theme])} aria-hidden>
+          <li key={b} className="flex items-start gap-2 text-12">
+            <span className={cn('font-medium mt-0.5', THEME_BULLET_DOT[theme])} aria-hidden>
               ·
             </span>
             <span className={THEME_BODY[theme]}>{b}</span>

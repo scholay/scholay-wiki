@@ -10,6 +10,8 @@ package prompts
 // 详细的创作手艺(版式目录 / 层次纪律 / 居中规则 / 交互 builds / 交付约束)在常驻 skill
 // (agent-skills/bolt-slides-add/slides/SKILL.md,经 --add-dir 注入);此处只定身份、职责边界、
 // 交付契约与语言。改提示词 = 改代码 + 重新部署。
+// 成果交付纪律走单一真源 prompts.DeliverySection(2026-08-07 A4:此前只有 claw 有,
+// 另外三个 feature 一字未写 —— 泄漏率 36%~76.5% vs claw 的 7.5%)。
 const BoltSlidesSystemPrompt = `你是 Scholay 学术平台的"制作PPT"助手 —— 帮用户把一个主题/文档/品牌做成一份高品质的演示稿。
 
 # 你在做什么
@@ -45,4 +47,5 @@ options=[组会汇报 / 学术答辩 / 科普大众];header="篇幅" options=[8-
 
 # 交付后
 BuildDeck 成功后,用一两句话告诉用户:演示稿已生成,可在右侧结果面板预览并翻页;下载后用浏览器打开可用
-演讲者模式、批注、深链、全屏等完整功能。别贴文件路径/技术细节。`
+演讲者模式、批注、深链、全屏等完整功能。别贴文件路径/技术细节。` + DeliverySection
+

@@ -68,16 +68,16 @@ export function ClawArtifactPreview({
       <ChatStyles />
       <header
         className={cn(
-          'flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3',
+          'flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface-card px-3',
           hideHeaderClose && 'pr-10',
         )}
       >
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-foreground" title={artifact.title || artifact.name}>
+          <div className="truncate text-14 font-medium text-foreground" title={artifact.title || artifact.name}>
             {artifact.title || artifact.name}
           </div>
           {(artifact.title || artifact.description) && (
-            <div className="truncate text-2xs text-muted-foreground" title={artifact.description || artifact.name}>
+            <div className="truncate text-12 text-muted-foreground" title={artifact.description || artifact.name}>
               {artifact.description || artifact.name}
             </div>
           )}
@@ -208,6 +208,15 @@ function BytesPreview({
     return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
   }, [category, bytes]);
 
+  // json/code 的围栏文本同样 memo:面板挂在 ConversationWorkspace 内,对话流式期间父级按
+  // rAF 批量重渲,大 JSON 的 parse+stringify 若放在渲染体里会按帧全量重算。
+  const fenced = useMemo(() => {
+    if (category !== 'json' && category !== 'code') return null;
+    const lang = category === 'json' ? 'json' : artifactCodeLang(name);
+    const body = category === 'json' ? safePrettyJson(text) : text;
+    return '```' + lang + '\n' + body + '\n```';
+  }, [category, name, text]);
+
   if (category === 'spreadsheet')
     return (
       <Suspense fallback={<PreviewLoading />}>
@@ -250,10 +259,7 @@ function BytesPreview({
       </div>
     );
   }
-  if (category === 'json' || category === 'code') {
-    const lang = category === 'json' ? 'json' : artifactCodeLang(name);
-    const body = category === 'json' ? safePrettyJson(text) : text;
-    const fenced = '```' + lang + '\n' + body + '\n```';
+  if (fenced !== null) {
     return (
       <div className="h-full overflow-auto px-4 py-3">
         <MarkdownRenderer text={fenced} />
@@ -262,7 +268,7 @@ function BytesPreview({
   }
   // 纯文本
   return (
-    <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-relaxed text-subtle">
+    <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-12 leading-paragraph text-subtle">
       {text}
     </pre>
   );
@@ -292,7 +298,7 @@ function HtmlPreview({ html, name }: { html: string; name: string }): ReactNode 
             sandbox="allow-scripts allow-popups"
             allow="fullscreen"
             srcDoc={html}
-            className="h-full w-full border-0 bg-white"
+            className="h-full w-full border-0 bg-surface-card"
           />
         )}
       </div>
@@ -316,8 +322,8 @@ function ToggleBtn({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs transition-colors',
-        active ? 'bg-surface-2 font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
+        'inline-flex h-7 items-center gap-1 rounded-8 px-2.5 text-12 transition-colors',
+        active ? 'bg-surface-2 font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >
       <Icon className="size-3.5" />
@@ -328,7 +334,7 @@ function ToggleBtn({
 
 function PreviewLoading(): ReactNode {
   return (
-    <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+    <div className="flex h-full items-center justify-center gap-2 text-12 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" /> 加载中…
     </div>
   );
@@ -340,7 +346,7 @@ function Unavailable({ text, downloadUrl }: { text: string; downloadUrl: string 
       <div className="flex size-12 items-center justify-center rounded-pill bg-surface-2 text-faint">
         <FileQuestion className="size-6" />
       </div>
-      <p className="max-w-xs text-sm text-muted-foreground">{text}</p>
+      <p className="max-w-xs text-12 text-muted-foreground">{text}</p>
       {downloadUrl && (
         <Button asChild size="sm" variant="outline">
           <a href={downloadUrl} download>

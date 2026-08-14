@@ -51,6 +51,21 @@ export interface ToolBlock {
    * 留字段是预留协议接入。
    */
   parentToolUseId?: string;
+
+  // ─── 构建期流式入参(2026-07 工具交互 P0)───────────────────────────────
+  // agent 把 Write.content 的明文增量以 content_delta{toolInput,toolPath} 帧广播
+  // (turnLoop P1-1;此前仅 prism 消费做文档预览,claw/search 的 fold 直接丢弃)。
+  // fold 经 appendToolInputStream 把增量挂到在途 ToolBlock,ToolCallBlock 的
+  // 「构建中」态据此渲染 文件名 + 已写入字数 + 尾部预览,取代纯 spinner 干等。
+  // **仅实时流有值**:journal 不存 toolInput 增量 → 历史回放/刷新后 undefined(优雅降级);
+  // tool_use_complete 后由 finishToolInputStream 清除(完整 input 已到,预览态结束)。
+
+  /** 流式入参的截尾窗口(仅保尾部若干字符,防长文档撑爆内存;见 STREAMING_INPUT_TAIL)。 */
+  streamingInput?: string;
+  /** 流式期已累计的入参总字符数(窗口是截尾的,总量单独计)。 */
+  streamingChars?: number;
+  /** 流式期从 content_delta.toolPath 抽到的目标文件路径(input 未组装完时先亮文件名)。 */
+  streamingPath?: string;
 }
 
 export type AssistantBlock = TextBlock | ToolBlock;
@@ -105,12 +120,18 @@ export interface Turn {
    */
   userAttachments?: TurnAttachment[];
 
-  /** 该轮用户引用的文献集论文 / 文件夹 (claw「引用文献」)。与附件同属 user 侧元数据,
+  /** 该轮用户引用的收藏论文 / 整个文件夹 (claw「引用文献」)。与附件同属 user 侧元数据,
    *  渲染成特有的「引用」chip。实时轮由 composer 透传;历史回放从 user 文本的引用块解析恢复。 */
   userReferences?: TurnReference[];
 
   /** 该轮使用的 model (history transcript 回放时填; 实时流不一定填) */
   model?: string;
+
+  /** 该轮用户消息的时间(history transcript 的 user entry timestamp)。 */
+  startedAt?: string;
+
+  /** 该轮最后一条已知 entry 的时间；结构化会话元数据可覆盖成精确终态时间。 */
+  completedAt?: string;
 
   /** message_complete.usage 的 token 统计; UI 可在 indicator 末尾展示 */
   usage?: TurnTokenUsage;
@@ -140,6 +161,16 @@ export interface Turn {
   claimAudited?: boolean;
 
   /**
+   * 本轮的**引擎口径**取证过程计数(2026-08 证据账本 P0-c)——由执行器的 `research_state` 帧填。
+   * 渲染成一枚带外 chip 印在本轮输出旁边(见 shared/components/chat/ResearchStateChip)。
+   *
+   * 🔴 只有帧到过才有值。**没有帧时不要用 blocks 里数出来的工具次数顶上** —— 那样这枚 chip
+   * 就从「引擎的事实」退化成「前端的猜测」,而它存在的全部理由就是它不是猜测。
+   * 历史回放当前无此数据 → undefined,不渲染(优雅降级)。
+   */
+  research?: TurnResearchState;
+
+  /**
    * 该轮因命中每日 token 额度被后端**在转发给 agent 之前**拒绝、**尚未发送**(claw 用)。
    * UI 保留用户气泡并渲染「未发送 · 重新发送 / 开通会员」页脚,不显示流式指示;
    * busy 判定必须排除 blocked 轮(否则它停在末尾会把 composer 永久禁用)。
@@ -162,6 +193,26 @@ export interface TurnArtifact {
   size: number;
 }
 
+/**
+ * 一轮的取证过程计数(UI 数据模型)。逐字段镜像 `shared/lib/agent-stream.ts` 的
+ * `AgentResearchStateFrame`(去掉 `type`,wire 的 snake_case 在 fold 里一次性转成驼峰),
+ * 与 TurnArtifact ↔ artifact 帧同款分工:协议形状在 agent-stream,渲染形状在这里。
+ */
+export interface TurnResearchState {
+  /** **本轮**引擎计到的检索次数。0 = 本轮未检索(chip 会明说,这是它最重要的一种取值)。 */
+  queries: number;
+  /** 账本累计条数(整个会话)。 */
+  ledgerTotal: number;
+  /** 账本累计条数按来源拆分(retrieval / library_ref / user_upload / user_text / …)。 */
+  byOrigin?: Record<string, number>;
+  /**
+   * 预检索状态(镜像 wire 的 `prefetch`)。取证轮 + 空账本时**引擎在模型开口前**替它探的那一枪,
+   * 它计入 `queries` —— 所以 chip 必须把这一格拆开说,否则等于把引擎的动作记到模型头上。
+   * 值域见 AgentResearchStateFrame.prefetch;缺席 = 本轮没跑预检索。
+   */
+  prefetch?: string;
+}
+
 export interface TurnAttachment {
   type: 'image' | 'file';
   name: string;
@@ -178,7 +229,7 @@ export interface TurnAttachment {
 }
 
 /**
- * 用户从文献集引用的一项 —— 单篇论文或整个文件夹。展示成「引用」chip(区别于上传附件)。
+ * 用户从收藏里引用的一项 —— 单篇论文或整个文件夹。展示成「引用」chip(区别于上传附件)。
  * 完整资料由后端物化进会话 cwd 的 references/(见 backend internal/claw/references.go),
  * 这里只承载 chip 展示所需的最小信息。
  */
@@ -204,6 +255,13 @@ export interface AttachmentDTO {
   size: number;
   /** agent 容器内绝对路径(会话隔离 cwd 下), 发送时透传到 attachments[].path */
   path: string;
+  /** 附件持久身份(落盘名 <uuid>-<原名> 的前缀,0112 起同时是 agent_attachments 的身份键)。
+   *  取回 `GET /user/attachment/:uuid`、删除 `DELETE /user/attachment/:uuid` 都按它。
+   *  后端**总会返回**它(哪怕降级路径没落库);缺省只可能是老后端(0112 之前)。 */
+  uuid?: string;
+  /** agent_attachments 行 id。**有 = 真的落了耐久层**(降级路径只有 uuid 没有 id)。
+   *  删除一律按 uuid,这个字段目前只用于诊断。 */
+  id?: number;
   /** 仅前端本地: 图片预览用的 object URL(不来自后端, 提交后释放) */
   previewUrl?: string;
 }
@@ -280,6 +338,26 @@ export function markPendingToolsAborted(turn: Turn, includeErrored = false): voi
       b.aborted = true;
     }
   }
+}
+
+/** 流式入参截尾窗口上限(字符)。够渲染「最近几行」预览;总量另见 streamingChars。 */
+const STREAMING_INPUT_TAIL = 600;
+
+/**
+ * fold 消费 content_delta{toolInput,toolPath} 帧的唯一入口 —— claw / smart-search / prism
+ * 三份实时 fold 共用,保证行为不漂移(fold 每帧全量重折叠,本函数按帧调用即幂等)。
+ */
+export function appendToolInputStream(tb: ToolBlock, chunk: string, toolPath?: string): void {
+  tb.streamingChars = (tb.streamingChars ?? 0) + chunk.length;
+  tb.streamingInput = ((tb.streamingInput ?? '') + chunk).slice(-STREAMING_INPUT_TAIL);
+  if (toolPath && !tb.streamingPath) tb.streamingPath = toolPath;
+}
+
+/** tool_use_complete 后清掉流式态(完整 input 已到,渲染层改用 input;释放窗口字符串)。 */
+export function finishToolInputStream(tb: ToolBlock): void {
+  delete tb.streamingInput;
+  delete tb.streamingChars;
+  delete tb.streamingPath;
 }
 
 /**

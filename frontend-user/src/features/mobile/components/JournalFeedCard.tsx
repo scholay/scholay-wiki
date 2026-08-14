@@ -78,16 +78,16 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       <div className="flex shrink-0 items-center gap-3">
         <JournalCover id={j.id} name={j.canonical_name} size="tile" />
         <div className="min-w-0 flex-1">
-          <h2 className="line-clamp-2 text-2xl leading-tight font-semibold text-foreground">
+          <h2 className="line-clamp-2 text-24 font-medium text-foreground">
             {j.canonical_name}
           </h2>
           {scopeLine && (
-            <p className="mt-0.5 truncate text-base text-muted-foreground">
+            <p className="mt-0.5 truncate text-14 text-muted-foreground">
               {scopeLine}
             </p>
           )}
           {publisherLine && (
-            <p className="mt-0.5 truncate text-xs text-faint">{publisherLine}</p>
+            <p className="mt-0.5 truncate text-12 text-faint">{publisherLine}</p>
           )}
         </div>
       </div>
@@ -95,10 +95,10 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       {/* Badge Row(.pen `NVHAf`) */}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {j.jcr_quartile && (
-          <Pill className="bg-brand-green text-white">JCR {j.jcr_quartile}</Pill>
+          <Pill className="bg-brand-green text-on-brand">JCR {j.jcr_quartile}</Pill>
         )}
         {fqb && (
-          <Pill className="bg-brand-amber text-white">
+          <Pill className="bg-brand-amber text-foreground">
             中科院 {fqb}
             {isTop ? ' Top' : ''}
           </Pill>
@@ -110,7 +110,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
           </Pill>
         )}
         {ifValue && (
-          <Pill className="bg-foreground text-white">IF {ifValue}</Pill>
+          <Pill className="bg-foreground text-on-brand">IF {ifValue}</Pill>
         )}
         {j.ccf_rank && (
           <Pill className="bg-surface-2 text-foreground">CCF {j.ccf_rank}</Pill>
@@ -131,7 +131,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       </div>
 
       {/* 指标卡 —— 设计稿简介/分区图示位置的 MVP 替代(上游无中文简介数据) */}
-      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border">
+      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-16 border border-border bg-border">
         <Metric label="影响因子" value={ifValue ?? '—'} highlight />
         <Metric label="H 指数" value={hIndex != null ? String(hIndex) : '—'} />
         <Metric
@@ -148,7 +148,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       {isActive && (
         <Suspense
           fallback={
-            <div className="h-44 shrink-0 animate-pulse rounded-md border border-border bg-surface-1" />
+            <div className="h-44 shrink-0 animate-pulse rounded-16 border border-border bg-surface-1" />
           }
         >
           <JournalTrendChart journalId={j.id} active />
@@ -156,7 +156,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       )}
 
       {j.fqb_major_category && (
-        <p className="shrink-0 text-sm leading-relaxed text-muted-foreground">
+        <p className="shrink-0 text-12 leading-paragraph text-muted-foreground">
           《{j.canonical_name}》是{j.fqb_major_category}领域
           {j.jcr_quartile === 'Q1' ? '的高影响力' : '的'}学术期刊
           {isTop ? ',中科院分区 Top 期刊' : ''}。
@@ -186,7 +186,7 @@ function Pill({
   return (
     <span
       className={cn(
-        'rounded-pill px-2.5 py-1 text-xs font-semibold',
+        'rounded-pill px-2.5 py-1 text-12 font-medium',
         className
       )}
     >
@@ -207,10 +207,10 @@ function Metric({
   return (
     /* min-h 与 PaperFeedCard 指标格一致,预留两行高度防 CLS */
     <div className="min-h-[62px] bg-surface-1 px-3 py-2.5">
-      <p className="text-2xs text-faint">{label}</p>
+      <p className="text-12 text-faint">{label}</p>
       <p
         className={cn(
-          'mt-0.5 text-lg font-semibold leading-snug',
+          'mt-0.5 text-16 font-medium',
           highlight ? 'text-brand-green' : 'text-foreground'
         )}
       >
@@ -235,11 +235,11 @@ function RailButton({
         type="button"
         aria-label={label}
         onClick={onClick}
-        className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
+        className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-surface-card text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
       >
         {children}
       </button>
-      <span className="text-2xs text-faint">{label}</span>
+      <span className="text-12 text-faint">{label}</span>
     </div>
   );
 }

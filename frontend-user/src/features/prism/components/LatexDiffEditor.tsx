@@ -22,27 +22,27 @@ import { prismEditorTheme, prismSyntax } from './LatexEditor';
  */
 const prismDiffTheme = EditorView.baseTheme({
   // 新增/变更行底色(unified = merge-b):柔和绿,覆写默认 rgba(100,160,128,.08)。
-  '&.cm-merge-b .cm-changedLine, .cm-inlineChangedLine, .cm-insertedLine': {
+  '&.cm-merge-b .cm-changedLine, .cm-inlineChangedLine, .cm-insertedLine' : {
     backgroundColor: 'var(--prism-editor-diff-ins-soft)',
   },
   // 词级精确改动:亮绿下划线渐变 → 柔和底色块(匹配 &dark/&light.cm-merge-b 才盖得住)。
-  '&.cm-merge-b .cm-changedText, &dark.cm-merge-b .cm-changedText, &light.cm-merge-b .cm-changedText': {
+  '&.cm-merge-b .cm-changedText, &dark.cm-merge-b .cm-changedText, &light.cm-merge-b .cm-changedText' : {
     background: 'var(--prism-editor-diff-ins-strong)',
-    borderRadius: '2px',
+    borderRadius: 'var(--radius-4)', // 行内装饰块 → 圆角六档最小档 4(分层口诀:文字里的装饰=4)
   },
   // 删除块底色(覆写默认 rgba(160,128,100,.08))。
-  '.cm-deletedChunk': { backgroundColor: 'var(--prism-editor-diff-del-soft)' },
+  '.cm-deletedChunk' : { backgroundColor: 'var(--prism-editor-diff-del-soft)' },
   // 删除文本:柔和红底 + 红灰字(覆写默认亮红下划线渐变 / #ff000033)。
-  '&.cm-merge-b .cm-deletedText, &dark .cm-deletedChunk .cm-deletedText, &light .cm-deletedChunk .cm-deletedText': {
+  '&.cm-merge-b .cm-deletedText, &dark .cm-deletedChunk .cm-deletedText, &light .cm-deletedChunk .cm-deletedText' : {
     background: 'var(--prism-editor-diff-del-strong)',
     color: 'var(--prism-editor-diff-del-fg)',
-    borderRadius: '2px',
+    borderRadius: 'var(--radius-4)', // 同上,行内装饰块统一 4
   },
   // 变更 / 删除 gutter 竖条(3px)改柔和 accent(覆写默认亮色),当作左侧改动指示条。
-  '&.cm-merge-b .cm-changedLineGutter, &dark.cm-merge-b .cm-changedLineGutter, &light.cm-merge-b .cm-changedLineGutter': {
+  '&.cm-merge-b .cm-changedLineGutter, &dark.cm-merge-b .cm-changedLineGutter, &light.cm-merge-b .cm-changedLineGutter' : {
     background: 'var(--prism-editor-diff-ins-accent)',
   },
-  '&dark .cm-deletedLineGutter, &light .cm-deletedLineGutter': {
+  '&dark .cm-deletedLineGutter, &light .cm-deletedLineGutter' : {
     background: 'var(--prism-editor-diff-del-accent)',
   },
 });
@@ -140,15 +140,15 @@ export function LatexDiffEditor({
       <div ref={host} className="h-full overflow-auto" />
       {!displayOnly && nav.count > 0 && (
         // 浮动导航 —— 暗色配色取 globals.css --prism-editor-* token;逐块取舍 + 全部保留/撤销。
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-0.5 rounded-md border border-[color:var(--prism-editor-chrome-border)] bg-[var(--prism-editor-chrome-bg)] px-1.5 py-1 text-[color:var(--prism-editor-fg)] shadow-lg">
-          <span className="px-1 text-2xs tabular-nums text-[color:var(--prism-editor-chrome-muted)]">剩余 {nav.count} 处</span>
-          <button type="button" onClick={chunk(goToPreviousChunk)} title="上一处 (↑)" className="rounded p-1 hover:bg-white/10"><ChevronUp className="size-4" /></button>
-          <button type="button" onClick={chunk(goToNextChunk)} title="下一处 (↓)" className="rounded p-1 hover:bg-white/10"><ChevronDown className="size-4" /></button>
-          <button type="button" onClick={chunk(acceptChunk)} title="保留此处 (⌘Y)" className="rounded p-1 text-brand-green hover:bg-white/10"><Check className="size-4" /></button>
-          <button type="button" onClick={chunk(rejectChunk)} title="撤销此处 (⌘U)" className="rounded p-1 text-brand-red hover:bg-white/10"><X className="size-4" /></button>
+        <div className="absolute right-3 top-3 z-raised flex items-center gap-0.5 rounded-12 border border-[color:var(--prism-editor-chrome-border)] bg-[var(--prism-editor-chrome-bg)] px-1.5 py-1 text-[color:var(--prism-editor-fg)] shadow-overlay">
+          <span className="px-1 text-12 tabular-nums text-[color:var(--prism-editor-chrome-muted)]">剩余 {nav.count} 处</span>
+          <button type="button" onClick={chunk(goToPreviousChunk)} title="上一处 (↑)" className="rounded-4 p-1 hover:bg-surface-card/10"><ChevronUp className="size-4" /></button>
+          <button type="button" onClick={chunk(goToNextChunk)} title="下一处 (↓)" className="rounded-4 p-1 hover:bg-surface-card/10"><ChevronDown className="size-4" /></button>
+          <button type="button" onClick={chunk(acceptChunk)} title="保留此处 (⌘Y)" className="rounded-4 p-1 text-brand-green hover:bg-surface-card/10"><Check className="size-4" /></button>
+          <button type="button" onClick={chunk(rejectChunk)} title="撤销此处 (⌘U)" className="rounded-4 p-1 text-brand-red hover:bg-surface-card/10"><X className="size-4" /></button>
           <span className="mx-0.5 h-4 w-px bg-[color:var(--prism-editor-chrome-border)]" />
-          <button type="button" onClick={() => applyRef.current?.()} title="全部保留并应用 (⌘⇧↵)" className="rounded px-1.5 py-1 text-2xs font-bold text-brand-green hover:bg-white/10">全部保留</button>
-          <button type="button" onClick={() => discardRef.current?.()} title="全部撤销 (⌘⇧⌫)" className="rounded px-1.5 py-1 text-2xs text-brand-red hover:bg-white/10">全部撤销</button>
+          <button type="button" onClick={() => applyRef.current?.()} title="全部保留并应用 (⌘⇧↵)" className="rounded-4 px-1.5 py-1 text-12 font-medium text-brand-green hover:bg-surface-card/10">全部保留</button>
+          <button type="button" onClick={() => discardRef.current?.()} title="全部撤销 (⌘⇧⌫)" className="rounded-4 px-1.5 py-1 text-12 text-brand-red hover:bg-surface-card/10">全部撤销</button>
         </div>
       )}
     </div>

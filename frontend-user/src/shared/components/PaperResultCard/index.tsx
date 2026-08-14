@@ -36,6 +36,8 @@ interface PaperResultCardProps {
   /** 隐藏左侧暂存复选框(智能助手等无暂存区语境用)。
    *  此模式下调用方应恒传 isStaged=false(无暂存区→不会进 StagedRow)。 */
   hideStage?: boolean;
+  /** 管理端回放：保留同一张卡片和本地折叠，去掉收藏/翻译/暂存等写操作。 */
+  readOnly?: boolean;
 }
 
 function PaperResultCardImpl({
@@ -50,6 +52,7 @@ function PaperResultCardImpl({
   onRestore,
   highlightQuery,
   hideStage,
+  readOnly,
 }: PaperResultCardProps) {
   const id = paper.paperId;
 
@@ -91,7 +94,8 @@ function PaperResultCardImpl({
       onToggleStage={toggleStage}
       onFold={toggleFold}
       highlightQuery={highlightQuery}
-      hideStage={hideStage}
+      hideStage={hideStage || readOnly}
+      readOnly={readOnly}
     />
   );
 }

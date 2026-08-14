@@ -28,6 +28,40 @@ export function getAuthToken(): string | null {
   }
 }
 
+/**
+ * React Query 私有数据的非敏感会话分区键。
+ *
+ * 正常 JWT 只提取 user_id，不把原 token 放进 query key / DevTools；
+ * 异常或旧 token 用不可逆的 32 位快速指纹隔离，宁可多发一次请求也不跨账号复用私有缓存。
+ */
+export function authSessionKey(token: string | null): string {
+  if (!token) return 'anonymous';
+  try {
+    const payload = token.split('.')[1];
+    if (payload) {
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(
+        normalized.length + ((4 - (normalized.length % 4)) % 4),
+        '=',
+      );
+      const decoded = JSON.parse(globalThis.atob(padded)) as {
+        user_id?: number | string;
+      };
+      const userId = Number(decoded.user_id);
+      if (Number.isSafeInteger(userId) && userId > 0) return `user:${userId}`;
+    }
+  } catch {
+    // 交给后端做真正的 JWT 校验；此处只需生成隔离键。
+  }
+
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < token.length; index += 1) {
+    hash ^= token.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `token:${(hash >>> 0).toString(36)}:${token.length}`;
+}
+
 /** 写 token —— localStorage + cookie 一起更新。登录成功后调(经 auth.store.setSession)。 */
 export function setAuthToken(token: string): void {
   try {
@@ -72,13 +106,33 @@ export function notifyAuthLost(detail?: { code?: number; message?: string }): vo
   }
 }
 
+/**
+ * 同步 token 的**非持久化**副作用(cookie 跟上 + 401 去重锁复位)—— 专供跨 tab 的
+ * storage 监听使用。刻意不写 localStorage:storage 事件是异步排队投递的,监听器里
+ * 回写(setAuthToken/clearAuthToken)会向发起 tab 反射新事件,发起 tab 两次相邻写
+ * (如登录响应落地前一个并行 401 先清了 token)即可点燃两 tab 间的无限回环 ——
+ * 登录态反复翻转 + 每轮 auth-token-swapped → qc.clear() 的请求风暴(2026-08-12 对抗审查确认)。
+ */
+export function syncAuthSideEffects(token: string | null): void {
+  if (token) {
+    writeSessionCookie(token);
+    authLostDispatched = false; // 拿回 token → 解除去重锁,下次会话失效能再次引导
+  } else {
+    clearSessionCookie();
+  }
+}
+
 // ─── cookie(仅 iframe / 跨页签共享会话用;主流请求仍走 Authorization header)─────
 // SameSite=Strict:同站同源加载,够用且免 CSRF。无 HttpOnly:token 在 localStorage 本就 XSS 可读,
-// 不损失安全等级,换取「前端任意 login 入口都能写」。Max-Age 24h ≈ 后端 JWT TTL,过期由 401 清。
+// 不损失安全等级,换取「前端任意 login 入口都能写」。
+// Max-Age 必须 = 后端 JWT TTL(utils/jwt.go TokenExpiration=48h)—— 早前写 24h 与之错位:
+// 长驻超 24h 的 tab 里 Authorization header 仍有效(axios 200),但 cookie 已过期,只吃 cookie
+// 的鉴权面(聊天图片 iframe / umami)会静默 401(2026-08-12 审计)。JWT 真过期时由 401 清。
+const SESSION_COOKIE_MAX_AGE = 48 * 60 * 60; // 48h,对齐后端 JWT TTL
 
 function writeSessionCookie(token: string): void {
   if (typeof document === 'undefined') return;
-  document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=86400; SameSite=Strict`;
+  document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; SameSite=Strict`;
 }
 
 function clearSessionCookie(): void {

@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { useAuthStore } from '@/stores/auth.store';
 
 /**
  * Skills 市场 —— 用户上传/分享 skill + claw 动态加载。
@@ -163,8 +164,12 @@ export function useSkillDetail(idOrSlug: string | undefined) {
 }
 
 export function useMySkills() {
+  // 私有端点:未登录时不发请求(否则白打注定 401 的请求 ×(1+retry)次)。
+  // 用响应式 store 而非 getAuthToken():原地弹窗登录后查询要能自动启动。
+  const token = useAuthStore((s) => s.token);
   return useQuery({
     queryKey: ['skills', 'mine'],
+    enabled: !!token,
     queryFn: async (): Promise<MySkill[]> => {
       const { data } = await http.get<{ data: { list: MySkill[] } }>(
         '/user/skills'
@@ -175,8 +180,11 @@ export function useMySkills() {
 }
 
 export function useInstalledSkills() {
+  // 私有端点,同 useMySkills:未登录不发请求。
+  const token = useAuthStore((s) => s.token);
   return useQuery({
     queryKey: ['skills', 'installed'],
+    enabled: !!token,
     // 列表类 query:切走再回来须重取,避免启用态陈旧(见 claw-history-list-loading 教训)。
     refetchOnMount: 'always',
     queryFn: async (): Promise<InstalledSkillsData> => {

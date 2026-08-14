@@ -14,6 +14,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,10 +56,61 @@ func (h *Handler) isDuplicateMessage(ctx context.Context, msgID int64) bool {
 const (
 	aiReplyPerUserDaily = 30
 	aiReplyGlobalDaily  = 8000
+	// 🔴 单条消息的输入长度帽(2026-08-02 计费审计 P1-9)。
+	// 上面两道帽都只数「调用次数」,对**单条消息的 token 量零约束** —— 而这是全站唯一
+	// user_id=NULL、平台全额承担成本的 LLM 入口。一条 20 万字的消息(远低于 10MB BodyLimit)
+	// 乘以全局 8000 次/日 ≈ 8 亿 input token 的上游账单,且全部落成 user_id=NULL 的账本行,
+	// 不扣任何人额度、不触发任何配额告警。公众号消息本身的产品形态就是短问答,
+	// 2000 字对真实用户绰绰有余,超出直接截断(不拒收 —— 拒收对误发长文的真实用户体验更差)。
+	wechatInputMaxRunes = 2000
+	// 验签时效窗口:微信的 signature 只由 token+timestamp+nonce 算出、**与 body 无关**,
+	// 三元组会原样出现在 nginx access log 的 query string 里。不校验时效 = 一次泄露永久可用,
+	// 攻击者可以带着同一组 query 反复换 body(自造 OpenID 绕过单粉丝帽)刷全局帽。
+	wechatSignatureMaxSkew = 5 * time.Minute
+	// 同一组签名只接受一次(配合时效窗口封死重放)。TTL 取窗口的 2 倍留出时钟偏差余量。
+	wechatSignatureReplayTTL = 2 * wechatSignatureMaxSkew
 )
 
+// verifyRequestFresh 在验签之外再加两道:时间戳时效 + 同签名只用一次。
+// 微信协议本身不对 body 签名,这是能在协议内做到的最强重放防护。
+// Redis 不可用 → 只做时效校验(与本包其余配额设施一致的 fail-open 取舍;时效窗口本身已把
+// 一次泄露的可利用期从「永久」压到 5 分钟)。
+func (h *Handler) verifyRequestFresh(ctx context.Context, signature, timestamp string) bool {
+	ts, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil {
+		return false
+	}
+	if skew := time.Since(time.Unix(ts, 0)); skew > wechatSignatureMaxSkew || skew < -wechatSignatureMaxSkew {
+		slog.Warn("wechat oa: signature timestamp out of window (replay?)", "skew_sec", int(skew.Seconds()))
+		return false
+	}
+	rdb := cache.GetRedis()
+	if rdb == nil || signature == "" {
+		return true
+	}
+	ok, err := rdb.SetNX(ctx, "wechat_oa:sig:"+signature, "1", wechatSignatureReplayTTL).Result()
+	if err != nil {
+		slog.Warn("wechat oa: signature replay setnx failed", "err", err)
+		return true // 设施故障不拒服务,时效窗口仍在
+	}
+	if !ok {
+		slog.Warn("wechat oa: signature replayed within window, rejected")
+	}
+	return ok
+}
+
+// clampWechatInput 把用户输入截断到 wechatInputMaxRunes(按 rune,防切碎中文)。
+func clampWechatInput(s string) string {
+	r := []rune(s)
+	if len(r) <= wechatInputMaxRunes {
+		return s
+	}
+	slog.Warn("wechat oa: 入参超长已截断", "runes", len(r), "cap", wechatInputMaxRunes)
+	return string(r[:wechatInputMaxRunes])
+}
+
 // wechatReplyRateLimited 命中成本帽时回给粉丝的友好提示(不消耗 LLM)。
-const wechatReplyRateLimited = "今天聊得有点多啦,我先歇一歇,明天再来找我吧~"
+const wechatReplyRateLimited = "今日消息已达上限,请明天再来。"
 
 // allowAIReply 原子地为一次 AI 回复计数并判断是否在每日上限内。先判单粉丝(超限即拦,
 // 不再累加全局),再判全局。Redis 不可用 → fail-open(不因配额设施故障拒服务,与系统其余
@@ -118,6 +170,12 @@ func (h *Handler) HandleVerification(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "加载配置失败,请稍后重试")
 		return
 	}
+	// 还没配置过 —— 没有 token 就无从验签,直接拒;不能往下走(config 是 nil,解引用会 panic)
+	if config == nil {
+		slog.Warn("wechat oa: verification hit but config not set up yet")
+		c.String(http.StatusServiceUnavailable, "公众号尚未配置")
+		return
+	}
 
 	// Verify signature
 	if h.service.VerifySignature(signature, timestamp, nonce, config.Token) {
@@ -139,9 +197,20 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "加载配置失败")
 		return
 	}
+	// 同 HandleVerification:没配置过就没有 token,解引用会 panic,且此时任何消息都不该被处理
+	if config == nil {
+		slog.Warn("wechat oa: message received but config not set up yet", "ip", c.ClientIP())
+		c.String(http.StatusServiceUnavailable, "公众号尚未配置")
+		return
+	}
 	if !h.service.VerifySignature(c.Query("signature"), c.Query("timestamp"), c.Query("nonce"), config.Token) {
 		slog.Warn("wechat oa: POST signature verification failed", "ip", c.ClientIP())
 		c.String(http.StatusUnauthorized, "signature verification failed")
+		return
+	}
+	// 时效 + 一次性(审计 P1-9):微信的签名不覆盖 body,只验签等于「拿到一组三元组就能无限换 body 重放」。
+	if !h.verifyRequestFresh(c.Request.Context(), c.Query("signature"), c.Query("timestamp")) {
+		c.String(http.StatusUnauthorized, "signature expired or replayed")
 		return
 	}
 
@@ -197,10 +266,10 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 			reply = wechatReplyRateLimited
 		} else {
 			// Get AI reply (text only) — 透传 gin 请求 ctx, service 自己再加超时
-			reply, err = h.service.GetAIReply(c.Request.Context(), msg.Content, "")
+			reply, err = h.service.GetAIReply(c.Request.Context(), clampWechatInput(msg.Content), "")
 			if err != nil {
 				slog.Error("failed to get AI reply", "err", err)
-				reply = "抱歉，我暂时无法处理您的消息，请稍后再试。"
+				reply = "暂时无法处理您的消息,请稍后重试。"
 			}
 		}
 
@@ -233,14 +302,14 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 			base64Image, derr := h.service.DownloadImage(c.Request.Context(), msg.MediaId)
 			if derr != nil {
 				slog.Error("failed to download WeChat image", "err", derr)
-				reply = "抱歉，我无法处理这张图片，请稍后再试。"
+				reply = "暂时无法识别这张图片,请稍后重试。"
 			} else {
 				// Get AI reply with image
 				userMessage := prompts.WechatOfficialImageUserPrompt
 				reply, err = h.service.GetAIReplyWithImage(c.Request.Context(), userMessage, base64Image, "")
 				if err != nil {
 					slog.Error("failed to get AI reply with image", "err", err)
-					reply = "抱歉，我暂时无法处理您的图片，请稍后再试。"
+					reply = "暂时无法处理您的图片,请稍后重试。"
 				}
 			}
 		}
@@ -283,6 +352,13 @@ func (h *Handler) GetConfig(c *gin.Context) {
 	config, err := h.service.GetConfig()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "加载配置失败,请稍后重试")
+		return
+	}
+	// 「还没配置过」返回一份空配置而不是错误 —— 与 config/handler_email_sms.go 的
+	// email/sms 口径一致。后台的表单需要能渲染出来,管理员才做得了首次配置;
+	// 回 500 的话前端的"加载失败就不渲染表单"守卫会把首次配置彻底堵死。
+	if config == nil {
+		utils.SuccessResponse(c, http.StatusOK, "success", &WeChatOfficialConfig{})
 		return
 	}
 

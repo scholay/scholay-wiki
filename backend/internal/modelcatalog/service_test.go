@@ -11,6 +11,7 @@
 package modelcatalog
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -18,13 +19,15 @@ import (
 // newTestService 构造带预置快照的 Service(tierFn nil = 全按 free)。
 func newTestService(bindings map[string]string, models []string, tierFn func(uint) string) *Service {
 	snap := &snapshot{
-		byModel:   map[string]*AgentModel{},
-		bindings:  bindings,
-		providers: map[uint64]*AgentProvider{},
+		byModel:     map[string]*AgentModel{},
+		byModelFold: map[string]*AgentModel{},
+		bindings:    bindings,
+		providers:   map[uint64]*AgentProvider{},
 	}
 	for _, id := range models {
 		m := &AgentModel{ModelID: id, Enabled: true, BillingWeight: 1}
 		snap.byModel[id] = m
+		snap.byModelFold[strings.ToLower(id)] = m
 		snap.models = append(snap.models, *m)
 	}
 	s := &Service{cached: snap, cachedAt: time.Now(), tierResolver: tierFn}
@@ -175,6 +178,59 @@ func TestPriceUsageThreeTier(t *testing.T) {
 	// cost=20000*1.2(输入 hi2) + 250000*0.24(缓存 hi2) = 24000 + 60000 = 84000。
 	if _, cost := s.PriceUsage("q37f", 20000, 0, 250000, 0); cost != 84000 {
 		t.Fatalf("cacheRead should count toward tier3: cost=%d, want 84000", cost)
+	}
+}
+
+// "(reconciled)" 补差哨兵按基准价(system.main 生效模型单价)计价:total 仍是四类原始总量,
+// cost 按基准模型四类单价算 —— 堵住「贵模型轮次断线丢帧 → 残差落哨兵 0 计价」的漏扣通道。
+func TestPriceUsageReconciledBasePrice(t *testing.T) {
+	s := newTestService(map[string]string{PurposeSystemMain: "base-model"}, nil, nil)
+	s.cached.byModel["base-model"] = &AgentModel{
+		ModelID: "base-model", Enabled: true,
+		PriceIn: 2, PriceOut: 8, PriceCacheR: 0.4, PriceCacheW: 2.5,
+	}
+	// total = 1000+500+2000+100 = 3600;
+	// cost  = 1000*2 + 500*8 + 2000*0.4 + 100*2.5 = 2000+4000+800+250 = 7050。
+	if w, cost := s.PriceUsage("(reconciled)", 1000, 500, 2000, 100); w != 3600 || cost != 7050 {
+		t.Fatalf("reconciled = (w=%d, cost=%d), want (3600, 7050)", w, cost)
+	}
+	// system.main 停用不影响计价(Get 含停用行;停用只约束选择器)。
+	s.cached.byModel["base-model"].Enabled = false
+	if _, cost := s.PriceUsage("(reconciled)", 1000, 0, 0, 0); cost != 2000 {
+		t.Fatalf("reconciled with disabled base model cost=%d, want 2000", cost)
+	}
+}
+
+// "(reconciled)" 基准模型解析不到(system.main 全链无值)→ 退 cost=0(total 照记)。
+func TestPriceUsageReconciledUnresolvable(t *testing.T) {
+	s := newTestService(map[string]string{}, nil, nil) // 无绑定、无终极回退
+	if w, cost := s.PriceUsage("(reconciled)", 1000, 500, 0, 0); w != 1500 || cost != 0 {
+		t.Fatalf("unresolvable reconciled = (w=%d, cost=%d), want (1500, 0)", w, cost)
+	}
+}
+
+// Get 大小写折叠回退:精确 miss 时按小写折叠命中目录行(DB 唯一键 collation 大小写不敏感,
+// 上游回报的大小写变体不能永久 cost=0);返回的是目录原值,display/推送口径不变。
+func TestGetCaseFoldFallback(t *testing.T) {
+	s := newTestService(nil, []string{"Kimi-K2-Instruct"}, nil)
+	if m := s.Get("Kimi-K2-Instruct"); m == nil {
+		t.Fatal("exact match should hit")
+	}
+	m := s.Get("kimi-k2-INSTRUCT")
+	if m == nil {
+		t.Fatal("case variant should fold-match the catalog row")
+	}
+	if m.ModelID != "Kimi-K2-Instruct" {
+		t.Fatalf("fold hit should return catalog original model_id, got %q", m.ModelID)
+	}
+	// 计价随折叠命中(变体不再 cost=0)。byModel/byModelFold 指向同一行,改一处即可。
+	s.cached.byModel["Kimi-K2-Instruct"].PriceIn = 2
+	if _, cost := s.PriceUsage("KIMI-K2-INSTRUCT", 1000, 0, 0, 0); cost != 2000 {
+		t.Fatalf("case-variant pricing cost=%d, want 2000", cost)
+	}
+	// 全然不存在的 id 仍 miss。
+	if m := s.Get("nonexistent-model"); m != nil {
+		t.Fatal("nonexistent id should still miss")
 	}
 }
 

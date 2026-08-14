@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils';
 import { Dialog } from '@/shared/ui/dialog';
 
 /**
- * 文献集弹窗 chrome —— 统一工作台(PaperWorkbenchDialog)与各面板共用的外壳件。
+ * 文件夹弹窗 chrome —— 统一工作台(PaperWorkbenchDialog)与各面板共用的外壳件。
  *
  * 背景:原 LibraryImportDialog / PaperManageDialog 两个弹窗外壳 90% 同构却各自手搓,
  * tab 条 4 份、footer 条 5 份、编号状态条 4 份散落各面板。这里收编为单一真源:
@@ -47,18 +47,27 @@ export function WorkbenchDialogShell({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-50 bg-foreground/30 backdrop-blur-[2px]',
+            // backdrop-blur-2 = --blur-2(2px),与 shared/ui/{dialog,sheet,ai-overlay} 三处遮罩同源。
+            // 这是本项目四处遮罩里最后一个 arbitrary 写法,2026-07-28 收口成 token(零像素:
+            // 编译产物只有 `blur(2px)` → `blur(var(--blur-2))` 一处差异,而 --blur-2 就是 2px)。
+            'fixed inset-0 z-overlay bg-foreground/30 backdrop-blur-2',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0'
           )}
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-[960px] max-w-[calc(100vw-32px)]',
+            // w-dialog-xl = --dialog-w-xl 60rem = 960px,与原 w-[960px] 等值(零像素变化)。
+            // 余下三个 arbitrary 保留:
+            //   max-w-[calc(100vw-32px)] —— 窄屏让出 16px 边距,是计算式,token 表达不了;
+            //   h-[640px] —— 工作台定高,token 侧无对应档(--dialog-* 只有宽);
+            //   max-h-[90dvh] —— 刻意不用 --overlay-max-h(85dvh):本弹窗是双栏工作台,
+            //     85dvh 会挤掉一行元数据。dvh 而非 vh 是移动 Safari 地址栏的既有修法。
+            'fixed left-1/2 top-1/2 z-modal w-dialog-xl max-w-[calc(100vw-32px)]',
             '-translate-x-1/2 -translate-y-1/2',
-            'flex flex-col h-[640px] max-h-[90vh] overflow-hidden',
-            'rounded-lg border border-border bg-background',
-            'shadow-[0_8px_24px_rgba(15,23,42,0.12)]',
+            'flex flex-col h-[640px] max-h-[90dvh] overflow-hidden',
+            'rounded-16 border border-border bg-surface-card',
+            'shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
@@ -68,18 +77,18 @@ export function WorkbenchDialogShell({
             <div className="flex items-start gap-3 min-w-0">
               <div
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-sm shrink-0',
+                  'flex h-9 w-9 items-center justify-center rounded-8 shrink-0',
                   iconBg ?? 'bg-surface-2'
                 )}
               >
                 {icon}
               </div>
               <div className="min-w-0">
-                <DialogPrimitive.Title className="text-base font-semibold text-foreground">
+                <DialogPrimitive.Title className="text-16 font-medium text-foreground">
                   {title}
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Description
-                  className="mt-0.5 text-xs text-muted-foreground line-clamp-1"
+                  className="mt-0.5 text-12 text-muted-foreground line-clamp-1"
                   title={typeof description === 'string' ? description : undefined}
                 >
                   {description}
@@ -92,7 +101,7 @@ export function WorkbenchDialogShell({
                 type="button"
                 onClick={() => onOpenChange(false)}
                 aria-label="关闭"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground"
               >
                 <X className="size-4" />
               </button>
@@ -148,7 +157,7 @@ export function DialogTabBar<T extends string>({
             aria-selected={active}
             onClick={() => onChange(t.id)}
             className={cn(
-              'relative inline-flex items-center gap-1.5 px-3 text-sm font-semibold transition-colors',
+              'relative inline-flex items-center gap-1.5 px-3 text-14 font-medium transition-colors',
               size === 'md' ? 'h-10' : 'h-9',
               active ? 'text-brand-amber' : 'text-muted-foreground hover:text-foreground'
             )}
@@ -158,7 +167,7 @@ export function DialogTabBar<T extends string>({
             {t.comingSoon && (
               <span
                 aria-hidden="true"
-                className="ml-0.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-2xs font-bold leading-none whitespace-nowrap"
+                className="ml-0.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none whitespace-nowrap"
               >
                 即将
               </span>
@@ -166,8 +175,8 @@ export function DialogTabBar<T extends string>({
             {typeof t.count === 'number' && t.count > 0 && (
               <span
                 className={cn(
-                  'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-2xs font-bold leading-none tabular-nums',
-                  active ? 'bg-brand-amber text-background' : 'bg-surface-2 text-subtle'
+                  'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-12 font-medium leading-none tabular-nums',
+                  active ? 'bg-brand-amber text-foreground' : 'bg-surface-2 text-subtle'
                 )}
               >
                 {t.count}
@@ -199,7 +208,7 @@ export function DialogFooterBar({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 px-6 py-3 bg-surface-1 border-t border-border-soft shrink-0">
-      <span className="text-xs text-muted-foreground flex items-center gap-1 min-w-0">
+      <span className="text-12 text-muted-foreground flex items-center gap-1 min-w-0">
         {hint}
       </span>
       <div className="flex items-center gap-2 shrink-0">{children}</div>
@@ -210,23 +219,24 @@ export function DialogFooterBar({
 /** footer 主操作按钮(实底)。tone 区分语义:green=保存/写入,amber=关联/匹配。 */
 export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
   return cn(
-    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-sm text-sm font-bold text-background transition-colors',
+    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 text-14 font-medium transition-colors',
     'disabled:opacity-60 disabled:cursor-not-allowed',
+    // 松青实底配白字;琥珀实底配玄墨字（白字 on #B4880E 仅 3.25:1）
     tone === 'green'
-      ? 'bg-brand-green hover:bg-brand-green/90'
-      : 'bg-brand-amber hover:bg-brand-amber/90'
+      ? 'bg-brand-green text-on-brand hover:bg-brand-green/90'
+      : 'bg-brand-amber text-foreground hover:bg-brand-amber/90'
   );
 }
 
 /** footer 描边按钮(白底 border)。 */
 export const footerOutlineCn = cn(
-  'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-background border border-border text-sm font-semibold text-subtle',
+  'inline-flex items-center gap-1 h-8 px-3 rounded-8 bg-surface-card border border-border text-14 font-medium text-subtle',
   'hover:bg-surface-2 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 );
 
 /** footer 幽灵按钮(取消等)。 */
 export const footerGhostCn = cn(
-  'inline-flex items-center gap-1 h-8 px-3 rounded-sm text-sm font-semibold text-subtle',
+  'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-14 font-medium text-subtle',
   'hover:bg-surface-2 hover:text-foreground disabled:opacity-60 transition-colors'
 );
 
@@ -246,21 +256,21 @@ export function StepBanner({
   desc?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
+    <div className="rounded-12 border border-border-soft bg-surface-1 px-4 py-2.5">
       <div className="flex items-center gap-2.5">
         <span
           className={cn(
-            'inline-flex h-5 w-5 items-center justify-center rounded-pill text-background text-2xs font-bold tabular-nums shrink-0',
-            active ? 'bg-brand-amber' : 'bg-foreground'
+            'inline-flex h-5 w-5 items-center justify-center rounded-pill text-12 font-medium tabular-nums shrink-0',
+            active ? 'bg-brand-amber text-foreground' : 'bg-foreground text-on-dark'
           )}
         >
           {step}
         </span>
-        <span className="text-sm font-semibold text-foreground">{title}</span>
+        <span className="text-14 font-medium text-foreground">{title}</span>
         {desc && (
           <>
             <span className="text-faint">·</span>
-            <span className="text-xs text-muted-foreground min-w-0 truncate">{desc}</span>
+            <span className="text-12 text-muted-foreground min-w-0 truncate">{desc}</span>
           </>
         )}
       </div>

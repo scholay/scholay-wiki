@@ -1,4 +1,4 @@
-<view class="page pe">
+<view class="page pe" capture-bind:touchstart="onUserActivity">
   <view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
   <block wx:else>
     <view class="field">

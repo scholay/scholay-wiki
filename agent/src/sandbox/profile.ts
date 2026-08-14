@@ -9,6 +9,17 @@ export interface SandboxProfile {
   net: SandboxNet; // open=经 egress 出网;none=完全断网(prism compile)
   allowBash: boolean;
   roBinds: string[]; // 只读挂载(skill / add-dir 目录)
+  // 🔴 本次 spawn 允许写入的**保留区**目录(默认空 = 全部只读)。
+  //
+  // 为什么需要这个口子:数据分析有一对看似矛盾的约束 ——
+  //   ① 用户数据受 PHI 约束,**不能出 jail**(所以 statkit 必须在 jail 内跑);
+  //   ② bundle 是报告里每个数字的真源,**模型不能写**(所以 analysis/ 是保留区)。
+  // 解法不是把数据搬出去,而是给引擎**单独一次**可写该保留区的 spawn:
+  // 模型自己的 Bash 永远拿只读覆盖层,只有 executor 侧的 StatRun 工具这一条路径带此字段。
+  //
+  // ⚠️ 安全方向刻意设计成:**默认拒、显式放行**。漏传 = 更严格(写入被拒),
+  // 而不是更宽松 —— 这与「加字段可能漏传导致静默敞口」的常见风险正好相反。
+  writableReserved?: readonly string[];
 }
 
 export function profileFor(

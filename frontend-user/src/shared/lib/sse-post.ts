@@ -20,7 +20,8 @@
  */
 
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
-import { notifyQuotaExceeded, isQuotaSignal } from '@/shared/lib/quota-events';
+import { statusFallbackMessage } from '@/shared/lib/http-status-messages';
+import { notifyQuotaExceeded, isQuotaSignal, type QuotaPayload } from '@/shared/lib/quota-events';
 
 export interface ParsedSseEvent {
   /** SSE `event:` 行的值;无 `event:` 行时为空串(标准 SSE 行为) */
@@ -75,19 +76,32 @@ export async function streamSsePost({
 
   if (!res.ok) {
     // SSE 绕过 axios 拦截器 —— 认证失效 / 额度耗尽 要手动汇入统一出口。
-    if (res.status === 401) notifyAuthLost();
-    // 非 SSE 错误 —— 后端走 utils.Error 返回 JSON,尽量取 message + code
-    let msg = `请求失败 (${res.status})`;
+    // 与 axios 侧 isAuthError 同语义:裸 401 必须「**本次请求**确实带了凭证」才算会话丢失
+    // (用请求时捕获的 token,不读响应时刻的现值 —— 匿名请求在途中用户完成登录时,
+    // 读现值会把刚写入的新会话误清掉),匿名误触公开端点的 401 也不再弹「登录已过期」。
+    if (res.status === 401 && token != null) notifyAuthLost();
+    // 非 SSE 错误 —— 后端走 utils.Error 返回 JSON,尽量取 message + code。
+    // 拿不到 JSON 时(网关层的 413/408/504 返回的是 text/html)按状态码给中文,
+    // 与 axios 侧同一份表,避免用户只看到一个裸状态码。
+    let msg = statusFallbackMessage(res.status) || `请求失败 (${res.status})`;
     try {
       const j = await res.json();
       if (j && typeof j === 'object' && 'message' in j && j.message) {
         msg = String(j.message);
       }
       // 额度耗尽 → 统一谓词(与 http/WS 同一判断,不再硬编码 6010,Theme 2)。
+      // 结构化载荷(冻结契约):信封 data.quota 透传给全局通知器;旧后端缺 quota 时为 undefined。
       if (j && typeof j === 'object' && isQuotaSignal(j as { code?: number | string })) {
-        notifyQuotaExceeded({ message: msg });
+        const quota = (j as { data?: { quota?: QuotaPayload } }).data?.quota;
+        notifyQuotaExceeded({ message: msg, quota });
+        // 与 axios 侧 toApiError 的 quotaHandled 契约对齐:全局通知器已承接,
+        // 调用方 onError 见此标记应跳过自己的 toast(否则额度提示双响)。
+        const err = new Error(msg) as Error & { quotaHandled?: boolean };
+        err.quotaHandled = true;
+        throw err;
       }
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && (e as Error & { quotaHandled?: boolean }).quotaHandled) throw e;
       /* ignore parse failure */
     }
     throw new Error(msg);

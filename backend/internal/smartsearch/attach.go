@@ -40,8 +40,8 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	att, err := h.uploader.HandleUpload(c, userID)
 	if err != nil {
-		// HandleUpload 的错误是面向用户的校验反馈(类型不支持 / 超限),原样回显。
-		utils.SafeError(c, codeAttachFailed, err)
+		// 同 claw:配额满走 7010(前端弹附件管理),其余原样回显。
+		agentattach.RespondUploadError(c, codeAttachFailed, err)
 		return
 	}
 	utils.Success(c, att)

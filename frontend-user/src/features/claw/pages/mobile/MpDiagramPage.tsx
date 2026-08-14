@@ -23,7 +23,7 @@ export function MpDiagramPage() {
 
   if (!code) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background p-6 text-base text-muted-foreground">
+      <div className="flex min-h-dvh items-center justify-center bg-background p-6 text-14 text-muted-foreground">
         缺少图表内容,请从对话里重新打开
       </div>
     );
@@ -34,7 +34,7 @@ export function MpDiagramPage() {
       <MermaidDiagram code={code} />
       {/* 页面级捏合被全局 viewport user-scalable=no 禁用;缩放能力在全屏视图内
           (react-zoom-pan-pinch 自带触摸手势,不受 viewport 限制)。 */}
-      <p className="mt-4 text-center text-xs text-faint">点按图表进入全屏 · 全屏内可拖拽缩放</p>
+      <p className="mt-4 text-center text-12 text-faint">点按图表进入全屏 · 全屏内可拖拽缩放</p>
     </div>
   );
 }

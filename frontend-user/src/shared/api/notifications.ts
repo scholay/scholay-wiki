@@ -46,11 +46,11 @@ const PAGE_SIZE = 20;
 // 未读数
 // ===========================================================================
 
-export function useUnreadCount() {
+export function useUnreadCount(enabled = true) {
   const token = useAuthStore((s) => s.token);
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
-    enabled: !!token,
+    enabled: enabled && !!token,
     staleTime: 30_000,
     queryFn: async (): Promise<number> => {
       try {

@@ -9,7 +9,7 @@
 //   - 点击 click:      站内从结果点开论文详情 —— 详情数据来自前端缓存, 不打 GET /papers/:id
 //   - SEO 直访 seo_view: 论文页作为站外落地入口被打开
 //
-// 与 shared/api/seo.ts 是两套独立通道: seo → seo_papers 长尾索引;这里 → hot_papers
+// 与后端的可信 SEO 种子链路独立：SEO 写 seo_papers，这里只写 hot_papers
 // 热度榜。投递方式刻意一致 (sendBeacon, 失败回退 fetch+keepalive), 不阻塞主线程 / 导航。
 // ============================================================================
 
@@ -92,7 +92,7 @@ export function trackPaperImpressions(
   postTrack({ impressions: items });
 }
 
-/** 站内点开论文详情 → 上报一次点击 (传统 / 智能 / 文献集 / 引用 等所有站内打开)。 */
+/** 站内点开论文详情 → 上报一次点击 (传统 / 智能 / 文件夹 / 引用 等所有站内打开)。 */
 export function trackPaperClick(paper: Paper | undefined | null): void {
   const d = paperToTrackData(paper);
   if (!d) return;

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Author, Journal, Paper } from '@/shared/api/types';
+import { journalCanonicalPath } from '@/shared/lib/seo-paths';
 
 /**
  * 浏览器页签 store —— 浏览器 tabs 的心智模型。
@@ -16,7 +17,7 @@ import type { Author, Journal, Paper } from '@/shared/api/types';
  *   /paper/:source/:paperId      → paper tab(三源数据隔离)
  *   /journal/:id                 → journal tab(期刊池跨源已统一,不带 source)
  *   /author/:source/:authorId    → author tab(三源数据隔离)
- *   /pdf/:libPaperId             → pdf tab(用户上传的 PDF,以文献集 row.id 为 key)
+ *   /pdf/:libPaperId             → pdf tab(用户上传的 PDF,以文件夹 row.id 为 key)
  * store 只是数据载体,BrowserTabsBar 由 react-router useMatch 决定 active。
  * 旧线上 `/paper/:legacySlug` 等 deep link 由后端 301 兼容,不在前端处理。
  */
@@ -56,7 +57,7 @@ export interface AuthorTab {
 }
 
 /**
- * PDF tab —— 文献集 row 的用户上传 PDF 单独成 tab,在浏览器视图内用 PdfViewer 渲染。
+ * PDF tab —— 文件夹 row 的用户上传 PDF 单独成 tab,在浏览器视图内用 PdfViewer 渲染。
  * 与 paper tab 是平级 —— 用户可以同时打开"论文详情"和"PDF 预览"两个 tab,
  * 互不耦合;关掉一边不影响另一边。
  *
@@ -68,7 +69,7 @@ export interface PdfTab {
   /** `pdf:${libPaperId}` */
   id: string;
   libPaperId: number;
-  /** 文献集行的标题快照 —— tab 名条显示,不依赖上游元数据 */
+  /** 文件夹行的标题快照 —— tab 名条显示,不依赖上游元数据 */
   title: string;
   returnTo: string;
   openedAt: number;
@@ -93,7 +94,7 @@ export function browserTabUrl(tab: BrowserTab): string {
     return `/paper/${source}/${encodeURIComponent(tab.paper.paperId)}`;
   }
   if (tab.kind === 'journal') {
-    return `/journal/${tab.journal.id}`;
+    return journalCanonicalPath(tab.journal.id, tab.journal.seo_slug);
   }
   if (tab.kind === 'pdf') {
     return `/pdf/${tab.libPaperId}`;
@@ -116,7 +117,7 @@ interface BrowserTabsState {
   openJournalTab: (journal: Journal, returnTo: string) => string;
   /** 开 author tab —— 已有则更新数据 + returnTo */
   openAuthorTab: (author: Author, returnTo: string) => string;
-  /** 开 pdf tab —— 文献集 row 的用户上传 PDF,以 libPaperId 为唯一 key */
+  /** 开 pdf tab —— 文件夹 row 的用户上传 PDF,以 libPaperId 为唯一 key */
   openPdfTab: (libPaperId: number, title: string, returnTo: string) => string;
   /** 关掉某个 tab。如果是 active,自动切右邻居 / 左邻居 / null */
   closeTab: (id: string) => void;

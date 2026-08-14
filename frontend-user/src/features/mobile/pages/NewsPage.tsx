@@ -62,9 +62,9 @@ export function NewsPage() {
             type="button"
             onClick={() => setSort(s.key)}
             className={cn(
-              'rounded-pill px-3 py-1 text-xs font-medium transition-colors',
+              'rounded-pill px-3 py-1 text-12 font-medium transition-colors',
               sort === s.key
-                ? 'bg-foreground text-background'
+                ? 'bg-foreground text-on-dark'
                 : 'bg-surface-2 text-muted-foreground',
             )}
           >

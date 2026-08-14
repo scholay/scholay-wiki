@@ -1,0 +1,69 @@
+effects:
+  - id: risk_difference
+    name_zh: 率差(RD)
+    name_en: risk difference
+    engine: "own:categorical._effect_2x2"
+    ci_method: newcombe
+    symbol: RD
+    notes_zh: >-
+      2×2 的默认效应量。选 RD 而不是 OR/RR 的理由是硬的:
+      ① 零格表的 OR = **inf**(实测 [[10,0],[5,7]] → statistic=inf、CI=(1.818, inf)),
+      而 reports_required 含 effect.value ⇒ 有限性闸会把**整份分析**判成 non_finite_result 拒收,
+      偏偏小样本零并发症正是最需要 Fisher 的那一格;同一张表的 RD=0.583、CI[0.200,0.807] 完好。
+      ② RD 与研究设计无关(RR 只适合队列/RCT,OR 只适合病例对照),而引擎不知道设计。
+      ③ RD 与三线表的「例数(%)」同口径,读者能自己心算核对。
+      RR 与 OR 仍然产出,放在 effects_extra(不可估计时写 null 而不是 inf —— 后者是非法 JSON)。
+      CI 用 Newcombe(两个 Wilson 区间的平方和)而不是 Wald:Wald 在率接近 0/1 时会给出超出 [-1,1] 的端点。
+    citations:
+      - id: newcombe1998-rd
+        role: primary
+        access: free_to_read
+        cite: "Newcombe RG. Interval estimation for the difference between independent proportions: comparison of eleven methods. Statistics in Medicine. 1998;17(8):873-890."
+        url: "https://onlinelibrary.wiley.com/doi/10.1002/(SICI)1097-0258(19980430)17:8%3C873::AID-SIM779%3E3.0.CO;2-I"
+
+  - id: cramers_v
+    name_zh: Cramér's V(列联强度)
+    name_en: Cramer's V
+    engine: "own:categorical._cramers_v"
+    ci_method: none
+    symbol: V
+    notes_zh: >-
+      R×C 表的关联强度,取值 [0,1]。本轮不给 CI(bootstrap 对列联表要重抽个体行,
+      与「引擎只吃已构造好的表」的形状不一致;宁可不给,也不给一个口径不明的区间)。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+
+  - id: paired_risk_difference
+    name_zh: 配对率差
+    name_en: paired risk difference
+    engine: "own:categorical.mcnemar_exact"
+    ci_method: none
+    symbol: RD
+    notes_zh: 配对 2×2 的效应量 =(b−c)/N,与 McNemar 检验同源(都只看失配对)。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"
+
+  - id: trend_r
+    name_zh: 线性趋势相关
+    name_en: trend correlation
+    engine: "own:categorical.cochran_armitage"
+    ci_method: fisher_z
+    symbol: r
+    notes_zh: >-
+      Cochran-Armitage 趋势检验的配套效应量。CA 统计量 = N·r²(自由度 1);
+      注意 statsmodels 的 test_ordinal_association 用的是 Mantel-Haenszel 口径 (N−1)·r²,
+      两者相差一个 (N−1)/N —— 两个独立实现互证,已作金标钉死。
+    citations:
+      - id: bewick2004-chisq
+        role: primary
+        access: oa
+        cite: "Bewick V, Cheek L, Ball J. Statistics review 8: Qualitative data - tests of association. Critical Care. 2004;8(1):46-53."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC420045/"

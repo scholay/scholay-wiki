@@ -1,0 +1,110 @@
+# 效应量卡。`ci_method` 必填 —— 正态近似与非中心 t 给出**不同区间**,Methods 段要写明用了哪种。
+effects:
+  - id: cohens_d
+    name_zh: Cohen's d
+    name_en: Cohen's d
+    engine: "own:effects.cohens_d"
+    ci_method: nct
+    # 🔴 symbol 缺省会**静默回落到 id**,于是中文 Results 句印出 `cohens_d=-1.04`。
+    #    2026-08-06 只给新增的两张卡补了 symbol,这三张老卡原样复发 ——
+    #    而它们覆盖 5 个方法里的 3 个、且是频次最高的三条主路。
+    #    现在 doctor 会对缺 symbol 的效应量卡硬失败,不会有第三次。
+    symbol: d
+    citations:
+      - id: lakens2013-effectsize
+        role: primary
+        access: oa
+        cite: "Lakens D. Calculating and reporting effect sizes to facilitate cumulative science: a practical primer for t-tests and ANOVAs. Front Psychol. 2013;4:863. doi:10.3389/fpsyg.2013.00863"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3840331/"
+
+  - id: hedges_g
+    name_zh: Hedges' g(小样本偏倚校正)
+    name_en: Hedges' g
+    engine: "own:effects.hedges_g"
+    ci_method: nct
+    symbol: g
+    citations:
+      - id: lakens2013-effectsize
+        role: primary
+        access: oa
+        cite: "Lakens D. Calculating and reporting effect sizes... Front Psychol. 2013;4:863."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3840331/"
+
+  - id: hedges_g_av
+    name_zh: Hedges' g(方差不齐,d_av 标准化)
+    name_en: Hedges' g (d_av)
+    engine: "own:effects.hedges_g_av"
+    # BCa 自助法:d_av 没有公认的精确解析区间,而 nct 反演是**等方差**下的推导。
+    ci_method: bootstrap
+    symbol: g
+    notes_zh: >-
+      方差不齐时标准化分母取两组标准差的均方根 d_av = √((s₁²+s₂²)/2),
+      而不是合并标准差 —— 既然已判定不假定等方差才走的 Welch,效应量再去合并方差就自相矛盾。
+      95%CI 由 BCa 自助法(5000 次重采样,种子固定)估计。
+      ⚠️ 与 SPSS 默认输出(合并 SD + 非中心 t)不一致,这是刻意的;Methods 段会写明口径。
+    citations:
+      - id: delacre2021-dav
+        role: primary
+        access: oa
+        cite: "Delacre M, Lakens D, Ley C, Liu L, Leys C. Why Hedges' g*s based on the non-pooled standard deviation should be reported with Welch's t-test. 2021. doi:10.31234/osf.io/tu6mp"
+        url: "https://osf.io/preprints/psyarxiv/tu6mp"
+      - id: lakens2013-effectsize
+        role: secondary
+        access: oa
+        cite: "Lakens D. Calculating and reporting effect sizes... Front Psychol. 2013;4:863."
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3840331/"
+
+  - id: rank_biserial
+    name_zh: 秩二列相关(非参效应量)
+    name_en: rank-biserial correlation
+    engine: "own:effects.rank_biserial"
+    ci_method: bootstrap
+    symbol: r
+    citations:
+      - id: kerby2014-simple
+        role: primary
+        access: oa
+        cite: "Kerby DS. The simple difference formula: an approach to teaching nonparametric correlation. Comprehensive Psychology. 2014;3:11.IT.3.1. doi:10.2466/11.IT.3.1"
+        url: "https://journals.sagepub.com/doi/10.2466/11.IT.3.1"
+
+  # 🔴 2026-08-06 补:这两张卡**此前不存在**,而引擎一直在产出这两个 id
+  #    (effects.py 的 `cohens_d_z` / `matched_rank_biserial`)。后果是双重的:
+  #      ① 方法卡的 `effects:` 声明与实际产出对不上 —— 那张声明形同虚设;
+  #      ② 裸英文 id 被直接印进中文交付物,Results 句写成
+  #         「(t(29)=-8.974,p<0.001,cohens_d_z=-1.64,95%CI [-2.18, -1.08])」,
+  #         而这正是**用户被明确引导直接粘进论文**的那一句。
+  #    配对设计的效应量与独立样本的**不是同一个东西**(分母是差值的 SD 而非合并 SD),
+  #    不能复用 cohens_d 那张卡糊弄过去 —— 两者数值不同、解释不同、出处也不同。
+  - id: cohens_d_z
+    name_zh: Cohen's d_z(配对设计)
+    name_en: Cohen's d_z
+    symbol: d_z
+    engine: "own:effects.paired_cohens_d"
+    ci_method: nct
+    notes_zh: >-
+      配对设计的标准化效应量,分母是**差值的标准差**(不是两组合并标准差)。
+      与独立样本的 Cohen's d 数值不可直接比较 —— 同一批数据 d_z 通常大于 d,
+      因为配对消掉了个体间变异。Methods 段必须写明报的是 d_z 而非 d。
+    citations:
+      - id: lakens2013-effectsize
+        role: primary
+        access: oa
+        cite: "Lakens D. Calculating and reporting effect sizes to facilitate cumulative science: a practical primer for t-tests and ANOVAs. Front Psychol. 2013;4:863. doi:10.3389/fpsyg.2013.00863"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3840331/"
+        locator: "§Effect sizes for within-subjects designs(d_z 的定义与告诫)"
+
+  - id: matched_rank_biserial
+    name_zh: 配对秩二列相关(非参效应量)
+    name_en: matched-pairs rank-biserial correlation
+    symbol: r
+    engine: "own:effects.matched_rank_biserial"
+    ci_method: bootstrap
+    notes_zh: >-
+      Wilcoxon 符号秩检验配套的效应量,取值 [-1, 1]。
+      置信区间用 bootstrap(固定种子)而非解析式 —— 该统计量没有简单的解析区间。
+    citations:
+      - id: kerby2014-rankbiserial
+        role: primary
+        access: oa
+        cite: "Kerby DS. The simple difference formula: an approach to teaching nonparametric correlation. Comprehensive Psychology. 2014;3:11.IT.3.1. doi:10.2466/11.IT.3.1"
+        url: "https://journals.sagepub.com/doi/10.2466/11.IT.3.1"

@@ -39,11 +39,11 @@ interface ProviderLogoProps {
 export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
   ({ provider, className }, ref) => {
   const cls = cn('inline-block shrink-0', className);
-  const aria = { 'aria-hidden': true } as const;
+  const aria = { 'aria-hidden' : true } as const;
 
   switch (provider) {
     // GitHub —— mono octocat,黑/白二值,currentColor 兼容亮 / 暗主题
-    case 'github':
+    case 'github' :
       return (
         <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
@@ -54,7 +54,7 @@ export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
       );
 
     // Google —— 官方"G"四色,品牌强识别。viewBox 24,等价 Google 设计 spec 比例
-    case 'google':
+    case 'google' :
       return (
         <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
@@ -80,7 +80,7 @@ export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
     // 之前走 currentColor 跟随父级文字灰,与品牌识别冲突 ——「微信 = 绿色」
     // 在用户心智里太强,灰色版本会被认为是失败渲染。改硬编码绿色,与
     // Google / Microsoft / ORCID 一样按品牌强色路径走。
-    case 'wechat':
+    case 'wechat' :
       return (
         <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
@@ -91,7 +91,7 @@ export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
       );
 
     // Apple —— mono apple silhouette,官方 monochrome 是品牌允许的标准变体
-    case 'apple':
+    case 'apple' :
       return (
         <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
@@ -102,7 +102,7 @@ export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
       );
 
     // ORCID —— 官方绿色"iD",品牌强依赖该绿色;不走 currentColor
-    case 'orcid':
+    case 'orcid' :
       return (
         <svg ref={ref} viewBox="0 0 256 256" className={cls} {...aria}>
           <circle cx="128" cy="128" r="128" fill="#A6CE39" />
@@ -114,7 +114,7 @@ export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
       );
 
     // Microsoft —— 官方 4 方块,品牌强依赖该 4 色;不走 currentColor
-    case 'microsoft':
+    case 'microsoft' :
       return (
         <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path fill="#F25022" d="M2 2h9.6v9.6H2z" />
@@ -129,7 +129,7 @@ export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
     // logo path 来自 https://enterscholar.com 官方 favicon:两片绿叶
     // (#428249 / #225E28)+ 两颗红果子(#E64546)。
     // 不走 currentColor —— 多色品牌图,跟 Google/Microsoft/ORCID/WeChat 一致按品牌色路径走。
-    case 'discourse':
+    case 'discourse' :
       return (
         <svg ref={ref} viewBox="0 0 512 512" className={cls} {...aria}>
           <path

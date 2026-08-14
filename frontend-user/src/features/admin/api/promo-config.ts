@@ -1,5 +1,9 @@
 // 限时领取会员推广(后台)—— 字段对齐 backend/internal/promo。
 // 单行配置:总开关 + 微信客服二维码(data URL 直存)+ 可配置文案(标题/副标题/福利点/按钮)。
+//
+// 🔴 PUT 是**整行覆盖**:表单没提交到的字段会被写成空串 / false。
+// 因此编辑页必须先过 ConfigPageGuard —— GET 失败时绝不能渲染出一份可提交的空表单
+// (那一点就是把线上二维码、活动文案全部清空,且 enabled 写 false = 活动直接下线)。
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 

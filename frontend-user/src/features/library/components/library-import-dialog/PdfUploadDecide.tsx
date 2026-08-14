@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { Button } from '@/shared/ui';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import type { ParsedEvent, SearchHit } from '../../api/upload-resolve';
 import {
@@ -64,7 +65,7 @@ function MatchConfidenceBadge({ hit }: { hit: SearchHit }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold leading-none',
+        'inline-flex items-center px-1.5 py-0.5 rounded-4 text-12 font-medium leading-none',
         CONFIDENCE_CLS[tone]
       )}
     >
@@ -163,13 +164,13 @@ export function PdfUploadDecide({
 
 function TopBanner({ total }: { total: number }) {
   return (
-    <div className="flex items-start gap-3 rounded-md border border-brand-amber/30 bg-warning-soft px-4 py-3">
+    <div className="flex items-start gap-3 rounded-12 border border-brand-amber/30 bg-warning-soft px-4 py-3">
       <Info className="size-4 text-brand-amber shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-foreground">
+        <div className="text-14 font-medium text-foreground">
           找到 {total} 条匹配结果,请确认
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 text-12 text-muted-foreground">
           根据 PDF 内容在在线论文库中检索,已按相关度排序
         </div>
       </div>
@@ -198,13 +199,13 @@ function BestMatchCard({
   const authorsLine = formatAuthorsDisplay(hit.authors);
 
   return (
-    <div className="rounded-md border border-border bg-background overflow-hidden">
+    <div className="rounded-12 border border-border bg-surface-card overflow-hidden">
       {/* 头部:✨ 最佳建议 + 来源 badge + 外链 */}
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border-soft bg-surface-1">
         <div className="flex items-center gap-2 flex-wrap">
           <Sparkles className="size-3.5 text-brand-amber" strokeWidth={2.25} />
-          <span className="text-xs font-bold text-foreground">最佳建议</span>
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
+          <span className="text-12 font-medium text-foreground">最佳建议</span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-12 font-medium leading-none uppercase">
             {sourceBrandLabel(hit.source)}
           </span>
           <MatchConfidenceBadge hit={hit} />
@@ -214,7 +215,7 @@ function BestMatchCard({
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-brand-blue hover:underline underline-offset-2"
+            className="inline-flex items-center gap-1 text-12 text-brand-amber hover:underline underline-offset-2"
           >
             <ExternalLink className="size-3" />
             查看原文
@@ -224,16 +225,16 @@ function BestMatchCard({
 
       {/* 主体:标题 + 作者 + DOI/期刊/badges + 接受/拒绝按钮 */}
       <div className="px-4 py-3.5 space-y-2">
-        <div className="text-sm font-bold text-foreground leading-relaxed">
+        <div className="text-14 font-medium text-foreground leading-paragraph">
           {hit.title || '无标题'}
         </div>
         {authorsLine && (
-          <div className="text-xs text-muted-foreground">{authorsLine}</div>
+          <div className="text-12 text-muted-foreground">{authorsLine}</div>
         )}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-faint">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-12 text-faint">
           {hit.doi && (
             <span className="font-mono">
-              <span className="font-bold tracking-wide mr-1">DOI</span>
+              <span className="font-bold mr-1">DOI</span>
               {hit.doi}
             </span>
           )}
@@ -260,14 +261,12 @@ function BestMatchCard({
 
         {/* 按钮组 */}
         <div className="flex items-center gap-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="primary"
             onClick={onAccept}
             disabled={disabled}
-            className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-sm bg-brand-green text-background text-sm font-bold',
-              'hover:bg-brand-green/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
-            )}
+            className="gap-1.5 px-3.5 text-14 [&_svg]:size-3.5"
           >
             {disabled ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -275,13 +274,13 @@ function BestMatchCard({
               <Check className="size-3.5" strokeWidth={2.5} />
             )}
             接受并加入
-          </button>
+          </Button>
           <button
             type="button"
             onClick={onReject}
             disabled={disabled}
             className={cn(
-              'inline-flex items-center gap-1 h-8 px-3 rounded-sm text-sm font-semibold text-subtle',
+              'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-14 font-medium text-subtle',
               'hover:bg-surface-2 hover:text-foreground disabled:opacity-60 transition-colors'
             )}
           >
@@ -312,13 +311,13 @@ function OtherCandidatesSection({
   onPickHit: (hit: SearchHit) => void;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background overflow-hidden">
+    <div className="rounded-12 border border-border bg-surface-card overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
         className="flex items-center justify-between w-full px-4 py-2.5 hover:bg-surface-1 transition-colors"
       >
-        <span className="text-xs font-bold text-foreground">
+        <span className="text-12 font-medium text-foreground">
           其他候选项 ({hits.length})
         </span>
         {open ? (
@@ -331,14 +330,14 @@ function OtherCandidatesSection({
         <ul className="divide-y divide-border-soft border-t border-border-soft">
           {hits.map((h) => (
             <li key={keyOfHit(h)} className="flex items-start gap-3 px-4 py-2.5">
-              <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0 mt-0.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0 mt-0.5">
                 <FileText className="size-3 text-subtle" strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground line-clamp-2">
+                <div className="text-14 font-medium text-foreground line-clamp-2">
                   {h.title || '无标题'}
                 </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-12 text-muted-foreground">
                   {(() => {
                     const line = formatAuthorsDisplay(h.authors);
                     return line ? <span>{line}</span> : null;
@@ -358,7 +357,7 @@ function OtherCandidatesSection({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-12 font-medium leading-none uppercase">
                   {sourceBrandLabel(h.source)}
                 </span>
                 <button
@@ -366,8 +365,8 @@ function OtherCandidatesSection({
                   onClick={() => onPickHit(h)}
                   disabled={disabled}
                   className={cn(
-                    'inline-flex items-center h-7 px-2.5 rounded-sm border border-brand-blue text-brand-blue text-xs font-semibold',
-                    'hover:bg-brand-blue-soft disabled:opacity-60 transition-colors'
+                    'inline-flex items-center h-7 px-2.5 rounded-8 border border-brand-amber text-brand-amber text-12 font-medium',
+                    'hover:bg-brand-amber-soft disabled:opacity-60 transition-colors'
                   )}
                 >
                   采用
@@ -393,30 +392,27 @@ function NoMatchBanner({
   isPending: boolean;
 }) {
   return (
-    <div className="rounded-md border border-border-soft bg-surface-1 px-4 py-5 text-center space-y-3">
+    <div className="rounded-12 border border-border-soft bg-surface-1 px-4 py-5 text-center space-y-3">
       <div className="inline-flex h-9 w-9 mx-auto items-center justify-center rounded-pill bg-warning-soft">
         <Info className="size-4 text-brand-amber" />
       </div>
       <div>
-        <div className="text-sm font-semibold text-foreground">
+        <div className="text-14 font-medium text-foreground">
           没有找到匹配的在线论文
         </div>
-        <div className="mt-1 text-xs text-muted-foreground">
+        <div className="mt-1 text-12 text-muted-foreground">
           可能是论文太新还没被收录,也可能是扫描件不便识别
         </div>
       </div>
-      <button
+      <Button
         type="button"
         onClick={onReject}
         disabled={isPending}
-        className={cn(
-          'inline-flex items-center gap-1.5 h-8 px-3 rounded-sm bg-foreground text-background text-sm font-semibold',
-          'hover:bg-foreground/85 disabled:opacity-60 transition-colors'
-        )}
+        className="gap-1.5 text-14 [&_svg]:size-3.5"
       >
         {isPending && <Loader2 className="size-3.5 animate-spin" />}
         直接保存
-      </button>
+      </Button>
     </div>
   );
 }
@@ -465,10 +461,11 @@ function JournalBadges({ enrichment }: { enrichment: NonNullable<JournalEnrichme
         <span
           key={b.label}
           className={cn(
-            'inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold leading-none whitespace-nowrap',
-            b.tone === 'solid-green' && 'bg-brand-green text-white',
-            b.tone === 'solid-amber' && 'bg-brand-amber text-white',
-            b.tone === 'solid-red' && 'bg-brand-red text-white',
+            'inline-flex items-center px-1.5 py-0.5 rounded-4 text-12 font-medium leading-none whitespace-nowrap',
+            b.tone === 'solid-green' && 'bg-brand-green text-on-brand',
+            // 琥珀实底配玄墨字:白字 on #B4880E 仅 3.25:1
+            b.tone === 'solid-amber' && 'bg-brand-amber text-foreground',
+            b.tone === 'solid-red' && 'bg-brand-red text-on-brand',
             b.tone === 'neutral' && 'bg-surface-2 text-subtle'
           )}
         >

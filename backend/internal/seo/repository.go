@@ -7,6 +7,7 @@ package seo
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -185,16 +186,37 @@ func (r *Repository) UpsertSeed(seed *PaperSeed, slug, authorsJSON, fieldsJSON s
 
 // BackfillSitemapPage 扫描 sitemap_page=0 的新行，填入正确的分页号
 // 仅依赖 id（严格单调递增）：page = FLOOR((id-1)/50000)+1
+//
+// updated_at = updated_at 显式自赋值:该列历史上带 ON UPDATE CURRENT_TIMESTAMP,
+// 任何不显式管理 updated_at 的 UPDATE 都会把整批行的 sitemap <lastmod> 刷成当下
+// (2026-08-10 审计:整片 sitemap 出现分钟桶批量戳,爬虫据此不再信任 lastmod)。
+// 迁移 0123 已去掉 ON UPDATE,这里仍显式写死以防 schema 回退复发。
 func (r *Repository) BackfillSitemapPage() (int64, error) {
 	res := r.db.Exec(`
 		UPDATE seo_papers
-		SET sitemap_page = FLOOR((id - 1) / ?) + 1
+		SET updated_at = updated_at, sitemap_page = FLOOR((id - 1) / ?) + 1
 		WHERE sitemap_page = 0 AND status = 1
 	`, URLsPerSitemapPage)
 	return res.RowsAffected, res.Error
 }
 
 // GetBySlug 路由解析：通过 slug 反查 paper_id + metadata（SSR 用）
+// PaperByDOI 按 DOI 查已有行的 (paper_id, title)。DOI 撞键防线用(idx_doi 索引查询):
+// 入库前发现同 DOI 已挂在【另一篇标题不同的】论文上 → 拒写本 seed 的 DOI,
+// 防 2026-04 匿名 expose 时代那类「字段嫁接」脏行再次出现。未命中返回 ("", "", nil)。
+func (r *Repository) PaperByDOI(doi string) (paperID, title string, err error) {
+	var row struct {
+		PaperID string
+		Title   string
+	}
+	res := r.db.Model(&SEOPaper{}).Select("paper_id, title").
+		Where("doi = ?", doi).Limit(1).Scan(&row)
+	if res.Error != nil {
+		return "", "", res.Error
+	}
+	return row.PaperID, row.Title, nil
+}
+
 func (r *Repository) GetBySlug(slug string) (*SEOPaper, error) {
 	var p SEOPaper
 	err := r.db.Where("slug = ?", slug).First(&p).Error
@@ -220,6 +242,40 @@ func (r *Repository) GetByPaperID(paperID string) (*SEOPaper, error) {
 	return &p, nil
 }
 
+// ExistingPaperIDs 批量判定哪些 paper_id 已在 seo_papers 落地(SSR 内链的「抓取前沿」核对,
+// 见 internal/config/ssr_link_frontier.go)。一次 IN 查询走 uk_paper_id 唯一索引;
+// 只 select 主键列,不回表取行数据。入参去重后再查,重复作者/论文不会放大 IN 列表。
+func (r *Repository) ExistingPaperIDs(paperIDs []string) (map[string]bool, error) {
+	return existingIDs(r.db, &SEOPaper{}, "paper_id", paperIDs)
+}
+
+// existingIDs 论文/作者共用的存在性批量核对。表与列由调用方给定,行为完全一致。
+func existingIDs(db *gorm.DB, model any, column string, ids []string) (map[string]bool, error) {
+	uniq := make([]string, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		uniq = append(uniq, id)
+	}
+	if len(uniq) == 0 {
+		return map[string]bool{}, nil
+	}
+	var found []string
+	if err := db.Model(model).
+		Where(column+" IN ?", uniq).
+		Pluck(column, &found).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(found))
+	for _, id := range found {
+		out[id] = true
+	}
+	return out, nil
+}
+
 // ListSitemapPage 读取指定分页的 sitemap 条目（仅取 SEO 必要字段）
 //
 // 多 select 一个 source 和 paper_id —— sitemap 写入的 URL 现在是
@@ -234,6 +290,7 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 		Source      string    `gorm:"column:source"`
 		PaperID     string    `gorm:"column:paper_id"`
 		UpdatedAt   time.Time `gorm:"column:updated_at"`
+		CreatedAt   time.Time `gorm:"column:created_at"`
 		Priority    float64   `gorm:"column:priority"`
 		QualityTier int       `gorm:"column:quality_tier"`
 	}
@@ -244,9 +301,9 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	// 注:分页仍按预计算的 sitemap_page 列,过滤后单页 URL 数变少(合法),不额外重排。
 	// OR 条件用显式括号写进同一个 Where，不依赖 GORM 对多段 Where 的括号化(不同版本行为不一,
 	// 漏括号会让 `AND ... OR ...` 优先级错乱)。
-	err := r.db.Table("seo_papers").
-		Select("slug, source, paper_id, updated_at, priority, quality_tier").
-		Where("status = ? AND sitemap_page = ? AND (COALESCE(abstract, '') <> '' OR quality_tier = 1)", StatusActive, page).
+	err := r.paperSitemapRows().
+		Select("slug, source, paper_id, updated_at, created_at, priority, quality_tier").
+		Where("sitemap_page = ?", page).
 		Order("id").
 		Find(&rows).Error
 	if err != nil {
@@ -259,6 +316,7 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 			Source:      r.Source,
 			EntityID:    r.PaperID,
 			UpdatedAt:   r.UpdatedAt,
+			CreatedAt:   r.CreatedAt,
 			Priority:    r.Priority,
 			QualityTier: r.QualityTier,
 		})
@@ -266,26 +324,56 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	return out, nil
 }
 
-// GetSitemapLastModPerPage 返回每个分页的最大 updated_at,用于索引文件 <lastmod>
-// 单条 SQL: GROUP BY sitemap_page → 一次拿到所有分页的真实修改时间
-func (r *Repository) GetSitemapLastModPerPage() (map[int]time.Time, error) {
-	var rows []struct {
-		Page    int       `gorm:"column:sitemap_page"`
-		LastMod time.Time `gorm:"column:last_mod"`
-	}
-	err := r.db.Table("seo_papers").
+// paperSitemapRows 是论文 leaf 与 sitemap index 共用的 eligibility 单一真源。
+// 任何改动都必须同时影响 ListSitemapPage 和 GetSitemapLastModPerPage，避免 index
+// 发布一个 leaf 实际为空的页，或遗漏真实有内容的页。
+func (r *Repository) paperSitemapRows() *gorm.DB {
+	return r.db.Table("seo_papers").
+		Where("status = ? AND source IN ? AND TRIM(COALESCE(paper_id, '')) <> '' AND TRIM(COALESCE(title, '')) <> '' AND (TRIM(COALESCE(abstract, '')) <> '' OR quality_tier = ?)", StatusActive, []string{SourceSTC, SourceOLX, SourcePMD}, TierDetailClick)
+}
+
+type sitemapPageLastModRow struct {
+	Page    int       `gorm:"column:sitemap_page"`
+	LastMod time.Time `gorm:"column:last_mod"`
+}
+
+// sitemapPageLastModQuery 枚举 scope 中真实存在的非空 sitemap_page。
+// sitemap_page 是按持久化 id 区间分桶，可能因删除/失效产生缺号，因此调用方必须
+// 使用返回 map 的真实 key，禁止再由 COUNT 推导 1..N 连续页。
+func sitemapPageLastModQuery(scope *gorm.DB) *gorm.DB {
+	return scope.
 		Select("sitemap_page, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
+		Where("sitemap_page > 0").
 		Group("sitemap_page").
-		Scan(&rows).Error
-	if err != nil {
+		Order("sitemap_page")
+}
+
+func sitemapPageLastMods(scope *gorm.DB) (map[int]time.Time, error) {
+	var rows []sitemapPageLastModRow
+	if err := sitemapPageLastModQuery(scope).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make(map[int]time.Time, len(rows))
-	for _, r := range rows {
-		out[r.Page] = r.LastMod
+	for _, row := range rows {
+		out[row.Page] = row.LastMod
 	}
 	return out, nil
+}
+
+func sitemapSummaryFromPageLastMods(pages map[int]time.Time) *SitemapSummary {
+	summary := &SitemapSummary{TotalPages: len(pages)}
+	for _, lastMod := range pages {
+		if lastMod.After(summary.LastMod) {
+			summary.LastMod = lastMod
+		}
+	}
+	return summary
+}
+
+// GetSitemapLastModPerPage 返回每个真实非空分页的最大 updated_at。
+// map key 同时就是主 sitemap 必须枚举的真实页号。
+func (r *Repository) GetSitemapLastModPerPage() (map[int]time.Time, error) {
+	return sitemapPageLastMods(r.paperSitemapRows())
 }
 
 // ListTopPaperPaths 返回最值得主动推送的论文 **canonical 路径** /paper/{source}/{id}
@@ -302,9 +390,9 @@ func (r *Repository) ListTopPaperPaths(limit int) ([]string, error) {
 		Source  string `gorm:"column:source"`
 		PaperID string `gorm:"column:paper_id"`
 	}
-	err := r.db.Table("seo_papers").
+	err := r.paperSitemapRows().
 		Select("slug, source, paper_id").
-		Where("status = ? AND slug <> ''", StatusActive).
+		Where("slug <> ''").
 		Order("quality_tier ASC, view_count DESC, id ASC"). // tier=1 优先,然后看人气
 		Limit(limit).
 		Find(&rows).Error
@@ -322,29 +410,55 @@ func (r *Repository) ListTopPaperPaths(limit int) ([]string, error) {
 	return out, nil
 }
 
-// GetSitemapSummary 返回 sitemap 分页总数和最后修改时间
-// 只统计 sitemap_page > 0 的行 —— 新插入但 BackfillSitemapPage 还没跑到的行
-// 不算入分页,避免索引文件列出空的"幽灵分页"导致爬虫拿到 404。
-func (r *Repository) GetSitemapSummary() (*SitemapSummary, error) {
-	var row struct {
-		Total   int64      `gorm:"column:total"`
-		LastMod *time.Time `gorm:"column:last_mod"`
+// ListPapersByVenueForSSR 期刊页 SSR 的「近期代表论文」——按 venue 名称精确匹配
+// 可收录论文(与 sitemap eligibility 同 scope,不给爬虫指向 noindex 薄页的内链),
+// 年份↓、被引↓。venue 走 0124 迁移的前缀索引;年份/被引在小结果集上内存排序即可。
+func (r *Repository) ListPapersByVenueForSSR(venue string, limit int) ([]AuthorWork, error) {
+	venue = strings.TrimSpace(venue)
+	if venue == "" || limit <= 0 {
+		return nil, nil
 	}
-	err := r.db.Table("seo_papers").
-		Select("COUNT(*) AS total, MAX(updated_at) AS last_mod").
-		Where("status = ? AND sitemap_page > 0", StatusActive).
-		Scan(&row).Error
+	var rows []struct {
+		Title         string `gorm:"column:title"`
+		Source        string `gorm:"column:source"`
+		PaperID       string `gorm:"column:paper_id"`
+		Year          *int   `gorm:"column:year"`
+		CitationCount int    `gorm:"column:citation_count"`
+	}
+	err := r.paperSitemapRows().
+		Select("title, source, paper_id, year, citation_count").
+		Where("venue = ?", venue).
+		Order("year DESC, citation_count DESC").
+		Limit(limit).
+		Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}
-	summary := &SitemapSummary{}
-	if row.Total > 0 {
-		summary.TotalPages = int((row.Total-1)/int64(URLsPerSitemapPage)) + 1
+	out := make([]AuthorWork, 0, len(rows))
+	for _, row := range rows {
+		w := AuthorWork{
+			Title:         row.Title,
+			Source:        row.Source,
+			PaperID:       row.PaperID,
+			CitationCount: row.CitationCount,
+		}
+		if row.Year != nil {
+			w.Year = *row.Year
+		}
+		out = append(out, w)
 	}
-	if row.LastMod != nil {
-		summary.LastMod = *row.LastMod
+	return out, nil
+}
+
+// GetSitemapSummary 返回真实非空 sitemap 分片数量和最后修改时间。
+// TotalPages 仅是非空分片数量，不能用于构造 1..N；真实页号必须取
+// GetSitemapLastModPerPage 的 map key。
+func (r *Repository) GetSitemapSummary() (*SitemapSummary, error) {
+	pages, err := r.GetSitemapLastModPerPage()
+	if err != nil {
+		return nil, err
 	}
-	return summary, nil
+	return sitemapSummaryFromPageLastMods(pages), nil
 }
 
 // calcSitemapPage 由 id 计算所属分页（1-based）。新行 id 未知时返回 0（由 BackfillSitemapPage 事后修正）

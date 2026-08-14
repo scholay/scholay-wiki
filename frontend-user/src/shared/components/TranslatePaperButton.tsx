@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 
 /**
- * AI 翻译按钮 —— 全局唯一实现,跨搜索卡 / 文献集行 / 详情页 复用。
+ * AI 翻译按钮 —— 全局唯一实现,跨搜索卡 / 文件夹内论文行 / 详情页 复用。
  *
  * 状态机(由父级状态驱动):
  *   - 无 cache 且 idle      : "AI 翻译" + 默认色
@@ -61,9 +61,9 @@ const ICON_SIZE: Record<TranslateButtonSize, string> = {
 };
 
 const CHIP_CLS: Record<TranslateButtonSize, string> = {
-  sm: 'h-6 px-2 text-2xs gap-1',
-  md: 'h-6 px-2.5 text-xs gap-1',
-  lg: 'h-8 px-3 text-sm gap-1.5',
+  sm: 'h-6 px-2 text-12 gap-1',
+  md: 'h-6 px-2.5 text-12 gap-1',
+  lg: 'h-8 px-3 text-14 gap-1.5',
 };
 
 const ICON_BTN_CLS: Record<TranslateButtonSize, string> = {
@@ -113,7 +113,9 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
           onSuccess: (r) => onTranslated(r),
           onError: (err: unknown) => {
             const e = err instanceof Error ? err : new Error('翻译失败');
-            if (showToast) toast.error(e.message);
+            // 额度耗尽:全局通知器(耗尽 toast/额度条)已承接,这里不再叠一条裸 toast。
+            const quotaHandled = !!(e as Error & { quotaHandled?: boolean }).quotaHandled;
+            if (showToast && !quotaHandled) toast.error(e.message);
             onError?.(e);
           },
         }
@@ -143,7 +145,7 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
           aria-label={ariaLabel}
           title={title_}
           className={cn(
-            'inline-flex items-center justify-center rounded-sm shrink-0 transition-colors',
+            'inline-flex items-center justify-center rounded-8 shrink-0 transition-colors',
             ICON_BTN_CLS[size],
             showingTranslated
               ? 'bg-surface-2 text-foreground'
@@ -167,7 +169,7 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
           aria-pressed={showingTranslated}
           title={title_}
           className={cn(
-            'inline-flex items-center gap-1.5 text-sm font-medium transition-colors',
+            'inline-flex items-center gap-1.5 text-14 font-medium transition-colors',
             'text-foreground hover:text-brand-red',
             isPending && 'opacity-70 cursor-not-allowed',
             className
@@ -191,12 +193,12 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
         aria-pressed={showingTranslated}
         title={title_}
         className={cn(
-          'inline-flex items-center justify-center rounded-sm border shrink-0 whitespace-nowrap transition-colors',
+          'inline-flex items-center justify-center rounded-8 border shrink-0 whitespace-nowrap transition-colors',
           CHIP_CLS[size],
           // 窄容器塌成 24×24 纯图标(仅当父级开启 collapseLabel + 处于 @container 内)
           collapseLabel && '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
           showingTranslated
-            ? 'border-foreground/40 bg-surface-1 text-foreground font-semibold'
+            ? 'border-foreground/40 bg-surface-1 text-foreground font-medium'
             : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
           isPending && 'opacity-60 cursor-wait',
           className

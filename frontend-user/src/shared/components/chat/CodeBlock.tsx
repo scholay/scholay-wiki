@@ -12,7 +12,7 @@ import { Check, Copy } from 'lucide-react';
  *   - 复制按钮默认半透明, hover 容器才显形, 不抢正文注意力
  *   - overflow-x-auto: 长代码行横向滚动, 不撑破气泡 (气泡 overflow-hidden 兜底)
  *
- * hljs 主题色走 github light (在 MarkdownRenderer 顶部 import 一次). 代码语法色是独立色域,
+ * hljs 主题色走 github light(由 MarkdownRenderer 的代码增强 loader 按需 import)。代码语法色是独立色域,
  * 不受项目 design token 约束 (token 管 UI chrome, 语法高亮是另一回事)。
  */
 export function CodeBlock({ children }: { children?: ReactNode }) {
@@ -36,7 +36,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-sm border border-border bg-background/90 px-1.5 py-0.5 text-2xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/code:opacity-100"
+        className="absolute right-2 top-2 z-raised inline-flex items-center gap-1 rounded-4 border border-border bg-surface-card/90 px-1.5 py-0.5 text-12 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/code:opacity-100"
         aria-label="复制代码"
       >
         {copied ? (
@@ -53,7 +53,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
       </button>
       <pre
         ref={preRef}
-        className="overflow-x-auto rounded-md border border-border bg-surface-1 p-3 text-[12px] leading-relaxed"
+        className="overflow-x-auto rounded-12 border border-border bg-surface-1 p-3 text-12 leading-paragraph"
       >
         {children}
       </pre>

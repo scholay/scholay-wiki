@@ -25,7 +25,7 @@ export function AccountTypeTabs({
   return (
     <div
       className={cn(
-        'inline-flex items-center rounded-md bg-surface-2 p-0.5 text-sm',
+        'inline-flex items-center rounded-12 bg-surface-2 p-0.5 text-12',
         className
       )}
     >
@@ -35,9 +35,9 @@ export function AccountTypeTabs({
           type="button"
           onClick={() => onChange(t.value)}
           className={cn(
-            'h-7 px-3 rounded-sm transition-colors',
+            'h-7 px-3 rounded-8 transition-colors',
             value === t.value
-              ? 'bg-background text-foreground shadow-sm'
+              ? 'bg-surface-card text-foreground shadow-raised'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >

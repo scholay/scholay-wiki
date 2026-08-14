@@ -28,11 +28,11 @@ const METHODOLOGY_HINTS = [
 
 export function MethodologyPhaseCard() {
   return (
-    <section className="flex items-center gap-3 rounded-md border border-brand-amber/40 bg-warning-soft px-4 py-3">
+    <section className="flex items-center gap-3 rounded-16 border border-brand-amber/40 bg-warning-soft px-4 py-3">
       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
       <CyclingHint
         phrases={METHODOLOGY_HINTS}
-        className="min-w-0 text-sm font-semibold text-brand-amber"
+        className="min-w-0 text-12 font-medium text-brand-amber"
       />
     </section>
   );

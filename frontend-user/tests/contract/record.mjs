@@ -22,8 +22,18 @@ if (!TOKEN) {
 }
 
 // 只录「驱动 UI 分支」的行为关键端点。新增契约时往这里加一行。
+// trim:数组只留前 N 项 —— 契约钉的是**形态**,全量录制会让 fixture 膨胀到几百 KB 且每次 diff 全变。
 const targets = [
   { name: 'vip-overview.json', url: '/user/membership' },
+  // 后台算力用量看板。需要 role=admin 的 TOKEN;成本字段(cost_micro_yuan / unpriced_*)是主单位来源。
+  {
+    name: 'admin-llm-usage-summary.json',
+    url: '/admin/llm-token-usage/summary?days=30',
+    trim: ['daily', 'by_model', 'by_feature', 'by_source', 'by_provider', 'top_users', 'daily_by_model', 'daily_by_feature'],
+  },
+  // 「用户端不下发额度绝对值」不变量的两个出口。schema 是 strict 的:录到绝对字段就说明后端回归了。
+  { name: 'billing-plans.json', url: '/billing/plans' },
+  { name: 'usage-calendar.json', url: '/user/billing/usage-calendar' },
 ];
 
 let failed = false;
@@ -31,6 +41,9 @@ for (const t of targets) {
   try {
     const res = await fetch(BASE + t.url, { headers: { Authorization: `Bearer ${TOKEN}` } });
     const body = await res.json();
+    for (const k of t.trim ?? []) {
+      if (Array.isArray(body?.data?.[k])) body.data[k] = body.data[k].slice(0, 3);
+    }
     writeFileSync(path.join(here, 'fixtures', t.name), JSON.stringify(body, null, 2) + '\n');
     console.log(`✓ recorded ${t.name} (HTTP ${res.status})`);
   } catch (e) {

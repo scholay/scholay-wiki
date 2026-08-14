@@ -7,9 +7,4 @@
  * 而不是用户气泡。前缀是可见文本(也进历史 transcript),即便渲染兜底也只会显示成一条系统说明,
  * 不会露成裸提问。实时(pendingTurns.userText)与历史(replay 的 userText)都经同一渲染器,故一致。
  */
-export const COMPILE_CHECK_PREFIX = '【系统 · 自动编译检查】';
-
-/** 该轮用户侧是否为系统自动编译检查(据 userText 前缀判定,实时/历史同源)。 */
-export function isCompileCheckText(text: string | undefined | null): boolean {
-  return !!text && text.startsWith(COMPILE_CHECK_PREFIX);
-}
+export { COMPILE_CHECK_PREFIX, isCompileCheckText } from '@/shared/lib/prism-compile-check';

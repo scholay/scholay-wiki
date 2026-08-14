@@ -27,7 +27,7 @@ interface Preset {
 
 // key = 路由最后一段。新增聚合页:加一条 + 在 routes.tsx 注册同名路径。
 const PRESETS: Record<string, Preset> = {
-  'sci-q1': {
+  'sci-q1' : {
     filters: { jcrQuartile: 'Q1' },
     title: 'SCI 一区(JCR Q1)期刊有哪些 - Scholay 期刊库',
     description:
@@ -38,7 +38,7 @@ const PRESETS: Record<string, Preset> = {
     intro:
       'JCR 分区中的 Q1(俗称 SCI 一区)代表各学科领域影响力最高的前 25% 期刊。下方按影响因子排序列出 Q1 期刊,可点开查看分区、影响因子趋势与投稿信息,或用搜索条继续缩小到具体学科。',
   },
-  'cas-zone1': {
+  'cas-zone1' : {
     filters: { fqbQuartile: '1' },
     title: '中科院一区期刊有哪些 - Scholay 期刊库',
     description:
@@ -49,7 +49,7 @@ const PRESETS: Record<string, Preset> = {
     intro:
       '中科院文献情报中心期刊分区中的「1 区」是各大类学科里综合指标最高的一档,常作为国内职称评审与毕业要求的硬指标。下方列出中科院一区期刊,可逐刊查看分区与投稿决策信息。',
   },
-  'ccf-a': {
+  'ccf-a' : {
     filters: { ccfRank: 'A' },
     title: 'CCF A 类推荐期刊有哪些 - Scholay 期刊库',
     description:
@@ -60,7 +60,7 @@ const PRESETS: Record<string, Preset> = {
     intro:
       'CCF(中国计算机学会)推荐目录中的 A 类期刊代表计算机各方向的顶级刊物,是国内计算机学科评价的重要参照。下方列出 CCF A 类期刊,可查看影响因子与投稿信息。',
   },
-  'high-impact-factor': {
+  'high-impact-factor' : {
     filters: { minImpactFactor: 10 },
     title: '高影响因子期刊(IF ≥ 10)有哪些 - Scholay 期刊库',
     description:
@@ -87,13 +87,13 @@ export function JournalCollectionPage() {
 
   const header = (
     <section className="space-y-2">
-      <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
+      <div className="text-12 font-medium uppercase text-faint">
         期刊榜单
       </div>
-      <h1 className="font-display font-bold text-xl sm:text-2xl text-foreground leading-tight">
+      <h1 className="font-display font-bold text-20 sm:text-24 text-foreground leading-display-tight">
         {preset.heading}
       </h1>
-      <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
+      <p className="text-12 leading-paragraph text-muted-foreground max-w-3xl">
         {preset.intro}
       </p>
 
@@ -105,14 +105,14 @@ export function JournalCollectionPage() {
             <Link
               key={k}
               to={`/journals/${k}`}
-              className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
             >
               {p.chip}
             </Link>
           ))}
         <Link
           to="/journals/search"
-          className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
         >
           全部期刊检索
         </Link>

@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 
 /**
  * Feed 本地持久化(targeted,无新依赖)——「抖音式」二次进入无缝衔接:
@@ -22,6 +22,37 @@ interface Cached {
   t: number;
   pages: unknown[];
   pageParams: unknown[];
+}
+
+/**
+ * 同步读取可用的本地 feed。供 useInfiniteQuery.initialData 在子组件
+ * 第一次 render 时使用，避免等父布局 useEffect 才灌缓存造成的
+ * 首帧 skeleton + 多余网络请求。
+ */
+export function readFeedPages<TPage, TPageParam = unknown>(
+  name: string,
+  seed: number,
+): InfiniteData<TPage, TPageParam> | undefined {
+  try {
+    const raw = localStorage.getItem(PREFIX + name);
+    if (!raw) return undefined;
+    const cached = JSON.parse(raw) as Cached;
+    if (
+      cached.seed !== seed ||
+      Date.now() - cached.t > MAX_AGE ||
+      !Array.isArray(cached.pages) ||
+      !Array.isArray(cached.pageParams) ||
+      !pagesHaveContent(cached.pages)
+    ) {
+      return undefined;
+    }
+    return {
+      pages: cached.pages as TPage[],
+      pageParams: cached.pageParams as TPageParam[],
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -73,20 +104,11 @@ export function hydrateFeed(
   queryKey: readonly unknown[]
 ): void {
   try {
-    const raw = localStorage.getItem(PREFIX + name);
-    if (!raw) return;
-    const c = JSON.parse(raw) as Cached;
-    if (
-      c.seed !== seed ||
-      Date.now() - c.t > MAX_AGE ||
-      !Array.isArray(c.pages) ||
-      !pagesHaveContent(c.pages) // 空内容(含 [[]] / [{rows:[]}])不灌入 → 让 prefetch 真正去拉
-    ) {
-      return;
-    }
+    const cached = readFeedPages(name, seed);
+    if (!cached) return;
     // 已有数据就不覆盖(避免把正在用的更完整缓存覆盖回旧的)
     if (qc.getQueryData(queryKey)) return;
-    qc.setQueryData(queryKey, { pages: c.pages, pageParams: c.pageParams });
+    qc.setQueryData(queryKey, cached);
   } catch {
     /* ignore */
   }

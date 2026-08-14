@@ -110,6 +110,53 @@ export function useTopMetric(type: TopType, limit = 10, params: AnalyticsRangePa
   });
 }
 
+// ── 搜索引擎抓取(爬虫监控)──────────────────────────────────────────────
+// mirrors backend/internal/umami/crawler.go GetCrawlerStats
+// 数据源是 crawlerwatch 写入的独立 umami website;未配置时后端返 {configured:false}
+// (HTTP 200,不是错误),前端据此渲染配置引导卡。
+
+export type CrawlerRange = '24h' | '7d' | '30d';
+
+export interface CrawlerEngineCount {
+  /** 引擎 key(backend/internal/crawlerwatch/classify.go 的 uaRules) */
+  engine: string;
+  count: number;
+}
+export interface CrawlerSeriesPoint {
+  /** hour → "2006-01-02 15:04",day → "2006-01-02"(后端已补零桶) */
+  t: string;
+  count: number;
+}
+export interface CrawlerPageCount {
+  url: string;
+  count: number;
+}
+export interface CrawlerStats {
+  configured: boolean;
+  range?: CrawlerRange;
+  unit?: 'hour' | 'day';
+  engines?: CrawlerEngineCount[];
+  series?: CrawlerSeriesPoint[];
+  top_pages?: CrawlerPageCount[];
+  /** 429(抓取配额风险)/ 5xx 计数;后端拿不到时整个字段省略 */
+  status_hint?: { '429': number; '5xx': number };
+  start?: string;
+  end?: string;
+}
+
+export function useCrawlerStats(range: CrawlerRange) {
+  return useQuery({
+    queryKey: ['admin', 'analytics', 'crawler', range],
+    queryFn: async () => {
+      const r = await http.get<{ data: CrawlerStats }>('/admin/analytics/crawler', {
+        params: { range },
+      });
+      return r.data.data;
+    },
+    staleTime: STALE_WARM,
+  });
+}
+
 /**
  * 实时在线 —— 30s 轮询。
  * - staleTime = STALE_WARM (60s):前台切 tab 来回不会触发额外 refetch。

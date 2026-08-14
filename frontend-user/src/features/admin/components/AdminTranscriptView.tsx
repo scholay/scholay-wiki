@@ -1,329 +1,427 @@
-import { useMemo, useState } from 'react';
-import { AlertCircle, FileText, Image as ImageIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { History, Loader2 } from 'lucide-react';
 import {
-  replayHistoryAsTurns,
-  parseUserEntryWithAttachments,
-} from '@/shared/lib/agent-history';
-import {
-  AssistantBubble,
+  BlockedTurnCard,
   ChatStyles,
-  MinicodAuthorCards,
-  MinicodJournalCards,
-  MinicodSnippetCards,
-  PausedNotice,
-  PaperListReadonly,
-  ProcessFold,
-  ThinkingFold,
-  ToolCallBlock,
-  ToolHeaderExtras,
-  UserBubble,
-  extractToolQuery,
-  extractToolSourceBrand,
+  ClawTurnView,
+  PrismTurnView,
+  SearchUserBubble,
+  SearchTurnView,
 } from '@/shared/components/chat';
-import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
-import { classifyMinicodToolResult } from '@/shared/lib/minicod-results';
-import { Button } from '@/shared/ui/button';
+import {
+  parseUserEntryWithAttachments,
+  replayHistoryAsTurns,
+  type ParsedUserEntry,
+} from '@/shared/lib/agent-history';
+import { stripReferenceBlock } from '@/shared/lib/agent-references';
 import type { Turn, TurnAttachment } from '@/shared/types/chat';
-import type { TranscriptEntry } from '../api/session-monitor';
+import { Button } from '@/shared/ui/button';
+import type {
+  AdminSessionArtifact,
+  AdminTranscriptResponse,
+  AdminTranscriptTurn,
+  MonitorFeature,
+} from '../api/session-monitor';
+import { AdminAttachmentChips } from './AdminMessageAttachments';
 import type { AdminPreviewFile } from './AdminFilePreviewDialog';
+import { AdminTurnArtifacts } from './AdminTurnArtifacts';
+import { AdminTurnFigures, isFigureArtifact } from './AdminTurnFigures';
+import { SessionTurnMeta } from './SessionTurnMeta';
 
-/**
- * 管理端附件 chips —— 用户上传的文件在会话里点开即预览/下载(经 /admin/agent-sessions/:id/file)。
- * 有 path(claw @"path" 前缀还原)→ 可点击调 onPreview;老内联图片(仅 previewUrl)→ 直接显缩略图;
- * 都没有 → 纯文件名 chip。mime 未知,预览器用 blob.type / 文件名后缀兜底。
- */
-function AdminAttachmentChips({
-  attachments,
-  sessionId,
-  onPreview,
-}: {
-  attachments: TurnAttachment[];
-  sessionId?: string;
-  onPreview?: (f: AdminPreviewFile) => void;
-}) {
-  if (attachments.length === 0) return null;
-  return (
-    <div className="flex max-w-full flex-wrap justify-end gap-1.5">
-      {attachments.map((a, i) => {
-        const canOpen = !!sessionId && !!a.path && !!onPreview;
-        const inner = (
-          <>
-            {a.type === 'image' ? (
-              <ImageIcon className="size-3 shrink-0" strokeWidth={2.2} />
-            ) : (
-              <FileText className="size-3 shrink-0" strokeWidth={2.2} />
-            )}
-            <span className="min-w-0 truncate">{a.name}</span>
-          </>
-        );
-        if (canOpen) {
-          return (
-            <button
-              key={i}
-              type="button"
-              title={`${a.name} · 点击预览`}
-              onClick={() =>
-                onPreview!({
-                  src: `/admin/agent-sessions/${sessionId}/file?path=${encodeURIComponent(a.path!)}`,
-                  mime: '',
-                  filename: a.name,
-                })
-              }
-              className="inline-flex max-w-[220px] items-center gap-1 rounded-sm bg-foreground/85 px-2 py-0.5 text-2xs text-background/90 transition-colors hover:bg-foreground"
-            >
-              {inner}
-            </button>
-          );
-        }
-        if (a.type === 'image' && a.previewUrl) {
-          return (
-            <img
-              key={i}
-              src={a.previewUrl}
-              alt={a.name}
-              loading="lazy"
-              className="size-14 shrink-0 rounded-md border border-border-strong object-cover"
-            />
-          );
-        }
-        return (
-          <span
-            key={i}
-            className="inline-flex max-w-[220px] items-center gap-1 rounded-sm bg-foreground/85 px-2 py-0.5 text-2xs text-background/90"
-            title={a.name}
-          >
-            {inner}
-          </span>
-        );
-      })}
-    </div>
-  );
+interface RenderedTurn {
+  turn: Turn;
+  meta: AdminTranscriptTurn;
 }
 
-/**
- * 管理端只读 transcript 渲染 —— 按 featureKey 分流,逐 feature **镜像用户端的真实渲染**
- * (smart-search 的 AssistantTurn / claw 的 MessageTurn / prism 的 PrismMessageTurn),
- * 保证「管理员看到的 = 用户看到的」:
- *   - 折叠选项同款:claw 走 parseUserEntryWithAttachments(@"path" 附件前缀 → chip);
- *   - 附件 chips / 错误卡 / 「已暂停」标识 / 空文本块过滤 全部对齐;
- *   - smart-search:minicod 工具 chip 带「源品牌 + 搜索词」、是论文列表才渲染只读论文卡并隐藏 JSON,
- *     非论文结果回退默认可展开工具块(与用户端同款安全网);
- *   - prism:「处理过程 · N 步」折叠 + 末尾总结常驻(shared ProcessFold 同一份组件)。
- * 只读差异(刻意):无输入框 / 无流式光标 / 论文卡无收藏暂存交互 / claw 产物卡不展示
- * (artifacts 走用户态 API,管理端无对应端点)。
- * 长会话防卡:默认渲染最近 60 轮,「加载更早」增量展开(与用户端渲染窗口策略一致)。
- */
-
+const CLAW_FAMILY = new Set<MonitorFeature>([
+  'claw',
+  'boltslides',
+  'sci_draw',
+  'stat_lab',
+]);
 const RENDER_WINDOW = 60;
 
-/** 通用尾部:错误卡(claw/prism 同款样式)+ 已暂停。 */
-function TurnTail({ turn }: { turn: Turn }) {
-  return (
-    <>
-      {turn.errorMessage && (
-        <div className="flex items-start gap-2 rounded-md border border-brand-red/30 bg-danger-soft px-3 py-2">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-red" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-brand-red">回答失败</p>
-            <p className="text-xs text-muted-foreground break-words">{turn.errorMessage}</p>
-          </div>
-        </div>
-      )}
-      {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}
-    </>
-  );
-}
-
-/** claw 镜像(MessageTurn 只读版):附件 chips(可点开预览)+ 顺序块(minicod 工具同用户端特化成
- *  论文/期刊/作者/片段只读卡,其余工具走默认 ToolCallBlock)+ 错误/暂停。 */
-function ClawTurn({
-  turn,
-  sessionId,
-  onPreview,
-}: {
-  turn: Turn;
-  sessionId?: string;
-  onPreview?: (f: AdminPreviewFile) => void;
-}) {
-  return (
-    <article className="flex flex-col gap-2.5 min-w-0">
-      <UserBubble
-        text={turn.userText}
-        attachments={
-          turn.userAttachments && turn.userAttachments.length > 0 ? (
-            <AdminAttachmentChips attachments={turn.userAttachments} sessionId={sessionId} onPreview={onPreview} />
-          ) : undefined
-        }
-      />
-      {turn.thinkingText && <ThinkingFold text={turn.thinkingText} isActive={false} />}
-      {turn.blocks.map((b) => {
-        if (b.kind === 'text') {
-          if (!b.text) return null;
-          return <AssistantBubble key={b.id} text={b.text} />;
-        }
-        // minicod 工具:与用户端 claw(MessageTurn)同款 —— 按 dispatcher 判定结果类型渲成对应只读卡
-        // (论文 / 期刊 / 作者 / 原文片段)并隐藏 JSON + 露出品牌/搜索词 chip;'unknown' 才回退默认可展开,
-        // 让管理员至少能看到原始 JSON。非 minicod 工具(Bash / Read / 交付物等)维持默认 ToolCallBlock。
-        if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
-          const kind =
-            b.result !== undefined ? classifyMinicodToolResult(b.result, b.toolName) : 'unknown';
-          return (
-            <div key={b.id} className="space-y-2 min-w-0">
-              <ToolCallBlock
-                tool={b}
-                expandable={kind === 'unknown'}
-                renderHeaderExtras={() => (
-                  <ToolHeaderExtras brand={extractToolSourceBrand(b.input)} query={extractToolQuery(b.input)} />
-                )}
-              />
-              {kind === 'papers' && <PaperListReadonly content={b.result} />}
-              {kind === 'journals' && <MinicodJournalCards content={b.result} />}
-              {kind === 'authors' && <MinicodAuthorCards content={b.result} />}
-              {kind === 'snippets' && <MinicodSnippetCards content={b.result} />}
-            </div>
-          );
-        }
-        return <ToolCallBlock key={b.id} tool={b} />;
-      })}
-      <TurnTail turn={turn} />
-    </article>
-  );
-}
-
-/** smart-search 镜像(AssistantTurn 只读版):minicod 工具特化(品牌+搜索词 chip、只读论文卡)。 */
-function SearchTurn({ turn }: { turn: Turn }) {
-  return (
-    <article className="flex flex-col gap-2.5 min-w-0">
-      <UserBubble text={turn.userText} />
-      {turn.thinkingText && <ThinkingFold text={turn.thinkingText} isActive={false} />}
-      {turn.blocks.map((b) => {
-        if (b.kind === 'text') {
-          if (!b.text) return null;
-          return <AssistantBubble key={b.id} text={b.text} />;
-        }
-        const isMinicod = b.toolName.startsWith(MINICOD_TOOL_PREFIX);
-        const query = extractToolQuery(b.input);
-        const brand = extractToolSourceBrand(b.input);
-        if (isMinicod) {
-          // 与用户端同款:按 dispatcher 判定结果类型可视化成对应只读卡(论文 / 期刊 / 作者 / 原文片段)
-          // 并隐藏 JSON;'unknown'(OpenAlex 实体/recommend 空壳等无法识别)才回退默认可展开,
-          // 让管理员至少能看到原始 JSON,不再静默隐形。
-          const kind =
-            b.result !== undefined
-              ? classifyMinicodToolResult(b.result, b.toolName)
-              : 'unknown';
-          return (
-            <div key={b.id} className="space-y-2 min-w-0">
-              <ToolCallBlock
-                tool={b}
-                expandable={kind === 'unknown'}
-                renderHeaderExtras={() => <ToolHeaderExtras brand={brand} query={query} />}
-              />
-              {kind === 'papers' && <PaperListReadonly content={b.result} />}
-              {kind === 'journals' && <MinicodJournalCards content={b.result} />}
-              {kind === 'authors' && <MinicodAuthorCards content={b.result} />}
-              {kind === 'snippets' && <MinicodSnippetCards content={b.result} />}
-            </div>
-          );
-        }
-        return (
-          <ToolCallBlock
-            key={b.id}
-            tool={b}
-            renderHeaderExtras={() => <ToolHeaderExtras brand={brand} query={query} />}
-          />
-        );
-      })}
-      <TurnTail turn={turn} />
-    </article>
-  );
-}
-
-/** prism 镜像(PrismMessageTurn 只读版):「处理过程 · N 步」折叠 + 末尾总结常驻。 */
-function PrismTurn({ turn }: { turn: Turn }) {
-  const blocks = turn.blocks;
-  const last = blocks[blocks.length - 1];
-  const finalText = turn.complete && last && last.kind === 'text' && last.text ? last : null;
-  const processBlocks = finalText ? blocks.slice(0, -1) : blocks;
-  const toolSteps = processBlocks.filter((b) => b.kind === 'tool').length;
-  const hasProcess = !!turn.thinkingText || processBlocks.length > 0;
-
-  return (
-    <article className="flex flex-col gap-2 min-w-0">
-      <UserBubble text={turn.userText} />
-      {hasProcess && (
-        <ProcessFold streaming={false} toolSteps={toolSteps}>
-          {turn.thinkingText && <ThinkingFold text={turn.thinkingText} isActive={false} />}
-          {processBlocks.map((b) => {
-            if (b.kind === 'text') {
-              if (!b.text) return null;
-              return <AssistantBubble key={b.id} text={b.text} />;
-            }
-            return <ToolCallBlock key={b.id} tool={b} />;
-          })}
-        </ProcessFold>
-      )}
-      {finalText && <AssistantBubble text={finalText.text} />}
-      <TurnTail turn={turn} />
-    </article>
-  );
-}
-
+/**
+ * 管理端会话回放。消息主体直接调用用户端的 shared Turn Views，这里只做三件事：
+ * 给文件换成管理端只读端点、给用户交互换成只读卡、在轮尾附加模型/时间审计行。
+ * 不再维护 Claw/Search/Prism 的第二份 JSX 副本。
+ */
 export function AdminTranscriptView({
-  messages,
+  transcript,
   featureKey,
   sessionId,
   onPreview,
+  artifacts = [],
+  onLoadEarlier,
+  loadingEarlier = false,
 }: {
-  messages: TranscriptEntry[];
-  /** 会话归属 feature(smart_search | claw | prism)—— 决定折叠选项与轮渲染镜像。 */
-  featureKey?: string;
-  /** agent 会话 ID —— claw 附件构造 /admin/agent-sessions/:id/file 预览 URL 用。 */
-  sessionId?: string;
-  /** 点击附件 → 打开文件预览(由 ChatSessionMonitor 承接为叠层弹窗)。 */
-  onPreview?: (f: AdminPreviewFile) => void;
+  transcript: AdminTranscriptResponse;
+  featureKey: MonitorFeature;
+  sessionId: string;
+  onPreview?: (file: AdminPreviewFile) => void;
+  artifacts?: AdminSessionArtifact[];
+  onLoadEarlier?: () => void;
+  loadingEarlier?: boolean;
 }) {
-  const turns = useMemo(
-    () =>
-      replayHistoryAsTurns(
-        messages,
-        // claw 的 user 文本带 @"path" 附件前缀,必须用同款解析还原 chip,
-        // 否则管理员看到的是泄漏的容器绝对路径 + UUID 文件名。
-        featureKey === 'claw' ? { parseUserEntry: parseUserEntryWithAttachments } : undefined,
-      ),
-    [messages, featureKey],
-  );
-  // 渲染窗口:默认最近 60 轮,「加载更早」每次再放 60(与用户端长会话策略一致,防上千轮卡死弹窗)。
-  const [limit, setLimit] = useState(RENDER_WINDOW);
-  const visible = turns.length > limit ? turns.slice(turns.length - limit) : turns;
+  const rendered = useMemo(() => buildRenderedTurns(transcript), [transcript]);
+  const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
+  useEffect(() => setRenderLimit(RENDER_WINDOW), [sessionId]);
 
-  if (turns.length === 0) {
+  if (rendered.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-faint">
-        无会话内容(用户尚未对话,或会话已被清理)
+      <div className="py-12 text-center text-12 text-faint">
+        无会话内容（用户尚未对话，或历史已被清理）
       </div>
     );
   }
 
+  const hiddenCount = Math.max(0, rendered.length - renderLimit);
+  const visible = rendered.slice(-renderLimit);
+  const canRevealEarlier = hiddenCount > 0 || transcript.hasMore;
+
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-5 sm:px-6 sm:py-6">
       <ChatStyles />
-      {turns.length > limit && (
-        <div className="text-center">
-          <Button size="sm" variant="outline" onClick={() => setLimit((l) => l + RENDER_WINDOW)}>
-            加载更早(还有 {turns.length - limit} 轮)
+      {canRevealEarlier && (
+        <div className="flex justify-center pb-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              if (hiddenCount > 0) {
+                setRenderLimit((limit) => limit + RENDER_WINDOW);
+              } else {
+                onLoadEarlier?.();
+              }
+            }}
+            disabled={hiddenCount === 0 && loadingEarlier}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {hiddenCount === 0 && loadingEarlier ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <History className="size-3.5" />
+            )}
+            {hiddenCount > 0
+              ? `显示更早的 ${Math.min(hiddenCount, RENDER_WINDOW)} 轮`
+              : loadingEarlier
+                ? '加载中…'
+                : `加载更早的对话（共 ${transcript.totalTurns} 轮）`}
           </Button>
         </div>
       )}
-      {visible.map((t) =>
-        featureKey === 'claw' ? (
-          <ClawTurn key={t.id} turn={t} sessionId={sessionId} onPreview={onPreview} />
-        ) : featureKey === 'prism' ? (
-          <PrismTurn key={t.id} turn={t} />
-        ) : (
-          <SearchTurn key={t.id} turn={t} />
-        ),
-      )}
+
+      {visible.map(({ turn, meta }) => (
+        <div key={turn.id} className="min-w-0 space-y-2">
+          <TurnBody
+            turn={turn}
+            featureKey={featureKey}
+            sessionId={sessionId}
+            onPreview={onPreview}
+            artifacts={artifacts}
+          />
+          <SessionTurnMeta turn={meta} />
+        </div>
+      ))}
     </div>
   );
+}
+
+function TurnBody({
+  turn,
+  featureKey,
+  sessionId,
+  onPreview,
+  artifacts,
+}: {
+  turn: Turn;
+  featureKey: MonitorFeature;
+  sessionId: string;
+  onPreview?: (file: AdminPreviewFile) => void;
+  artifacts: AdminSessionArtifact[];
+}) {
+  const blocked = turn.blocked ? (
+    <BlockedTurnCard
+      readOnly
+      message="该消息在转发给模型之前被额度门禁拦截，没有产生模型消耗。"
+    />
+  ) : undefined;
+
+  if (featureKey === 'smart_search') {
+    return (
+      <div className="space-y-3.5 min-w-0">
+        <SearchUserBubble
+          text={turn.userText}
+          attachments={turn.userAttachments}
+          references={turn.userReferences}
+          renderAttachments={(attachments) => (
+            <AdminAttachmentChips
+              attachments={attachments}
+              sessionId={sessionId}
+              onPreview={onPreview}
+            />
+          )}
+        />
+        <SearchTurnView turn={turn} blockedContent={blocked} />
+      </div>
+    );
+  }
+
+  if (featureKey === 'prism') {
+    return (
+      <PrismTurnView
+        turn={turn}
+        renderAttachments={(attachments) => (
+          <AdminAttachmentChips
+            attachments={attachments}
+            sessionId={sessionId}
+            onPreview={onPreview}
+          />
+        )}
+        blockedContent={blocked}
+      />
+    );
+  }
+
+  if (CLAW_FAMILY.has(featureKey)) {
+    const turnArtifacts = resolveTurnArtifacts(turn, sessionId, artifacts);
+    return (
+      <ClawTurnView
+        turn={turn}
+        renderAttachments={(attachments) => (
+          <AdminAttachmentChips
+            attachments={attachments}
+            sessionId={sessionId}
+            onPreview={onPreview}
+          />
+        )}
+        renderArtifacts={() =>
+          featureKey === 'sci_draw' ? (
+            <AdminTurnFigures
+              figures={turnArtifacts.filter(isFigureArtifact)}
+            />
+          ) : (
+            <AdminTurnArtifacts
+              artifacts={turnArtifacts}
+              onPreview={onPreview}
+            />
+          )
+        }
+        blockedContent={blocked}
+      />
+    );
+  }
+
+  return null;
+}
+
+function resolveTurnArtifacts(
+  turn: Turn,
+  sessionId: string,
+  durable: AdminSessionArtifact[],
+): AdminSessionArtifact[] {
+  if (!turn.artifacts?.length) return [];
+  const byPath = new Map(durable.map((artifact) => [artifact.path, artifact]));
+  const seen = new Set<string>();
+  const resolved: AdminSessionArtifact[] = [];
+  for (const artifact of turn.artifacts) {
+    if (seen.has(artifact.path)) continue;
+    seen.add(artifact.path);
+    resolved.push(
+      byPath.get(artifact.path) ?? {
+        id: 0,
+        sessionId,
+        path: artifact.path,
+        name: artifact.name,
+        title: '',
+        description: '',
+        kind: artifact.kind,
+        mime: artifact.mime,
+        size: artifact.size,
+        source: 'workspace',
+        storageAvailable: false,
+        workspaceAvailable: true,
+        url: `/admin/agent-sessions/${sessionId}/file?path=${encodeURIComponent(artifact.path)}`,
+      },
+    );
+  }
+  return resolved;
+}
+
+function buildRenderedTurns(
+  transcript: AdminTranscriptResponse,
+): RenderedTurn[] {
+  const legacyTurns = replayHistoryAsTurns(transcript.messages, {
+    parseUserEntry: parseAdminUserEntry,
+  });
+  // hybrid 中 messages 是 archive-only 旧段，turns 是 journal 新段。
+  // journal 的 cursorSeq 是合并后权威位置，因此可精确回推旧段序号。
+  const firstJournalCursor = transcript.turns[0]?.cursorSeq;
+  const firstLegacySeq = firstJournalCursor
+    ? Math.max(1, firstJournalCursor - legacyTurns.length)
+    : Math.max(1, transcript.totalTurns - legacyTurns.length + 1);
+  const legacy = legacyTurns.map((turn, index) => ({
+    turn,
+    meta: {
+      id: index + 1,
+      seq: firstLegacySeq + index,
+      cursorSeq: firstLegacySeq + index,
+      status: 'legacy',
+      kind: 'legacy',
+      attempt: 0,
+      userText: turn.userText,
+      model: turn.model ?? '',
+      startedAt: turn.startedAt ?? null,
+      completedAt: turn.completedAt ?? null,
+      durationMs: durationBetween(turn.startedAt, turn.completedAt),
+      usage: null,
+      messages: [],
+    },
+  }));
+  const journal = transcript.turns.map((meta) => ({
+    meta,
+    turn: turnFromEnvelope(meta),
+  }));
+  return [...legacy, ...journal];
+}
+
+function turnFromEnvelope(meta: AdminTranscriptTurn): Turn {
+  const replayed = replayHistoryAsTurns(meta.messages, {
+    parseUserEntry: parseAdminUserEntry,
+  })[0];
+  const complete = meta.status !== 'running';
+  const parsedFallback = parseAdminUserEntry(meta.userText);
+  const fallbackReference = stripReferenceBlock(parsedFallback.text);
+  const turn: Turn = replayed ?? {
+    id: `admin-turn-${meta.id}`,
+    userText: fallbackReference.text,
+    userAttachments: parsedFallback.attachments,
+    userReferences: fallbackReference.references,
+    blocks: [],
+    complete,
+  };
+
+  turn.id = `admin-turn-${meta.id}`;
+  turn.userText = turn.userText || fallbackReference.text;
+  if (meta.attachments?.length) {
+    turn.userAttachments = meta.attachments.map((attachment) => ({
+      type:
+        attachment.type === 'image' || attachment.mimeType.startsWith('image/')
+          ? 'image'
+          : 'file',
+      name: attachment.name,
+      mimeType: attachment.mimeType || mimeFromAttachmentName(attachment.name),
+      size: 0,
+      path: attachment.path,
+    }));
+  }
+  if (meta.references?.length) {
+    turn.userReferences = meta.references.map((reference) => ({
+      kind: reference.kind,
+      title: reference.title,
+      paperCount: reference.paperCount,
+    }));
+  }
+  turn.complete = complete;
+  turn.blocked = meta.status === 'blocked';
+  turn.paused = turn.paused || meta.status === 'aborted';
+  turn.model = meta.model || turn.model;
+  turn.startedAt = meta.startedAt ?? turn.startedAt;
+  turn.completedAt = meta.completedAt ?? turn.completedAt;
+  turn.usage = meta.usage ?? turn.usage;
+  // 通用历史 replay 会把结束轮中无 result 的 tool 标成 aborted。管理端能读到
+  // 权威 status=running 的在途轮，此时必须恢复在途 tool，否则会同时显示
+  // “生成中”和“已中止”。
+  if (!complete) {
+    for (const block of turn.blocks) {
+      if (block.kind === 'tool' && block.result === undefined) {
+        delete block.aborted;
+      }
+    }
+  }
+  if (!complete && !turn.placeholder) {
+    turn.placeholder = { state: 'thinking', verb: '正在生成' };
+  }
+  return turn;
+}
+
+const STORED_UUID_PREFIX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i;
+const IMAGE_ATTACHMENT_RE = /\.(png|jpe?g|webp|gif|bmp|svg|avif|heic|heif)$/i;
+const EMPTY_ATTACHMENT_PLACEHOLDER = 'Please analyze the attached files.';
+
+/**
+ * 管理端 API 会把容器绝对路径规范成 session 相对路径，避免泄漏 cwd。
+ * 用户端 parser 故意只认绝对路径（防止把用户手打的 @"..." 误认为附件），
+ * 所以这里只额外接受“安全相对路径 + UUID 落盘前缀”的管理端形态。
+ */
+function parseAdminUserEntry(content: unknown): ParsedUserEntry {
+  const parsed = parseUserEntryWithAttachments(content);
+  if (parsed.attachments?.length) return parsed;
+
+  const attachments: TurnAttachment[] = [];
+  let rest = parsed.text;
+  const marker = /^@"([^"]+)"\s*/;
+  let match: RegExpExecArray | null;
+  while ((match = marker.exec(rest)) !== null) {
+    const relativePath = match[1];
+    const parts = relativePath.split('/');
+    const basename = parts[parts.length - 1] ?? relativePath;
+    if (
+      relativePath.startsWith('/') ||
+      relativePath.includes('\\') ||
+      parts.includes('..') ||
+      !STORED_UUID_PREFIX.test(basename)
+    ) {
+      break;
+    }
+    const name = basename.replace(STORED_UUID_PREFIX, '') || basename;
+    const image = IMAGE_ATTACHMENT_RE.test(name);
+    attachments.push({
+      type: image ? 'image' : 'file',
+      name,
+      mimeType: mimeFromAttachmentName(name),
+      size: 0,
+      path: relativePath,
+    });
+    rest = rest.slice(match[0].length);
+  }
+  if (attachments.length === 0) return parsed;
+  if (rest.trim() === EMPTY_ATTACHMENT_PLACEHOLDER) rest = '';
+  return { text: rest, attachments };
+}
+
+function mimeFromAttachmentName(name: string): string {
+  const extension = name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? '';
+  const known: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    bmp: 'image/bmp',
+    svg: 'image/svg+xml',
+    avif: 'image/avif',
+    pdf: 'application/pdf',
+    md: 'text/markdown',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    json: 'application/json',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
+  return (
+    known[extension] ??
+    (IMAGE_ATTACHMENT_RE.test(name) ? 'image/*' : 'application/octet-stream')
+  );
+}
+
+function durationBetween(start?: string, end?: string): number | null {
+  if (!start || !end) return null;
+  const from = new Date(start).getTime();
+  const to = new Date(end).getTime();
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return null;
+  return to - from;
 }

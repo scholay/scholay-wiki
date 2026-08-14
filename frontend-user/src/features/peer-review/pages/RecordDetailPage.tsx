@@ -7,18 +7,25 @@ import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { ResourceError } from '@/shared/components';
 import { LoadingState } from '@/shared/components/LoadingState';
-import { useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
+import { isQuotaHandled, useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
 import { useSubmissionReports } from '../api/reports';
-import { recBadgeClasses, recFillBg, recShortLabel, recTextColor } from '../lib/recommendation';
-import { effectiveResult } from '../lib/partial-parse';
-import type { ReviewReport, ReviewerRole } from '../types';
+import { useStreamingPartial } from '../api/stream';
+import {
+  recBadgeClasses,
+  recFillBg,
+  recShortLabel,
+  recTextColor,
+} from '@/shared/lib/peer-review/recommendation';
+import { effectiveResult } from '@/shared/lib/peer-review/partial-parse';
+import type { ReviewReport, ReviewerRole } from '@/shared/lib/peer-review/types';
 
-import { StatusGrid } from '../components/record/StatusGrid';
-import { EditorialCheckPanel } from '../components/record/EditorialCheckPanel';
-import { MethodologyPhaseCard } from '../components/record/MethodologyPhaseCard';
-import { ReviewerDetailPanel } from '../components/record/ReviewerDetailPanel';
-import { ChiefVerdictPanel } from '../components/record/ChiefVerdictPanel';
-import { DetailRail } from '../components/record/DetailRail';
+import { StatusGrid } from '@/shared/components/peer-review-record/StatusGrid';
+import { EditorialCheckPanel } from '@/shared/components/peer-review-record/EditorialCheckPanel';
+import { MethodologyPhaseCard } from '@/shared/components/peer-review-record/MethodologyPhaseCard';
+import { DetailRail } from '@/shared/components/peer-review-record/DetailRail';
+// 用户端要主审 / 审稿人的实时流 → 走 live wrapper(它负责订阅 SSE 并注入 stream prop),
+// 不直接用 shared 的裸面板。后台会话监控用裸面板(只读记录、无流)。
+import { LiveChiefVerdictPanel, LiveReviewerDetailPanel } from '../components/record/LiveRecordPanels';
 
 /**
  * 工单详情页(.pen `O4oP1` + `DYLbv` + `p9kpKj`)。
@@ -45,6 +52,17 @@ export function RecordDetailPage() {
   const { data: sub, isLoading: subLoading, isError: subError, error: subErr } = useSubmission(id);
   // failed 终态不会再产出报告 → 停止轮询(性能审计:失败但没凑齐 4 份时旧逻辑每 5s 永久空打后端)。
   const { data: reports, isLoading: reportsLoading } = useSubmissionReports(id, sub?.status === 'failed');
+
+  // 方法论阶段的控制通道(2026-08-12 推送化补盲区):computing_methodology 期间
+  // reviewer/chief 面板都不订阅 SSE(前者 preparing 停订、后者等 reviewersAllDone),
+  // 后端广播的 state 帧(→reviewing 转场)会全场落空、只剩 15s 慢轮询。
+  // 挂一条 methodology slot 的订阅:它天然能收到 BroadcastAll 的控制帧(收帧即
+  // invalidate,见 stream.ts),顺带把该阶段 agent 的实时输出流保持在线。返回值不渲染。
+  useStreamingPartial({
+    submissionId: id,
+    enabled: sub?.computeState === 'computing_methodology',
+    slot: 'methodology',
+  });
 
   const reportMap = useMemo(() => {
     const m = new Map<ReviewerRole, ReviewReport>();
@@ -85,7 +103,7 @@ export function RecordDetailPage() {
     if (tab === 'editorial') return <EditorialCheckPanel submission={sub} />;
     if (tab === 'chief')
       return (
-        <ChiefVerdictPanel
+        <LiveChiefVerdictPanel
           submissionId={sub.id}
           chief={reportMap.get('chief')}
           reviewers={{
@@ -97,7 +115,7 @@ export function RecordDetailPage() {
         />
       );
     return (
-      <ReviewerDetailPanel
+      <LiveReviewerDetailPanel
         role={tab as ReviewerRole}
         submissionId={sub.id}
         report={reportMap.get(tab as ReviewerRole)}
@@ -110,16 +128,19 @@ export function RecordDetailPage() {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Breadcrumb */}
-      <nav className="flex h-10 items-center gap-2 border-b border-border-soft bg-surface-1 px-8 text-sm">
+      <nav className="flex h-10 items-center gap-2 border-b border-border-soft bg-surface-1 px-8 text-12">
         <Link to="/peer-review/records" className="text-brand-red hover:underline">
           所有审稿
         </Link>
         <span className="text-faint">›</span>
-        <span className="font-bold text-foreground">稿件详情</span>
+        <span className="font-medium text-foreground">稿件详情</span>
       </nav>
 
       {/* Main area */}
       <div className="flex-1 overflow-auto bg-surface-3 px-7 py-5">
+        {/* ⚠️ max-w-[1400px] 是历史值,Figma §5 的中心内容最大宽是 1440(token `max-w-page`)。
+            两者只差 40px,但换过去会在 ≥1400px 视口上真实变宽,不属于「等值收口」,
+            故留给容器宽度统一收口那一批处理,这里先标明偏离。 */}
         <div className="mx-auto flex max-w-[1400px] flex-col gap-3.5">
           {/* 1) mHeader */}
           <Header sub={sub} reports={reportMap} activeTab={activeTab} onTabChange={handleTabChange} />
@@ -202,14 +223,14 @@ function Header({
     : '';
 
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-border bg-background p-4.5">
+    <section className="flex flex-col gap-3 rounded-16 border border-border bg-surface-card p-4.5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
             {chief ? (
               <span
                 className={cn(
-                  'rounded-sm px-2 py-0.5 text-xs font-bold',
+                  'rounded-4 px-2 py-0.5 text-12 font-medium',
                   chiefRec
                     ? recBadgeClasses(chiefRec)
                     : 'border border-border bg-surface-1 text-subtle',
@@ -218,18 +239,18 @@ function Header({
                 {chiefRec ? `已决议 · ${recShortLabel(chiefRec)}` : '已决议'}
               </span>
             ) : (
-              <span className="rounded-sm border border-border bg-surface-1 px-2 py-0.5 text-xs font-bold text-subtle">
+              <span className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 text-12 font-medium text-subtle">
                 {statusLabel(sub.status)}
               </span>
             )}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-12 text-muted-foreground">
               {submittedText} {updatedText}
             </span>
           </div>
-          <h1 className="mt-1 font-serif text-xl font-bold leading-tight text-foreground">
+          <h1 className="mt-1 font-serif text-20 font-bold leading-display-tight text-foreground">
             {sub.title ?? '(未填标题)'}
           </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-12 text-muted-foreground">
             <span>{target}</span>
             {sub.extraMeta?.subjects && sub.extraMeta.subjects.length > 0 && (
               <>
@@ -338,9 +359,9 @@ function TabsBar({
             type="button"
             onClick={() => onTabChange(t.key)}
             className={cn(
-              'flex items-center gap-1.5 border-b-2 pb-2 text-sm transition-colors',
+              'flex items-center gap-1.5 border-b-2 pb-2 text-12 transition-colors',
               active
-                ? 'border-brand-red font-bold text-foreground'
+                ? 'border-brand-red font-medium text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
@@ -349,7 +370,7 @@ function TabsBar({
             {t.badge && (
               <span
                 className={cn(
-                  'rounded-pill px-1.5 py-0.5 text-2xs font-bold tabular-nums',
+                  'rounded-pill px-1.5 py-0.5 text-12 font-medium tabular-nums',
                   t.badge.cls,
                 )}
               >
@@ -386,11 +407,11 @@ function statusLabel(s: string) {
 function FailedBanner({ id, reason }: { id: number; reason?: string }) {
   const retry = useRetrySubmission(id);
   return (
-    <div className="mb-3.5 rounded-md border border-brand-red/30 bg-danger-soft px-4 py-3">
+    <div className="mb-3.5 rounded-16 border border-brand-red/30 bg-danger-soft px-4 py-3">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-sm font-bold text-brand-red">审稿未完成</div>
-          <div className="mt-1 text-xs text-muted-foreground">
+          <div className="text-12 font-medium text-brand-red">审稿未完成</div>
+          <div className="mt-1 text-12 text-muted-foreground">
             {reason?.trim() ||
               '审稿过程中出现异常。已生成的部分意见仍会保留,重试只补齐未完成的部分。'}
           </div>
@@ -403,7 +424,11 @@ function FailedBanner({ id, reason }: { id: number; reason?: string }) {
           onClick={() =>
             retry.mutate(undefined, {
               onSuccess: () => toast.success('已重新开始审稿'),
-              onError: (e) => toast.error((e as Error)?.message || '重试失败,请稍后再试'),
+              // 6010 已由全局 QuotaNotifier 弹「额度耗尽」弹窗 —— 跳过本地 toast,避免双通知。
+              onError: (e) => {
+                if (isQuotaHandled(e)) return;
+                toast.error((e as Error)?.message || '重试失败,请稍后再试');
+              },
             })
           }
         >

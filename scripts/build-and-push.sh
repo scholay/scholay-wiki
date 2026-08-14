@@ -43,21 +43,22 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# 加载 .env 里的站点配置 —— 让 frontend build 把品牌 / 域名 / 邮箱
-# 烘进 bundle,服务器拉到镜像就有正确默认值。
-# 服务器侧要改这些值仍需重新 build + push + deploy(Vite 是 build-time,运行期不改 bundle)。
-if [ -f ".env" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . ./.env
-    set +a
-fi
-# 兜底默认值(.env 不存在或没设时)
-: "${SITE_URL:=https://www.scholay.com}"
-: "${SITE_NAME:=Scholay}"
-# 临时:智能写作「即将推出」门。默认 true(本版上线先盖蒙层);Prism 正式上线时在 .env 设 PRISM_COMING_SOON=false 再 build。
-: "${PRISM_COMING_SOON:=true}"
-# UMAMI_WEBSITE_ID 不再 build-time 注入 —— 改为 runtime fetch /api/v1/public/umami-config
+# ⚠️ 这里【不再】读 .env 的站点配置。
+#
+# 旧实现 source 了 .env 并把 SITE_URL / SITE_NAME 当 --build-arg 传给前端构建,
+# 兜底默认值还是生产域名。两个问题:
+#   1. **那两个 build-arg 从来没生效过。** frontend-user/Dockerfile 只声明了
+#      `ARG VITE_API_BASE_URL`,源码里也没有任何 VITE_SITE_URL / VITE_SITE_NAME 的
+#      消费点 —— docker 只打一行 unused build-arg warning 就丢弃,而脚本却先
+#      打印了「站点配置(build-time 注入到 vite bundle)」。配了、看起来生效了、
+#      实际一个字节都没变,是最难发现的那种错。
+#   2. 即使让它生效也是错方向:域名一旦烘进 bundle,就等于「换域名 = 换镜像」,
+#      与「同一个镜像 tag + 各自的 .env 跑多套环境」的目标直接冲突。
+#
+# 现在站点身份全部**运行时注入**:index.html 留占位符,frontend-user 容器启动时由
+# docker-entrypoint.d/50-inject-site.sh 按 env 替换(SITE_URL / CLARITY_PROJECT_ID /
+# ICP_BEIAN / SITE_TITLE_PREFIX,接线见两份 docker-compose 的 frontend-user 服务)。
+# 也就是说:**构建产物与部署到哪个域名无关**,同一个 tag 可以同时服务多套环境。
 
 # 检查并设置 buildx (仅用于 backend)
 setup_buildx() {
@@ -187,7 +188,13 @@ build_server_image() {
     echo -e "${GREEN}✓ ${service} 完成${NC}"
 }
 
-# 构建 Frontend (需要指定平台为 linux/amd64)
+# 构建 Frontend —— 与后端同一套 buildx + --push 直推
+#
+# 2026-08-10 磁盘优化:旧实现用 `docker build` + `docker tag` + `docker push`,
+# 每个版本号都会在本地镜像库永久留一份(0.0.70/0.0.71/… 每份 ~85MB,从不清理),
+# 且走的是 docker daemon 的另一套构建缓存。改成 buildx --push 后:
+#   - 镜像直接推 ACR,本地不落副本(磁盘零增长);
+#   - 与 backend/agent 共用 scholar-builder 的缓存域,统一被 cleanup_local 封顶。
 build_frontend() {
     local service=$1
     local image=$2
@@ -198,34 +205,65 @@ build_frontend() {
     echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
-    echo "站点配置(build-time 注入到 vite bundle,运行期改 docker env 没用):"
-    echo "  SITE_URL          = ${SITE_URL}"
-    echo "  SITE_NAME         = ${SITE_NAME}"
+    echo "站点身份(域名 / Clarity / ICP / 标题前缀)不参与构建 —— 由各环境的 .env 在容器启动时注入。"
 
-    # 使用 docker build 指定平台
-    # 注意:需要确保 Docker Desktop 开启了 "Use Rosetta for x86/amd64 emulation"
-    #
-    # build-arg 必须显式传 —— Vite 在编译期把 import.meta.env.VITE_* 替换进 bundle,
-    # 运行期再改 docker compose env 也改不了打好的 JS。
-    # 详见 frontend-user/Dockerfile + frontend-user/vite.config.ts。
-    docker build \
+    setup_buildx
+
+    # 唯一的 build-arg 是 VITE_API_BASE_URL(空 = 同源相对路径 /api/v1),它与部署到
+    # 哪个域名无关。任何「每套环境不同」的值都不许走 build-arg —— Vite 在编译期把
+    # import.meta.env.VITE_* 字面替换进 bundle,那等于把环境烘死在镜像里。
+    docker buildx build \
         --platform ${TARGET_PLATFORM} \
         -t ${image} \
+        -t ${latest} \
         --build-arg VITE_API_BASE_URL= \
-        --build-arg VITE_SITE_URL="${SITE_URL}" \
-        --build-arg VITE_SITE_NAME="${SITE_NAME}" \
-        --build-arg VITE_PRISM_COMING_SOON="${PRISM_COMING_SOON}" \
+        --push \
         ${context}
 
-    # 打 latest 标签
-    docker tag ${image} ${latest}
-
-    # 推送
-    echo -e "${YELLOW}推送镜像...${NC}"
-    docker push ${image}
-    docker push ${latest}
-
     echo -e "${GREEN}✓ ${service} 完成${NC}"
+}
+
+# ==================== 磁盘清理 ====================
+# 每次构建后自动执行:缓存封顶(保留增量构建能力)+ 清历史残留。
+# BUILD_CACHE_KEEP 可用 env 覆盖(如 BUILD_CACHE_KEEP=40GB ./scripts/build-and-push.sh)。
+# SKIP_CLEANUP=1 可整段跳过(赶时间连发几版时用,记得事后手跑一次)。
+BUILD_CACHE_KEEP="${BUILD_CACHE_KEEP:-25GB}"
+
+cleanup_local() {
+    if [ -n "${SKIP_CLEANUP:-}" ]; then
+        echo ""
+        echo -e "${YELLOW}(SKIP_CLEANUP=1,跳过本地清理)${NC}"
+        return 0
+    fi
+
+    echo ""
+    echo -e "${YELLOW}=== 清理本地磁盘(缓存封顶 ${BUILD_CACHE_KEEP},保留增量能力)===${NC}"
+
+    # 1) scholar-builder 的 BuildKit 缓存按 LRU 封顶 —— 不是清空:热层留着,下次构建仍增量。
+    #    (新旧 buildx 的参数名不同,逐个回退)
+    docker buildx prune --builder scholar-builder --force --max-used-space "${BUILD_CACHE_KEEP}" >/dev/null 2>&1 \
+      || docker buildx prune --builder scholar-builder --force --keep-storage "${BUILD_CACHE_KEEP}" >/dev/null 2>&1 \
+      || true
+
+    # 2) 本地的 ACR 镜像副本:buildx --push 直推后本地不需要任何副本,
+    #    清掉旧版脚本历年攒下的每版一份(只清本项目 namespace,不碰其他项目)。
+    local stale
+    stale=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep "^${REGISTRY}/${NAMESPACE}/" || true)
+    if [ -n "$stale" ]; then
+        echo "清理本地 ACR 镜像副本(已推远端,本地是重复占用):"
+        echo "$stale" | sed 's/^/  - /'
+        echo "$stale" | xargs docker rmi -f >/dev/null 2>&1 || true
+    fi
+
+    # 3) dangling(无标签)镜像层
+    docker image prune -f >/dev/null 2>&1 || true
+
+    # 4) 用量回显 —— 只查 BuildKit 缓存这一项。
+    # 🔴 这里**不要**用 `docker system df`:它要遍历所有镜像/容器/卷逐个算大小,
+    #    本机实测 45.6s,是整个脚本尾巴上唯一的大头(其余三步合计 <2s),
+    #    而它给出的信息我们只关心构建缓存这一行。`buildx du` 实测 0.36s。
+    echo -e "${GREEN}清理完成。构建缓存占用:${NC}"
+    docker buildx du --builder scholar-builder 2>/dev/null | tail -2 || true
 }
 
 # 根据目标构建
@@ -257,6 +295,9 @@ esac
 
 # 保存新版本号
 save_version "${NEW_VERSION}"
+
+# 构建后清理:缓存封顶 + 清历史残留(失败不影响本次发布结果)
+cleanup_local || true
 
 echo ""
 echo -e "${GREEN}========================================${NC}"

@@ -64,4 +64,3 @@ func (a *feedbackUserRepoAdapter) FindByIDs(ids []uint) (map[uint]*feedback.User
 
 // (usageLogServiceAdapter — 已下线: 旧 usagelog(usage_logs v1) 整体删除, 它唯一的消费方
 // config.ServeDynamicSitemap 本就未注册路由、且热门论文查询恒为空。详见 bootstrap.go 注释)
-

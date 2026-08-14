@@ -18,7 +18,7 @@ import {
 // tag chip —— 与 PaperResultCard DefaultCard 的 tags 同款尺寸(h-[18px] 视觉基准一致)。
 type Tone = 'solid-green' | 'green' | 'amber' | 'neutral' | 'danger';
 const TONE_CLASS: Record<Tone, string> = {
-  'solid-green': 'bg-brand-green text-white',
+  'solid-green' : 'bg-brand-green text-on-brand',
   green: 'bg-brand-green/10 text-brand-green',
   amber: 'bg-brand-amber/10 text-brand-amber',
   neutral: 'bg-surface-2 text-subtle',
@@ -29,7 +29,7 @@ function Chip({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-1.5 h-[18px] rounded-sm text-2xs font-bold',
+        'inline-flex items-center px-1.5 h-[18px] rounded-4 text-12 font-medium',
         TONE_CLASS[tone],
       )}
     >
@@ -60,8 +60,8 @@ function JournalCard({ journal: j }: { journal: MinicodJournal }) {
 
   return (
     <div className="border-b border-border-soft px-3.5 py-3 last:border-0">
-      <p className="text-sm font-semibold leading-snug text-foreground">{j.name}</p>
-      {meta && <p className="mt-0.5 truncate text-2xs text-faint">{meta}</p>}
+      <p className="text-14 font-medium text-foreground">{j.name}</p>
+      {meta && <p className="mt-0.5 truncate text-12 text-faint">{meta}</p>}
       {hasChips && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {j.impactFactor && <Chip tone="amber">IF {j.impactFactor}</Chip>}
@@ -94,10 +94,10 @@ export function MinicodJournalCards({ content }: { content: unknown }) {
 
   const overflow = journals.length > 3;
   return (
-    <div className="rounded-md border border-border bg-surface-1 overflow-hidden">
-      <header className="flex items-center gap-1.5 h-9 px-2.5 border-b border-border-soft bg-surface-2/40 text-2xs text-muted-foreground">
+    <div className="rounded-16 border border-border bg-surface-1 overflow-hidden">
+      <header className="flex items-center gap-1.5 h-9 px-2.5 border-b border-border-soft bg-surface-2/40 text-12 text-muted-foreground">
         <BookText className="size-3" strokeWidth={2} />
-        <span className="font-semibold text-foreground">{journals.length} 个期刊</span>
+        <span className="font-medium text-foreground">{journals.length} 个期刊</span>
       </header>
       <div
         className={overflow ? 'overflow-y-auto' : ''}

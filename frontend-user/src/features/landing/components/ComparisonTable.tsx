@@ -29,13 +29,13 @@ function CellIcon({ icon, dark }: { icon: 'check' | 'x' | 'tilde'; dark: boolean
 
 function CellText({ text, tone, dark }: { text: string; tone?: 'good' | 'neutral' | 'weak'; dark: boolean }) {
   const cls = cn(
-    'text-sm',
-    tone === 'good' ? 'font-semibold' : 'font-normal',
+    'text-12',
+    tone === 'good' ? 'font-medium' : 'font-normal',
     tone === 'good'
-      ? (dark ? 'text-background' : 'text-brand-green')
+      ? (dark ? 'text-on-dark' : 'text-brand-green')
       : tone === 'weak'
         ? (dark ? 'text-faint' : 'text-muted-foreground')
-        : (dark ? 'text-background/85' : 'text-subtle')
+        : (dark ? 'text-on-dark/85' : 'text-subtle')
   );
   return <span className={cls}>{text}</span>;
 }
@@ -63,7 +63,12 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
   const gridCols = `minmax(160px, 1.4fr) repeat(${colCount - 1}, minmax(0, 1fr))`;
 
   return (
+    // data-surface="dark" —— 暗主题时把焦点环换成浅色系(globals.css §13 的 [data-surface='dark'] 覆写)。
+    // 默认 --ring 是 rgb(31 31 35 / .50),压在本段的 bg-foreground #1F1F23 上实测 **1.000:1**
+    // (2026-07-28 真实渲染取证:失焦↔聚焦像素比对 0/11968),违反 WCAG 1.4.11(≥3:1)。
+    // CSS 变量沿 DOM 继承,挂在暗段容器上即可,内部(含表头/表体/未来新增的可聚焦元素)自动生效。
     <section
+      data-surface={dark ? 'dark' : undefined}
       className={cn(
         'py-20 lg:py-24',
         dark ? 'bg-foreground' : 'bg-background'
@@ -79,8 +84,8 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
 
         <div
           className={cn(
-            'rounded-lg overflow-hidden border',
-            dark ? 'bg-landing-dark-1 border-landing-dark-divider' : 'bg-background border-border'
+            'rounded-12 overflow-hidden border',
+            dark ? 'bg-landing-dark-1 border-landing-dark-divider' : 'bg-surface-card border-border'
           )}
         >
           {/* 表头 */}
@@ -101,9 +106,9 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
               >
                 <span
                   className={cn(
-                    'text-2xs font-bold tracking-[0.2em] uppercase',
+                    'text-12 font-medium uppercase',
                     col.highlight
-                      ? 'text-brand-amber font-display italic text-sm tracking-wider not-italic font-bold'
+                      ? 'text-brand-amber font-display italic text-14 not-italic font-bold'
                       : dark
                         ? 'text-faint'
                         : 'text-muted-foreground'
@@ -114,7 +119,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
                 {col.badge && (
                   <span
                     className={cn(
-                      'inline-flex items-center px-2 py-0.5 rounded-sm text-2xs font-bold tracking-[0.15em]',
+                      'inline-flex items-center px-2 py-0.5 rounded-4 text-12 font-medium',
                       'bg-brand-amber text-foreground'
                     )}
                   >
@@ -137,8 +142,8 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
             >
               <div
                 className={cn(
-                  'text-sm font-semibold',
-                  dark ? 'text-background' : 'text-foreground'
+                  'text-12 font-medium',
+                  dark ? 'text-on-dark' : 'text-foreground'
                 )}
               >
                 {row.label}
@@ -150,7 +155,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
                     'flex items-center justify-center text-center',
                     // Scholay 列(highlight) 给一个柔和高亮
                     section.columns[j + 1]?.highlight &&
-                      (dark ? 'bg-foreground/20 -mx-3 px-3 py-1 rounded' : 'bg-surface-1 -mx-3 px-3 py-1 rounded')
+                      (dark ? 'bg-foreground/20 -mx-3 px-3 py-1 rounded-4' : 'bg-surface-1 -mx-3 px-3 py-1 rounded-4')
                   )}
                 >
                   <Cell cell={c} dark={dark} />

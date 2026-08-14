@@ -26,6 +26,106 @@ export interface CompactResult {
   usage: CallUsage;
 }
 
+// ─── 工具调用折行(2026-08 证据账本 P0)────────────────────────────────────────
+// 「把一次工具调用折成一行文本」的唯一实现,两处消费:
+//   ① 本文件 renderForSummary(滚动摘要的老回合渲染);
+//   ② server/shadowTurn.convertFlatToAnthropic(冷重播 seed 的历史折叠)。
+// 刻意只折**一行**:把全量 tool_result 折回上下文 = 每轮重发 ~100K token,不可持续
+// (2026-08 证据账本 P0 · 终稿否决清单 #2)。完整题录的真源是 evidence/ledger.jsonl。
+
+// 参数里优先展示的键。检索类工具的 query 是「上一轮到底搜了什么」的唯一载体 —— 旧版
+// renderForSummary 只写 `助手[调用X]` 把 input 整个丢掉,导致该问题在压缩后永久不可回答。
+const TOOL_ARG_KEYS = [
+  "query", "q", "keyword", "keywords", "search_query", "text", "question", "title",
+  "doi", "ids", "paper_id", "paperId", "file_path", "path", "pattern", "command", "url",
+];
+// tool_result JSON 里承载「一条条记录」的常见数组键(只用于数个数,不解析题录 —— 题录归 evidence/parse)。
+const RESULT_ARRAY_KEYS = [
+  "items", "papers", "results", "data", "recommended_papers", "snippets", "matches", "hits", "authors", "journals",
+];
+
+function clip(s: string, n: number): string {
+  const one = s.replace(/\s+/g, " ").trim();
+  return one.length <= n ? one : one.slice(0, n) + "…";
+}
+
+/** 把工具入参折成简短可读串(最多两个键);无已知键则回落到 input 的紧凑 JSON 前缀。 */
+export function describeToolCall(input: unknown, max = 120): string {
+  if (!input || typeof input !== "object") return "";
+  const rec = input as Record<string, unknown>;
+  const parts: string[] = [];
+  for (const k of TOOL_ARG_KEYS) {
+    if (!(k in rec)) continue;
+    const v = rec[k];
+    let s = "";
+    if (typeof v === "string") s = v;
+    else if (typeof v === "number" || typeof v === "boolean") s = String(v);
+    else if (Array.isArray(v)) s = v.slice(0, 3).map((x) => String(x)).join(",") + (v.length > 3 ? `…(${v.length})` : "");
+    if (!s.trim()) continue;
+    parts.push(`${k}="${clip(s, max)}"`);
+    if (parts.length >= 2) break;
+  }
+  if (parts.length > 0) return parts.join(" ");
+  try {
+    return clip(JSON.stringify(rec), max);
+  } catch {
+    return "";
+  }
+}
+
+/** tool_result 的 content(字符串 / 块数组 / 任意 JSON)拍平成文本。块数组要取**内层 text 原文**,
+ *  不能对整个数组 JSON.stringify —— 那会把内层 JSON 的引号全转义,后续任何按原文的抽取都失效。 */
+export function flattenToolResultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((b) => {
+        const blk = b as { type?: string; text?: unknown };
+        if (blk && blk.type === "text" && typeof blk.text === "string") return blk.text;
+        try {
+          return JSON.stringify(b);
+        } catch {
+          return "";
+        }
+      })
+      .join("\n");
+  }
+  try {
+    return JSON.stringify(content ?? "");
+  } catch {
+    return "";
+  }
+}
+
+/** 数「返回了多少条记录」:能确定条数才报条数,否则报字符数 —— 不猜(猜出来的数就是新的编造源)。 */
+function countRecords(text: string): number {
+  const t = text.trim();
+  if (!t || (t[0] !== "{" && t[0] !== "[")) return -1;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(t);
+  } catch {
+    return -1;
+  }
+  if (Array.isArray(parsed)) return parsed.length;
+  if (parsed && typeof parsed === "object") {
+    const rec = parsed as Record<string, unknown>;
+    for (const k of RESULT_ARRAY_KEYS) {
+      if (Array.isArray(rec[k])) return (rec[k] as unknown[]).length;
+    }
+  }
+  return -1;
+}
+
+/** 把一条 tool_result 折成结果摘要:成功报条数/字符数,失败明写失败(冷重播时防「复述成功」)。 */
+export function summarizeToolOutcome(result?: { content?: unknown; is_error?: boolean } | null): string {
+  if (!result) return "(结果未记录)";
+  const text = flattenToolResultText(result.content);
+  if (result.is_error) return `失败:${clip(text, 80) || "未返回原因"}`;
+  const n = countRecords(text);
+  return n >= 0 ? `命中 ${n} 条` : `返回 ${text.length} 字符`;
+}
+
 /** 把一段消息渲染成便于摘要的纯文本:剥掉 tool_use/tool_result 的大 JSON,只留角色 + 文本要点。 */
 function renderForSummary(messages: Anthropic.MessageParam[]): string {
   const lines: string[] = [];
@@ -42,8 +142,11 @@ function renderForSummary(messages: Anthropic.MessageParam[]): string {
         const txt = String((b as { text?: unknown }).text ?? "").trim();
         if (txt) lines.push(`${role}: ${txt}`);
       } else if (t === "tool_use") {
+        // 2026-08 证据账本 P0:旧版只写 `助手[调用X]`,把 input 整个丢掉 —— 一旦压缩发生,
+        // 「上一轮搜的是什么」在本会话内永久不可回答。保留 query/路径等关键入参(不保留整个大 JSON)。
         const name = String((b as { name?: unknown }).name ?? "工具");
-        lines.push(`助手[调用${name}]`);
+        const args = describeToolCall((b as { input?: unknown }).input);
+        lines.push(args ? `助手[调用${name} ${args}]` : `助手[调用${name}]`);
       } else if (t === "tool_result") {
         // 工具结果只留前若干字(避免把整段 JSON 灌进摘要);产物另行正则抽取。
         const raw = (b as { content?: unknown }).content;

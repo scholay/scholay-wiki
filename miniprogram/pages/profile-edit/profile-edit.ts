@@ -1,5 +1,6 @@
 import { getProfile, updateProfile } from '../../services/api/user'
 import { toastError } from '../../lib/feedback'
+import { reportActivity } from '../../services/activity'
 
 Page({
   data: {
@@ -7,6 +8,14 @@ Page({
     bio: '',
     loading: true,
     saving: false,
+  },
+
+  onShow() {
+    reportActivity()
+  },
+
+  onUserActivity() {
+    reportActivity()
   },
 
   async onLoad() {
@@ -20,9 +29,11 @@ Page({
   },
 
   onName(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ username: e.detail.value })
   },
   onBio(e: WechatMiniprogram.Input) {
+    reportActivity()
     this.setData({ bio: e.detail.value })
   },
 

@@ -46,15 +46,20 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		opsRead.GET("/analytics/pageviews", h.umami.GetPageviews)
 		opsRead.GET("/analytics/top", h.umami.GetTop)
 		opsRead.GET("/analytics/active", h.umami.GetActive)
+		// 搜索引擎/AI 爬虫抓取监控(crawlerwatch 写入的独立 umami website;未配置返 configured:false)
+		opsRead.GET("/analytics/crawler", h.umami.GetCrawlerStats)
 
 		// 订单与营收(orders 表 = vip 充值/订阅唯一收款真源;payment_transactions 是 stranded 勿用)
 		opsRead.GET("/billing/orders", h.vip.AdminListOrders)
 		opsRead.GET("/billing/orders/stats", h.vip.AdminOrderStats)
 
 		// 用户会话监控(内测期定位用户问题)—— 列某 feature 下用户的 agent 会话 + 拉 transcript(只读)。
-		// 覆盖 smart_search/claw/prism;审稿走 peer_review 报告另算。
+		// 覆盖 smart_search/claw/prism/boltslides/sci_draw/stat_lab;审稿走 peer_review 报告另算。
 		opsRead.GET("/agent-sessions", h.agentBridge.AdminListSessions)
 		opsRead.GET("/agent-sessions/:sessionId/messages", h.agentBridge.AdminGetSessionMessages)
+		// 产物列表以 agent_artifacts+MinIO 为耐久真源，workspace 只做未收割回退。
+		opsRead.GET("/agent-sessions/:sessionId/artifacts", h.agentBridge.AdminListSessionArtifacts)
+		opsRead.GET("/agent-sessions/:sessionId/artifact/:artifactId", h.agentBridge.AdminGetSessionArtifact)
 		// 会话内用户上传文件 / 引用文档:从 agent 会话 cwd 取原始字节,内联预览 / 下载(只读)。
 		opsRead.GET("/agent-sessions/:sessionId/file", h.agentBridge.AdminGetSessionFile)
 		// 审稿监控:投稿列表 + 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。
@@ -68,7 +73,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		opsRead.GET("/usage-stats/peer-review-funnel", h.usageStats.GetFunnel)
 		opsRead.GET("/usage-stats/events", h.usageStats.ListEvents)
 
-		// LLM Token 用量看板 (llm_token_usage) —— 只读总览/明细/筛选项/CSV 导出(cleanup 在 adminOnly 组)。
+		// LLM 算力用量看板 (llm_token_usage) —— 只读总览/明细/筛选项/CSV 导出(cleanup 在 adminOnly 组)。
+		// 路径保持 /llm-token-usage/*:表名与 URL 是对外契约, 只有展示口径改成了算力点(cost_micro_yuan ÷ 1000)。
 		opsRead.GET("/llm-token-usage/summary", h.llmUsageAdmin.GetSummary)
 		opsRead.GET("/llm-token-usage/logs", h.llmUsageAdmin.ListLogs)
 		opsRead.GET("/llm-token-usage/facets", h.llmUsageAdmin.GetFacets)
@@ -136,6 +142,7 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		{
 			tools.GET("", h.featureTool.AdminList)
 			tools.POST("", h.featureTool.AdminCreate)
+			tools.POST("/seo-review/batch", h.featureTool.AdminBatchSEOReview)
 			tools.GET("/categories", h.featureTool.AdminCategories)
 
 			// 批量导入 (JSON body) + zip 上传导入 + 任务管理
@@ -171,6 +178,12 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		opsUsersRead.GET("/users", h.user.GetUserList)
 		// 用户详情抽屉:登录方式 + 该用户会员状态/今日额度(不含财务下钻,后者在 userWrites 组)
 		opsUsersRead.GET("/users/:id/detail", h.user.GetUserDetail)
+
+		// 邀请注册看板(只读):汇总四数 + 邀请人列表 + 某邀请人(:id=user_id)带来的注册明细。
+		// 静态段 summary 与 :id param 同层共存(gin 1.9 静态优先,同 /skills 口径)。
+		opsUsersRead.GET("/invites/summary", h.invite.AdminSummary)
+		opsUsersRead.GET("/invites", h.invite.AdminList)
+		opsUsersRead.GET("/invites/:id/registrations", h.invite.AdminRegistrations)
 	}
 
 	// ────────────────────────────────────────────────────────────────────
@@ -190,10 +203,28 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userWrites.DELETE("/users/:id/vip", h.vip.AdminRevokeVIP)
 		// 管理员给用户加/扣经费
 		userWrites.POST("/users/:id/wallet/adjust", h.vip.AdminAdjustWallet)
+		// 管理员发放重置次数(0090 起次数是重置额度唯一凭证,此前只有 0092 历史换算一个来源)
+		userWrites.POST("/users/:id/reset-passes", h.vip.AdminGrantResetPasses)
 		// 用户详情财务下钻:订单 / 交易流水(充值·消费) / 兑换记录
 		userWrites.GET("/users/:id/orders", h.vip.AdminListUserOrders)
 		userWrites.GET("/users/:id/transactions", h.vip.AdminListUserTransactions)
 		userWrites.GET("/users/:id/redemptions", h.vip.AdminListUserRedemptions)
+	}
+
+	// ────────────────────────────────────────────────────────────────────
+	// 退款组(finance.refund)—— 全后台唯一一个「点一下就把公司的钱转出去 + 回收用户权益」
+	// 的动作,单独一个权限点,便于独立授予/收回。
+	//
+	// 🔴 绝不能挂进上面的 opsRead(analytics.view):那是全后台权限最低的一档,
+	//    连 operations 运营角色都有 —— 订单的两个 GET 就在那儿。看得到订单 ≠ 退得了款。
+	// ────────────────────────────────────────────────────────────────────
+	financeRefund := api.Group("/admin")
+	financeRefund.Use(middleware.RequirePermission(admin.PermFinanceRefund))
+	{
+		// 登记一笔退款(不调网关:钱由管理员先在商户后台退掉,这里做记账 + 权益回收 + 通知)
+		financeRefund.POST("/billing/orders/:orderNo/refund", h.vip.AdminRefundOrder)
+		// 某订单的退款明细(部分退款可能有多笔)
+		financeRefund.GET("/billing/orders/:orderNo/refunds", h.vip.AdminListOrderRefunds)
 	}
 
 	// ────────────────────────────────────────────────────────────────────
@@ -238,6 +269,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 计费体系配置(基准额度/倍率/价格/赠送/汇率/重置花费…)
 		adminOnly.GET("/billing/config", h.vip.AdminGetBillingConfig)
 		adminOnly.PUT("/billing/config", h.vip.AdminUpdateBillingConfig)
+		adminOnly.GET("/invites/campaign", h.invite.AdminGetCampaign)
+		adminOnly.PUT("/invites/campaign", h.invite.AdminUpdateCampaign)
 
 		// 客服中心凭证配置:联系方式展示 / IMAP / SMTP / 飞书(含各测试按钮)。收发信本身在 opsContent 组。
 		adminOnly.GET("/support-center/config", h.supportCenter.GetConfig)
@@ -273,6 +306,9 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminOnly.PUT("/payment/wechat/config/:id", h.wechatPay.UpdateConfig)
 		adminOnly.DELETE("/payment/wechat/config/:id", h.wechatPay.DeleteConfig)
 		adminOnly.POST("/payment/wechat/config/:id/activate", h.wechatPay.ActivateConfig)
+		// 「测试配置」:离线自洽校验 + 微信官方 /v3/security/echo 验签测试。
+		// 启用前必须先通过它(ActivateConfig 会硬性检查 validation_status)。
+		adminOnly.POST("/payment/wechat/config/:id/test", h.wechatPay.TestConfig)
 
 		// 微信 OAuth 配置 (前端只用 active/configs/create/update/activate; DELETE 已下线)
 		adminOnly.GET("/wechat/config", h.wechat.GetActiveConfig)
@@ -309,12 +345,14 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 功能使用统计 v2 —— 清理(破坏性,删超期埋点)。只读统计在 opsRead 组。
 		adminOnly.POST("/usage-stats/cleanup", h.usageStats.TriggerCleanup)
 
-		// LLM Token 用量 —— 手动清理(破坏性)。只读看板在 opsRead 组。
+		// LLM 算力用量 —— 手动清理(破坏性)。只读看板在 opsRead 组。
 		adminOnly.POST("/llm-token-usage/cleanup", h.llmUsageAdmin.TriggerCleanup)
 
 		// 会员兑换码: 批量生成(等于凭空发会员/经费)+ 列表 + 停用/恢复 + 续期 + 加次数 + 改会员天数
 		adminOnly.POST("/vip-codes", h.vip.GenerateCodes)
 		adminOnly.GET("/vip-codes", h.vip.ListCodes)
+		adminOnly.GET("/vip-code-batches", h.vip.ListCodeBatches)
+		adminOnly.GET("/vip-code-batches/:batchID/codes", h.vip.GetCodeBatch)
 		adminOnly.PUT("/vip-codes/:id/status", h.vip.SetCodeStatus)
 		adminOnly.PUT("/vip-codes/:id/extend", h.vip.ExtendCode)           // 续期(顺延有效期)
 		adminOnly.PUT("/vip-codes/:id/max-uses", h.vip.IncreaseCodeUses)   // 加可兑换次数
@@ -324,6 +362,18 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminOnly.POST("/hot-content/cleanup", h.hotContent.ManualCleanup)
 		adminOnly.GET("/hot-content/config", h.hotContent.GetConfig)
 		adminOnly.PUT("/hot-content/config", h.hotContent.UpdateConfig)
+
+		// 期刊全量摄取与发布(SEO 主动化,internal/seoingest):
+		// 同步 run 控制(断点续跑,消耗 minicod 配额)+ 分批发布/整批回滚(直接改
+		// 全站 sitemap/推送面)—— 全是「点错一下影响收录」的动作,归 config.manage。
+		adminOnly.GET("/seo/journal-sync/status", h.seoIngest.GetStatus)
+		adminOnly.POST("/seo/journal-sync/start", h.seoIngest.StartSync)
+		adminOnly.POST("/seo/journal-sync/pause", h.seoIngest.PauseSync)
+		adminOnly.POST("/seo/journal-sync/resume", h.seoIngest.ResumeSync)
+		adminOnly.POST("/seo/journal-sync/cancel", h.seoIngest.CancelSync)
+		adminOnly.POST("/seo/journal-publish", h.seoIngest.Publish)
+		adminOnly.POST("/seo/journal-rollback", h.seoIngest.Rollback)
+		adminOnly.GET("/seo/journal-batches", h.seoIngest.Batches)
 	}
 
 	// ────────────────────────────────────────────────────────────────────

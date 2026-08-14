@@ -176,7 +176,7 @@ export const PdfViewer = forwardRef<HTMLDivElement, PdfViewerProps>(function Pdf
         className="flex-1 min-h-0 overflow-auto flex justify-center"
       >
         {loadError ? (
-          <div className="m-8 px-4 py-3 rounded-sm bg-danger-soft text-xs text-brand-red max-w-md">
+          <div className="m-8 px-4 py-3 rounded-12 bg-danger-soft text-12 text-brand-red max-w-md">
             {loadError}
           </div>
         ) : (

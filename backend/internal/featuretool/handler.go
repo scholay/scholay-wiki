@@ -102,6 +102,7 @@ func (h *Handler) PublicGet(c *gin.Context) {
 func (h *Handler) AdminList(c *gin.Context) {
 	f := parseListFilter(c)
 	f.Status = c.Query("status") // admin 可按 status 过滤; 空=全部
+	f.SEOReview = c.Query("seo_review")
 	if f.PageSize == 24 {
 		f.PageSize = 20
 	}
@@ -141,6 +142,26 @@ func (h *Handler) AdminGet(c *gin.Context) {
 	utils.Success(c, t)
 }
 
+// AdminBatchSEOReview POST /api/v1/admin/tools/seo-review/batch
+// 批量 SEO 审核放行(契约同单件审核,见 service.BatchSEOReview)。
+// query: limit(默认 1000,上限 5000) · after_id(续扫游标) · dry_run=1(只预览不写)
+// 全量放行用法:循环调用,把每次返回的 last_id 作为下一次 after_id,直到 done=true。
+func (h *Handler) AdminBatchSEOReview(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "1000"))
+	afterID, _ := strconv.ParseUint(c.DefaultQuery("after_id", "0"), 10, 64)
+	dryRun := c.Query("dry_run") == "1" || c.Query("dry_run") == "true"
+	res, err := h.svc.BatchSEOReview(adminIDPtr(c), afterID, limit, dryRun)
+	if err == ErrSEOReview {
+		utils.BadRequest(c, "缺少管理员身份,无法执行批量 SEO 审核")
+		return
+	}
+	if err != nil {
+		utils.InternalError(c, 5000, "批量 SEO 审核失败", err)
+		return
+	}
+	utils.Success(c, res)
+}
+
 // AdminCreate POST /api/v1/admin/tools
 func (h *Handler) AdminCreate(c *gin.Context) {
 	var t Tool
@@ -151,6 +172,10 @@ func (h *Handler) AdminCreate(c *gin.Context) {
 	created, err := h.svc.Create(&t, adminID)
 	if err == ErrNameEmpty {
 		utils.BadRequest(c, "工具名称不能为空")
+		return
+	}
+	if err == ErrSEOReview {
+		utils.BadRequest(c, "SEO 收录审核未通过：需已上线、详细描述不少于 120 字、有公开官网与至少 2 个完整使用场景，且数据已完善、无需复核并保留公开来源")
 		return
 	}
 	if err != nil {
@@ -170,13 +195,17 @@ func (h *Handler) AdminUpdate(c *gin.Context) {
 	if !utils.BindJSON(c, &t) {
 		return
 	}
-	updated, err := h.svc.Update(uint64(id), &t)
+	updated, err := h.svc.Update(uint64(id), &t, adminIDPtr(c))
 	if err == ErrNotFound {
 		utils.NotFound(c, "工具不存在")
 		return
 	}
 	if err == ErrNameEmpty {
 		utils.BadRequest(c, "工具名称不能为空")
+		return
+	}
+	if err == ErrSEOReview {
+		utils.BadRequest(c, "SEO 收录审核未通过：需已上线、详细描述不少于 120 字、有公开官网与至少 2 个完整使用场景，且数据已完善、无需复核并保留公开来源")
 		return
 	}
 	if err != nil {

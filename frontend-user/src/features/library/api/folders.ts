@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 
 /**
- * 文献集文件夹 —— 与后端 /api/v1/user/library/folders 对接。
+ * 文件夹 —— 与后端 /api/v1/user/library/folders 对接。
  *
  * queryKey 三段式:
  *   ['library', 'folders']      —— 列表(自带 paper_count、total_count、root_count)

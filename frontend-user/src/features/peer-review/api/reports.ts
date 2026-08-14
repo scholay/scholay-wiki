@@ -8,7 +8,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
-import type { ReviewReport, ReviewerRole } from '../types';
+import type { ReviewReport, ReviewerRole } from '@/shared/lib/peer-review/types';
 import { unwrap } from './_unwrap';
 
 const KEY = (...rest: (string | number)[]) =>
@@ -33,9 +33,11 @@ export function useSubmissionReports(id?: number, terminal?: boolean) {
       );
       return unwrap<{ items: ReviewReport[] }>(r.data).items;
     },
+    // 2026-08-12 推送化:每份报告落库后后端广播 report_ready 帧,stream.ts 收帧 invalidate
+    // 本查询 → 报告即时可见;5s 轮询降为 30s 兜底(SSE 断连时的收敛保证)。
     refetchInterval: (q) => {
       const items = q.state.data ?? [];
-      return items.length < 4 && !terminal ? 5000 : false;
+      return items.length < 4 && !terminal ? 30_000 : false;
     },
   });
 }

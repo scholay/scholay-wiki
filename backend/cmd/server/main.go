@@ -17,8 +17,11 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,8 +31,10 @@ import (
 	"scholar-backend/internal/common/logger"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/crawlerwatch"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/storage"
+	"scholar-backend/internal/umami"
 
 	"github.com/gin-gonic/gin"
 )
@@ -44,6 +49,36 @@ func main() {
 
 	// Initialize structured logging
 	logger.Init()
+
+	// ── 环境身份回显 ────────────────────────────────────────────────────────
+	//
+	// 「这台机器是哪套环境、对外自称是谁、能不能被收录」是多环境部署里最容易配错、
+	// 也最难事后归因的一组(配错的表现是几周后 SERP 里冒出一个重复站点,而不是报错)。
+	// 每次启动打一条,`docker logs scholar_backend | head` 就能确认。
+	slog.Info("环境身份",
+		"app_env", cfg.App.Env,
+		"canonical_base_url", appconfig.CanonicalBaseURL(),
+		"canonical_host", appconfig.CanonicalHost(),
+		"seo_indexable", appconfig.SEOIndexable(),
+		"gin_mode", cfg.App.GinMode,
+	)
+	if !appconfig.SEOIndexable() {
+		slog.Warn("本环境【不可索引】:robots.txt 全站 Disallow、sitemap 与 IndexNow key 文件 404、" +
+			"所有 SSR 响应带 noindex。若这是权威生产站,请设 APP_ENV=prod(或 SEO_INDEXABLE=true)。")
+	}
+	// 非权威环境却开着对外推送 —— 这类配置会把本环境的 URL 推进真实搜索引擎,
+	// 且用的多半是权威站注册的凭据(IndexNow key / 百度 token 都是按站点发的),
+	// 后果落在权威站的收录上。不强制关(留下验证推送链路的可能),但必须吵。
+	if !appconfig.IsProdEnv() {
+		if cfg.SEOSubmit.Enabled || cfg.SEOSubmit.IndexNowEnabled || cfg.SEOSubmit.BaiduEnabled {
+			slog.Warn("⚠️ APP_ENV 非 prod,但 SEO 主动推送是开启的 —— 本环境会把自己的 URL 真的推给"+
+				"搜索引擎,若凭据来自权威站则会污染那个站的收录。确认这是有意为之,否则请在 .env 里关掉。",
+				"app_env", cfg.App.Env,
+				"seo_submit", cfg.SEOSubmit.Enabled,
+				"indexnow", cfg.SEOSubmit.IndexNowEnabled,
+				"baidu", cfg.SEOSubmit.BaiduEnabled)
+		}
+	}
 
 	// Initialize Redis
 	if err := cache.InitRedis(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.DB); err != nil {
@@ -73,7 +108,9 @@ func main() {
 		BucketPrism:               cfg.MinIO.BucketPrism,
 		BucketFeatureTools:        cfg.MinIO.BucketFeatureTools,
 		BucketAgentArtifacts:      cfg.MinIO.BucketAgentArtifacts,
+		BucketAgentAttachments:    cfg.MinIO.BucketAgentAttachments,
 		BucketSkillBundles:        cfg.MinIO.BucketSkillBundles,
+		BucketNewsCovers:          cfg.MinIO.BucketNewsCovers,
 		UseSSL:                    cfg.MinIO.UseSSL,
 	}); err != nil {
 		log.Fatalf("Failed to initialize object storage: %v", err)
@@ -82,10 +119,24 @@ func main() {
 	// Bootstrap all application services and DI wiring
 	svc := bootstrapServices(cfg)
 
+	// 后台任务的根 ctx —— 提前到路由装配之前建:爬虫监控的 sender goroutine
+	// 也挂在它上面(shutdown 时随 cancel 一起退)。
+	bgCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Setup Gin router
 	// gin 全局模式跟随 GIN_MODE —— 不设的话 gin 默认 debug, 既打印调试噪声也让一些
 	// "release 才生效"的安全分支(默认密钥 fail-fast / 支付金额校验 / JSON 日志)失活。
 	gin.SetMode(cfg.App.GinMode)
+	// 测试支付开关的生效状态在启动时打一条,让「开关开着但被 release 硬闸压掉」可见:
+	// vip.testPaymentEnabled 在 release 模式下无视 PAYMENT_TEST_ENABLED(生产资损硬闸)。
+	if cfg.App.TestPaymentEnabled {
+		if cfg.App.IsRelease {
+			slog.Warn("PAYMENT_TEST_ENABLED=true 但 GIN_MODE=release,测试支付已被生产硬闸关闭;本地要用请设 GIN_MODE=debug")
+		} else {
+			slog.Warn("测试支付已开启(PAYMENT_TEST_ENABLED=true, GIN_MODE=debug)——任何登录用户可免网关履约订单,勿用于生产")
+		}
+	}
 	// 用 gin.New() 替代 gin.Default()：自定义 Recovery 增加 trace_id/结构化日志，
 	// 同时保留 gin.Logger() 行为。
 	router := gin.New()
@@ -106,10 +157,46 @@ func main() {
 	router.Use(middleware.RecoveryMiddleware())
 	router.Use(middleware.CORSMiddleware())
 
+	// 爬虫监控(internal/crawlerwatch):已知搜索引擎/AI 爬虫对可抓取路径
+	// (SSR 页 / robots / sitemap / IndexNow key)的命中,异步转成事件写进一个
+	// **独立**的 umami website —— umami 常规采集是 JS tracker + isbot 过滤,
+	// 天生看不见爬虫,这条服务端旁路两者都绕开。
+	// UMAMI_CRAWLER_WEBSITE_ID 为空 → New 返 nil,整个功能不挂载,零开销。
+	// 挂在 CORS 之后、限流/超时之前:被下游 429/408/404 的爬虫命中也要计数
+	// (status 记 c.Next() 后终值,持续 429 正是要观察的抓取配额风险信号)。
+	{
+		crawlerUmamiBase := cfg.Umami.CrawlerBaseURL
+		if crawlerUmamiBase == "" {
+			crawlerUmamiBase = umami.DefaultBaseURL // 与 admin /analytics 客户端同源的内网默认
+		}
+		if cw := crawlerwatch.New(crawlerwatch.Config{
+			UmamiBaseURL: crawlerUmamiBase,
+			WebsiteID:    cfg.Umami.CrawlerWebsiteID,
+			Hostname:     canonicalHost(),
+		}); cw != nil {
+			cw.Start(bgCtx)
+			router.Use(cw.Middleware())
+			slog.Info("crawler monitor enabled",
+				"website_id", cfg.Umami.CrawlerWebsiteID, "umami", crawlerUmamiBase)
+		}
+	}
+
 	router.Use(middleware.BodyLimitMiddleware(middleware.DefaultMaxBodySize))
 	// 第一道限流：全局 IP 限流（DoS 防护），参数从 RATE_LIMIT_IP_RPS 读取。
 	// 第二道限流：见 TieredRateLimitMiddleware，在认证路由组内按 user_id 限流（待挂载）。
-	router.Use(middleware.RateLimitMiddleware(cfg.RateLimit.IPRPS, 1*time.Second))
+	//
+	// 爬虫基础设施路径(robots.txt / sitemap*.xml / IndexNow key 文件)豁免 IP 限流:
+	// 这些响应全部 Redis 版本化缓存、成本极低,而对搜索引擎返回 429 会被 Google
+	// 记为「站点限流信号」直接压低全站抓取配额(官方 crawl-budget 文档)。
+	// 429 换来的防护价值 ≈ 0(攻击者打 sitemap 不如打 SSR/API),风险却是收录面萎缩。
+	ipLimiter := middleware.RateLimitMiddleware(cfg.RateLimit.IPRPS, 1*time.Second)
+	router.Use(func(c *gin.Context) {
+		if isCrawlerInfraPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+		ipLimiter(c)
+	})
 	router.Use(middleware.APITimeoutMiddleware())
 
 	registerRoutes(router, svc.handlers, cfg)
@@ -117,9 +204,9 @@ func main() {
 	// IndexNow 协议要求站点根 /{key}.txt 200 OK,这条路由必须先于 NoRoute SPA 兜底注册
 	seosubmit.RegisterKeyFileRoute(router, svc.seoSubmitService)
 
-	bgCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	startBackgroundTasks(bgCtx, svc.seoService)
+	startBackgroundTasks(bgCtx, svc.seoService, svc.seoIngestService)
+	// 情报封面缩略图回填:补历史行 + 重试失败行(webhook 即时钩子的兜底;MinIO 未启用时 no-op)
+	svc.newsService.StartCoverThumbBackfill(bgCtx)
 
 	// (已移除)跨实例「多窗口接管」订阅 —— 抢占模型已被「多端实时同步扇出 Hub」取代
 	// (见 internal/agentbridge/hub.go);同一 session 的多个浏览器现在共享一条上游 agent WS,不再互踢。
@@ -180,8 +267,45 @@ func main() {
 		slog.Error("Error closing WebSocket hub", "err", err)
 	}
 
+	// 计费水位同步落库(2026-08-02 审计 P1-13):每轮的落库是 best-effort 异步,发版时正在飞的
+	// 那笔可能还没提交进程就没了 → 新进程回源到旧水位,上一轮被当成新增量再记一遍(重复扣额度)。
+	// 必须在 ShutdownJournal 之前:两者都写 DB,水位是钱、journal 是历史,先保钱。
+	svc.agentBridge.FlushAllTokenWatermarks()
+
+	// 额度窗口 used 快照落库(0103):同上,发版时正在飞的那一分钟的消耗必须落进兜底副本,
+	// 否则「优雅重启 + 之后某天 Redis 丢数据」这个组合会让恢复读回一个偏小的 used = 白送额度。
+	if svc.stopQuotaPersist != nil {
+		svc.stopQuotaPersist()
+	}
+
 	// M5:drain agent 事件日志写通道(把未落盘事件写完再退,防重启丢历史)。
 	svc.agentBridge.ShutdownJournal(shutdownCtx)
 
 	slog.Info("Server stopped")
+}
+
+// crawlerInfraKeyFileRe IndexNow key 文件路径(与 seosubmit.RegisterKeyFileRoute
+// 及 nginx user.conf 的根级 .txt 正则同构:8-128 位字母数字连字符)。
+var crawlerInfraKeyFileRe = regexp.MustCompile(`^/[A-Za-z0-9-]{8,128}\.txt$`)
+
+// canonicalHost 从 CanonicalBaseURL 取 host(www.scholay.com),给爬虫监控事件的
+// hostname 字段 —— 与 sitemap/canonical 的 SEO 口径一致。解析失败回落 localhost。
+func canonicalHost() string {
+	u, err := url.Parse(appconfig.CanonicalBaseURL())
+	if err != nil || u.Host == "" {
+		return "localhost"
+	}
+	return u.Host
+}
+
+// isCrawlerInfraPath 搜索引擎基础设施路径 —— 全局 IP 限流豁免面(见挂载处注释)。
+// 面刻意收窄:仅 robots / sitemap / key 文件,SSR 页面与 API 照常限流。
+func isCrawlerInfraPath(path string) bool {
+	if path == "/robots.txt" {
+		return true
+	}
+	if strings.HasPrefix(path, "/sitemap") && strings.HasSuffix(path, ".xml") {
+		return true
+	}
+	return crawlerInfraKeyFileRe.MatchString(path)
 }

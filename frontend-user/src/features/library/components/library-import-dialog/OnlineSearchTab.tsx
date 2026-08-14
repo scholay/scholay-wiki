@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, Loader2, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/shared/ui';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { SourceBadge } from '@/shared/components/SourceBadge';
-import { cn } from '@/shared/lib/utils';
 import { useArrivalOrderedPapers, useQuickPaperSearch } from '@/shared/api/quick-search';
 import { useFavoriteCheck } from '@/shared/api/user-library-mutations';
 import type {
@@ -78,7 +78,7 @@ export function OnlineSearchTab({
   const hasQuery = query.trim().length > 0;
   const initialLoading = hasQuery && !allDone && totalCount === 0;
 
-  // 工作台已是「加到当前文献集」语境(头/脚已声明目标):具体夹用其 id,根/全部视图用 null
+  // 工作台已是「加到当前文件夹」语境(头/脚已声明目标):具体夹用其 id,根/全部视图用 null
   // (= 默认文件夹直接收藏)。**不能用 undefined** —— 那会让 FavoritePaperButton 在已打开的
   // 工作台弹窗之上再弹一个全局文件夹选择器(弹窗叠弹窗 + 行为回归)。
   const folderId = typeof currentFilter === 'number' ? currentFilter : null;
@@ -113,8 +113,9 @@ export function OnlineSearchTab({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* 搜索条 */}
-      <div className="flex items-center gap-2.5 h-11 px-6 border-b border-border-soft">
+      <div className="flex items-center gap-2.5 h-11 px-6 border-b border-border-soft focus-within:border-border-control transition-colors">
         <Search className="size-4 text-muted-foreground shrink-0" />
+        {/* outline-none 合法:焦点可供性由外层搜索条的 focus-within:border-border-control 提供 */}
         <input
           ref={inputRef}
           type="text"
@@ -122,14 +123,14 @@ export function OnlineSearchTab({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="输入论文标题关键词 …"
           maxLength={128}
-          className="flex-1 min-w-0 h-full bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-faint placeholder:font-normal"
+          className="flex-1 min-w-0 h-full bg-transparent text-14 font-medium text-foreground outline-none placeholder:text-faint placeholder:font-normal"
         />
         {query && (
           <button
             type="button"
             onClick={() => setQuery('')}
             aria-label="清空"
-            className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
           >
             <X className="size-3" />
           </button>
@@ -162,7 +163,7 @@ export function OnlineSearchTab({
               );
             })}
             {!allDone && (
-              <li className="flex items-center justify-center gap-2 px-6 py-3 text-2xs text-faint">
+              <li className="flex items-center justify-center gap-2 px-6 py-3 text-12 text-faint">
                 <Loader2 className="size-3 animate-spin" />
                 其他源继续加载中…
               </li>
@@ -176,7 +177,7 @@ export function OnlineSearchTab({
         hint={
           <>
             收藏到{' '}
-            <span className="font-semibold text-foreground">
+            <span className="font-medium text-foreground">
               「{currentFolderName}」
             </span>
           </>
@@ -204,7 +205,7 @@ function PaperRow({
   onManagePaper,
 }: {
   paper: Paper;
-  /** 本会话收藏时为创建的文献集行(收藏成功回调带回),未在本会话收藏为 undefined */
+  /** 本会话收藏时为新建的论文行(收藏成功回调带回),未在本会话收藏为 undefined */
   favoritedRow: UserLibraryPaper | undefined;
   /** 库里早已收藏(来自 useFavoriteCheck 初始态);此时不一定有 favoritedRow */
   serverSaved: boolean;
@@ -220,17 +221,17 @@ function PaperRow({
 
   return (
     <li className="group flex items-center gap-2.5 px-6 py-2.5 hover:bg-surface-1 transition-colors">
-      <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0">
+      <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0">
         <FileText className="size-3.5 text-subtle" strokeWidth={2} />
       </div>
       <div className="flex-1 min-w-0">
         <div
-          className="truncate text-sm font-semibold text-foreground"
+          className="truncate text-14 font-medium text-foreground"
           title={paper.title ?? '无标题'}
         >
           {paper.title ?? '无标题'}
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 truncate">
+        <div className="flex items-center gap-2 text-12 text-muted-foreground mt-0.5 truncate">
           {source !== 'local' && (
             <SourceBadge source={source} variant="letter" size="sm" />
           )}
@@ -255,7 +256,7 @@ function PaperRow({
         <button
           type="button"
           onClick={() => onManagePaper(favoritedRow)}
-          className="inline-flex items-center h-7 px-2 rounded-sm border border-brand-amber text-xs font-semibold text-brand-amber hover:bg-warning-soft transition-colors shrink-0"
+          className="inline-flex items-center h-7 px-2 rounded-8 border border-brand-amber text-12 font-medium text-brand-amber hover:bg-warning-soft transition-colors shrink-0"
         >
           完善信息
         </button>
@@ -279,7 +280,7 @@ function PaperRow({
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="flex items-center justify-center py-20 px-6 text-center text-xs text-faint">
+    <div className="flex items-center justify-center py-20 px-6 text-center text-12 text-faint">
       {text}
     </div>
   );
@@ -287,7 +288,7 @@ function EmptyHint({ text }: { text: string }) {
 
 function CenterLoading() {
   return (
-    <div className="flex items-center justify-center gap-2 py-20 text-xs text-faint">
+    <div className="flex items-center justify-center gap-2 py-20 text-12 text-faint">
       <Loader2 className="size-4 animate-spin" />
       搜索中…
     </div>
@@ -303,25 +304,21 @@ function NoResultsHint({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center gap-3">
-      <div className="text-sm text-muted-foreground">
+      <div className="text-14 text-muted-foreground">
         没有命中{' '}
-        <span className="font-semibold text-foreground">「{query}」</span>
+        <span className="font-medium text-foreground">「{query}」</span>
       </div>
-      <div className="text-xs text-faint">
+      <div className="text-12 text-faint">
         试试用论文完整标题中的几个关键词,或换个表达
       </div>
-      <button
+      <Button
         type="button"
         onClick={onJumpToSearch}
-        className={cn(
-          'inline-flex items-center gap-1.5 mt-1 h-8 px-3 rounded-sm',
-          'bg-foreground text-background text-xs font-semibold',
-          'hover:bg-foreground/85 transition-colors'
-        )}
+        className="mt-1 gap-1.5 text-14 [&_svg]:size-3.5"
       >
         去主搜索页继续搜索
         <ArrowRight className="size-3.5" strokeWidth={2.25} />
-      </button>
+      </Button>
     </div>
   );
 }

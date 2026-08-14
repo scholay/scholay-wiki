@@ -1,6 +1,7 @@
 import { test, expect, describe } from "bun:test";
 import type Anthropic from "@anthropic-ai/sdk";
-import { ProtocolLeakGuard, stripProtocolMarkers } from "./leakGuard.ts";
+import { ProtocolLeakGuard, stripProtocolMarkers, findProtocolMarker, describeLeak } from "./leakGuard.ts";
+import { detectPhantomToolNarration, stripRecordEcho, TOOL_RECORD_PREFIX } from "./toolRecord.ts";
 import { capToolResult } from "./resultCap.ts";
 import {
   extractDois,
@@ -50,6 +51,236 @@ describe("ProtocolLeakGuard(DSML 泄漏熔断)", () => {
   test("stripProtocolMarkers 一刀切", () => {
     expect(stripProtocolMarkers("干净部分<｜tool▁calls▁begin｜垃圾")).toBe("干净部分");
     expect(stripProtocolMarkers("无标记原样")).toBe("无标记原样");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────
+// 生产原文回归(2026-08-07 线上只读取证,docs/research/toolcall-protocol-2026-08/)
+//
+// 下面每条 fixture 都是 `agent_turn_events.payload.$.text` 的**原样字节**,不是手编的样例。
+// 竖线一律写成 ｜ 转义:线上是全角 U+FF5C,而它在编辑器/终端/截图里与 ASCII `|` 肉眼无差 ——
+// 上一轮排查正因为信了字形,得出过「名单漏了 ASCII 双竖线」这个错误结论(实测 ASCII 形态 0 次)。
+// 写转义是为了让「这里到底是哪个码位」在代码评审时不可能看错。
+const F = "｜"; // U+FF5C FULLWIDTH VERTICAL LINE
+
+// 2026-08-07 09:15 · claw · deepseek-v4-pro · turn 2408 ev_seq 44/45(问题截图那一轮)。
+// 泄漏被**跨帧切开**:前一帧以 `"</` 收尾,标记体在下一帧 —— 旧实现两帧各自独立扫描、都不命中。
+const T2408_A = ` PAF 和 Markov 模型纳入公共卫生决策。"</`;
+const T2408_B = `${F}${F}DSML${F}${F}parameter>\n</${F}${F}DSML${F}${F}invoke>\n</${F}${F}DSML${F}${F}tool_calls>`;
+// 2026-08-04 16:28 · claw · deepseek-v4-pro · event id=451548(纯闭标签,竖线只在最后一行)
+const E451548 = `</parameter>\n</invoke>\n</${F}${F}DSML${F}${F}tool_calls`;
+// 2026-08-05 14:56 · claw · deepseek-v4-pro · event id=475341(前面还挂着 Bash heredoc 的尾巴)
+const E475341 = `")\nPYEOF\n</parameter>\n</invoke>\n</${F}${F}DSML${F}${F}tool_calls>`;
+// 2026-08-06 03:55 · prism · deepseek-v4-pro · event id=491158
+const E491158 = `parameter>\n</${F}${F}DSML${F}${F}invoke>\n</${F}${F}DSML${F}${F}tool_calls>`;
+// 2026-07-22 20:52 · prism · deepseek-v4-pro · turn 652(护栏上线前的 A 期形态:开标签齐全)
+const T652 = `继续获取剩余引用文献。\n\n<${F}${F}DSML${F}${F}tool_calls>\n<${F}${F}DSML${F}${F}invoke name="mcp__minicod__search_papers">\n<${F}${F}DSML${F}${F}parameter name="source" string="true">pubmed</${F}${F}DSML${F}${F}parameter>`;
+// 2026-07-25 · prism · deepseek-v4-pro · turn 881 ev 395(开标签在句中)
+const T881 = `并理顺逻辑。\n\n<${F}${F}DSML${F}${F}tool_calls>\n<${F}${F}DSML${F}${F}invoke name="`;
+
+describe("ProtocolLeakGuard · 生产原文回归(这次真的能拦住的唯一证据)", () => {
+  test("turn 2408 跨帧闭标签:干净前缀照发、标记体一个字节都不下发", () => {
+    const g = new ProtocolLeakGuard();
+    const a = g.feed(T2408_A);
+    const b = g.feed(T2408_B);
+    const passed = a + b + g.flush();
+
+    // ① 前一帧的正文照常送达(护栏不能因为收紧就吞掉正常内容)
+    expect(a).toBe(` PAF 和 Markov 模型纳入公共卫生决策。"`);
+    // ② 标记体全部被吞:用户可见流里不允许出现任何一片
+    expect(b).toBe("");
+    expect(passed).not.toContain("DSML");
+    expect(passed).not.toContain("</");
+    expect(passed).not.toContain("tool_calls");
+    // ③ 熔断置位 → turnLoop 才会做轮级裁决(作废重打 / 如实报错),否则这一轮会被判成 complete
+    expect(g.tripped).toBe(true);
+    // ④ 熔断后余下全吞
+    expect(g.feed("后面还有更多协议载荷")).toBe("");
+  });
+
+  test("三条纯闭标签生产原文:全部熔断,且只放行标记之前的真实正文", () => {
+    const cases: Array<[string, string, string]> = [
+      // [原文, 应放行, 说明]
+      [E451548, "", "整帧就是标记,一个字都不该放行"],
+      [E475341, `")\nPYEOF\n`, "Bash heredoc 的尾巴是真正文,要留;`</parameter>` 起熔断"],
+      [E491158, "parameter>\n", "上一帧已在 `</｜｜DSML｜｜` 处熔断,本帧单独喂只为覆盖入口"],
+    ];
+    for (const [raw, expected, why] of cases) {
+      const g = new ProtocolLeakGuard();
+      const out = g.feed(raw) + g.flush();
+      expect(out, why).toBe(expected);
+      expect(out).not.toContain("DSML");
+      expect(g.tripped).toBe(true);
+    }
+  });
+
+  test("A 期开标签原文(护栏上线前的形态)仍然熔断 —— 收紧不能把老形态放跑", () => {
+    for (const raw of [T652, T881]) {
+      const g = new ProtocolLeakGuard();
+      const out = g.feed(raw) + g.flush();
+      expect(g.tripped).toBe(true);
+      expect(out).not.toContain("DSML");
+      expect(out).not.toContain("invoke");
+    }
+    // 正文前缀不被误吞
+    expect(new ProtocolLeakGuard().feed(T881)).toBe("并理顺逻辑。\n\n");
+  });
+
+  test("逐字节切帧喂入 turn 2408 原文:任意切点都拦得住(分帧不是护栏的漏洞)", () => {
+    const whole = T2408_A + T2408_B;
+    for (let cut = 1; cut < whole.length; cut++) {
+      const g = new ProtocolLeakGuard();
+      const out = g.feed(whole.slice(0, cut)) + g.feed(whole.slice(cut)) + g.flush();
+      expect(out, `切点 ${cut} 漏了标记`).not.toContain("DSML");
+      expect(g.tripped, `切点 ${cut} 未熔断`).toBe(true);
+    }
+  });
+
+  test("变体族按形状覆盖:开/闭 × 全角单双竖线 × ASCII 竖线 × 竖线整体退化 × 旧特殊 token", () => {
+    const variants = [
+      `<${F}DSML${F}tool_calls>`, // 官方模型卡规范形(全角单竖线)
+      `<${F}${F}DSML${F}${F}tool_calls>`, // 线上实际形(全角双竖线)
+      `</${F}${F}DSML${F}${F}invoke>`, // 闭标签(2026-08 唯一还在漏的形态)
+      "<|DSML|tool_calls>", // ASCII 单竖线
+      "<||DSML||tool_calls>", // ASCII 双竖线(HF discussions/209 记录的退化形)
+      "</||DSML||parameter>", // ASCII 双竖线 + 闭标签
+      "<DSML tool_calls>", // 竖线整体丢失
+      `<${F}tool▁calls▁begin${F}>`, // DeepSeek V3/R1 旧特殊 token
+      "<|tool_calls_begin|>",
+      "</invoke>", // 竖线全丢后只剩 XML 语法层
+      "</function_calls>",
+      '<invoke name="Edit">',
+      "<tool_call>", // GLM 原生标记
+      "<|endoftext|>", // 任意 <｜…｜> 哨兵
+    ];
+    for (const v of variants) {
+      const g = new ProtocolLeakGuard();
+      const out = g.feed("正文前缀。" + v + "载荷");
+      expect(g.tripped, `变体未被拦下: ${v}`).toBe(true);
+      expect(out, `变体 ${v} 放行了标记`).toBe("正文前缀。");
+    }
+  });
+
+  test("误伤面:正常正文/代码里的类似写法不熔断", () => {
+    const benign = [
+      "当 a < b 且 b < c 时,有 a < c。",
+      "F# 的管道运算符写作 x <| f,组合子写作 <|>。",
+      "Dirac 记号 <a|b> 表示内积。",
+      "HTML 片段:<div class=\"x\">内容</div>",
+      "泛型 Map<String, List<Integer>> 的用法",
+      // 刻意不收裸开标签 `<parameter name=`:log4j/Axis 配置真的长这样
+      '<parameter name="threshold" value="INFO"/>',
+      "比较 1<2 与 3>2",
+    ];
+    for (const s of benign) {
+      const g = new ProtocolLeakGuard();
+      const out = g.feed(s) + g.flush();
+      expect(g.tripped, `误伤: ${s}`).toBe(false);
+      expect(out, `内容被改动: ${s}`).toBe(s);
+    }
+  });
+
+  test("describeLeak:归因字段能指出是哪一族、以及标记的真实码位(不看字形看字节)", () => {
+    const t = new ProtocolLeakGuard();
+    const k = new ProtocolLeakGuard();
+    expect(describeLeak(t, k)).toBeNull(); // 未熔断 → 无诊断
+
+    t.feed(T2408_A);
+    t.feed(T2408_B);
+    const d = describeLeak(t, k)!;
+    expect(d.channel).toBe("text");
+    expect(d.family).toBe("barred_token");
+    expect(d.passedChars).toBe(T2408_A.length - 2); // `</` 被扣住未下发
+    // 3c=`<` 2f=`/` ff5c=全角竖线 ×2 —— 钉死「线上是 U+FF5C 不是 ASCII 7c」
+    expect(d.markerHex.startsWith("3c 2f ff5c ff5c 44 53 4d 4c")).toBe(true);
+    expect(d.marker).toContain("DSML");
+
+    // thinking 通路单独熔断时也要归得了因
+    const k2 = new ProtocolLeakGuard();
+    k2.feed(`推理中<${F}${F}DSML${F}${F}tool_calls>`);
+    expect(describeLeak(new ProtocolLeakGuard(), k2)!.channel).toBe("thinking");
+  });
+
+  test("findProtocolMarker 取最靠前的一处(多族同时命中时不错位)", () => {
+    const hit = findProtocolMarker(`前缀</invoke>\n<${F}${F}DSML${F}${F}tool_calls>`)!;
+    expect(hit.index).toBe(2);
+    expect(hit.family).toBe("toolcall_xml");
+    expect(findProtocolMarker("完全干净的一段正文")).toBeNull();
+  });
+
+  test("stripProtocolMarkers 对闭标签同样一刀切(history 消毒与流式判据必须同源)", () => {
+    expect(stripProtocolMarkers(`正文${T2408_B}`)).toBe("正文");
+    expect(stripProtocolMarkers(E475341)).toBe(`")\nPYEOF\n`);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────
+describe("detectPhantomToolNarration(模型照抄冷重播折叠模板 = 幻影交付)", () => {
+  // 2026-08-07 09:15 turn 2408 / 10:17 turn 2417 / 09:19 turn 2409 的正文原文(旧模板)。
+  const T2408_TEXT = `【已调用 Read file_path="scheme_v2.md"】返回 2926 字符`;
+  const T2417_TEXT = [
+    "抱歉,马上处理——先删除摘要列,再导出 Word。",
+    "",
+    `【已调用 Read file_path="scheme_v2.md" limit="50"】`,
+    `【已调用 Bash command="grep -n '方案修改与优化摘要' scheme_v2.md | head -40"】`,
+    `【已调用 Read file_path="scheme_v2.md" offset="50" limit="100"】`,
+  ].join("\n");
+  const T2409_TEXT = "抱歉,还没导出——刚才只完成了修改,现在马上生成。\n\n【已调用 ExportDocument】";
+
+  test("三条生产原文全部命中(这三轮线上 tool_use=0 / artifact=0 / status=complete)", () => {
+    expect(detectPhantomToolNarration(T2408_TEXT).count).toBe(1);
+    expect(detectPhantomToolNarration(T2417_TEXT).count).toBe(3);
+    expect(detectPhantomToolNarration(T2409_TEXT).count).toBe(1);
+    expect(detectPhantomToolNarration(T2408_TEXT).samples[0]).toContain("Read");
+  });
+
+  // 2026-08-08 结构性根治后:平台**不再产出**任何折行,故这条前缀在生产里没有写入方。
+  // 检出仍保留 —— 模型自发写出同形句子时必须抓到(这也是「万一有人把折叠改回来」的兜底)。
+  test("第三人称档案句式被模型自发写出时同样命中(换句式 ≠ 不会被模仿)", () => {
+    const echoed = `我先看了一下文件:\n${TOOL_RECORD_PREFIX}Read(file_path="a.md") → 返回 2926 字符`;
+    expect(detectPhantomToolNarration(echoed).count).toBe(1);
+  });
+
+  // §6.1 存量污染:journal 的 content_delta 里躺着 18 轮伪造正文,冷重播原样重灌 = 继续喂 few-shot。
+  describe("stripRecordEcho(存量污染清洗:只删行,不动其余正文)", () => {
+    test("turn 2417 原文:三条伪造记录行全删,真实第一句完整保留", () => {
+      const cleaned = stripRecordEcho(T2417_TEXT);
+      expect(detectPhantomToolNarration(cleaned).count).toBe(0);
+      expect(cleaned).toBe("抱歉,马上处理——先删除摘要列,再导出 Word。");
+    });
+
+    test("整段都是记录行(turn 2408)→ 清空", () => {
+      expect(stripRecordEcho(T2408_TEXT)).toBe("");
+    });
+
+    test("干净正文原样返回(零改写、零误伤)", () => {
+      const s = "我已经读取了 scheme_v2.md 并完成修改,导出的 Word 在下方。";
+      expect(stripRecordEcho(s)).toBe(s);
+    });
+
+    // 🔴 删而不是替换:替换成「[平台已移除一条工具记录]」本身又是 assistant 通道里的
+    //    工具记录描述 = 换个模板继续教(replayHistory 铁律 ①)。
+    test("清洗产物里不得残留任何「这里曾有一次工具调用」的痕迹", () => {
+      const cleaned = stripRecordEcho(T2409_TEXT);
+      expect(cleaned).not.toContain("已移除");
+      expect(cleaned).not.toContain("ExportDocument");
+      expect(cleaned).toBe("抱歉,还没导出——刚才只完成了修改,现在马上生成。");
+    });
+  });
+
+  test("旧模板的检出**不能**随模板更新而下线:存量会话上下文里全是它", () => {
+    expect(detectPhantomToolNarration(`【已调用 search_papers query="x"】命中 20 条`).count).toBe(1);
+  });
+
+  test("正常正文不误报(包括自然语言陈述做过的事)", () => {
+    for (const s of [
+      "我已经读取了 scheme_v2.md 并完成修改,导出的 Word 在下方。",
+      "接下来我会调用检索工具查一下这个方向的综述。",
+      "【重要】请注意这里的参数含义。",
+      "",
+    ]) {
+      expect(detectPhantomToolNarration(s).count, s).toBe(0);
+    }
   });
 });
 
@@ -201,6 +432,24 @@ describe("verifyClaims(诚实性核验)", () => {
       userMsg("继续"),
     ];
     const bad = auditCitations("如前 10.9999/fake-abc", buildEvidenceCorpus(msgs));
+    expect(bad).toEqual(["10.9999/fake-abc"]);
+  });
+
+  // 2026-08 证据账本 P0:引用判据的主语料改成账本 —— 冷重播后 messages 里工具证据已被折成一行摘要,
+  // 若仍只读 messages,每条**真实**引用都会被判成编造(旧版在最需要它的路径上是净负值)。
+  test("冷重播:真实 DOI 只在账本里(messages 已被折叠)→ 不误报", () => {
+    const cold = [
+      userMsg("继续写"),
+      { role: "assistant", content: [{ type: "text", text: "【已调用 search_papers query=\"ADHD\"】命中 20 条,已入证据账本 E1–E16" }] } as Anthropic.MessageParam,
+    ];
+    const ledger = [{ id: "E1", doi: "10.1234/real-one", title: "ADHD fMRI" }] as never;
+    expect(auditCitations("引用 10.1234/real-one", buildEvidenceCorpus(cold))).toEqual(["10.1234/real-one"]); // 旧口径:误报
+    expect(auditCitations("引用 10.1234/real-one", buildEvidenceCorpus(cold, ledger))).toEqual([]); // 新口径:不误报
+  });
+
+  test("账本里没有、messages 里也没有的 DOI 仍被观测到", () => {
+    const ledger = [{ id: "E1", doi: "10.1234/real-one" }] as never;
+    const bad = auditCitations("引用 10.9999/fake-abc", buildEvidenceCorpus([userMsg("q")], ledger));
     expect(bad).toEqual(["10.9999/fake-abc"]);
   });
 

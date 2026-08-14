@@ -16,7 +16,7 @@ export type LandingKey =
   | 'submit'
   | 'peer-review';
 
-/** 大标题分行 —— italic=true 用 Playfair Display 斜体(.pen 模式) */
+/** 大标题分行 —— italic=true 用 Google Sans 真斜体 */
 export interface TitleLine {
   text: string;
   italic?: boolean;
@@ -226,10 +226,10 @@ const search: LandingFeature = {
       { text: '读懂一整个研究领域。', italic: true },
     ],
     description:
-      'Scholay 文献搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献,支持中英文混合检索,并与「文献集」无缝集成。',
+      'Scholay 文献搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献,支持中英文混合检索,并与「文件夹」无缝集成。',
     primaryCTA: { label: '开始免费检索', href: '/search' },
     secondaryCTA: { label: '观看 2 分钟演示', href: '#demo' },
-    checkMeta: ['无需信用卡', '支持中英文', '学生免费'],
+    checkMeta: ['无需信用卡', '支持中英文', 'Free 档即可体验'],
     mockKey: 'search-matrix',
   },
 
@@ -292,8 +292,8 @@ const search: LandingFeature = {
     },
     {
       tag: 'Step 03 · 一键入库',
-      title: '收藏到「文献集」,无缝接续。',
-      desc: '看中的论文一键加入个人文献集,自动按主题打 AI 标签;后续 Claw 问答和 Prism 写作都能调用同一份数据。',
+      title: '收藏到「文件夹」,无缝接续。',
+      desc: '看中的论文一键加入个人文件夹,自动按主题打 AI 标签;后续 Claw 问答和 Prism 写作都能调用同一份数据。',
     },
   ],
 
@@ -335,9 +335,9 @@ const search: LandingFeature = {
     {
       icon: 'users',
       title: '实验室 PI',
-      desc: '为学生指明阅读路径,把团队的文献集结构化为可继承的研究资产,节省培训新成员的时间。',
+      desc: '为学生指明阅读路径,把团队的文件夹结构化为可继承的研究资产,节省培训新成员的时间。',
       bullets: [
-        '团队共享文献集,统一研究主线',
+        '团队共享文件夹,统一研究主线',
         '为新生生成「先读 30 篇」的阅读路径',
         '基金申请与开题答辩材料自动汇总',
       ],
@@ -388,7 +388,7 @@ const search: LandingFeature = {
         label: '归档与复用',
         cells: [
           { kind: 'text', text: '导出 BibTeX 与 PDF;后续整理在外部工具', tone: 'weak' },
-          { kind: 'text', text: '自动归入「文献集」,与研究助手联动', tone: 'good' },
+          { kind: 'text', text: '自动归入「文件夹」,与研究助手联动', tone: 'good' },
         ],
       },
     ],
@@ -410,52 +410,52 @@ const search: LandingFeature = {
     },
     {
       q: '搜索结果可以导出吗?',
-      a: '可以。所有命中结果可一键导出 BibTeX / RIS / EndNote XML / GB-7714 / APA 文本,或直接 push 到个人文献集中持续追踪。',
+      a: '可以。所有命中结果可一键导出 BibTeX / RIS / EndNote XML / GB-7714 / APA 文本,或直接 push 到个人文件夹中持续追踪。',
     },
     {
       q: 'Free 有多少搜索次数限制?',
-      a: 'Free 每天 200 次自然语言搜索 + 50 次引文矩阵展开,足够大多数日常文献调研。学生认证后限额翻倍,机构席位无限。',
+      a: '论文检索与文献管理不限次数,不消耗额度。智能搜索等 AI 能力按额度计费,额度用完后自动恢复;Free 档即可体验,Pro / Max 提供更高额度,详见定价页。',
     },
   ],
 
   finalCTA: {
     eyebrow: 'START SEARCHING SMARTER',
     titleLines: [{ text: '让下一次文献调研,从一句中文开始。', italic: true }],
-    sub: '免费创建账号,即刻使用 Scholay 文献搜索;教育邮箱享 50% 折扣,机构席位可联系销售。',
+    sub: '免费创建账号,即刻使用 Scholay 文献搜索;Pro / Max 提供更高 AI 额度,也可通过站内活动与兑换码获得权益。',
     primaryCTA: { label: '立即免费开始', href: '/search' },
     secondaryCTA: { label: '预约 30 分钟产品演示', href: '/contact' },
-    metaChips: ['无需信用卡', '支持中英文', '学生免费'],
+    metaChips: ['无需信用卡', '支持中英文', 'Free 档即可体验'],
   },
 };
 
 // ============================================================================
-// 2. 文献集 —— .pen vNqFk
+// 2. 文件夹 —— .pen vNqFk
 // ============================================================================
 const library: LandingFeature = {
   key: 'library',
   slug: 'library',
-  name: '文献集',
-  pageTitle: '文献集 · Scholay学术 — 千篇文献,一处归档',
+  name: '文件夹',
+  pageTitle: '文件夹 · Scholay学术 — 千篇文献,一处归档',
   metaDesc:
     '用文件夹树结构与 AI 自动打标签,管理 1000+ 篇论文;浏览器内高亮批注 PDF,多端实时同步,一键导出 BibTeX/RIS 引用,并与团队成员实时协作。',
   metaKeywords:
-    '文献集,文献管理,论文收藏,PDF 批注,BibTeX 导出,RIS 导出,文献协作,文献云同步,Zotero 替代,Scholay',
+    '文件夹,文献管理,论文收藏,PDF 批注,BibTeX 导出,RIS 导出,文献协作,文献云同步,Zotero 替代,Scholay',
 
   hero: {
-    eyebrow: { text: '文献集 · LITERATURE LIBRARY' },
+    eyebrow: { text: '文件夹 · FOLDERS' },
     titleLines: [
-      { text: '为科研而生的 文献集', italic: true },
+      { text: '为科研而生的 文件夹', italic: true },
       { text: '千篇文献,一处归档' },
     ],
     description:
       '用文件夹树结构与 AI 自动打标签,管理 1000+ 篇论文;浏览器内高亮批注 PDF,多端实时同步,一键导出 BibTeX / RIS 引用,并与团队成员实时协作。',
-    primaryCTA: { label: '免费试用 文献集', href: '/library' },
+    primaryCTA: { label: '免费试用 文件夹', href: '/library' },
     secondaryCTA: { label: '观看 2 分钟演示', href: '#demo' },
-    checkMeta: ['无需信用卡', '教育邮箱享 50% 折扣', '支持中英文界面'],
+    checkMeta: ['无需信用卡', '免费开始使用', '支持中英文界面'],
   },
 
   trust: {
-    label: '科研团队怎么用 文献集',
+    label: '科研团队怎么用 文件夹',
     logos: [
       'Tsinghua',
       'Peking Univ.',
@@ -469,7 +469,7 @@ const library: LandingFeature = {
   },
 
   featuresHeader: {
-    eyebrow: '为什么是 Scholay 文献集',
+    eyebrow: '为什么是 Scholay 文件夹',
     title: '不是网盘,是为论文设计的工作台。',
     sub: '存储只是基础。真正的价值在于 —— 让 1000 篇论文按你的研究路径排好队、与 AI 助手共享同一片上下文。',
   },
@@ -513,13 +513,13 @@ const library: LandingFeature = {
     },
     {
       tag: 'Step 03 · 多端协作',
-      title: 'PC / 平板 / 团队席位实时同步。',
-      desc: '导师文件夹一键开放给学生,所有批注 / 高亮 / 阅读进度实时同步;评论支持 @ 提醒,告别微信传 PDF。',
+      title: 'PC / 平板 / 多端实时同步。',
+      desc: '文件夹可通过分享链接与提取码开放给同门,批注 / 高亮 / 阅读进度实时同步,告别微信传 PDF。',
     },
   ],
 
   stats: [
-    { value: '1,000+', label: '单个文献集容量', sub: 'Free 限此,Pro / Max 无上限' },
+    { value: '不限量', label: '单账号论文容量', sub: '收藏与管理不耗 AI 额度' },
     { value: '91%', label: 'AI 自动标签准确率', sub: '基于 5 万篇标注论文测试', tone: 'green' },
     { value: '4 种', label: '批注颜色 + 便签', sub: '跨端实时同步' },
     { value: '12+', label: '导出引用格式', sub: 'BibTeX / RIS / GB-7714 / APA …' },
@@ -528,7 +528,7 @@ const library: LandingFeature = {
   useCasesHeader: {
     eyebrow: '适用场景',
     title: '为每一种科研角色而设计。',
-    sub: '无论你在写学位论文、带实验室,还是做系统性综述,文献集都能贴合你的研究节奏。',
+    sub: '无论你在写学位论文、带实验室,还是做系统性综述,文件夹都能贴合你的研究节奏。',
   },
   useCases: [
     {
@@ -569,11 +569,11 @@ const library: LandingFeature = {
   comparison: {
     eyebrow: '对比',
     title: '与 Zotero · Mendeley · EndNote 的关键差异',
-    sub: '传统工具善于管理,文献集还懂阅读、批注、协作与 AI 深度推理。',
+    sub: '传统工具善于管理,文件夹还懂阅读、批注、协作与 AI 深度推理。',
     theme: 'dark',
     columns: [
       { label: '能力' },
-      { label: 'Scholay 文献集', highlight: true },
+      { label: 'Scholay 文件夹', highlight: true },
       { label: 'Zotero' },
       { label: 'Mendeley' },
       { label: 'EndNote' },
@@ -612,7 +612,7 @@ const library: LandingFeature = {
 
   faqHeader: {
     eyebrow: '常见问题',
-    title: '关于文献集,你可能想知道。',
+    title: '关于文件夹,你可能想知道。',
     sub: '更多问题?到「联系我们」给我们写信,我们 48 小时内回复。',
   },
   faqs: [
@@ -626,7 +626,7 @@ const library: LandingFeature = {
     },
     {
       q: '是否支持团队 / 课题组?',
-      a: '支持。课题组可购买 5+ 席位的团队版,支持共享文件夹、批量分发、权限分级、年度阅读报告导出。',
+      a: '支持通过分享链接与提取码共享文献集,组内成员可一键转存到自己的文件夹;更多团队协作能力正在建设中。',
     },
     {
       q: '文献数据如何保护?',
@@ -637,10 +637,10 @@ const library: LandingFeature = {
   finalCTA: {
     eyebrow: 'START YOUR LIBRARY',
     titleLines: [{ text: '让下一篇论文,先有个家。', italic: true }],
-    sub: '免费创建文献集,享受 1,000 篇免费容量;教育邮箱享 50% 折扣,机构可申请团队席位试点。',
+    sub: '免费创建文件夹,收藏与管理文献不限量、不耗额度;Pro / Max 提供更高 AI 额度,支持兑换码与站内活动获得权益。',
     primaryCTA: { label: '立即免费创建', href: '/library' },
     secondaryCTA: { label: '预约 30 分钟演示', href: '/contact' },
-    metaChips: ['1000 篇免费', '教育 5 折', '中英双语'],
+    metaChips: ['收藏不限量', '无需信用卡', '中英双语'],
   },
 };
 
@@ -655,7 +655,7 @@ const prism: LandingFeature = {
   name: '智能写作',
   pageTitle: 'Prism · Scholay学术 — AI 学术写作 + LaTeX 编辑器',
   metaDesc:
-    '在浏览器里写 LaTeX,在 AI 协作中完成论文。Prism 把实时预览、文献引用、润色批注、模板套用与版本协作合并到一个简洁的编辑器里。',
+    '在浏览器里写 LaTeX,在 AI 协作中完成论文。Prism 把实时编译预览、文献引用、润色批注、模板套用与版本协作合并到一个简洁的编辑器里:AI 可按指令直接修改正文并以 diff 形式呈现,自动引用检索到的文献,内置 IEEE、ACM、Springer 等主流期刊模板,零安装上手。',
   metaKeywords:
     'LaTeX 编辑器,在线 LaTeX,AI 学术写作,论文写作,模板套用,文献引用,Overleaf 替代,Prism,Scholay',
 
@@ -708,8 +708,8 @@ const prism: LandingFeature = {
     },
     {
       eyebrow: '03 / 一键引用',
-      title: '从文献集直接 \\cite{},无需复制 key。',
-      desc: '光标处按 ⌘ K 调出文献集搜索,选中即插入 \\cite{};参考文献章节自动生成,支持 IEEE / APA / GB-7714 任意切换。',
+      title: '从文件夹直接 \\cite{},无需复制 key。',
+      desc: '光标处按 ⌘ K 调出文件夹搜索,选中即插入 \\cite{};参考文献章节自动生成,支持 IEEE / APA / GB-7714 任意切换。',
       kpi: { text: '12 种引用样式', tone: 'neutral' },
     },
   ],
@@ -727,8 +727,8 @@ const prism: LandingFeature = {
     },
     {
       tag: 'Step 02 · 边写边引',
-      title: 'AI 帮你写,文献集帮你引。',
-      desc: '在段落里按 ⌘ I 让 AI 续写、扩写或润色;按 ⌘ K 从文献集插入引用 —— 写作与文献调研无缝切换。',
+      title: 'AI 帮你写,文件夹帮你引。',
+      desc: '在段落里按 ⌘ I 让 AI 续写、扩写或润色;按 ⌘ K 从文件夹插入引用 —— 写作与文献调研无缝切换。',
     },
     {
       tag: 'Step 03 · 协作 + 投稿',
@@ -760,7 +760,7 @@ const prism: LandingFeature = {
     {
       tag: '博士后',
       title: 'Postdoc',
-      desc: '在多个 ongoing project 之间并行推进。Prism 用统一的文献集、模板栈与 AI 助手,让你在一个工作区完成所有论文与基金申请。',
+      desc: '在多个 ongoing project 之间并行推进。Prism 用统一的文件夹、模板栈与 AI 助手,让你在一个工作区完成所有论文与基金申请。',
       bullets: ['项目工作区 + 共享文献', '基金书 / 简历 / 学术报告模板', 'NSFC / NSF / Horizon 报告体例'],
       theme: 'dark',
     },
@@ -802,7 +802,7 @@ const prism: LandingFeature = {
         ],
       },
       {
-        label: '\\cite 文献集联动',
+        label: '\\cite 文件夹联动',
         cells: [
           { kind: 'mixed', icon: 'check', text: '内置,跨论文复用', tone: 'good' },
           { kind: 'mixed', icon: 'tilde', text: '需 BibTeX' },
@@ -843,7 +843,7 @@ const prism: LandingFeature = {
   faqs: [
     {
       q: 'Prism 与 Overleaf 的核心区别是?',
-      a: 'Overleaf 是纯 LaTeX 协作编辑器。Prism 在此之上原生集成 AI 学术写作、文献集一键引用、智能投稿打包,把「写 → 改 → 投」三步合并到一个 tab。',
+      a: 'Overleaf 是纯 LaTeX 协作编辑器。Prism 在此之上原生集成 AI 学术写作、文件夹一键引用、智能投稿打包,把「写 → 改 → 投」三步合并到一个 tab。',
     },
     {
       q: '可以导入 Overleaf 现有项目吗?',
@@ -862,7 +862,7 @@ const prism: LandingFeature = {
   finalCTA: {
     eyebrow: 'WRITE WITH PRISM',
     titleLines: [{ text: '让下一篇论文,在浏览器里写完。', italic: true }],
-    sub: '免费开始写作,享 100 页 PDF 月度额度;教育邮箱 5 折,机构席位可联系销售。',
+    sub: '免费开始写作,Free 档即可体验;Pro / Max 提供更高 AI 额度,支持兑换码与站内活动获得权益。',
     primaryCTA: { label: '立即开始写作', href: '/prism' },
     secondaryCTA: { label: '预约团队演示', href: '/contact' },
     metaChips: ['无需信用卡', '兼容 Overleaf', '中英双语'],
@@ -877,7 +877,7 @@ const claw: LandingFeature = {
   slug: 'claw',
   // 同 prism:与产品菜单的 feature 名 "智能助手" 对齐
   name: '智能助手',
-  pageTitle: 'Claw · Scholay学术 — 你的学术对话伙伴,基于你的文献集回答',
+  pageTitle: 'Claw · Scholay学术 — 你的学术对话伙伴,基于你的文件夹回答',
   metaDesc:
     'Claw 不是另一个通用 ChatGPT。它根植于你上传的论文、笔记与数据,提供可溯源的引用、可复用的研究路径、以及中英双语的多轮学术对话。',
   metaKeywords:
@@ -887,7 +887,7 @@ const claw: LandingFeature = {
     eyebrow: { text: 'CLAW · AI 学术对话助手' },
     titleLines: [
       { text: '你的学术对话伙伴,', italic: true },
-      { text: '基于你的文献集回答。', italic: true },
+      { text: '基于你的文件夹回答。', italic: true },
     ],
     description:
       'Claw 不是另一个通用 ChatGPT。它根植于你上传的论文、笔记与数据,提供 可溯源 的引用、可复用的研究路径、以及 中英双语 的多轮学术对话 —— 让每一次提问都成为一次严谨的研究行动。',
@@ -917,8 +917,8 @@ const claw: LandingFeature = {
   },
   features: [
     {
-      eyebrow: '01 / 文献集驱动',
-      title: '回答全部锚定在你的文献集里。',
+      eyebrow: '01 / 文件夹驱动',
+      title: '回答全部锚定在你的文件夹里。',
       desc: 'Claw 不会胡编。它只在你上传的论文、笔记和数据范围内推理,确保每一条结论都可追溯、可复核、可写进开题报告。',
       kpi: { text: '减少 92% 幻觉', tone: 'green' },
     },
@@ -940,7 +940,7 @@ const claw: LandingFeature = {
   workflowHeader: {
     eyebrow: '工作流',
     title: '从一篇 PDF 到一份开题报告,中间只隔三段对话。',
-    sub: 'Claw 的工作机制围绕你的文献集 (Collection) 展开:上传文献、建立索引、自然语言对话、得到带引用的答案。整个过程严格闭环,适配中文学术写作习惯。',
+    sub: 'Claw 的工作机制围绕你的文件夹 (Folders) 展开:上传文献、建立索引、自然语言对话、得到带引用的答案。整个过程严格闭环,适配中文学术写作习惯。',
   },
   steps: [
     {
@@ -951,7 +951,7 @@ const claw: LandingFeature = {
     {
       tag: '02 · 方法学头脑风暴 (Methodology)',
       title: '从已被验证的方法路径出发。',
-      desc: '针对你的研究问题,Claw 从文献集中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
+      desc: '针对你的研究问题,Claw 从文件夹中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
     },
     {
       tag: '03 · 逐篇 Q&A 与精读 (Paper Q&A)',
@@ -978,14 +978,14 @@ const claw: LandingFeature = {
       title: '文献综述',
       subtitle: 'Literature Review',
       desc: '一句话让 Claw 横向对比 30 篇论文,自动按方法、数据集与结论分类,生成可直接粘进开题报告的综述段落,并附带完整引用列表。',
-      bullets: ['可被批量导出为 BibTeX', '按方法 / 数据集自动分组', '一键写入文献集'],
+      bullets: ['可被批量导出为 BibTeX', '按方法 / 数据集自动分组', '一键写入文件夹'],
       theme: 'light',
     },
     {
       tag: '02',
       title: '方法学头脑风暴',
       subtitle: 'Methodology',
-      desc: '针对你的研究问题,Claw 会从文献集中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
+      desc: '针对你的研究问题,Claw 会从文件夹中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
       bullets: ['3-5 个未充分探索方向', '附带可行性分析', '实验设计草稿'],
       theme: 'dark',
     },
@@ -1013,7 +1013,7 @@ const claw: LandingFeature = {
       {
         label: '知识来源',
         cells: [
-          { kind: 'text', text: '你的文献集 (Collection)', tone: 'good' },
+          { kind: 'text', text: '你的文件夹 (Folders)', tone: 'good' },
           { kind: 'text', text: '互联网公开语料', tone: 'weak' },
         ],
       },
@@ -1034,7 +1034,7 @@ const claw: LandingFeature = {
       {
         label: '多轮学术上下文',
         cells: [
-          { kind: 'text', text: '保持文献集长期记忆', tone: 'good' },
+          { kind: 'text', text: '保持文件夹长期记忆', tone: 'good' },
           { kind: 'text', text: '会话间记忆受限', tone: 'weak' },
         ],
       },
@@ -1056,7 +1056,7 @@ const claw: LandingFeature = {
   faqs: [
     {
       q: 'Claw 与 ChatGPT 的核心区别是什么?',
-      a: 'Claw 的回答完全锚定在你上传的文献集中。每条结论都附带 [n] 引用与原文页码,可逐字核对,不存在 ChatGPT 那种 "听上去对但来源不可考" 的输出。',
+      a: 'Claw 的回答完全锚定在你上传的文件夹中。每条结论都附带 [n] 引用与原文页码,可逐字核对,不存在 ChatGPT 那种 "听上去对但来源不可考" 的输出。',
     },
     {
       q: '我可以上传中文论文吗?',
@@ -1068,17 +1068,17 @@ const claw: LandingFeature = {
     },
     {
       q: '是否提供学生 / 实验室价格?',
-      a: '是。学生认证后可享 40% 学术折扣,实验室与课题组提供席位制订阅,联系销售可获定制方案。',
+      a: '会员分 Free / Pro / Max 三档,Free 档即可体验全部核心功能;可通过站内活动与兑换码获得权益,具体以站内公告为准。',
     },
   ],
 
   finalCTA: {
     eyebrow: 'CLAW · 你的学术伙伴',
     titleLines: [{ text: '让下一篇论文,从一次对话开始。', italic: true }],
-    sub: '加入 32,000+ 研究者,把你的文献集变成会思考、可对话、有引用的学术伙伴。',
+    sub: '加入 32,000+ 研究者,把你的文件夹变成会思考、可对话、有引用的学术伙伴。',
     primaryCTA: { label: '免费开始与 Claw 对话', href: '/claw' },
     secondaryCTA: { label: '预约 30 分钟产品演示', href: '/contact' },
-    metaChips: ['前 50 篇文献免费索引', '中英双语', '端到端加密'],
+    metaChips: ['文献收藏不限量', '中英双语', '端到端加密'],
   },
 };
 
@@ -1102,7 +1102,7 @@ const submit: LandingFeature = {
       '从期刊匹配到 Cover Letter,Scholay 让 SCI / EI / 核心期刊投稿全流程自动化。AI 阅读你的摘要,自动推荐目标期刊、转换格式、检查参考文献,并生成定制化投稿信。',
     primaryCTA: { label: '免费开始投稿', href: '/peer-review' },
     secondaryCTA: { label: '观看 2 分钟演示', href: '#demo' },
-    checkMeta: ['无需绑卡', '3 次完整流程免费', '中英双语'],
+    checkMeta: ['无需绑卡', 'Free 档即可体验', '中英双语'],
   },
 
   trust: {
@@ -1263,10 +1263,10 @@ const submit: LandingFeature = {
   finalCTA: {
     eyebrow: 'START SUBMITTING SMARTER',
     titleLines: [{ text: '让下一篇论文,少花 5 小时。', italic: true }],
-    sub: '免费试用 3 次完整投稿流程,无需绑卡。学校与机构用户可申请团队版试点。',
+    sub: 'Free 档即可体验完整投稿流程,无需绑卡;Pro / Max 提供更高额度,支持兑换码与站内活动获得权益。',
     primaryCTA: { label: '立即免费开始', href: '/peer-review' },
     secondaryCTA: { label: '预约团队演示', href: '/contact' },
-    metaChips: ['无需绑卡', '3 次完整流程', '中英双语支持'],
+    metaChips: ['无需绑卡', 'Free 档即可体验', '中英双语支持'],
   },
 };
 
@@ -1279,7 +1279,7 @@ const peerReview: LandingFeature = {
   name: '同行评审',
   pageTitle: '同行评审 · Scholay学术 — 为学者,重新发明同行评审',
   metaDesc:
-    'Scholay 同行评审,是一个为期刊与会议而生的智能评审工作台。结构化评审模板、自动新颖性核查、引用图谱对比、偏见提示。',
+    'Scholay 同行评审是为期刊与会议而生的智能评审工作台,提供结构化评审模板、自动新颖性核查、引用图谱对比与偏见提示,辅助审稿人与作者在投稿前发现结构、方法论与论证逻辑中的关键问题。支持 PDF 上传与文本粘贴提交,审稿报告按问题严重性分级并附具体修改建议。',
   metaKeywords:
     '同行评审,智能评审,审稿工作台,Peer Review,论文新颖性核查,引用图谱对比,期刊评审,Scholay',
 
@@ -1290,7 +1290,7 @@ const peerReview: LandingFeature = {
       'Scholay 同行评审,是一个为期刊与会议而生的智能评审工作台。结构化评审模板、自动新颖性核查、引用图谱对比、偏见提示 —— 让审稿人专注于学术判断,而非繁琐流程。',
     primaryCTA: { label: '立即免费开始', href: '/peer-review' },
     secondaryCTA: { label: '阅读评审政策白皮书', href: '#whitepaper' },
-    checkMeta: ['个人审稿人免费', '期刊编辑部按席位计费', '全程匿名'],
+    checkMeta: ['Free 档即可体验', 'Pro / Max 更高额度', '全程匿名'],
   },
 
   trust: {
@@ -1446,17 +1446,17 @@ const peerReview: LandingFeature = {
     },
     {
       q: '个人审稿人需要付费吗?',
-      a: '不需要。个人审稿人完全免费使用所有 AI 辅助功能;费用由期刊编辑部按席位订阅承担。',
+      a: 'AI 审稿按会员额度计:Free 档可先体验平台基础能力,完整 AI 审稿建议 Pro 起,Pro / Max 提供更高额度;也可通过兑换码与站内活动获得权益。',
     },
   ],
 
   finalCTA: {
-    eyebrow: '现在加入候补名单',
+    eyebrow: '现在开始使用',
     titleLines: [{ text: '让评审,回归学术。', italic: true }],
-    sub: '前 200 位申请者将获得终身免费个人席位,及优先邀请编辑部试点的权限。',
+    sub: '注册即可在 Free 档体验 AI 审稿工作台;完整 AI 审稿建议 Pro 起,Pro / Max 提供更高额度。',
     primaryCTA: { label: '立即开始', href: '/peer-review' },
     secondaryCTA: { label: '阅读评审政策白皮书', href: '#whitepaper' },
-    metaChips: ['受邀者通常在 48 小时内收到回复', '仅限学术邮箱'],
+    metaChips: ['无需绑卡', '全程匿名', '中英双语'],
   },
 };
 

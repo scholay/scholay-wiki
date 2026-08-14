@@ -28,9 +28,11 @@ package agentbridge
 //   - 模型切换 (claw /models) — 各 feature 暴露不一样的 tier
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -136,7 +138,26 @@ func MountSessionRoutes(g *gin.RouterGroup, feature *FeatureBridge, labels Label
 
 // ─── 5 个 HTTP 端点 ─────────────────────────────────────────────────────
 
-// GetSession — GET /session: get-or-create 当前用户在本 feature 的 session id.
+// SessionEnvelopeWithTicket 组装 session 响应,并 best-effort 附带一张首连 ws ticket ——
+// 前端拿到即可直接升级 WS,省掉首连前的 POST /session/ws-ticket 一跳(agent 类 feature
+// 进入链原本是 GET session → POST ws-ticket → WS 三段串行,弱网 RTT 体感明显,2026-08-12)。
+// 铸票失败(Redis 抖动)不影响 session 语义:响应不带 wsToken,前端自动回落 POST 取票。
+// 票据一次性(GETDEL)且多张并存互不影响 —— 重连仍走 POST 新票,首连票没消费就 30s 过期。
+// 各 feature 的手写 GetSession(claw/boltslides/scidraw/statlab)也应统一走这里。
+func SessionEnvelopeWithTicket(ctx context.Context, f *FeatureBridge, userID uint, sessionID string) gin.H {
+	resp := gin.H{"sessionId": sessionID}
+	// 铸票是响应的顺带优化,给它独立短超时:Redis 半死(连接挂起而非拒绝)时绝不能
+	// 拖着 session 端点等到全局超时 —— 800ms 内拿不到就放弃,前端回落 POST 取票。
+	tctx, cancel := context.WithTimeout(ctx, 800*time.Millisecond)
+	defer cancel()
+	if wsToken, err := f.IssueWSTicket(tctx, userID, sessionID); err == nil {
+		resp["wsToken"] = wsToken
+		resp["expiresInSeconds"] = int(wsTicketTTL.Seconds())
+	}
+	return resp
+}
+
+// GetSession — GET /session: get-or-create 当前用户在本 feature 的 session id(+首连 ws ticket)。
 func (h *SessionHandler) GetSession(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	sessionID, err := h.Feature.GetOrCreateSession(c.Request.Context(), userID)
@@ -144,7 +165,7 @@ func (h *SessionHandler) GetSession(c *gin.Context) {
 		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.AgentUnreachableOnGetSession, err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	utils.Success(c, SessionEnvelopeWithTicket(c.Request.Context(), h.Feature, userID, sessionID))
 }
 
 // ResetSession — POST /session/reset: 删旧 + 建新.
@@ -340,7 +361,9 @@ func (h *SessionHandler) CreateNewSession(c *gin.Context) {
 		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.CreateSessionFailed, err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 建新会话后前端必然立刻连它的 WS —— 顺带附首连票,省一跳 POST(web 端「新对话」是
+	// 首连的最高频入口;GET /session 的单会话形态在 web 端已无消费方)。
+	utils.Success(c, SessionEnvelopeWithTicket(c.Request.Context(), h.Feature, userID, sessionID))
 }
 
 // RenameSession — PATCH /sessions/:id  body: { "title": "新标题" }。鉴权: 必须是本人 session。
@@ -404,5 +427,6 @@ func (h *SessionHandler) ActivateSession(c *gin.Context) {
 		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.ActivateSessionFailed, err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 切会话后 sessionId 变化 → 前端 WS 必然重连 —— 同样附首连票省一跳。
+	utils.Success(c, SessionEnvelopeWithTicket(c.Request.Context(), h.Feature, userID, sessionID))
 }

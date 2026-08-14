@@ -26,7 +26,7 @@ export const HORIZONTAL_PADDING = 32;
 export const TWO_UP_GAP = 12;
 
 export const iconBtnCls =
-  'inline-flex h-7 w-7 items-center justify-center rounded-sm text-subtle hover:bg-surface-2 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors';
+  'inline-flex h-7 w-7 items-center justify-center rounded-8 text-subtle hover:bg-surface-2 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors';
 
 // 把页号切成对开页对 —— [1,2], [3,4], [5,null], ...
 // 不像电子书那样首页单独居中,直接 1-based 顺序对开,够日常 PDF 阅读用
@@ -117,9 +117,9 @@ export function ModeBtn({ active, onClick, label, children }: ModeBtnProps) {
       aria-pressed={active}
       title={label}
       className={cn(
-        'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
+        'inline-flex h-6 w-7 items-center justify-center rounded-4 transition-colors',
         active
-          ? 'bg-background text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.08)]'
+          ? 'bg-surface-card text-foreground shadow-raised'
           : 'text-subtle hover:text-foreground'
       )}
     >
@@ -133,7 +133,7 @@ export function LoadingBlock() {
   return (
     <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" />
-      <span className="text-sm">加载 PDF …</span>
+      <span className="text-12">加载 PDF …</span>
     </div>
   );
 }
@@ -141,7 +141,7 @@ LoadingBlock.displayName = 'LoadingBlock';
 
 export function ErrorBlock({ message }: { message: string }) {
   return (
-    <div className="m-8 px-4 py-3 rounded-sm bg-danger-soft text-xs text-brand-red max-w-md">
+    <div className="m-8 px-4 py-3 rounded-12 bg-danger-soft text-12 text-brand-red max-w-md">
       {message}
     </div>
   );

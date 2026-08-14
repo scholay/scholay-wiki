@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApiToast } from '@/shared/hooks';
+import { Button, Input, Textarea } from '@/shared/ui';
 import { useSaveDimension } from './use-save-dimension';
 
 /**
@@ -42,45 +43,43 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-3 px-[18px] py-4 bg-brand-blue-soft/30 border-t border-b border-brand-blue/30">
+    <div className="flex flex-col gap-3 px-[18px] py-4 bg-brand-amber-soft/30 border-t border-b border-brand-amber/30">
       <div>
-        <label className="text-2xs font-bold text-faint">维度名称</label>
-        <input
+        <label className="text-12 font-medium text-faint">维度名称</label>
+        <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="例:研究领域 / 评估指标"
-          className="mt-1 w-full h-8 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-blue"
+          className="mt-1 focus-visible:border-brand-amber"
         />
       </div>
       <div>
-        <label className="text-2xs font-bold text-faint">AI 分析指示词</label>
-        <textarea
+        <label className="text-12 font-medium text-faint">AI 分析指示词</label>
+        <Textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={4}
           maxLength={500}
           placeholder="告诉 AI 从论文里抽取什么 —— 越具体越好。"
-          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-brand-blue resize-none"
+          className="mt-1 leading-paragraph resize-none focus-visible:border-brand-amber"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="h-7 px-3 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
           取消
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="destructive"
+          size="sm"
           onClick={submit}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+          className="gap-1 [&_svg]:size-3"
         >
-          {busy && <Loader2 className="size-3 animate-spin" />}
+          {busy && <Loader2 className="animate-spin" />}
           添加维度
-        </button>
+        </Button>
       </div>
     </div>
   );

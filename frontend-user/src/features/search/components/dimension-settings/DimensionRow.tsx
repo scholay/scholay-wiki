@@ -71,8 +71,8 @@ function DimensionRowImpl({
       style={style}
       className={cn(
         'flex items-center gap-2 h-[58px] px-2 border-b border-border-soft transition-colors',
-        isHidden ? 'bg-surface-1' : 'bg-background hover:bg-surface-1/60',
-        isDragging && 'opacity-50 z-10 shadow-md'
+        isHidden ? 'bg-surface-1' : 'bg-surface-card hover:bg-surface-1/60',
+        isDragging && 'opacity-50 z-raised shadow-raised'
       )}
     >
       {/* 拖拽手柄 —— 鼠标只在此处变 grab,避免和行内其他按钮交互冲突 */}
@@ -103,7 +103,7 @@ function DimensionRowImpl({
       <div className="flex-1 min-w-0 pl-1">
         <div
           className={cn(
-            'text-base font-bold truncate',
+            'text-14 font-medium truncate',
             isHidden ? 'text-faint' : 'text-foreground'
           )}
         >
@@ -111,7 +111,7 @@ function DimensionRowImpl({
         </div>
         <div
           className={cn(
-            'text-2xs truncate mt-px',
+            'text-12 truncate mt-px',
             isHidden ? 'text-faint/70' : 'text-faint'
           )}
         >
@@ -127,7 +127,7 @@ function DimensionRowImpl({
         onClick={() => onStartEdit('prompt')}
         disabled={isHidden}
         className={cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-sm shrink-0 transition-colors',
+          'inline-flex h-7 w-7 items-center justify-center rounded-8 shrink-0 transition-colors',
           isHidden
             ? 'bg-surface-2 text-faint cursor-not-allowed'
             : 'bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -144,7 +144,7 @@ function DimensionRowImpl({
         onClick={onRequestDelete}
         disabled={isHidden}
         className={cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-sm shrink-0 transition-colors',
+          'inline-flex h-7 w-7 items-center justify-center rounded-8 shrink-0 transition-colors',
           isHidden
             ? 'bg-surface-2 text-faint cursor-not-allowed'
             : dim.isSystem && !dim.isCustomized

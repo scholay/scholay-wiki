@@ -6,6 +6,7 @@ import {
   recFillBg,
   recLabel,
   recShortLabel,
+  recTier,
 } from '@/shared/lib/peer-review/recommendation';
 import { effectiveResult } from '@/shared/lib/peer-review/partial-parse';
 import type { ReviewReport } from '@/shared/lib/peer-review/types';
@@ -72,8 +73,10 @@ export function StatusGrid({ status, computeState, reports, activeTab, onTabChan
           </>
         )}
 
-        {/* 三位审稿人共享一个白底框 — 自身定宽 (紧凑), 两侧 Connector 伸缩把它居中 */}
-        <div className="flex shrink-0 overflow-hidden rounded-md border border-border-strong bg-background">
+        {/* 三位审稿人共享一个白底框 — 自身定宽 (紧凑), 两侧 Connector 伸缩把它居中。
+            圆角 12 而非 16: 本组件在用户端 RecordDetailPage 里嵌在 Header 的 rounded-16 卡内,
+            16 套 16 会顶角 (globals.css §3「内层圆角必须严格小于外层」)。下面几处同理。 */}
+        <div className="flex shrink-0 overflow-hidden rounded-12 border border-border-strong bg-surface-card">
           <ReviewerCell
             letter="A"
             report={a}
@@ -140,16 +143,16 @@ function ReviewProgress({
         ? `审稿人 ${{ alpha: 'A', beta: 'B', gamma: 'C' }[loadingRole]} 评审中…`
         : '汇总结果中…';
   return (
-    <div className="flex items-center gap-3 rounded-md border border-brand-amber/40 bg-warning-soft px-3.5 py-2">
+    <div className="flex items-center gap-3 rounded-12 border border-brand-amber/40 bg-warning-soft px-3.5 py-2">
       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
-      <span className="shrink-0 text-xs font-bold text-brand-amber">{label}</span>
+      <span className="shrink-0 text-12 font-medium text-brand-amber">{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-brand-amber/15">
         <div
           className="h-full rounded-pill bg-brand-amber transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="shrink-0 text-2xs font-bold tabular-nums text-brand-amber">
+      <span className="shrink-0 text-12 font-medium tabular-nums text-brand-amber">
         阶段 {phaseNum}/5 · 预计剩余 ~{remainMin} 分钟
       </span>
     </div>
@@ -164,7 +167,7 @@ function EditorialCell({ active, onClick }: { active: boolean; onClick: () => vo
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-52 flex-col justify-center gap-1.5 rounded-md border bg-background px-3 py-2.5 text-left transition-colors',
+        'flex w-52 flex-col justify-center gap-1.5 rounded-12 border bg-surface-card px-3 py-2.5 text-left transition-colors',
         active
           ? 'border-foreground ring-2 ring-foreground/10'
           : 'border-border-strong hover:border-foreground/30',
@@ -172,19 +175,21 @@ function EditorialCell({ active, onClick }: { active: boolean; onClick: () => vo
     >
       <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-pill bg-brand-green">
-          <Check className="h-3.5 w-3.5 text-background" strokeWidth={3.5} />
+          <Check className="h-3.5 w-3.5 text-on-brand" strokeWidth={3.5} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-foreground">编辑部初审</p>
-          <p className="truncate text-xs text-faint">排版 · 查重 · AIGC</p>
+          <p className="truncate text-14 font-medium text-foreground">编辑部初审</p>
+          <p className="truncate text-12 text-faint">排版 · 查重 · AIGC</p>
         </div>
-        <span className="shrink-0 rounded-sm bg-surface-2 px-2 py-0.5 text-xs font-bold text-subtle">
+        {/* 4 而非 pill: 它是「一段文字上的装饰」档 (globals.css §3 口诀), 与右侧几格里
+            表达「结果」的胶囊徽章刻意不同形 —— 初审是固定文案, 不是评审结果。 */}
+        <span className="shrink-0 rounded-4 bg-surface-2 px-2 py-0.5 text-12 font-medium text-subtle">
           通过
         </span>
       </div>
       <div className="flex items-end justify-between pt-1">
-        <span className="font-serif text-xl font-bold text-foreground">通过</span>
-        <span className="text-2xs text-faint">4/4 项</span>
+        <span className="font-serif text-20 font-bold text-foreground">通过</span>
+        <span className="text-12 text-faint">4/4 项</span>
       </div>
     </button>
   );
@@ -216,28 +221,28 @@ function ReviewerCell({
       className={cn(
         // 上下布局: 头像在上、文案在下, 居中; 定宽 w-36 让三卡紧凑, 整行靠 Connector 伸缩撑满
         'flex w-36 flex-col items-center justify-center gap-1.5 px-2 py-3 text-center transition-colors',
-        active ? 'bg-surface-2' : 'bg-background hover:bg-surface-1',
+        active ? 'bg-surface-2' : 'bg-surface-card hover:bg-surface-1',
       )}
     >
       <div
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-pill font-serif text-sm font-bold',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-pill font-serif text-12 font-bold',
           // 完成 → 按审稿结果上色 (绿/橘/红); 进行中 → 脉冲; 等待 → 灰描边
           done
             ? recAvatarClasses(eff?.recommendation)
             : loading
               ? 'animate-pulse bg-brand-amber/20 text-brand-amber'
-              : 'border-2 border-border-strong bg-background text-faint',
+              : 'border-2 border-border-strong bg-surface-card text-faint',
         )}
       >
         {letter}
       </div>
-      <p className={cn('text-sm font-bold', done ? 'text-foreground' : 'text-muted-foreground')}>
+      <p className={cn('text-14 font-medium', done ? 'text-foreground' : 'text-muted-foreground')}>
         审稿人 {letter}
       </p>
       <span
         className={cn(
-          'inline-flex max-w-full items-center gap-1 truncate rounded-pill px-2 py-0.5 text-2xs font-bold',
+          'inline-flex max-w-full items-center gap-1 truncate rounded-pill px-2 py-0.5 text-12 font-medium',
           chip.cls,
         )}
       >
@@ -246,6 +251,23 @@ function ReviewerCell({
       </span>
     </button>
   );
+}
+
+/**
+ * 主审卡整卡按结果填色 (recFillBg), 前景色必须与填色配对:
+ *   琥珀实底 → 深字（白字 on #B4880E 仅 3.25:1,玄墨 5.06:1）
+ *   玄墨实底 → on-dark (暗底上不用纯白避免过曝)
+ *   朱砂/松青实底 → 纯白 (Figma §4.1)
+ */
+function chiefFillFg(rec?: string | null): string {
+  switch (recTier(rec)) {
+    case 'major':
+      return 'text-foreground';
+    case 'unknown':
+      return 'text-on-dark';
+    default:
+      return 'text-on-brand';
+  }
 }
 
 function ChiefCell({
@@ -271,7 +293,7 @@ function ChiefCell({
         type="button"
         onClick={onClick}
         className={cn(
-          'flex w-80 flex-col justify-center gap-1.5 rounded-md border bg-background px-4 py-2.5 text-left transition-colors',
+          'flex w-80 flex-col justify-center gap-1.5 rounded-12 border bg-surface-card px-4 py-2.5 text-left transition-colors',
           active ? 'border-foreground ring-2 ring-foreground/10' : 'border-border-strong hover:border-foreground/30',
         )}
       >
@@ -279,27 +301,27 @@ function ChiefCell({
           <div
             className={cn(
               'flex h-7 w-7 shrink-0 items-center justify-center rounded-pill',
-              loading ? 'animate-pulse bg-brand-amber/20 text-brand-amber' : 'border-2 border-border-strong bg-background text-faint',
+              loading ? 'animate-pulse bg-brand-amber/20 text-brand-amber' : 'border-2 border-border-strong bg-surface-card text-faint',
             )}
           >
             <Scale className="h-3.5 w-3.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-muted-foreground">主审决议</p>
-            <p className="truncate text-xs text-faint">{loading ? '决议中…' : '待 3 位完成'}</p>
+            <p className="truncate text-14 font-medium text-muted-foreground">主审决议</p>
+            <p className="truncate text-12 text-faint">{loading ? '决议中…' : '待 3 位完成'}</p>
           </div>
-          <span className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-0.5 text-xs font-bold text-faint">
+          <span className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-0.5 text-12 font-medium text-faint">
             {loading ? '汇总中' : '待汇总'}
           </span>
         </div>
         <div className="flex items-end justify-between pt-1">
-          <span className="font-serif text-xl font-bold text-faint">待定</span>
+          <span className="font-serif text-20 font-bold text-faint">待定</span>
         </div>
       </button>
     );
   }
 
-  // 已决议 — 整卡按结果填色 (绿/黄/红) + 白字。结果已由上方大字 "录用/返修/拒稿" 表达,
+  // 已决议 — 整卡按结果填色 (绿/黄/红), 前景由 chiefFillFg 按底色配对 (琥珀底走深字)。结果已由上方大字 "录用/返修/拒稿" 表达,
   // 不再画底部三档分段 (录用/返修/拒稿) —— 既去重复, 也让本卡不被多撑一截高度。
   const time = report?.createdAt
     ? new Date(report.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -309,24 +331,25 @@ function ChiefCell({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-80 flex-col justify-center gap-2.5 rounded-md p-4 text-left text-background transition',
+        'flex w-80 flex-col justify-center gap-2.5 rounded-12 p-4 text-left transition',
         recFillBg(rec),
+        chiefFillFg(rec),
         active ? 'ring-2 ring-foreground/30 ring-offset-2 ring-offset-background' : 'opacity-95 hover:opacity-100',
       )}
     >
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 shrink-0" />
-        <p className="text-sm font-bold">主审已决议</p>
-        {time && <span className="ml-auto text-2xs text-background/70 tabular-nums">{time}</span>}
+        <p className="text-14 font-medium">主审已决议</p>
+        {time && <span className="ml-auto text-12 opacity-70 tabular-nums">{time}</span>}
       </div>
       <div className="flex items-end gap-2.5">
-        <span className="font-serif text-3xl font-bold leading-none">{rec ? recLabel(rec) : '已决议'}</span>
+        <span className="font-serif text-28 font-bold leading-none">{rec ? recLabel(rec) : '已决议'}</span>
         {eff?.score != null && (
-          <span className="text-xs font-semibold text-background/85">综合 {eff.score} / 100</span>
+          <span className="text-12 font-medium opacity-85">综合 {eff.score} / 100</span>
         )}
       </div>
       {report?.summaryForAuthor && (
-        <p className="line-clamp-2 text-2xs leading-relaxed text-background/90">{report.summaryForAuthor}</p>
+        <p className="line-clamp-2 text-12 leading-paragraph opacity-90">{report.summaryForAuthor}</p>
       )}
     </button>
   );

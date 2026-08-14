@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useProfile } from '@/shared/api/profile';
 import { useAuthStore } from '@/stores/auth.store';
+import { Input, Textarea } from '@/shared/ui';
 import { MeSubpageShell } from '../../components/mobile/MeSubpageShell';
 
 /**
@@ -70,30 +71,30 @@ function ProfileForm() {
         update.mutate({ username: username.trim(), bio: bio.trim() });
       }}
     >
-      <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+      <section className="space-y-3 rounded-16 border border-border bg-surface-card p-4">
         <Field label="昵称">
-          <input
+          <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             maxLength={32}
             placeholder="未设置"
-            className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus:border-border-strong"
+            className="h-auto bg-surface-1 py-2 text-14"
           />
         </Field>
         <Field label="简介">
-          <textarea
+          <Textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             maxLength={200}
             rows={4}
             placeholder="介绍一下你的研究方向…"
-            className="w-full resize-none rounded-md border border-border bg-surface-1 px-3 py-2 text-md leading-relaxed text-foreground outline-none placeholder:text-faint focus:border-border-strong"
+            className="resize-none bg-surface-1 text-14 leading-paragraph"
           />
         </Field>
       </section>
 
       {profile && (
-        <section className="space-y-2.5 rounded-lg border border-border bg-background p-4">
+        <section className="space-y-2.5 rounded-16 border border-border bg-surface-card p-4">
           <ReadonlyRow label="邮箱" value={profile.email || '未绑定'} />
           <ReadonlyRow label="手机号" value={profile.phone || '未绑定'} />
           <ReadonlyRow
@@ -106,7 +107,7 @@ function ProfileForm() {
       <button
         type="submit"
         disabled={update.isPending}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-foreground text-md font-medium text-white active:opacity-80 disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-8 bg-foreground text-14 font-medium text-on-brand active:opacity-80 disabled:opacity-50"
       >
         {update.isPending && <Loader2 className="size-4 animate-spin" />}
         保存
@@ -118,7 +119,7 @@ function ProfileForm() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-12 font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   );
@@ -127,8 +128,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ReadonlyRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs text-faint">{label}</span>
-      <span className="text-sm text-foreground">{value}</span>
+      <span className="text-12 text-faint">{label}</span>
+      <span className="text-14 text-foreground">{value}</span>
     </div>
   );
 }

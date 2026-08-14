@@ -18,32 +18,42 @@ export function monthDay(iso: string): string {
 }
 
 export interface ResetInfo {
-  /** 主展示(相对):如「3 天后重置」「满额」「即将重置」「不限额度」。 */
+  /** 主展示(相对):如「3 天后恢复」「满额」「即将恢复」「不限额度」。 */
   rel: string;
-  /** 副/tooltip(绝对 + 说明):如「7月20日自动恢复满额(7 天周期)」。 */
+  /** 副/tooltip(绝对):如「8月11日起算,8月18日恢复满额」。 */
   hint: string;
   /** 窗口尚未开始计时(满额未使用)。 */
   notStarted: boolean;
 }
 
+// 用词:用户侧一律说「恢复」,不说「重置」——「重置」是内部口径(端点 /billing/reset、
+// 字段 reset_passes),规则在变,写进 UI 就会过期。全站额度文案三条铁律见
+// shared/components/quota-toast.tsx 头部。函数名保留 resetInfo(纯代码侧,不外露)。
 export function resetInfo(t: QuotaWindowLike): ResetInfo {
   if (t.unlimited) return { rel: '不限额度', hint: '会员不限本项额度', notStarted: false };
   if (!t.window_started_at || !t.window_reset_at) {
-    return {
-      rel: '满额',
-      hint: `额度充满;首次使用起算 ${t.window_days} 天周期,到期自动恢复满额`,
-      notStarted: true,
-    };
+    return { rel: '满额', hint: '额度为满额,首次使用后开始计时', notStarted: true };
   }
   const ms = Date.parse(t.window_reset_at) - Date.now();
   const days = Math.ceil(ms / 86_400_000);
   const hours = Math.ceil(ms / 3_600_000);
-  const rel = ms <= 0 ? '即将重置' : days >= 2 ? `${days} 天后重置` : hours >= 1 ? `${hours} 小时后重置` : '即将重置';
-  // hint 显式点明「本周期自 X 起、Y 恢复」——首次使用开锚的窗口若只显重置日会显得随意/像 bug(业界共识,
-  // Codex #28246 / Claude Code #52498),把起止都摆出来让规则透明。
+  const rel = ms <= 0 ? '即将恢复' : days >= 2 ? `${days} 天后恢复` : hours >= 1 ? `${hours} 小时后恢复` : '即将恢复';
+  // hint 把起止都摆出来:首次使用开锚的窗口若只显恢复日会显得随意/像 bug(业界共识,
+  // Codex #28246 / Claude Code #52498)。这里给的是**日期**(事实),不是周期规则(机制)。
   return {
     rel,
-    hint: `本周期自 ${monthDay(t.window_started_at)} 起,${monthDay(t.window_reset_at)}自动恢复满额(${t.window_days} 天周期)`,
+    hint: `${monthDay(t.window_started_at)}起算,${monthDay(t.window_reset_at)}恢复满额`,
     notStarted: false,
   };
+}
+
+/** 「X月X日 HH:MM」—— 额度恢复时刻的短格式(展示用)。
+ *  真源在此(shared/lib,零重依赖);QuotaNotifier 再导出仅为兼容旧 import,
+ *  额度条/用量弹窗等常载路径必须从这里 import,避免把懒加载的支付/升级弹窗拽进主包。 */
+export function formatResetAt(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

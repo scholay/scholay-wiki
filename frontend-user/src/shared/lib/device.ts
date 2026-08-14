@@ -18,7 +18,8 @@
 // 放 shared/lib(纯 TS、无依赖),router 的两个 loader(/ 与 /m)共用。
 
 /** 爬虫特征(含 Googlebot/Baiduspider/Bytespider/PetalBot/神马等的公共子串) */
-const BOT_RE = /bot|spider|crawl|slurp|bingpreview|petalbot|yisou/i;
+const BOT_RE =
+  /bot|spider|crawl|slurp|bingpreview|petalbot|yisou|google-inspectiontool|googleother/i;
 
 /**
  * pad 明示特征 → 一律 PC。
@@ -76,7 +77,7 @@ function resolve(maps: RouteMap[], pathname: string): string | null {
 
 /**
  * PC 路由 → 移动对等页。手机 UA 命中才跳:
- *   - 有真正 /m 页:home / 期刊检索 / 助手 / 工具 / 文献集 / 设置 → 对应 /m 页(prefix 保留子路径)
+ *   - 有真正 /m 页:home / 期刊检索 / 助手 / 工具 / 文件夹 / 设置 → 对应 /m 页(prefix 保留子路径)
  *   - 暂无移动版的纯 PC 页:/search · /prism · /peer-review → 先统一送 /m/feed(collapse),后续补齐换专页
  * 不在表里 = 同 URL 响应式(详情 / landing / help / 分享),返回 null 即「留在原地」(保 SEO + 分享深链)。
  */
@@ -93,6 +94,7 @@ const MOBILE_EQUIVALENTS: RouteMap[] = [
   { exact: '/settings/profile', target: '/m/me/profile' },
   { exact: '/settings/security', target: '/m/me/security' },
   { exact: '/settings/connections', target: '/m/me/connections' },
+  { exact: '/settings/invite', target: '/m/me/invite' },
   // 暂无移动版,先统一送移动首页(后续补齐再换成专页)
   { exact: '/search', target: '/m/feed' },
   { prefix: '/prism', target: '/m/feed', collapse: true },
@@ -133,13 +135,14 @@ const DESKTOP_EQUIVALENTS: RouteMap[] = [
   { exact: '/m/me/profile', target: '/settings/profile' },
   { exact: '/m/me/security', target: '/settings/security' },
   { exact: '/m/me/connections', target: '/settings/connections' },
+  { exact: '/m/me/invite', target: '/settings/invite' },
   { exact: '/m/me/billing', target: '/settings/membership' },
   { exact: '/m/auth', target: '/' }, // PC 无独立登录页(走弹窗),回首页
 ];
 
 /** 给定移动路径,返回 PC 对等路径(桌面 UA 落 /m/* 时纠正);无对等回 '/'。search 原样保留。 */
 export function desktopEquivalentPath(pathname: string, search = ''): string {
-  // 文献集文件夹深链:移动是路径段 /m/library/:id,桌面文件夹是 query ?folder=:id
+  // 文件夹深链:移动是路径段 /m/library/:id,桌面文件夹是 query ?folder=:id
   // (桌面只有 /library 一条路由,文件夹靠 query state),需单独改写;其余 query 合并保留。
   const folder = /^\/m\/library\/([^/]+)\/?$/.exec(pathname);
   if (folder) {

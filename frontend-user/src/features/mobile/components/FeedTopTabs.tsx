@@ -53,8 +53,8 @@ export function FeedTopTabs({ active }: { active: FeedTabKey }) {
               <span
                 className={cn(
                   isActive
-                    ? 'text-lg font-semibold text-foreground'
-                    : 'text-md text-faint'
+                    ? 'text-16 font-medium text-foreground'
+                    : 'text-14 text-faint'
                 )}
               >
                 {tab.label}

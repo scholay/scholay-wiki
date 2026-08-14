@@ -1,0 +1,34 @@
+# 多组族的效应量卡(P1 族①)
+effects:
+  - id: eta_squared
+    name_zh: η²(组间平方和占比)
+    name_en: eta squared
+    engine: "own:effects.eta_squared"
+    ci_method: bootstrap
+    symbol: η²
+    notes_zh: >-
+      单因素设计下 η² 与 partial η² 相等,但**名字不同审稿人会问** —— 报告写明是 η²。
+      95%CI 由 BCa 自助法(2000 次重采样,种子固定)估计:η² 的解析区间要非中心 F 反演,
+      而那对不平衡设计有已知偏差。
+    citations:
+      - id: lakens2013-effectsize
+        role: primary
+        access: oa
+        cite: "Lakens D. Calculating and reporting effect sizes to facilitate cumulative science: a practical primer for t-tests and ANOVAs. Front Psychol. 2013;4:863. doi:10.3389/fpsyg.2013.00863"
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3840331/"
+
+  - id: epsilon_squared
+    name_zh: ε²(秩方差解释比)
+    name_en: epsilon squared
+    engine: "own:effects.epsilon_squared"
+    ci_method: bootstrap
+    symbol: ε²
+    notes_zh: >-
+      Kruskal-Wallis 的配套效应量,ε² = (H − k + 1)/(n − k)。
+      选它而不是 η²_H:对样本量的偏倚更小,且是 Kruskal-Wallis 文献里更常报的那个。
+    citations:
+      - id: tomczak2014-epsilon
+        role: primary
+        access: free_to_read
+        cite: "Tomczak M, Tomczak E. The need to report effect size estimates revisited: an overview of some recommended measures of effect size. Trends in Sport Sciences. 2014;1(21):19-25."
+        url: "https://tss.awf.poznan.pl/files/3_Trends_Vol21_2014__no1_20.pdf"

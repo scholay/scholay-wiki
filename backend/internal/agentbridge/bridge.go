@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentartifact"
+	"scholar-backend/internal/agentattachstore"
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/llmusage"
@@ -37,6 +39,11 @@ const ghostCleanupDelay = 250 * time.Millisecond
 type Bridge struct {
 	client agent.Executor // 接缝:fork *agent.Client 满足;P3 clean-room executor 同样满足(一行 bootstrap 切换)
 	repo   *Repository
+
+	// 管理端会话审计只读接缝：产物以 agent_artifacts+MinIO 为耐久真源；
+	// 附件表仅用于给 workspace file 端点建立“该会话已记录路径”白名单。
+	adminArtifacts   adminArtifactRepository
+	adminAttachments adminAttachmentRepository
 
 	// hubs 跟踪每个 (feature, agent session) 的扇出 Hub(多端实时同步,见 hub.go)。
 	// key 形如 "claw:<agentSessionId>"; value 是 *hubSlot(承载 *sessionHub + ready 信号,per-key
@@ -77,6 +84,10 @@ type Bridge struct {
 	// 全局锁争用可忽略。
 	watermarkMu sync.Mutex
 
+	// watermarkSeq per-session 的持久化序号(受 watermarkMu 保护),用于「最新者胜」——
+	// 防两轮背靠背时两个异步落盘 goroutine 乱序提交、老值把新水位写回去(审计 P1-13)。
+	watermarkSeq map[string]uint64
+
 	// turns: Web-native 重构 P0 影子日志的 TurnCoordinator(允许 nil = 未 wired → 所有
 	// shadow 写都是 no-op,绝不影响 live)。bootstrap 经 SetTurnCoordinator 注入(此处有 *gorm.DB)。
 	// P0: 仅 shadow 写 agent_turns/agent_turn_events/agent_billing_ledger;jsonl + 内存 hub 仍权威。
@@ -97,6 +108,63 @@ type Bridge struct {
 	// 浏览器换模型帧的权威校验(堵「devtools 发任意 modelId 直达上游」注入洞)、每条消息前
 	// 重校验(会员到期/模型下架对活连接生效)。
 	catalog ModelCatalog
+
+	// harvest: 轮末产物收割的有界派发器(2026-08-07 · B1,详见 artifact_dispatch.go 顶部注释)。
+	// 懒启动 —— 没有任何 feature 接 OnTurnArtifacts 时一个 goroutine 都不起。
+	harvest     *harvestDispatcher
+	harvestOnce sync.Once
+
+	// sessionDataCleaner: 会话被删/被重置时清理「挂在该会话上的用户字节数据」的钩子
+	// (0112 附件耐久化;实现在 internal/agentattach)。
+	//
+	// 🔴 为什么挂在 Bridge 而不是各 feature handler:交付物那套(cleanupArtifacts)是
+	// **四份镜像**分别挂在 claw/statlab/scidraw/boltslides 的 handler 上,而 smart_search
+	// 与 prism 压根没有 —— 附件在这六个 feature 上都可能存在(Relocator 全装),再抄一遍
+	// 四份镜像只会把同一个漂移问题复制到第七处。会话的删除/重置在 agentbridge 里是**两个
+	// 收口点**,挂这里一次覆盖全部 feature。
+	sessionDataCleaner func(ctx context.Context, sessionID string)
+}
+
+type adminArtifactRepository interface {
+	ListBySession(sessionID string) ([]agentartifact.Artifact, error)
+	GetByID(id uint64) (*agentartifact.Artifact, error)
+}
+
+type adminAttachmentRepository interface {
+	ListBySession(sessionID string, userID uint64) ([]agentattachstore.Attachment, error)
+}
+
+func (b *Bridge) SetAdminArtifactRepository(repo *agentartifact.Repository) {
+	b.adminArtifacts = repo
+}
+
+func (b *Bridge) SetAdminAttachmentRepository(repo *agentattachstore.Repository) {
+	b.adminAttachments = repo
+}
+
+// SetSessionDataCleaner 注入会话字节数据清理钩子(bootstrap 调一次;nil = 不清理)。
+func (b *Bridge) SetSessionDataCleaner(fn func(ctx context.Context, sessionID string)) {
+	b.sessionDataCleaner = fn
+}
+
+// CleanSessionData —— 给**绕开 DeleteSessionByID 自己删会话**的调用方用的显式出口。
+//
+// 存在的理由是一条实测漏网:prism 删项目时走的是 `s.agent.DeleteSession(sid)`
+// (owner_kind=project 的会话过不了 DeleteSessionByID 的 OwnsSession 用户级校验),
+// 于是那条路上**永远不会**触发 Bridge 内部的清理钩子 —— 用户删掉整个项目,附件行仍然
+// 活着、继续占他的 per-user 额度,而项目已经不在了。这正是「删除边界」被悄悄破坏的形状。
+// 新增「不经 Bridge 删会话」的路径时,必须显式调这里。
+func (f *FeatureBridge) CleanSessionData(ctx context.Context, sessionID string) {
+	f.bridge.cleanSessionData(ctx, sessionID)
+}
+
+// cleanSessionData 在会话消亡时调用钩子。best-effort:清理失败不该让删会话本身失败
+// (用户的删除动作必须成功,残留由孤儿 reaper 兜底)。
+func (b *Bridge) cleanSessionData(ctx context.Context, sessionID string) {
+	if b.sessionDataCleaner == nil || sessionID == "" {
+		return
+	}
+	b.sessionDataCleaner(ctx, sessionID)
 }
 
 // ModelCatalog 模型目录最小接缝(避免反向依赖 internal/modelcatalog;purpose 字符串与
@@ -125,6 +193,13 @@ type ModelCatalog interface {
 	// "" = 默认 provider(scholay-managed,executor 走 active);"scholay-p<id>" = 额外 provider。
 	// hub 组 set_runtime_config 帧与计费 Provider 归属共用此口径。
 	ProviderKey(modelID string) string
+	// PriceUsage 返回 (四类 token 原始总量, 真实成本微元)。逐帧硬闸用它把执行器上报的
+	// per-call usage 就地折成微元 —— 与 llmusage 落账走的**同一个** pricer,故「闸门看到的钱」
+	// 与「账本记下的钱」天然同口径,不会出现「按估算掐断、按真价收费」的两套账。
+	// ⚠️ 刻意不用 CostPerToken:那是「80% 缓存 + 15% 输入 + 5% 输出」的混合**估算**,
+	// 只配用于把微元换成执行器可比的 token 预算(建议值);拿它做硬闸会在缓存命中率
+	// 偏离假设时系统性错杀或漏放(线上实测命中率在 46%~92% 之间摆动)。
+	PriceUsage(model string, input, output, cacheRead, cacheWrite int) (int64, int64)
 }
 
 // SetModelCatalog 注入模型目录(bootstrap 调用一次)。
@@ -219,6 +294,40 @@ func (b *Bridge) flushTokenWatermark(sessionID string) {
 // deleteTokenWatermark 会话删除时清理水位条目(防 process-local map 无界增长)。
 func (b *Bridge) deleteTokenWatermark(sessionID string) {
 	b.tokenWatermarks.Delete(sessionID)
+	b.watermarkMu.Lock()
+	delete(b.watermarkSeq, sessionID)
+	b.watermarkMu.Unlock()
+}
+
+// FlushAllTokenWatermarks 进程退出前把**所有**内存水位同步落库(审计 P1-13)。
+//
+// flushTokenWatermark 的注释一直宣称它防的是「优雅重启时恰有一笔在途未落」,但它只在
+// hub.shutdown 里被调用,而 SIGTERM 路径压根不遍历 hub(http.Server.Shutdown 不碰已 hijack 的
+// WS 连接)—— 那句承诺从未兑现。每轮的落库是 best-effort 异步 goroutine,发版时正在飞的那笔
+// 很可能还没提交进程就没了,新进程回源到旧水位 → 上一轮被当成新增量**再记一遍**(重复扣额度)。
+// 这里在 main 的 shutdown 序列里同步兜一次;单条 UPDATE、会话数量级小,10s 关闭窗口足够。
+func (b *Bridge) FlushAllTokenWatermarks() {
+	if b.repo == nil {
+		return
+	}
+	n := 0
+	b.tokenWatermarks.Range(func(k, v any) bool {
+		sid, ok1 := k.(string)
+		wm, ok2 := v.([4]int64)
+		if !ok1 || !ok2 {
+			return true
+		}
+		if err := b.repo.SetUsageWatermark(sid, formatWatermark(wm)); err != nil {
+			slog.Warn("agentbridge: flush usage watermark on shutdown failed",
+				"session_id", sid, "err", err)
+			return true
+		}
+		n++
+		return true
+	})
+	if n > 0 {
+		slog.Info("agentbridge: flushed usage watermarks on shutdown", "count", n)
+	}
 }
 
 // accrueTurnUsage 按「会话累计水位」算出本轮要落账本的行(per-call 明细 + 必要时一行对账补差),
@@ -268,7 +377,9 @@ func (b *Bridge) accrueTurnUsage(sessionID, sessionModel string, turnUsage Agent
 	}
 	rd := [4]int64{nonNegInt64(delta[0] - sum[0]), nonNegInt64(delta[1] - sum[1]), nonNegInt64(delta[2] - sum[2]), nonNegInt64(delta[3] - sum[3])}
 	if rd[0] > 0 || rd[1] > 0 || rd[2] > 0 || rd[3] > 0 {
-		// P3 计价优先级:无明细时的本轮模型(最准)> 会话当前模型 > "(reconciled)" 哨兵(按基准价)。
+		// P3 计价优先级:无明细时的本轮模型(最准)> 会话当前模型 > "(reconciled)" 哨兵。
+		// 哨兵行由 modelcatalog.PriceUsage 按基准价(system.main 生效模型单价)计价,解析不到
+		// 基准模型才退 cost=0 —— 不再是「目录 miss 一律 0 计价」的漏扣通道;落账 model 字段保留哨兵原值。
 		model := "(reconciled)"
 		if len(rows) == 0 && turnUsage.Model != "" {
 			model = turnUsage.Model // 无 per-call 明细(老 agent / 空 calls)→ 用本轮模型标注差额行
@@ -285,12 +396,28 @@ func (b *Bridge) accrueTurnUsage(sessionID, sessionModel string, turnUsage Agent
 	}
 	// P3 水位持久化:异步落 agent_sessions.usage_watermark(best-effort,失败=至多回到
 	// 「重启后按全量重记一次」的旧行为)。不在 watermarkMu 内做 SQL —— 拷贝后 goroutine 写。
+	//
+	// 🔴 乱序覆盖护栏(2026-08-02 计费审计 P1-13):两轮背靠背时会起两个 goroutine,
+	// 谁先提交没有保证 —— 老的那个后落盘就把水位**写回去了**,下次重启回源到旧水位,
+	// 已记过的那一轮会被当成新增量**再记一遍**(用户被重复扣额度,账本上多出一行 (reconciled))。
+	// 用序号做「最新者胜」:抢到号的 goroutine 在写之前复查自己还是不是最新,不是就整个跳过
+	// (更新的那一次带着更大的水位,写它即可,少写一次没有任何损失)。
 	if b.repo != nil {
+		b.watermarkSeq[sessionID]++
+		mySeq := b.watermarkSeq[sessionID]
 		wmStr := formatWatermark(cur)
 		sid := sessionID
 		safego.Go("agentbridge-watermark-persist", func() {
+			b.watermarkMu.Lock()
+			stale := b.watermarkSeq[sid] != mySeq
+			b.watermarkMu.Unlock()
+			if stale {
+				return // 已有更新的一次持久化在路上/已完成,本次落盘只会把水位写回去
+			}
 			if err := b.repo.SetUsageWatermark(sid, wmStr); err != nil {
-				slog.Debug("agentbridge: persist usage watermark failed", "session_id", sid, "err", err)
+				// Warn 而非 Debug:落盘失败意味着「重启后这一轮会被重复计费」,是钱的事,不该只在 debug 级可见。
+				slog.Warn("agentbridge: persist usage watermark failed (restart would re-charge this turn)",
+					"session_id", sid, "err", err)
 			}
 		})
 	}
@@ -306,7 +433,7 @@ func nonNegInt64(x int64) int64 {
 
 // New 装配 Bridge。client 由 agent.LoadFromEnv() 构造, repo 由 NewRepository(db) 构造。
 func New(client agent.Executor, repo *Repository) *Bridge {
-	return &Bridge{client: client, repo: repo}
+	return &Bridge{client: client, repo: repo, watermarkSeq: map[string]uint64{}}
 }
 
 // ResolveUserSession — feature 中立地把一个「全局唯一的 agent_session_id」反查成它的 feature,
@@ -350,6 +477,10 @@ func (b *Bridge) ShutdownJournal(ctx context.Context) {
 		if n := b.log.WriteFailures(); n > 0 {
 			slog.Warn("agentbridge: journal had write failures this run", "failures", n)
 		}
+		if n := JournalTurnLosses(); n > 0 {
+			slog.Error("JOURNAL_TURN_LOST: 本次运行共丢失整轮 journal(这些轮的历史永久不存在)",
+				"total_lost_turns", n)
+		}
 		b.log.Shutdown(ctx)
 	}
 }
@@ -374,6 +505,7 @@ func (b *Bridge) StartJournalReaper(ctx context.Context) {
 	safego.Go("agentbridge-journal-reaper", func() {
 		t := time.NewTicker(10 * time.Minute)
 		defer t.Stop()
+		lastReportedLoss := int64(0)
 		for {
 			select {
 			case <-ctx.Done():
@@ -384,6 +516,14 @@ func (b *Bridge) StartJournalReaper(ctx context.Context) {
 				cancel()
 				if err != nil {
 					slog.Warn("agentbridge: journal reaper failed", "err", err)
+				}
+				// 顺带播报「整轮丢失」水位。单次丢失时那条 Error 只出现一次,若正好没人在看日志
+				// (夜里/告警未接)就永远错过了;这里每 10 分钟复播一次**新增量**,让告警规则有
+				// 稳定的采样点,同时不在没新增时刷屏。
+				if n := JournalTurnLosses(); n > lastReportedLoss {
+					slog.Error("JOURNAL_TURN_LOST: 上个周期内有整轮 journal 丢失",
+						"total_lost_turns", n, "new_since_last_report", n-lastReportedLoss)
+					lastReportedLoss = n
 				}
 			}
 		}
@@ -617,7 +757,55 @@ func stripInjectionInContent(raw json.RawMessage) (json.RawMessage, bool) {
 // For 返回一个绑定到指定 FeatureSpec 的视图。
 // FeatureBridge 是值类型, 内部持有指针, 复制开销可忽略 (可以放心传值)。
 func (b *Bridge) For(spec FeatureSpec) *FeatureBridge {
+	reconcileBashCapability(&spec)
 	return &FeatureBridge{bridge: b, spec: spec}
+}
+
+// reconcileBashCapability —— Bash 能力面的**两个消费者**在这里被强制对齐。
+//
+// 🔴 2026-08-01~08-08 的 prism 事故:能力面有两个消费者,只改了一个。
+//   - agent 侧:SessionOptions.DisallowedTools(经 SessionDisallowedTools(base, allowBash) 构造)
+//     决定模型每轮**看不看得见** Bash;prism 把它改成了 allowBash=true。
+//   - backend 侧:FeatureSpec.AllowBash → specDeny() → decidePermission 的 denyTools
+//     决定这次调用**批不批**;prism 的 AllowBash 取零值 false。
+//
+// 结果是最坏的一种半边接线:模型看得见 Bash、每次调用都被拒。线上 48/48 次 100% 失败、持续 6 天、
+// 只打 INFO 日志 —— 「工具存在但永远失败」不触发任何现有指标,没有人会发现。
+//
+// 这里不做「检测到就报错拒绝启动」(会把一次配置笔误变成全站不可用),而是**以 AllowBash 为准
+// 反向重建 agent 侧 denylist**(AllowBash 的文档已经写明它是单一真源,见 spec.go:258),
+// 同时 log.Error 留痕。For() 是每个 feature 挂上 bridge 的唯一漏斗,漏不掉。
+//
+// ⚠️ 覆盖边界:prism 的 createProjectSession(edit.go)自己构造 SessionOptions、不经 For(),
+// 那条路仍靠 prismSessionOptions() 这个单一构造器保持一致 —— 本函数管不到它。
+func reconcileBashCapability(spec *FeatureSpec) {
+	if spec.SessionOptions == nil {
+		return
+	}
+	base := make([]string, 0, len(spec.SessionOptions.DisallowedTools))
+	agentSideDeniedBash := false
+	for _, tool := range spec.SessionOptions.DisallowedTools {
+		isBash := false
+		for _, bt := range bashTools {
+			if tool == bt {
+				isBash = true
+				break
+			}
+		}
+		if isBash {
+			agentSideDeniedBash = true
+			continue
+		}
+		base = append(base, tool)
+	}
+	if agentSideDeniedBash == !spec.AllowBash {
+		return // 两侧一致,什么都不做
+	}
+	slog.Error("agentbridge: Bash capability half-wired, reconciling to FeatureSpec.AllowBash",
+		"feature", spec.Key,
+		"allow_bash", spec.AllowBash,
+		"agent_side_denied_bash", agentSideDeniedBash)
+	spec.SessionOptions.DisallowedTools = SessionDisallowedTools(base, spec.AllowBash)
 }
 
 // Client 暴露底层 agent.Client, 适用于 bootstrap 阶段需要直接对接的极少数场景
@@ -633,6 +821,35 @@ type FeatureBridge struct {
 
 // Spec 返回绑定的 FeatureSpec (WS bridge 内部要用; feature 模块通常用不到)。
 func (f *FeatureBridge) Spec() FeatureSpec { return f.spec }
+
+// SetAttachmentRelocator 在 For() 之后注入跨会话附件物化器(2026-07-31 线上审计 §五)。
+//
+// 为什么不能在 BuildSpec 里直接填:实现方 agentattach.NewRelocator 需要的正是 For() 产出的
+// *FeatureBridge(它要借 AgentClient 读写会话工作区)——鸡生蛋。与 bootstrap 既有的
+// SetVIPChecker / SetUsageRecorder 同款「注入时机无关」语义:hub 在**每条 user_message**
+// 触发时才读 f.spec.AttachmentRelocator,只要在放流量之前注入完即可。
+// nil 入参 = 不启用(行为等同改造前),便于按 feature 灰度。
+func (f *FeatureBridge) SetAttachmentRelocator(r interface {
+	EnsureLocal(ctx context.Context, userID uint, sessionID, sessionWorkDir string, paths []string) ([]string, error)
+}) {
+	if r == nil {
+		f.spec.AttachmentRelocator = nil
+		return
+	}
+	f.spec.AttachmentRelocator = r
+}
+
+// SetArtifactHarvester 在 For() 之后注入「轮末产物收割」钩子(2026-08-07 · B1)。
+//
+// 与 SetAttachmentRelocator 同一个鸡生蛋:实现方是各 feature 的 *Handler,而 Handler
+// 的构造需要的正是 For() 产出的 *FeatureBridge(它要借 AgentClient 列/读会话工作区)。
+// bootstrap 里 BuildSpec() 早于 NewHandler() 数百行,所以不能在 spec 字面量里填。
+//
+// 注入时机无关:hub 在**每轮 endTurn** 时才读 f.spec.OnTurnArtifacts,只要在放流量前注入完即可。
+// nil 入参 = 不启用(该 feature 退回 on-list 兜底收割),便于按 feature 灰度或紧急关闭。
+func (f *FeatureBridge) SetArtifactHarvester(fn OnTurnArtifactsFn) {
+	f.spec.OnTurnArtifacts = fn
+}
 
 // AgentClient 暴露底层 agent.Client, 适用于 feature 在 server 端自驱动
 // (POST chat → poll status → fetch messages) 的场景, 例如 peer review 的
@@ -811,6 +1028,9 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 				"feature", f.spec.Key, "user_id", userID,
 				"old_session_id", oldSessionID, "err", delErr)
 		}
+
+		// 旧会话的附件(0112)随会话一起作废,与上面 DeleteSession 同语义。
+		f.bridge.cleanSessionData(ctx, oldSessionID)
 
 		// 二次清理: agent 在 WS 关闭后异步 flush 一份 last-prompt cache, 等 ~250ms 再删。
 		go f.cleanupGhostCache(oldSessionID, userID)
@@ -1443,6 +1663,9 @@ func (f *FeatureBridge) DeleteSessionByID(ctx context.Context, userID uint, sess
 		return fmt.Errorf("db delete: %w", err)
 	}
 	f.bridge.deleteTokenWatermark(sessionID) // 清 token 账本水位条目, 防 process-local map 泄漏
+	// 附件(0112):会话是用户心智里的删除边界 —— 留着会造成「我删了对话、数据却还在平台」
+	// 的错觉。跨会话被引用的那份字节靠引用计数保护,不会被误删。
+	f.bridge.cleanSessionData(ctx, sessionID)
 	slog.Info("agentbridge DeleteSessionByID",
 		"feature", f.spec.Key, "user_id", userID, "session_id", sessionID)
 	return nil

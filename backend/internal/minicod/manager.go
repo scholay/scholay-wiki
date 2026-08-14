@@ -296,6 +296,9 @@ func (m *Manager) GetPaper(ctx context.Context, paperID string, opts PaperDetail
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(resp.PaperID) == "" && strings.TrimSpace(resp.Title) == "" {
+		return nil, nil
+	}
 	return &resp, nil
 }
 
@@ -674,6 +677,10 @@ func (m *Manager) ListJournals(ctx context.Context, opts JournalListOptions) (js
 
 func (m *Manager) GetJournal(ctx context.Context, id int, full string) (json.RawMessage, error) {
 	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournal(ctx, id, full) })
+}
+
+func (m *Manager) GetJournalMeta(ctx context.Context) (json.RawMessage, error) {
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournalMeta(ctx) })
 }
 
 func (m *Manager) SuggestJournals(ctx context.Context, q string, limit int) (json.RawMessage, error) {

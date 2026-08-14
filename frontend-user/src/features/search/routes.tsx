@@ -1,9 +1,9 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 export const searchRoutes: RouteObject[] = [
   {
     path: 'search',
-    lazy: () =>
-      import('./pages/SearchPage').then((m) => ({ Component: m.SearchPage })),
+    element: lazyRoute(() => import('./pages/SearchPage'), 'SearchPage'),
   },
 ];

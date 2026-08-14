@@ -7,6 +7,7 @@
 
 import { http } from '@/shared/lib/http';
 import { useAgentSocket, type AgentWSTicket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
+import { takeFirstConnectTicket } from '@/shared/lib/agent-first-ticket';
 import { takePendingInitialModel } from './session';
 import type { ClientMessage, ServerMessage } from './types';
 
@@ -18,6 +19,11 @@ export type UseClawSocket = UseAgentSocket<ServerMessage, ClientMessage>;
  */
 function makeAgentSocketHook(basePath: string, displacedDefaultText: string) {
   async function fetchWSTicket(sessionId?: string | null): Promise<AgentWSTicket> {
+    // 首连快路径:建会话/切会话/GET session 的响应里已附带一张一次性 ticket
+    //(agent-sessions 工厂与 useClawSession 入栈),命中直接用,省掉这次 POST 的 RTT;
+    // 未命中/重连自动走标准 POST 取票。
+    const stashed = takeFirstConnectTicket(basePath, sessionId);
+    if (stashed) return stashed;
     const url = sessionId
       ? `${basePath}/session/ws-ticket?session_id=${encodeURIComponent(sessionId)}`
       : `${basePath}/session/ws-ticket`;
@@ -60,3 +66,4 @@ function makeAgentSocketHook(basePath: string, displacedDefaultText: string) {
 export const useClawSocket = makeAgentSocketHook('/user/claw', '此会话已在其他窗口打开');
 export const useBoltslidesSocket = makeAgentSocketHook('/user/boltslides', '此演示稿已在其他窗口打开');
 export const useSciDrawSocket = makeAgentSocketHook('/user/sci_draw', '此绘图会话已在其他窗口打开');
+export const useStatLabSocket = makeAgentSocketHook('/user/stat_lab', '此分析会话已在其他窗口打开');

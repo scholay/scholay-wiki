@@ -1,7 +1,13 @@
 // 自定义底部导航(对标 Web 端 MobileBottomNav):浏览 / AI Claw / 功能 / 我的。
-// 忠实照设计:激活=前景黑(foreground),非激活=faint 灰,无彩色指示条。图标用两色线性 SVG。
-const ACTIVE = '#111111'
-const INACTIVE = '#999999'
+// 忠实照设计:激活=前景玄墨(foreground),非激活=禁用档灰,无彩色指示条。图标用两色线性 SVG。
+// ⚠️ data URI 里的 SVG 拿不到 wxss 变量 —— 这两个值是 app.wxss 的 --text / --text-disabled
+//    手工镜像(其真源是 frontend-user/src/styles/globals.css),改真源须一并同步。
+//    未激活取 --text-disabled #757580 而非 --text-faint:tab 项是"非活跃控件"语义,
+//    WCAG 1.4.3 对禁用/非活跃控件有对比度豁免,需要"看起来就是没选中"的弱对比。
+import { reportActivity } from '../services/activity'
+
+const ACTIVE = '#1F1F23'
+const INACTIVE = '#757580'
 
 // 24x24 线性图标 → data URI(stroke=currentColor 无法在 <image> 生效,故按色各生成一份)。
 function icon(inner: string, color: string): string {
@@ -44,6 +50,8 @@ Component({
   },
   methods: {
     onTap(e: WechatMiniprogram.TouchEvent) {
+      // 自定义 tab bar 在页面节点外；重复点当前 tab 也是真实操作。
+      reportActivity()
       const idx = Number(e.currentTarget.dataset.index)
       if (idx === this.data.selected) return
       wx.switchTab({ url: LIST[idx].pagePath })

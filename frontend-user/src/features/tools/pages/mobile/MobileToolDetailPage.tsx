@@ -27,7 +27,7 @@ export function MobileToolDetailPage() {
         >
           <ArrowLeft className="size-5 text-foreground" />
         </Link>
-        <span className="min-w-0 flex-1 truncate text-md font-medium text-foreground">
+        <span className="min-w-0 flex-1 truncate text-14 font-medium text-foreground">
           {tool?.name ?? '工具详情'}
         </span>
         {tool && (
@@ -47,7 +47,7 @@ export function MobileToolDetailPage() {
           <div className="flex h-40 items-center justify-center">
             <CyclingHint
               phrases={['正在加载工具详情…']}
-              className="text-sm text-muted-foreground"
+              className="text-12 text-muted-foreground"
             />
           </div>
         )}
@@ -64,15 +64,15 @@ export function MobileToolDetailPage() {
 
         {tool && (
           <div className="space-y-3 p-3">
-            <section className="rounded-lg border border-border bg-background p-4">
+            <section className="rounded-16 border border-border bg-surface-card p-4">
               <div className="flex items-start gap-3">
-                <ToolLogo tool={tool} className="h-14 w-14" textClass="text-xl" />
+                <ToolLogo tool={tool} className="h-14 w-14" textClass="text-20" />
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-lg leading-snug font-semibold text-foreground">
+                  <h1 className="text-16 font-medium text-foreground">
                     {tool.name}
                   </h1>
                   {tool.name_en && tool.name_en !== tool.name && (
-                    <p className="text-xs text-faint">{tool.name_en}</p>
+                    <p className="text-12 text-faint">{tool.name_en}</p>
                   )}
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {tool.category_label && <Tag>{tool.category_label}</Tag>}
@@ -87,7 +87,7 @@ export function MobileToolDetailPage() {
                 </div>
               </div>
               {tool.tagline && (
-                <p className="mt-3 text-sm leading-relaxed text-subtle">{tool.tagline}</p>
+                <p className="mt-3 text-12 leading-paragraph text-subtle">{tool.tagline}</p>
               )}
               <div className="mt-3 flex gap-2">
                 {tool.official_url && (
@@ -95,7 +95,7 @@ export function MobileToolDetailPage() {
                     href={tool.official_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-foreground text-md font-medium text-white active:opacity-80"
+                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-8 bg-foreground text-14 font-medium text-on-brand active:opacity-80"
                   >
                     <Globe className="size-4" />
                     访问官网
@@ -106,7 +106,7 @@ export function MobileToolDetailPage() {
                     href={tool.access.download.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border border-border-button bg-background text-md font-medium text-foreground active:bg-surface-2"
+                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-8 border border-border-button bg-surface-card text-14 font-medium text-foreground active:bg-surface-2"
                   >
                     <Download className="size-4" />
                     下载
@@ -121,7 +121,7 @@ export function MobileToolDetailPage() {
             {tool.description_md && (
               <Section title="介绍">
                 {/* 与 PC 详情页一致:description_md 按纯文本 pre-line 渲染 */}
-                <p className="text-sm leading-relaxed whitespace-pre-line text-subtle">
+                <p className="text-12 leading-paragraph whitespace-pre-line text-subtle">
                   {tool.description_md}
                 </p>
               </Section>
@@ -131,7 +131,7 @@ export function MobileToolDetailPage() {
               <Section title="使用场景">
                 <ul className="space-y-2">
                   {tool.use_cases.map((uc, i) => (
-                    <li key={i} className="text-sm leading-relaxed text-subtle">
+                    <li key={i} className="text-12 leading-paragraph text-subtle">
                       <span className="font-medium text-foreground">{uc.title}</span>
                       {uc.desc ? ` — ${uc.desc}` : ''}
                     </li>
@@ -149,7 +149,7 @@ export function MobileToolDetailPage() {
                         href={t.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-sm text-brand-green active:opacity-70"
+                        className="flex items-center gap-1.5 text-12 text-brand-green active:opacity-70"
                       >
                         <ExternalLink className="size-3.5 shrink-0" />
                         <span className="truncate">{t.title || t.url}</span>
@@ -165,8 +165,8 @@ export function MobileToolDetailPage() {
                 <ul className="space-y-3">
                   {tool.faq.map((qa, i) => (
                     <li key={i}>
-                      <p className="text-sm font-medium text-foreground">{qa.q}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-subtle">{qa.a}</p>
+                      <p className="text-12 font-medium text-foreground">{qa.q}</p>
+                      <p className="mt-1 text-12 leading-paragraph text-subtle">{qa.a}</p>
                     </li>
                   ))}
                 </ul>
@@ -174,7 +174,7 @@ export function MobileToolDetailPage() {
             )}
 
             {tool.disclaimer && (
-              <p className="px-1 pb-2 text-xs leading-relaxed text-faint">{tool.disclaimer}</p>
+              <p className="px-1 pb-2 text-12 leading-paragraph text-faint">{tool.disclaimer}</p>
             )}
           </div>
         )}
@@ -185,7 +185,7 @@ export function MobileToolDetailPage() {
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">
+    <span className="rounded-4 bg-surface-2 px-1.5 py-0.5 text-12 text-muted-foreground">
       {children}
     </span>
   );
@@ -199,8 +199,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-background p-4">
-      <h2 className="mb-2.5 text-md font-semibold text-foreground">{title}</h2>
+    <section className="rounded-16 border border-border bg-surface-card p-4">
+      <h2 className="mb-2.5 text-14 font-medium text-foreground">{title}</h2>
       {children}
     </section>
   );

@@ -55,7 +55,7 @@ export function MathEditorDialog({
         <DialogHeader>
           <DialogTitle>插入公式</DialogTitle>
         </DialogHeader>
-        <div ref={hostRef} className="rounded-md border border-border bg-surface-1 p-3" />
+        <div ref={hostRef} className="rounded-8 border border-border bg-surface-1 p-3" />
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             取消

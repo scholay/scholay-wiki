@@ -21,6 +21,7 @@ function normalizeUnifiedJournal(u: JournalListUnified, fallbackId: number): Jou
   return {
     id: u.id ?? fallbackId,
     canonical_name: u.canonical_name ?? '',
+    seo_slug: u.seo_slug ?? undefined,
     issns: issns.length ? issns : undefined,
     publisher: u.crossref_publisher ?? u.doaj_publisher ?? undefined,
     country: u.openalex_country ?? undefined,
@@ -43,7 +44,7 @@ function normalizeUnifiedJournal(u: JournalListUnified, fallbackId: number): Jou
  * 详情/趋势/投稿资源都基于这同一份 full 数据,统一缓存键 ['journal','detail',id],
  * 多个 hook(useJournalDetail / useJournalFullDetail / JournalTrendChart)共享一次请求。
  */
-async function fetchJournalFull(id: number): Promise<JournalFullDetail> {
+export async function fetchJournalFull(id: number): Promise<JournalFullDetail> {
   try {
     const { data } = await http.post<{ data: JournalFullDetail }>(
       '/public/journals/get',
@@ -55,10 +56,13 @@ async function fetchJournalFull(id: number): Promise<JournalFullDetail> {
   }
 }
 
+/** 期刊详情 queryKey —— 两个 hook 与 browser 路由 loader 的 prefetch 共用,防键漂移。 */
+export const journalDetailQueryKey = (id: number) => ['journal', 'detail', id] as const;
+
 /** 单期刊规范详情(供 hero/badges/列表)—— 与 useJournalFullDetail 共享同一缓存,只多一层 select。 */
 export function useJournalDetail(id: number | null, enabled = true) {
   return useQuery({
-    queryKey: ['journal', 'detail', id] as const,
+    queryKey: journalDetailQueryKey(id ?? 0),
     enabled: enabled && id != null && id > 0,
     staleTime: STALE_COLD,
     queryFn: () => fetchJournalFull(id ?? 0),
@@ -76,7 +80,7 @@ export function useJournalDetail(id: number | null, enabled = true) {
  */
 export function useJournalFullDetail(id: number, enabled: boolean) {
   return useQuery({
-    queryKey: ['journal', 'detail', id] as const,
+    queryKey: journalDetailQueryKey(id),
     enabled: enabled && id > 0,
     staleTime: STALE_COLD,
     queryFn: () => fetchJournalFull(id),

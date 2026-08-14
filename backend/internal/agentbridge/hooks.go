@@ -24,10 +24,33 @@ var ErrQuotaExceeded = errors.New("agentbridge: daily quota exceeded")
 // 给 vip 等外部配额来源用 —— 它们有自己的友好文案, 但想复用 WS 的 quota_exceeded 分类。
 func NewQuotaError(msg string) error { return &quotaError{msg: msg} }
 
-type quotaError struct{ msg string }
+// NewQuotaErrorFrom 同 NewQuotaError(文案取 cause.Error()),但把原始错误保留在链上:
+// errors.As 能沿链找到 vip 侧携带结构化 quota 字段的错误(duck-typed 提取见 ws.go
+// quotaFramePayload,agentbridge 不反向 import vip),error 帧才能按冻结契约带出
+// {reset_at, window_days, credit_balance_positive, credit_autopay}。
+// 各 feature spec 的 checkQuota 一律用本函数包 vip.ErrQuotaExceeded,别再用
+// NewQuotaError(err.Error()) —— 那会把结构化字段剥掉。cause==nil 时等价 NewQuotaError("")。
+func NewQuotaErrorFrom(cause error) error {
+	if cause == nil {
+		return &quotaError{}
+	}
+	return &quotaError{msg: cause.Error(), cause: cause}
+}
+
+type quotaError struct {
+	msg   string
+	cause error // 可选:原始(vip)错误,保留结构化 quota 字段的来源
+}
 
 func (e *quotaError) Error() string { return e.msg }
-func (e *quotaError) Unwrap() error { return ErrQuotaExceeded }
+
+// Unwrap 多路展开(Go 1.20+):sentinel 保证 errors.Is 分类不破,cause 保留给 errors.As 提取。
+func (e *quotaError) Unwrap() []error {
+	if e.cause != nil {
+		return []error{ErrQuotaExceeded, e.cause}
+	}
+	return []error{ErrQuotaExceeded}
+}
 
 // NewSlogUsageRecorder 返回一个 OnMessageComplete 钩子: 把每轮 usage 打到 slog,
 // 标签 "agent_usage=1" 方便 grep / 切到日志聚合工具时按 label 过滤。
@@ -71,6 +94,23 @@ func providerLabelFor(cat ModelCatalog, model string) string {
 }
 
 func recordAgentTokens(rec llmusage.Recorder, cat ModelCatalog, userID *uint, feature, requestID string, u AgentUsage) {
+	recordAgentTokensWithQuota(rec, cat, userID, feature, requestID, u, false)
+}
+
+// recordAgentTokensPlatformFault —— 「平台自担」记账入口(2026-07-31 线上审计 §五)。
+//
+// 失败轮的上游消耗**照记账本**(cost_micro_yuan 快照保留,成本观测与对账不失明),但
+// **不扣用户额度**(llmusage.Usage.SkipQuota=true → 不触发 UsageObserver → vip 不 AddUsage)。
+// 只用于**平台责任**的失败:上游断流 / 过载 / 模型协议异常 / 轮内步数撞我们自己设的上限 ——
+// 用户没拿到任何东西,凭什么付钱(线上一位用户 9 连败被扣了 9 轮 deepseek-v4-pro 的额度)。
+//
+// ⚠️ 与之相对,budget(任务过大)/ content_blocked(内容合规)/ quota_exceeded 是**用户任务
+// 本身**导致的失败,照常计费 —— 判定口径的唯一真源是 ws.go turnFailureChargedToUser()。
+func recordAgentTokensPlatformFault(rec llmusage.Recorder, cat ModelCatalog, userID *uint, feature, requestID string, u AgentUsage) {
+	recordAgentTokensWithQuota(rec, cat, userID, feature, requestID, u, true)
+}
+
+func recordAgentTokensWithQuota(rec llmusage.Recorder, cat ModelCatalog, userID *uint, feature, requestID string, u AgentUsage, skipQuota bool) {
 	if rec == nil {
 		return
 	}
@@ -85,6 +125,7 @@ func recordAgentTokens(rec llmusage.Recorder, cat ModelCatalog, userID *uint, fe
 		CacheReadTokens:     u.CacheReadTokens,
 		CacheCreationTokens: u.CacheCreationTokens,
 		RequestID:           requestID,
+		SkipQuota:           skipQuota,
 	})
 }
 

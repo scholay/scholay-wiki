@@ -286,7 +286,7 @@ func (h *Handler) Compile(c *gin.Context) {
 		Engine string `json:"engine"`
 	}
 	_ = c.ShouldBindJSON(&req)
-	cm, err := h.svc.StartCompile(p.ID, p.MainFile, req.Engine)
+	cm, err := h.svc.StartCompile(p.ID, p.UserID, p.MainFile, req.Engine)
 	if err != nil {
 		utils.InternalError(c, 500, "发起编译失败,请稍后重试", err)
 		return
@@ -362,7 +362,8 @@ func (h *Handler) mapEditErr(c *gin.Context, err error) bool {
 	case err == nil:
 		return false
 	case errors.Is(err, vip.ErrQuotaExceeded):
-		utils.SafeBadRequest(c, err) // quotaError 文案本就友好
+		// 6010/429 + 结构化 quota 载荷:与全站额度信号一致(旧裸 400 会绕过前端 QuotaNotifier)。
+		vip.RespondQuotaExceeded(c, err)
 	case errors.Is(err, ErrFileNotFound), errors.Is(err, ErrCompileNotFound), errors.Is(err, ErrEditNotFound):
 		utils.NotFound(c, "目标不存在")
 	case errors.Is(err, ErrCiteNotInLibrary), errors.Is(err, ErrStaleBase):

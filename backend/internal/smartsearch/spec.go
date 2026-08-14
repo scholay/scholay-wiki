@@ -76,22 +76,32 @@ func checkQuota(ctx context.Context, userID uint) error {
 	}
 	// tier-aware 会员限额。vip.ErrQuotaExceeded → 转成 agentbridge 的 quota_exceeded(干净文案),
 	// 让 WS pipe 回前端 code=quota_exceeded + retryable=false。
-	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	// 起点闸:窗口额度一到上限即拦(透支带已于 2026-07-30 取消);已在跑的那一轮仍自然跑完。
 	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			return agentbridge.NewQuotaError(err.Error())
+			return agentbridge.NewQuotaErrorFrom(err) // 保链:error 帧带结构化 quota 字段
 		}
 		return err
 	}
 	return nil
 }
 
-// budgetProvider(SS#2)给 hub 每轮盖「有界透支预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
+// budgetProvider(SS#2)给 hub 每轮盖「单轮预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
 func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
 	if vipChecker == nil {
 		return 0, 0, true
 	}
 	return vipChecker.RemainingBudget(ctx, userID)
+}
+
+// turnCostCapProvider(逐帧硬闸)给 hub 在**轮起点**取一次本轮成本硬顶(微元真实成本)。
+// 与 budgetProvider 同源但刻意各取一次:vip 侧 RemainingBudget = TurnCostCap × 收尾比例,
+// 那个比例是留给 agent 优雅收尾的尾巴,与硬闸没有语义关系 —— 在这里反推会让硬顶随它悄悄漂移。
+func turnCostCapProvider(ctx context.Context, userID uint) (int64, bool) {
+	if vipChecker == nil {
+		return 0, true
+	}
+	return vipChecker.TurnCostCap(ctx, userID)
 }
 
 func recordQuestion(uid *uint) {
@@ -127,6 +137,12 @@ func smartSearchSkillAddDir() string {
 // 空头支票)。安全面不变:Read 在 backend permissionAllowed 按会话 cwd 做路径校验(越界一律拒),
 // 写类/检索类文件工具与联网/子任务仍全禁,MCP-only 检索纪律靠提示词 + 其余 denylist 维持。
 var smartSearchDisallowedTools = []string{
+	// 🔴 2026-08-08:StatRun / StatReport(2026-08 新增的 builtin)必须显式列出。
+	// builtin 工具走 **deny-list** 模式 ⇒ 任何新增 builtin 对**所有老 feature 默认开放**:
+	// 它们发版当天就被本 feature 继承了,而 backend permissionAllowed(ws.go:387/400)对二者
+	// 无条件 return true。线上调用次数目前是 0(stat_lab 未放量),所以这是已成立的**暴露面**
+	// 与每轮 6.7KB 的 tools[] 浪费,不是已发生的事故。统计能力属于 stat_lab,别处不要继承。
+	"StatRun", "StatReport",
 	// ExportDocument 写交付物到 ./out/ 不属只读检索职责,禁用(ReadDocument 保留:读用户上传的稿件)。
 	"Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "ExportDocument",
 	"WebFetch", "WebSearch", "Task", "Agent", "Skill",
@@ -152,6 +168,28 @@ var smartSearchAllowedMcpTools = []string{
 	"get_journal",
 }
 
+// smartSearchRetrievalDiscipline —— 2026-07 线上审计:11% 完成轮零检索工具调用(用户明确要求
+// 「用查询论文的工具来找」仍不查),且出现伪造「我刚检索过/检索来源」表述。硬约束前置到系统提示
+// 最前(prompts.SmartSearchSystemPrompt 本体不动)。
+//
+// 🔴 2026-08 证据账本 P1(终稿 §四①-1):删掉原本的第二句 ——
+//    「未调用任何检索工具时,回答必须以『以下内容基于模型知识,未经本平台检索验证』开头」。
+//    那是**我们自己写进提示词的逃生门**:前半句要求必须检索,后半句当场把"不检索"标价成一条
+//    合法路径(标注即可),规则自己把病灶合法化了。删它的替代路径不是另一段文字,而是引擎侧的
+//    证据账本 + 交付边界 resolve 闸(编造的引用在交付物层面展不开)。
+//    只做减法:剩下的两句都是**无条件**的,没有任何"否则就标注一下"的分支。
+//
+// 🔴 第三句是 2026-08-01 补的**形态契约**(与 prompts/claw.go 铁律 1 同款,口径必须对称):
+//    删掉逃生门后 smart_search 一度只剩无条件祈使句,而 claw 侧已经换成了可验证的形态约束 ——
+//    两个 feature 对同一件事给不同口径,模型会挑更宽松的那个(线上「~12 次预算」与 skill 的
+//    12-18 次滚雪球对撞时,它就挑了定量的那条)。形态契约的好处是**可验证**:
+//    「有没有出现书目形态」是看得见的事实,不是「有没有诚实标注」这种自由裁量的承诺。
+const smartSearchRetrievalDiscipline = "【检索纪律 — 每轮硬约束】\n" +
+	"每一轮回答前必须先调用检索工具获取本轮证据;" +
+	"不得使用「我刚检索」「检索来源」等任何暗示已检索的表述,除非本轮真的调用过检索工具并拿到了结果。\n" +
+	"本会话证据账本为空时,回答里不得出现任何书目形态 —— 具体指:带标题+作者+年份+期刊的文献条目、" +
+	"DOI、参考文献列表、以及「共找到 N 篇」这类计数。没有证据就直说没有,不要把记忆里的东西排版成检索结果。\n\n"
+
 // BuildSpec 构造 smart_search 的 FeatureSpec。
 func BuildSpec() agentbridge.FeatureSpec {
 	pre, onComplete := agentbridge.StandardHooks(agentbridge.StandardHooksConfig{
@@ -163,7 +201,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Key:                    FeatureKey,
 		AgentName:              agentName,
 		Description:            "Scholay 智能搜索:基于 Minicod MCP 的学术文献检索助手",
-		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.SmartSearchSystemPrompt),
+		// 2026-07 线上审计:检索纪律硬约束前缀(零检索轮 + 伪造检索表述),见 smartSearchRetrievalDiscipline。
+		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, smartSearchRetrievalDiscipline+prompts.SmartSearchSystemPrompt),
 		Color:                  "green",
 		InjectPromptOnFirstMsg: true, // 主 agent 默认带 Bash/Read, 必须强约束
 		// 默认模型走 chat_default.smart_search 能力绑定(admin 模型目录页可改;迁移初值=便宜档)。
@@ -185,7 +224,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		// 配额检查 + 提问统计 + slog 用量 收口到 agentbridge.StandardHooks(三 feature 共用)。
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,
-		// SS#2:有界透支预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
+		// SS#2:单轮预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
 		BudgetProvider: budgetProvider,
+		TurnCostCap:    turnCostCapProvider,
 	}
 }

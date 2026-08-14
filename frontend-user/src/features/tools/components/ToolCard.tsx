@@ -25,32 +25,32 @@ export function ToolCard({ tool }: { tool: FeatureTool }) {
   return (
     <Link
       to={`/tools/${tool.slug || tool.id}`}
-      className="group flex flex-col gap-2.5 rounded-md border border-border bg-background p-4 transition-colors hover:border-border-strong hover:bg-surface-1"
+      className="group flex flex-col gap-2.5 rounded-16 border border-border bg-surface-card p-4 transition-colors hover:border-border-strong hover:bg-surface-1"
     >
       <div className="flex items-start gap-3">
-        <ToolLogo tool={tool} className="size-10 rounded-md" />
+        <ToolLogo tool={tool} className="size-10 rounded-8" />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-bold text-foreground">{tool.name}</h3>
+          <h3 className="truncate text-14 font-medium text-foreground">{tool.name}</h3>
           {tool.category_label && (
-            <p className="truncate text-2xs text-faint">{tool.category_label}</p>
+            <p className="truncate text-12 text-faint">{tool.category_label}</p>
           )}
         </div>
       </div>
 
       {tool.tagline && (
-        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{tool.tagline}</p>
+        <p className="line-clamp-2 text-12 leading-paragraph text-muted-foreground">{tool.tagline}</p>
       )}
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-1">
         <div className="flex min-w-0 items-center gap-1.5">
           {(tool.tags ?? []).slice(0, 2).map((t) => (
-            <span key={t} className="truncate rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-subtle">
+            <span key={t} className="truncate rounded-4 bg-surface-2 px-1.5 py-0.5 text-12 text-subtle">
               {t}
             </span>
           ))}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className={cn('text-2xs font-bold', PRICE_TONE[tool.price_type] ?? 'text-faint')}>
+          <span className={cn('text-12 font-medium', PRICE_TONE[tool.price_type] ?? 'text-faint')}>
             {PRICE_TYPE_LABEL[tool.price_type] ?? tool.price_type}
           </span>
           <span className="flex items-center text-faint" title={tool.access_type}>

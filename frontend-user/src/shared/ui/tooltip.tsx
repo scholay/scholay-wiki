@@ -18,7 +18,9 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 overflow-hidden rounded-md border border-border bg-foreground px-2 py-1 text-xs text-background shadow-md',
+        // KEEP text-12 —— tooltip 是补充说明层,不是控件本体;Figma 未给规格。
+        // 它常常紧挨着它所解释的 14px 按钮出现,同字号会让人分不清哪个是浮层。
+        'z-tooltip overflow-hidden rounded-12 border border-border bg-foreground px-2 py-1 text-12 text-on-dark shadow-overlay',
         'data-[state=delayed-open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=delayed-open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=delayed-open]:zoom-in-95',

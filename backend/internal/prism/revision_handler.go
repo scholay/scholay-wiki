@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/vip"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,6 +29,13 @@ func (h *Handler) ParseRevision(c *gin.Context) {
 	}
 	items, err := h.svc.ParseRevisionComments(c.Request.Context(), p, req.Text)
 	if err != nil {
+		// 配额用尽不是服务器错误:映射成结构化 quota 信号(6010/429 → 前端 QuotaNotifier
+		// 弹「重置/升级/用经费继续」引导)。与 writing_profile PlanWritingProfile 同款映射,
+		// 修「额度用尽被误报成 500 死路」(用户看不到任何恢复入口)。
+		if errors.Is(err, vip.ErrQuotaExceeded) {
+			vip.RespondQuotaExceeded(c, err)
+			return
+		}
 		utils.InternalError(c, 500, "解析修改意见失败,请稍后重试", err)
 		return
 	}

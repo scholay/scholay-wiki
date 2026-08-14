@@ -3,6 +3,7 @@ import { Calculator, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { Textarea } from '@/shared/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { verifyNumbers, type NumberCheck } from '../api/prism';
@@ -48,22 +49,22 @@ export function PrismNumbersDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <textarea
+        <Textarea
           value={source}
           onChange={(e) => setSource(e.target.value)}
           rows={4}
           placeholder="源数据:粘贴数据表 / 统计输出(CSV/TSV/文本)…"
-          className="w-full resize-y rounded-md border border-border bg-surface-1 p-2 font-mono text-2xs outline-none placeholder:text-faint"
+          className="bg-surface-1 p-2 font-mono"
         />
-        <textarea
+        <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
           placeholder="生成的段落:粘贴 AI 写的结果段…"
-          className="w-full resize-y rounded-md border border-border p-2 text-xs outline-none placeholder:text-faint"
+          className="p-2"
         />
         <div className="flex items-center justify-between">
-          <p className="text-2xs text-faint">派生值(百分比变化/差值/合计)不在源表属正常,但请自行核对。</p>
+          <p className="text-12 text-faint">派生值(百分比变化/差值/合计)不在源表属正常,但请自行核对。</p>
           <Button size="sm" onClick={run} disabled={loading || !source.trim() || !text.trim()}>
             {loading ? <Loader2 className="size-3.5 animate-spin" /> : null} 校验
           </Button>
@@ -72,16 +73,16 @@ export function PrismNumbersDialog({
         {checks && (
           <div className="space-y-1.5">
             {bad.length > 0 ? (
-              <p className="text-2xs text-brand-red">{bad.length} 个数字在源数据中找不到(红色)—— 逐一核对,勿让编造数字进正文:</p>
+              <p className="text-12 text-brand-red">{bad.length} 个数字在源数据中找不到(红色)—— 逐一核对,勿让编造数字进正文:</p>
             ) : (
-              <p className="text-2xs text-brand-green">全部数字都能在源数据中找到。</p>
+              <p className="text-12 text-brand-green">全部数字都能在源数据中找到。</p>
             )}
             <div className="flex flex-wrap gap-1">
               {checks.map((c, i) => (
                 <span
                   key={i}
                   className={cn(
-                    'rounded px-1.5 py-0.5 font-mono text-2xs',
+                    'rounded-4 px-1.5 py-0.5 font-mono text-12',
                     c.found ? 'bg-brand-green/10 text-brand-green' : 'bg-danger-soft text-brand-red',
                   )}
                 >

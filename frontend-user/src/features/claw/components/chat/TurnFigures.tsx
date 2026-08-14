@@ -9,7 +9,6 @@
  * 未落库(harvest 有延迟、暂无 id)→ 显示「图像生成中…」占位,轮询到 id 后自动出图。
  */
 import { useEffect, useState } from 'react';
-import { composeFigure } from '../figure/compose';
 import { FigureSvgDisplay } from '../figure/FigureSvgDisplay';
 import { parseFigureSpec } from '../figure/figure-spec';
 import {
@@ -69,7 +68,7 @@ function FigureCard({ artifact, basePath }: { artifact: ClawArtifact; basePath: 
   if (category === 'image' || (category !== 'figure' && category !== 'svg' && isBitmap(artifact.name))) {
     return (
       <FigureShell caption={name}>
-        <div className="overflow-auto rounded-md border border-border bg-background p-3">
+        <div className="overflow-auto rounded-12 border border-border bg-surface-card p-3">
           <img
             src={agentArtifactByIdUrl(id, basePath)}
             alt={name}
@@ -113,7 +112,10 @@ function ComposedFigure({ text, name }: { text: string; name: string }) {
       setSvg('');
       return;
     }
-    composeFigure(spec)
+    // compose.ts 顶层会初始化 elkjs(~1.4 MB raw)。只有已取到且能解析的
+    // *.fig.json 才需要它;TurnFigures 的空数组、位图和直出 SVG 不得连带下载。
+    import('../figure/compose')
+      .then(({ composeFigure }) => composeFigure(spec))
       .then((s) => alive && setSvg(s))
       .catch(() => alive && setSvg(''));
     return () => {
@@ -129,10 +131,10 @@ function ComposedFigure({ text, name }: { text: string; name: string }) {
 /** 图片展示区外壳:标题 caption + 内容。品牌绿浅底、与「AI 产出」语义一致但克制。 */
 function FigureShell({ caption, children }: { caption: string; children: React.ReactNode }) {
   return (
-    <figure className="rounded-lg border border-brand-green/25 bg-brand-green/[0.03] p-2.5">
+    <figure className="rounded-16 border border-brand-green/25 bg-brand-green/[0.03] p-2.5">
       {children}
       {caption && (
-        <figcaption className="mt-1.5 px-0.5 text-2xs text-muted-foreground" title={caption}>
+        <figcaption className="mt-1.5 px-0.5 text-12 text-muted-foreground" title={caption}>
           {caption}
         </figcaption>
       )}
@@ -142,7 +144,7 @@ function FigureShell({ caption, children }: { caption: string; children: React.R
 
 function Hint({ text }: { text: string }) {
   return (
-    <div className="flex h-40 w-full items-center justify-center rounded-md border border-border bg-background text-2xs text-muted-foreground">
+    <div className="flex h-40 w-full items-center justify-center rounded-12 border border-border bg-surface-card text-12 text-muted-foreground">
       {text}
     </div>
   );

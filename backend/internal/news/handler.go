@@ -8,19 +8,22 @@
 package news
 
 import (
+	"encoding/xml"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/cache"
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/seo"
+	"scholar-backend/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,10 +32,13 @@ import (
 const deliveryLockTTL = 24 * time.Hour
 
 type Handler struct {
-	svc *Service
+	svc              *Service
+	sitemapEntriesFn func() ([]SitemapEntry, error)
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc, sitemapEntriesFn: svc.SitemapEntries}
+}
 
 // ─── webhook 接收 ──────────────────────────────────────────────────────────
 
@@ -199,25 +205,220 @@ func (h *Handler) GetDetailPublic(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"item": detail, "related": related})
 }
 
+// PublicCoverThumb GET /api/v1/public/news/cover/:file —— 从 MinIO 流式服务封面缩略图。
+// file = "<id>-<8位src哈希>"(= 对象 key 去 news-covers/ 前缀与 .jpg 后缀;URL 不带扩展名
+// 的原因见 coverThumbURL 注释)。URL 内嵌原图哈希,上游换图 → 新 key/新 URL,所以这里
+// 可以放心 immutable 长缓存(nginx /api/ 无边缘缓存,靠浏览器缓存已足够)。
+func (h *Handler) PublicCoverThumb(c *gin.Context) {
+	file := c.Param("file")
+	if file == "" || strings.Contains(file, "/") || strings.Contains(file, ".") || !storage.IsEnabled() {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=2592000, immutable")
+	err := storage.ServeObject(c.Writer, c.Request, storage.NewsCoversBucket(), newsCoverKeyPrefix+file+".jpg", "image/jpeg")
+	if err != nil {
+		// ServeObject 在写出任何字节【之前】出错时不会动响应 —— 但 handler 若就此返回,
+		// net/http 会隐式补一个空体 200,并带上面已设的 immutable 头 → MinIO 瞬时抖动的
+		// 那一刻,任何访客都会把「空图 200」缓存 30 天(缓存投毒)。必须按「是否已写」分流。
+		if !c.Writer.Written() {
+			c.Header("Cache-Control", "no-store")
+			if errors.Is(err, storage.ErrNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			} else {
+				slog.Warn("news: 缩略图读取失败", "file", file, "err", err)
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "temporarily unavailable"})
+			}
+			return
+		}
+		// 已开始写流后的错误(客户端断开等)只记 debug,无法再改状态码
+		slog.Debug("news: 缩略图下发中断", "file", file, "err", err)
+	}
+}
+
 // ServeNewsSitemap GET /sitemap-news.xml —— 全部已发布情报(/news/{slug});功能关闭则空。
 // 由 news 自己提供(像 featuretool 的 tools sitemap),seo 索引只引用其 URL。
 func (h *Handler) ServeNewsSitemap(c *gin.Context) {
 	base := appconfig.CanonicalBaseURL()
-	entries, err := h.svc.SitemapEntries()
+	entriesFn := h.sitemapEntriesFn
+	if entriesFn == nil && h.svc != nil {
+		entriesFn = h.svc.SitemapEntries
+	}
+	if entriesFn == nil {
+		slog.Error("news: sitemap entries provider is not configured")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	entries, err := entriesFn()
 	if err != nil {
-		slog.Warn("news: sitemap entries failed", "err", err)
+		slog.Error("news: sitemap entries failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
-	var b strings.Builder
-	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
-	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+	body, err := marshalNewsSitemap(base, entries)
+	if err != nil {
+		slog.Error("news: marshal sitemap failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	// 弱 ETag + 304:每请求全量重建 XML,让爬虫的 conditional GET 不再整包回源。
+	seo.WriteBodyWithETag(c, "application/xml; charset=utf-8", string(body), 900)
+}
+
+// ServeGoogleNewsSitemap GET /sitemap-news-latest.xml —— Google News sitemap。
+// 与 /sitemap-news.xml(全量库存)分工:本文件只含最近 48h 的文章 + news: 命名空间
+// 元数据(Google 官方要求 News sitemap 仅收录两天内的新闻,超窗文章从这里滚出,
+// 但继续留在全量 sitemap)。空窗口输出合法的空 urlset。
+func (h *Handler) ServeGoogleNewsSitemap(c *gin.Context) {
+	if h.svc == nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	entries, err := h.svc.GoogleNewsEntries()
+	if err != nil {
+		slog.Error("news: google news sitemap entries failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	body, err := marshalGoogleNewsSitemap(appconfig.CanonicalBaseURL(), entries)
+	if err != nil {
+		slog.Error("news: marshal google news sitemap failed", "err", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	// 短缓存:News sitemap 的价值就是新鲜度,允许爬虫高频 revalidate(304 兜底成本)。
+	seo.WriteBodyWithETag(c, "application/xml; charset=utf-8", string(body), 300)
+}
+
+type newsSitemapURLSet struct {
+	XMLName xml.Name         `xml:"urlset"`
+	XMLNS   string           `xml:"xmlns,attr"`
+	URLs    []newsSitemapURL `xml:"url"`
+}
+
+type newsSitemapURL struct {
+	Loc        string `xml:"loc"`
+	LastMod    string `xml:"lastmod,omitempty"`
+	ChangeFreq string `xml:"changefreq"`
+	Priority   string `xml:"priority"`
+}
+
+func newsSitemapLocation(base, slug string) string {
+	return strings.TrimRight(base, "/") + "/news/" + url.PathEscape(slug)
+}
+
+// ── Google News sitemap(news: 命名空间)────────────────────────────────────
+// encoding/xml 不原生管理前缀命名空间,这里按惯用法把 "news:" 直接写进元素名,
+// 并在根元素声明 xmlns:news —— 产物与 Google 文档示例逐字段一致。
+type googleNewsURLSet struct {
+	XMLName   xml.Name        `xml:"urlset"`
+	XMLNS     string          `xml:"xmlns,attr"`
+	XMLNSNews string          `xml:"xmlns:news,attr"`
+	URLs      []googleNewsURL `xml:"url"`
+}
+
+type googleNewsURL struct {
+	Loc  string         `xml:"loc"`
+	News googleNewsMeta `xml:"news:news"`
+}
+
+type googleNewsMeta struct {
+	Publication     googleNewsPublication `xml:"news:publication"`
+	PublicationDate string                `xml:"news:publication_date"`
+	Title           string                `xml:"news:title"`
+}
+
+type googleNewsPublication struct {
+	Name     string `xml:"news:name"`
+	Language string `xml:"news:language"`
+}
+
+func marshalGoogleNewsSitemap(base string, entries []GoogleNewsEntry) ([]byte, error) {
+	set := googleNewsURLSet{
+		XMLNS:     "http://www.sitemaps.org/schemas/sitemap/0.9",
+		XMLNSNews: "http://www.google.com/schemas/sitemap-news/0.9",
+		URLs:      make([]googleNewsURL, 0, len(entries)),
+	}
 	for _, e := range entries {
-		fmt.Fprintf(&b,
-			"  <url>\n    <loc>%s/news/%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>\n",
-			base, e.Slug, e.LastMod)
+		if !isValidNewsSlug(e.Slug) {
+			continue
+		}
+		set.URLs = append(set.URLs, googleNewsURL{
+			Loc: newsSitemapLocation(base, e.Slug),
+			News: googleNewsMeta{
+				Publication: googleNewsPublication{
+					Name:     "Scholay 学术情报",
+					Language: "zh-cn",
+				},
+				PublicationDate: e.PublishedAt,
+				Title:           e.Title,
+			},
+		})
 	}
-	b.WriteString(`</urlset>` + "\n")
-	c.Header("Content-Type", "application/xml; charset=utf-8")
-	c.String(http.StatusOK, b.String())
+	payload, err := xml.MarshalIndent(set, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	body := make([]byte, 0, len(xml.Header)+len(payload)+1)
+	body = append(body, xml.Header...)
+	body = append(body, payload...)
+	body = append(body, '\n')
+	return body, nil
+}
+
+func marshalNewsSitemap(base string, entries []SitemapEntry) ([]byte, error) {
+	validEntries := make([]SitemapEntry, 0, len(entries))
+	for _, entry := range entries {
+		// Service 已经过滤，handler 再校验一次，防止未来替换 provider 时
+		// 把历史脏数据或多段路径重新带回 sitemap。
+		if isValidNewsSlug(entry.Slug) {
+			validEntries = append(validEntries, entry)
+		}
+	}
+	// 防御性封顶：provider 可被测试/未来实现替换，handler 仍必须保证
+	// hub + details 总数不超过 sitemap 协议的 50,000 URL。
+	if len(validEntries) > 49999 {
+		validEntries = validEntries[:49999]
+	}
+	set := newsSitemapURLSet{
+		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
+		URLs:  make([]newsSitemapURL, 0, len(validEntries)+1),
+	}
+	// The hub is a canonical, crawlable discovery page, but only publish it
+	// while the feature has at least one eligible article.  This avoids both a
+	// permanently undiscoverable /news page and an empty thin hub when news is
+	// disabled.
+	if len(validEntries) > 0 {
+		lastMod := ""
+		for _, entry := range validEntries {
+			if entry.LastMod > lastMod {
+				lastMod = entry.LastMod
+			}
+		}
+		set.URLs = append(set.URLs, newsSitemapURL{
+			Loc:        strings.TrimRight(base, "/") + "/news",
+			LastMod:    lastMod,
+			ChangeFreq: "daily",
+			Priority:   "0.8",
+		})
+	}
+	for _, entry := range validEntries {
+		set.URLs = append(set.URLs, newsSitemapURL{
+			Loc:        newsSitemapLocation(base, entry.Slug),
+			LastMod:    entry.LastMod,
+			ChangeFreq: "daily",
+			Priority:   "0.7",
+		})
+	}
+	payload, err := xml.MarshalIndent(set, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	body := make([]byte, 0, len(xml.Header)+len(payload)+1)
+	body = append(body, xml.Header...)
+	body = append(body, payload...)
+	body = append(body, '\n')
+	return body, nil
 }
 
 // ─── admin 配置 ────────────────────────────────────────────────────────────
