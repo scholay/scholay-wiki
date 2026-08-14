@@ -10,6 +10,11 @@ export {
   type UploadPdfVars,
 } from '@/shared/api/paper-pdf-upload';
 
+import { MAX_PDF_SIZE as _MAX_PDF_SIZE } from '@/shared/api/paper-pdf-upload';
+
+/** 与 main 对齐:预留 4KB 元数据余量的实际上传上限(validate-pdf 等消费)。 */
+export const MAX_PDF_UPLOAD_BYTES = _MAX_PDF_SIZE - 4096;
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import { invalidateLibrary } from '@/shared/lib/library-invalidation';
