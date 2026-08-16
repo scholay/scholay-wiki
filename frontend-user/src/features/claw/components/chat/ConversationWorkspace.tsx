@@ -422,8 +422,6 @@ export function ConversationWorkspace({
                           figuresInline={inlineFigures}
                         />
                       ))}
-                      {/* 经费不足提醒的对话内消息体(挂载即注册宿主;未触发时渲染 null) */}
-                      <FundsReminderChatNotice />
                     </StickToBottom.Content>
                     <ScrollController scrollRef={scrollToBottomRef} />
                   </StickToBottom>
@@ -432,6 +430,7 @@ export function ConversationWorkspace({
 
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4">
                     <div className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col gap-2.5">
+                      <FundsReminderChatNotice />
                       {pendingQuestionBlock && (
                         <QuestionPrompt
                           key={pendingQuestionBlock.toolUseId}

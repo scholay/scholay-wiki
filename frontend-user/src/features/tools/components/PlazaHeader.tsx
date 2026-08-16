@@ -47,7 +47,7 @@ export function PlazaHeader() {
       : isPrompts
         ? '学术prompts'
         : isDatasets
-          ? '数据集检索'
+          ? '数据集搜索'
           : '学术工具';
   const placeholder = isSkills
     ? '搜索社区技能 —— 名称 / 用途'

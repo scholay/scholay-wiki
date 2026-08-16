@@ -1132,8 +1132,6 @@ export function SmartSearchPanel({
                     <AssistantTurn turn={turn} />
                   </div>
                 ))}
-                {/* 经费不足提醒的对话内消息体(挂载即注册宿主;未触发时渲染 null) */}
-                <FundsReminderChatNotice />
                 {lastTurn?.complete ? <SmartSearchClawHandoff /> : null}
                 {state === 'reconnecting' && (
                   <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -1172,6 +1170,7 @@ export function SmartSearchPanel({
               transition={{ duration: reduce ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="pointer-events-auto mx-auto flex w-full max-w-[640px] flex-col gap-3">
+                <FundsReminderChatNotice />
                 {sessionStripStack}
                 {pendingQuestionBlock && (
                   <QuestionPrompt

@@ -25,16 +25,18 @@ import { exposeJournals } from '@/shared/api/seo';
 import type { Journal } from '@/shared/api/types';
 import { useJournalSearch } from '../api/journals';
 import type { JournalFilters } from '../types';
-import { JournalFiltersPanel } from './JournalFiltersPanel';
+import {
+  JournalFiltersButton,
+  buildJournalFilterChips,
+} from './JournalFiltersPanel';
 import { JournalLanding } from './JournalLanding';
 
 /**
  * 期刊搜索结果主体 —— `/journals/search` 嵌入 JournalSearchPage 主区。
- * 有结果后左侧常驻筛选栏;空态不挂筛选。
+ * 有结果后筛选入口在结果顶栏;空态不挂筛选。
  */
 
 const PAGE_SIZE = 8;
-const FILTER_RAIL_PX = 168;
 const DETAIL_MIN_PX = 320;
 const DETAIL_MAX_PX = 720;
 const DETAIL_DEFAULT_PX = 420;
@@ -72,7 +74,7 @@ export function JournalSearchResults({
   const { pathname } = useLocation();
   const [params, setParams] = useSearchParams();
   const isSelect = pathname.startsWith('/journals/select');
-  const pageTitle = isSelect ? 'scholay 选刊' : '期刊库查询';
+  const pageTitle = isSelect ? 'scholay 选刊' : '期刊库搜索';
   const [selected, setSelected] = useState<Journal | null>(null);
   const [detailWidth, setDetailWidth] = useLocalStorage(
     'journals.detail-width',
@@ -153,20 +155,14 @@ export function JournalSearchResults({
     );
   }
 
+  const filterChips = onFiltersChange
+    ? buildJournalFilterChips(filters, (k, v) =>
+        onFiltersChange({ ...filters, [k]: v }),
+      )
+    : [];
+
   return (
     <div className="flex h-full min-h-0 bg-background">
-      {onFiltersChange ? (
-        <aside
-          style={{ width: FILTER_RAIL_PX }}
-          className="flex h-full shrink-0 flex-col border-r border-border bg-background"
-        >
-          <JournalFiltersPanel
-            rail
-            filters={filters}
-            onFiltersChange={onFiltersChange}
-          />
-        </aside>
-      ) : null}
       <div className="flex min-h-0 min-w-0 flex-1">
       <div className="min-h-0 min-w-0 flex-1 overflow-auto">
       {/* 主列对齐文献库检索:单列 max-w-3xl,结果为平铺行卡而非网格。 */}
@@ -188,7 +184,8 @@ export function JournalSearchResults({
           </div>
         )}
 
-        <header className="flex items-end justify-between gap-4">
+        <header className="flex flex-col gap-3">
+          <div className="flex items-end justify-between gap-4">
           <div className="space-y-1">
             <h2 className="font-display font-bold text-lg text-foreground leading-none">
               {searchQ.isLoading || searchQ.isFetching ? (
@@ -207,7 +204,13 @@ export function JournalSearchResults({
               {!keyword && !hasActiveFilters && ' · 默认推荐高质量期刊'}
             </p>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {onFiltersChange ? (
+              <JournalFiltersButton
+                filters={filters}
+                onFiltersChange={onFiltersChange}
+              />
+            ) : null}
             {SORT_OPTIONS.map((opt) => {
               const Icon = opt.icon;
               const active = sortKey === opt.key;
@@ -229,6 +232,22 @@ export function JournalSearchResults({
               );
             })}
           </div>
+          </div>
+          {filterChips.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {filterChips.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={c.remove}
+                  className="inline-flex h-6 items-center gap-1 rounded-pill border border-brand-red/30 bg-danger-soft px-2 text-12 font-medium text-brand-red"
+                >
+                  {c.label}
+                  <X className="size-2.5" strokeWidth={3} />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </header>
 
         {/* ───── 错误 / 空 / 列表 ───── */}

@@ -17,7 +17,7 @@ export function JournalLanding({
 }) {
   const [draft, setDraft] = useState('');
   const isSelect = variant === 'select';
-  const topic = isSelect ? 'scholay 选刊' : '期刊库查询';
+  const topic = isSelect ? 'scholay 选刊' : '期刊库搜索';
 
   return (
     <CenteredLanding>

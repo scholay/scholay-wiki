@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, Filter, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
 import { cn } from '@/shared/lib/utils';
 import {
   CCF_OPTIONS,
@@ -20,7 +21,7 @@ interface JournalFiltersPanelProps {
   rail?: boolean;
 }
 
-/** 期刊筛选表单 —— 结果页左侧常驻栏。 */
+/** 期刊筛选表单 —— 结果顶栏 Popover 内复用。 */
 export function JournalFiltersPanel({
   filters,
   onFiltersChange,
@@ -149,7 +150,57 @@ export function countActiveJournalFilters(filters: JournalFilters): number {
   return buildJournalFilterChips(filters, () => {}).length;
 }
 
-function buildJournalFilterChips(
+/** 结果顶栏「筛选」—— 点开 Popover,不再占左侧栏。 */
+export function JournalFiltersButton({
+  filters,
+  onFiltersChange,
+  className,
+}: {
+  filters: JournalFilters;
+  onFiltersChange: (next: JournalFilters) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const activeCount = countActiveJournalFilters(filters);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="打开筛选器"
+          title="筛选"
+          className={cn(
+            'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-8 px-3 text-12 transition-colors',
+            open || activeCount > 0
+              ? 'bg-foreground text-background font-medium'
+              : 'border border-border bg-background text-subtle hover:border-foreground',
+            className,
+          )}
+        >
+          <Filter className="size-3" strokeWidth={open || activeCount > 0 ? 2.5 : 2} />
+          筛选
+          {activeCount > 0 ? (
+            <span className="tabular-nums">{activeCount}</span>
+          ) : null}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        side="bottom"
+        className="w-[min(320px,calc(100vw-48px))] p-0"
+      >
+        <JournalFiltersPanel
+          hideHeader
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function buildJournalFilterChips(
   filters: JournalFilters,
   patch: <K extends keyof JournalFilters>(k: K, v: JournalFilters[K]) => void,
 ): Array<{ key: string; label: string; remove: () => void }> {

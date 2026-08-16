@@ -32,7 +32,7 @@ export function SearchLanding({
   const [draft, setDraft] = useState('');
   const navigate = useNavigate();
   const isSmart = mode === 'smart' || !!composer;
-  const topic = isSmart ? SMART_SEARCH_LABEL : '文献库检索';
+  const topic = isSmart ? SMART_SEARCH_LABEL : '论文库搜索';
 
   const handleSubmit = (value: string) => {
     const trimmed = value.trim();

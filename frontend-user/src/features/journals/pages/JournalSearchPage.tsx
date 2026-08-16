@@ -7,7 +7,7 @@ import { useJournalUrlFilters } from '../hooks/useJournalUrlFilters';
 
 /**
  * 期刊搜索路由 `/journals/search`:
- *   空态:居中搜索框;有结果后左侧常驻筛选栏 + 右侧列表。
+ *   空态:居中搜索框;有结果后筛选入口在结果顶栏。
  *
  * **state 全部 URL-backed**(useJournalUrlFilters + JournalSearchResults 内部
  * 的 q/page/sort)。

@@ -203,8 +203,6 @@ export function PrismChatPanel({
           {chat.turns.map((t) => (
             <PrismMessageTurn key={t.id} turn={t} />
           ))}
-          {/* 经费不足提醒的对话内消息体(挂载即注册宿主;未触发时渲染 null) */}
-          <FundsReminderChatNotice />
           {chat.changeset && (
             <ChangesetCard cs={chat.changeset} onApply={chat.apply} onReject={chat.reject} />
           )}
@@ -218,7 +216,8 @@ export function PrismChatPanel({
       )}
 
       {/* 输入框 —— 三 agent 统一 Composer(shared/components/chat;主流形态单一真源) */}
-      <div className="shrink-0 p-3">
+      <div className="flex shrink-0 flex-col gap-2 p-3">
+        {showThread ? <FundsReminderChatNotice /> : null}
         {pendingQuestionBlock && (
           <QuestionPrompt
             key={pendingQuestionBlock.toolUseId}

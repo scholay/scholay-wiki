@@ -1,5 +1,5 @@
 // 「经费不足提醒充值」—— 同一份内容模型,两种投放形态:
-//   · FundsReminderChatNotice:对话消息流末尾的特殊消息体(claw / smart-search / prism 挂载);
+//   · FundsReminderChatNotice:对话态吸附在输入框上方的小卡片(claw / smart-search / prism 挂载);
 //   · FundsReminderDialog:非对话页面的全局弹窗(providers 层挂载)。
 //
 // 内容按三个条件派生(useFundsReminderModel):
@@ -138,8 +138,8 @@ function useFundsReminderModel(onAction?: () => void): ReminderModel {
 }
 
 /**
- * 对话消息流内的特殊消息体。三个对话工作区(claw / smart-search / prism)在消息列表
- * 末尾常挂本组件:挂载即注册宿主(供触发端分流),激活前渲染 null。
+ * 对话态底部吸附卡。三个对话工作区把本组件挂在输入框上方(不进消息流):
+ * 挂载即注册宿主(供触发端分流),激活前渲染 null。
  */
 export function FundsReminderChatNotice() {
   const activeAt = useFundsReminderStore((s) => s.chatNoticeAt);
@@ -158,10 +158,10 @@ export function FundsReminderChatNotice() {
   return (
     <div
       role="status"
-      className="flex flex-col overflow-hidden rounded-16 border border-brand-amber/30 bg-warning-soft"
+      className="flex flex-col overflow-hidden rounded-12 border border-brand-amber/30 bg-warning-soft shadow-md"
     >
       {model.passes > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-brand-amber/20 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-brand-amber/20 px-2.5 py-1.5">
           <RefreshCw className="size-3.5 shrink-0 text-brand-amber" />
           <p className="min-w-0 flex-1 text-12 text-foreground">
             可立即恢复 <b className="font-medium">{model.passes}</b> 次,不消耗经费
@@ -171,27 +171,17 @@ export function FundsReminderChatNotice() {
           </Button>
         </div>
       )}
-      <div className="flex flex-col gap-2 px-3 py-2.5">
-        <div className="flex items-start gap-2">
-          <Wallet className="mt-0.5 size-4 shrink-0 text-brand-amber" />
-          <div className="min-w-0 flex-1">
-            <p className="text-14 font-medium text-foreground">{model.title}</p>
-            {model.lines.map((line) => (
-              <p key={line} className="text-12 text-muted-foreground">
-                {line}
-              </p>
-            ))}
-          </div>
-          <button
-            type="button"
-            aria-label="关闭提醒"
-            onClick={dismiss}
-            className="shrink-0 rounded-4 p-1 text-faint transition-colors hover:text-foreground"
-          >
-            <X className="size-3.5" />
-          </button>
+      <div className="flex items-start gap-2 px-2.5 py-2">
+        <Wallet className="mt-0.5 size-3.5 shrink-0 text-brand-amber" />
+        <div className="min-w-0 flex-1">
+          <p className="text-12 font-medium text-foreground">{model.title}</p>
+          {model.lines.map((line) => (
+            <p key={line} className="text-12 text-muted-foreground">
+              {line}
+            </p>
+          ))}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1">
           {model.actions.map((action) => (
             <Button
               key={action.key}
@@ -204,6 +194,14 @@ export function FundsReminderChatNotice() {
               {action.label}
             </Button>
           ))}
+          <button
+            type="button"
+            aria-label="关闭提醒"
+            onClick={dismiss}
+            className="rounded-4 p-1 text-faint transition-colors hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
         </div>
       </div>
     </div>

@@ -42,7 +42,7 @@ export function HomeNoviceTour() {
         popover: {
           title: '切换检索方式',
           description:
-            '打开「智能搜论文」用对话式检索；关闭则回到文献库检索。',
+            '打开「智能搜论文」用对话式检索；关闭则回到论文库搜索。',
           side: 'bottom' as const,
           align: 'start' as const,
         },

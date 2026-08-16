@@ -66,7 +66,7 @@ const FEATURE_SUBS: Record<string, FeatureRecord[]> = {
     },
     {
       id: 'classic',
-      label: '文献库检索',
+      label: '论文库搜索',
       href: '/search?mode=classic',
       description: '关键词检索,多源并行筛选',
       hub: {
@@ -82,7 +82,7 @@ const FEATURE_SUBS: Record<string, FeatureRecord[]> = {
     },
     {
       id: 'query',
-      label: '期刊库查询',
+      label: '期刊库搜索',
       href: '/journals/search',
       description: '按刊名 / ISSN / 分区检索全球期刊',
       hub: {
@@ -93,7 +93,7 @@ const FEATURE_SUBS: Record<string, FeatureRecord[]> = {
     },
     {
       id: 'datasets',
-      label: '数据集检索',
+      label: '数据集搜索',
       href: '/tools/datasets',
       description: '按名称 / 领域检索公开科研数据集',
       hub: {

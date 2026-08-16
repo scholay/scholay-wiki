@@ -15,7 +15,7 @@ const MODE_META: Record<
   { label: string; icon: LucideIcon }
 > = {
   smart: { label: '智能搜论文', icon: Sparkles },
-  engine: { label: '文献库检索', icon: Search },
+  engine: { label: '论文库搜索', icon: Search },
 };
 
 /**

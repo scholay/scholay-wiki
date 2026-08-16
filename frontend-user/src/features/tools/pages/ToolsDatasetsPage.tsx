@@ -49,7 +49,7 @@ export function ToolsDatasetsPage() {
 
   const seo = (
     <RouteSEO
-      title="数据集检索 · 学术搜索"
+      title="数据集搜索 · 学术搜索"
       description="公开科研数据集导航:视觉、医学、文献、生物与网络语料,按领域快速找到可用数据。"
       keywords="科研数据集,公开数据,ImageNet,MIMIC,GLUE,OpenAlex,Scholay"
       canonical="/tools/datasets"
@@ -61,7 +61,7 @@ export function ToolsDatasetsPage() {
       <>
         {seo}
         <CenteredLanding>
-          <FeatureBrandHeading as="h1" title="数据集检索" mark={false} />
+          <FeatureBrandHeading as="h1" title="数据集搜索" mark={false} />
           <div className="mt-6 w-full">
             <SearchAutocomplete
               appearance="literature"
@@ -75,7 +75,7 @@ export function ToolsDatasetsPage() {
               autoFocus
             />
           </div>
-          <FeatureGuideCards topic="数据集检索" wikiHref="/wiki/feature-tools" />
+          <FeatureGuideCards topic="数据集搜索" wikiHref="/wiki/feature-tools" />
         </CenteredLanding>
       </>
     );
