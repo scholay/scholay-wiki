@@ -93,10 +93,10 @@ export function ModelSelector({
           title={`选择模型 · ${triggerLabel}`}
           aria-label={`选择模型,当前 ${triggerLabel}`}
         >
-          <Sparkles className="size-3.5 shrink-0 text-brand-green" />
-          {!iconOnly && (
+          {iconOnly ? (
+            <Sparkles className="size-3.5 shrink-0 text-brand-green" />
+          ) : (
             <>
-              {/* 模型名完整展示;窄屏可再藏字(sm+)。 */}
               <span className="hidden whitespace-nowrap sm:inline">
                 {triggerLabel}
               </span>

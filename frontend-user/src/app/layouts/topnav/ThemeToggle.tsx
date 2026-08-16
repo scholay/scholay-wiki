@@ -1,15 +1,13 @@
 import { Moon, Sun } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton';
-import { resolveTheme, useThemeStore } from '@/stores/theme.store';
+import { useResolvedDark, useThemeStore } from '@/stores/theme.store';
 
 /**
  * 顶栏最右侧：日间 / 夜间一键切换。
  */
 export function ThemeToggle() {
-  const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
-  const resolved = resolveTheme(theme);
-  const isDark = resolved === 'dark';
+  const isDark = useResolvedDark();
 
   return (
     <IconButton

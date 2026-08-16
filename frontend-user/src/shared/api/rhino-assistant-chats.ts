@@ -34,22 +34,22 @@ export const RHINO_CHAT_FEATURE_META: Record<
   claw: { label: '智能助手', hrefFor: (id) => `/claw/${id}` },
   boltslides: { label: '制作 PPT', hrefFor: (id) => `/claw/${id}` },
   sci_draw: { label: '科研绘图', hrefFor: (id) => `/claw/${id}` },
-  'smart-search': { label: '智能搜索', hrefFor: () => '/search' },
+  'smart-search': { label: '智能搜论文', hrefFor: () => '/search?mode=smart' },
 };
 
-const clawSessions = makeAgentSessionApi({
+export const clawSessions = makeAgentSessionApi({
   feature: 'claw',
   basePath: '/user/claw',
 });
-const boltslidesSessions = makeAgentSessionApi({
+export const boltslidesSessions = makeAgentSessionApi({
   feature: 'boltslides',
   basePath: '/user/boltslides',
 });
-const sciDrawSessions = makeAgentSessionApi({
+export const sciDrawSessions = makeAgentSessionApi({
   feature: 'sci_draw',
   basePath: '/user/sci_draw',
 });
-const smartSearchSessions = makeAgentSessionApi({
+export const smartSearchSessions = makeAgentSessionApi({
   feature: 'smart-search',
   basePath: '/user/smart-search',
 });

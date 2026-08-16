@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { isChunkLoadError, tryReloadForStaleChunk } from '@/shared/lib/stale-chunk';
+import { RhinoRunLoader } from './RhinoRunLoader';
 
 /**
  * element 级路由懒加载 —— 「导航立即提交,页面自己等自己的代码」。
@@ -152,7 +153,7 @@ class ChunkErrorBoundary extends ReactComponent<
  * - 壳内页面(默认):h-full 填满壳的主区(AppShell 的 main 有确定高度);
  *   min-h-64 兜底 —— 个别父容器高度未定时仍保证骨架可见,不出现「白屏假死」。
  * - full:不挂壳的顶层路由(landing / help / 分享页 / 各壳自身)整屏居中,
- *   带品牌字,与 App.tsx 首次初始化占位同款视觉。
+ *   用奔跑犀牛加载器,与 App.tsx 首次初始化占位同款视觉。
  */
 export function RouteFallback({ full }: { full?: boolean }) {
   return (
@@ -164,18 +165,7 @@ export function RouteFallback({ full }: { full?: boolean }) {
         full ? 'min-h-dvh' : 'h-full min-h-64 py-12',
       )}
     >
-      <div className="flex w-full max-w-sm flex-col items-center gap-4">
-        {full && (
-          <span className="font-brand text-24 font-medium tracking-brand text-foreground">
-            Scholay
-          </span>
-        )}
-        <div aria-hidden className="flex w-full flex-col gap-2.5">
-          <span className="h-3 w-full animate-pulse rounded-pill bg-surface-2" />
-          <span className="h-3 w-4/5 animate-pulse rounded-pill bg-surface-2" />
-          <span className="h-3 w-2/3 animate-pulse rounded-pill bg-surface-2" />
-        </div>
-      </div>
+      <RhinoRunLoader size={full ? 'full' : 'default'} label="页面加载中" />
     </div>
   );
 }

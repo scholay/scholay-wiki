@@ -56,7 +56,7 @@ export function SearchMatrixMock() {
             className={cn(
               'inline-flex items-center px-2.5 py-1 rounded-pill text-12',
               c.active
-                ? 'bg-foreground text-on-dark font-medium'
+                ? 'bg-inverse text-on-inverse font-medium'
                 : 'bg-surface-card border border-border-soft text-subtle'
             )}
           >

@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { cn } from '@/shared/lib/utils';
+import { RhinoRunLoader } from './RhinoRunLoader';
 
 interface LoadingStateProps {
   /** 单行文字提示,默认 "加载中…" */
@@ -12,7 +13,7 @@ interface LoadingStateProps {
 }
 
 /**
- * 单图标 loading — 适合按钮/小区域。
+ * 加载态。dense = 小区域转圈;默认用奔跑犀牛。
  */
 export const LoadingState = forwardRef<HTMLDivElement, LoadingStateProps>(
   ({ label = '加载中…', dense, className }, ref) => {
@@ -25,8 +26,17 @@ export const LoadingState = forwardRef<HTMLDivElement, LoadingStateProps>(
           className
         )}
       >
-        <Loader2 className="size-4 animate-spin" />
-        <span>{label}</span>
+        {dense ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            <span>{label}</span>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <RhinoRunLoader size="compact" label={label} />
+            <span>{label}</span>
+          </div>
+        )}
       </div>
     );
   }

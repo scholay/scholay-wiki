@@ -58,7 +58,7 @@ export function ClawEmptyState({
         </div>
 
         <h2 className="mt-4 font-serif text-20 font-bold text-foreground">
-          智能助手 · Claw
+          智能助手
         </h2>
         <p className="mt-1.5 text-center text-12 leading-paragraph text-muted-foreground">
           找文献 · 读论文 · 查期刊 · 改摘要,也能上传 PDF / 图片帮你分析

@@ -34,20 +34,20 @@ export type InfoTab =
   | { id: string; kind: 'artifact'; title: string; artifact: ArtifactTabPayload }
   | { id: string; kind: 'pdf'; title: string; pdf: PdfTabPayload };
 
-/** 右栏当前视图(功能 / 详情页 / 空壳);null = 功能卡片 hub */
+/** 右栏当前视图(功能 / 详情页 / 空壳);null = 拓展区关闭 */
 export type ActivePanel =
   | { group: 'function'; kind: WorkspaceFunctionKind }
   | { group: 'info'; tabId: string }
-  /** 助手页「扩展区」空壳:只承载详情/产物 tab,不进检索工作区功能 */
+  /** 拓展区空壳:检索页取消功能选中、或助手页未打开详情时保持栏位 */
   | { group: 'shell' };
 
 /** FeatureHub / TabStrip 入口形态 */
 export type RightPanelVariant = 'search' | 'assistant';
 
 export const WORKSPACE_FUNCTION_ORDER: WorkspaceFunctionKind[] = [
-  'pdf-chat',
-  'citation-graph',
   'matrix',
+  'citation-graph',
+  'pdf-chat',
 ];
 
 export const WORKSPACE_FUNCTION_LABEL: Record<WorkspaceFunctionKind, string> = {
@@ -115,6 +115,8 @@ interface SearchRightPanelState {
   activePanel: ActivePanel | null;
   /** 整个右侧拓展栏是否展开(false = 完全收起,仅保留 SearcherColumn 侧重开入口) */
   panelOpen: boolean;
+  /** 左侧文件区(文献卡列)是否展开,与拓展区互不联动 */
+  fileAreaOpen: boolean;
   setEmbedMode: (enabled: boolean) => void;
   openPaper: (paper: Paper) => void;
   openJournal: (journal: Journal) => void;
@@ -125,6 +127,7 @@ interface SearchRightPanelState {
   openPdf: (pdf: PdfTabPayload) => void;
   openFunctionTab: (kind: WorkspaceFunctionKind) => void;
   closeFunctionTab: (kind: WorkspaceFunctionKind) => void;
+  toggleFunctionTab: (kind: WorkspaceFunctionKind) => void;
   setActiveFunction: (kind: WorkspaceFunctionKind) => void;
   setActiveInfoTab: (tabId: string) => void;
   closeInfoTab: (tabId: string) => void;
@@ -136,6 +139,9 @@ interface SearchRightPanelState {
   dismissToHub: () => void;
   /** 打开空拓展壳(助手页「扩展区」入口;无工作区功能 tab) */
   openShell: () => void;
+  setFileAreaOpen: (open: boolean) => void;
+  openFileArea: () => void;
+  closeFileArea: () => void;
   reset: () => void;
   isActivePaper: (paperId: string) => boolean;
 }
@@ -147,6 +153,7 @@ export const useSearchRightPanelStore = create<SearchRightPanelState>(
     infoTabs: [],
     activePanel: null,
     panelOpen: false,
+    fileAreaOpen: false,
     setEmbedMode: (enabled) =>
       set({
         embedMode: enabled,
@@ -225,15 +232,11 @@ export const useSearchRightPanelStore = create<SearchRightPanelState>(
       }));
     },
     openFunctionTab: (kind) => {
-      set((state) => {
-        const functionTabs = state.functionTabs.includes(kind)
-          ? state.functionTabs
-          : [...state.functionTabs, kind];
-        return {
-          panelOpen: true,
-          functionTabs,
-          activePanel: { group: 'function', kind },
-        };
+      set({
+        panelOpen: true,
+        fileAreaOpen: true,
+        functionTabs: [kind],
+        activePanel: { group: 'function', kind },
       });
     },
     closeFunctionTab: (kind) => {
@@ -251,13 +254,23 @@ export const useSearchRightPanelStore = create<SearchRightPanelState>(
                   group: 'info',
                   tabId: state.infoTabs.at(-1)!.id,
                 }
-              : null;
+              : { group: 'shell' };
         }
         return { functionTabs, activePanel };
       });
     },
     setActiveFunction: (kind) =>
-      set({ panelOpen: true, activePanel: { group: 'function', kind } }),
+      set({
+        panelOpen: true,
+        fileAreaOpen: true,
+        functionTabs: [kind],
+        activePanel: { group: 'function', kind },
+      }),
+    toggleFunctionTab: (kind) => {
+      const { functionTabs, closeFunctionTab, openFunctionTab } = get();
+      if (functionTabs.includes(kind)) closeFunctionTab(kind);
+      else openFunctionTab(kind);
+    },
     setActiveInfoTab: (tabId) => {
       set((state) => {
         if (!state.infoTabs.some((t) => t.id === tabId)) return state;
@@ -275,21 +288,50 @@ export const useSearchRightPanelStore = create<SearchRightPanelState>(
         if (activePanel?.group === 'info' && activePanel.tabId === tabId) {
           activePanel = infoTabs.length
             ? { group: 'info', tabId: infoTabs.at(-1)!.id }
-            : null;
+            : state.functionTabs.length
+              ? {
+                  group: 'function',
+                  kind: state.functionTabs.at(-1)!,
+                }
+              : null;
         }
-        return { infoTabs, activePanel };
+        return {
+          infoTabs,
+          activePanel,
+          ...(activePanel?.group === 'function' ? { fileAreaOpen: true } : {}),
+        };
       });
     },
     closePanel: () => set({ panelOpen: false }),
     openPanel: () => set({ panelOpen: true }),
-    dismissToHub: () => set({ panelOpen: true, activePanel: null }),
-    openShell: () => set({ panelOpen: true, activePanel: { group: 'shell' } }),
+    dismissToHub: () =>
+      set({ panelOpen: true, activePanel: null, functionTabs: [] }),
+    openShell: () =>
+      set({
+        panelOpen: true,
+        activePanel: { group: 'shell' },
+      }),
+    setFileAreaOpen: (open) => {
+      if (open) {
+        set({ fileAreaOpen: true });
+        return;
+      }
+      get().closeFileArea();
+    },
+    openFileArea: () => set({ fileAreaOpen: true }),
+    closeFileArea: () =>
+      set((s) =>
+        s.activePanel?.group === 'function'
+          ? { fileAreaOpen: false, activePanel: null, functionTabs: [] }
+          : { fileAreaOpen: false },
+      ),
     reset: () =>
       set({
         functionTabs: [],
         infoTabs: [],
         activePanel: null,
         panelOpen: false,
+        fileAreaOpen: false,
       }),
     isActivePaper: (paperId) => {
       const { activePanel, infoTabs } = get();

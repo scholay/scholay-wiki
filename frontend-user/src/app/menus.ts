@@ -1,8 +1,7 @@
 import {
   type LucideIcon,
   Search,
-  BookOpen,
-  Folder,
+  Database,
   Compass,
   FileCheck,
   PenTool,
@@ -14,7 +13,7 @@ import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 /**
  * 全站功能菜单 —— 唯一来源(对照 .pen `S72unz` 全站功能菜单浮层)。
  *
- * 7 个功能 / 3 个分类(检索 · 智能 · 资源),所有名称、英文、描述、icon
+ * 6 个功能 / 3 个分类(检索 · 智能 · 资源),所有名称、英文、描述、icon
  * 都按 .pen 标准化。任何地方需要"功能名 / 子标题 / icon"都从这里取,
  * 不再在组件内硬编码 "Prism" "工具大全" 等历史叫法。
  */
@@ -50,26 +49,17 @@ export const MENUS: Menu[] = [
   // ---------- 检索 ----------
   {
     id: 'search',
-    label: '文献搜索',
+    label: '学术搜索',
     englishName: 'Paper Search',
-    description: '全网 / 库内 检索文献、学者',
+    description: '文献 · 期刊库 · 数据库 · 情报',
     icon: Search,
-    // 文献搜索独立成菜单 —— 首页(/)是品牌首页,这里只负责检索工作区。
-    // SearchPage 内部有 last-search 持久化:无 query 时会自动恢复上次的
-    // 关键词 / 筛选 / 分页(scholay.last-search localStorage)。
     href: '/search',
     category: 'search',
-    match: startsWith('/search'),
-  },
-  {
-    id: 'journal-search',
-    label: '期刊搜索',
-    englishName: 'Journal Search',
-    description: '检索期刊 · 影响因子 · 分区',
-    icon: BookOpen,
-    href: '/journals/search',
-    category: 'search',
-    match: startsWith('/journals'),
+    match: (p) =>
+      startsWith('/search')(p) ||
+      startsWith('/journals')(p) ||
+      startsWith('/tools/datasets')(p) ||
+      startsWith('/tools/news')(p),
   },
 
   // ---------- 智能 ----------
@@ -110,21 +100,24 @@ export const MENUS: Menu[] = [
     label: '我的资源',
     englishName: 'My Resources',
     description: '文献集 · 期刊集 · 稿件集 · 文件夹',
-    icon: Folder,
+    icon: Database,
     href: '/library',
     category: 'resource',
     match: startsWith('/library'),
   },
   {
     id: 'tools',
-    label: 'Skills广场',
-    englishName: 'Skills Plaza',
-    description: '社区技能',
+    label: 'scholay广场',
+    englishName: 'Scholay Plaza',
+    description: '学术工具 · 学术skills · 学术prompts',
     icon: Compass,
-    href: '/tools/skills',
+    href: '/tools',
     category: 'resource',
-    // Skills 分段真源;功能广场(/tools)另有首页入口。高亮仍覆盖 /tools* 与 /skills*。
-    match: (p) => startsWith('/tools')(p) || startsWith('/skills')(p),
+    match: (p) =>
+      (startsWith('/tools')(p) &&
+        !startsWith('/tools/datasets')(p) &&
+        !startsWith('/tools/news')(p)) ||
+      startsWith('/skills')(p),
   },
   // 「学术资源」(/resources + /blog 学术资源中心)不进顶栏功能菜单 —— 它是内容/资源页,
   // 不是核心功能,入口放页脚(shared/components/Footer.tsx 的 BRAND_LINKS 已有「学术资源」)。

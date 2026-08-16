@@ -52,7 +52,7 @@ export function NewsDetailPage() {
   return (
     <>
       <RouteSEO
-        title={`${item.title} | Scholay 学术情报`}
+        title={`${item.title} | scholay 情报`}
         description={item.summary}
         keywords={[item.section_label, '学术情报', '学术新闻', 'Scholay'].filter(Boolean).join(',')}
         canonical={`/news/${item.slug}`}

@@ -31,7 +31,7 @@ import { BrandName } from './BrandName';
  *   /features/peer-review 同行评审 ─┘
  */
 const SOLUTION_LINKS: { label: string; to: string; desc: string }[] = [
-  { label: '文献搜索', to: '/features/search', desc: '全网检索文献与学者' },
+  { label: '学术搜索', to: '/features/search', desc: '全网检索文献与学者' },
   { label: '文件夹', to: '/features/library', desc: '收藏 / 分组 / 跨设备同步' },
   { label: '智能写作', to: '/features/prism', desc: '科研级 LaTeX 协作写作' },
   { label: '智能助手', to: '/features/claw', desc: '智能问答与对话' },

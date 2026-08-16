@@ -8,6 +8,11 @@ import {
   type MockPrismProject,
   type MockSubmission,
 } from "./database";
+import {
+  registerPrismManuscript,
+  registerUploadManuscript,
+  snapshotAssetSeed,
+} from "./manuscripts";
 
 type UnknownRecord = Record<string, unknown>;
 type AgentFeature = "smart-search" | "claw" | "boltslides" | "sci_draw";
@@ -561,7 +566,24 @@ function defaultSubmissionAssets(submissionId: number): MockSubmissionAsset[] {
 function assetsForSubmission(submissionId: number): MockSubmissionAsset[] {
   const existing = submissionAssets.get(submissionId);
   if (existing) return existing;
-  const seeded = defaultSubmissionAssets(submissionId);
+  // Prism「送审」建轮时新建的 Submission:稿件资产按绑定的版本快照懒播种,
+  // 让 wizard 落在 step 2 时"稿件已附带"、无需再上传。
+  const snapshot = snapshotAssetSeed(submissionId);
+  const seeded = snapshot
+    ? [
+        {
+          id: 3000 + submissionId,
+          submissionId,
+          role: "manuscript" as const,
+          filename: `${snapshot.manuscriptTitle}-v${snapshot.versionNo}.pdf`,
+          size: 1_864_000,
+          mime: "application/pdf",
+          sha256: `mock-snapshot-${submissionId}`,
+          textChars: 38_600,
+          createdAt: snapshot.createdAt,
+        },
+      ]
+    : defaultSubmissionAssets(submissionId);
   submissionAssets.set(submissionId, seeded);
   return seeded;
 }
@@ -928,7 +950,7 @@ function streamSse(slot: string): Response {
 }
 
 const featureLabels: Record<AgentFeature, string> = {
-  "smart-search": "智能搜索",
+  "smart-search": "智能搜论文",
   claw: "智能助手",
   boltslides: "制作 PPT",
   sci_draw: "科研绘图",
@@ -1871,6 +1893,8 @@ async function handlePrismMock(
       updateMockDatabase((mutable) => {
         mutable.prismProjects.unshift(created);
       });
+      // 身份自动登记:新建写作项目 → origin=prism 稿件入「写作中」稿件集。
+      registerPrismManuscript({ id, title });
       defaultStructs.set(id, createDocumentStruct(created));
       return success({
         project: prismProjectView(created),
@@ -2802,6 +2826,9 @@ async function handlePeerReviewMock(
         );
         if (oldIndex >= 0) current.splice(oldIndex, 1, created);
         else current.unshift(created);
+        // 身份自动登记:独立上传主稿 → origin=upload 稿件入「审稿上传」稿件集
+        // (已被 Prism 送审轮绑定的投稿在函数内部 no-op)。
+        registerUploadManuscript(submission, created.filename);
       } else {
         current.push(created);
       }
@@ -3130,6 +3157,7 @@ async function handleAgentMock(
       return apiError(404, "会话不存在");
     }
     const items = artifactsForFeature(feature).map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       ({ content: _content, ...item }) => item,
     );
     return success({ items, total: items.length });

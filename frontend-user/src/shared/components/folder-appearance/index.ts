@@ -1,3 +1,4 @@
+export { FolderAppearanceFields } from './FolderAppearanceFields';
 export { FolderIconPicker } from './FolderIconPicker';
 export {
   FOLDER_COLOR_OPTIONS,

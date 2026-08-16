@@ -1,16 +1,13 @@
 import { useSearchParams } from 'react-router-dom';
 import { Inbox } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
-import { SidebarLayout } from '@/shared/components/sidebar';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
-import { JournalSidebar } from '../components/JournalSidebar';
 import { JournalSearchResults } from '../components/JournalSearchResults';
 import { useJournalUrlFilters } from '../hooks/useJournalUrlFilters';
 
 /**
  * 期刊搜索路由 `/journals/search`:
- *   左侧:JournalSidebar(文献集快捷)
- *   右侧:JournalSearchResults(搜索条 + 列表 + 主区悬浮筛选,对齐文献搜索)
+ *   空态:居中搜索框;有结果后左侧常驻筛选栏 + 右侧列表。
  *
  * **state 全部 URL-backed**(useJournalUrlFilters + JournalSearchResults 内部
  * 的 q/page/sort)。
@@ -39,7 +36,7 @@ export function JournalSearchPage() {
     : '/journals/search';
 
   return (
-    <SidebarLayout sidebar={<JournalSidebar />}>
+    <>
       <RouteSEO
         title={seoTitle}
         description={seoDesc}
@@ -47,7 +44,7 @@ export function JournalSearchPage() {
         canonical={seoCanonical}
       />
       <JournalSearchResults filters={filters} onFiltersChange={setFilters} />
-    </SidebarLayout>
+    </>
   );
 }
 

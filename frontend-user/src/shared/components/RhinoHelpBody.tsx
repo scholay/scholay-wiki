@@ -26,7 +26,7 @@ const TIPS = [
     icon: LayoutGrid,
     menuLabel: '功能',
     title: '功能',
-    body: '打开快捷入口：文献搜索、智能助手、写作、审稿等一键直达。',
+    body: '打开快捷入口：学术搜索、智能助手、写作、审稿等一键直达。',
   },
   {
     id: 'chat',

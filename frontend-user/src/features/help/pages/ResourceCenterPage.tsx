@@ -94,7 +94,7 @@ function BlogTab() {
             className={cn(
               'inline-flex items-center h-7 px-3 rounded-pill text-12 font-medium transition-colors',
               cat === c.id
-                ? 'bg-foreground text-on-dark'
+                ? 'bg-inverse text-on-inverse'
                 : 'bg-surface-1 text-muted-foreground hover:bg-surface-2 hover:text-foreground'
             )}
           >

@@ -15,7 +15,7 @@ import {
 } from '@/shared/ui/dropdown-menu';
 import { IconButton } from '@/shared/components/IconButton';
 import { NotificationBell } from '@/shared/components/NotificationBell';
-import { RhinoDockChip } from '@/shared/components/RhinoDockChip';
+import { RhinoNavChip } from '@/shared/components/RhinoNavChip';
 import { PromoNavButton } from './PromoNavButton';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenuContent } from '@/shared/components/UserMenuContent';
@@ -25,7 +25,7 @@ import { cn } from '@/shared/lib/utils';
 /**
  * 顶部导航右段:通知 + 用户头像 / 登录注册 CTA + 日夜间切换。
  *
- * 反馈 / 通知：小犀牛收纳时留在顶栏；放出后改挂在犀牛 hover 工具栏。
+ * 反馈 / 通知：小犀牛收纳到右缘时留在顶栏；放出后改挂在犀牛 hover 工具栏。
  */
 export function UserSection() {
   // 登录与否只看 token(authenticated);user 仅用于展示身份,已登录但 profile 未到时为 null。
@@ -54,8 +54,9 @@ export function UserSection() {
         </>
       )}
 
-      {/* 小犀牛收纳后停在头像旁，点击放出 */}
-      <RhinoDockChip />
+      {/* 「隐藏」的落点:牛犀犀 chip(仅 hideKind === 'nav' 时自渲染)。
+          hover 出浮点态同款菜单,点击释放。 */}
+      <RhinoNavChip />
 
       {!authenticated ? (
         <div className="flex items-center gap-1">

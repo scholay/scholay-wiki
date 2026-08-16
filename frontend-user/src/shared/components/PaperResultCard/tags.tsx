@@ -114,7 +114,7 @@ export function pickTags(
     tags.push({ key: 'warn', label: '⚠ 预警期刊', tone: 'alert' });
   }
 
-  // OA 状态由标题旁的 "OA PDF" 跳转按钮表达,此处不再 chip
+  // OA 状态由操作行的 PDF 跳转按钮表达,此处不再 chip
   if ((p.citationCount ?? 0) >= 100) {
     tags.push({
       key: 'hot',

@@ -189,6 +189,61 @@ export function useRemoveRemotePaper() {
   });
 }
 
+function orderRemotePapers(
+  papers: RemoteStagingPaper[],
+  orderedIds: string[],
+): RemoteStagingPaper[] {
+  const byId = new Map(papers.map((p) => [p.source_paper_id, p]));
+  const next: RemoteStagingPaper[] = [];
+  const seen = new Set<string>();
+  for (const [index, id] of orderedIds.entries()) {
+    const paper = byId.get(id);
+    if (!paper || seen.has(id)) continue;
+    next.push({ ...paper, position: index });
+    seen.add(id);
+  }
+  for (const paper of papers) {
+    if (!seen.has(paper.source_paper_id)) {
+      next.push({ ...paper, position: next.length });
+    }
+  }
+  return next;
+}
+
+export function useReorderRemotePapers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { areaId: number; paperIds: string[] }) => {
+      try {
+        await http.patch(`/user/staging-areas/${vars.areaId}/papers/reorder`, {
+          paper_ids: vars.paperIds,
+        });
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+    onMutate: async (vars) => {
+      await qc.cancelQueries({ queryKey: stagingAreasKey });
+      const prev = qc.getQueryData<RemoteStagingArea[]>(stagingAreasKey);
+      qc.setQueryData<RemoteStagingArea[]>(stagingAreasKey, (areas) =>
+        (areas ?? []).map((area) =>
+          area.id === vars.areaId
+            ? {
+                ...area,
+                papers: orderRemotePapers(area.papers ?? [], vars.paperIds),
+              }
+            : area,
+        ),
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(stagingAreasKey, ctx.prev);
+    },
+    onSettled: () => invalidate(qc),
+  });
+}
+
 /**
  * 一次性清空 area 内全部论文(保留 area 本身) —— 走后端 batch endpoint,
  * 避免前端循环 N 个 DELETE。仅在登录态使用。

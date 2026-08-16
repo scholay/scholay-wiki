@@ -124,6 +124,8 @@ export function resolveFolderColor(colorId: string | undefined) {
   return FOLDER_COLOR_OPTIONS[0]!;
 }
 
-export function folderIconStorageKey(folderKey: 'staging' | number): string {
-  return folderKey === 'staging' ? 'staging' : String(folderKey);
+export function folderIconStorageKey(
+  folderKey: 'staging' | number | string,
+): string {
+  return String(folderKey);
 }

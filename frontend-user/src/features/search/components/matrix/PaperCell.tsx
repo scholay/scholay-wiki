@@ -1,8 +1,14 @@
-import { memo } from 'react';
-import { X } from 'lucide-react';
+import { memo, type ButtonHTMLAttributes } from 'react';
+import { GripVertical, MessageSquare, X } from 'lucide-react';
 import { TruncatedText } from '@/shared/components/TruncatedText';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
-import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
+import { Checkbox } from '@/shared/ui/checkbox';
+import { PaperPdfChip } from '@/shared/components/PaperPdfChip';
+import {
+  useOpenPaperDetail,
+  useOpenPdfChat,
+} from '@/shared/hooks/useOpenInSearchPanel';
+import { usePaperReadablePdf } from '@/shared/hooks/usePaperReadablePdf';
 import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
 import { cn } from '@/shared/lib/utils';
 import type { Paper } from '@/shared/api/types';
@@ -28,8 +34,20 @@ interface Props {
   onRemove?: (paperId: string) => void;
   /** 工作区当前选中(供 PDF Chat 等预览) */
   isWorkspaceSelected?: boolean;
+  /** 点卡片选中(标题仍打开详情) */
+  onSelect?: (paperId: string) => void;
   /** 侧栏窄列布局 */
   compact?: boolean;
+  /** PDF Chat / 文献图谱下显示勾选 */
+  showCheckbox?: boolean;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  /** @deprecated PDF / Chat 已常驻右侧，保留以免旧调用方报错 */
+  showPdfStatus?: boolean;
+  /** 矩阵分析下,勾选框同一位置显示拖拽手柄 */
+  showDragHandle?: boolean;
+  dragHandleListeners?: ButtonHTMLAttributes<HTMLButtonElement>;
+  dragHandleAttributes?: ButtonHTMLAttributes<HTMLButtonElement>;
 }
 
 function PaperCellImpl({
@@ -37,12 +55,22 @@ function PaperCellImpl({
   isFavorited,
   onRemove,
   isWorkspaceSelected,
+  onSelect,
   compact,
+  showCheckbox,
+  checked,
+  onCheckedChange,
+  showDragHandle,
+  dragHandleListeners,
+  dragHandleAttributes,
 }: Props) {
   const openPaperDetail = useOpenPaperDetail();
+  const openPdfChat = useOpenPdfChat();
+  const { libRow, hasPdf } = usePaperReadablePdf(paper);
   const isDetailSelected = useSearchRightPanelStore((s) =>
     s.isActivePaper(paper.paperId),
   );
+  const isLit = !!isWorkspaceSelected;
   // hover-only 状态:移除 / "未收藏时的收藏按钮" 都用这个 class
   // 已收藏的 BookmarkCheck 是状态标识,需要常驻显示,不应用 hover gate
   const hoverActionClass =
@@ -50,16 +78,50 @@ function PaperCellImpl({
 
   return (
     <div
+      onClick={onSelect ? () => onSelect(paper.paperId) : undefined}
       className={cn(
-        'relative flex min-w-0 flex-col overflow-hidden border-l-[3px] transition-colors',
-        compact ? 'gap-1 px-3 py-2.5' : 'gap-2 px-3 py-3.5',
-        isWorkspaceSelected
+        'relative flex min-w-0 items-start overflow-hidden border-l-[3px] transition-colors',
+        compact ? 'gap-2 px-3 py-2.5' : 'gap-2.5 px-3 py-3.5',
+        onSelect && 'cursor-pointer',
+        isLit
           ? 'border-l-brand-red bg-brand-red/5'
-          : 'border-l-transparent group-hover/row:border-l-brand-red',
+          : 'border-l-transparent',
       )}
     >
+      {showCheckbox ? (
+        <Checkbox
+          checked={!!checked}
+          onCheckedChange={(next) => {
+            if (next === 'indeterminate') return;
+            onCheckedChange?.(next);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={checked ? '取消选择这篇文献' : '选择这篇文献'}
+          title={checked ? '取消选择这篇文献' : '选择这篇文献'}
+          className="mt-1 shrink-0"
+        />
+      ) : showDragHandle ? (
+        <button
+          type="button"
+          {...dragHandleAttributes}
+          {...dragHandleListeners}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="拖动调整文献顺序"
+          title="按住拖动以重新排序"
+          className="mt-1 inline-flex size-4 shrink-0 cursor-grab touch-none items-center justify-center text-faint hover:text-foreground active:cursor-grabbing"
+        >
+          <GripVertical className="size-3.5" strokeWidth={2} />
+        </button>
+      ) : null}
+
+      <div
+        className={cn(
+          'relative flex min-w-0 flex-1 flex-col',
+          compact ? 'gap-1' : 'gap-2',
+        )}
+      >
       {/* 操作区 —— 容器常驻,**每个按钮独立决定 hover 可见性** */}
-      <div className="absolute right-2 top-2 flex items-center gap-0.5">
+      <div className="absolute right-0 top-0 flex items-center gap-0.5">
         {/* 收藏按钮 —— icon 变体,size=sm 与 matrix 单元格密度一致。
             未收藏时 hover 才显;已收藏 brand-red 常驻作状态标识 */}
         <FavoritePaperButton
@@ -102,7 +164,7 @@ function PaperCellImpl({
             compact
               ? 'text-xs font-bold leading-snug'
               : 'text-15 font-bold leading-snug pr-16',
-            isDetailSelected || isWorkspaceSelected
+            isDetailSelected || isLit
               ? 'text-brand-red'
               : 'text-foreground hover:text-brand-red',
           )}
@@ -129,6 +191,32 @@ function PaperCellImpl({
       ) : (
         <p className="text-xs text-faint italic">无摘要</p>
       )}
+      </div>
+
+      <div className="mt-0.5 flex w-20 shrink-0 flex-col gap-1">
+        <PaperPdfChip paper={paper} libRow={libRow} layout="rail" />
+        <button
+          type="button"
+          disabled={!hasPdf}
+          title={
+            hasPdf ? '用这篇 PDF 开始对话' : '没有可用 PDF，无法开始对话'
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!hasPdf) return;
+            openPdfChat({ paperId: paper.paperId });
+          }}
+          className={cn(
+            'inline-flex h-7 w-full items-center justify-center gap-1 rounded-8 border px-1.5 text-12 font-medium transition-colors',
+            hasPdf
+              ? 'border-border bg-background text-foreground hover:bg-surface-1'
+              : 'cursor-not-allowed border-border bg-surface-1 text-faint',
+          )}
+        >
+          <MessageSquare className="size-3.5 shrink-0" strokeWidth={2} />
+          Chat
+        </button>
+      </div>
     </div>
   );
 }

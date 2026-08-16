@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
 import { SidebarSection } from '@/shared/components/sidebar';
 import { LeaveToLibraryLink } from '@/shared/components/LeaveToLibraryLink';
-import { useSidebar } from '@/stores/sidebar.store';
 import { useStageFly } from '@/stores/stage-fly.store';
 import { StagingTabs } from '../StagingTabs';
 import { WorkspaceFolderTree } from './WorkspaceFolderTree';
@@ -19,8 +18,7 @@ interface WorkspacePanelProps {
  */
 export function WorkspacePanel({ variant = 'sidebar' }: WorkspacePanelProps) {
   const isSidebar = variant === 'sidebar';
-  const sidebarExpanded = useSidebar((s) => s.expanded);
-  const rail = isSidebar && !sidebarExpanded;
+  const rail = false;
   const sectionRef = useRef<HTMLDivElement>(null);
   const setWorkspaceTarget = useStageFly((s) => s.setWorkspaceTarget);
 

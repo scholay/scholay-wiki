@@ -31,9 +31,9 @@ interface Shortcut {
 
 // 单个功能入口(复用,组成各主题预设)
 const SC = {
-  search: { to: '/search', icon: Search, title: '文献搜索', desc: '多源并行 + AI 智能检索' },
+  search: { to: '/search', icon: Search, title: '学术搜索', desc: '多源并行 + AI 智能检索' },
   library: { to: '/library', icon: FolderOpen, title: '我的文件夹', desc: '收藏 / 分组 / PDF 管理' },
-  journals: { to: '/journals', icon: BookOpen, title: '期刊搜索', desc: '检索 + IF / 分区 / 收录' },
+  journals: { to: '/journals/search', icon: BookOpen, title: '期刊库查询', desc: '检索 + IF / 分区 / 收录' },
   claw: { to: '/claw', icon: RhinoBrandIcon, title: '智能助手', desc: 'AI 学术对话与调研' },
   prism: { to: '/prism', icon: PenLine, title: '智能写作 Prism', desc: 'AI-native LaTeX 写作' },
   review: { to: '/peer-review', icon: ClipboardCheck, title: 'AI 审稿', desc: '投稿前多维度预审' },

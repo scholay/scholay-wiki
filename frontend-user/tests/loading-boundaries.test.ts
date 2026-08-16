@@ -50,6 +50,7 @@ describe('route and overlay loading boundaries', () => {
     expect(app).toContain('!routerInitialized && <RouteFallback full />');
     const lazyRouteSource = readSource('src/shared/components/LazyRoute.tsx');
     expect(lazyRouteSource).toContain('export function RouteFallback');
+    expect(lazyRouteSource).toContain('<RhinoRunLoader');
     expect(lazyRouteSource).not.toMatch(/<(?:[A-Z][A-Za-z]+Icon|img)\b/);
     expect(app.match(/<ErrorBoundary fallback=\{\(\) => null\}>/g)).toHaveLength(3);
   });

@@ -16,35 +16,39 @@ import {
   Loader2,
   LogIn,
   Lock,
-  Search,
+  Plus,
   Share2,
   UserPlus,
-  X,
 } from 'lucide-react';
+import { FeatureHub } from '@/app/layouts/FeatureHub';
 import { RouteSEO } from '@/shared/components/RouteSEO';
-import { SidebarLayout } from '@/shared/components/sidebar';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { useFolderAppearance } from '@/shared/components/folder-appearance';
 import { Button } from '@/shared/ui/button';
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/shared/ui/hover-card';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/ui';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import {
-  useDebounce,
   useLocalStorage,
   useMediaQuery,
   useScrollRestoration,
   useUrlState,
 } from '@/shared/hooks';
 import {
-  LIBRARY_STAGING_FOLDER_PARAM,
-  LibrarySidebar,
-} from '../components/LibrarySidebar';
+  libraryFolderMetaKey,
+  sortLibraryFolders,
+  useLibraryFolderMeta,
+} from '@/stores/library-folder-meta.store';
+import { LIBRARY_STAGING_FOLDER_PARAM } from '../components/LibrarySidebar';
 import { ResourceCollectionView } from '../components/ResourceCollectionView';
+import { ManuscriptCollectionView } from '../components/ManuscriptCollectionView';
+import { useManuscriptCollections } from '@/shared/api/manuscripts';
 import { LibraryPaperList } from '../components/LibraryPaperList';
 import {
   collectionsForSection,
@@ -69,6 +73,7 @@ import { STAGING_FOLDER_LABEL } from '@/stores/workspace-folder.store';
 import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
 import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
 import { RightPanelFeatureHub } from '@/features/search/components/workspace/RightPanelFeatureHub';
+import { FILE_COL_DEFAULT_PX } from '@/features/search/components/workspace/ColumnResizeHandle';
 import { cn } from '@/shared/lib/utils';
 import type { Paper } from '@/shared/api/types';
 
@@ -96,15 +101,26 @@ const PaperWorkbenchDialog = lazy(() =>
  *
  *   左:LibrarySidebar
  *   中:列表主区
- *   右:assistant 拓展区(论文/作者/期刊/PDF 详情;无矩阵/图谱)
+ *   右:仅文献集挂 assistant 拓展区 + 工作区(论文/作者/期刊/PDF 详情);
+ *      期刊集 / 稿件集 / 资源集只要列表,不挂扩展区也不挂工作区。
  */
 export function LibraryPage() {
+  const [params] = useSearchParams();
+  if (!params.get('section')) {
+    return <FeatureHub featureId="library" />;
+  }
+  return <LibraryWorkspace />;
+}
+
+function LibraryWorkspace() {
   const token = useAuthStore((s) => s.token);
   const [params] = useSearchParams();
   const section = parseResourceSection(params.get('section'));
+  const isPapers = section === 'papers';
   const isNarrow = useMediaQuery('(max-width: 1024px)');
 
   const activePanel = useSearchRightPanelStore((s) => s.activePanel);
+  const fileAreaOpen = useSearchRightPanelStore((s) => s.fileAreaOpen);
   const openPanel = useSearchRightPanelStore((s) => s.openPanel);
   const setEmbedMode = useSearchRightPanelStore((s) => s.setEmbedMode);
   const resetPanel = useSearchRightPanelStore((s) => s.reset);
@@ -119,6 +135,11 @@ export function LibraryPage() {
   ]);
 
   useEffect(() => {
+    if (!isPapers) {
+      setEmbedMode(false);
+      resetPanel();
+      return;
+    }
     setEmbedMode(true);
     const ap = useSearchRightPanelStore.getState().activePanel;
     if (ap?.group === 'function') {
@@ -128,20 +149,26 @@ export function LibraryPage() {
       setEmbedMode(false);
       resetPanel();
     };
-  }, [setEmbedMode, resetPanel]);
+  }, [isPapers, setEmbedMode, resetPanel]);
 
   useEffect(() => {
-    openPanel();
-  }, [openPanel]);
+    if (isPapers) openPanel();
+  }, [isPapers, openPanel]);
 
-  const showRightPanel = !!token && !isNarrow;
-  const showFeatureHubDock = showRightPanel && !activePanel;
-  const showExpandedRight = showRightPanel && !!activePanel;
+  const showRightPanel = isPapers && !!token && !isNarrow;
+  const expansionOpen = Boolean(activePanel);
+  const showRightChrome = showRightPanel && (expansionOpen || fileAreaOpen);
+  const showFeatureHubDock = showRightPanel && !showRightChrome;
+  const fileOnly = fileAreaOpen && !expansionOpen;
 
   // 列表列宽可拖:展开拓展区时中线分配比例,记忆到 localStorage
   const [listWidth, setListWidth] = useLocalStorage<number>(
     'library.list-width',
     LIST_DEFAULT_PX,
+  );
+  const [fileColWidth, setFileColWidth] = useLocalStorage<number>(
+    'library.file-col-width',
+    FILE_COL_DEFAULT_PX,
   );
   const draggingRef = useRef(false);
   const startDrag = useCallback(
@@ -173,13 +200,13 @@ export function LibraryPage() {
   );
 
   return (
-    <SidebarLayout sidebar={<LibrarySidebar />}>
-      <div className="relative flex h-full min-h-0 bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="relative flex min-h-0 flex-1 bg-background">
         <div
-          style={showExpandedRight ? { width: listWidth } : undefined}
+          style={showRightChrome && !fileOnly ? { width: listWidth } : undefined}
           className={cn(
             'flex h-full min-h-0 flex-col bg-background',
-            showExpandedRight ? 'shrink-0' : 'min-w-0 flex-1',
+            showRightChrome && !fileOnly ? 'shrink-0' : 'min-w-0 flex-1',
           )}
         >
           <div className="min-h-0 min-w-0 flex-1 overflow-auto">
@@ -187,6 +214,8 @@ export function LibraryPage() {
               <LibraryLoginPrompt />
             ) : section === 'papers' ? (
               <LibraryFolderView />
+            ) : section === 'manuscripts' ? (
+              <ManuscriptSectionView />
             ) : (
               <LibraryMockSectionView section={section} />
             )}
@@ -195,20 +224,34 @@ export function LibraryPage() {
 
         {showFeatureHubDock && <RightPanelFeatureHub variant="assistant" />}
 
-        {showExpandedRight && (
+        {showRightChrome && (
           <>
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="拖动调整列表与拓展区宽度"
-              onPointerDown={startDrag}
-              className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
-            >
-              <span className="absolute inset-y-0 -left-1 -right-1" />
-            </div>
+            {!fileOnly ? (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="拖动调整列表与拓展区宽度"
+                onPointerDown={startDrag}
+                className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
+              >
+                <span className="absolute inset-y-0 -left-1 -right-1" />
+              </div>
+            ) : null}
 
-            <div className="h-full min-h-0 min-w-0 flex-1 overflow-x-auto">
-              <div style={{ minWidth: RIGHT_MIN_PX }} className="h-full">
+            <div
+              className={cn(
+                'h-full min-h-0',
+                expansionOpen
+                  ? 'min-w-0 flex-1 overflow-x-auto'
+                  : 'ml-auto shrink-0',
+              )}
+              style={
+                expansionOpen
+                  ? { minWidth: RIGHT_MIN_PX }
+                  : { width: fileColWidth }
+              }
+            >
+              <div className="h-full w-full min-w-0">
                 <Suspense
                   fallback={
                     <div className="flex h-full items-center justify-center text-faint">
@@ -216,14 +259,54 @@ export function LibraryPage() {
                     </div>
                   }
                 >
-                  <SearchRightPanel variant="assistant" />
+                  <SearchRightPanel
+                    variant="assistant"
+                    fileColWidth={fileColWidth}
+                    onFileColWidthChange={setFileColWidth}
+                  />
                 </Suspense>
               </div>
             </div>
           </>
         )}
       </div>
-    </SidebarLayout>
+    </div>
+  );
+}
+
+/**
+ * 稿件集 section —— 接稿件共享资源层的真数据(集合来自 API,不再用静态 mock)。
+ * URL `?folder=<collectionId>` 与默认集合回落逻辑与 LibraryMockSectionView 同构。
+ */
+function ManuscriptSectionView() {
+  const [params, setParams] = useSearchParams();
+  const collectionsQ = useManuscriptCollections();
+  const collections = collectionsQ.data ?? [];
+  const folderParam = params.get('folder') ?? '';
+  const collection =
+    collections.find((c) => c.id === folderParam) ??
+    collections.find((c) => c.isDefault) ??
+    collections[0] ??
+    null;
+
+  useEffect(() => {
+    if (!collection) return;
+    if (folderParam === collection.id) return;
+    setParams(
+      (p) => {
+        p.set('section', 'manuscripts');
+        p.set('folder', collection.id);
+        return p;
+      },
+      { replace: true },
+    );
+  }, [collection, folderParam, setParams]);
+
+  return (
+    <ManuscriptCollectionView
+      collection={collection}
+      loading={collectionsQ.isLoading}
+    />
   );
 }
 
@@ -306,37 +389,15 @@ function LibraryFolderView() {
   const stagingPapers = activeArea?.papers ?? [];
 
   // ─── URL-backed state ────────────────────────────────────────────────
-  // 所有 filter / 分页 / 排序 / 搜索词都进 URL。这样浏览器后退能完整回到原状,
-  // 也能复制链接给同事看同一视图。切文件夹 by LibrarySidebar.setActive 已经
-  // 重置 URL 到 `?folder=X`(丢掉其他 param),所以"切文件夹 → 清搜索回 1 页"
-  // 这条心智在 URL 层面自动满足,这里不再手动 useEffect。
-  const [query, setQuery] = useUrlState('q', '');
-  const debouncedQuery = useDebounce(query, 300);
+  // 分页 / 排序进 URL。切文件夹会改 `?folder=`,页码在 setter 里回 1。
   const [page, setPageRaw] = useUrlState('page', 1, Number);
   const [pageSize, setPageSizeRaw] = useUrlState('size', 20, Number);
-  const [sortOrder, setSortOrderRaw] = useUrlState<LibrarySortOrder>(
+  const [sortOrder] = useUrlState<LibrarySortOrder>(
     'sort',
     'asc',
     (s) => (s === 'desc' ? 'desc' : 'asc')
   );
 
-  // 搜索词 / 排序 / 页大小变化时回 1 页(URL state 不能像 useEffect 反应链路,
-  // 在 setter 里显式调一次)。注意只在用户主动改这些值时回 1 页,而不是 URL
-  // 因为返回导航被还原的情况(那时 page 已经从 URL 拿到正确值,不应被覆盖)。
-  const setQueryAndReset = useCallback(
-    (v: string) => {
-      setQuery(v);
-      setPageRaw(1);
-    },
-    [setQuery, setPageRaw]
-  );
-  const setSortOrder = useCallback(
-    (v: LibrarySortOrder) => {
-      setSortOrderRaw(v);
-      setPageRaw(1);
-    },
-    [setSortOrderRaw, setPageRaw]
-  );
   const setPageSize = useCallback(
     (v: number) => {
       setPageSizeRaw(v);
@@ -377,6 +438,19 @@ function LibraryFolderView() {
   const openImport = useCallback(
     (t: ImportTab) => openWorkbench({ mode: 'add', tab: t }),
     [openWorkbench]
+  );
+  const goFolder = useCallback(
+    (folderId: number) => {
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('section', 'papers');
+        next.set('folder', String(folderId));
+        next.delete('page');
+        next.delete('q');
+        return next;
+      });
+    },
+    [setParams],
   );
   useEffect(
     () => () => {
@@ -457,10 +531,9 @@ function LibraryFolderView() {
     ? stagingPapers.length
     : (currentFolder?.paper_count ?? 0);
 
-  // 论文数据 + 选择状态都提升到此处,这样外层 header 才能在 selection 模式下
-  // 渲染左对齐的 BulkToolbar(替换面包屑/搜索/导入区)
+  // 论文数据 + 选择状态都提升到此处,这样底栏才能在 selection 模式下
+  // 渲染 BulkToolbar(替换搜索/导入区)
   const papersQ = useLibraryPapers(filter, {
-    q: debouncedQuery,
     page,
     pageSize,
     order: sortOrder,
@@ -502,9 +575,7 @@ function LibraryFolderView() {
           noindex
         />
         <header className="flex h-15 shrink-0 items-center gap-2 border-b border-border bg-background px-10">
-          <span className="text-base text-muted-foreground">文献集</span>
-          <span className="text-base text-faint">/</span>
-          <span className="text-base font-bold text-foreground">
+          <span className="text-14 font-medium text-foreground">
             {STAGING_FOLDER_LABEL}
           </span>
           <span className="inline-flex items-center rounded-sm bg-surface-2 px-1.5 py-px text-xs font-semibold tabular-nums text-muted-foreground">
@@ -536,18 +607,27 @@ function LibraryFolderView() {
         noindex
       />
 
-      {/*
-       * 外层 Toolbar —— 对照 .pen `EIVJm`(h-60 px-40 gap-20)
-       *
-       * **两种模式**:
-       *   - 默认:面包屑 + 搜索框 + 导入按钮(右对齐)
-       *   - 选中 ≥1 项:整条替换成 LibraryBulkToolbar(左对齐),其余隐藏
-       *     —— 与设计稿"批量操作居顶,统一收纳到工具栏区域"心智一致
-       */}
+      {/* 统一工作台弹窗 —— 「添加」语境(在线搜索 / 本地上传 / Zotero / EndNote)
+          + 深链打开的「管理」语境共用。open 由 workbenchOpen 控制(先关再卸,见上),
+          workbenchSeq 作 key 保证重开拿到新 initial。 */}
+      {workbench && (
+        <Suspense fallback={null}>
+          <PaperWorkbenchDialog
+            key={workbenchSeq}
+            open={workbenchOpen}
+            onOpenChange={(v) => !v && closeImport()}
+            initial={workbench}
+            currentFilter={filter}
+            currentFolderName={title}
+          />
+        </Suspense>
+      )}
+
       <header
         className={cn(
-          'flex items-center h-15 px-10 bg-background border-b border-border shrink-0',
-          selection.someSelected ? 'justify-start gap-3' : 'justify-end gap-5'
+          '@container flex h-15 shrink-0 items-center border-b border-border bg-background',
+          'px-4 @3xl:px-6 @5xl:px-10',
+          selection.someSelected ? 'justify-start gap-2' : 'justify-between gap-2',
         )}
       >
         {selection.someSelected ? (
@@ -563,15 +643,15 @@ function LibraryFolderView() {
           />
         ) : (
           <>
-            {/* 面包屑 + 篇数 chip(无返回按钮 —— 本就是顶级页面) */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-base text-muted-foreground">文献集</span>
-              <span className="text-base text-faint">/</span>
-              <span className="text-base font-bold text-foreground">{title}</span>
-              <span className="inline-flex items-center px-1.5 py-px rounded-sm bg-surface-2 text-xs font-semibold text-muted-foreground tabular-nums">
-                {count.toLocaleString()} 篇
-              </span>
-              {currentFolder && count > 0 && (
+            <LibraryFolderSwitcher
+              folders={folders}
+              currentId={currentFolder?.id ?? null}
+              currentLabel={title}
+              onSelect={goFolder}
+            />
+            <div className="flex shrink-0 items-center gap-2">
+              <LibraryImportMenu onImport={openImport} />
+              {currentFolder && count > 0 ? (
                 <button
                   type="button"
                   onClick={() =>
@@ -590,125 +670,18 @@ function LibraryFolderView() {
                         .filter((p) => p.title),
                     })
                   }
-                  className="inline-flex items-center gap-1 h-7 px-2 rounded-sm text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
+                  className="inline-flex h-8 shrink-0 items-center gap-1 rounded-8 px-2 text-14 font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground"
                 >
-                  <Share2 className="size-3.5" /> 分享
-                </button>
-              )}
-            </div>
-
-            {/* 搜索框 —— 受控输入,300ms debounce 后给 LibraryPaperList
-                响应式:flex-1 自然铺满中段,最小 240px(再窄按钮组开始压缩),最大 480px */}
-            <div
-              className={cn(
-                'flex items-center gap-2 flex-1 min-w-[240px] max-w-[480px] h-[38px] px-3 rounded-md bg-surface-1 border border-border-strong',
-                'focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring/20 transition-colors'
-              )}
-            >
-              <Search className="size-3.5 text-muted-foreground shrink-0" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQueryAndReset(e.target.value)}
-                placeholder={`在「${title}」中搜索…`}
-                maxLength={64}
-                className="flex-1 min-w-0 h-full bg-transparent text-base outline-none placeholder:text-faint"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQueryAndReset('')}
-                  aria-label="清空搜索"
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
-                >
-                  <X className="size-3" />
+                  <Share2 className="size-3.5" />
+                  分享
                 </button>
               ) : null}
-            </div>
-
-            {/* 加入按钮组 —— 响应式
-                ≥xl(1280px):全部按钮平铺
-                <xl:折叠成单个「更多 ▾」hover dropdown
-                所有按钮都打开同一个统一工作台 PaperWorkbenchDialog,仅初始 tab 不同 */}
-            <div className="hidden xl:flex items-center gap-2 shrink-0">
-              <ToolbarButton
-                label="+ 在线搜索加入"
-                onClick={() => openImport('search')}
-              />
-              <ToolbarButton
-                label="↑ 上传 PDF"
-                onClick={() => openImport('pdf')}
-              />
-              <ComingSoonWrap>
-                <ToolbarButton
-                  label="从 Zotero 导入"
-                  onClick={() => openImport('zotero')}
-                />
-              </ComingSoonWrap>
-              <ComingSoonWrap>
-                <ToolbarButton
-                  label="从 EndNote…"
-                  onClick={() => openImport('endnote')}
-                />
-              </ComingSoonWrap>
-            </div>
-
-            {/* 收起态:仅一个「更多 ▾」按钮,hover 弹出所有导入入口
-                openDelay 短一点(80ms),closeDelay 久一点(180ms)避免鼠标抖动误关 */}
-            <div className="flex xl:hidden items-center shrink-0">
-              <HoverCard openDelay={80} closeDelay={180}>
-                <HoverCardTrigger asChild>
-                  <ToolbarButton label="更多" trailingIcon />
-                </HoverCardTrigger>
-                <HoverCardContent
-                  align="end"
-                  sideOffset={6}
-                  className="w-[200px] p-1.5"
-                >
-                  <div className="flex flex-col gap-1">
-                    <CollapsedItem
-                      label="+ 在线搜索加入"
-                      onClick={() => openImport('search')}
-                    />
-                    <CollapsedItem
-                      label="↑ 上传 PDF"
-                      onClick={() => openImport('pdf')}
-                    />
-                    <CollapsedItem
-                      label="从 Zotero 导入"
-                      badge="即将推出"
-                      onClick={() => openImport('zotero')}
-                    />
-                    <CollapsedItem
-                      label="从 EndNote…"
-                      badge="即将推出"
-                      onClick={() => openImport('endnote')}
-                    />
-                  </div>
-                </HoverCardContent>
-              </HoverCard>
             </div>
           </>
         )}
       </header>
 
-      {/* 统一工作台弹窗 —— 「添加」语境(在线搜索 / 本地上传 / Zotero / EndNote)
-          + 深链打开的「管理」语境共用。open 由 workbenchOpen 控制(先关再卸,见上),
-          workbenchSeq 作 key 保证重开拿到新 initial。 */}
-      {workbench && (
-        <Suspense fallback={null}>
-          <PaperWorkbenchDialog
-            key={workbenchSeq}
-            open={workbenchOpen}
-            onOpenChange={(v) => !v && closeImport()}
-            initial={workbench}
-            currentFilter={filter}
-            currentFolderName={title}
-          />
-        </Suspense>
-      )}
-
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <LibraryPaperList
           papers={papers}
           filter={filter}
@@ -720,8 +693,6 @@ function LibraryFolderView() {
           pageSize={pageSize}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
-          sortOrder={sortOrder}
-          onToggleSortOrder={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
         />
       </div>
 
@@ -798,6 +769,136 @@ function LibraryStagingPaperList({
  * forwardRef + 透传所有原生按钮 props,这样可以作为 Radix `*Trigger asChild` 的子元素
  * (例如 QuickAddDialog 包它时,popover 的 onClick / aria-* / ref 需要落到这个 <button> 上)。
  */
+function LibraryFolderSwitcher({
+  folders,
+  currentId,
+  currentLabel,
+  onSelect,
+}: {
+  folders: { id: number; name: string }[];
+  currentId: number | null;
+  currentLabel: string;
+  onSelect: (id: number) => void;
+}) {
+  const aliases = useLibraryFolderMeta((s) => s.aliases);
+  const pinned = useLibraryFolderMeta((s) => s.pinned);
+  const { Icon, hasColor, iconShellClass } = useFolderAppearance(
+    currentId != null ? String(currentId) : 'folder',
+    'folder',
+  );
+  const rows = sortLibraryFolders(
+    folders.map((f) => ({
+      ...f,
+      metaKey: libraryFolderMetaKey('papers', String(f.id)),
+      label: aliases[libraryFolderMetaKey('papers', String(f.id))] || f.name,
+    })),
+    pinned,
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          title="切换文献集"
+          className={cn(
+            'flex h-8 min-w-0 max-w-[16rem] items-center gap-2 rounded-8 border border-border-strong bg-surface-1 px-2.5 text-left',
+            '@3xl:h-[38px] @3xl:max-w-[20rem] @3xl:px-3',
+            'transition-colors hover:border-foreground',
+          )}
+        >
+          <span
+            className={cn(iconShellClass, 'size-5', !hasColor && 'text-faint')}
+            aria-hidden
+          >
+            <Icon className="size-3.5" strokeWidth={2} />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-14 font-medium text-foreground">
+            {currentId != null
+              ? aliases[libraryFolderMetaKey('papers', String(currentId))] ||
+                currentLabel
+              : currentLabel}
+          </span>
+          <ChevronDown className="size-3.5 shrink-0 text-faint" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        {rows.map((row) => (
+          <FolderSwitchItem
+            key={row.id}
+            id={row.id}
+            label={row.label}
+            active={row.id === currentId}
+            onSelect={() => onSelect(row.id)}
+          />
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function FolderSwitchItem({
+  id,
+  label,
+  active,
+  onSelect,
+}: {
+  id: number;
+  label: string;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const { Icon, hasColor, iconShellClass } = useFolderAppearance(
+    String(id),
+    'folder',
+  );
+  return (
+    <DropdownMenuItem
+      onSelect={onSelect}
+      className={cn(active && 'bg-surface-2 font-medium')}
+    >
+      <span
+        className={cn(iconShellClass, 'size-5', !hasColor && 'text-faint')}
+        aria-hidden
+      >
+        <Icon className="size-3.5" strokeWidth={2} />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </DropdownMenuItem>
+  );
+}
+
+function LibraryImportMenu({
+  onImport,
+}: {
+  onImport: (tab: ImportTab) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <ToolbarButton label="加入" trailingIcon />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuItem onSelect={() => onImport('search')}>
+          <Plus className="size-3.5" />
+          在线搜索加入
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onImport('pdf')}>
+          上传 PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onImport('zotero')}>
+          从 Zotero 导入
+          <span className="ml-auto text-12 text-faint">即将推出</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onImport('endnote')}>
+          从 EndNote 导入
+          <span className="ml-auto text-12 text-faint">即将推出</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 const ToolbarButton = forwardRef<
   HTMLButtonElement,
   {
@@ -821,59 +922,5 @@ const ToolbarButton = forwardRef<
     </button>
   );
 });
-
-/**
- * 折叠态(更多 dropdown)里的菜单项 —— 行式按钮 + 可选 amber 角标。
- * 与展开态 ToolbarButton 形态不同(那是描边胶囊横排,这里是无边竖排菜单条)。
- */
-const CollapsedItem = forwardRef<
-  HTMLButtonElement,
-  {
-    label: string;
-    badge?: string;
-  } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'>
->(function CollapsedItem({ label, badge, className, type, ...rest }, ref) {
-  return (
-    <button
-      ref={ref}
-      type={type ?? 'button'}
-      {...rest}
-      className={cn(
-        'flex items-center justify-between gap-2 w-full h-8 px-2 rounded-sm text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors text-left',
-        className
-      )}
-    >
-      <span className="truncate">{label}</span>
-      {badge && (
-        <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shrink-0">
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-});
-
-/**
- * 「即将推出」amber 角标 wrapper —— 与首页智能搜索 CTA 同款视觉,任意按钮裹一层即可。
- *
- * 角标用 `-top-2 -right-2` 半压在按钮右上角(notification-dot 模式),
- * 不再用 `bottom-full` —— 后者会让角标完全浮在按钮上方、跑出 h-15 工具栏的
- * 上边界被上层 AppShell topnav 视觉裁切。半压在按钮顶部既不被裁,也不压住
- * 按钮文字中段(badge 底距按钮顶 8px,按钮文字行高从 ~6px 开始,
- * 仅遮 2px 顶端纤细笔画,实际不影响可读性)。
- */
-function ComingSoonWrap({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative inline-flex">
-      {children}
-      <span
-        aria-hidden="true"
-        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shadow-sm pointer-events-none z-10"
-      >
-        即将推出
-      </span>
-    </div>
-  );
-}
 
 export default LibraryPage;

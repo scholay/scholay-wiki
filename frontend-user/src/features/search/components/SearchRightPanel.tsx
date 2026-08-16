@@ -12,11 +12,8 @@ import {
   AlertCircle,
   BookOpen,
   FileText,
-  Grid3x3,
   Loader2,
-  MessageSquare,
   Plus,
-  Share2,
   User,
   X,
 } from 'lucide-react';
@@ -32,20 +29,24 @@ import { QuickOpenPaperDialog } from '@/features/browser/components/QuickOpenPap
 import { PaperDetailContent } from '@/features/browser/components/paper-detail/PaperDetailContent';
 import { JournalDetailContent } from '@/features/browser/components/journal-detail/JournalDetailContent';
 import { AuthorDetailContent } from '@/features/browser/components/author-detail/AuthorDetailContent';
-import { MatrixColumn } from './MatrixColumn';
-import { PdfChatPanel } from './workspace/PdfChatPanel';
-import { CitationGraphPanel } from './workspace/CitationGraphPanel';
+import { WorkspaceStage } from './MatrixColumn';
+import {
+  ExpansionAreaOpenButton,
+  FileAreaOpenButton,
+} from './workspace/ExpansionAreaOpenDock';
+import {
+  FunctionPageTab,
+  FunctionTabGroup,
+} from './workspace/FunctionTabGroup';
+import { FILE_COL_DEFAULT_PX } from './workspace/ColumnResizeHandle';
 import { useWorkspacePapers } from '../hooks/useWorkspacePapers';
 import {
   useSearchRightPanelStore,
-  WORKSPACE_FUNCTION_LABEL,
-  WORKSPACE_FUNCTION_ORDER,
   type ActivePanel,
   type ArtifactTabPayload,
   type InfoTab,
   type PdfTabPayload,
   type RightPanelVariant,
-  type WorkspaceFunctionKind,
 } from '@/stores/search-right-panel.store';
 import { useArtifactExportBridge } from '@/stores/artifact-export-bridge.store';
 import { cn } from '@/shared/lib/utils';
@@ -59,18 +60,24 @@ const ClawArtifactPreview = lazy(() =>
 interface SearchRightPanelProps {
   /**
    * search = 检索工作区全功能 tab;
-   * assistant = 智能助手:隐藏 PDF Chat / 图谱 / 矩阵,只留详情/产物壳。
+   * assistant = 智能助手:隐藏 PDF Chat / 矩阵,只留详情/产物壳。
    */
   variant?: RightPanelVariant;
+  fileColWidth?: number;
+  onFileColWidthChange?: (width: number) => void;
 }
 
 export function SearchRightPanel({
   variant = 'search',
+  fileColWidth = FILE_COL_DEFAULT_PX,
+  onFileColWidthChange,
 }: SearchRightPanelProps = {}) {
   const activePanel = useSearchRightPanelStore((s) => s.activePanel);
+  const fileAreaOpen = useSearchRightPanelStore((s) => s.fileAreaOpen);
   const infoTabs = useSearchRightPanelStore((s) => s.infoTabs);
   const workspace = useWorkspacePapers();
   const assistant = variant === 'assistant';
+  const showFileArea = fileAreaOpen;
 
   const activeInfoTab =
     activePanel?.group === 'info'
@@ -83,26 +90,82 @@ export function SearchRightPanel({
     activePanel?.group === 'info' &&
     (activeInfoTab?.kind === 'artifact' || activeInfoTab?.kind === 'pdf');
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <TabStrip activePanel={activePanel} variant={variant} />
-      <div
-        className={cn(
-          'min-h-0 flex-1 min-w-0',
-          fillHeightActive ? 'overflow-hidden' : 'overflow-auto',
-        )}
-      >
-        {activePanel?.group === 'shell' && <AssistantShellEmpty />}
-        {!assistant && activePanel?.group === 'function' && (
-          <WorkspaceFunctionView
-            kind={activePanel.kind}
-            staged={workspace.papers}
-          />
-        )}
-        {activePanel?.group === 'info' && activeInfoTab && (
-          <InfoTabView tab={activeInfoTab} />
-        )}
+  const functionWorkspace =
+    !assistant && activePanel?.group === 'function';
+  const expansionOpen = Boolean(activePanel);
+
+  if (assistant) {
+    // 助手页与检索页同构:左=文件区(「当前对话」暂存 / 文献集文件夹),右=详情拓展。
+    const assistantExpansion = activePanel ? (
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-background">
+        <TabStrip activePanel={activePanel} variant={variant} />
+        <div
+          className={cn(
+            'min-h-0 min-w-0 flex-1',
+            fillHeightActive ? 'overflow-hidden' : 'overflow-auto',
+          )}
+        >
+          {activePanel.group === 'shell' ? <AssistantShellEmpty /> : null}
+          {activePanel.group === 'info' && activeInfoTab ? (
+            <InfoTabView tab={activeInfoTab} />
+          ) : null}
+        </div>
       </div>
+    ) : undefined;
+
+    return (
+      <div className="flex h-full min-h-0 w-full min-w-0 bg-background">
+        <WorkspaceStage
+          kind="matrix"
+          staged={workspace.papers}
+          showFileArea={showFileArea}
+          showExpansion={Boolean(activePanel)}
+          fileColWidth={fileColWidth}
+          onFileColWidthChange={onFileColWidthChange}
+          panelVariant={variant}
+          expansion={assistantExpansion}
+        />
+      </div>
+    );
+  }
+
+  const infoExpansion =
+    activePanel && !functionWorkspace ? (
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-background">
+        <TabStrip activePanel={activePanel} variant={variant} />
+        <div
+          className={cn(
+            'min-h-0 min-w-0 flex-1',
+            fillHeightActive ? 'overflow-hidden' : 'overflow-auto',
+          )}
+        >
+          {activePanel.group === 'shell' ? <SearchExpansionEmpty /> : null}
+          {activePanel.group === 'info' && activeInfoTab ? (
+            <InfoTabView tab={activeInfoTab} />
+          ) : null}
+        </div>
+      </div>
+    ) : undefined;
+
+  return (
+    <div className="flex h-full min-h-0 w-full min-w-0 bg-background">
+      <WorkspaceStage
+        kind={
+          activePanel?.group === 'function' ? activePanel.kind : 'matrix'
+        }
+        staged={workspace.papers}
+        showFileArea={showFileArea}
+        showExpansion={expansionOpen}
+        fileColWidth={fileColWidth}
+        onFileColWidthChange={onFileColWidthChange}
+        panelVariant={variant}
+        rightHeader={
+          functionWorkspace ? (
+            <TabStrip activePanel={activePanel} variant={variant} />
+          ) : undefined
+        }
+        expansion={infoExpansion}
+      />
     </div>
   );
 }
@@ -118,6 +181,17 @@ function AssistantShellEmpty() {
   );
 }
 
+function SearchExpansionEmpty() {
+  return (
+    <div className="flex h-full min-h-0 items-center justify-center p-6">
+      <EmptyState
+        title="拓展区"
+        description="在文件区选择 PDF Chat、文献图谱或矩阵分析"
+      />
+    </div>
+  );
+}
+
 function TabStrip({
   activePanel,
   variant = 'search',
@@ -126,14 +200,18 @@ function TabStrip({
   variant?: RightPanelVariant;
 }) {
   const infoTabs = useSearchRightPanelStore((s) => s.infoTabs);
+  const functionTabs = useSearchRightPanelStore((s) => s.functionTabs);
+  const fileAreaOpen = useSearchRightPanelStore((s) => s.fileAreaOpen);
   const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
+  const closeFunctionTab = useSearchRightPanelStore((s) => s.closeFunctionTab);
   const setActiveInfoTab = useSearchRightPanelStore((s) => s.setActiveInfoTab);
   const closeInfoTab = useSearchRightPanelStore((s) => s.closeInfoTab);
-  const dismissToHub = useSearchRightPanelStore((s) => s.dismissToHub);
   const openPaper = useOpenPaperDetail();
   const assistant = variant === 'assistant';
 
   const showPageGroup = infoTabs.length > 0;
+  const showFunctionToggles = !assistant && !fileAreaOpen;
+  const showFunctionPages = !assistant && fileAreaOpen && functionTabs.length > 0;
 
   const newInfoTabButton = (
     <QuickOpenPaperDialog align="start" onPickPaper={openPaper}>
@@ -150,28 +228,34 @@ function TabStrip({
 
   const functionGroup = assistant ? (
     <div className="flex min-w-0 shrink items-center gap-1">
+      {!fileAreaOpen ? <FileAreaOpenButton /> : null}
       {newInfoTabButton}
     </div>
-  ) : (
+  ) : showFunctionToggles ? (
+    <FunctionTabGroup className="shrink" />
+  ) : showFunctionPages ? (
     <div className="flex min-w-0 shrink items-center gap-1">
-      {WORKSPACE_FUNCTION_ORDER.map((kind) => (
-        <FunctionTabButton
+      {functionTabs.map((kind) => (
+        <FunctionPageTab
           key={kind}
           kind={kind}
           active={
             activePanel?.group === 'function' && activePanel.kind === kind
           }
           onSelect={() => setActiveFunction(kind)}
+          onClose={() => closeFunctionTab(kind)}
         />
       ))}
     </div>
-  );
+  ) : null;
 
   const pageGroup = assistant ? (
     <div className="min-w-0 flex-1" />
   ) : (
     <>
-      {showPageGroup && <TabStripDivider />}
+      {showPageGroup && (showFunctionToggles || showFunctionPages) ? (
+        <TabStripDivider />
+      ) : null}
       <InfoTabRail
         tabs={infoTabs}
         activeTabId={
@@ -188,15 +272,7 @@ function TabStrip({
     <div className="flex h-11 shrink-0 items-center gap-1 overflow-hidden border-b border-border bg-surface-1 px-2">
       {functionGroup}
       {pageGroup}
-      <button
-        type="button"
-        onClick={dismissToHub}
-        className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-        title="回到拓展入口"
-        aria-label="回到拓展入口"
-      >
-        <X className="size-3.5" strokeWidth={2.25} />
-      </button>
+      <ExpansionAreaOpenButton variant={variant} />
     </div>
   );
 }
@@ -204,48 +280,6 @@ function TabStrip({
 function TabStripDivider() {
   return (
     <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-border" />
-  );
-}
-
-function functionIcon(kind: WorkspaceFunctionKind) {
-  switch (kind) {
-    case 'pdf-chat':
-      return MessageSquare;
-    case 'citation-graph':
-      return Share2;
-    case 'matrix':
-      return Grid3x3;
-  }
-}
-
-function FunctionTabButton({
-  kind,
-  active,
-  onSelect,
-}: {
-  kind: WorkspaceFunctionKind;
-  active: boolean;
-  onSelect: () => void;
-}) {
-  const Icon = functionIcon(kind);
-  const label = WORKSPACE_FUNCTION_LABEL[kind];
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      title={label}
-      aria-label={label}
-      className={cn(
-        // 可挤:先 truncate 文案,最窄塌成 min-w-8 纯图标(overflow 吃掉文字)
-        'inline-flex h-8 min-w-8 max-w-[160px] shrink items-center gap-1.5 overflow-hidden rounded-sm border px-2 text-xs font-semibold transition-colors',
-        active
-          ? 'border-brand-red/30 bg-brand-red/5 text-brand-red shadow-sm'
-          : 'border-transparent text-subtle hover:bg-background/70 hover:text-foreground',
-      )}
-    >
-      <Icon className="size-3.5 shrink-0" />
-      <span className="min-w-0 truncate">{label}</span>
-    </button>
   );
 }
 
@@ -410,7 +444,6 @@ function InfoTabPill({
   return (
     <div
       className={cn(
-        // 偏好 ~7rem,可挤到 min-w-8;再多就进轨道横溢 + 边缘 hover 滚
         'group relative inline-flex h-8 min-w-8 max-w-[220px] flex-[1_1_7rem] items-center rounded-sm border text-xs',
         active
           ? 'border-border bg-background text-foreground shadow-sm'
@@ -446,23 +479,6 @@ function InfoTabPill({
       </button>
     </div>
   );
-}
-
-function WorkspaceFunctionView({
-  kind,
-  staged,
-}: {
-  kind: WorkspaceFunctionKind;
-  staged: Paper[];
-}) {
-  switch (kind) {
-    case 'pdf-chat':
-      return <PdfChatPanel staged={staged} />;
-    case 'citation-graph':
-      return <CitationGraphPanel staged={staged} />;
-    case 'matrix':
-      return <MatrixColumn staged={staged} />;
-  }
 }
 
 function InfoTabView({ tab }: { tab: InfoTab }) {

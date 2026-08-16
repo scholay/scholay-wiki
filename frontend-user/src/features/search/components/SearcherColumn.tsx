@@ -8,10 +8,9 @@ import {
   Suspense,
 } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 import { Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { BrandLogo } from '@/shared/components/BrandLogo';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
 import { cn } from '@/shared/lib/utils';
@@ -32,16 +31,15 @@ import { resolveYearRange, type SearchFilters } from '../types';
 const SmartSearchPanel = lazy(() =>
   import('./smart-search/SmartSearchPanel').then((m) => ({ default: m.SmartSearchPanel })),
 );
-import { SearchClassicLanding } from './SearchClassicLanding';
+import { SearchLanding } from './SearchLanding';
 import { SearcherPagination } from './SearcherPagination';
 import { SearchFiltersButton } from './SearchFiltersFloating';
 import { useStagingActions } from '../hooks/useStagingActions';
 import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
 import type { SearchMode } from '../search-mode';
 
-/** 底栏搜索框 ↔ 对话输入 互换过渡时长(与 SmartSearchPanel composer 退场对齐) */
+/** 切走智能模式时多留一帧,让 composer 退场后再 hidden */
 const INPUT_SWAP_MS = 320;
-const INPUT_SWAP_EASE = [0.22, 1, 0.36, 1] as const;
 
 export type { SearchMode } from '../search-mode';
 
@@ -351,13 +349,14 @@ export function SearcherColumn({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       {/* 智能模式 —— 保持 mount 以免掐 WS。切走时用 absolute 叠层多留 swapMs 播 composer 向上退场。
           有对话时会话条与 Composer 叠在 SmartSearchPanel 底部。 */}
       {smartPanelOpened && (
         <div
           className={cn(
             mode === 'smart'
-              ? 'contents'
+              ? 'min-h-0 flex-1'
               : smartSlotOpen
                 ? 'pointer-events-none absolute inset-0 z-30'
                 : 'hidden',
@@ -372,10 +371,10 @@ export function SearcherColumn({
         </div>
       )}
       {mode === 'classic' && showClassicLanding && (
-        <SearchClassicLanding
-          onSearch={submitQuery}
+        <SearchLanding
           mode={mode}
           onModeChange={onModeChange}
+          onClassicSearch={submitQuery}
         />
       )}
 
@@ -387,23 +386,11 @@ export function SearcherColumn({
           >
             {/* 无内容:Logo + 模式切换 + 搜索框居中(对齐首页 / 智能助手空态)。 */}
             {!query && (
-              <div className="flex min-h-full items-center justify-center py-10">
-                <AnimatePresence initial={false}>
-                  <motion.div
-                    key="classic-input-dock-center"
-                    initial={reduceMotion ? false : { opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduceMotion ? undefined : { opacity: 0, y: 24 }}
-                    transition={{ duration: swapMs / 1000, ease: INPUT_SWAP_EASE }}
-                    className={cn(resultsColClass, 'flex flex-col items-center')}
-                  >
-                    <h2 className="m-0">
-                      <BrandLogo size="xl" />
-                    </h2>
-                    <div className="mt-6 w-full">{renderClassicInputDock()}</div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+              <SearchLanding
+                mode={mode}
+                onModeChange={onModeChange}
+                onClassicSearch={submitQuery}
+              />
             )}
 
             {query && !showLoading && papers.length === 0 && (
@@ -484,6 +471,7 @@ export function SearcherColumn({
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

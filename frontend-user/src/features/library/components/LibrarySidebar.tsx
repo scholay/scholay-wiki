@@ -29,7 +29,6 @@ import {
 } from '@/shared/components/folder-appearance';
 import { Button } from '@/shared/ui/button';
 import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
-import { useSidebar } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useApiToast } from '@/shared/hooks';
@@ -50,6 +49,7 @@ import {
   type ResourceCollection,
   type ResourceSectionId,
 } from '../resource-model';
+import { useManuscriptCollections } from '@/shared/api/manuscripts';
 
 /** URL `?folder=staging` —— 文献集侧栏置顶的暂存区 */
 export const LIBRARY_STAGING_FOLDER_PARAM = 'staging';
@@ -68,8 +68,7 @@ const SECTION_ICONS: Record<ResourceSectionId, LucideIcon> = {
 export function LibrarySidebar() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const sidebarExpanded = useSidebar((s) => s.expanded);
-  const rail = !sidebarExpanded;
+  const rail = false;
   const token = useAuthStore((s) => s.token);
   const openAuthDialog = useAuthDialog((s) => s.openDialog);
   const apiToast = useApiToast();
@@ -81,6 +80,18 @@ export function LibrarySidebar() {
 
   const { data, isLoading } = useLibraryFolders();
   const paperFolders = data?.folders ?? [];
+  // 稿件集来自稿件共享资源层(真数据);期刊集 / 文件夹仍是静态 mock。
+  const manuscriptCollectionsQ = useManuscriptCollections(!!token);
+  const manuscriptCollections: ResourceCollection[] = (
+    manuscriptCollectionsQ.data ?? []
+  ).map((c) => ({
+    id: c.id,
+    section: 'manuscripts' as const,
+    name: c.name,
+    description: c.description,
+    itemCount: c.itemCount,
+    isDefault: c.isDefault,
+  }));
   const { activeArea } = useStagingView();
   const stagingCount = activeArea?.papers.length ?? 0;
 
@@ -238,7 +249,10 @@ export function LibrarySidebar() {
 
           {/* —— 期刊集 / 稿件集 / 文件夹 —— */}
           {RESOURCE_SECTIONS.filter((s) => s.id !== 'papers').map((s) => {
-            const collections = collectionsForSection(s.id);
+            const collections =
+              s.id === 'manuscripts'
+                ? manuscriptCollections
+                : collectionsForSection(s.id);
             const Icon = SECTION_ICONS[s.id];
             return (
               <SidebarSection

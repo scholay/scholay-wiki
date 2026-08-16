@@ -189,7 +189,7 @@ export function TokenDailyChart({
               className={cn(
                 'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 m.key === mode
-                  ? 'bg-foreground text-on-dark'
+                  ? 'bg-inverse text-on-inverse'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
               )}
             >

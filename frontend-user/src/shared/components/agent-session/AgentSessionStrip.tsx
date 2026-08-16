@@ -34,7 +34,7 @@ export interface AgentSessionStripProps {
    */
   placement?: 'bar' | 'stack' | 'dock';
   /**
-   * true(默认)=完整会话管理:历史入口、时间、重命名/删除(智能助手)。
+   * true(默认)=完整会话管理:历史入口 + 历史行内重命名/删除。
    * false=精简条:仅标题 + trailingSlot + 新对话(极少用;默认开完整控件)。
    */
   sessionControls?: boolean;
@@ -188,22 +188,53 @@ export function AgentSessionStrip({
                           session.lastAccessedAt ||
                           session.createdAt;
                         return (
-                          <li key={session.sessionId}>
+                          <li
+                            key={session.sessionId}
+                            className={cn(
+                              'group/row relative',
+                              active ? 'bg-surface-1' : 'hover:bg-surface-1',
+                            )}
+                          >
                             <button
                               type="button"
                               onClick={() => handleActivate(session.sessionId)}
-                              className={cn(
-                                'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
-                                active ? 'bg-surface-1' : 'hover:bg-surface-1',
-                              )}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left"
                             >
                               <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                                 {loading ? `${displayTitle}…` : displayTitle}
                               </span>
-                              <span className="shrink-0 text-2xs text-faint">
+                              <span className="shrink-0 text-2xs text-faint group-hover/row:invisible">
                                 {formatSessionTime(stamp)}
                               </span>
                             </button>
+                            <div className="absolute right-2 top-1/2 z-10 hidden -translate-y-1/2 items-center group-hover/row:flex">
+                              <button
+                                type="button"
+                                title="重命名"
+                                aria-label="重命名会话"
+                                className="inline-flex size-6 cursor-pointer items-center justify-center rounded-4 text-subtle hover:bg-surface-2 hover:text-foreground"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setHistoryOpen(false);
+                                  setRenameTarget(session);
+                                }}
+                              >
+                                <Pencil className="size-3.5" strokeWidth={2} />
+                              </button>
+                              <button
+                                type="button"
+                                title="删除"
+                                aria-label="删除会话"
+                                className="inline-flex size-6 cursor-pointer items-center justify-center rounded-4 text-subtle hover:bg-surface-2 hover:text-brand-red"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setHistoryOpen(false);
+                                  setDeleteTarget(session);
+                                }}
+                              >
+                                <Trash2 className="size-3.5" strokeWidth={2} />
+                              </button>
+                            </div>
                           </li>
                         );
                       })}
@@ -245,32 +276,10 @@ export function AgentSessionStrip({
             )}
           </div>
 
-          {/* 右:trailingSlot → (可选)重命名/删除 → 新对话 */}
+          {/* 右:trailingSlot → 新对话(重命名/删除在历史行 hover) */}
           <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5">
             {trailingSlot ? (
               <div className="mr-0.5 flex shrink-0 items-center gap-1.5">{trailingSlot}</div>
-            ) : null}
-            {sessionControls && activeSession ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setRenameTarget(activeSession)}
-                  title="重命名"
-                  aria-label="重命名会话"
-                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-lg text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
-                >
-                  <Pencil className="size-3.5" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(activeSession)}
-                  title="删除"
-                  aria-label="删除会话"
-                  className="inline-flex size-7 cursor-pointer items-center justify-center rounded-lg text-subtle transition-colors hover:bg-surface-2 hover:text-brand-red"
-                >
-                  <Trash2 className="size-3.5" strokeWidth={2} />
-                </button>
-              </>
             ) : null}
             <button
               type="button"

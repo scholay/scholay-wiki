@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 import { lazyRoute } from '@/shared/components/LazyRoute';
 
 // 期刊聚合 SEO 落地页:静态 slug。每个对应 JournalCollectionPage 内 PRESETS 的预设筛选。
@@ -17,8 +17,20 @@ const journalCollectionPage = lazyRoute(
 
 export const journalsRoutes: RouteObject[] = [
   {
+    path: 'journals',
+    element: lazyRoute(() => import('./pages/JournalHubPage'), 'JournalHubPage'),
+  },
+  {
     path: 'journals/search',
     element: lazyRoute(() => import('./pages/JournalSearchPage'), 'JournalSearchPage'),
+  },
+  {
+    path: 'journals/select',
+    element: <Navigate to="/search" replace />,
+  },
+  {
+    path: 'journals/evaluate',
+    element: <Navigate to="/search" replace />,
   },
   ...COLLECTION_SLUGS.map((slug) => ({
     path: `journals/${slug}`,

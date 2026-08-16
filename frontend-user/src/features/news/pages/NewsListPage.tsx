@@ -29,13 +29,13 @@ export function NewsListPage() {
   return (
     <>
       <RouteSEO
-        title="学术情报 - 顶刊速递 · 重大事件 · 国内政策 | Scholay 学术"
-        description="Scholay 学术情报:实时汇集顶级期刊论文速递、学术界重大事件、国内科研政策等学术新闻,按热度与时间持续更新。"
-        keywords="学术情报,学术新闻,顶刊速递,科研政策,学术界动态,Scholay"
+        title="scholay 情报 - 顶刊速递 · 重大事件 · 国内政策 | Scholay 学术"
+        description="scholay 情报:实时汇集顶级期刊论文速递、学术界重大事件、国内科研政策等学术新闻,按热度与时间持续更新。"
+        keywords="scholay 情报,学术情报,学术新闻,顶刊速递,科研政策,学术界动态,Scholay"
         canonical="/news"
       />
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="font-serif text-24 font-medium text-foreground">学术情报</h1>
+        <h1 className="font-serif text-24 font-medium text-foreground">scholay 情报</h1>
         <p className="mt-2 text-12 text-muted-foreground">
           顶刊速递 · 重大事件 · 国内政策 —— 实时汇集学术界动态。
         </p>
@@ -49,7 +49,7 @@ export function NewsListPage() {
               onClick={() => setSort(s.key)}
               className={cn(
                 'rounded-pill px-3 py-1 text-12 font-medium transition-colors',
-                sort === s.key ? 'bg-foreground text-on-dark' : 'bg-surface-2 text-muted-foreground',
+                sort === s.key ? 'bg-inverse text-on-inverse' : 'bg-surface-2 text-muted-foreground',
               )}
             >
               {s.label}
@@ -67,7 +67,7 @@ export function NewsListPage() {
               className={cn(
                 'rounded-pill border px-3 py-1 text-12 transition-colors',
                 section === sec.id
-                  ? 'border-foreground bg-foreground text-on-dark'
+                  ? 'border-inverse bg-inverse text-on-inverse'
                   : 'border-border-button text-muted-foreground hover:bg-surface-2',
               )}
             >
@@ -76,13 +76,13 @@ export function NewsListPage() {
           ))}
         </div>
 
-        {/* 列表 */}
-        <div className="mt-6 space-y-3">
+        {/* 列表 —— 检索面统一用参考文献同款平铺行卡(NewsListItem row 变体)。 */}
+        <div className="mt-6">
           {feedQ.isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="h-24 animate-pulse rounded-16 border border-border-soft bg-surface-1"
+                className="h-24 animate-pulse border-b border-border bg-surface-1"
               />
             ))
           ) : items.length === 0 ? (
@@ -90,7 +90,9 @@ export function NewsListPage() {
               {feedQ.isError ? '加载失败,请稍后重试' : '暂无情报'}
             </p>
           ) : (
-            items.map((it) => <NewsListItem key={it.slug} item={it} />)
+            items.map((it) => (
+              <NewsListItem key={it.slug} item={it} variant="row" />
+            ))
           )}
         </div>
 

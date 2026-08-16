@@ -86,16 +86,19 @@ export interface JournalSearchOptions {
   sortDir?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;
+  /** 空态落地页关掉请求,避免未搜索就拉出默认列表。 */
+  enabled?: boolean;
 }
 
 /**
- * 期刊搜索 hook —— **始终启用**:无 keyword 也返回(按 sortBy 默认列表,
- * 配合期刊首页的"直接走结果页"心智)。
+ * 期刊搜索 hook。空查询默认不请求(enabled=false);
+ * 聚合榜单 / 已输入关键词 / 已选筛选再查。
  */
 export function useJournalSearch(opts: JournalSearchOptions) {
-  const { page = 1, pageSize = 20 } = opts;
+  const { page = 1, pageSize = 20, enabled = true } = opts;
 
   return useQuery({
+    enabled,
     queryKey: [
       'journal',
       'search',

@@ -9,7 +9,7 @@ interface SearchModeSwitchProps {
 }
 
 /**
- * 智能搜索开关 —— 开 = 对话式智能搜索,关 = 文献关键词检索。
+ * 智能搜索开关 —— 开 = 对话式智能搜索,关 = 传统搜索。
  * 优先嵌在输入框内(见 SmartSearchToggle);本组件保留给仍单独挂载的入口。
  */
 export function SearchModeSwitch({

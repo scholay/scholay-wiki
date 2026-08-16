@@ -27,14 +27,6 @@ import { ComposerSkillsButton } from './ComposerSkillsButton';
  * 不是 send 时才传(否则点击 send 后要等几秒)。
  */
 
-/** 上下文水位 — 跟 ClawContextSnapshot 子集对齐, 放输入框 footer 展示 (参考 Claude/Cursor)。 */
-export interface ComposerContext {
-  totalTokens: number;
-  maxTokens: number;
-  percentage: number;
-  model: string;
-}
-
 export interface ChatComposerProps {
   /** 输入框 + 发送按钮 整体禁用 (WS 未就绪 / busy 中均传 true) */
   disabled?: boolean;
@@ -42,8 +34,6 @@ export interface ChatComposerProps {
   busy?: boolean;
   /** 用户点过 stop 后 AI 还在收尾时, 防止重复点 — 把 stop 按钮转 spinner+disabled */
   stopping?: boolean;
-  /** 当前会话上下文水位; 放 footer 右下角展示。null / totalTokens=0 时不显示。 */
-  context?: ComposerContext | null;
   onSubmit: (text: string, attachments: AttachmentDTO[], references: ReferenceItemDTO[]) => void;
   /** 停止生成 — busy 时点按钮调这个; 不传时 stop 按钮 disable */
   onStop?: () => void;
@@ -88,7 +78,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   disabled,
   busy,
   stopping,
-  context,
   onSubmit,
   onStop,
   sessionId,
@@ -190,7 +179,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         onStop={onStop}
         requireAuth={requireAuth}
         onRequireAuth={onRequireAuth}
-        context={context}
         maxHeightPx={120}
         onPaste={enableAttachments ? att.handlePaste : undefined}
         containerProps={enableAttachments ? att.dragHandlers : undefined}

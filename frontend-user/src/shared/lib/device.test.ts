@@ -114,6 +114,7 @@ describe('mobileEquivalentPath — PC 路由 → 移动对等页(正向)', () =>
 
   it('tools / library 前缀映射保留子路径(详情 / 文件夹深链不丢)', () => {
     expect(mobileEquivalentPath('/tools')).toBe('/m/tools');
+    expect(mobileEquivalentPath('/tools/catalog')).toBe('/m/tools/all');
     expect(mobileEquivalentPath('/tools/ipa')).toBe('/m/tools/ipa');
     expect(mobileEquivalentPath('/library')).toBe('/m/library');
     expect(mobileEquivalentPath('/library/42')).toBe('/m/library/42');
@@ -146,6 +147,7 @@ describe('desktopEquivalentPath — 移动路由 → PC 对等页(反向)', () =
     expect(desktopEquivalentPath('/m/feed/journals')).toBe('/journals/search');
     expect(desktopEquivalentPath('/m/claw')).toBe('/claw');
     expect(desktopEquivalentPath('/m/tools')).toBe('/tools');
+    expect(desktopEquivalentPath('/m/tools/all')).toBe('/tools/catalog');
     expect(desktopEquivalentPath('/m/tools/ipa')).toBe('/tools/ipa');
     expect(desktopEquivalentPath('/m/library')).toBe('/library');
     expect(desktopEquivalentPath('/m/me')).toBe('/settings');

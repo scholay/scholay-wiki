@@ -58,6 +58,8 @@ interface WorkspacePaperUnitProps {
   selected?: boolean;
   onSelect?: () => void;
   onRemove?: (paperId: string) => void;
+  /** Hover preview placement. Right-edge rails should use left. */
+  previewSide?: 'left' | 'right';
 }
 
 /**
@@ -69,6 +71,7 @@ export const WorkspacePaperUnit = memo(function WorkspacePaperUnit({
   selected,
   onSelect,
   onRemove,
+  previewSide = 'right',
 }: WorkspacePaperUnitProps) {
   const openDetail = useOpenPaperDetail();
   const initial = paperInitial(paper.title);
@@ -112,7 +115,7 @@ export const WorkspacePaperUnit = memo(function WorkspacePaperUnit({
           </button>
         </HoverCardTrigger>
         <HoverCardContent
-          side="right"
+          side={previewSide}
           align="start"
           sideOffset={8}
           className="w-[260px] p-3"
@@ -177,7 +180,7 @@ export const WorkspacePaperUnit = memo(function WorkspacePaperUnit({
         </div>
       </HoverCardTrigger>
       <HoverCardContent
-        side="right"
+        side={previewSide}
         align="start"
         sideOffset={8}
         className="w-[280px] p-3"

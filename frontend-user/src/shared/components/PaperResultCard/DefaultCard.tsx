@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react';
-import { ExternalLink, Minimize2 } from 'lucide-react';
+import { Minimize2 } from 'lucide-react';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
+import { PaperPdfChip } from '@/shared/components/PaperPdfChip';
 import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
-import { PdfChatPaperButton } from '@/shared/components/PdfChatPaperButton';
 import { TruncatedText } from '@/shared/components/TruncatedText';
+import { usePaperReadablePdf } from '@/shared/hooks/usePaperReadablePdf';
 import {
   useOpenPaperDetail,
   useOpenJournalDetail,
   useOpenPdfChat,
-  useIsPdfChatActive,
 } from '@/shared/hooks/useOpenInSearchPanel';
 import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
+import { useWorkspaceFolderUi } from '@/stores/workspace-folder.store';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { cn } from '@/shared/lib/utils';
 import type { Paper } from '@/shared/api/types';
@@ -18,7 +19,6 @@ import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 import { type TranslatePaperResult } from '@/shared/api/translate';
 import { MetaLine } from './MetaLine';
 import { needsTranslation, pickTags, renderHighlight } from './tags';
-import { paperHasOaPdf } from '@/shared/lib/paper-pdf';
 
 /**
  * 标准卡 — 左侧复选框只控制暂存;折叠由 action 行「折叠」按钮单独控制。
@@ -42,14 +42,14 @@ export function DefaultCard({
   onFold: () => void;
   highlightQuery?: string;
   hideStage?: boolean;
-  /** 只读场景(聊天内嵌列表等):隐藏收藏/翻译/PdfChat/折叠操作行 */
+  /** 只读场景(聊天内嵌列表等):隐藏收藏/翻译/OA PDF/折叠操作行 */
   readOnly?: boolean;
 }) {
   const tags = pickTags(paper, journalEnrichment);
   const openPaperDetail = useOpenPaperDetail();
   const openJournalDetail = useOpenJournalDetail();
   const openPdfChat = useOpenPdfChat();
-  const isPdfChatActive = useIsPdfChatActive();
+  const { libRow } = usePaperReadablePdf(isFavorited ? paper : null);
   const embedMode = useSearchRightPanelStore((s) => s.embedMode);
   const isDetailSelected = useSearchRightPanelStore((s) =>
     s.isActivePaper(paper.paperId),
@@ -67,9 +67,26 @@ export function DefaultCard({
   const displayAbstract =
     showZh && zh?.abstract_zh ? zh.abstract_zh : (paper.abstract ?? '');
 
-  const oaPdfUrl = paper.openAccessPdf?.url?.trim();
-  const lacksOaPdf = !paperHasOaPdf(paper);
   const journalTagKeys = new Set(['jcr', 'if', 'cas', 'xr', 'ccf', 'warn']);
+
+  const handleFindPdf =
+    embedMode && !hideStage
+      ? () => {
+          openPdfChat({
+            paperId: paper.paperId,
+            ensureStaged: () => {
+              if (!isStaged) {
+                onToggleStage();
+                return;
+              }
+              const ui = useWorkspaceFolderUi.getState();
+              if (!ui.checkedPaperIds.includes(paper.paperId)) {
+                ui.togglePaperChecked(paper.paperId);
+              }
+            },
+          });
+        }
+      : undefined;
 
   const openJournalFromEnrichment = () => {
     if (!journalEnrichment?.id) return;
@@ -106,35 +123,20 @@ export function DefaultCard({
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <h3
-            onClick={() => openPaperDetail(paper)}
-            className={cn(
-              'flex-1 min-w-0 text-md font-semibold leading-snug cursor-pointer transition-colors',
-              isDetailSelected
-                ? 'text-brand-red'
-                : 'text-foreground hover:text-brand-red',
-            )}
-            title="查看参考文献详情"
-          >
-            {highlightQuery && !showZh
-              ? renderHighlight(displayTitle, highlightQuery)
-              : displayTitle || '无标题'}
-          </h3>
-          {oaPdfUrl && (
-            <a
-              href={oaPdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              title="查看 Open Access 原始 PDF(新窗口)"
-              className="shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-sm border border-brand-green/30 bg-brand-green/10 text-brand-green text-2xs font-bold hover:bg-brand-green/15 transition-colors"
-            >
-              <ExternalLink className="size-2.5" strokeWidth={2.5} />
-              OA PDF
-            </a>
+        <h3
+          onClick={() => openPaperDetail(paper)}
+          className={cn(
+            'min-w-0 text-md font-semibold leading-snug cursor-pointer transition-colors',
+            isDetailSelected
+              ? 'text-brand-red'
+              : 'text-foreground hover:text-brand-red',
           )}
-        </div>
+          title="查看参考文献详情"
+        >
+          {highlightQuery && !showZh
+            ? renderHighlight(displayTitle, highlightQuery)
+            : displayTitle || '无标题'}
+        </h3>
         <MetaLine paper={paper} journalEnrichment={journalEnrichment} />
         {tags.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -212,21 +214,12 @@ export function DefaultCard({
             />
           )}
 
-          {embedMode && !hideStage && (
-            <PdfChatPaperButton
-              active={isPdfChatActive}
-              needsUpload={lacksOaPdf}
-              onClick={() =>
-                openPdfChat({
-                  paperId: paper.paperId,
-                  ensureStaged: () => {
-                    if (!isStaged) onToggleStage();
-                  },
-                })
-              }
-              collapseLabel
-            />
-          )}
+          <PaperPdfChip
+            paper={paper}
+            libRow={libRow}
+            onFindPdf={handleFindPdf}
+            collapseLabel
+          />
 
           <button
             type="button"

@@ -3,6 +3,8 @@ import { libraryRowToPaper } from '@/shared/api/user-library-papers';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   STAGING_FOLDER_LABEL,
+  applyPaperOrder,
+  folderPaperOrderKey,
   useWorkspaceFolderUi,
 } from '@/stores/workspace-folder.store';
 import { useLibraryPapers } from '@/features/library/api/papers';
@@ -21,6 +23,7 @@ export interface WorkspacePapersView {
 /** 工作区左栏当前 tab 对应的论文列表 —— 暂存区 or 文献集文件夹 */
 export function useWorkspacePapers(): WorkspacePapersView {
   const activeTab = useWorkspaceFolderUi((s) => s.activeTab);
+  const paperOrderByKey = useWorkspaceFolderUi((s) => s.paperOrderByKey);
   const token = useAuthStore((s) => s.token);
   const { activeArea } = useStagingView();
   const foldersQ = useLibraryFoldersSummary();
@@ -50,10 +53,13 @@ export function useWorkspacePapers(): WorkspacePapersView {
   }
 
   const items = folderPapersQ.data?.items ?? [];
+  const papers = token ? items.map(libraryRowToPaper) : [];
+  const folderOrder =
+    folderId != null ? paperOrderByKey[folderPaperOrderKey(folderId)] : undefined;
   return {
     activeTab,
     tabLabel: folderName,
-    papers: token ? items.map(libraryRowToPaper) : [],
+    papers: applyPaperOrder(papers, folderOrder),
     isLoading: !!token && folderPapersQ.isLoading,
     isStaging: false,
   };

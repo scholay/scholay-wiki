@@ -41,6 +41,54 @@ export interface MockPrismProject {
   [key: string]: unknown;
 }
 
+/**
+ * 稿件 / 稿件集共享资源层(写 ↔ 审 ↔ 改循环的身份与编排层)。
+ *
+ * - Manuscript(稿件)是跨 feature 的统一身份:origin=prism 时 1:1 挂一个写作项目,
+ *   origin=upload 时只有审稿轮、没有写作工程(非对称能力)。
+ * - ManuscriptVersion(版本快照)是送审的铆点。
+ * - ReviewRound(审稿轮)把某个版本与一个 Submission 绑定;轮的 status/decision
+ *   不落库,由 mock handler 从绑定的 Submission 实时推导,天然不会失同步。
+ */
+export interface MockManuscriptCollection {
+  id: string;
+  name: string;
+  description?: string;
+  kind: "writing" | "review" | "custom";
+  isDefault?: boolean;
+  createdAt: string;
+}
+
+export interface MockManuscript {
+  id: number;
+  collectionId: string;
+  title: string;
+  origin: "prism" | "upload";
+  /** origin=prism 时 1:1 指向写作项目 */
+  prismProjectId?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MockManuscriptVersion {
+  id: number;
+  manuscriptId: number;
+  versionNo: number;
+  source: "prism-snapshot" | "upload";
+  label: string;
+  summary?: string;
+  createdAt: string;
+}
+
+export interface MockReviewRound {
+  id: number;
+  manuscriptId: number;
+  roundNo: number;
+  versionNo: number;
+  submissionId: number;
+  createdAt: string;
+}
+
 export interface MockAgentSession {
   id: string;
   sessionId: string;
@@ -59,6 +107,10 @@ export interface MockDatabase {
   stagingAreas: RemoteStagingArea[];
   submissions: MockSubmission[];
   prismProjects: MockPrismProject[];
+  manuscriptCollections: MockManuscriptCollection[];
+  manuscripts: MockManuscript[];
+  manuscriptVersions: MockManuscriptVersion[];
+  reviewRounds: MockReviewRound[];
   agentSessions: MockAgentSession[];
   readMessageIds: number[];
 }
@@ -178,26 +230,166 @@ We propose provenance, reversible action, and calibrated uncertainty as core pri
           },
         ],
       },
+      {
+        id: 202,
+        name: "NSFC 面上申请书",
+        title: "NSFC 面上申请书",
+        status: "draft",
+        mainFileId: 2003,
+        main_file_id: 2003,
+        template: "nsfc-proposal",
+        createdAt: "2026-07-22T09:00:00.000Z",
+        updatedAt: now,
+        created_at: "2026-07-22T09:00:00.000Z",
+        updated_at: now,
+        files: [
+          {
+            id: 2003,
+            projectId: 202,
+            name: "proposal.tex",
+            path: "proposal.tex",
+            isMain: true,
+            updatedAt: now,
+            content: "\\documentclass{article}\\begin{document}NSFC draft\\end{document}",
+          },
+        ],
+      },
     ],
-    agentSessions: ["smart-search", "claw", "boltslides", "sci-draw"].map(
-      (feature, index) => ({
-        id: `${feature}-session-1`,
-        sessionId: `${feature}-session-1`,
-        title:
-          feature === "smart-search"
-            ? "可信 AI 研究脉络"
-            : feature === "claw"
-              ? "论文综述与研究计划"
-              : feature === "boltslides"
-                ? "组会汇报演示稿"
-                : "Transformer 结构图",
-        feature,
-        active: true,
-        createdAt: "2026-07-26T06:00:00.000Z",
-        updatedAt: new Date(Date.parse(now) - index * 3_600_000).toISOString(),
+    manuscriptCollections: [
+      {
+        id: "m-writing",
+        name: "写作中",
+        description: "站内智能写作产生的稿件",
+        kind: "writing",
+        isDefault: true,
+        createdAt: "2026-07-12T08:00:00.000Z",
+      },
+      {
+        id: "m-review",
+        name: "审稿上传",
+        description: "上传参与智能审稿的稿件",
+        kind: "review",
+        createdAt: "2026-07-12T08:00:00.000Z",
+      },
+    ],
+    // 稿件 401 ↔ Prism 项目 201:两个版本,第 1 轮送审 = 已完成的 Submission 301。
+    // 稿件 402 ↔ Prism 项目 202:纯写作中,还没送审。
+    // 稿件 403 = 审稿页直接上传的稿(Submission 302),只有审的路。
+    manuscripts: [
+      {
+        id: 401,
+        collectionId: "m-writing",
+        title: "可信科研智能体论文",
+        origin: "prism",
+        prismProjectId: 201,
+        createdAt: "2026-07-12T08:00:00.000Z",
+        updatedAt: now,
+      },
+      {
+        id: 402,
+        collectionId: "m-writing",
+        title: "NSFC 面上申请书",
+        origin: "prism",
+        prismProjectId: 202,
+        createdAt: "2026-07-22T09:00:00.000Z",
+        updatedAt: now,
+      },
+      {
+        id: 403,
+        collectionId: "m-review",
+        title: "面向可信科研工作流的智能体交互设计研究",
+        origin: "upload",
+        createdAt: "2026-07-27T03:40:00.000Z",
+        updatedAt: now,
+      },
+    ],
+    manuscriptVersions: [
+      {
+        id: 501,
+        manuscriptId: 401,
+        versionNo: 1,
+        source: "prism-snapshot",
+        label: "初稿快照 v1",
+        summary: "完成引言与设计原则两章的初稿",
+        createdAt: "2026-07-15T10:00:00.000Z",
+      },
+      {
+        id: 502,
+        manuscriptId: 401,
+        versionNo: 2,
+        source: "prism-snapshot",
+        label: "送审 v2",
+        summary: "补充混合方法研究与设计框架后送审",
+        createdAt: "2026-07-18T04:20:00.000Z",
+      },
+      {
+        id: 503,
+        manuscriptId: 403,
+        versionNo: 1,
+        source: "upload",
+        label: "上传原稿 v1",
+        createdAt: "2026-07-27T03:42:00.000Z",
+      },
+    ],
+    reviewRounds: [
+      {
+        id: 601,
+        manuscriptId: 401,
+        roundNo: 1,
+        versionNo: 2,
+        submissionId: 301,
+        createdAt: "2026-07-18T04:20:00.000Z",
+      },
+      {
+        id: 602,
+        manuscriptId: 403,
+        roundNo: 1,
+        versionNo: 1,
+        submissionId: 302,
+        createdAt: "2026-07-27T03:42:00.000Z",
+      },
+    ],
+    agentSessions: [
+      ...(["smart-search", "claw", "boltslides", "sci-draw"] as const).map(
+        (feature, index) => ({
+          id: `${feature}-session-1`,
+          sessionId: `${feature}-session-1`,
+          title:
+            feature === "smart-search"
+              ? "可信 AI 研究脉络"
+              : feature === "claw"
+                ? "论文综述与研究计划"
+                : feature === "boltslides"
+                  ? "组会汇报演示稿"
+                  : "Transformer 结构图",
+          feature,
+          active: true,
+          createdAt: "2026-07-26T06:00:00.000Z",
+          updatedAt: new Date(Date.parse(now) - index * 3_600_000).toISOString(),
+          messages: [],
+        }),
+      ),
+      {
+        id: "claw-session-2",
+        sessionId: "claw-session-2",
+        title: "开题报告提纲",
+        feature: "claw",
+        active: false,
+        createdAt: "2026-07-24T09:00:00.000Z",
+        updatedAt: new Date(Date.parse(now) - 5 * 3_600_000).toISOString(),
         messages: [],
-      }),
-    ),
+      },
+      {
+        id: "smart-search-session-2",
+        sessionId: "smart-search-session-2",
+        title: "对比实验设计",
+        feature: "smart-search",
+        active: false,
+        createdAt: "2026-07-23T11:00:00.000Z",
+        updatedAt: new Date(Date.parse(now) - 8 * 3_600_000).toISOString(),
+        messages: [],
+      },
+    ],
     readMessageIds: [],
   };
 }
@@ -213,6 +405,42 @@ function isMockDatabase(value: unknown): value is MockDatabase {
   );
 }
 
+function ensureSeedExtras(database: MockDatabase): boolean {
+  const seed = createSeed();
+  let changed = false;
+  const appendMissing = <T, K extends keyof T>(
+    current: T[],
+    extras: T[],
+    key: K,
+  ) => {
+    for (const item of extras) {
+      if (!current.some((row) => row[key] === item[key])) {
+        current.push(structuredClone(item));
+        changed = true;
+      }
+    }
+  };
+  // 旧版本 localStorage 里的库没有稿件四表 —— 先补空数组再补种子行。
+  database.manuscriptCollections ??= [];
+  database.manuscripts ??= [];
+  database.manuscriptVersions ??= [];
+  database.reviewRounds ??= [];
+  appendMissing(database.prismProjects, seed.prismProjects, "id");
+  appendMissing(database.submissions, seed.submissions, "id");
+  appendMissing(
+    database.manuscriptCollections,
+    seed.manuscriptCollections,
+    "id",
+  );
+  appendMissing(database.manuscripts, seed.manuscripts, "id");
+  appendMissing(database.manuscriptVersions, seed.manuscriptVersions, "id");
+  appendMissing(database.reviewRounds, seed.reviewRounds, "id");
+  appendMissing(database.folders, seed.folders, "id");
+  appendMissing(database.stagingAreas, seed.stagingAreas, "id");
+  appendMissing(database.agentSessions, seed.agentSessions, "sessionId");
+  return changed;
+}
+
 export function getMockDatabase(): MockDatabase {
   if (cache) return cache;
   try {
@@ -221,6 +449,7 @@ export function getMockDatabase(): MockDatabase {
       const parsed: unknown = JSON.parse(saved);
       if (isMockDatabase(parsed)) {
         cache = parsed;
+        if (ensureSeedExtras(cache)) persistMockDatabase();
         return cache;
       }
     }

@@ -139,7 +139,7 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
         </button>
 
         {/* 中部页数指示:已知 totalPages 显示 "X / Y";游标模式显示 "第 X 页" */}
-        <span className="inline-flex h-7 min-w-[64px] px-3 items-center justify-center rounded-8 bg-foreground text-on-dark text-12 font-medium tabular-nums">
+        <span className="inline-flex h-7 min-w-[64px] px-3 items-center justify-center rounded-8 bg-inverse text-on-inverse text-12 font-medium tabular-nums">
           {totalPages != null ? `${page} / ${totalPages}` : `第 ${page} 页`}
         </span>
 

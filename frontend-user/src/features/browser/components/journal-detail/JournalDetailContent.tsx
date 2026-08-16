@@ -9,6 +9,7 @@ import { JournalDecisionCard } from '@/shared/components/JournalDecisionCard';
 import { cn } from '@/shared/lib/utils';
 import { useJournalFullDetail } from '@/shared/api/journals';
 import type { Journal } from '@/shared/api/types';
+import { JournalCommentsPanel } from '@/features/journals/components/JournalCommentsPanel';
 
 const JournalTrendChart = lazy(() =>
   import('@/shared/components/JournalTrendChart').then((m) => ({
@@ -152,6 +153,8 @@ export function JournalDetailContent({
       )}
 
       {unified && <JournalMetricsGroups unified={unified} />}
+
+      <JournalCommentsPanel journalId={journal.id} />
     </div>
   );
 }

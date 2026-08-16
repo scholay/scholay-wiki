@@ -65,7 +65,7 @@ export function RightPanelFeatureHub({
   const assistant = variant === 'assistant';
 
   if (assistant) {
-    return <ExpansionAreaOpenDock />;
+    return <ExpansionAreaOpenDock variant="assistant" />;
   }
 
   const functionCards: HubCard[] = [

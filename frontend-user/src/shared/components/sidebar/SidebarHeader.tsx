@@ -1,11 +1,10 @@
 import { type ButtonHTMLAttributes, type ReactNode, forwardRef } from 'react';
 import { cn } from '@/shared/lib/utils';
-import { useSidebar } from '@/stores/sidebar.store';
 
 /**
  * 顶部 iconSelector — 56h,space-between,底部 1px #EEEEEE 描边。
  * padding [10,12] 是 .pen `wzCqs`,[10,16] 是 `gs3tU`;两者差异极小,统一用 px-3。
- * 窄轨态隐藏(52px 放不下完整 header)。
+ * 收起由 SidebarLayout 裁到 0 宽,header 保持完整以免动画期跳成窄轨。
  */
 export function SidebarHeader({
   children,
@@ -14,9 +13,6 @@ export function SidebarHeader({
   children: ReactNode;
   className?: string;
 }) {
-  const expanded = useSidebar((s) => s.expanded);
-  if (!expanded) return null;
-
   return (
     <header
       className={cn(

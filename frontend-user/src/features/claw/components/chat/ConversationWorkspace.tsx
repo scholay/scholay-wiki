@@ -17,9 +17,6 @@ import { StickToBottom } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { ResourceError } from '@/shared/components/ResourceError';
-import { SidebarLayout } from '@/shared/components/sidebar';
-import { AgentSessionStrip } from '@/shared/components/agent-session/AgentSessionStrip';
-import type { AgentSessionApi } from '@/shared/api/agent-sessions';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
@@ -28,9 +25,11 @@ import { useHeightVar, useLocalStorage, useMediaQuery } from '@/shared/hooks';
 import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { QuestionPrompt, StallNotice, findPendingQuestionBlock } from '@/shared/components/chat';
+import { FundsReminderChatNotice } from '@/shared/components/funds-reminder/FundsReminder';
 import { useUserSkillsByGuide } from '@/shared/api/skills';
 import { cn } from '@/shared/lib/utils';
 import { RightPanelFeatureHub } from '@/features/search/components/workspace/RightPanelFeatureHub';
+import { FILE_COL_DEFAULT_PX } from '@/features/search/components/workspace/ColumnResizeHandle';
 import { ChatComposer, type ChatComposerHandle } from './ChatComposer';
 import { MessageTurn } from './MessageTurn';
 import { ClawHero, type HeroSuggestion } from './ClawHero';
@@ -81,18 +80,16 @@ export interface WorkspaceConfig {
 }
 
 /**
- * 会话工作区(桌面)—— 会话条 + px 锁定对话列 + 右侧工作区 FeatureHub。
+ * 会话工作区(桌面)—— px 锁定对话列 + 右侧工作区 FeatureHub。
+ * 历史会话走全站左轨「对话」段,主区不再挂 AgentSessionStrip。
  * 不挂检索模式切换:智能助手是独立入口,去文献检索走菜单 / 其它引导。
  * 会话状态机(conv)由外层按模式各自的 hook 提供并注入。
  */
 export function ConversationWorkspace({
   conv,
   cfg,
-  sidebar,
   heroExtra,
   onNewConversation,
-  onSelectSession,
-  sessionApi,
   onExportArtifactDeck,
   exportingFormat = null,
   initialPrompt,
@@ -100,17 +97,11 @@ export function ConversationWorkspace({
 }: {
   conv: ConversationApi;
   cfg: WorkspaceConfig;
-  /** 由外层装配的侧边栏(工作区文件夹,与文献检索同构)。 */
-  sidebar: ReactNode;
   /** 空态 hero 里 composer 下方的附加内容(模板卡扑克牌扇 / 换回对话)。 */
   heroExtra?: ReactNode;
   /** 「新对话」—— **回到默认聊天空态**(claw,露出模板卡可重选);
    *  由 ClawPage 传入(= 切回 claw feature 的空白新对话)。缺省回落 conv.handleNewConversation。 */
   onNewConversation?: () => void;
-  /** 会话条切换会话 → 页层 navigate(`/claw/:sid`)。 */
-  onSelectSession: (sessionId: string) => void;
-  /** 当前 feature 的会话 CRUD(claw / boltslides / sci_draw)。 */
-  sessionApi: AgentSessionApi;
   /** 制作PPT:把 html 演示稿产物导出为 PDF/PPTX。 */
   onExportArtifactDeck?: (a: ClawArtifact, format: 'pptx' | 'pptx-native' | 'pdf') => void;
   exportingFormat?: 'pptx' | 'pptx-native' | 'pdf' | null;
@@ -159,6 +150,7 @@ export function ConversationWorkspace({
   const isNarrow = useMediaQuery('(max-width: 1024px)');
 
   const activePanel = useSearchRightPanelStore((s) => s.activePanel);
+  const fileAreaOpen = useSearchRightPanelStore((s) => s.fileAreaOpen);
   const openPanel = useSearchRightPanelStore((s) => s.openPanel);
   const openArtifact = useSearchRightPanelStore((s) => s.openArtifact);
   const setEmbedMode = useSearchRightPanelStore((s) => s.setEmbedMode);
@@ -207,10 +199,13 @@ export function ConversationWorkspace({
 
   const showRightPanel = !isNarrow;
   const showFeatureHubDock = showRightPanel && !activePanel;
-  const showExpandedRight = showRightPanel && !!activePanel;
-  const showResizeHandle = showExpandedRight;
-  // 空态 hero 或未展开拓展区时主列吃满;展开后按 chatWidth 锁定左列。
-  const expandMainColumn = !conversationActive || !showExpandedRight;
+  // 文件区(「当前对话」文献列)与拓展区任一打开都要挂右栏。
+  const expansionOpen = showRightPanel && !!activePanel;
+  const onlyFileArea = showRightPanel && fileAreaOpen && !activePanel;
+  const showExpandedRight = expansionOpen || onlyFileArea;
+  const showResizeHandle = expansionOpen;
+  // 空态 hero / 未展开拓展区 / 仅文件区(右侧定宽)时主列吃满;拓展展开后按 chatWidth 锁定左列。
+  const expandMainColumn = !conversationActive || !expansionOpen;
 
   const inlineFigures = !!cfg.figuresInline;
   const autoOpenLatest = !!cfg.autoOpenLatestArtifact && !inlineFigures;
@@ -264,6 +259,10 @@ export function ConversationWorkspace({
   const [chatWidth, setChatWidth] = useLocalStorage<number>(
     'search.searcher-width',
     CHAT_DEFAULT_PX,
+  );
+  const [fileColWidth, setFileColWidth] = useLocalStorage<number>(
+    'claw.file-col-width',
+    FILE_COL_DEFAULT_PX,
   );
   const draggingRef = useRef(false);
   const startDrag = useCallback(
@@ -339,7 +338,6 @@ export function ConversationWorkspace({
       disabledPlaceholder={disabledPlaceholder}
       busy={busy}
       stopping={stopping}
-      context={contextQuery.data}
       onStop={conv.handleStop}
       onSubmit={conv.handleSubmit}
       sessionId={sessionId}
@@ -355,7 +353,6 @@ export function ConversationWorkspace({
   );
 
   return (
-    <SidebarLayout sidebar={sidebar}>
       <div className="relative flex h-full min-h-0 bg-background">
         <div
           style={expandMainColumn ? undefined : { width: chatWidth }}
@@ -365,23 +362,6 @@ export function ConversationWorkspace({
           )}
         >
           <div className="relative flex h-full min-h-0 flex-col bg-background">
-            <AgentSessionStrip
-              placement="bar"
-              api={sessionApi}
-              activeSessionId={sessionId}
-              onActivate={onSelectSession}
-              onNewConversation={startNew}
-              newConversationDisabled={busy || sessionId === null}
-              newConversationTitle={
-                busy
-                  ? '回答中,请稍候'
-                  : sessionId === null
-                    ? '已是新对话'
-                    : '开始新对话'
-              }
-              emptyHint="还没有会话, 在下方输入第一句话即可开始"
-            />
-
             {socket.state === 'displaced' && (
               <AgentDisplacedBanner
                 reason={socket.displacedReason}
@@ -442,6 +422,8 @@ export function ConversationWorkspace({
                           figuresInline={inlineFigures}
                         />
                       ))}
+                      {/* 经费不足提醒的对话内消息体(挂载即注册宿主;未触发时渲染 null) */}
+                      <FundsReminderChatNotice />
                     </StickToBottom.Content>
                     <ScrollController scrollRef={scrollToBottomRef} />
                   </StickToBottom>
@@ -521,8 +503,19 @@ export function ConversationWorkspace({
               </div>
             )}
 
-            <div className="h-full min-h-0 flex-1 overflow-x-auto">
-              <div style={{ minWidth: RIGHT_MIN_PX }} className="h-full">
+            <div
+              style={onlyFileArea ? { width: fileColWidth } : undefined}
+              className={cn(
+                'h-full min-h-0',
+                onlyFileArea
+                  ? 'shrink-0 border-l border-border'
+                  : 'flex-1 overflow-x-auto',
+              )}
+            >
+              <div
+                style={onlyFileArea ? undefined : { minWidth: RIGHT_MIN_PX }}
+                className="h-full"
+              >
                 <Suspense
                   fallback={
                     <div className="flex h-full items-center justify-center text-faint">
@@ -530,13 +523,16 @@ export function ConversationWorkspace({
                     </div>
                   }
                 >
-                  <SearchRightPanel variant="assistant" />
+                  <SearchRightPanel
+                    variant="assistant"
+                    fileColWidth={fileColWidth}
+                    onFileColWidthChange={setFileColWidth}
+                  />
                 </Suspense>
               </div>
             </div>
           </>
         )}
       </div>
-    </SidebarLayout>
   );
 }

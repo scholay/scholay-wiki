@@ -10,7 +10,7 @@
 export const RHINO_CANVAS_PX = 256;
 
 /** Collapsed floating mascot CSS edge (px) */
-export const RHINO_DISPLAY_PX = 112;
+export const RHINO_DISPLAY_PX = 144;
 
 /** Expanded panel — mascot parked outside dialog (px) */
 export const RHINO_PANEL_SPRITE_PX = 112;

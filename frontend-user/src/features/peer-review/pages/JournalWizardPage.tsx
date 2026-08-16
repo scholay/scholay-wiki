@@ -124,8 +124,10 @@ export function JournalWizardPage() {
   const { data: latestDraft, isLoading: latestLoading } = useLatestDraft('journal');
   useEffect(() => {
     if (!id && latestDraft) {
+      // 侧栏 / Hub 进第一屏永远落 Step 1(居中上传)。未完成草稿只带回 id,
+      // 不跳到上次离开的步;「继续投稿」带 ?id 的链接仍由下面 effect 恢复进度。
       setParams(
-        { id: String(latestDraft.id), step: String(latestDraft.step) },
+        { id: String(latestDraft.id), step: '1' },
         { replace: true }
       );
     }

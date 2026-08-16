@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
@@ -7,6 +7,8 @@ import { lazyRoute } from '@/shared/components/LazyRoute';
  *   /peer-review                  → SubmissionLandingPage(选 期刊 / 毕业)
  *   /peer-review/journal          → 期刊审稿 wizard (?step=1..4&id=...)
  *   /peer-review/thesis           → 毕业审稿 wizard (?step=1..4&id=...)
+   *   /peer-review/conference       → 敬请期待(回 Hub)
+ *   /peer-review/other            → 其他稿件(暂复用期刊 wizard)
  *   /peer-review/records          → 工单总览
  *   /peer-review/records/:id      → 工单详情(三审 + 主审 4 tab)
  *
@@ -29,6 +31,14 @@ export const peerReviewRoutes: RouteObject[] = [
       {
         path: 'thesis',
         element: lazyRoute(() => import('./pages/ThesisWizardPage'), 'ThesisWizardPage'),
+      },
+      {
+        path: 'conference',
+        element: <Navigate to="/peer-review" replace />,
+      },
+      {
+        path: 'other',
+        element: lazyRoute(() => import('./pages/JournalWizardPage'), 'JournalWizardPage'),
       },
       {
         path: 'records',

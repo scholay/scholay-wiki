@@ -334,7 +334,7 @@ const AVATAR_TONES = [
   'bg-brand-green text-on-brand',
   'bg-brand-amber text-foreground',
   'bg-brand-red text-on-brand',
-  'bg-foreground text-on-dark',
+  'bg-inverse text-on-inverse',
 ];
 function toneOf(name: string): string {
   let h = 0;

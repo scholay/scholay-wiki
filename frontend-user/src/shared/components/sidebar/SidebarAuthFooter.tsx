@@ -1,7 +1,6 @@
 import { LogIn } from 'lucide-react';
 import { useAuthStatus } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { useSidebar } from '@/stores/sidebar.store';
 import { cn } from '@/shared/lib/utils';
 import { UserMenuContent } from '../UserMenuContent';
 import { SidebarUser } from './SidebarUser';
@@ -13,17 +12,14 @@ import { SidebarUser } from './SidebarUser';
  *     下拉(与顶栏 user pill 弹出内容完全一致,对照 .pen `g1qah`)
  *   - 未登录:渲染 "登录 / 注册" 两个按钮(同样的 h-14 + 顶 border,
  *     不会撑变 sidebar 高度)
- *   - 窄轨态隐藏(52px 放不下完整用户条;账号入口在顶栏)
+ * 收起由 SidebarLayout 裁到 0 宽,本条保持完整以免动画期跳成窄轨。
  *
  * 用法:任意 sidebar 在最下面 `<SidebarAuthFooter />` 即可,无 props。
  */
 export function SidebarAuthFooter() {
-  const sidebarExpanded = useSidebar((s) => s.expanded);
   // 登录与否只看 token(authenticated);user 仅用于展示,已登录但 profile 未到时为 null。
   const { authenticated, user } = useAuthStatus();
   const openDialog = useAuthDialog((s) => s.openDialog);
-
-  if (!sidebarExpanded) return null;
 
   if (!authenticated) {
     return <UnauthedFooter onLogin={() => openDialog('login')} onRegister={() => openDialog('register')} />;

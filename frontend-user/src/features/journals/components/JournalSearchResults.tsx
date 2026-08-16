@@ -1,8 +1,12 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, type ReactNode } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocalStorage } from '@/shared/hooks';
+import {
+  ColumnResizeHandle,
+  startColumnResize,
+} from '@/features/search/components/workspace/ColumnResizeHandle';
 import {
   AlertCircle,
-  ArrowUpRight,
   BookOpen,
   Loader2,
   Search,
@@ -11,21 +15,29 @@ import {
   X,
 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { FeatureBrandHeading } from '@/shared/components/FeatureBrandHeading';
+import { JournalResultRow } from '@/shared/components/JournalResultRow';
 import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
+import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
+import { JournalDetailContent } from '@/features/browser/components/journal-detail/JournalDetailContent';
 import { cn } from '@/shared/lib/utils';
-import { useOpenJournalInBrowser } from '@/shared/hooks';
 import { exposeJournals } from '@/shared/api/seo';
-import { useJournalSearch, useJournalStats, type Journal } from '../api/journals';
+import type { Journal } from '@/shared/api/types';
+import { useJournalSearch } from '../api/journals';
 import type { JournalFilters } from '../types';
-import { JournalCover } from '@/shared/components/JournalCover';
-import { JournalFiltersFloating } from './JournalFiltersFloating';
+import { JournalFiltersPanel } from './JournalFiltersPanel';
+import { JournalLanding } from './JournalLanding';
 
 /**
  * 期刊搜索结果主体 —— `/journals/search` 嵌入 JournalSearchPage 主区。
- * 筛选器以悬浮 FAB + Popover 挂在主区(对齐文献搜索 SearchFiltersFloating)。
+ * 有结果后左侧常驻筛选栏;空态不挂筛选。
  */
 
 const PAGE_SIZE = 8;
+const FILTER_RAIL_PX = 168;
+const DETAIL_MIN_PX = 320;
+const DETAIL_MAX_PX = 720;
+const DETAIL_DEFAULT_PX = 420;
 
 interface JournalSearchResultsProps {
   filters: JournalFilters;
@@ -57,20 +69,30 @@ export function JournalSearchResults({
   onFiltersChange,
   header,
 }: JournalSearchResultsProps) {
+  const { pathname } = useLocation();
   const [params, setParams] = useSearchParams();
-  const openJournal = useOpenJournalInBrowser();
-  const statsQ = useJournalStats();
+  const isSelect = pathname.startsWith('/journals/select');
+  const pageTitle = isSelect ? 'scholay 选刊' : '期刊库查询';
+  const [selected, setSelected] = useState<Journal | null>(null);
+  const [detailWidth, setDetailWidth] = useLocalStorage(
+    'journals.detail-width',
+    DETAIL_DEFAULT_PX,
+  );
 
   const keyword = params.get('q')?.trim() ?? '';
   const page = Math.max(1, Number(params.get('page')) || 1);
   const sortKey = (params.get('sort') as SortKey) || (keyword ? 'relevance' : 'if');
 
-  // 搜索条本地受控,URL keyword 变化时同步
   const [input, setInput] = useState(keyword);
   useEffect(() => setInput(keyword), [keyword]);
 
-  // 注:filter 改 → 自动回第 1 页,由 useJournalUrlFilters.setFilters 负责
-  // (旧的 useEffect 已删除,改在写 URL 时一次完成,避免双写抖动)
+  const hasActiveFilters =
+    !!filters.fqbQuartile ||
+    !!filters.jcrQuartile ||
+    !!filters.minImpactFactor ||
+    !!filters.ccfRank ||
+    !!filters.publisher;
+  const showResults = !!header || !!keyword || hasActiveFilters;
 
   const searchQ = useJournalSearch({
     keyword: keyword || undefined,
@@ -82,6 +104,7 @@ export function JournalSearchResults({
     ...SORT_TO_BACKEND[sortKey],
     page,
     pageSize: PAGE_SIZE,
+    enabled: showResults,
   });
 
   const items = searchQ.data?.items ?? [];
@@ -94,12 +117,11 @@ export function JournalSearchResults({
     if (items.length > 0) exposeJournals(items);
   }, [items]);
 
-  const submitSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const applyQuery = (q: string) => {
+    const trimmed = q.trim();
+    if (!trimmed) return;
     const sp = new URLSearchParams(params);
-    const trimmed = input.trim();
-    if (trimmed) sp.set('q', trimmed);
-    else sp.delete('q');
+    sp.set('q', trimmed);
     sp.delete('page');
     setParams(sp);
   };
@@ -120,86 +142,52 @@ export function JournalSearchResults({
     setParams(sp);
   };
 
-  const hasActiveFilters =
-    !!filters.fqbQuartile ||
-    !!filters.jcrQuartile ||
-    !!filters.minImpactFactor ||
-    !!filters.ccfRank ||
-    !!filters.publisher;
-
-  const stats = statsQ.data;
-  const sourceTotal = useMemo(() => {
-    if (!stats?.sourceCoverage) return 0;
-    return Object.values(stats.sourceCoverage).reduce((sum, v) => sum + Number(v), 0);
-  }, [stats]);
+  if (!showResults) {
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <JournalLanding
+          variant={isSelect ? 'select' : 'query'}
+          onSearch={applyQuery}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="relative h-full min-h-0 bg-background">
-      <div className="h-full overflow-auto">
-      <div className="max-w-6xl mx-auto px-10 py-7 space-y-6">
-        {/* 落地页传 header 槽则替换默认 Hero(避免双 h1);搜索页不传 → 默认 Hero。 */}
+    <div className="flex h-full min-h-0 bg-background">
+      {onFiltersChange ? (
+        <aside
+          style={{ width: FILTER_RAIL_PX }}
+          className="flex h-full shrink-0 flex-col border-r border-border bg-background"
+        >
+          <JournalFiltersPanel
+            rail
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+          />
+        </aside>
+      ) : null}
+      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+      {/* 主列对齐文献库检索:单列 max-w-3xl,结果为平铺行卡而非网格。 */}
+      <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-7">
         {header ?? (
-        <section className="rounded-lg bg-surface-1 border border-border-soft p-6 space-y-[18px]">
-          {/* 标题 + 右侧 KPI */}
-          <div className="flex items-end justify-between gap-6">
-            <div className="space-y-1.5">
-              {/* .pen `vCLDh` 30/700 Playfair —— 30 不在 token 表,arbitrary */}
-              <h1 className="font-display font-bold leading-none text-[30px] text-foreground">
-                期刊搜索
-              </h1>
-              <p className="text-base text-faint">
-                Journal Search · 检索全球期刊与顶会,按学科、分区、影响因子精准筛选
-              </p>
-            </div>
-            <div className="hidden md:flex items-end gap-[26px] shrink-0">
-              <Kpi
-                value={stats ? stats.totalJournals.toLocaleString() : '—'}
-                label="收录期刊"
-              />
-              <Kpi
-                value={sourceTotal ? sourceTotal.toLocaleString() : '—'}
-                label="数据源覆盖"
-              />
-              <Kpi value="实时" label="同步状态" />
-            </div>
+          <div className="flex flex-col items-center gap-6">
+            <FeatureBrandHeading as="h1" title={pageTitle} mark={false} />
+            <SearchAutocomplete
+              appearance={isSelect ? 'smart' : 'literature'}
+              value={input}
+              onChange={setInput}
+              onSubmit={applyQuery}
+              placeholder={
+                isSelect
+                  ? '描述稿件方向、学科与目标分区…'
+                  : '刊名 / ISSN / 主办机构'
+              }
+            />
           </div>
-
-          {/* 搜索条 —— .pen `xBNU4` 高 52,走 token `h-13`(globals.css 新加,
-              填 Tailwind h-12 / h-14 之间的空缺,与 dialog header/footer 通用) */}
-          <form onSubmit={submitSearch} className="flex items-center gap-2.5 h-13">
-            <div className="flex flex-1 h-13 items-center gap-3 px-[18px] rounded-lg bg-background border border-border-strong focus-within:border-foreground transition-colors">
-              <Search className="size-4 text-muted-foreground" strokeWidth={2} />
-              <input
-                type="search"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="刊名 / ISSN / 主办机构"
-                className="flex-1 h-full bg-transparent text-md outline-none placeholder:text-faint"
-              />
-              {input && (
-                <button
-                  type="button"
-                  onClick={() => setInput('')}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground"
-                  aria-label="清空"
-                >
-                  <X className="size-3.5" />
-                </button>
-              )}
-            </div>
-            <button
-              type="submit"
-              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-lg bg-foreground text-background text-base font-bold hover:opacity-90 transition-opacity shrink-0"
-            >
-              <Search className="size-3.5" strokeWidth={2.5} />
-              搜索期刊
-            </button>
-          </form>
-
-        </section>
         )}
 
-        {/* ───── 结果头 —— .pen `HsUQD`(不展示总数,上游不给) ───── */}
         <header className="flex items-end justify-between gap-4">
           <div className="space-y-1">
             <h2 className="font-display font-bold text-lg text-foreground leading-none">
@@ -264,12 +252,14 @@ export function JournalSearchResults({
         )}
 
         {items.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
             {items.map((j) => (
-              <JournalCard
+              <JournalResultRow
                 key={j.id}
                 journal={j}
-                onOpen={() => openJournal(j)}
+                selected={selected?.id === j.id}
+                variant={isSelect ? 'recommend' : 'metrics'}
+                onOpen={() => setSelected(j)}
               />
             ))}
           </div>
@@ -286,163 +276,45 @@ export function JournalSearchResults({
         )}
       </div>
       </div>
-      {onFiltersChange && (
-        <JournalFiltersFloating
-          filters={filters}
-          onFiltersChange={onFiltersChange}
+      {selected ? (
+        <>
+        <ColumnResizeHandle
+          label="拖动调整详情栏宽度"
+          onPointerDown={(e) =>
+            startColumnResize(
+              e,
+              detailWidth,
+              setDetailWidth,
+              DETAIL_MIN_PX,
+              DETAIL_MAX_PX,
+              -1,
+            )
+          }
         />
-      )}
+        <aside
+          style={{ width: detailWidth }}
+          className="flex h-full min-h-0 shrink-0 flex-col bg-background"
+        >
+          <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-4">
+            <span className="truncate text-12 font-medium text-foreground">
+              期刊详情
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="inline-flex size-7 items-center justify-center rounded-4 text-faint transition-colors hover:bg-surface-1 hover:text-foreground"
+              aria-label="关闭详情"
+            >
+              <X className="size-3.5" strokeWidth={2} />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <JournalDetailContent journal={selected} compact />
+          </div>
+        </aside>
+        </>
+      ) : null}
+      </div>
     </div>
   );
 }
-
-// ============================================================================
-// 子组件
-// ============================================================================
-
-function Kpi({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <span className="font-display font-bold text-xl leading-none text-foreground tabular-nums">
-        {value}
-      </span>
-      <span className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-// ─── 单卡 —— .pen `AO18q` (cover 120 + info 自适应, h-192) ───────────────
-function JournalCard({
-  journal: j,
-  onOpen,
-}: {
-  journal: Journal;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-lg bg-background border border-border hover:border-foreground hover:shadow-sm transition-all"
-    >
-      <JournalCover id={j.id} name={j.canonical_name} size="card" />
-
-      <div className="flex-1 min-w-0 flex flex-col justify-between gap-3">
-        {/* Top: 标题 + 副标题 + 收藏 icon */}
-        <div className="flex items-start gap-2">
-          <div className="flex-1 min-w-0 space-y-1">
-            <h3 className="font-display font-bold text-md leading-tight text-foreground truncate group-hover:text-brand-red transition-colors">
-              {j.canonical_name}
-            </h3>
-            <div className="text-xs text-faint truncate">
-              {j.publisher ?? '出版社未知'}
-              {j.country && <> · {j.country}</>}
-              {j.is_oa && <> · OA</>}
-            </div>
-          </div>
-          <div className="shrink-0 flex items-center gap-1.5">
-            {j.xr_quartile && (
-              <span
-                className="inline-flex items-center h-6 px-2 rounded-sm bg-brand-green/10 text-brand-green text-2xs font-bold"
-                title="中科院新锐分区"
-              >
-                新锐 {j.xr_quartile} 区
-              </span>
-            )}
-            {j.gjqk_warning && (
-              <span
-                className="inline-flex items-center gap-1 h-6 px-2 rounded-sm bg-warning-soft text-brand-amber text-2xs font-bold"
-                title="中科院预警期刊"
-              >
-                ⚠ 预警
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* KPI 三栏 —— .pen `YpqvW`(rounded-8 border) */}
-        <div className="flex items-stretch rounded-md border border-border-soft">
-          <KpiCell label="影响因子" value={fmtIf(j.jcr_impact_factor)} sub={j.jcr_quartile ? `JCR ${j.jcr_quartile}` : '—'} />
-          <KpiCell
-            label="中科院分区"
-            value={j.fqb_quartile ? `${j.fqb_quartile}区` : '—'}
-            sub={j.fqb_quartile === '1' ? 'Top' : j.fqb_quartile ? '—' : '—'}
-            borderLeft
-          />
-          <KpiCell
-            label="CCF 等级"
-            value={j.ccf_rank ?? '—'}
-            sub={j.ccf_rank ? `CCF ${j.ccf_rank}` : '—'}
-            borderLeft
-          />
-        </div>
-
-        {/* 底部行: tags 占位 + 查看详情 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            {j.type && (
-              <span className="inline-flex items-center h-5 px-2 rounded-sm bg-foreground text-background text-2xs font-bold uppercase tracking-wide">
-                {j.type}
-              </span>
-            )}
-            {(j.source_count ?? 0) > 0 && (
-              <span className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-2 text-subtle text-2xs">
-                {j.source_count} 个数据源
-              </span>
-            )}
-            {j.has_submission && (
-              <span
-                className="inline-flex items-center h-5 px-2 rounded-sm bg-prism-badge-bg text-prism-badge-fg text-2xs font-medium"
-                title="提供投稿须知 / LaTeX 模板(Max 会员可下载)"
-              >
-                投稿资源
-              </span>
-            )}
-          </div>
-          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border text-xs font-bold text-foreground group-hover:bg-surface-1 transition-colors">
-            查看详情
-            <ArrowUpRight className="size-3" strokeWidth={2.5} />
-          </span>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function fmtIf(v: number | undefined): string {
-  if (v == null) return '—';
-  return v.toFixed(1);
-}
-
-function KpiCell({
-  label,
-  value,
-  sub,
-  borderLeft,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  borderLeft?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex-1 min-w-0 px-3.5 py-2.5 space-y-0.5',
-        borderLeft && 'border-l border-border-soft'
-      )}
-    >
-      <div className="text-2xs font-bold uppercase tracking-[0.12em] text-faint">
-        {label}
-      </div>
-      <div className="font-display font-bold text-xl leading-none text-foreground tabular-nums truncate">
-        {value}
-      </div>
-      <div className="text-2xs text-faint truncate">{sub}</div>
-    </div>
-  );
-}
-
-// 分页已抽到 shared/components/PaginationPrevNext —— cursor / hasMore 形态

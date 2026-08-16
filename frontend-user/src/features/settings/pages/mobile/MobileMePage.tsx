@@ -7,8 +7,10 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
+  Moon,
   ReceiptText,
   ShieldCheck,
+  Sun,
   UserPen,
   UserPlus,
 } from 'lucide-react';
@@ -22,6 +24,7 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useProfile } from '@/shared/api/profile';
 import { MobileAssetsCard } from '../../components/mobile/MobileAssetsCard';
 import { useInviteCampaign } from '@/shared/api/invite-campaign';
+import { useResolvedDark, useThemeStore } from '@/stores/theme.store';
 
 /**
  * 移动端「我的」(/m/me):
@@ -56,6 +59,9 @@ function LoggedOutView() {
         <Button variant="outline" className="h-12" onClick={() => openDialog('register')}>
           注册新账号
         </Button>
+      </div>
+      <div className="mt-8 w-full max-w-xs">
+        <NightModeRow />
       </div>
     </div>
   );
@@ -147,6 +153,8 @@ function LoggedInView() {
       {/* 会员 / 资产 */}
       <MobileAssetsCard membershipSignal={membershipSignal} />
 
+      <NightModeRow />
+
       {/* 设置菜单 */}
       <nav className="overflow-hidden rounded-16 border border-border bg-surface-card">
         <MenuRow to="/m/me/profile" icon={<UserPen className="size-4.5" />} label="个人资料" />
@@ -190,6 +198,25 @@ function LoggedInView() {
         退出登录
       </button>
     </div>
+  );
+}
+
+function NightModeRow() {
+  const setTheme = useThemeStore((s) => s.setTheme);
+  const isDark = useResolvedDark();
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      aria-pressed={isDark}
+      className="flex h-12 w-full items-center gap-3 rounded-16 border border-border bg-surface-card px-4 text-left active:bg-surface-2"
+    >
+      <span className="text-muted-foreground">
+        {isDark ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
+      </span>
+      <span className="flex-1 text-14 text-foreground">夜间模式</span>
+      <span className="text-12 text-faint">{isDark ? '开' : '关'}</span>
+    </button>
   );
 }
 

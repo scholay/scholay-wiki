@@ -1,12 +1,10 @@
 import { Outlet } from 'react-router-dom';
 import { Send, ScrollText, Lock, LogIn, UserPlus } from 'lucide-react';
-import { SidebarLayout } from '@/shared/components/sidebar';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Button } from '@/shared/ui/button';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { PeerReviewSidebar } from '../components/PeerReviewSidebar';
 
 /**
  * 智能审稿外壳 —— 跟 library / search 等 feature 同款 SidebarLayout:
@@ -28,9 +26,7 @@ export function PeerReviewShell() {
   // 侧边栏始终可开合 (跟文献搜索一致); 主区在未登录时整体换成登录引导 ——
   // 审稿功能必须登录才能用, 所以这里直接拦在 Outlet 之前, 子页面的数据 hook 也就不会 401。
   return (
-    <SidebarLayout sidebar={<PeerReviewSidebar />}>
-      {token ? <Outlet /> : <PeerReviewLoginPrompt />}
-    </SidebarLayout>
+    <>{token ? <Outlet /> : <PeerReviewLoginPrompt />}</>
   );
 }
 

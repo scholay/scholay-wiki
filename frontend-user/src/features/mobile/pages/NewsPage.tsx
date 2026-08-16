@@ -14,7 +14,7 @@ import { FeedTopTabs } from '../components/FeedTopTabs';
 import { VerticalSwipeFeed } from '../components/VerticalSwipeFeed';
 
 const LOADING_HINTS = [
-  '正在为你汇集学术情报…',
+  '正在为你汇集 scholay 情报…',
   '顶刊速递 · 重大事件 · 国内政策…',
   '上下滑动查看下一条',
 ];
@@ -64,7 +64,7 @@ export function NewsPage() {
             className={cn(
               'rounded-pill px-3 py-1 text-12 font-medium transition-colors',
               sort === s.key
-                ? 'bg-foreground text-on-dark'
+                ? 'bg-inverse text-on-inverse'
                 : 'bg-surface-2 text-muted-foreground',
             )}
           >

@@ -207,7 +207,7 @@ export async function exportTokenUsageCSV(params: TokenLogParams) {
 
 /** 固定枚举(feature/source)前端硬编码 label,与后端 FeatureLabel/SourceLabel 同口径。 */
 export const FEATURE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'smart_search', label: '智能搜索' },
+  { value: 'smart_search', label: '智能搜论文' },
   { value: 'claw', label: '智能助手' },
   { value: 'peer_review', label: 'AI 审稿' },
   { value: 'matrix', label: '矩阵分析' },

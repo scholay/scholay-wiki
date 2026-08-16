@@ -77,7 +77,7 @@ const CARDS: CardMeta[] = [
   },
   {
     key: 'journal',
-    title: '智能选刊',
+    title: 'scholay 选刊',
     subtitle: '根据稿件画像匹配目标期刊',
     Icon: BookMarked,
     Illustration: JournalPickIllustration,

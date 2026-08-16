@@ -6,7 +6,6 @@ import { FileBarChart, Layout, Loader2, PenTool, Presentation, Sparkles } from '
 import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { resolveAgentSessionQuery } from '@/shared/api/agent-sessions';
 import { ResourceError } from '@/shared/components/ResourceError';
-import { UnifiedSidebar } from '../components/sidebar/UnifiedSidebar';
 import { type ClawArtifact } from '../api/artifacts';
 import { clawHeroDefaults } from '../components/chat/ClawHero';
 import {
@@ -16,10 +15,9 @@ import {
 import { TemplateCards, type TemplateFeature } from '../components/chat/TemplateCards';
 import { FEATURE_ICON } from '../lib/feature-meta';
 import { useClawConversation } from '../hooks/useClawConversation';
-import { clawSessions, getNewConversationModel, setNewConversationModel } from '../api/session';
+import { getNewConversationModel, setNewConversationModel } from '../api/session';
 import { useBoltslidesConversation } from '../hooks/useBoltslidesConversation';
 import {
-  boltslidesSessions,
   getBoltslidesNewConversationModel,
   setBoltslidesNewConversationModel,
   useExportBoltslidesDeck,
@@ -29,7 +27,6 @@ import { useSciDrawConversation } from '../hooks/useSciDrawConversation';
 import {
   getSciDrawNewConversationModel,
   setSciDrawNewConversationModel,
-  sciDrawSessions,
 } from '../api/sci-draw-session';
 
 /**
@@ -39,7 +36,7 @@ import {
  *   - 默认就是普通聊天(claw / useClawConversation → /user/claw)
  *   - 新对话空态下,composer 下方铺开「模板卡扑克牌扇」;选「制作PPT」→ 切到 boltslides 模板
  *     (useBoltslidesConversation → /user/boltslides,产出单文件 HTML 演示稿),空态提供「换回对话」
- *   - 侧栏与文献检索同构(工作区文件夹);会话切换在主区 AgentSessionStrip,点侧栏历史已下线
+ *   - 会话切换走全站左轨「对话」段;主区不再挂 AgentSessionStrip
  *
  * 每个 feature 是一个自包含 workspace(各调各的 hook,满足 hooks 规则),共享 ConversationWorkspace 布局。
  *
@@ -121,8 +118,6 @@ interface WorkspacePageProps {
   seed: string | null;
   /** 懒新建落地真 sessionId 时回调 → 页层回填 URL(/claw/:newId)。 */
   onSessionCreated: (sessionId: string) => void;
-  /** 点侧栏某会话 → 导航到它的会话路由。 */
-  onSelectSession: (sessionId: string) => void;
   /** 新对话(回到 /claw 空白态)。 */
   onNewConversation: () => void;
   /** 选模板卡切 feature(仍是新对话态)。 */
@@ -135,7 +130,6 @@ interface WorkspacePageProps {
 function ClawModeWorkspace({
   seed,
   onSessionCreated,
-  onSelectSession,
   onNewConversation,
   onPickTemplate,
   initialPrompt,
@@ -147,18 +141,15 @@ function ClawModeWorkspace({
     <ConversationWorkspace
       conv={conv}
       cfg={CLAW_CFG}
-      sidebar={<UnifiedSidebar />}
       heroExtra={heroExtra}
       onNewConversation={onNewConversation}
-      onSelectSession={onSelectSession}
-      sessionApi={clawSessions}
       initialPrompt={initialPrompt}
       onInitialPromptConsumed={onInitialPromptConsumed}
     />
   );
 }
 
-function PptModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
+function PptModeWorkspace({ seed, onSessionCreated, onNewConversation, onPickTemplate }: WorkspacePageProps) {
   const conv = useBoltslidesConversation({ initialSessionId: seed, onSessionCreated });
   const exportDeck = useExportBoltslidesDeck();
   const handleExportDeck = useCallback(
@@ -195,29 +186,23 @@ function PptModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConver
     <ConversationWorkspace
       conv={conv}
       cfg={PPT_CFG}
-      sidebar={<UnifiedSidebar />}
       heroExtra={heroExtra}
       onNewConversation={onNewConversation}
-      onSelectSession={onSelectSession}
-      sessionApi={boltslidesSessions}
       onExportArtifactDeck={handleExportDeck}
       exportingFormat={exportingFormat}
     />
   );
 }
 
-function SciDrawModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
+function SciDrawModeWorkspace({ seed, onSessionCreated, onNewConversation, onPickTemplate }: WorkspacePageProps) {
   const conv = useSciDrawConversation({ initialSessionId: seed, onSessionCreated });
   const heroExtra = <TemplateCards activeFeature="sci_draw" onPick={onPickTemplate} />;
   return (
     <ConversationWorkspace
       conv={conv}
       cfg={SCI_DRAW_CFG}
-      sidebar={<UnifiedSidebar />}
       heroExtra={heroExtra}
       onNewConversation={onNewConversation}
-      onSelectSession={onSelectSession}
-      sessionApi={sciDrawSessions}
     />
   );
 }
@@ -322,7 +307,6 @@ export function ClawPage() {
   );
 
   // 点侧栏某会话 → 导航到它的会话路由(effect 解析 feature 后挂载)。
-  const selectSession = useCallback((sid: string) => navigate(`/claw/${sid}`), [navigate]);
 
   // 新对话 / 切模板:回到 /claw 无 id 的新对话态;feature 由内部态决定(模板卡可切)。
   const gotoNew = useCallback(
@@ -375,7 +359,6 @@ export function ClawPage() {
   const pageProps: WorkspacePageProps = {
     seed,
     onSessionCreated: handleSessionCreated,
-    onSelectSession: selectSession,
     onNewConversation: resetToDefault,
     onPickTemplate: gotoNew,
     initialPrompt,

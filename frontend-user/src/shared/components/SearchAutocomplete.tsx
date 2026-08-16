@@ -92,6 +92,11 @@ interface SearchAutocompleteProps {
    * 首页 / 居中空态默认 `below`。
    */
   suggestionsPlacement?: 'below' | 'above';
+  /**
+   * literature 默认拉论文/期刊联想,并在搜索键上挂「论文/期刊」picker。
+   * 广场等目录检索传 false,只留同一只外壳。
+   */
+  enableSuggestions?: boolean;
   className?: string;
 }
 
@@ -118,27 +123,29 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
       smartToggle,
       trailingActions,
       suggestionsPlacement = 'below',
+      enableSuggestions = true,
       className,
     },
     ref
   ) => {
   const smart = appearance === 'smart';
+  const suggestOn = enableSuggestions && !smart;
   const suggestionsOpenUp = suggestionsPlacement === 'above';
   const [focused, setFocused] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => rootRef.current as HTMLDivElement);
   const pickerCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [dropdownMaxHeight, setDropdownMaxHeight] = useState<string>('70vh');
-  const [dropdownFixed, setDropdownFixed] = useState<{
+  const [overlayFixed, setOverlayFixed] = useState<{
     left: number;
     width: number;
-    bottom: number;
+    top?: number;
+    bottom?: number;
     maxHeight: number;
   } | null>(null);
 
-  // smart 不拉联想(省请求);切回 literature 再启用。
-  const suggestQuery = smart ? '' : value;
+  // smart / 目录检索不拉联想(省请求);文献落地页才启用。
+  const suggestQuery = suggestOn ? value : '';
   // 真并行:3 个源(stc/olx/pmd)各自独立 useQuery,先到先铺,后到的静默追加在尾部
   const sourceResults = useMultiSourceSearchSuggestions(suggestQuery, {
     paperLimit: 4,
@@ -153,10 +160,10 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
   const hasResults =
     papers.length > 0 || authors.length > 0 || journals.length > 0;
   // Picker(hover 切换器):空输入态下不出现(无内容可搜索);smart 无 picker
-  const showPicker = !smart && pickerOpen && trimmed.length > 0;
-  // 联想 dropdown:与 picker 互斥;smart 关闭
+  const showPicker = suggestOn && pickerOpen && trimmed.length > 0;
+  // 联想 dropdown:与 picker 互斥;smart / 目录检索关闭
   const showSuggestions =
-    !smart && focused && trimmed.length >= 1 && hasResults && !showPicker;
+    suggestOn && focused && trimmed.length >= 1 && hasResults && !showPicker;
   // 只有 suggestions 与主框"无缝拼接"(共用同一色边框);
   // picker 是独立悬浮(蓝边 + 8px 间距),不影响主框边框状态
   const mergeBorders = showSuggestions;
@@ -183,10 +190,10 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
     return () => window.removeEventListener('mousedown', onClick);
   }, [showSuggestions, showPicker]);
 
-  // 计算 dropdown 高度/定位 —— below 相对输入框向下;above 用 fixed 向上,避免底栏被 overflow 裁切。
+  // 联想 / picker 一律 fixed,避免被 ClawHero / 检索列的 overflow 裁掉下沿。
   useEffect(() => {
-    if (!showSuggestions) {
-      setDropdownFixed(null);
+    if (!showSuggestions && !showPicker) {
+      setOverlayFixed(null);
       return;
     }
     const recalc = () => {
@@ -194,19 +201,20 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
       if (!el) return;
       const rect = el.getBoundingClientRect();
       if (suggestionsOpenUp) {
-        setDropdownFixed({
+        setOverlayFixed({
           left: rect.left,
           width: rect.width,
           bottom: window.innerHeight - rect.top,
           maxHeight: Math.max(160, rect.top - 24),
         });
-        setDropdownMaxHeight('70vh');
-      } else {
-        setDropdownFixed(null);
-        setDropdownMaxHeight(
-          `${Math.max(160, window.innerHeight - rect.bottom - 24)}px`,
-        );
+        return;
       }
+      setOverlayFixed({
+        left: rect.left,
+        width: rect.width,
+        top: rect.bottom,
+        maxHeight: Math.max(160, window.innerHeight - rect.bottom - 24),
+      });
     };
     recalc();
     window.addEventListener('resize', recalc);
@@ -221,7 +229,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
       window.removeEventListener('scroll', recalc, true);
       ro?.disconnect();
     };
-  }, [showSuggestions, suggestionsOpenUp]);
+  }, [showSuggestions, showPicker, suggestionsOpenUp]);
 
   // Hover picker 的开关 —— 给"搜索按钮 + picker 浮层"作为复合 hover 区域,
   // 鼠标离开 120ms 内重入则取消关闭,避免按钮 → 浮层 中间空隙误关
@@ -332,8 +340,8 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
                 : '搜索'
             }
             disabled={smart && !smartCanSend}
-            onMouseEnter={smart ? undefined : openPickerNow}
-            onMouseLeave={smart ? undefined : schedulePickerClose}
+            onMouseEnter={suggestOn ? openPickerNow : undefined}
+            onMouseLeave={suggestOn ? schedulePickerClose : undefined}
             className={cn(
               'relative inline-flex size-9 shrink-0 items-center justify-center transition-[background-color,border-radius,color,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
               smart
@@ -381,13 +389,17 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
       {/* 进出场用 tw-animate-css(零额外 JS)——本组件是首屏 eager 组件,
           不引 framer-motion 以免把 ~42KB gz 钉进首屏关键路径。dropdown 出场直接卸载、无需退场过渡。 */}
       <>
-        {showPicker && (
+        {showPicker && overlayFixed && (
           <div
             onMouseEnter={openPickerNow}
             onMouseLeave={schedulePickerClose}
-            // 与主框留 8px 间距(top-full + mt-2),不挤压主框下边线;
-            // 主框边框不会因为 picker 打开而改变(mergeBorders 只看 suggestions)
-            className="absolute top-full left-0 right-0 mt-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+            className="z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+            style={{
+              position: 'fixed',
+              left: overlayFixed.left,
+              width: overlayFixed.width,
+              top: (overlayFixed.top ?? 0) + 8,
+            }}
           >
             <JournalSearchAlternateRow
               query={trimmed}
@@ -396,25 +408,23 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
           </div>
         )}
 
-        {showSuggestions && (
+        {showSuggestions && overlayFixed && (
           <div
             className={cn(
               'z-50 flex flex-col bg-background border border-border-strong overflow-y-auto animate-in fade-in duration-150',
               suggestionsOpenUp
                 ? 'border-b-0 rounded-t-sm shadow-[0_-8px_24px_rgba(0,0,0,0.08)] slide-in-from-bottom-1'
-                : 'absolute top-full left-0 right-0 border-t-0 rounded-b-sm shadow-[0_8px_24px_rgba(0,0,0,0.08)] slide-in-from-top-1',
+                : 'border-t-0 rounded-b-sm shadow-[0_8px_24px_rgba(0,0,0,0.08)] slide-in-from-top-1',
             )}
-            style={
-              suggestionsOpenUp && dropdownFixed
-                ? {
-                    position: 'fixed',
-                    left: dropdownFixed.left,
-                    width: dropdownFixed.width,
-                    bottom: dropdownFixed.bottom,
-                    maxHeight: dropdownFixed.maxHeight,
-                  }
-                : { maxHeight: dropdownMaxHeight }
-            }
+            style={{
+              position: 'fixed',
+              left: overlayFixed.left,
+              width: overlayFixed.width,
+              maxHeight: overlayFixed.maxHeight,
+              ...(overlayFixed.top != null
+                ? { top: overlayFixed.top }
+                : { bottom: overlayFixed.bottom }),
+            }}
           >
             {papers.length > 0 && (
               <PaperSection

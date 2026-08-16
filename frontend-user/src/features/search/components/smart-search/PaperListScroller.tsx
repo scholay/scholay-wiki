@@ -11,12 +11,12 @@ import { toast } from 'sonner';
 import type { Paper, UpstreamSource } from '@/shared/api/types';
 import { useFavoriteCheck } from '@/shared/api/user-library-mutations';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
-import { enrichPmdAbstracts } from '@/shared/api/paper-enrich';
 import { trackPaperImpressions } from '@/shared/api/hot-content';
 import { PaperResultCard } from '@/shared/components/PaperResultCard';
 import { useStagingActions } from '../../hooks/useStagingActions';
 import { useStagingView } from '../../hooks/useStagingView';
 import { parsePapersFromToolResult } from './types';
+import { useEnrichedPapers } from './useEnrichedPapers';
 
 /**
  * 智能搜索一次 mcp__minicod__search_papers 工具返回的论文列表。
@@ -270,42 +270,4 @@ export function PaperListScroller({
       )}
     </div>
   );
-}
-
-/**
- * PMD 缺 abstract 补全: useEffect 检测后异步调 `/public/papers/batch`, merge 回去。
- *
- * dep stabilization: papers 数组每次父组件 re-render 都是新引用,
- * 用 paperId join 做 stable key 避免无限重 enrich。
- */
-function useEnrichedPapers(papers: Paper[]): Paper[] {
-  const [enriched, setEnriched] = useState<Paper[]>(papers);
-
-  const paperKey = papers
-    .map((p) => `${p.source ?? 'stc'}:${p.paperId}`)
-    .join('|');
-
-  useEffect(() => {
-    setEnriched(papers);
-    const pmdMissing = papers.some(
-      (p) =>
-        p.source === 'pmd' &&
-        !(p.abstract && p.abstract.trim().length > 0)
-    );
-    if (!pmdMissing) return;
-
-    let cancelled = false;
-    void enrichPmdAbstracts(papers).then((result) => {
-      if (cancelled) return;
-      setEnriched((curr) => (curr === result ? curr : result));
-    });
-
-    return () => {
-      cancelled = true;
-    };
-    // paperKey 是 papers 内容的稳定签名, 引用变但内容没变时不触发。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paperKey]);
-
-  return enriched;
 }

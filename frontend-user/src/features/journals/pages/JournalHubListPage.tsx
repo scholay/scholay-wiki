@@ -240,7 +240,7 @@ function HubPagination({
         </span>
       )}
 
-      <span className="inline-flex h-7 min-w-16 px-3 items-center justify-center rounded-8 bg-foreground text-on-dark text-12 font-medium tabular-nums">
+      <span className="inline-flex h-7 min-w-16 px-3 items-center justify-center rounded-8 bg-inverse text-on-inverse text-12 font-medium tabular-nums">
         {page} / {totalPages}
       </span>
 

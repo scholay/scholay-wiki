@@ -2,7 +2,6 @@ import { useEffect, useState, type ClipboardEvent, type HTMLAttributes, type Rea
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Composer } from '@/shared/components/chat';
 import { SmartSearchToggle } from '@/shared/components/SmartSearchToggle';
-import type { SmartSearchContextSnapshot } from '../../api/smart-search';
 import type { SearchMode } from '../../search-mode';
 
 /**
@@ -26,8 +25,6 @@ export interface SmartComposerProps {
   busy?: boolean;
   onStop?: () => void;
   stopping?: boolean;
-  /** 上下文水位 chip(底部栏用)。 */
-  contextSnapshot?: SmartSearchContextSnapshot;
   /** @deprecated 搜索器已统一单行壳,保留以免旧调用报错。 */
   prominent?: boolean;
   /** 挂载时自动聚焦 —— 空态 hero 需要,底部栏不需要(避免抢焦/滚动跳)。 */
@@ -64,7 +61,6 @@ export function SmartComposer({
   busy = false,
   onStop,
   stopping = false,
-  contextSnapshot,
   autoFocus = false,
   modelSlot,
   plusSlot,
@@ -78,7 +74,6 @@ export function SmartComposer({
   onModeChange,
 }: SmartComposerProps) {
   const rotating = !!rotatingPlaceholders && rotatingPlaceholders.length > 0;
-  const hasUsage = !!contextSnapshot && contextSnapshot.maxTokens > 0;
 
   return (
     <Composer
@@ -97,16 +92,6 @@ export function SmartComposer({
       onStop={onStop}
       requireAuth={loggedOut}
       onRequireAuth={onSubmit}
-      context={
-        hasUsage
-          ? {
-              totalTokens: contextSnapshot!.totalTokens,
-              maxTokens: contextSnapshot!.maxTokens,
-              percentage: contextSnapshot!.percentage,
-              model: contextSnapshot!.model ?? '',
-            }
-          : null
-      }
       autoFocus={autoFocus}
       onPaste={onPaste}
       containerProps={containerProps}
@@ -120,12 +105,8 @@ export function SmartComposer({
           />
         ) : null
       }
-      rightActions={
-        <>
-          {plusSlot}
-          {modelSlot}
-        </>
-      }
+      inputTrailing={plusSlot}
+      rightActions={modelSlot}
       className={className}
     />
   );

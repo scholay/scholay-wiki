@@ -15,6 +15,14 @@ import {
   type MockPersona,
 } from "./personas";
 import { useInvitePromptStore } from "@/stores/invite-prompt.store";
+import { useFundsReminderStore } from "@/stores/funds-reminder.store";
+import {
+  getMockBilling,
+  MOCK_BILLING_STORAGE_KEY,
+  setMockBilling,
+  type MockBillingState,
+  type MockBillingTier,
+} from "./billing-state";
 
 const routes = [
   ["首页", "/"],
@@ -52,6 +60,7 @@ export function MockControlPanel() {
   const persona = getMockPersona();
   const latency = getMockLatency();
   const scenario = getMockScenario();
+  const billing = getMockBilling();
 
   const setPanelCollapsed = (value: boolean) => {
     setCollapsed(value);
@@ -101,6 +110,12 @@ export function MockControlPanel() {
     window.location.reload();
   };
 
+  // 计费组合(会员档位 × 经费 × 刷新券)改动后整页刷新,让 overview 缓存重建。
+  const changeBilling = (patch: Partial<MockBillingState>) => {
+    setMockBilling(patch);
+    window.location.reload();
+  };
+
   const reset = () => {
     resetMockDatabase();
     [
@@ -109,6 +124,7 @@ export function MockControlPanel() {
       "scholay.browser-tabs-v1",
       "scholay:claw:blocked-message",
       "scholay:mock:admin:v1",
+      MOCK_BILLING_STORAGE_KEY,
     ].forEach((key) => localStorage.removeItem(key));
     sessionStorage.clear();
     window.location.assign("/");
@@ -210,6 +226,56 @@ export function MockControlPanel() {
           <option value="800">800ms · slow</option>
           <option value="1800">1800ms · crawl</option>
         </select>
+      </div>
+
+      {/* 计费组合:三个条件(档位/经费/刷新券)决定「经费不足提醒」的文案与按钮;
+          第四个条件(对话页 vs 非对话页)由触发时屏上有无对话消息区自动分流。 */}
+      <div className="mt-3 border-t border-lime-500/20 pt-2.5">
+        <span className={label}>Billing · 经费不足提醒</span>
+        <div className="grid grid-cols-3 gap-1.5">
+          <select
+            aria-label="会员档位"
+            value={billing.tier}
+            onChange={(event) =>
+              changeBilling({ tier: event.target.value as MockBillingTier })
+            }
+            className={field}
+          >
+            <option value="free">Free</option>
+            <option value="pro">Pro</option>
+            <option value="max">Max</option>
+          </select>
+          <select
+            aria-label="经费"
+            value={String(billing.credit)}
+            onChange={(event) =>
+              changeBilling({ credit: event.target.value === "true" })
+            }
+            className={field}
+          >
+            <option value="true">有经费</option>
+            <option value="false">无经费</option>
+          </select>
+          <select
+            aria-label="刷新券"
+            value={String(billing.passes)}
+            onChange={(event) =>
+              changeBilling({ passes: event.target.value === "true" })
+            }
+            className={field}
+          >
+            <option value="true">有刷新券</option>
+            <option value="false">无刷新券</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={() => useFundsReminderStore.getState().trigger()}
+          title="对话消息区在屏 → 对话内消息体;否则 → 全局弹窗"
+          className="mt-1.5 inline-flex h-8 w-full cursor-pointer items-center justify-center rounded-sm border border-lime-400/40 bg-lime-400/10 text-[10px] font-semibold uppercase tracking-[0.14em] text-lime-200 hover:bg-lime-400/20"
+        >
+          触发经费不足提醒
+        </button>
       </div>
 
       <nav aria-label="Mock 快速跳转" className="mt-3 flex flex-wrap gap-1">

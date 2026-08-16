@@ -41,6 +41,8 @@ interface StagingAreasState {
 
   addPaper: (areaId: string, paper: Paper) => boolean;
   removePaper: (areaId: string, paperId: string) => void;
+  /** Rewrite paper order in an area. orderedIds must cover the current set. */
+  reorderPapers: (areaId: string, orderedIds: string[]) => void;
   /** 清空 area 内所有 papers,保留 area 本身(用户主动"× 清空"按钮) */
   clearArea: (areaId: string) => void;
 
@@ -162,6 +164,27 @@ export const useStagingAreas = create<StagingAreasState>()(
               ? { ...a, papers: a.papers.filter((p) => p.paperId !== paperId) }
               : a
           ),
+        });
+      },
+
+      reorderPapers: (areaId, orderedIds) => {
+        set({
+          areas: get().areas.map((a) => {
+            if (a.id !== areaId) return a;
+            const byId = new Map(a.papers.map((p) => [p.paperId, p]));
+            const next: Paper[] = [];
+            const seen = new Set<string>();
+            for (const id of orderedIds) {
+              const paper = byId.get(id);
+              if (!paper || seen.has(id)) continue;
+              next.push(paper);
+              seen.add(id);
+            }
+            for (const paper of a.papers) {
+              if (!seen.has(paper.paperId)) next.push(paper);
+            }
+            return { ...a, papers: next };
+          }),
         });
       },
 

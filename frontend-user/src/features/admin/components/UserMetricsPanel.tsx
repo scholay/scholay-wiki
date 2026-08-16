@@ -136,7 +136,7 @@ function RangeTabs({
           onClick={() => onChange(o.v)}
           className={`px-3 h-7 text-12 rounded-pill transition-colors ${
             value === o.v
-              ? 'bg-foreground text-on-dark'
+              ? 'bg-inverse text-on-inverse'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >

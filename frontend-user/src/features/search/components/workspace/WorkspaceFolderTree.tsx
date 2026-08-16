@@ -9,7 +9,6 @@ import {
   HoverCardTrigger,
 } from '@/shared/ui/hover-card';
 import { useIsAuthenticated } from '@/stores/auth.store';
-import { useSidebar } from '@/stores/sidebar.store';
 import {
   STAGING_FOLDER_LABEL,
   useWorkspaceFolderUi,
@@ -29,12 +28,11 @@ import type { Paper } from '@/shared/api/types';
 type FolderKey = 'staging' | number;
 
 /**
- * 工作区文件夹树 —— 手风琴(同时最多展开一个);
- * 窄轨态卡片缩成「首字母 + 年份」,hover 出参考文献信息。
+ * 工作区文件夹树 —— 手风琴(同时最多展开一个)。
  */
 export function WorkspaceFolderTree() {
   const authenticated = useIsAuthenticated();
-  const rail = !useSidebar((s) => s.expanded);
+  const rail = false;
   const activeTab = useWorkspaceFolderUi((s) => s.activeTab);
   const openFolderKey = useWorkspaceFolderUi((s) => s.openFolderKey);
   const setActiveTab = useWorkspaceFolderUi((s) => s.setActiveTab);

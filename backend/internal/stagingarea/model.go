@@ -107,6 +107,11 @@ type MigrateAreaPayload struct {
 	Papers []PaperPayload `json:"papers"`
 }
 
+// ReorderPapersRequest PATCH /staging-areas/:id/papers/reorder
+type ReorderPapersRequest struct {
+	PaperIDs []string `json:"paper_ids" binding:"required"`
+}
+
 // MigrateRequest POST /staging-areas/migrate
 type MigrateRequest struct {
 	Areas []MigrateAreaPayload `json:"areas" binding:"required"`

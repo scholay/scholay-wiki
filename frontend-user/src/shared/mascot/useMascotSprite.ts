@@ -144,9 +144,8 @@ export function useMascotSprite(initial: RhinoClipId = 'pet-idle') {
     void warm(rhinoFrameUrls('pet-wave'));
     void warm(rhinoFrameUrls('pet-jump'));
     void warm(rhinoFrameUrls('sit-to-stand-s'));
-    void warm(rhinoFrameUrls('lie-to-sit-s'));
     void warm(rhinoFrameUrls('sit-hold'));
-    void warm(rhinoFrameUrls('sleep-e'));
+    void warm(rhinoFrameUrls('celebrate-s'));
     for (const d of RHINO_DIRS) {
       void warm(rhinoFrameUrls(`loco-${d}`));
       void warm(rhinoFrameUrls(`face-${d}`));

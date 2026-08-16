@@ -41,7 +41,7 @@ const TIER_BADGE: Record<Tier, string> = {
 const TIER_TAG: Record<Tier, string> = {
   free: 'border-border bg-surface-2 text-faint',
   pro: 'border-brand-amber/25 bg-brand-amber/10 text-brand-amber',
-  max: 'border-foreground bg-foreground text-on-dark',
+  max: 'border-inverse bg-inverse text-on-inverse',
 };
 const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 

@@ -9,12 +9,28 @@ export const toolsRoutes: RouteObject[] = [
     children: [
       {
         index: true,
+        element: lazyRoute(() => import('./pages/ToolsHubPage'), 'ToolsHubPage'),
+      },
+      {
+        path: 'catalog',
         element: lazyRoute(() => import('./pages/ToolsCatalogPage'), 'ToolsCatalogPage'),
+      },
+      {
+        path: 'datasets',
+        element: lazyRoute(() => import('./pages/ToolsDatasetsPage'), 'ToolsDatasetsPage'),
       },
       {
         // 社区技能分段 —— 静态段,排在 :idOrSlug 之前避免被 param 吃(功能广场融合)。
         path: 'skills',
         element: lazyRoute(() => import('./pages/ToolsSkillsPage'), 'ToolsSkillsPage'),
+      },
+      {
+        path: 'news',
+        element: lazyRoute(() => import('./pages/ToolsNewsPage'), 'ToolsNewsPage'),
+      },
+      {
+        path: 'prompts',
+        element: lazyRoute(() => import('./pages/ToolsPromptsPage'), 'ToolsPromptsPage'),
       },
       {
         path: ':idOrSlug',

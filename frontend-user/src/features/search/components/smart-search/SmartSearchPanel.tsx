@@ -3,10 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowDown,
-  BookOpen,
-  FileText,
   Loader2,
-  Newspaper,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,6 +37,7 @@ import {
   findPendingQuestionBlock,
   type ReferenceSelection,
 } from '@/shared/components/chat';
+import { FundsReminderChatNotice } from '@/shared/components/funds-reminder/FundsReminder';
 import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
 import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
 import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
@@ -59,7 +57,8 @@ import {
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
 import { SmartComposer } from './SmartComposer';
-import { ClawHero, type HeroSuggestion } from '@/features/claw/components/chat/ClawHero';
+import { SearchLanding } from '../SearchLanding';
+import { SmartSearchClawHandoff } from './SmartSearchClawHandoff';
 import type { SearchMode } from '../../search-mode';
 import {
   foldMessagesIntoTurns,
@@ -95,12 +94,6 @@ const ACK_TIMEOUT_MS = 10_000;
 /** 停止兜底:发出 stop_generation 后这么久没等到真实终帧 → 本地合成完成帧收口本轮(渲染「已暂停」)。
  *  取远大于正常 abort 收尾时长;死连接场景重连后 hub 只回放在途轮,不存在「合成后真终帧才迟到」的错配。 */
 const STOP_FALLBACK_MS = 20_000;
-
-const SMART_HERO_SUGGESTIONS: HeroSuggestion[] = [
-  { icon: BookOpen, label: '找一篇综述', prompt: '最近三年扩散模型在图像生成上的综述' },
-  { icon: FileText, label: '读 PDF 写摘要', prompt: '我待会上传一份 PDF,帮我写一段约 200 字的中文摘要' },
-  { icon: Newspaper, label: '查期刊动态', prompt: 'Nature Methods 最近半年发了哪些 AI 相关的文章?' },
-];
 
 const SMART_ROTATING_PROMPTS = [
   '帮我找 3 篇大语言模型可解释性的代表论文',
@@ -380,7 +373,7 @@ export function SmartSearchPanel({
     [referenceMutation, sessionId, adoptSession],
   );
 
-  // P2 模型目录:挂在会话条右侧(服务端权威;hub 校验落 pinned_model 后广播回显)。
+  // P2 模型目录:挂在输入框发送键左侧(服务端权威;hub 校验落 pinned_model 后广播回显)。
   // **新对话(无 sessionId)也展示** —— 选择记为「新对话默认模型」偏好,首条消息建会话后经 socket
   // onOpen 一次性下发(markSmartSearchPendingModel);不再要求先有会话才出按钮。
   const modelSlot =
@@ -421,12 +414,7 @@ export function SmartSearchPanel({
     <AgentSessionStrip
       placement="stack"
       {...sessionStripProps}
-      trailingSlot={
-        <>
-          {modelSlot}
-          {contextMeter}
-        </>
-      }
+      trailingSlot={contextMeter}
     />
   );
 
@@ -434,6 +422,7 @@ export function SmartSearchPanel({
   const hasComposerTopExtras =
     att.items.length > 0 || references.length > 0 || referenceMutation.isPending;
   const composerExtras = {
+    modelSlot,
     plusSlot: (
       <ComposerPlusMenu
         disabled={att.uploading}
@@ -741,7 +730,10 @@ export function SmartSearchPanel({
     if (prevSessionIdRef.current === sessionId) return;
     const prev = prevSessionIdRef.current;
     prevSessionIdRef.current = sessionId;
-    if (adoptingSessionIdRef.current === sessionId) {
+    // Only skip cleanup when adopting a real session id (lazy-create / upload / cite).
+    // `null === null` must not match: 「新对话」把 sessionId 置空时 adopting 也是 null,
+    // 若跳过清理,pendingTurns 会留下旧轮,ClawHero 空态出不来。
+    if (sessionId != null && adoptingSessionIdRef.current === sessionId) {
       adoptingSessionIdRef.current = null;
       return;
     }
@@ -865,17 +857,27 @@ export function SmartSearchPanel({
     armAckWait(clientTurnId, turnId);
   }, [input, state, send, att, references, sessionId, createSession, setActiveSessionId, armAckWait]);
 
-  /** PDF Chat 蒙层「开始对话」—— 程序化发首条(新会话懒建 + pendingSend flush) */
+  /** PDF Chat「开始对话」—— 程序化发首条(新会话懒建 + pendingSend flush)。
+   *  展示层与投递层分离:气泡只显示 text + 引用 chip;发给 agent 的 content 末尾
+   *  追加 buildReferenceBlock(refs),历史回放经 stripReferenceBlock 还原 chip。 */
   const submitExternalMessage = useCallback(
-    async (text: string) => {
+    async (
+      text: string,
+      opts?: { references?: TurnReference[]; onSession?: (id: string) => void },
+    ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      trackEvent('search_submit', { len: trimmed.length, files: 0, refs: 0 });
+      const refs = opts?.references ?? [];
+      trackEvent('search_submit', { len: trimmed.length, files: 0, refs: refs.length });
       lastSubmitTextRef.current = trimmed;
       const turnId = `turn-${crypto.randomUUID()}`;
       const clientTurnId = crypto.randomUUID();
-      const payload = { content: trimmed, clientTurnId };
-      const optimisticTurn = { id: turnId, userText: trimmed };
+      const payload = { content: trimmed + buildReferenceBlock(refs), clientTurnId };
+      const optimisticTurn = {
+        id: turnId,
+        userText: trimmed,
+        userReferences: refs.length > 0 ? refs : undefined,
+      };
 
       if (!sessionId) {
         setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
@@ -883,6 +885,7 @@ export function SmartSearchPanel({
         pendingSendTurnIdRef.current = turnId;
         try {
           const { sessionId: newId } = await createSession.mutateAsync();
+          opts?.onSession?.(newId);
           markSmartSearchPendingModel(newId);
           adoptingSessionIdRef.current = newId;
           setActiveSessionId(newId);
@@ -901,6 +904,7 @@ export function SmartSearchPanel({
         toast.error('连接未就绪,请稍后重试');
         return;
       }
+      opts?.onSession?.(sessionId);
       setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
       armAckWait(clientTurnId, turnId);
     },
@@ -913,7 +917,11 @@ export function SmartSearchPanel({
     if (sessionId !== null) return;
     const boot = usePdfChatBridge.getState().consumeBootstrap();
     if (!boot) return;
-    void submitExternalMessage(boot.openerText);
+    void submitExternalMessage(boot.openerText, {
+      references: boot.references,
+      onSession: (id) =>
+        usePdfChatBridge.getState().recordEngagedSession(boot.paperId, id),
+    });
   }, [pendingPdfChatBootstrap, token, sessionId, submitExternalMessage]);
 
   // 首页 / 外链带 ?mode=smart&q= 进来 → 自动发首条并进入对话态(对齐 Claw ?q= 与首页 hero 提交)。
@@ -1021,9 +1029,9 @@ export function SmartSearchPanel({
     return (
       <div className="flex h-full min-h-0 flex-col bg-background">
         <div className="relative min-h-0 flex-1">
-          <ClawHero
-            suggestions={SMART_HERO_SUGGESTIONS}
-            contentClassName="max-w-[640px]"
+          <SearchLanding
+            mode={mode}
+            onModeChange={onModeChange}
             aboveComposer={sessionStripStack}
             composer={
               <SmartComposer
@@ -1124,6 +1132,9 @@ export function SmartSearchPanel({
                     <AssistantTurn turn={turn} />
                   </div>
                 ))}
+                {/* 经费不足提醒的对话内消息体(挂载即注册宿主;未触发时渲染 null) */}
+                <FundsReminderChatNotice />
+                {lastTurn?.complete ? <SmartSearchClawHandoff /> : null}
                 {state === 'reconnecting' && (
                   <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="size-3 animate-spin" />
@@ -1149,7 +1160,7 @@ export function SmartSearchPanel({
           </div>
         )}
 
-        {/* 有消息:会话条 + 输入叠在底部。无消息:回 ClawHero 居中。 */}
+        {/* 有消息:会话条 + 输入叠在底部。无消息:回 SearchLanding 居中。 */}
         <AnimatePresence initial={false}>
           {mode === 'smart' && turns.length > 0 && (
             <motion.div
@@ -1160,7 +1171,7 @@ export function SmartSearchPanel({
               exit={reduce ? undefined : { opacity: 0, y: 16 }}
               transition={{ duration: reduce ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="pointer-events-auto mx-auto flex w-full max-w-[640px] flex-col gap-1.5">
+              <div className="pointer-events-auto mx-auto flex w-full max-w-[640px] flex-col gap-3">
                 {sessionStripStack}
                 {pendingQuestionBlock && (
                   <QuestionPrompt
@@ -1173,7 +1184,7 @@ export function SmartSearchPanel({
                   value={input}
                   onChange={setInput}
                   onSubmit={handleSubmit}
-                  placeholder="继续与智能搜索对话…"
+                  placeholder="继续与智能搜论文对话…"
                   ready={ready}
                   busy={busy}
                   onStop={handleStop}
@@ -1204,9 +1215,9 @@ export function SmartSearchPanel({
               exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
               transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
             >
-              <ClawHero
-                suggestions={SMART_HERO_SUGGESTIONS}
-                contentClassName="max-w-[640px]"
+              <SearchLanding
+                mode={mode}
+                onModeChange={onModeChange}
                 aboveComposer={sessionStripStack}
                 composer={
                   <SmartComposer

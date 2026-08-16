@@ -84,7 +84,7 @@ export const RESOURCE_SECTIONS: Array<{
   },
   {
     id: 'folders',
-    label: '文件夹',
+    label: '资源集',
     hint: '通用过程产物与上传物',
     icon: Folder,
   },

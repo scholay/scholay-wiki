@@ -10,7 +10,7 @@ import {
  * 文件夹图标/背景色 —— 读写 `useWorkspaceFolderUi`,检索工作区与文献集共用同一份持久化。
  */
 export function useFolderAppearance(
-  folderKey: 'staging' | number,
+  folderKey: 'staging' | number | string,
   fallback: 'staging' | 'folder',
 ) {
   const storageKey = folderIconStorageKey(folderKey);

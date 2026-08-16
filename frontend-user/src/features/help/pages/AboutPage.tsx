@@ -61,7 +61,7 @@ interface Pillar {
 const PILLARS: Pillar[] = [
   {
     icon: Compass,
-    title: '文献搜索',
+    title: '学术搜索',
     desc: '覆盖 2 亿+ 学术论文,中英双语,关键词 + 语义双引擎,引文矩阵分析。',
     to: '/features/search',
   },
@@ -164,7 +164,7 @@ export function AboutPage() {
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Link
               to="/feedback"
-              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-foreground text-on-dark text-14 font-medium hover:bg-foreground/85 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-inverse text-on-inverse text-14 font-medium hover:bg-inverse/85 transition-colors"
             >
               提交产品反馈
               <ArrowRight className="size-3.5" />

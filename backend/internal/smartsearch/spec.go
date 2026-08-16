@@ -45,7 +45,7 @@ const agentName = "scholay-smart-search"
 // PromptSlug / PromptName — 仅作 PromptChoice 的元信息标签 (审计 / 日志展示);
 // 已不再对应任何 DB 行 (prompt 内容是 prompts.SmartSearchSystemPrompt const)。
 const PromptSlug = "scholay-smart-search-v1"
-const PromptName = "Scholay 文献智能搜索 · 默认 prompt"
+const PromptName = "Scholay 智能搜论文 · 默认 prompt"
 
 // usageRecorder 由 SetUsageRecorder 注入; preUserMessageChain 每次提问时懒读取。
 var usageRecorder usagestat.Recorder
@@ -200,7 +200,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 	return agentbridge.FeatureSpec{
 		Key:                    FeatureKey,
 		AgentName:              agentName,
-		Description:            "Scholay 智能搜索:基于 Minicod MCP 的学术文献检索助手",
+		Description:            "Scholay 智能搜论文:基于 Minicod MCP 的学术文献检索助手",
 		// 2026-07 线上审计:检索纪律硬约束前缀(零检索轮 + 伪造检索表述),见 smartSearchRetrievalDiscipline。
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, smartSearchRetrievalDiscipline+prompts.SmartSearchSystemPrompt),
 		Color:                  "green",

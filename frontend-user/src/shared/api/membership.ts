@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import {
+  QUOTA_OVERVIEW_QUERY_KEY,
+  type QuotaOverview,
+} from '@/shared/lib/quota-overview';
 import { useIsAuthenticated } from '@/stores/auth.store';
 
 /**
@@ -11,41 +15,44 @@ import { useIsAuthenticated } from '@/stores/auth.store';
  */
 export type ViewerTier = 'free' | 'pro' | 'max';
 
-interface BillingOverviewLite {
-  tier: ViewerTier;
-  cycle?: 'monthly' | 'yearly';
-  credit?: { total: number };
-}
-
-async function fetchBillingOverviewLite(): Promise<BillingOverviewLite> {
+async function fetchBillingOverview(): Promise<QuotaOverview> {
   return (
-    await http.get<{ data: BillingOverviewLite }>('/user/billing/overview')
+    await http.get<{ data: QuotaOverview }>('/user/billing/overview')
   ).data.data;
 }
 
 export function useViewerTier() {
   const authed = useIsAuthenticated();
   return useQuery({
-    queryKey: ['settings', 'billing'] as const,
+    queryKey: QUOTA_OVERVIEW_QUERY_KEY,
     enabled: authed,
     staleTime: 15_000,
-    queryFn: fetchBillingOverviewLite,
+    queryFn: fetchBillingOverview,
     select: (o) => o.tier,
   });
 }
 
-/** 犀牛面板等：会员档 + 经费余额(同 billing 缓存)。 */
+/** 犀牛菜单等：会员档 + 经费 + 额度 + 刷新券(同 billing 缓存)。 */
 export function useBillingSnapshot() {
   const authed = useIsAuthenticated();
   return useQuery({
-    queryKey: ['settings', 'billing'] as const,
+    queryKey: QUOTA_OVERVIEW_QUERY_KEY,
     enabled: authed,
     staleTime: 15_000,
-    queryFn: fetchBillingOverviewLite,
-    select: (o) => ({
-      tier: (['free', 'pro', 'max'].includes(o.tier) ? o.tier : 'free') as ViewerTier,
-      cycle: o.cycle,
-      creditTotal: o.credit?.total ?? 0,
-    }),
+    queryFn: fetchBillingOverview,
+    select: (o) => {
+      const tier = (
+        ['free', 'pro', 'max'].includes(o.tier) ? o.tier : 'free'
+      ) as ViewerTier;
+      return {
+        tier,
+        cycle: o.cycle,
+        creditTotal: o.credit?.total ?? 0,
+        creditAutopay: o.credit?.credit_autopay ?? false,
+        token: o.token,
+        resetPasses: o.reset_passes ?? 0,
+        resetPassExpiry: o.reset_pass_next_expiry ?? null,
+      };
+    },
   });
 }

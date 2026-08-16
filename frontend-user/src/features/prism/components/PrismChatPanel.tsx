@@ -15,6 +15,7 @@ import {
   type ComposerHandle,
   type ReferenceSelection,
 } from '@/shared/components/chat';
+import { FundsReminderChatNotice } from '@/shared/components/funds-reminder/FundsReminder';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
@@ -202,6 +203,8 @@ export function PrismChatPanel({
           {chat.turns.map((t) => (
             <PrismMessageTurn key={t.id} turn={t} />
           ))}
+          {/* 经费不足提醒的对话内消息体(挂载即注册宿主;未触发时渲染 null) */}
+          <FundsReminderChatNotice />
           {chat.changeset && (
             <ChangesetCard cs={chat.changeset} onApply={chat.apply} onReject={chat.reject} />
           )}
@@ -249,7 +252,6 @@ export function PrismChatPanel({
           sendReady={wsReady}
           busy={chat.streaming}
           onStop={chat.stop}
-          context={chat.context}
           maxHeightPx={180}
           topSlot={
             <>

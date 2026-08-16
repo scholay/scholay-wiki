@@ -137,7 +137,7 @@ export function PaperHeader({
       )}
 
       {/* 元数据条 —— DOI / 发表日期 / 引用 / 参考 / OA / 学科 / 上游链接 */}
-      <PaperMetadataBlock paper={paper} />
+      <PaperMetadataBlock paper={paper} libRow={libRow} />
 
       {/* action 行 + 分隔 */}
       <PaperActionRow

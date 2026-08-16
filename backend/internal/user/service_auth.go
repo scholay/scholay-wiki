@@ -45,7 +45,7 @@ func (s *Service) SendWelcomeMessage(userID uint) {
 	// 欢迎语给「现在能做什么」而不是纯寒暄 —— 新用户读完这一条就该知道从哪儿下手。
 	// 口径依据:论文检索与文献管理不限次不耗额度,AI 能力走额度(Free 档即可体验)。
 	title := "欢迎加入 " + utils.EmailBrandName
-	content := "论文检索与文献管理不限次数;智能搜索、AI 审稿等 AI 功能均可直接使用。"
+	content := "论文检索与文献管理不限次数;智能搜论文、AI 审稿等 AI 功能均可直接使用。"
 
 	safego.Go("user-welcome-message", func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/", "开始检索"); err != nil {

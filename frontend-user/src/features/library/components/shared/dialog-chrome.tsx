@@ -261,7 +261,7 @@ export function StepBanner({
         <span
           className={cn(
             'inline-flex h-5 w-5 items-center justify-center rounded-pill text-12 font-medium tabular-nums shrink-0',
-            active ? 'bg-brand-amber text-foreground' : 'bg-foreground text-on-dark'
+            active ? 'bg-brand-amber text-foreground' : 'bg-inverse text-on-inverse'
           )}
         >
           {step}

@@ -2,13 +2,10 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
   forwardRef,
-  isValidElement,
 } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import { useSidebar } from '@/stores/sidebar.store';
 import { formatRailCount } from './format-rail-count';
-import { SidebarRailItem } from './SidebarRailItem';
 
 interface SidebarItemProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'prefix'> {
@@ -28,19 +25,8 @@ interface SidebarItemProps
   size?: 'sm' | 'base' | 'lg';
 }
 
-/** 从 trailing 抽出窄轨可用的数字;徽章 / Count 组件读 props.n。 */
-function extractTrailingCount(trailing: ReactNode): number | null {
-  if (typeof trailing === 'number' && Number.isFinite(trailing)) return trailing;
-  if (typeof trailing === 'string' && /^\d+$/.test(trailing)) return Number(trailing);
-  if (isValidElement(trailing)) {
-    const n = (trailing.props as { n?: unknown }).n;
-    if (typeof n === 'number' && Number.isFinite(n)) return n;
-  }
-  return null;
-}
-
 /**
- * 侧栏行 —— 展开态完整 label;收起态统一走 SidebarRailItem(图标+两位数)。
+ * 侧栏行 —— 完整 label。收起由 SidebarLayout 裁到 0 宽,不再切成图标窄轨。
  */
 export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
   (
@@ -58,29 +44,8 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
     },
     ref,
   ) => {
-    const sidebarExpanded = useSidebar((s) => s.expanded);
-    const rail = !sidebarExpanded;
     const isPrimary = active === 'primary';
     const isDanger = active === 'danger';
-    const labelText = typeof label === 'string' ? label : undefined;
-    const trailingNum = extractTrailingCount(trailing);
-
-    if (rail) {
-      return (
-        <SidebarRailItem
-          ref={ref}
-          icon={icon ?? <span className="size-3.5" aria-hidden />}
-          count={trailingNum ?? undefined}
-          label={labelText ?? title ?? ''}
-          title={title ?? labelText}
-          active={!!active}
-          tone={isDanger ? 'danger' : 'default'}
-          className={className}
-          {...props}
-        />
-      );
-    }
-
     const indentPx = indent === 0 ? 16 : 16 + indent * 22;
 
     return (

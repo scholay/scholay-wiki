@@ -925,7 +925,7 @@ describe('样式系统逃逸', () => {
   });
 
   it('禁止 dark: 前缀', () => {
-    // 为什么: 暗色态已于 2026-07 移除(setTheme 零调用点,.dark 从未生效)。
+    // 为什么: 夜间态只覆写 globals.css 的语义 token,组件层写 dark: 会绕过 token、再裂出两套色。
     expect(hits(/\bdark:[a-z-]+/)).toEqual([]);
   });
 

@@ -2600,7 +2600,7 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 		"了解 Scholay 学术:用 AI 让论文检索、分析、审稿与写作更高效的一站式科研平台,以及我们的使命与团队。",
 	},
 	"/features": {
-		"全部功能 — 智能搜索 · AI 审稿 · 智能写作 · 文献集 | Scholay 学术",
+		"全部功能 — 智能搜论文 · AI 审稿 · 智能写作 · 文献集 | Scholay 学术",
 		"Scholay 学术全部功能一览:智能论文搜索、AI 论文分析、AI 智能审稿、文献集管理、期刊查询与 LaTeX 在线写作。",
 	},
 	"/features/search": {

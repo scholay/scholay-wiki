@@ -18,6 +18,7 @@ import {
   profileForPersona,
   setMockPersona,
 } from "./personas";
+import { getMockBilling, setMockBilling } from "./billing-state";
 
 const ok = <T>(data: T, init?: ResponseInit) =>
   HttpResponse.json({ code: 0, message: "success", data }, init);
@@ -251,10 +252,13 @@ function syncFolderCounts() {
 }
 
 function userBillingOverview() {
+  // 会员档位 / 经费 / 刷新券由 Mock 面板的 BILLING 区自由组合(billing-state.ts),
+  // 供「经费不足提醒充值」等条件化场景演示。
+  const billing = getMockBilling();
+  const paid = billing.tier !== "free";
   return {
-    tier: "pro",
-    cycle: "yearly",
-    expires_at: "2027-03-18T00:00:00.000Z",
+    tier: billing.tier,
+    ...(paid ? { cycle: "yearly", expires_at: "2027-03-18T00:00:00.000Z" } : {}),
     token: {
       used: 0,
       ceiling: 0,
@@ -262,23 +266,26 @@ function userBillingOverview() {
       unlimited: false,
       consumed_today: 0,
       window_days: 7,
-      window_started_at: "2026-07-25T00:00:00.000Z",
-      window_reset_at: "2026-08-01T00:00:00.000Z",
+      window_started_at: "2026-08-16T00:00:00.000Z",
+      window_reset_at: "2026-08-23T00:00:00.000Z",
     },
-    credit: {
-      temp: 168,
-      perm: 520,
-      total: 688,
-      lots: [
-        {
-          amount: 168,
-          expires_at: "2026-09-01T00:00:00.000Z",
-          source: "yearly_bonus",
-        },
-      ],
-    },
-    auto_reset: false,
-    reset_cost: 12,
+    credit: billing.credit
+      ? {
+          temp: 168,
+          perm: 520,
+          total: 688,
+          credit_autopay: billing.autopay,
+          lots: [
+            {
+              amount: 168,
+              expires_at: "2026-09-01T00:00:00.000Z",
+              source: "yearly_bonus",
+            },
+          ],
+        }
+      : { temp: 0, perm: 0, total: 0, credit_autopay: billing.autopay, lots: [] },
+    reset_passes: billing.passes ? 2 : 0,
+    reset_pass_next_expiry: billing.passes ? "2026-09-01T00:00:00.000Z" : null,
   };
 }
 
@@ -1052,6 +1059,45 @@ export async function handleCoreMock(
     });
     return ok(created, { status: 201 });
   }
+  const reorderStaging = path.match(
+    /^\/user\/staging-areas\/(\d+)\/papers\/reorder$/,
+  );
+  if (reorderStaging && method === "PATCH") {
+    const areaId = Number(reorderStaging[1]);
+    const area = getMockDatabase().stagingAreas.find(
+      (item) => item.id === areaId,
+    );
+    if (!area)
+      return HttpResponse.json(
+        { code: 404, message: "暂存区不存在" },
+        { status: 404 },
+      );
+    const body = await bodyAsRecord(request);
+    const paperIds = Array.isArray(body.paper_ids)
+      ? body.paper_ids.map((id) => String(id))
+      : [];
+    const current = area.papers ?? [];
+    if (
+      paperIds.length !== current.length ||
+      paperIds.some(
+        (id) => !current.some((paper) => paper.source_paper_id === id),
+      )
+    ) {
+      return HttpResponse.json(
+        { code: 400, message: "paper_ids 与区内论文不一致" },
+        { status: 400 },
+      );
+    }
+    const byId = new Map(
+      current.map((paper) => [paper.source_paper_id, paper]),
+    );
+    area.papers = paperIds.map((id, index) => ({
+      ...byId.get(id)!,
+      position: index,
+    }));
+    persistMockDatabase();
+    return ok({ reordered: true });
+  }
   const staging = path.match(
     /^\/user\/staging-areas\/(\d+)(?:\/papers(?:\/([^/]+)\/(.+))?)?$/,
   );
@@ -1345,6 +1391,12 @@ export async function handleCoreMock(
   }
   if (method === "POST" && path === "/user/billing/reset") {
     return ok({ used: 0, ceiling: 0, balance: userBillingOverview().credit });
+  }
+  if (method === "PUT" && path === "/user/billing/autopay") {
+    // 「用经费继续」开关落到 mock 计费状态,overview 下次返回即反映。
+    const body = await bodyAsRecord(request);
+    setMockBilling({ autopay: Boolean(body.enabled) });
+    return emptyOk();
   }
   if (
     method === "POST" &&

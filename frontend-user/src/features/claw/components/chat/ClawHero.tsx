@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { BookOpen, FileText, Newspaper } from 'lucide-react';
-import { BrandLogo } from '@/shared/components/BrandLogo';
+import { FeatureBrandHeading } from '@/shared/components/FeatureBrandHeading';
 import { cn } from '@/shared/lib/utils';
 
 export interface HeroSuggestion {
@@ -11,7 +11,8 @@ export interface HeroSuggestion {
 
 /**
  * 新对话空白态(桌面)—— 形态对齐 GPT / Claude / Codex 这类主流 AI 软件的新会话页:
- *   - 顶部品牌区用 BrandLogo(与首页一致;不再用发光图标 + 大标题)
+ *   - 智能助手 / 智能搜索 / 写作 / 审稿:六芒星即牛犀犀巢;
+ *     文献库、期刊库、数据集、情报与我的资源只有标题,不挂标志也不当巢。
  *   - 中央一个对话框(与对话中底部栏**同一个 ChatComposer**,样式一致)
  *   - 模板卡(制作PPT / 科研绘图 的「扑克牌扇」)放在**输入框下方**(见 TemplateCards)
  *   - 示例提问做成带图标的轻量 chip:点一下把提示词**填进输入框**(可改后再发,不直接发送)
@@ -31,77 +32,92 @@ const SUGGESTIONS: HeroSuggestion[] = [
 
 /** claw 空态默认文案 —— 供 ConversationWorkspace 的 claw 配置复用(单一真源,不漂移)。 */
 export const clawHeroDefaults = {
-  title: '智能助手 · Claw',
+  title: '智能助手',
   subtitle: '',
   suggestions: SUGGESTIONS,
 };
 
+const LINGXI_TITLE = '智能助手';
+
 export function ClawHero({
   composer,
   onPickSuggestion,
-  title = clawHeroDefaults.title,
+  title,
   subtitle,
   suggestions = SUGGESTIONS,
   extra,
   aboveComposer,
   contentClassName = 'max-w-2xl',
+  brandMark = true,
 }: {
   composer: ReactNode;
   onPickSuggestion: (text: string) => void;
-  /** 空态标题(默认 claw 不展示,改用 Logo;制作PPT / 科研绘图仍显示各自标题)。 */
+  /** 空态标题。传了则 Logo 右侧出功能名。 */
   title?: string;
+  /** Hex lockup / nest beside the title. Off for literature-search landing. */
+  brandMark?: boolean;
   /** 副标题(可选;空则不渲染)。 */
   subtitle?: string;
   suggestions?: HeroSuggestion[];
   /** 输入框**下方**的附加内容(模板卡扑克牌扇 / 换回对话模式条)。 */
   extra?: ReactNode;
-  /** 紧贴输入框上方(如会话条),与 composer 同宽成组居中。 */
+  /** 输入框上方(如会话条),与 composer 同宽成组居中,中间留一档间距。 */
   aboveComposer?: ReactNode;
   /** 内容区最大宽度(默认 max-w-2xl;首页/搜索 hero 可传 max-w-3xl)。 */
   contentClassName?: string;
 }) {
-  const showFeatureTitle = !!title && title !== clawHeroDefaults.title;
+  const isLingxi = title === LINGXI_TITLE;
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="flex min-h-full items-center justify-center px-6 py-8">
-        <div className={cn('flex w-full flex-col items-center', contentClassName)}>
-          <h2 className="m-0">
-            <BrandLogo size="xl" />
-          </h2>
-          {showFeatureTitle ? (
-            <p className="mt-3 text-center font-serif text-xl font-bold tracking-tight text-foreground">
-              {title}
-            </p>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip">
+      <div
+        className={cn(
+          'm-auto flex w-full flex-col items-center px-6 py-8',
+          contentClassName,
+        )}
+      >
+          {!isLingxi && title ? (
+            <FeatureBrandHeading title={title} mark={brandMark} />
           ) : null}
           {subtitle ? (
             <p className="mt-1.5 text-center text-sm text-muted-foreground">{subtitle}</p>
           ) : null}
 
-          {/* 会话条 + 输入框贴着成组 */}
-          <div className="mt-6 flex w-full flex-col gap-1.5">
+          <div
+            className={cn(
+              'flex w-full flex-col',
+              isLingxi ? 'mt-2' : 'mt-6',
+              aboveComposer && 'gap-3',
+            )}
+          >
             {aboveComposer}
+            {isLingxi ? (
+              <FeatureBrandHeading
+                title={LINGXI_TITLE}
+                className="w-full"
+              />
+            ) : null}
             {composer}
           </div>
 
           {/* 模板卡 —— 移到输入框**下方**,带封面动画诠释功能(制作PPT / 科研绘图);见 TemplateCards。 */}
           {extra && <div className="mt-5 w-full">{extra}</div>}
 
-          {/* 示例提问 —— 点一下填进输入框(可改后再发) */}
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {suggestions.map(({ icon: Icon, label, prompt }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => onPickSuggestion(prompt)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
-              >
-                <Icon className="size-3.5 text-faint" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+          {suggestions.length > 0 ? (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {suggestions.map(({ icon: Icon, label, prompt }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => onPickSuggestion(prompt)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
+                >
+                  <Icon className="size-3.5 text-faint" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
       </div>
     </div>
   );

@@ -13,21 +13,13 @@ import {
 } from 'react';
 import { ArrowUp, Loader2, LogIn, Square } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import { ContextMeter } from './ContextMeter';
 
 /**
  * 统一对话输入框核心(智能搜索 / 智能助手 / 智能写作三处共用;主流 Claude/GPT 形态)。
  * 只管业务无关的壳:圆角容器 + 柔和聚焦、自增高 textarea、Enter 发送(组字守卫)、
- * 底部工具栏(左插槽 | 水位 | 发送/停止/登录)、顶部 chips 插槽、拖拽蒙层插槽。
+ * 底部工具栏(左插槽 | 发送/停止/登录)、顶部 chips 插槽、拖拽蒙层插槽。
  * 附件上传 / 引用文献 / 快捷菜单等业务件由各 feature 包一层经插槽塞入(shared 不感知业务)。
  */
-
-export interface ComposerContextInfo {
-  totalTokens: number;
-  maxTokens: number;
-  percentage: number;
-  model: string;
-}
 
 export interface ComposerHandle {
   /** 把文案填进输入框并聚焦(光标置末尾),不发送 —— 快捷按钮/示例提问用。 */
@@ -57,14 +49,14 @@ export interface ComposerProps {
   /** 未登录:发送键换登录图标,点击走 onRequireAuth 而非 onSend(输入框保持可打字)。 */
   requireAuth?: boolean;
   onRequireAuth?: () => void;
-  /** 上下文水位(footer 右侧,紧贴发送键;无数据不显示)。 */
-  context?: ComposerContextInfo | null;
   /** 顶部 chips 区(附件预览/引用文献/引用选区)。 */
   topSlot?: ReactNode;
   /** 底部工具栏左侧(上传/引用文献/新对话/能力菜单等 feature 按钮)。「+」号一类留左边。 */
   leftActions?: ReactNode;
   /** 底部工具栏右侧(发送键左邻,右对齐组):模型选择器一类放这里 —— 与主流 AI 对话框一致。 */
   rightActions?: ReactNode;
+  /** Compact: sits on the textarea's right edge, before rightActions / send. */
+  inputTrailing?: ReactNode;
   /** 拖拽蒙层等覆盖层(绝对定位,feature 自管显隐)。 */
   overlay?: ReactNode;
   /** 容器级事件(拖拽上传的 onDragEnter、onDrop 等)。 */
@@ -97,10 +89,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     onStop,
     requireAuth = false,
     onRequireAuth,
-    context,
     topSlot,
     leftActions,
     rightActions,
+    inputTrailing,
     overlay,
     containerProps,
     onPaste,
@@ -257,30 +249,25 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         {topSlot ? <div className="px-2 pt-2 empty:hidden">{topSlot}</div> : null}
         <div className="flex h-12 items-center gap-3 pl-5 pr-2">
           {leftActions}
-          <div className="relative min-h-0 min-w-0 flex-1">
-            {placeholderOverlay && text.length === 0 && placeholderOverlay}
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKey}
-              onPaste={onPaste}
-              placeholder={placeholderOverlay ? '' : placeholder}
-              rows={1}
-              disabled={disabled}
-              autoFocus={autoFocus}
-              className="block h-9 w-full resize-none overflow-y-auto border-0 bg-transparent py-1.5 text-base leading-normal text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-            />
+          <div className="flex min-h-0 min-w-0 flex-1 items-center gap-1">
+            <div className="relative min-h-0 min-w-0 flex-1">
+              {placeholderOverlay && text.length === 0 && placeholderOverlay}
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKey}
+                onPaste={onPaste}
+                placeholder={placeholderOverlay ? '' : placeholder}
+                rows={1}
+                disabled={disabled}
+                autoFocus={autoFocus}
+                className="block h-9 w-full resize-none overflow-y-auto border-0 bg-transparent py-1.5 text-base leading-normal text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+            {inputTrailing}
           </div>
           {rightActions}
-          {context && context.totalTokens > 0 && (
-            <ContextMeter
-              totalTokens={context.totalTokens}
-              maxTokens={context.maxTokens}
-              percentage={context.percentage}
-              model={context.model}
-            />
-          )}
           {sendButton}
         </div>
       </div>
@@ -317,20 +304,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         />
       </div>
 
-      {/* 底部工具栏:左 feature 按钮(+号等)| 撑开 | 右侧控件(模型选择器)| 水位 | 发送/停止/登录 */}
+      {/* 底部工具栏:左 feature 按钮(+号等)| 撑开 | 右侧控件(模型选择器)| 发送/停止/登录 */}
       <div className="flex items-center gap-1">
         {leftActions}
         <span className="flex-1" />
         {rightActions}
-        {context && context.totalTokens > 0 && (
-          <ContextMeter
-            totalTokens={context.totalTokens}
-            maxTokens={context.maxTokens}
-            percentage={context.percentage}
-            model={context.model}
-            className="mr-1"
-          />
-        )}
         {sendButton}
       </div>
     </div>

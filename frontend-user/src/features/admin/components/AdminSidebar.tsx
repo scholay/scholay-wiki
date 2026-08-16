@@ -18,7 +18,7 @@ import { useAdminAlerts, type AdminAlerts } from '../hooks/useAdminAlerts';
  * Admin 侧栏 —— 复用 Sidebar 全家桶,nav 数据从 features/admin/nav.ts 单一来源。
  * 头部:返回首页按钮 + "管理员后台" 标题 + 盾牌图标
  * 主体:按 nav group 分段渲染
- * 底部:收起按钮(与其他 sidebar 一致)
+ * 开合走顶栏 Logo 左侧,侧栏内不再重复挂收起钮
  */
 export function AdminSidebar() {
   const navigate = useNavigate();

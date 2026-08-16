@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 // 懒加载(性能审计 #4):pdfjs(react-pdf,~412KB)推迟到首次编译成功(pdfKey>0)真正要看 PDF 时才拉,不进 workspace 首屏。
 const PdfViewer = lazy(() => import('@/shared/components/PdfViewer').then((m) => ({ default: m.PdfViewer })));
-import { SidebarLayout } from '@/shared/components/sidebar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/ui/resizable';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useDebounce } from '@/shared/hooks';
@@ -16,7 +15,6 @@ import { LatexDiffEditor } from './LatexDiffEditor';
 import { PrismChatPanel } from './PrismChatPanel';
 import { PrismInlineEditPrompt } from './PrismInlineEditPrompt';
 import { PrismSelectionToolbar } from './PrismSelectionToolbar';
-import { PrismFileSidebar } from './sidebar/PrismFileSidebar';
 import { PrismVersionsDialog } from './PrismVersionsDialog';
 import { usePrismChat, type PrismSendExtras } from '../hooks/usePrismChat';
 import { useProject, useFileBody, useSaveFile, useStartCompile, useCompile, prismPdfSource, useCloneToStruct } from '../api/prism';
@@ -44,7 +42,7 @@ function PrismPendingDiff({ chat }: { chat: ReturnType<typeof usePrismChat> }) {
                 onClick={() => chat.selectPending(f.rel_path)}
                 className={cn(
                   'inline-flex shrink-0 items-center gap-1 rounded-4 px-2 py-1 text-12 transition-colors',
-                  active ? 'bg-foreground text-on-dark' : 'text-muted-foreground hover:bg-surface-2',
+                  active ? 'bg-inverse text-on-inverse' : 'text-muted-foreground hover:bg-surface-2',
                 )}
               >
                 {f.rel_path}
@@ -298,23 +296,6 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
   const pdfSource = useMemo(() => prismPdfSource(projectId, pdfKey), [projectId, pdfKey]);
 
   return (
-    <SidebarLayout
-      sidebar={
-        <PrismFileSidebar
-          projectId={projectId}
-          projectTitle={project.data?.project.title}
-          files={files}
-          activeFileId={fileId}
-          mainFile={project.data?.project.main_file}
-          outline={outline}
-          disabled={busy}
-          onSelect={selectFile}
-          onDeletedActive={() => setFileId(null)}
-          onBack={onBack}
-          onOutlineClick={(line) => editorRef.current?.gotoLine(line)}
-        />
-      }
-    >
       <div className="flex h-full flex-col bg-background">
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
           <div className="flex items-center gap-2.5">
@@ -481,6 +462,5 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
           />
         )}
       </div>
-    </SidebarLayout>
   );
 }

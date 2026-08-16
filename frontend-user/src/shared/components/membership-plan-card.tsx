@@ -140,7 +140,7 @@ function planFeatures(plan: MembershipPlanData, cycle: BillingCycle): string[] {
   if (plan.tier === 'free') {
     return [
       '论文检索、期刊检索、文献管理不限次数,不消耗额度',
-      '智能搜索、智能助手、全文翻译、矩阵对比均可使用',
+      '智能搜论文、智能助手、全文翻译、矩阵对比均可使用',
       // 不写死天数:恢复周期是 admin 旋钮(billing_config.window_days),而卡片拿不到它
       // (planFeatures 只吃 plan/cycle)。机制解释交给 /pricing 的 FAQ —— 那里动态取值。
       '基础 AI 额度,用完后自动恢复',

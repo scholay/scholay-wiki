@@ -29,12 +29,13 @@ export function Sidebar({
  * 滚动主体 — 顶部固定展开/收起，其下为 ScrollArea。
  * 用 ScrollArea 提供原生级滚动条样式。
  *
- * `hideCollapse`：个别侧栏自带顶部工具条时，可关掉默认收起钮，避免重复。
+ * `hideCollapse`：默认关掉。展开/收起已回到顶栏 Logo 左侧,
+ * 侧栏顶再挂一颗会重复。后台等没有用户顶栏的壳可显式传 false。
  */
 export function SidebarContent({
   className,
   children,
-  hideCollapse = false,
+  hideCollapse = true,
 }: {
   className?: string;
   children: ReactNode;

@@ -47,11 +47,7 @@ export function ResourceCollectionView({
         noindex
       />
       <header className="flex h-15 shrink-0 items-center gap-2 border-b border-border bg-background px-10">
-        <span className="text-base text-muted-foreground">
-          {sectionMeta?.label}
-        </span>
-        <span className="text-base text-faint">/</span>
-        <span className="text-base font-bold text-foreground">
+        <span className="text-14 font-medium text-foreground">
           {collection.name}
         </span>
         <span className="inline-flex items-center rounded-sm bg-surface-2 px-1.5 py-px text-xs font-semibold tabular-nums text-muted-foreground">

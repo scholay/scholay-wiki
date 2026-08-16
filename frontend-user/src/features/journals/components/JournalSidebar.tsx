@@ -12,11 +12,10 @@ import { LeaveToLibraryLink } from '@/shared/components/LeaveToLibraryLink';
 import { Button } from '@/shared/ui/button';
 import { useIsAuthenticated } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { useSidebar } from '@/stores/sidebar.store';
 import { useLibraryFoldersForJournals } from '../api/library';
 
 /**
- * 期刊搜索侧栏 —— 仅文献集快捷(筛选器已迁到主区悬浮面板,对齐文献搜索)。
+ * 期刊搜索侧栏 —— 仅文献集快捷(筛选器在结果区弹窗)。
  */
 export function JournalSidebar() {
 
@@ -33,8 +32,7 @@ function LibrarySection() {
   const authenticated = useIsAuthenticated();
   const openDialog = useAuthDialog((s) => s.openDialog);
   const foldersQ = useLibraryFoldersForJournals();
-  const sidebarExpanded = useSidebar((s) => s.expanded);
-  const rail = !sidebarExpanded;
+  const rail = false;
   const navigate = useNavigate();
   const sectionRef = useRef<HTMLDivElement>(null);
 

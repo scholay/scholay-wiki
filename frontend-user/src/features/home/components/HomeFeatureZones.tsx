@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { MENUS, type Menu } from '@/app/menus';
 import { cn } from '@/shared/lib/utils';
 
-type Accent = 'green' | 'amber' | 'red' | 'blue';
+type Accent = 'green' | 'amber' | 'red';
 
 type FeatureStory = {
   menuId: string;
@@ -24,28 +24,15 @@ const STORIES: FeatureStory[] = [
   {
     menuId: 'search',
     accent: 'green',
-    eyebrow: '文献检索',
+    eyebrow: '学术搜索',
     headline: '把「找得到」做成科研日常的默认能力',
     body: '从关键词到学者与出处，一次检索覆盖全文与库内资源。少翻页、少猜库名，更快落到可阅读的那一篇。',
     bullets: [
-      '论文 / 学者统一入口，结果可直接打开阅读',
+      '论文 / 学者 / 期刊统一入口，结果可直接打开阅读',
+      '期刊库、数据库与 scholay 情报跟文献检索同一工作流',
       '筛选与历史检索可续接，工作不被打断',
-      '与后续收藏、对话、审稿同一工作流',
     ],
-    cta: '开始检索文献',
-  },
-  {
-    menuId: 'journal-search',
-    accent: 'blue',
-    eyebrow: '期刊决策',
-    headline: '投稿前先看清期刊的位置与匹配度',
-    body: '影响因子、分区与领域信号集中呈现，帮你在选题与投稿之间建立可核对的判断，而不是只靠口口相传。',
-    bullets: [
-      '期刊画像一目了然：影响因子 · 分区 · 领域',
-      '按研究方向缩小候选清单',
-      '与文献检索联动，从论文反查出处',
-    ],
-    cta: '搜索目标期刊',
+    cta: '开始检索',
   },
   {
     menuId: 'claw',
@@ -110,7 +97,7 @@ const STORIES: FeatureStory[] = [
       '按场景发现，而不是只靠口碑链接',
       '与站内工作流逐步打通',
     ],
-    cta: '逛逛 Skills 广场',
+    cta: '逛逛 scholay广场',
   },
 ];
 
@@ -148,14 +135,6 @@ const ACCENT: Record<
     ring: 'focus-visible:ring-brand-red/35',
     check: 'text-brand-red',
     mockGlow: 'from-brand-red/18 via-transparent to-brand-amber/10',
-  },
-  blue: {
-    kicker: 'text-brand-blue',
-    soft: 'bg-brand-blue/10',
-    solid: 'bg-brand-blue text-background hover:bg-brand-blue/90',
-    ring: 'focus-visible:ring-brand-blue/35',
-    check: 'text-brand-blue',
-    mockGlow: 'from-brand-blue/18 via-transparent to-brand-green/10',
   },
 };
 
@@ -332,7 +311,6 @@ function FeatureMock({
       </div>
       <div className="rounded-xl border border-border bg-background/90 p-3 shadow-sm backdrop-blur-sm sm:p-4">
         {menuId === 'search' && <MockSearch />}
-        {menuId === 'journal-search' && <MockJournal />}
         {menuId === 'claw' && <MockClaw />}
         {menuId === 'prism' && <MockPrism />}
         {menuId === 'peer-review' && <MockReview />}
@@ -367,42 +345,6 @@ function MockSearch() {
           <p className="mt-0.5 text-2xs text-faint">{row.meta}</p>
         </div>
       ))}
-    </div>
-  );
-}
-
-function MockJournal() {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-end justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="font-display text-lg font-bold text-foreground">
-            Nature Methods
-          </p>
-          <p className="mt-0.5 text-2xs text-faint">生命科学 · 方法学</p>
-        </div>
-        <div className="rounded-lg bg-brand-blue/10 px-2.5 py-1.5 text-center">
-          <p className="font-display text-xl font-bold leading-none text-brand-blue">
-            48.2
-          </p>
-          <p className="mt-0.5 text-[10px] font-semibold text-brand-blue">
-            IF
-          </p>
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {['Q1', '方法学', '开放获取'].map((tag) => (
-          <div
-            key={tag}
-            className="rounded-md bg-surface-1 py-2 text-center text-2xs font-semibold text-subtle"
-          >
-            {tag}
-          </div>
-        ))}
-      </div>
-      <div className="rounded-lg border border-dashed border-border px-3 py-2.5 text-2xs leading-relaxed text-muted-foreground">
-        适合生成式模型与实验方法交叉投稿；建议先核对近期 AI 相关栏目。
-      </div>
     </div>
   );
 }

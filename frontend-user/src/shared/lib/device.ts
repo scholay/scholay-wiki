@@ -84,7 +84,9 @@ function resolve(maps: RouteMap[], pathname: string): string | null {
 const MOBILE_EQUIVALENTS: RouteMap[] = [
   { exact: '/', target: '/m/feed' },
   { exact: '/journals/search', target: '/m/feed/journals' },
+  { exact: '/journals', target: '/m/feed/journals' },
   { exact: '/claw', target: '/m/claw' },
+  { exact: '/tools/catalog', target: '/m/tools/all' },
   { prefix: '/tools', target: '/m/tools' }, // /tools/:idOrSlug → /m/tools/:idOrSlug
   // 桌面只有 /library 一条路由(文件夹是 ?folder= query,没有 /library/:id 路径段),
   // 文件夹深链的 query→路径段改写在 mobileEquivalentPath 里特判,这里只兜底裸 /library。
@@ -129,6 +131,7 @@ const DESKTOP_EQUIVALENTS: RouteMap[] = [
   { exact: '/m/feed', target: '/' },
   { exact: '/m/feed/journals', target: '/journals/search' },
   { exact: '/m/claw', target: '/claw' },
+  { exact: '/m/tools/all', target: '/tools/catalog' },
   { prefix: '/m/tools', target: '/tools' }, // /m/tools/:id → /tools/:id
   { exact: '/m/library', target: '/library' },
   { exact: '/m/me', target: '/settings' },

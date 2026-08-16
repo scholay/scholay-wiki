@@ -19,16 +19,16 @@ export type RhinoClipId =
   | 'pet-wait'
   | 'pet-sigh'
   | 'pet-run'
-  | 'sleep-e'
   | 'confused-s'
   | 'nod-s'
-  | 'back-review'
-  | 'typing'
   | 'wave-s'
   | 'idle-s'
   | 'sit-to-stand-s'
-  | 'lie-to-sit-s'
   | 'sit-hold'
+  | 'sit-type'
+  | 'write-s'
+  | 'celebrate-s'
+  | 'shake-head-s'
   | `loco-${RhinoDir}`
   | `run-${RhinoRunDir}`
   | `idle-${RhinoDir}`
@@ -46,7 +46,6 @@ export interface RhinoClipMeta {
 
 /**
  * 站立待机池(循环)——失焦 / 每 30s 随机。
- * sleep-e 留给躺姿,不进站立池。
  */
 export const IDLE_LOOP_CLIPS: readonly RhinoClipId[] = [
   'pet-idle',
@@ -55,8 +54,6 @@ export const IDLE_LOOP_CLIPS: readonly RhinoClipId[] = [
   'idle-east',
   'idle-south-east',
   'confused-s',
-  'back-review',
-  'typing',
 ] as const;
 
 /** 一次性待机表情:播完后回落到随机循环 idle */
@@ -65,6 +62,8 @@ export const IDLE_ONCE_CLIPS: readonly RhinoClipId[] = [
   'pet-wave',
   'nod-s',
   'wave-s',
+  'write-s',
+  'shake-head-s',
 ] as const;
 
 /** 站立时可随机的待机态 */
@@ -83,11 +82,8 @@ function buildClips(): Record<RhinoClipId, RhinoClipMeta> {
     'pet-wait': { count: 7, fps: 8, loop: true, dir: 'pet-wait' },
     'pet-sigh': { count: 9, fps: 8, loop: false, dir: 'pet-sigh' },
     'pet-run': { count: 9, fps: 12, loop: true, dir: 'pet-run' },
-    'sleep-e': { count: 7, fps: 6, loop: true, dir: 'sleep-e' },
     'confused-s': { count: 7, fps: 9, loop: true, dir: 'confused-s' },
     'nod-s': { count: 7, fps: 10, loop: false, dir: 'nod-s' },
-    'back-review': { count: 7, fps: 9, loop: true, dir: 'back-review' },
-    typing: { count: 7, fps: 12, loop: true, dir: 'typing' },
     'wave-s': { count: 7, fps: 10, loop: false, dir: 'wave-s' },
     'idle-s': { count: 7, fps: 8, loop: true, dir: 'idle-s' },
     // frame0=坐, frame8=站; 倒放 = 站→坐
@@ -97,13 +93,6 @@ function buildClips(): Record<RhinoClipId, RhinoClipMeta> {
       loop: false,
       dir: 'sit-to-stand-s',
     },
-    // frame0=躺, frame8=坐; 倒放 = 坐→躺
-    'lie-to-sit-s': {
-      count: 9,
-      fps: 10,
-      loop: false,
-      dir: 'lie-to-sit-s',
-    },
     // 坐姿定格(sit-to-stand 首帧)
     'sit-hold': {
       count: 1,
@@ -111,6 +100,11 @@ function buildClips(): Record<RhinoClipId, RhinoClipMeta> {
       loop: true,
       files: ['/mascot/rhino/sit-to-stand-s/frame_000.png'],
     },
+    // Nest-only: stool + laptop, back ¾. Not in the floating idle pool.
+    'sit-type': { count: 7, fps: 8, loop: true, dir: 'sit-type' },
+    'write-s': { count: 7, fps: 8, loop: false, dir: 'write-s' },
+    'celebrate-s': { count: 7, fps: 10, loop: false, dir: 'celebrate-s' },
+    'shake-head-s': { count: 7, fps: 10, loop: false, dir: 'shake-head-s' },
   } as Record<RhinoClipId, RhinoClipMeta>;
 
   for (const d of RHINO_DIRS) {

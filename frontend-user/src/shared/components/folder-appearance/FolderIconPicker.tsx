@@ -1,7 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
-import { cn } from '@/shared/lib/utils';
-import { FOLDER_COLOR_OPTIONS, FOLDER_ICON_OPTIONS } from './folder-icons';
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/shared/ui/popover';
+import { FolderAppearanceFields } from './FolderAppearanceFields';
 
 interface FolderIconPickerProps {
   value?: string;
@@ -12,6 +16,10 @@ interface FolderIconPickerProps {
   children: ReactNode;
   /** 窄轨时弹层仍靠右 */
   side?: 'right' | 'bottom';
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** click = 点触发器打开; contextmenu = 左键留给父级,由外部打开 */
+  openOn?: 'click' | 'contextmenu';
 }
 
 /**
@@ -25,12 +33,21 @@ export function FolderIconPicker({
   onColorChange,
   children,
   side = 'right',
+  open: openProp,
+  onOpenChange,
+  openOn = 'click',
 }: FolderIconPickerProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      {openOn === 'contextmenu' ? (
+        <PopoverAnchor asChild>{children}</PopoverAnchor>
+      ) : (
+        <PopoverTrigger asChild>{children}</PopoverTrigger>
+      )}
       <PopoverContent
         side={side}
         align="start"
@@ -38,68 +55,12 @@ export function FolderIconPicker({
         className="w-[220px] p-2"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-1.5 px-1 text-2xs font-semibold text-faint">
-          背景色
-        </div>
-        <div
-          role="listbox"
-          aria-label="文件夹背景色"
-          className="mb-2.5 flex flex-wrap gap-1.5 px-0.5"
-        >
-          {FOLDER_COLOR_OPTIONS.map(({ id, label, swatchClass }) => {
-            const selected = colorValue === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                title={label}
-                onClick={() => onColorChange(id)}
-                className={cn(
-                  'inline-flex size-6 cursor-pointer items-center justify-center rounded-pill transition-shadow',
-                  selected && 'ring-2 ring-foreground ring-offset-1 ring-offset-background',
-                )}
-              >
-                <span
-                  className={cn('size-4 rounded-pill', swatchClass)}
-                  aria-hidden
-                />
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mb-1.5 px-1 text-2xs font-semibold text-faint">
-          图标
-        </div>
-        <div
-          role="listbox"
-          aria-label="文件夹图标"
-          className="grid grid-cols-5 gap-1"
-        >
-          {FOLDER_ICON_OPTIONS.map(({ id, Icon, label }) => {
-            const selected = value === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                title={label}
-                onClick={() => onChange(id)}
-                className={cn(
-                  'inline-flex size-9 cursor-pointer items-center justify-center rounded-md transition-colors',
-                  selected
-                    ? 'bg-foreground text-background'
-                    : 'text-subtle hover:bg-surface-1 hover:text-foreground',
-                )}
-              >
-                <Icon className="size-4" strokeWidth={1.8} />
-              </button>
-            );
-          })}
-        </div>
+        <FolderAppearanceFields
+          iconId={value ?? 'folder'}
+          onIconChange={onChange}
+          colorId={colorValue}
+          onColorChange={onColorChange}
+        />
       </PopoverContent>
     </Popover>
   );

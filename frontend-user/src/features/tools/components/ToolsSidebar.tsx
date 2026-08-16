@@ -46,7 +46,10 @@ export function ToolsSidebar() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const isSkills = pathname.startsWith('/tools/skills'); // 社区技能分段
+  const isSkills = pathname.startsWith('/tools/skills');
+  const isNews = pathname.startsWith('/tools/news');
+  const isDatasets = pathname.startsWith('/tools/datasets');
+  const showToolFilters = !isSkills && !isNews && !isDatasets;
   const { data: catData } = useToolCategories();
 
   const category = params.get('category') ?? '';
@@ -65,7 +68,7 @@ export function ToolsSidebar() {
     }
     sp.delete('page');
     const qs = sp.toString();
-    navigate(qs ? `/tools?${qs}` : '/tools');
+    navigate(qs ? `/tools/catalog?${qs}` : '/tools/catalog');
   };
 
   const cats = catData?.categories ?? [];
@@ -83,7 +86,7 @@ export function ToolsSidebar() {
     <Sidebar>
       <SidebarContent>
         <div className="px-4 pt-3 pb-1.5">
-          <p className="text-xs font-bold tracking-[0.04em] text-foreground">Skills广场</p>
+          <p className="text-xs font-bold tracking-[0.04em] text-foreground">scholay广场</p>
         </div>
 
         {/* 段切换在顶部 PlazaHeader 的 tab 上统一处理;侧栏只按当前段给对应的筛选/入口。 */}
@@ -105,7 +108,7 @@ export function ToolsSidebar() {
         )}
 
         {/* 全网工具段:全部工具 + 筛选器(分类 / 价格 / 形式 / 开源) */}
-        {!isSkills && (
+        {showToolFilters && (
         <>
         <SidebarSection id="tools-all">
           <SidebarItem

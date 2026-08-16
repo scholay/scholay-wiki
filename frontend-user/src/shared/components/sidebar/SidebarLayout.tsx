@@ -6,11 +6,6 @@ import { cn } from '@/shared/lib/utils';
 
 /** 展开宽 —— .pen 全站 sidebar 统一口径。 */
 export const SIDEBAR_EXPANDED_PX = 240;
-/**
- * 收起窄轨宽 —— 刚好容纳 SidebarRailItem:
- * icon 14 + gap 4 + 2ch 数字(~14) + 左右 padding 8 → ~52,取 56 留一点余量。
- */
-export const SIDEBAR_RAIL_PX = 56;
 
 interface SidebarLayoutProps {
   /** 完整 sidebar 组件 — 展开时渲染在主区左侧 */
@@ -19,8 +14,6 @@ interface SidebarLayoutProps {
   children: ReactNode;
   /** sidebar 展开宽度,默认 240 */
   width?: number;
-  /** 收起窄轨宽度,默认 56 */
-  railWidth?: number;
   className?: string;
 }
 
@@ -28,15 +21,17 @@ interface SidebarLayoutProps {
  * Feature 页面专用布局壳 — 把"侧栏 + 主区"拼装在一起,受 useSidebar 全局开合控制。
  *
  * **响应式**:
- *   - 桌面(≥640px):侧栏 inline,宽度 rail↔expanded CSS 过渡「推挤」主区;
- *     收起不再消失,而是收到图标+数字的窄轨。
+ *   - 桌面(≥640px):侧栏 inline,宽度 0↔240 CSS 过渡「推挤」主区。
+ *     只有完全展开 / 完全收起,不再收成图标窄轨。
  *   - 移动(<640px):侧栏改成覆盖式抽屉(收起完全藏起),不挤压窄屏主区。
+ *
+ * 侧栏始终挂载(内部选中项跨折叠保留);内层固定展开宽度,收起时裁切而不是重排。
+ * 展开入口在顶栏 Logo 左侧,这里不再挂浮动按钮。
  */
 export function SidebarLayout({
   sidebar,
   children,
   width = SIDEBAR_EXPANDED_PX,
-  railWidth = SIDEBAR_RAIL_PX,
   className,
 }: SidebarLayoutProps) {
   const expanded = useSidebar((s) => s.expanded);
@@ -53,12 +48,13 @@ export function SidebarLayout({
     if (isMobile) useSidebar.getState().setExpanded(false);
   }, [pathname, isMobile]);
 
+  const inner = (
+    <div style={{ width, minWidth: width }} className="h-full">
+      {sidebar}
+    </div>
+  );
+
   if (isMobile) {
-    const inner = (
-      <div style={{ width, minWidth: width }} className="h-full">
-        {sidebar}
-      </div>
-    );
     return (
       <div className={cn('relative flex h-full min-h-0', className)}>
         {expanded && (
@@ -75,32 +71,27 @@ export function SidebarLayout({
             expanded ? 'translate-x-0' : '-translate-x-full',
           )}
           aria-hidden={!expanded}
+          inert={!expanded}
         >
           {inner}
         </aside>
-        <main className="flex-1 min-w-0 min-h-0 overflow-auto">{children}</main>
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">{children}</main>
       </div>
     );
   }
 
-  const displayWidth = expanded ? width : railWidth;
-
   return (
-    <div className={cn('relative flex h-full min-h-0 overflow-visible', className)}>
+    <div className={cn('relative flex h-full min-h-0', className)}>
       <aside
-        style={{ width: displayWidth }}
-        className="relative z-20 h-full min-h-0 shrink-0 overflow-visible transition-[width] duration-200 ease-in-out"
-        data-sidebar-density={expanded ? 'full' : 'rail'}
-        aria-label={expanded ? '侧栏' : '侧栏窄轨'}
+        style={{ width: expanded ? width : 0 }}
+        className="relative z-20 h-full min-h-0 shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
+        aria-hidden={!expanded}
+        inert={!expanded}
+        aria-label="侧栏"
       >
-        <div
-          style={{ width: displayWidth, minWidth: displayWidth }}
-          className="relative h-full"
-        >
-          {sidebar}
-        </div>
+        {inner}
       </aside>
-      <main className="relative z-0 min-h-0 min-w-0 flex-1 overflow-auto">
+      <main className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
         {children}
       </main>
     </div>

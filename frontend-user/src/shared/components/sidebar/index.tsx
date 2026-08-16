@@ -4,7 +4,7 @@
  *
  *   <Sidebar>
  *     <SidebarHeader>...</SidebarHeader>
- *     <SidebarContent>   -- 顶部自动挂面板图标展开/收起
+ *     <SidebarContent>   -- 滚动区;展开/收起在顶栏 Logo 左侧
  *       <SidebarSection label="文献集">
  *         <SidebarItem ... />
  *       </SidebarSection>
@@ -26,6 +26,5 @@ export { SidebarCollapseButton } from './SidebarCollapse';
 export {
   SidebarLayout,
   SIDEBAR_EXPANDED_PX,
-  SIDEBAR_RAIL_PX,
 } from './SidebarLayout';
 export { formatRailCount } from './format-rail-count';

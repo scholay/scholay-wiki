@@ -16,7 +16,7 @@ export function NewsSection() {
   return (
     <div className="mx-auto w-full max-w-[960px] border-t border-border-soft/80 px-6 pb-12 pt-10">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">学术情报</h2>
+        <h2 className="text-lg font-bold text-foreground">scholay 情报</h2>
         <Link
           to="/news"
           className="inline-flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-brand-red"

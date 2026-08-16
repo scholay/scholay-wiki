@@ -146,7 +146,7 @@ type FacetAccount struct {
 
 // featureLabels 把 feature code 映射成给 admin 看的中文名。与 usagestat.FeatureName 同口径。
 var featureLabels = map[string]string{
-	FeatureSmartSearch: "智能搜索",
+	FeatureSmartSearch: "智能搜论文",
 	FeatureClaw:        "智能助手",
 	FeaturePeerReview:  "AI 审稿",
 	FeatureMatrix:      "矩阵分析",

@@ -22,7 +22,7 @@ TARGET_H = 162
 FOOT = 46
 TOP_MIN = 8
 SIDE_MAX_W = CANVAS - 24
-POSE_COMPRESSED = {'sleep-e'}
+POSE_COMPRESSED = {'sleep-e', 'sit-type'}
 
 
 def clip_key(path: Path) -> str:

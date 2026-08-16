@@ -5,11 +5,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Bell,
   CircleHelp,
-  EyeOff,
   GripHorizontal,
   Headphones,
   LayoutGrid,
@@ -20,6 +20,7 @@ import { useUnreadCount } from '@/shared/api/notifications';
 import { cn } from '@/shared/lib/utils';
 import { useAuthStatus } from '@/stores/auth.store';
 import { RhinoFeedbackBody } from './RhinoFeedbackBody';
+import { RhinoHoverMenu, RhinoUnreadBadge } from './RhinoHoverMenu';
 import { RhinoNotificationsBody } from './RhinoNotificationsBody';
 import {
   isIdleOnceClip,
@@ -47,6 +48,30 @@ import {
   RHINO_DISPLAY_PX,
   RHINO_PANEL_SPRITE_PX,
 } from '@/shared/mascot/rhino-display-size';
+import {
+  DOCK_RUN_PX_S,
+  NAV_HIDE_PX_S,
+  RHINO_POS_KEY,
+  edgeTopFromFloatingY,
+  isAgainstLeftEdge,
+  isAgainstRightEdge,
+  loadEdgeSide,
+  persistEdgeSide,
+  persistEdgeTop,
+  persistFloatingPos,
+  type RhinoEdgeSide,
+} from '@/shared/mascot/rhino-edge-dock';
+import {
+  PERCH_DIVE_PX_S,
+  PERCH_RUN_PX_S,
+  getLiveRhinoPerchRect,
+  getRhinoPerchRect,
+  isNearRhinoPerch,
+  perchApproachPos,
+  perchDivePos,
+  perchDockPos,
+  perchEmergeRest,
+} from '@/shared/mascot/rhino-perch';
 import { RHINO_NAME } from '@/shared/mascot/rhino-name';
 import { useMascotSprite } from '@/shared/mascot/useMascotSprite';
 import {
@@ -55,11 +80,12 @@ import {
   type RhinoPanelMode,
 } from '@/stores/rhino-assistant.store';
 import { RhinoChatBody } from './RhinoChatBody';
+import { RhinoEdgePeek } from './RhinoEdgePeek';
 import { RhinoHelpBody } from './RhinoHelpBody';
 import { RhinoPanelStage } from './RhinoPanelStage';
 import { RhinoSplitPane } from './RhinoSplitPane';
 
-const POS_KEY = 'scholay.rhino-assistant.pos';
+const POS_KEY = RHINO_POS_KEY;
 const DIR_KEY = 'scholay.rhino-assistant.dir';
 /** Hitbox matches fixed sprite display (assets pre-normalized to 256²). */
 const SIZE = RHINO_DISPLAY_PX;
@@ -106,6 +132,36 @@ function loadPos(): Pos {
   }
 }
 
+function emergeStartPos(rest: Pos, side: RhinoEdgeSide): Pos {
+  if (typeof window === 'undefined') return rest;
+  // Start on-screen at the docked edge's visible side, then jump inward.
+  if (side === 'left') {
+    return { x: MARGIN, y: rest.y };
+  }
+  return {
+    x: Math.max(MARGIN, window.innerWidth - SIZE - MARGIN),
+    y: rest.y,
+  };
+}
+
+function perchEmergeStart(rect: DOMRect): Pos {
+  return perchDockPos(rect, SIZE);
+}
+
+function initialFloatPos(): Pos {
+  if (typeof window === 'undefined') return { x: 24, y: 24 };
+  const rest = loadPos();
+  const st = useRhinoAssistant.getState();
+  if (st.emergeFromEdge) {
+    return emergeStartPos(rest, loadEdgeSide());
+  }
+  if (st.emergeFromPerch) {
+    const rect = getRhinoPerchRect();
+    if (rect) return perchEmergeStart(rect);
+  }
+  return rest;
+}
+
 function loadDir(): RhinoDir {
   try {
     const v = localStorage.getItem(DIR_KEY) ?? '';
@@ -118,7 +174,7 @@ function loadDir(): RhinoDir {
 
 /**
  * 悬浮小犀牛 —— 收起时独立拖拽互动;展开对话/功能/帮助时框进可拖动面板。
- * 隐藏后卸载本体，入口在顶栏头像旁 {@link RhinoDockChip}。
+ * 隐藏后本体卸下：屏幕边缘 {@link RhinoEdgePeek}，或页面里的 {@link RhinoPeek} 巢。
  */
 export function FloatingRhinoAssistant({
   featuresSlot,
@@ -127,7 +183,67 @@ export function FloatingRhinoAssistant({
   featuresSlot?: ReactNode;
 }) {
   const hidden = useRhinoAssistant((s) => s.hidden);
-  if (hidden) return null;
+  const hideKind = useRhinoAssistant((s) => s.hideKind);
+  const perchPresent = useRhinoAssistant((s) => s.perchPresent);
+  const perchDismissed = useRhinoAssistant((s) => s.perchDismissed);
+  const perchEnterConsumed = useRhinoAssistant((s) => s.perchEnterConsumed);
+  const show = useRhinoAssistant((s) => s.show);
+  const consumePerchEnter = useRhinoAssistant((s) => s.consumePerchEnter);
+  const resetPerchDismissed = useRhinoAssistant((s) => s.resetPerchDismissed);
+
+  // 归位的第二个触发点:加载新页面。换路由即重开本页的巢吸引
+  // (被拉出过的犀牛在新页面再次自动归巢;同页内不反复吸回)。
+  const { pathname } = useLocation();
+  useEffect(() => {
+    resetPerchDismissed();
+  }, [pathname, resetPerchDismissed]);
+
+  const prevPerchPresent = useRef(perchPresent);
+  useEffect(() => {
+    const justArrived = perchPresent && !prevPerchPresent.current;
+    prevPerchPresent.current = perchPresent;
+    // Only leave the edge when a nest appears — do not undo an explicit hide.
+    if (
+      justArrived &&
+      !perchDismissed &&
+      !perchEnterConsumed &&
+      hidden &&
+      hideKind === 'edge'
+    ) {
+      show();
+    }
+  }, [
+    perchPresent,
+    perchDismissed,
+    perchEnterConsumed,
+    hidden,
+    hideKind,
+    show,
+  ]);
+
+  useEffect(() => {
+    if (!hidden || hideKind !== 'perch' || perchPresent) return;
+    const id = window.setTimeout(() => {
+      const st = useRhinoAssistant.getState();
+      if (st.hidden && st.hideKind === 'perch' && !st.perchPresent) {
+        st.hide('edge');
+      }
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [hidden, hideKind, perchPresent]);
+
+  useEffect(() => {
+    if (hidden && hideKind === 'perch' && perchPresent) {
+      consumePerchEnter();
+    }
+  }, [hidden, hideKind, perchPresent, consumePerchEnter]);
+
+  if (hidden) {
+    // 真隐藏:收进右上角导航条 chip(UserSection 里的 RhinoNavChip 负责渲染)。
+    if (hideKind === 'nav') return null;
+    if (hideKind === 'perch' && perchPresent) return null;
+    return <RhinoEdgePeek />;
+  }
   return <FloatingRhinoLive featuresSlot={featuresSlot} />;
 }
 
@@ -142,16 +258,24 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   const openPanel = useRhinoAssistant((s) => s.openPanel);
   const closePanel = useRhinoAssistant((s) => s.closePanel);
   const hide = useRhinoAssistant((s) => s.hide);
+  const clearEmerge = useRhinoAssistant((s) => s.clearEmerge);
+  const perchPresent = useRhinoAssistant((s) => s.perchPresent);
+  const perchDismissed = useRhinoAssistant((s) => s.perchDismissed);
   const collapseNonce = useRhinoAssistant((s) => s.collapseNonce);
   const panelRef = useRef(panel);
   panelRef.current = panel;
   const collapseNonceSeen = useRef(collapseNonce);
 
-  const [pos, setPos] = useState<Pos>(() =>
-    typeof window === 'undefined' ? { x: 24, y: 24 } : loadPos(),
+  const [pos, setPos] = useState<Pos>(initialFloatPos);
+  const emergingRef = useRef(
+    typeof window !== 'undefined' &&
+      (useRhinoAssistant.getState().emergeFromEdge ||
+        useRhinoAssistant.getState().emergeFromPerch),
   );
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
+  /** Slip behind the in-page nest on the last dock beat. */
+  const [diveBehindNest, setDiveBehindNest] = useState(false);
   /** 触控设备无 hover：常驻显示头顶菜单 */
   const [coarsePointer, setCoarsePointer] = useState(false);
 
@@ -180,14 +304,15 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   const coastingRef = useRef(false);
   const ambientIdleRef = useRef<RhinoClipId>('pet-idle');
   const idleTimerRef = useRef(0);
-  const targetRef = useRef<Pos>(
-    typeof window === 'undefined' ? { x: 24, y: 24 } : loadPos(),
-  );
-  const visualRef = useRef<Pos>(
-    typeof window === 'undefined' ? { x: 24, y: 24 } : loadPos(),
-  );
+  const targetRef = useRef<Pos>(initialFloatPos());
+  const visualRef = useRef<Pos>(initialFloatPos());
+  const emergeRafRef = useRef(0);
+  const emergeStartedRef = useRef(false);
+  const dockArmedAtRef = useRef(0);
   const chaseRafRef = useRef(0);
   const chaseLastTRef = useRef(0);
+  const dockingRef = useRef(false);
+  const dockRafRef = useRef(0);
   const lastAnimKeyRef = useRef('');
   const playRef = useRef(play);
   playRef.current = play;
@@ -195,13 +320,9 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   /** 收起态：延迟单击姿势，以便识别双击进对话 */
   const pendingPoseTimerRef = useRef(0);
   const lastTapAtRef = useRef(0);
+  const expandToRef = useRef<(mode: RhinoPanelMode) => void>(() => {});
 
   const holdPoseIdle = useCallback(async () => {
-    if (poseRef.current === 'lie') {
-      ambientIdleRef.current = 'sleep-e';
-      await play('sleep-e');
-      return;
-    }
     if (poseRef.current === 'sit') {
       ambientIdleRef.current = 'sit-hold';
       await play('sit-hold');
@@ -225,7 +346,7 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       ) {
         return;
       }
-      // 坐/躺不轮换站立表情池
+      // 坐姿不轮换站立表情池
       if (poseRef.current !== 'stand') {
         await holdPoseIdle();
         return;
@@ -248,15 +369,90 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     }, IDLE_ROTATE_MS);
   }, [playAmbientIdle]);
 
+  /** 从右缘 / 页面巢内部跳出（站姿稿原地消失后再接精灵） */
+  useEffect(() => {
+    const st = useRhinoAssistant.getState();
+    const fromPerch = st.emergeFromPerch;
+    if (!emergingRef.current && !fromPerch) return;
+    if (emergeStartedRef.current) return;
+    emergeStartedRef.current = true;
+    emergingRef.current = false;
+    clearEmerge();
+    busyRef.current = true;
+    dockArmedAtRef.current = performance.now() + 1200;
+    window.clearInterval(idleTimerRef.current);
+
+    const perchRect = fromPerch ? getRhinoPerchRect() : null;
+    const rest = perchRect
+      ? clampPos(perchEmergeRest(perchRect, SIZE, MARGIN))
+      : clampPos(loadPos());
+    const start = perchRect
+      ? perchEmergeStart(perchRect)
+      : emergeStartPos(rest, loadEdgeSide());
+    visualRef.current = start;
+    targetRef.current = rest;
+    setPos(start);
+
+    void (async () => {
+      try {
+        await playRef.current('pet-jump');
+      } catch {
+        /* interrupted */
+      }
+      if (draggingRef.current || dockingRef.current) {
+        busyRef.current = false;
+        return;
+      }
+      busyRef.current = false;
+      await playAmbientIdle({ force: true });
+      resetIdleRotateTimer();
+    })();
+
+    const finishEmerge = (settled: Pos) => {
+      visualRef.current = settled;
+      targetRef.current = settled;
+      persistFloatingPos(settled);
+      const pending = useRhinoAssistant.getState().pendingPanel;
+      if (!pending) return;
+      useRhinoAssistant.setState({ pendingPanel: null });
+      expandToRef.current(pending);
+    };
+
+    if (reduce) {
+      setPos(rest);
+      finishEmerge(rest);
+      return;
+    }
+
+    const durationMs = fromPerch ? 380 : 420;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const u = Math.min(1, (now - t0) / durationMs);
+      const eased = 1 - (1 - u) ** 3;
+      const next = {
+        x: start.x + (rest.x - start.x) * eased,
+        y: start.y + (rest.y - start.y) * eased,
+      };
+      visualRef.current = next;
+      setPos(next);
+      if (u < 1) {
+        emergeRafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      emergeRafRef.current = 0;
+      finishEmerge(rest);
+    };
+    emergeRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(emergeRafRef.current);
+    // Mount-only: deps would retrigger, cancel the raf, and leave the sprite off-screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** 保证站立(拖走前调用) */
   const ensureStanding = useCallback(async () => {
     if (poseRef.current === 'stand') return;
     busyRef.current = true;
     try {
-      if (poseRef.current === 'lie') {
-        await play('lie-to-sit-s'); // 躺→坐
-        poseRef.current = 'sit';
-      }
       if (poseRef.current === 'sit') {
         await play('sit-to-stand-s'); // 坐→站
         poseRef.current = 'stand';
@@ -282,23 +478,9 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
         await play('sit-hold');
         ambientIdleRef.current = 'sit-hold';
       } else if (action === 'stand') {
-        if (poseRef.current === 'lie') {
-          await play('lie-to-sit-s');
-          poseRef.current = 'sit';
-        }
         await play('sit-to-stand-s');
         poseRef.current = 'stand';
         await playAmbientIdle({ force: true });
-      } else if (action === 'lie') {
-        // 坐→躺:倒放 lie-to-sit
-        if (poseRef.current === 'stand') {
-          await play('sit-to-stand-s', { reverse: true, loop: false });
-          poseRef.current = 'sit';
-        }
-        await play('lie-to-sit-s', { reverse: true, loop: false });
-        poseRef.current = 'lie';
-        await play('sleep-e');
-        ambientIdleRef.current = 'sleep-e';
       } else {
         // stand emote
         const emote = pickStandEmote(ambientIdleRef.current);
@@ -328,6 +510,7 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   }, []);
 
   const finishMoveSettle = useCallback(async () => {
+    if (dockingRef.current) return;
     coastingRef.current = false;
     draggingRef.current = false;
     setDragging(false);
@@ -475,6 +658,8 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     return () => {
       window.removeEventListener('resize', onResize);
       stopChase();
+      cancelAnimationFrame(dockRafRef.current);
+      cancelAnimationFrame(emergeRafRef.current);
       window.clearTimeout(hoverLeaveTimerRef.current);
       window.clearTimeout(pendingPoseTimerRef.current);
     };
@@ -526,6 +711,13 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
 
     if (!d.moved) {
       d.moved = true;
+      if (dockingRef.current) {
+        cancelAnimationFrame(dockRafRef.current);
+        dockRafRef.current = 0;
+        dockingRef.current = false;
+        busyRef.current = false;
+        setDiveBehindNest(false);
+      }
       draggingRef.current = true;
       coastingRef.current = false;
       setDragging(true);
@@ -559,6 +751,36 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     }
     if (d.moved) {
       if (panelRef.current) return;
+      const dockReady = performance.now() >= dockArmedAtRef.current;
+      // 归位·靠近吸附:松手时挨着页面巢 → 跑进巢里坐下(与左右贴边同级)。
+      if (dockReady) {
+        const nestRect = getLiveRhinoPerchRect();
+        if (
+          nestRect &&
+          (isNearRhinoPerch(visualRef.current, SIZE, nestRect) ||
+            isNearRhinoPerch(targetRef.current, SIZE, nestRect)) &&
+          runDockToPerch()
+        ) {
+          return;
+        }
+      }
+      const tx = targetRef.current.x;
+      const vx = visualRef.current.x;
+      if (
+        dockReady &&
+        (isAgainstLeftEdge(tx, MARGIN) || isAgainstLeftEdge(vx, MARGIN))
+      ) {
+        runDockToEdge('left');
+        return;
+      }
+      if (
+        dockReady &&
+        (isAgainstRightEdge(tx, SIZE, MARGIN) ||
+          isAgainstRightEdge(vx, SIZE, MARGIN))
+      ) {
+        runDockToEdge('right');
+        return;
+      }
       // 松手:指令位停住,视觉继续追上后再待机 —— 单击不受影响
       draggingRef.current = false;
       coastingRef.current = true;
@@ -623,6 +845,7 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     openPanel(mode);
     void playAmbientIdle({ force: true });
   };
+  expandToRef.current = expandTo;
 
   const collapsePanel = () => {
     const mode = panelRef.current;
@@ -641,18 +864,245 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     resetIdleRotateTimer();
   };
 
-  /** 收纳到顶栏头像旁 */
+  /** 靠近左/右缘松手：跑步冲进边缘再收纳 */
+  const runDockToEdge = useCallback(
+    (side: RhinoEdgeSide) => {
+      if (dockingRef.current) return;
+      dockingRef.current = true;
+      window.clearTimeout(pendingPoseTimerRef.current);
+      pendingPoseTimerRef.current = 0;
+      lastTapAtRef.current = 0;
+      stopChase();
+      draggingRef.current = false;
+      coastingRef.current = false;
+      setDragging(false);
+
+      const start = visualRef.current;
+      persistEdgeSide(side);
+      persistEdgeTop(edgeTopFromFloatingY(start.y, SIZE));
+      persistFloatingPos(start);
+
+      if (reduce) {
+        hide();
+        return;
+      }
+
+      const towardLeft = side === 'left';
+      dirRef.current = towardLeft ? 'west' : 'east';
+      gaitRef.current = 'run';
+      void playRef.current(
+        runClip(dirRef.current, towardLeft ? -220 : 220, 8),
+        { loop: true, fps: locoFps('run', DOCK_RUN_PX_S) },
+      );
+
+      const destX = towardLeft
+        ? -SIZE * 0.2
+        : window.innerWidth - SIZE * 0.18;
+      const dist = Math.max(36, Math.abs(destX - start.x));
+      const durationMs = Math.max(320, (dist / DOCK_RUN_PX_S) * 1000);
+      const t0 = performance.now();
+
+      const tick = (now: number) => {
+        const u = Math.min(1, (now - t0) / durationMs);
+        const eased = u * u;
+        const next = {
+          x: start.x + (destX - start.x) * eased,
+          y: start.y,
+        };
+        visualRef.current = next;
+        targetRef.current = next;
+        setPos(next);
+        if (u < 1) {
+          dockRafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        dockRafRef.current = 0;
+        hide();
+      };
+      dockRafRef.current = requestAnimationFrame(tick);
+    },
+    [hide, reduce, stopChase],
+  );
+
+  /** 归位入巢:页面加载自动触发,或拖近巢松手吸附。跑到巢下、钻进巢后坐下。 */
+  const runDockToPerch = useCallback((): boolean => {
+    const rect = getLiveRhinoPerchRect();
+    if (!rect) return false;
+    if (dockingRef.current) return false;
+    dockingRef.current = true;
+    busyRef.current = true;
+    window.clearTimeout(pendingPoseTimerRef.current);
+    pendingPoseTimerRef.current = 0;
+    lastTapAtRef.current = 0;
+    stopChase();
+    draggingRef.current = false;
+    coastingRef.current = false;
+    setDragging(false);
+    setDiveBehindNest(false);
+
+    const start = visualRef.current;
+    persistFloatingPos(start);
+
+    if (reduce) {
+      hide('perch');
+      return true;
+    }
+
+    const approach = perchApproachPos(rect, SIZE);
+    const dive = perchDivePos(rect, SIZE);
+
+    const runSegment = (
+      from: Pos,
+      to: Pos,
+      speed: number,
+      onDone: () => void,
+    ) => {
+      const vx = to.x - from.x;
+      const vy = to.y - from.y;
+      const dist = Math.hypot(vx, vy);
+      if (dist < 12) {
+        visualRef.current = to;
+        targetRef.current = to;
+        setPos(to);
+        onDone();
+        return;
+      }
+      dirRef.current = resolveFacingDir(dirRef.current, vx, vy, {
+        minSpeed: 1,
+        hysteresisDeg: 0,
+      });
+      gaitRef.current = 'run';
+      void playRef.current(runClip(dirRef.current, vx, vy), {
+        loop: true,
+        fps: locoFps('run', speed),
+      });
+      const durationMs = Math.max(80, (dist / speed) * 1000);
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        if (!dockingRef.current) return;
+        const u = Math.min(1, (now - t0) / durationMs);
+        const eased = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+        const next = {
+          x: from.x + vx * eased,
+          y: from.y + vy * eased,
+        };
+        visualRef.current = next;
+        targetRef.current = next;
+        setPos(next);
+        if (u < 1) {
+          dockRafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        dockRafRef.current = 0;
+        onDone();
+      };
+      dockRafRef.current = requestAnimationFrame(tick);
+    };
+
+    runSegment(start, approach, PERCH_RUN_PX_S, () => {
+      if (!dockingRef.current) return;
+      setDiveBehindNest(true);
+      runSegment(approach, dive, PERCH_DIVE_PX_S, () => {
+        if (!dockingRef.current) return;
+        hide('perch');
+      });
+    });
+    return true;
+  }, [hide, reduce, stopChase]);
+
+  /** 隐藏(非归位):跑向右上角,收进导航条 chip(hover 出菜单,点击释放)。 */
+  const runDockToNav = useCallback(() => {
+    if (dockingRef.current) return;
+    dockingRef.current = true;
+    window.clearTimeout(pendingPoseTimerRef.current);
+    pendingPoseTimerRef.current = 0;
+    lastTapAtRef.current = 0;
+    stopChase();
+    draggingRef.current = false;
+    coastingRef.current = false;
+    setDragging(false);
+
+    const start = visualRef.current;
+    persistFloatingPos(start);
+
+    if (reduce) {
+      hide('nav');
+      return;
+    }
+
+    // Run toward the top-right corner, then slip off-screen into the nav.
+    const dest = {
+      x: window.innerWidth - SIZE * 0.55,
+      y: -SIZE * 0.55,
+    };
+    const vx = dest.x - start.x;
+    const vy = dest.y - start.y;
+    dirRef.current = resolveFacingDir(dirRef.current, vx, vy, {
+      minSpeed: 1,
+      hysteresisDeg: 0,
+    });
+    gaitRef.current = 'run';
+    void playRef.current(runClip(dirRef.current, vx, vy), {
+      loop: true,
+      fps: locoFps('run', NAV_HIDE_PX_S),
+    });
+
+    const dist = Math.max(36, Math.hypot(vx, vy));
+    const durationMs = Math.max(160, (dist / NAV_HIDE_PX_S) * 1000);
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      if (!dockingRef.current) return;
+      const u = Math.min(1, (now - t0) / durationMs);
+      const eased = 1 - (1 - u) * (1 - u);
+      const next = {
+        x: start.x + vx * eased,
+        y: start.y + vy * eased,
+      };
+      visualRef.current = next;
+      targetRef.current = next;
+      setPos(next);
+      if (u < 1) {
+        dockRafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      dockRafRef.current = 0;
+      hide('nav');
+    };
+    dockRafRef.current = requestAnimationFrame(tick);
+  }, [hide, reduce, stopChase]);
+
+  /** Menu hide tucks the mascot into the top-right nav — edges/nest stay 归位. */
   const hideRhino = () => {
     window.clearTimeout(pendingPoseTimerRef.current);
     pendingPoseTimerRef.current = 0;
     lastTapAtRef.current = 0;
     if (panelRef.current) collapsePanel();
-    stopChase();
-    draggingRef.current = false;
-    coastingRef.current = false;
-    setDragging(false);
-    hide();
+    runDockToNav();
   };
+
+  useEffect(() => {
+    if (!perchPresent || perchDismissed || panel) return;
+    let cancelled = false;
+    let retryId = 0;
+    const tryEnter = () => {
+      if (cancelled) return;
+      const st = useRhinoAssistant.getState();
+      if (st.perchDismissed || st.panel || st.hidden) return;
+      if (emergingRef.current || draggingRef.current || dockingRef.current) {
+        retryId = window.setTimeout(tryEnter, 240);
+        return;
+      }
+      if (!runDockToPerch()) {
+        retryId = window.setTimeout(tryEnter, 240);
+      }
+    };
+    const id = window.setTimeout(tryEnter, 160);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+      window.clearTimeout(retryId);
+    };
+  }, [perchPresent, perchDismissed, panel, runDockToPerch]);
 
   useEffect(() => {
     if (!panel) return;
@@ -752,7 +1202,7 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     label: string;
     icon: typeof MessageCircle;
   }> = [
-    { id: 'chat', label: '对话', icon: MessageCircle },
+    { id: 'chat', label: '闲聊', icon: MessageCircle },
     { id: 'features', label: '功能', icon: LayoutGrid },
     { id: 'help', label: '帮助', icon: CircleHelp },
     { id: 'feedback', label: '反馈', icon: Headphones },
@@ -774,7 +1224,7 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       className={cn(
-        'relative flex items-center justify-center touch-none select-none',
+        'relative flex items-center justify-center overflow-visible touch-none select-none',
         'rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
         rhinoInStage ? 'cursor-pointer' : 'size-full cursor-grab active:cursor-grabbing',
         !panel && dragging && 'scale-105',
@@ -793,25 +1243,17 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
         height={spritePx}
         className="pointer-events-none size-full object-contain drop-shadow-md"
       />
-      {unread > 0 && (
-        <span
-          aria-hidden
-          className={cn(
-            'pointer-events-none absolute z-10 inline-flex items-center justify-center',
-            'rounded-pill bg-brand-red font-bold tabular-nums text-background shadow-sm',
-            rhinoInStage
-              ? 'right-0 top-0 h-3.5 min-w-3.5 px-1 text-[9px] leading-none'
-              : 'right-1.5 top-1.5 h-5 min-w-5 px-1.5 text-2xs leading-none',
-          )}
-        >
-          {unread > 99 ? '99+' : unread}
-        </span>
-      )}
+      <RhinoUnreadBadge count={showHeadChrome ? 0 : unread} compact={rhinoInStage} />
     </button>
   );
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[60]">
+    <div
+      className={cn(
+        'pointer-events-none fixed inset-0',
+        diveBehindNest ? 'z-[50]' : 'z-[60]',
+      )}
+    >
       <AnimatePresence>
         {panel ? (
           <motion.button
@@ -991,7 +1433,11 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
           <motion.div
             key="rhino-alone"
             data-tour="rhino-assistant"
-            initial={reduce ? false : { opacity: 0, scale: 0.96 }}
+            initial={
+              reduce || emergingRef.current
+                ? false
+                : { opacity: 0, scale: 0.96 }
+            }
             animate={{ opacity: 1, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
@@ -1000,130 +1446,11 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
             onPointerEnter={onHeadEnter}
             onPointerLeave={onHeadLeave}
           >
-            {/* Hover 即显：悬在头顶上方，避免挡住角色 */}
-            <div className="absolute bottom-full left-1/2 z-10 mb-1 flex -translate-x-1/2 items-center justify-center">
-              <AnimatePresence>
-                {showHeadChrome && (
-                  <motion.div
-                    key="rhino-menu-row"
-                    role="menu"
-                    aria-label={`${RHINO_NAME}菜单`}
-                    initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 28 }}
-                    className={cn(
-                      'flex flex-col gap-0.5 whitespace-nowrap',
-                      'rounded-xl border border-border/80 bg-background/95 p-0.5',
-                      'shadow-md backdrop-blur-sm',
-                    )}
-                  >
-                    <div className="flex items-center justify-center gap-0.5">
-                      {(
-                        [
-                          {
-                            id: 'chat',
-                            label: '对话',
-                            icon: MessageCircle,
-                            onClick: () => expandTo('chat'),
-                          },
-                          {
-                            id: 'features',
-                            label: '功能',
-                            icon: LayoutGrid,
-                            onClick: () => expandTo('features'),
-                          },
-                          {
-                            id: 'help',
-                            label: '帮助',
-                            icon: CircleHelp,
-                            onClick: () => expandTo('help'),
-                          },
-                        ] as const
-                      ).map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            role="menuitem"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              item.onClick();
-                            }}
-                            className={cn(
-                              'inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-pill px-2',
-                              'text-2xs font-semibold text-foreground transition-colors',
-                              'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
-                            )}
-                          >
-                            <Icon className="size-3.5 shrink-0" strokeWidth={2} />
-                            {item.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex items-center justify-center gap-0.5 border-t border-border/50 pt-0.5">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          expandTo('feedback');
-                        }}
-                        className={cn(
-                          'inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-pill px-2',
-                          'text-2xs font-semibold text-foreground transition-colors',
-                          'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
-                        )}
-                      >
-                        <Headphones className="size-3.5 shrink-0" strokeWidth={2} />
-                        反馈
-                      </button>
-                      {authenticated && (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            expandTo('notifications');
-                          }}
-                          className={cn(
-                            'relative inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-pill px-2',
-                            'text-2xs font-semibold text-foreground transition-colors',
-                            'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
-                          )}
-                        >
-                          <Bell className="size-3.5 shrink-0" strokeWidth={2} />
-                          通知
-                          {unread > 0 && (
-                            <span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-pill bg-brand-red px-1 text-[10px] font-bold leading-none text-background tabular-nums">
-                              {unread > 99 ? '99+' : unread}
-                            </span>
-                          )}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          hideRhino();
-                        }}
-                        className={cn(
-                          'inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-pill px-2',
-                          'text-2xs font-semibold text-foreground transition-colors',
-                          'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
-                        )}
-                      >
-                        <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />
-                        隐藏
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <RhinoHoverMenu
+              open={showHeadChrome}
+              onSelect={expandTo}
+              onHide={hideRhino}
+            />
 
             {rhinoSprite}
           </motion.div>

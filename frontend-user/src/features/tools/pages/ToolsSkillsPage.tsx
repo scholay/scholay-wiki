@@ -32,7 +32,7 @@ export function ToolsSkillsPage() {
   return (
     <>
       <RouteSEO
-        title="社区技能 · Skills广场"
+        title="社区技能 · scholay广场"
         description="社区分享的智能体技能,可装进智能助手或其他 agent"
         canonical="/tools/skills"
         noindex={search.length > 0}

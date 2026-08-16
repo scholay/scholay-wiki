@@ -111,7 +111,7 @@ const COMPARE_GROUPS: { group: string; rows: CompareRow[] }[] = [
       { name: '全文翻译', free: '约 5 篇', pro: '约 75 篇', max: '约 375 篇' },
       // 智能搜索每轮含文献检索工具调用与长上下文,单轮成本高于普通助手对话,故同档轮数更少 ——
       // 行名点明「文献深挖」防「越贵越多轮」的误读。
-      { name: '智能搜索 · AI 文献深挖', free: '约 3 轮', pro: '约 60 轮', max: '约 300 轮' },
+      { name: '智能搜论文 · AI 文献深挖', free: '约 3 轮', pro: '约 60 轮', max: '约 300 轮' },
       { name: '科研绘图', free: '约 2 张', pro: '约 40 张', max: '约 200 张' },
       { name: '学术 PPT', free: '约 1 份', pro: '约 27 份', max: '约 135 份' },
       { name: '智能写作 · 重度轮', free: false, pro: '约 12 次', max: '约 57 次' },

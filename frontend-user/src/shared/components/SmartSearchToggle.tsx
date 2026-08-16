@@ -14,14 +14,14 @@ const MODE_META: Record<
   SearchMode,
   { label: string; icon: LucideIcon }
 > = {
-  smart: { label: '智能搜索', icon: Sparkles },
-  engine: { label: '搜索引擎', icon: Search },
+  smart: { label: '智能搜论文', icon: Sparkles },
+  engine: { label: '文献库检索', icon: Search },
 };
 
 /**
  * 输入框左侧模式选择 —— 左侧图标 + 当前模式文案，点开下拉切换。
  *
- * checked = 智能搜索；unchecked = 搜索引擎。
+ * checked = 智能搜索；unchecked = 传统搜索。
  */
 export function SmartSearchToggle({
   checked,
@@ -51,7 +51,7 @@ export function SmartSearchToggle({
             aria-label={`检索模式：${label}`}
             title="选择检索模式"
             className={cn(
-              'inline-flex h-7 max-w-[8.5rem] items-center gap-1 rounded-sm px-2',
+              'inline-flex h-7 max-w-[10rem] items-center gap-1 rounded-sm px-2',
               'text-2xs font-semibold transition-colors',
               'outline-none focus-visible:ring-2 focus-visible:ring-ring/35',
               'data-[state=open]:bg-surface-1',

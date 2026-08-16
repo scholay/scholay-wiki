@@ -48,10 +48,10 @@ export function ToolsCatalogPage() {
   return (
     <>
       <RouteSEO
-        title="Skills广场 · 科研工具黄页 — Scholay学术"
+        title="学术工具 · scholay广场 — Scholay学术"
         description="汇聚科研常用工具:统计分析、化学材料、生物信息、绘图可视化、文献管理、学术写作、期刊评价等,分门别类快速找到适合你的工具。"
         keywords="科研工具,学术软件,统计分析,科研绘图,文献管理,LaTeX,期刊分区,生物信息"
-        canonical="/tools"
+        canonical="/tools/catalog"
       />
 
       <div className="mb-3 flex items-end justify-between">

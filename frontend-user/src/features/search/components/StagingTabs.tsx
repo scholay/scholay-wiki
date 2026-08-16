@@ -1,6 +1,13 @@
-import { memo, useEffect, useMemo } from 'react';
-import { ChevronDown, FolderOpen } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { useFolderAppearance } from '@/shared/components/folder-appearance';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/ui/dropdown-menu';
 import { useIsAuthenticated } from '@/stores/auth.store';
 import {
   STAGING_FOLDER_LABEL,
@@ -11,23 +18,23 @@ import { useLibraryFoldersSummary } from '../api/library';
 import { useStagingView } from '../hooks/useStagingView';
 
 interface StagingTabsProps {
-  /** tabs = 横向标签(遗留); select = 下拉选框(矩阵 / 图谱等窄列) */
+  /** tabs = 当前文件夹 + 下拉切换; select = 原生下拉(侧栏旧入口) */
   variant?: 'tabs' | 'select';
+  className?: string;
 }
 
-/**
- * 工作区文件夹切换 —— 第一个为「暂存」(临时工作区),其后为文献集文件夹。
- * 侧栏用 WorkspaceFolderTree;矩阵表头等窄区域用 variant="select"。
- */
-export function StagingTabs({ variant = 'select' }: StagingTabsProps) {
+type FolderItem = {
+  key: WorkspaceFolderTab;
+  label: string;
+  fallback: 'staging' | 'folder';
+};
+
+function useWorkspaceFolderItems() {
   const authenticated = useIsAuthenticated();
   const activeTab = useWorkspaceFolderUi((s) => s.activeTab);
   const setActiveTab = useWorkspaceFolderUi((s) => s.setActiveTab);
-  const { activeArea } = useStagingView();
   const foldersQ = useLibraryFoldersSummary();
   const folders = foldersQ.data?.folders ?? [];
-
-  const stagingCount = activeArea?.papers.length ?? 0;
 
   useEffect(() => {
     if (typeof activeTab !== 'number') return;
@@ -38,28 +45,56 @@ export function StagingTabs({ variant = 'select' }: StagingTabsProps) {
     }
   }, [activeTab, folders, foldersQ.isLoading, setActiveTab]);
 
-  const selectValue =
-    activeTab === 'staging' ? 'staging' : String(activeTab);
-
-  const options = useMemo(() => {
-    const items: { value: string; label: string }[] = [
+  const items = useMemo<FolderItem[]>(() => {
+    const next: FolderItem[] = [
       {
-        value: 'staging',
-        label: `${STAGING_FOLDER_LABEL} (${stagingCount})`,
+        key: 'staging',
+        label: STAGING_FOLDER_LABEL,
+        fallback: 'staging',
       },
     ];
-    for (const folder of folders) {
-      items.push({
-        value: String(folder.id),
-        label: `${folder.name} (${folder.paper_count})`,
-      });
+    if (authenticated) {
+      for (const folder of folders) {
+        next.push({
+          key: folder.id,
+          label: folder.name,
+          fallback: 'folder',
+        });
+      }
     }
-    return items;
-  }, [folders, stagingCount]);
+    return next;
+  }, [authenticated, folders]);
+
+  const activeItem =
+    items.find((item) => item.key === activeTab) ?? items[0]!;
+  const loading =
+    authenticated && foldersQ.isLoading && folders.length === 0;
+
+  return { items, activeItem, setActiveTab, folders, loading };
+}
+
+/**
+ * 工作区文件夹切换 —— 第一个为「当前对话」,其后为文献集文件夹。
+ */
+export function StagingTabs({
+  variant = 'select',
+  className,
+}: StagingTabsProps) {
+  const { activeArea } = useStagingView();
+  const { items, activeItem, setActiveTab, folders, loading } =
+    useWorkspaceFolderItems();
+  const stagingCount = activeArea?.papers.length ?? 0;
 
   if (variant === 'select') {
+    const selectValue =
+      activeItem.key === 'staging' ? 'staging' : String(activeItem.key);
     return (
-      <div className="relative flex h-9 min-w-0 items-center px-2">
+      <div
+        className={cn(
+          'relative flex h-full min-w-0 items-center px-2',
+          className,
+        )}
+      >
         <select
           value={selectValue}
           onChange={(e) => {
@@ -75,12 +110,15 @@ export function StagingTabs({ variant = 'select' }: StagingTabsProps) {
             'transition-colors hover:border-border-strong focus:border-foreground focus:ring-2 focus:ring-ring/20',
           )}
         >
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
+          <option value="staging">
+            {STAGING_FOLDER_LABEL} ({stagingCount})
+          </option>
+          {folders.map((folder) => (
+            <option key={folder.id} value={String(folder.id)}>
+              {folder.name} ({folder.paper_count})
             </option>
           ))}
-          {authenticated && foldersQ.isLoading && folders.length === 0 && (
+          {loading && (
             <option value="staging" disabled>
               加载文件夹…
             </option>
@@ -95,93 +133,81 @@ export function StagingTabs({ variant = 'select' }: StagingTabsProps) {
   }
 
   return (
-    <div
-      className="flex h-9 min-w-0 items-center gap-1 border-b border-border bg-background px-2 shrink-0"
-      role="tablist"
-      aria-label="工作区文件夹"
-    >
-      <FolderTabItem
-        label={STAGING_FOLDER_LABEL}
-        count={stagingCount}
-        active={activeTab === 'staging'}
-        onActivate={() => setActiveTab('staging')}
-        variant="staging"
-      />
+    <WorkspaceFolderPicker
+      className={cn('justify-center px-2', className)}
+    />
+  );
+}
 
-      {authenticated &&
-        folders.map((folder) => (
-          <FolderTabItem
-            key={folder.id}
-            label={folder.name}
-            count={folder.paper_count}
-            active={activeTab === folder.id}
-            onActivate={() => setActiveTab(folder.id)}
-            variant="folder"
+/** Compact folder switch for the file-column function bar. */
+export function WorkspaceFolderPicker({ className }: { className?: string }) {
+  const { items, activeItem, setActiveTab, loading } =
+    useWorkspaceFolderItems();
+  const { Icon, iconShellClass } = useFolderAppearance(
+    activeItem.key,
+    activeItem.fallback,
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          title="切换文件夹"
+          aria-label={`当前文件夹 ${activeItem.label}`}
+          className={cn(
+            'inline-flex h-7 min-w-0 max-w-[9.5rem] shrink items-center gap-1 rounded-sm px-1.5',
+            'text-muted-foreground transition-colors duration-base ease-emphasized',
+            'hover:bg-background hover:text-foreground',
+            className,
+          )}
+        >
+          <span className={cn(iconShellClass, 'size-5')} aria-hidden>
+            <Icon className="size-3.5" strokeWidth={2} />
+          </span>
+          <span className="min-w-0 truncate text-12 font-semibold text-foreground">
+            {activeItem.label}
+          </span>
+          <ChevronDown className="size-3.5 shrink-0" strokeWidth={2.25} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-44">
+        {items.map((item) => (
+          <FolderMenuItem
+            key={String(item.key)}
+            item={item}
+            active={item.key === activeItem.key}
+            onSelect={() => setActiveTab(item.key)}
           />
         ))}
-
-      {authenticated && foldersQ.isLoading && folders.length === 0 && (
-        <span className="shrink-0 px-1 text-2xs text-faint">加载…</span>
-      )}
-    </div>
+        {loading ? (
+          <DropdownMenuItem disabled>加载文件夹…</DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-interface FolderTabItemProps {
-  label: string;
-  count: number;
-  active: boolean;
-  onActivate: () => void;
-  variant: 'staging' | 'folder';
-}
-
-const FolderTabItem = memo(function FolderTabItem({
-  label,
-  count,
+function FolderMenuItem({
+  item,
   active,
-  onActivate,
-  variant,
-}: FolderTabItemProps) {
-  return (
-    <div
-      role="tab"
-      aria-selected={active}
-      onClick={onActivate}
-      className={cn(
-        'group relative flex h-full min-w-0 flex-1 basis-0 items-center gap-1 px-1.5 cursor-pointer transition-colors',
-        active ? 'text-foreground' : 'text-muted-foreground hover:text-subtle',
-      )}
-      title={label}
-    >
-      {variant === 'folder' && (
-        <FolderOpen className="size-3 shrink-0 text-faint" strokeWidth={2.25} />
-      )}
-      <span
-        className={cn(
-          'truncate text-sm',
-          active ? 'font-bold' : 'font-semibold',
-        )}
-      >
-        {label}
-      </span>
-      <span
-        className={cn(
-          'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-2xs font-bold shrink-0 tabular-nums',
-          active
-            ? 'bg-brand-red text-white'
-            : 'bg-surface-2 text-muted-foreground',
-        )}
-      >
-        {count}
-      </span>
-      {active && (
-        <span
-          aria-hidden
-          className="absolute left-2 right-2 -bottom-px h-[2px] bg-brand-red rounded-full"
-        />
-      )}
-    </div>
+  onSelect,
+}: {
+  item: FolderItem;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const { Icon, iconShellClass } = useFolderAppearance(
+    item.key,
+    item.fallback,
   );
-});
-
-export type { WorkspaceFolderTab };
+  return (
+    <DropdownMenuItem onSelect={onSelect}>
+      <span className={cn(iconShellClass, 'size-5')} aria-hidden>
+        <Icon className="size-3.5" strokeWidth={2} />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      {active ? <Check className="size-3.5 text-foreground" /> : null}
+    </DropdownMenuItem>
+  );
+}

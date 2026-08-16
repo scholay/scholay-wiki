@@ -12,17 +12,17 @@ import { ScholayWordmark } from './brand/ScholayWordmark';
  *
  * 用途:首页 hero(xl)/ 登录弹窗(md)/ TopNav·页脚·后台(sm)/ 移动端(lg)。
  */
-type Size = 'sm' | 'md' | 'lg' | 'xl';
+export type BrandLogoSize = 'sm' | 'md' | 'lg' | 'xl';
 
 /** 只要标志 / 只要文字 / 完整锁定组合 */
-type Variant = 'full' | 'mark' | 'wordmark';
+export type BrandLogoVariant = 'full' | 'mark' | 'wordmark';
 
 /**
  * 尺寸以【文字标高度】为基准(它就是大写字母的字身高)。
  * 标志取 1.35 倍 —— 标志是近正方形(253×264),与一行大写字母等高会显得小,
  * 略高于字身是常规锁定组合的做法。
  */
-const SIZE: Record<Size, { wordmark: number; mark: number; gap: number }> = {
+const SIZE: Record<BrandLogoSize, { wordmark: number; mark: number; gap: number }> = {
   sm: { wordmark: 17, mark: 23, gap: 8 },
   md: { wordmark: 23, mark: 31, gap: 10 },
   lg: { wordmark: 30, mark: 40, gap: 12 },
@@ -32,16 +32,26 @@ const SIZE: Record<Size, { wordmark: number; mark: number; gap: number }> = {
 /** SVG 原始宽高比 —— 用来由高度算宽度,避免布局抖动 */
 const RATIO = { wordmark: 222 / 34, mark: 253 / 264 };
 
-interface BrandLogoProps {
-  size?: Size;
-  variant?: Variant;
+export interface BrandLogoProps {
+  size?: BrandLogoSize;
+  variant?: BrandLogoVariant;
   className?: string;
   /** 覆写文字标高度(px)。少数场景需要与相邻元素精确对齐时用,优先级高于 size */
   height?: number;
+  /** Visual-only class on the hex. Nest overlay uses this to hide the mark without reflow. */
+  markClassName?: string;
+}
+
+/** Pixel box of the hex for a given BrandLogo size. Nest overlay must match this. */
+export function brandLogoMarkSize(size: BrandLogoSize = 'md', height?: number) {
+  const s = SIZE[size];
+  const scale = (height ?? s.wordmark) / s.wordmark;
+  const markH = s.mark * scale;
+  return { width: markH * RATIO.mark, height: markH };
 }
 
 export const BrandLogo = forwardRef<HTMLSpanElement, BrandLogoProps>(
-  ({ size = 'md', variant = 'full', className, height }, ref) => {
+  ({ size = 'md', variant = 'full', className, height, markClassName }, ref) => {
     const s = SIZE[size];
     const wmH = height ?? s.wordmark;
     // 覆写高度时按同比例缩放标志与间距,保持锁定组合的比例关系
@@ -61,7 +71,7 @@ export const BrandLogo = forwardRef<HTMLSpanElement, BrandLogoProps>(
           <ScholayMark
             aria-hidden
             style={{ height: markH, width: markH * RATIO.mark }}
-            className="shrink-0"
+            className={cn('shrink-0', markClassName)}
           />
         )}
         {variant !== 'mark' && (

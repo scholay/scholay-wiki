@@ -41,17 +41,24 @@ const apiCatchAll = http.all(/\/api\/v1(?:\/|$)/, async ({ request }) => {
   if (core) return core;
 
   // 这些模块按业务域拆开，避免一个 handler 文件继续膨胀。
-  const [{ handlePublicMock }, { handleWorkspaceMock }, { handleAdminMock }] =
-    await Promise.all([
-      import("./public"),
-      import("./workspaces"),
-      import("./admin"),
-    ]);
+  const [
+    { handlePublicMock },
+    { handleWorkspaceMock },
+    { handleManuscriptMock },
+    { handleAdminMock },
+  ] = await Promise.all([
+    import("./public"),
+    import("./workspaces"),
+    import("./manuscripts"),
+    import("./admin"),
+  ]);
 
   const publicResponse = await handlePublicMock(request, path);
   if (publicResponse) return publicResponse;
   const workspaceResponse = await handleWorkspaceMock(request, path);
   if (workspaceResponse) return workspaceResponse;
+  const manuscriptResponse = await handleManuscriptMock(request, path);
+  if (manuscriptResponse) return manuscriptResponse;
   const adminResponse = await handleAdminMock(request, path);
   if (adminResponse) return adminResponse;
 
