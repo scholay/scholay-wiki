@@ -1,16 +1,14 @@
 import { useEffect } from 'react';
 import { CheckCircle2, Ticket, X } from 'lucide-react';
 import { Input } from '@/shared/ui';
+import { useInviteCampaign } from '@/shared/api/invite-campaign';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { persistInvitationCode } from '@/shared/lib/auth-invitation';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * 注册表单密码下方的可选邀请码。仅挂在 RegisterForm。
- *
- * 两种态:
- *   - 手填:普通 Input +「邀请码（选填）」标签
- *   - 邀请链接预填并通过校验:无标签,锁定条展示「已验证」,需点「取消」才能重填
+ * 注册 / 第三方确认共用的邀请码。填写、已验证展示、取消重填是同一套。
+ * 活动开启时在条上带「获得 N 经费」,不再另挂 InviteAuthNotice。
  */
 export function InvitationCodeField({ className }: { className?: string }) {
   const invitationCode = useAuthDialog((s) => s.invitationCode);
@@ -18,11 +16,17 @@ export function InvitationCodeField({ className }: { className?: string }) {
   const setInvitationCode = useAuthDialog((s) => s.setInvitationCode);
   const unlockInvitation = useAuthDialog((s) => s.unlockInvitation);
   const hydrateInvitation = useAuthDialog((s) => s.hydrateInvitation);
+  const { data: campaign } = useInviteCampaign();
 
   useEffect(() => {
     if (invitationCode.trim()) return;
     hydrateInvitation();
   }, [invitationCode, hydrateInvitation]);
+
+  const reward =
+    campaign?.enabled && campaign.invitee_registration_credits > 0
+      ? `获得 ${campaign.invitee_registration_credits} 经费`
+      : null;
 
   if (invitationLocked && invitationCode.trim()) {
     return (
@@ -41,7 +45,9 @@ export function InvitationCodeField({ className }: { className?: string }) {
         <span className="min-w-0 flex-1 truncate text-sm font-medium tracking-wide text-foreground">
           {invitationCode}
         </span>
-        <span className="shrink-0 text-2xs font-medium text-brand-green">已验证</span>
+        <span className="shrink-0 text-2xs font-medium text-brand-green">
+          {reward ?? '已验证'}
+        </span>
         <button
           type="button"
           onClick={unlockInvitation}
@@ -68,6 +74,9 @@ export function InvitationCodeField({ className }: { className?: string }) {
         <Ticket className="size-3.5 text-subtle" strokeWidth={2} />
         邀请码
         <span className="font-normal text-muted-foreground">（选填）</span>
+        {reward && (
+          <span className="ml-auto font-medium text-brand-green">{reward}</span>
+        )}
       </label>
       <Input
         id="auth-invitation-code"

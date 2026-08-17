@@ -19,6 +19,7 @@ import {
   setMockPersona,
 } from "./personas";
 import { getMockBilling, setMockBilling } from "./billing-state";
+import { MOCK_VALID_INVITE_CODES } from "@/shared/lib/auth-invitation";
 
 const ok = <T>(data: T, init?: ResponseInit) =>
   HttpResponse.json({ code: 0, message: "success", data }, init);
@@ -380,6 +381,83 @@ export async function handleCoreMock(
       // 隐私模式仍允许本次成功响应
     }
     return emptyOk();
+  }
+  if (method === "GET" && path === "/invite/campaign") {
+    return ok({
+      enabled: true,
+      inviter_registration_credits: 100,
+      invitee_registration_credits: 50,
+      registration_daily_cap: 20,
+      bind_window_days: 30,
+      first_purchase_window_days: 30,
+      first_purchase_rebate_bps: 1250,
+      code_help_url: "",
+    });
+  }
+  if (method === "GET" && path === "/user/invite/status") {
+    if (!hasMockSession()) return unauthorized();
+    let boundCode: string | null = null;
+    try {
+      boundCode = sessionStorage.getItem("scholay.mock.invite_bound");
+    } catch {
+      boundCode = null;
+    }
+    return ok({
+      enabled: true,
+      bound: Boolean(boundCode),
+      eligible: !boundCode,
+      code: boundCode || undefined,
+      inviter_name: boundCode ? "演示邀请人" : undefined,
+      invitee_rewarded_credits: boundCode ? 50 : undefined,
+    });
+  }
+  if (method === "POST" && path === "/invite/preview") {
+    const body = await bodyAsRecord(request);
+    const code = String(body.code ?? "").trim().toUpperCase();
+    const allowed = MOCK_VALID_INVITE_CODES.map((item) => item.toUpperCase());
+    if (!allowed.includes(code)) {
+      return ok({ valid: false });
+    }
+    return ok({
+      valid: true,
+      code,
+      inviter_name: "演示邀请人",
+    });
+  }
+  if (method === "POST" && path === "/user/invite/bind") {
+    if (!hasMockSession()) return unauthorized();
+    const body = await bodyAsRecord(request);
+    const code = String(body.code ?? "").trim().toUpperCase();
+    const allowed = MOCK_VALID_INVITE_CODES.map((item) => item.toUpperCase());
+    if (!allowed.includes(code)) {
+      return HttpResponse.json(
+        { code: 400, message: "邀请码无效或已失效", data: null },
+        { status: 400 },
+      );
+    }
+    try {
+      const existing = sessionStorage.getItem("scholay.mock.invite_bound");
+      if (existing) {
+        return HttpResponse.json(
+          { code: 400, message: "已绑定过上级邀请码，不可重复绑定", data: null },
+          { status: 400 },
+        );
+      }
+      sessionStorage.setItem("scholay.mock.invite_bound", code);
+    } catch {
+      // 隐私模式仍允许本次成功响应
+    }
+    return ok({
+      status: {
+        enabled: true,
+        bound: true,
+        eligible: false,
+        code,
+        inviter_name: "演示邀请人",
+        invitee_rewarded_credits: 50,
+      },
+      rewards: { invitee_registration_credits: 50 },
+    });
   }
   if (
     method === "POST" &&

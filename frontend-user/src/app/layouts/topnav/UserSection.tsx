@@ -16,6 +16,7 @@ import {
 import { IconButton } from '@/shared/components/IconButton';
 import { NotificationBell } from '@/shared/components/NotificationBell';
 import { RhinoNavChip } from '@/shared/components/RhinoNavChip';
+import { ClaimInviteNavButton } from './ClaimInviteNavButton';
 import { PromoNavButton } from './PromoNavButton';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenuContent } from '@/shared/components/UserMenuContent';
@@ -36,6 +37,7 @@ export function UserSection() {
 
   return (
     <div className="flex items-center gap-2">
+      <ClaimInviteNavButton />
       {/* 限时领取会员推广入口 —— 仅推广开启且非付费会员时显示(组件内部自判),点击弹二维码 */}
       <PromoNavButton />
 

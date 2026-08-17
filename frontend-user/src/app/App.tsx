@@ -5,10 +5,12 @@ import { router } from './router';
 import { AuthBootstrap } from './AuthBootstrap';
 import { useApplyTheme } from '@/stores/theme.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useClaimInvite } from '@/stores/claim-invite.store';
 import { useInvitePromptStore } from '@/stores/invite-prompt.store';
 import { usePromoStore } from '@/stores/promo.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import { useShareSheet } from '@/stores/share.store';
+import { ClaimInviteDialog } from '@/features/auth/components/ClaimInviteDialog';
 
 // 诊断:把 data router 挂到 window,卡住时可在控制台读 `__appRouter.state.location.pathname`
 // (RR 已提交的路由)/ `.state.navigation.state`(idle/loading)与地址栏对比。配合 RouteCommitWatchdog。
@@ -45,6 +47,8 @@ function useCloseGlobalModalsOnNavigate() {
         const ip = useInvitePromptStore.getState();
         // 仅关窗不 mark done —— 用户若被导航打断,下次登录仍可提醒
         if (ip.open) ip.close();
+        const ci = useClaimInvite.getState();
+        if (ci.open) ci.closeClaim();
         const pm = usePromoStore.getState();
         if (pm.open) pm.closePromo();
         const cp = useCollectPicker.getState();
@@ -79,6 +83,7 @@ function ShellRoot() {
           之后保持挂载(内部本靠 store.open 控制 Radix Dialog 开合,常驻无副作用)。 */}
       <AuthDialogGate />
       <InvitePromptGate />
+      <ClaimInviteDialog />
     </>
   );
 }
