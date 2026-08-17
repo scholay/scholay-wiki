@@ -2789,8 +2789,8 @@
         {
           "id": "features",
           "title": "能力集合",
-          "markdown": "当前可以使用智能搜论文、Claw、Prism 高级模式、智能审稿、演示文稿、科研绘图和数据分析。它们会根据任务使用不同的工作区和处理方法；并非每项能力都同时拥有会话、附件与文件交付，也不能从首页故事画面或 ComingSoon 卡片推断后端已经交付。",
-          "content_markdown": "当前可以使用智能搜论文、Claw、Prism 高级模式、智能审稿、演示文稿、科研绘图和数据分析。它们会根据任务使用不同的工作区和处理方法；并非每项能力都同时拥有会话、附件与文件交付，也不能从首页故事画面或 ComingSoon 卡片推断后端已经交付。"
+          "markdown": "当前可以直接使用智能搜论文、Claw、Prism 高级模式、智能审稿、演示文稿和科研绘图。数据分析的专用会话与后端仍存在，但当前没有公开的新会话入口，只有部署另行提供入口或已有会话时才能进入。各项能力使用不同的工作区和处理方法，不能从首页故事画面或“即将推出”卡片推断已经交付。",
+          "content_markdown": "当前可以直接使用智能搜论文、Claw、Prism 高级模式、智能审稿、演示文稿和科研绘图。数据分析的专用会话与后端仍存在，但当前没有公开的新会话入口，只有部署另行提供入口或已有会话时才能进入。各项能力使用不同的工作区和处理方法，不能从首页故事画面或“即将推出”卡片推断已经交付。"
         },
         {
           "id": "boundaries",
@@ -2805,7 +2805,7 @@
           "content_markdown": "除对话文字外，助手还可以生成图片、文档、表格、演示文件等交付物。支持的格式可以直接预览，其他格式会提供下载入口；只有页面中的预览或下载按钮是正式交付入口。"
         }
       ],
-      "content_markdown": "# AI 科研工作流\n\nScholay 为检索、通用研究、审稿、写作、分析、绘图和演示提供不同的 AI 工作流。\n\n- 栏目：AI 科研工作流\n- 类型：overview\n- 状态：current\n- 适用对象：研究者、学生\n- 别名：AI 功能、科研 Agent、智能工作流\n- Wiki 页面：https://www.scholay.com/wiki/ai-research-workflows\n\n## 能力集合\n\n当前可以使用智能搜论文、Claw、Prism 高级模式、智能审稿、演示文稿、科研绘图和数据分析。它们会根据任务使用不同的工作区和处理方法；并非每项能力都同时拥有会话、附件与文件交付，也不能从首页故事画面或 ComingSoon 卡片推断后端已经交付。\n\n## 共同边界\n\nAI 输出不是自动成立的学术事实。涉及引用、统计、方法、图片和论文改写时，用户仍需核对原始证据、数据和目标期刊要求。附件与工具结果会进入当前会话上下文，但不会因此获得超出账户权限的访问。\n\n## 交付物\n\n除对话文字外，助手还可以生成图片、文档、表格、演示文件等交付物。支持的格式可以直接预览，其他格式会提供下载入口；只有页面中的预览或下载按钮是正式交付入口。"
+      "content_markdown": "# AI 科研工作流\n\nScholay 为检索、通用研究、审稿、写作、分析、绘图和演示提供不同的 AI 工作流。\n\n- 栏目：AI 科研工作流\n- 类型：overview\n- 状态：current\n- 适用对象：研究者、学生\n- 别名：AI 功能、科研 Agent、智能工作流\n- Wiki 页面：https://www.scholay.com/wiki/ai-research-workflows\n\n## 能力集合\n\n当前可以直接使用智能搜论文、Claw、Prism 高级模式、智能审稿、演示文稿和科研绘图。数据分析的专用会话与后端仍存在，但当前没有公开的新会话入口，只有部署另行提供入口或已有会话时才能进入。各项能力使用不同的工作区和处理方法，不能从首页故事画面或“即将推出”卡片推断已经交付。\n\n## 共同边界\n\nAI 输出不是自动成立的学术事实。涉及引用、统计、方法、图片和论文改写时，用户仍需核对原始证据、数据和目标期刊要求。附件与工具结果会进入当前会话上下文，但不会因此获得超出账户权限的访问。\n\n## 交付物\n\n除对话文字外，助手还可以生成图片、文档、表格、演示文件等交付物。支持的格式可以直接预览，其他格式会提供下载入口；只有页面中的预览或下载按钮是正式交付入口。"
     },
     {
       "slug": "ai-usage-quota",
@@ -9448,7 +9448,7 @@
     {
       "slug": "product-map",
       "title": "全站功能",
-      "summary": "一张图看清 Scholay 里你能用到的地方，以及接下来该打开哪篇说明。",
+      "summary": "用一张简表概览 Scholay 全站功能；这里只说明用途与状态，操作细节请查看后续词条。",
       "category": "getting-started",
       "category_title": "Scholay",
       "kind": "overview",
@@ -9476,62 +9476,165 @@
       "header_embeds": [],
       "sections": [
         {
-          "id": "map",
-          "title": "功能地图",
-          "markdown": "```mermaid\n%%{init: {\"themeVariables\": {\"fontSize\": \"16px\"}}}%%\nclassDiagram\n  direction LR\n  class Scholay {\n    一站式学术工作台\n  }\n\n  Search --> Scholay\n  Assistant --> Scholay\n  Write --> Scholay\n  Scholay --> Review\n  Scholay --> Resources\n  Scholay --> Plaza\n\n  class Search[\"学术搜索\"] {\n    智能搜论文\n    论文库搜索\n    期刊库搜索\n    数据集搜索\n    scholay情报\n    scholay选刊_敬请期待\n  }\n\n  class Assistant[\"智能助手\"] {\n    研究对话\n    附件与Skills\n    科研交付物\n  }\n\n  class Write[\"智能写作\"] {\n    高级写作\n    快速写作_敬请期待\n  }\n\n  class Review[\"智能审稿\"] {\n    期刊论文\n    学位论文\n    会议论文_敬请期待\n    其他\n  }\n\n  class Resources[\"我的资源\"] {\n    文献集\n    期刊集\n    稿件集\n    资源集\n  }\n\n  class Plaza[\"scholay广场\"] {\n    学术工具\n    学术skills\n    学术prompts\n  }\n\n  cssClass \"Search\" wikiMapSearch\n  cssClass \"Assistant\" wikiMapAnalyze\n  cssClass \"Write\" wikiMapWrite\n  cssClass \"Review\" wikiMapSupport\n  cssClass \"Resources\" wikiMapManage\n  cssClass \"Plaza\" wikiMapSupport\n  cssClass \"Scholay\" wikiMapHub\n```\n",
-          "content_markdown": "```mermaid\n%%{init: {\"themeVariables\": {\"fontSize\": \"16px\"}}}%%\nclassDiagram\n  direction LR\n  class Scholay {\n    一站式学术工作台\n  }\n\n  Search --> Scholay\n  Assistant --> Scholay\n  Write --> Scholay\n  Scholay --> Review\n  Scholay --> Resources\n  Scholay --> Plaza\n\n  class Search[\"学术搜索\"] {\n    智能搜论文\n    论文库搜索\n    期刊库搜索\n    数据集搜索\n    scholay情报\n    scholay选刊_敬请期待\n  }\n\n  class Assistant[\"智能助手\"] {\n    研究对话\n    附件与Skills\n    科研交付物\n  }\n\n  class Write[\"智能写作\"] {\n    高级写作\n    快速写作_敬请期待\n  }\n\n  class Review[\"智能审稿\"] {\n    期刊论文\n    学位论文\n    会议论文_敬请期待\n    其他\n  }\n\n  class Resources[\"我的资源\"] {\n    文献集\n    期刊集\n    稿件集\n    资源集\n  }\n\n  class Plaza[\"scholay广场\"] {\n    学术工具\n    学术skills\n    学术prompts\n  }\n\n  cssClass \"Search\" wikiMapSearch\n  cssClass \"Assistant\" wikiMapAnalyze\n  cssClass \"Write\" wikiMapWrite\n  cssClass \"Review\" wikiMapSupport\n  cssClass \"Resources\" wikiMapManage\n  cssClass \"Plaza\" wikiMapSupport\n  cssClass \"Scholay\" wikiMapHub\n```\n"
-        },
-        {
-          "id": "start-here",
-          "title": "你可以前往",
-          "markdown": "",
-          "content_markdown": "- [Scholay](https://www.scholay.com/wiki/scholay)：了解定位、覆盖的研究流程，以及各功能分别从哪里进入。\n- [学术搜索](https://www.scholay.com/wiki/academic-search)：在智能搜论文、论文库、期刊库、数据集与情报入口之间选择。\n- [智能助手](https://www.scholay.com/wiki/claw)：用附件、技能和工具完成分析、绘图与研究交付。\n- [我的资源](https://www.scholay.com/wiki/my-resources)：按文献集、期刊集、稿件集和资源集整理个人材料。\n- [智能写作](https://www.scholay.com/wiki/prism)：从 LaTeX 项目和正文工作区开始一次完整写作。\n- [scholay广场](https://www.scholay.com/wiki/scholay-plaza)：发现学术工具、学术skills 与学术prompts。",
-          "blocks": [
-            {
-              "type": "path-cards",
-              "items": [
-                {
-                  "title": "Scholay",
-                  "description": "了解定位、覆盖的研究流程，以及各功能分别从哪里进入。",
-                  "articleSlug": "scholay",
-                  "icon": "overview"
-                },
-                {
-                  "title": "学术搜索",
-                  "description": "在智能搜论文、论文库、期刊库、数据集与情报入口之间选择。",
-                  "articleSlug": "academic-search",
-                  "icon": "literature-search"
-                },
-                {
-                  "title": "智能助手",
-                  "description": "用附件、技能和工具完成分析、绘图与研究交付。",
-                  "articleSlug": "claw",
-                  "icon": "assistant"
-                },
-                {
-                  "title": "我的资源",
-                  "description": "按文献集、期刊集、稿件集和资源集整理个人材料。",
-                  "articleSlug": "my-resources",
-                  "icon": "resources"
-                },
-                {
-                  "title": "智能写作",
-                  "description": "从 LaTeX 项目和正文工作区开始一次完整写作。",
-                  "articleSlug": "prism",
-                  "icon": "writing"
-                },
-                {
-                  "title": "scholay广场",
-                  "description": "发现学术工具、学术skills 与学术prompts。",
-                  "articleSlug": "scholay-plaza",
-                  "icon": "overview"
+          "id": "overview",
+          "title": "功能总览",
+          "markdown": "这里先说明每组功能能做什么、当前是否开放；具体入口、操作步骤和使用边界请继续查看对应的详细介绍。",
+          "content_markdown": "| 功能 | 包含 | 简要说明 | 详细介绍 |\n| --- | --- | --- | --- |\n| 学术搜索 | 智能搜论文、论文库搜索、期刊库搜索、数据集搜索（演示）、scholay 情报、scholay 选刊（未开放） | 连接问题检索、关键词检索、期刊与数据发现，并衔接后续研究。 | [学术搜索](/wiki/academic-search#overview)、[智能搜论文](/wiki/smart-search#difference)、[论文库搜索](/wiki/literature-search-guide#prepare-query)、[期刊库搜索](/wiki/journal-search-page#query)、[数据集搜索](/wiki/datasets-search#experimental)、[scholay 情报](/wiki/research-news#pages)、[scholay 选刊](/wiki/journal-selection-guide#entry-status) |\n| 智能助手 | 研究对话、附件与 Skill、工具调用、科研交付物 | 围绕研究任务展开对话，并生成可预览或下载的多格式产物。 | [智能助手](/wiki/claw#workspace) |\n| 智能写作 | Prism 高级写作、快速写作（未开放） | 用高级模式完成 LaTeX 写作、AI 修订、编译和论文交付。 | [智能写作](/wiki/prism#modes) |\n| 智能审稿 | 期刊论文、学位论文、会议论文（未开放）、其他稿件 | 上传稿件开展投稿前 AI 预审，并查看任务记录与评审报告。 | [智能审稿](/wiki/peer-review#submission) |\n| 我的资源 | 文献集、期刊集（演示）、稿件集（演示）、资源集（演示） | 集中整理个人论文、关注期刊、写作稿件与研究过程产物。 | [我的资源](/wiki/my-resources#four-sections)、[文献集](/wiki/literature-library#organization)、[期刊集](/wiki/my-resources#four-sections)、[稿件集](/wiki/manuscript-collection#experimental)、[资源集](/wiki/my-resources#four-sections) |\n| scholay广场 | 学术工具、学术skills、学术prompts（演示） | 发现外部科研工具、社区技能与可复用的科研提示词模板。 | [scholay广场](/wiki/scholay-plaza#map)、[学术工具](/wiki/feature-tools#catalog)、[学术skills](/wiki/community-skills#lifecycle)、[学术prompts](/wiki/academic-prompts#experimental) |\n| AI 科研工作流 | 检索、助手、写作、审稿、绘图、演示与数据分析（无公开入口） | 概览各类 AI 任务怎样分工，以及共同的证据与权限边界。 | [AI 科研工作流](/wiki/ai-research-workflows#features) |\n| 功能页面与元素说明 | 导航、研究对象卡、扩展区、任务状态与额度反馈 | 说明全站反复出现的界面元素，以及点击后会发生什么。 | [功能页面与元素说明](/wiki/marketing-pages-and-implementation-boundaries#navigation-and-tabs) |\n\n这里先说明每组功能能做什么、当前是否开放；具体入口、操作步骤和使用边界请继续查看对应的详细介绍。",
+          "table": {
+            "columns": [
+              {
+                "key": "domain",
+                "header": "功能"
+              },
+              {
+                "key": "includes",
+                "header": "包含"
+              },
+              {
+                "key": "description",
+                "header": "简要说明"
+              },
+              {
+                "key": "details",
+                "header": "详细介绍"
+              }
+            ],
+            "rows": [
+              {
+                "domain": "学术搜索",
+                "includes": "智能搜论文、论文库搜索、期刊库搜索、数据集搜索（演示）、scholay 情报、scholay 选刊（未开放）",
+                "description": "连接问题检索、关键词检索、期刊与数据发现，并衔接后续研究。",
+                "details": [
+                  {
+                    "label": "学术搜索",
+                    "href": "/wiki/academic-search#overview"
+                  },
+                  {
+                    "label": "智能搜论文",
+                    "href": "/wiki/smart-search#difference"
+                  },
+                  {
+                    "label": "论文库搜索",
+                    "href": "/wiki/literature-search-guide#prepare-query"
+                  },
+                  {
+                    "label": "期刊库搜索",
+                    "href": "/wiki/journal-search-page#query"
+                  },
+                  {
+                    "label": "数据集搜索",
+                    "href": "/wiki/datasets-search#experimental"
+                  },
+                  {
+                    "label": "scholay 情报",
+                    "href": "/wiki/research-news#pages"
+                  },
+                  {
+                    "label": "scholay 选刊",
+                    "href": "/wiki/journal-selection-guide#entry-status"
+                  }
+                ]
+              },
+              {
+                "domain": "智能助手",
+                "includes": "研究对话、附件与 Skill、工具调用、科研交付物",
+                "description": "围绕研究任务展开对话，并生成可预览或下载的多格式产物。",
+                "details": {
+                  "label": "智能助手",
+                  "href": "/wiki/claw#workspace"
                 }
-              ]
-            }
-          ]
+              },
+              {
+                "domain": "智能写作",
+                "includes": "Prism 高级写作、快速写作（未开放）",
+                "description": "用高级模式完成 LaTeX 写作、AI 修订、编译和论文交付。",
+                "details": {
+                  "label": "智能写作",
+                  "href": "/wiki/prism#modes"
+                }
+              },
+              {
+                "domain": "智能审稿",
+                "includes": "期刊论文、学位论文、会议论文（未开放）、其他稿件",
+                "description": "上传稿件开展投稿前 AI 预审，并查看任务记录与评审报告。",
+                "details": {
+                  "label": "智能审稿",
+                  "href": "/wiki/peer-review#submission"
+                }
+              },
+              {
+                "domain": "我的资源",
+                "includes": "文献集、期刊集（演示）、稿件集（演示）、资源集（演示）",
+                "description": "集中整理个人论文、关注期刊、写作稿件与研究过程产物。",
+                "details": [
+                  {
+                    "label": "我的资源",
+                    "href": "/wiki/my-resources#four-sections"
+                  },
+                  {
+                    "label": "文献集",
+                    "href": "/wiki/literature-library#organization"
+                  },
+                  {
+                    "label": "期刊集",
+                    "href": "/wiki/my-resources#four-sections"
+                  },
+                  {
+                    "label": "稿件集",
+                    "href": "/wiki/manuscript-collection#experimental"
+                  },
+                  {
+                    "label": "资源集",
+                    "href": "/wiki/my-resources#four-sections"
+                  }
+                ]
+              },
+              {
+                "domain": "scholay广场",
+                "includes": "学术工具、学术skills、学术prompts（演示）",
+                "description": "发现外部科研工具、社区技能与可复用的科研提示词模板。",
+                "details": [
+                  {
+                    "label": "scholay广场",
+                    "href": "/wiki/scholay-plaza#map"
+                  },
+                  {
+                    "label": "学术工具",
+                    "href": "/wiki/feature-tools#catalog"
+                  },
+                  {
+                    "label": "学术skills",
+                    "href": "/wiki/community-skills#lifecycle"
+                  },
+                  {
+                    "label": "学术prompts",
+                    "href": "/wiki/academic-prompts#experimental"
+                  }
+                ]
+              },
+              {
+                "domain": "AI 科研工作流",
+                "includes": "检索、助手、写作、审稿、绘图、演示与数据分析（无公开入口）",
+                "description": "概览各类 AI 任务怎样分工，以及共同的证据与权限边界。",
+                "details": {
+                  "label": "AI 科研工作流",
+                  "href": "/wiki/ai-research-workflows#features"
+                }
+              },
+              {
+                "domain": "功能页面与元素说明",
+                "includes": "导航、研究对象卡、扩展区、任务状态与额度反馈",
+                "description": "说明全站反复出现的界面元素，以及点击后会发生什么。",
+                "details": {
+                  "label": "功能页面与元素说明",
+                  "href": "/wiki/marketing-pages-and-implementation-boundaries#navigation-and-tabs"
+                }
+              }
+            ]
+          }
         }
       ],
-      "content_markdown": "# 全站功能\n\n一张图看清 Scholay 里你能用到的地方，以及接下来该打开哪篇说明。\n\n- 栏目：Scholay\n- 类型：overview\n- 状态：current\n- 适用对象：所有访客、研究者\n- 别名：产品与页面地图、站点地图、功能地图、页面总览\n- Wiki 页面：https://www.scholay.com/wiki/product-map\n\n## 功能地图\n\n```mermaid\n%%{init: {\"themeVariables\": {\"fontSize\": \"16px\"}}}%%\nclassDiagram\n  direction LR\n  class Scholay {\n    一站式学术工作台\n  }\n\n  Search --> Scholay\n  Assistant --> Scholay\n  Write --> Scholay\n  Scholay --> Review\n  Scholay --> Resources\n  Scholay --> Plaza\n\n  class Search[\"学术搜索\"] {\n    智能搜论文\n    论文库搜索\n    期刊库搜索\n    数据集搜索\n    scholay情报\n    scholay选刊_敬请期待\n  }\n\n  class Assistant[\"智能助手\"] {\n    研究对话\n    附件与Skills\n    科研交付物\n  }\n\n  class Write[\"智能写作\"] {\n    高级写作\n    快速写作_敬请期待\n  }\n\n  class Review[\"智能审稿\"] {\n    期刊论文\n    学位论文\n    会议论文_敬请期待\n    其他\n  }\n\n  class Resources[\"我的资源\"] {\n    文献集\n    期刊集\n    稿件集\n    资源集\n  }\n\n  class Plaza[\"scholay广场\"] {\n    学术工具\n    学术skills\n    学术prompts\n  }\n\n  cssClass \"Search\" wikiMapSearch\n  cssClass \"Assistant\" wikiMapAnalyze\n  cssClass \"Write\" wikiMapWrite\n  cssClass \"Review\" wikiMapSupport\n  cssClass \"Resources\" wikiMapManage\n  cssClass \"Plaza\" wikiMapSupport\n  cssClass \"Scholay\" wikiMapHub\n```\n\n## 你可以前往\n\n- [Scholay](https://www.scholay.com/wiki/scholay)：了解定位、覆盖的研究流程，以及各功能分别从哪里进入。\n- [学术搜索](https://www.scholay.com/wiki/academic-search)：在智能搜论文、论文库、期刊库、数据集与情报入口之间选择。\n- [智能助手](https://www.scholay.com/wiki/claw)：用附件、技能和工具完成分析、绘图与研究交付。\n- [我的资源](https://www.scholay.com/wiki/my-resources)：按文献集、期刊集、稿件集和资源集整理个人材料。\n- [智能写作](https://www.scholay.com/wiki/prism)：从 LaTeX 项目和正文工作区开始一次完整写作。\n- [scholay广场](https://www.scholay.com/wiki/scholay-plaza)：发现学术工具、学术skills 与学术prompts。"
+      "content_markdown": "# 全站功能\n\n用一张简表概览 Scholay 全站功能；这里只说明用途与状态，操作细节请查看后续词条。\n\n- 栏目：Scholay\n- 类型：overview\n- 状态：current\n- 适用对象：所有访客、研究者\n- 别名：产品与页面地图、站点地图、功能地图、页面总览\n- Wiki 页面：https://www.scholay.com/wiki/product-map\n\n## 功能总览\n\n| 功能 | 包含 | 简要说明 | 详细介绍 |\n| --- | --- | --- | --- |\n| 学术搜索 | 智能搜论文、论文库搜索、期刊库搜索、数据集搜索（演示）、scholay 情报、scholay 选刊（未开放） | 连接问题检索、关键词检索、期刊与数据发现，并衔接后续研究。 | [学术搜索](/wiki/academic-search#overview)、[智能搜论文](/wiki/smart-search#difference)、[论文库搜索](/wiki/literature-search-guide#prepare-query)、[期刊库搜索](/wiki/journal-search-page#query)、[数据集搜索](/wiki/datasets-search#experimental)、[scholay 情报](/wiki/research-news#pages)、[scholay 选刊](/wiki/journal-selection-guide#entry-status) |\n| 智能助手 | 研究对话、附件与 Skill、工具调用、科研交付物 | 围绕研究任务展开对话，并生成可预览或下载的多格式产物。 | [智能助手](/wiki/claw#workspace) |\n| 智能写作 | Prism 高级写作、快速写作（未开放） | 用高级模式完成 LaTeX 写作、AI 修订、编译和论文交付。 | [智能写作](/wiki/prism#modes) |\n| 智能审稿 | 期刊论文、学位论文、会议论文（未开放）、其他稿件 | 上传稿件开展投稿前 AI 预审，并查看任务记录与评审报告。 | [智能审稿](/wiki/peer-review#submission) |\n| 我的资源 | 文献集、期刊集（演示）、稿件集（演示）、资源集（演示） | 集中整理个人论文、关注期刊、写作稿件与研究过程产物。 | [我的资源](/wiki/my-resources#four-sections)、[文献集](/wiki/literature-library#organization)、[期刊集](/wiki/my-resources#four-sections)、[稿件集](/wiki/manuscript-collection#experimental)、[资源集](/wiki/my-resources#four-sections) |\n| scholay广场 | 学术工具、学术skills、学术prompts（演示） | 发现外部科研工具、社区技能与可复用的科研提示词模板。 | [scholay广场](/wiki/scholay-plaza#map)、[学术工具](/wiki/feature-tools#catalog)、[学术skills](/wiki/community-skills#lifecycle)、[学术prompts](/wiki/academic-prompts#experimental) |\n| AI 科研工作流 | 检索、助手、写作、审稿、绘图、演示与数据分析（无公开入口） | 概览各类 AI 任务怎样分工，以及共同的证据与权限边界。 | [AI 科研工作流](/wiki/ai-research-workflows#features) |\n| 功能页面与元素说明 | 导航、研究对象卡、扩展区、任务状态与额度反馈 | 说明全站反复出现的界面元素，以及点击后会发生什么。 | [功能页面与元素说明](/wiki/marketing-pages-and-implementation-boundaries#navigation-and-tabs) |\n\n这里先说明每组功能能做什么、当前是否开放；具体入口、操作步骤和使用边界请继续查看对应的详细介绍。"
     },
     {
       "slug": "production-service-topology",

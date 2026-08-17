@@ -82,7 +82,6 @@ Scholay Wiki 是本仓库产品事实的可浏览知识层。它不是营销页�
 - `audit/agents-miniapp-infra.md`：Agent、109 个技能、15 个小程序页面、基础设施与运维边界。
 - `audit/mock-component-migration.md`：初轮 product-mock 迁移底稿；现行账本为 252 个稳定可见表面、238 个 Wiki fixture 与 18 个明确排除组。
 - `content-model.md`：信息架构、导航与内容字段设计。
-- `scholay-wiki.xmind`：由当前 `WIKI_NAV_CATEGORIES` 同步生成的 16 栏目读者导航脑图。
 - `frontend-user/src/features/wiki/`：可运行的 Wiki 页面与词条数据。
 - `frontend-user/tests/wiki-content.test.ts`：词条、关联、分类与来源路径完整性检查。
 - `npm run generate:wiki-baseline`：从当前路由数组、后端模块、Agent 配置/skills、小程序、迁移和冷启动工具数据生成 `coverage.ts` 基线。

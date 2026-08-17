@@ -17,9 +17,9 @@ import { termsNavCategory } from "./navigation/terms";
 import { otherNavCategory } from "./navigation/other";
 
 /**
- * 读者导航严格采用 `scholay-wiki.xmind` 的 15 个一级栏目顺序，并追加
- * “其他”承接不能自然进入用户任务框架的现有词条。旧 WikiCategory 仍负责
- * 内容权限；这里仅负责读者看到的信息架构。
+ * 读者导航的 15 个任务栏目按当前产品阅读顺序聚合，并追加“其他”承接不能
+ * 自然进入用户任务框架的现有词条。旧 WikiCategory 仍负责内容权限；这里是
+ * 读者目录结构与顺序的唯一真源。
  */
 export const WIKI_NAV_CATEGORIES: WikiNavCategoryMeta[] = [
   overviewNavCategory,

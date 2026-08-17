@@ -417,7 +417,7 @@ export interface WikiCategoryMeta {
   adminOnly?: boolean;
 }
 
-/** 用户在 Wiki 中看到的一级目录；顺序来自 scholay-wiki.xmind。 */
+/** 用户在 Wiki 中看到的一级目录；顺序由 content/navigation.ts 统一聚合。 */
 export type WikiNavCategory =
   | "overview"
   | "scenarios"

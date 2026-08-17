@@ -423,16 +423,74 @@ describe("Scholay Wiki 内容契约", () => {
     expect(text).toContain("研究主题");
   });
 
-  it("产品地图「你可以前往」卡片进入 Wiki 搜索文本", () => {
+  it("全站功能用单一简表汇总功能、子项与交付状态", () => {
+    const article = WIKI_ARTICLE_BY_SLUG.get("product-map");
+    expect(article?.sections).toHaveLength(1);
     const section = WIKI_ARTICLE_BY_SLUG.get("product-map")?.sections.find(
-      (item) => item.id === "start-here",
+      (item) => item.id === "overview",
     );
     expect(section).toBeDefined();
+    expect(section?.table?.rows).toHaveLength(8);
+    expect(section?.table?.columns.map((column) => column.key)).toContain(
+      "details",
+    );
+    const detailLinks =
+      section?.table?.rows.flatMap((row) => {
+        const cell = row.details;
+        if (!cell || typeof cell === "string") return [];
+        return Array.isArray(cell) ? cell : [cell];
+      }) ?? [];
+    expect(detailLinks).toHaveLength(21);
+    for (const link of detailLinks) {
+      const match = link.href.match(/^\/wiki\/([^#]+)(?:#(.+))?$/);
+      expect(match, link.href).not.toBeNull();
+      const article = WIKI_ARTICLE_BY_SLUG.get(match![1]);
+      expect(article, link.href).toBeDefined();
+      if (match![2]) {
+        expect(
+          article?.sections.some((candidate) => candidate.id === match![2]),
+          link.href,
+        ).toBe(true);
+      }
+    }
     const text = wikiSectionPlainText(section!);
-    expect(text).toContain("学术搜索");
-    expect(text).toContain("智能助手");
-    expect(text).toContain("我的资源");
-    expect(text).toContain("scholay广场");
+    for (const term of [
+      "学术搜索",
+      "智能助手",
+      "智能写作",
+      "智能审稿",
+      "我的资源",
+      "scholay广场",
+      "AI 科研工作流",
+      "功能页面与元素说明",
+      "智能搜论文",
+      "论文库搜索",
+      "期刊库搜索",
+      "数据集搜索（演示）",
+      "scholay 情报",
+      "scholay 选刊（未开放）",
+      "快速写作（未开放）",
+      "期刊集（演示）",
+      "稿件集（演示）",
+      "资源集（演示）",
+      "学术工具",
+      "学术skills",
+      "学术prompts（演示）",
+    ]) {
+      expect(text).toContain(term);
+    }
+  });
+
+  it("全站功能在目录中不再展开下属章节", () => {
+    const overview = WIKI_NAV_CATEGORIES.find(
+      (category) => category.slug === "overview",
+    );
+    const featureNode = overview?.children.find(
+      (node) => node.id === "overview-features",
+    );
+
+    expect(featureNode).toBeDefined();
+    expect(featureNode?.children).toBeUndefined();
   });
 
   it("每个 Wiki 演示都已登记并至少挂载到一个词条", () => {

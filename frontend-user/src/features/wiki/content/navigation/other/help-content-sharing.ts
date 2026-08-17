@@ -6,6 +6,11 @@ export const helpContentSharingNode: WikiNavNode = {
   title: "帮助、内容与分享",
   children: [
     {
+      id: "other-feature-page-elements",
+      title: "功能页面与元素说明",
+      target: primary("marketing-pages-and-implementation-boundaries"),
+    },
+    {
       id: "other-feedback-support",
       title: "反馈与支持",
       target: primary("feedback-and-support"),

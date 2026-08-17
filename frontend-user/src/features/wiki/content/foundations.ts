@@ -400,7 +400,8 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
   {
     slug: "product-map",
     title: "全站功能",
-    summary: "一张图看清 Scholay 里你能用到的地方，以及接下来该打开哪篇说明。",
+    summary:
+      "用一张简表概览 Scholay 全站功能；这里只说明用途与状态，操作细节请查看后续词条。",
     category: "getting-started",
     kind: "overview",
     status: "current",
@@ -426,122 +427,160 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
     ],
     sections: [
       {
-        id: "map",
-        title: "功能地图",
-        markdown: `\`\`\`mermaid
-%%{init: {"themeVariables": {"fontSize": "16px"}}}%%
-classDiagram
-  direction LR
-  class Scholay {
-    一站式学术工作台
-  }
-
-  Search --> Scholay
-  Assistant --> Scholay
-  Write --> Scholay
-  Scholay --> Review
-  Scholay --> Resources
-  Scholay --> Plaza
-
-  class Search["学术搜索"] {
-    智能搜论文
-    论文库搜索
-    期刊库搜索
-    数据集搜索
-    scholay情报
-    scholay选刊_敬请期待
-  }
-
-  class Assistant["智能助手"] {
-    研究对话
-    附件与Skills
-    科研交付物
-  }
-
-  class Write["智能写作"] {
-    高级写作
-    快速写作_敬请期待
-  }
-
-  class Review["智能审稿"] {
-    期刊论文
-    学位论文
-    会议论文_敬请期待
-    其他
-  }
-
-  class Resources["我的资源"] {
-    文献集
-    期刊集
-    稿件集
-    资源集
-  }
-
-  class Plaza["scholay广场"] {
-    学术工具
-    学术skills
-    学术prompts
-  }
-
-  cssClass "Search" wikiMapSearch
-  cssClass "Assistant" wikiMapAnalyze
-  cssClass "Write" wikiMapWrite
-  cssClass "Review" wikiMapSupport
-  cssClass "Resources" wikiMapManage
-  cssClass "Plaza" wikiMapSupport
-  cssClass "Scholay" wikiMapHub
-\`\`\`
-`,
-      },
-      {
-        id: "start-here",
-        title: "你可以前往",
-        markdown: "",
-        blocks: [
-          {
-            type: "path-cards",
-            items: [
-              {
-                title: "Scholay",
-                description:
-                  "了解定位、覆盖的研究流程，以及各功能分别从哪里进入。",
-                articleSlug: "scholay",
-                icon: "overview",
+        id: "overview",
+        title: "功能总览",
+        markdown:
+          "这里先说明每组功能能做什么、当前是否开放；具体入口、操作步骤和使用边界请继续查看对应的详细介绍。",
+        table: {
+          columns: [
+            { key: "domain", header: "功能" },
+            { key: "includes", header: "包含" },
+            { key: "description", header: "简要说明" },
+            { key: "details", header: "详细介绍" },
+          ],
+          rows: [
+            {
+              domain: "学术搜索",
+              includes:
+                "智能搜论文、论文库搜索、期刊库搜索、数据集搜索（演示）、scholay 情报、scholay 选刊（未开放）",
+              description:
+                "连接问题检索、关键词检索、期刊与数据发现，并衔接后续研究。",
+              details: [
+                {
+                  label: "学术搜索",
+                  href: "/wiki/academic-search#overview",
+                },
+                {
+                  label: "智能搜论文",
+                  href: "/wiki/smart-search#difference",
+                },
+                {
+                  label: "论文库搜索",
+                  href: "/wiki/literature-search-guide#prepare-query",
+                },
+                {
+                  label: "期刊库搜索",
+                  href: "/wiki/journal-search-page#query",
+                },
+                {
+                  label: "数据集搜索",
+                  href: "/wiki/datasets-search#experimental",
+                },
+                {
+                  label: "scholay 情报",
+                  href: "/wiki/research-news#pages",
+                },
+                {
+                  label: "scholay 选刊",
+                  href: "/wiki/journal-selection-guide#entry-status",
+                },
+              ],
+            },
+            {
+              domain: "智能助手",
+              includes: "研究对话、附件与 Skill、工具调用、科研交付物",
+              description:
+                "围绕研究任务展开对话，并生成可预览或下载的多格式产物。",
+              details: {
+                label: "智能助手",
+                href: "/wiki/claw#workspace",
               },
-              {
-                title: "学术搜索",
-                description:
-                  "在智能搜论文、论文库、期刊库、数据集与情报入口之间选择。",
-                articleSlug: "academic-search",
-                icon: "literature-search",
+            },
+            {
+              domain: "智能写作",
+              includes: "Prism 高级写作、快速写作（未开放）",
+              description:
+                "用高级模式完成 LaTeX 写作、AI 修订、编译和论文交付。",
+              details: {
+                label: "智能写作",
+                href: "/wiki/prism#modes",
               },
-              {
-                title: "智能助手",
-                description: "用附件、技能和工具完成分析、绘图与研究交付。",
-                articleSlug: "claw",
-                icon: "assistant",
+            },
+            {
+              domain: "智能审稿",
+              includes: "期刊论文、学位论文、会议论文（未开放）、其他稿件",
+              description:
+                "上传稿件开展投稿前 AI 预审，并查看任务记录与评审报告。",
+              details: {
+                label: "智能审稿",
+                href: "/wiki/peer-review#submission",
               },
-              {
-                title: "我的资源",
-                description: "按文献集、期刊集、稿件集和资源集整理个人材料。",
-                articleSlug: "my-resources",
-                icon: "resources",
+            },
+            {
+              domain: "我的资源",
+              includes:
+                "文献集、期刊集（演示）、稿件集（演示）、资源集（演示）",
+              description:
+                "集中整理个人论文、关注期刊、写作稿件与研究过程产物。",
+              details: [
+                {
+                  label: "我的资源",
+                  href: "/wiki/my-resources#four-sections",
+                },
+                {
+                  label: "文献集",
+                  href: "/wiki/literature-library#organization",
+                },
+                {
+                  label: "期刊集",
+                  href: "/wiki/my-resources#four-sections",
+                },
+                {
+                  label: "稿件集",
+                  href: "/wiki/manuscript-collection#experimental",
+                },
+                {
+                  label: "资源集",
+                  href: "/wiki/my-resources#four-sections",
+                },
+              ],
+            },
+            {
+              domain: "scholay广场",
+              includes: "学术工具、学术skills、学术prompts（演示）",
+              description:
+                "发现外部科研工具、社区技能与可复用的科研提示词模板。",
+              details: [
+                {
+                  label: "scholay广场",
+                  href: "/wiki/scholay-plaza#map",
+                },
+                {
+                  label: "学术工具",
+                  href: "/wiki/feature-tools#catalog",
+                },
+                {
+                  label: "学术skills",
+                  href: "/wiki/community-skills#lifecycle",
+                },
+                {
+                  label: "学术prompts",
+                  href: "/wiki/academic-prompts#experimental",
+                },
+              ],
+            },
+            {
+              domain: "AI 科研工作流",
+              includes:
+                "检索、助手、写作、审稿、绘图、演示与数据分析（无公开入口）",
+              description:
+                "概览各类 AI 任务怎样分工，以及共同的证据与权限边界。",
+              details: {
+                label: "AI 科研工作流",
+                href: "/wiki/ai-research-workflows#features",
               },
-              {
-                title: "智能写作",
-                description: "从 LaTeX 项目和正文工作区开始一次完整写作。",
-                articleSlug: "prism",
-                icon: "writing",
+            },
+            {
+              domain: "功能页面与元素说明",
+              includes: "导航、研究对象卡、扩展区、任务状态与额度反馈",
+              description: "说明全站反复出现的界面元素，以及点击后会发生什么。",
+              details: {
+                label: "功能页面与元素说明",
+                href: "/wiki/marketing-pages-and-implementation-boundaries#navigation-and-tabs",
               },
-              {
-                title: "scholay广场",
-                description: "发现学术工具、学术skills 与学术prompts。",
-                articleSlug: "scholay-plaza",
-                icon: "overview",
-              },
-            ],
-          },
-        ],
+            },
+          ],
+        },
       },
     ],
   },

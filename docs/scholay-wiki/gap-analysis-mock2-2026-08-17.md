@@ -2,7 +2,7 @@
 
 > **执行状态（2026-08-17）：已完成。** `scholay-wiki` 已通过 `8c5d25b9`
 > 合入产品快照 `8b8e6068`，并完成本文 P0 / P1 / P2、事实修正、术语单源、
-> 可生成基线、漂移检测、fixture 复核日期、巨型内容拆分、MCP 与 XMind 同步。
+> 可生成基线、漂移检测、fixture 复核日期、巨型内容拆分与 MCP 同步。
 > 收口基线为 151 篇词条、127 个现行页面、32 个兼容跳转、252 个可见表面与
 > 238 个 fixture；`test:wiki` 68/68、Wiki 基线和 MCP 快照检查均通过。下文保留为
 > 实施前差距与决策记录，其中“当前缺口”类表述均指审计时点。
@@ -247,7 +247,6 @@ OAuth 确认层、主题切换…）。
 | `:623 Claw 新对话只展示当前已经开放的三类模板`       | 模板变五张                                                                                                                            |
 | `:1075 迁移与功能广场数据计数和当前基线一致`         | 迁移 128→129                                                                                                                          |
 | `:1091 每个非 Wiki 路由的懒加载页面都有词条直接引用` | `/tools/datasets` 等新路由无词条引用；另注意 mock2 把 RR `lazy:` 换成了自定义 `lazyRoute()`，**该测试的路由扫描方式需先核对是否兼容** |
-| `:928 读者目录与 XMind 的 15 个主栏目一致`           | 若导航词条重组，`scholay-wiki.xmind` 也要同步改                                                                                       |
 | `:1023 覆盖全部 57 个后端一级业务模块`               | 模块数未变，预计不红；重盘时顺手确认                                                                                                  |
 | `wiki-theme.test.tsx`                                | 站级 theme.store 合入后与 wiki 局部主题可能相互作用                                                                                   |
 
@@ -336,8 +335,8 @@ wiki 分支产品代码停在 f23d0003，已落后两代。建议本轮：**把 
 5. **P1/P2 增补**：按表推进；纯 mock 面一律 experimental 标注（§6.6）。
 6. **基线重盘**：落 §6.2 脚本 → 重新生成 `WIKI_AUDIT_BASELINE` / `WIKI_MOCK_SURFACE_BASELINE`；
    fixture 按 §6.4 分级复核；`npm run generate:wiki-mcp` 重新导出。
-7. **收尾**：`scholay-wiki.xmind` 目录同步（§五 :928）、`docs/scholay-wiki/README.md`
-   与 `content-model.md` 补记新约定。
+7. **收尾**：在 `docs/scholay-wiki/README.md` 与 `content-model.md` 补记新约定；
+   读者目录只以 `WIKI_NAV_CATEGORIES` 为结构真源。
 
 ---
 
