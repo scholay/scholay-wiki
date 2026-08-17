@@ -974,6 +974,29 @@ describe("Scholay Wiki 内容契约", () => {
     expect(new Set(nodes.map((node) => node.id)).size).toBe(nodes.length);
   });
 
+  it("读者目录最多三级，且分组节点始终有可访问的下一层", () => {
+    const tooDeep: string[] = [];
+    const emptyGroups: string[] = [];
+
+    const visit = (nodes: WikiNavNode[], depth: number, path: string[]) => {
+      for (const node of nodes) {
+        const nodePath = [...path, node.title];
+        if (depth > 3) tooDeep.push(nodePath.join(" > "));
+        if (!node.target && !node.children?.length) {
+          emptyGroups.push(nodePath.join(" > "));
+        }
+        if (node.children) visit(node.children, depth + 1, nodePath);
+      }
+    };
+
+    for (const category of WIKI_NAV_CATEGORIES) {
+      visit(category.children, 2, [category.title]);
+    }
+
+    expect(tooDeep).toEqual([]);
+    expect(emptyGroups).toEqual([]);
+  });
+
   it("一级栏目不再单独成页，展开后落到第一篇二级词条", () => {
     for (const category of WIKI_NAV_CATEGORIES) {
       expect(firstNavHref(category.children), category.slug).toMatch(

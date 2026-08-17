@@ -75,7 +75,11 @@ export function ToolsDatasetsPage() {
               autoFocus
             />
           </div>
-          <FeatureGuideCards topic="数据集搜索" wikiHref="/wiki/feature-tools" />
+          <FeatureGuideCards
+            topic="数据集搜索"
+            wikiHref="/wiki/datasets-search"
+            scholayPath="/tools/datasets"
+          />
         </CenteredLanding>
       </>
     );

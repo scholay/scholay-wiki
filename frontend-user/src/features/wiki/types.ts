@@ -445,6 +445,7 @@ export interface WikiNavNode {
   title: string;
   description?: string;
   target?: WikiNavTarget;
+  /** 一级栏目之下只允许二、三级节点；内容测试会阻止继续嵌套。 */
   children?: WikiNavNode[];
   /** 整个节点及其后代仅向管理员 / 运营展示。 */
   adminOnly?: boolean;

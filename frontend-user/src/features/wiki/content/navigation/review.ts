@@ -18,42 +18,13 @@ export const reviewNavCategory: WikiNavCategoryMeta = {
       children: [
         {
           id: "review-workflow-interface",
-          title: "操作流程界面",
+          title: "操作流程界面（期刊论文 / 毕业论文）",
           target: primary("peer-review-workflow-guide"),
-          children: [
-            {
-              id: "review-journal-paper-flow",
-              title: "期刊论文审稿流程",
-              target: jump("peer-review-workflow-guide"),
-            },
-            {
-              id: "review-thesis-flow",
-              title: "毕业论文审稿流程",
-              target: jump("peer-review-workflow-guide"),
-            },
-          ],
         },
         {
           id: "review-results-interface",
-          title: "审稿结果产物界面",
+          title: "审稿结果产物界面（录用 / 返修 / 拒稿）",
           target: primary("peer-review-results-guide"),
-          children: [
-            {
-              id: "review-result-accept",
-              title: "录用",
-              target: jump("peer-review-results-guide"),
-            },
-            {
-              id: "review-result-revise",
-              title: "返修",
-              target: jump("peer-review-results-guide"),
-            },
-            {
-              id: "review-result-reject",
-              title: "拒稿",
-              target: jump("peer-review-results-guide"),
-            },
-          ],
         },
         {
           id: "review-dimensions",
@@ -62,42 +33,13 @@ export const reviewNavCategory: WikiNavCategoryMeta = {
         },
         {
           id: "review-evaluation-method",
-          title: "评价方式",
+          title: "评价方式（原句 / 建议）",
           target: jump("peer-review-dimensions-guide"),
-          children: [
-            {
-              id: "review-evaluation-original",
-              title: "原句",
-              target: jump("peer-review-dimensions-guide"),
-            },
-            {
-              id: "review-evaluation-advice",
-              title: "建议",
-              target: jump("peer-review-dimensions-guide"),
-            },
-          ],
         },
         {
           id: "review-pagination",
-          title: "审稿分页",
+          title: "审稿分页（初审 / 审稿人 / 终审）",
           target: jump("peer-review-results-guide"),
-          children: [
-            {
-              id: "review-pagination-initial",
-              title: "初审",
-              target: jump("peer-review-results-guide"),
-            },
-            {
-              id: "review-pagination-reviewers",
-              title: "审稿人",
-              target: jump("peer-review-results-guide"),
-            },
-            {
-              id: "review-pagination-final",
-              title: "终审",
-              target: jump("peer-review-results-guide"),
-            },
-          ],
         },
       ],
     },

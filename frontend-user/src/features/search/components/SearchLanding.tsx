@@ -48,7 +48,8 @@ export function SearchLanding({
       extra={
         <FeatureGuideCards
           topic={topic}
-          wikiHref={isSmart ? '/wiki/smart-search' : '/wiki/literature-search'}
+          wikiHref={isSmart ? '/wiki/smart-search' : '/wiki/literature-search-guide'}
+          scholayPath={isSmart ? '/search?mode=smart' : '/search?mode=classic'}
         />
       }
       aboveComposer={aboveComposer}

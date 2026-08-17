@@ -106,37 +106,24 @@ export const scenariosNavCategory: WikiNavCategoryMeta = {
           target: jump("manuscript-vs-publication"),
         },
         {
-          id: "scenarios-writing-scholay",
-          title: "Scholay 功能",
-          children: [
-            {
-              id: "scenarios-writing-review",
-              title: "智能审稿",
-              target: jump("peer-review"),
-              children: [
-                {
-                  id: "scenarios-review-paper-types",
-                  title: "论文类型：期刊论文与毕业论文",
-                  target: jump("peer-review-workflow-guide"),
-                },
-                {
-                  id: "scenarios-review-process",
-                  title: "审稿流程",
-                  target: jump("peer-review-workflow-guide"),
-                },
-                {
-                  id: "scenarios-review-dimensions",
-                  title: "审稿维度",
-                  target: jump("peer-review-dimensions-guide"),
-                },
-              ],
-            },
-            {
-              id: "scenarios-writing-prism",
-              title: "智能写作",
-              target: jump("prism-writing-workflow"),
-            },
-          ],
+          id: "scenarios-writing-review",
+          title: "使用 Scholay 智能审稿",
+          target: jump("peer-review"),
+        },
+        {
+          id: "scenarios-review-process",
+          title: "期刊论文与毕业论文审稿流程",
+          target: jump("peer-review-workflow-guide"),
+        },
+        {
+          id: "scenarios-review-dimensions",
+          title: "查看审稿维度",
+          target: jump("peer-review-dimensions-guide"),
+        },
+        {
+          id: "scenarios-writing-prism",
+          title: "使用 Scholay 智能写作",
+          target: jump("prism-writing-workflow"),
         },
       ],
     },

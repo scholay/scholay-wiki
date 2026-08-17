@@ -125,7 +125,11 @@ export function ToolsNewsPage() {
             <NewsFeedCarousel items={items} />
           )}
         </div>
-        <FeatureGuideCards topic="scholay 情报" wikiHref="/wiki/research-news" />
+        <FeatureGuideCards
+          topic="scholay 情报"
+          wikiHref="/wiki/research-news"
+          scholayPath="/tools/news"
+        />
       </CenteredLanding>
     </>
   );

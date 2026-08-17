@@ -53,7 +53,11 @@ function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
           ))}
         </div>
       </div>
-      <FeatureGuideCards topic={heading} wikiHref="/wiki/prism" />
+      <FeatureGuideCards
+        topic={heading}
+        wikiHref="/wiki/prism"
+        scholayPath="/prism"
+      />
     </CenteredLanding>
   );
 }
@@ -220,4 +224,3 @@ function NewProjectCard({
     </form>
   );
 }
-

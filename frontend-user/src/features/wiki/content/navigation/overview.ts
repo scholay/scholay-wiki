@@ -21,38 +21,36 @@ export const overviewNavCategory: WikiNavCategoryMeta = {
           id: "overview-feature-search",
           title: "学术搜索",
           target: jump("academic-search"),
-          children: [
-            {
-              id: "overview-feature-smart-search",
-              title: "智能搜论文",
-              target: jump("smart-search"),
-            },
-            {
-              id: "overview-feature-paper-search",
-              title: "论文库搜索",
-              target: jump("literature-search-guide"),
-            },
-            {
-              id: "overview-feature-journal-search",
-              title: "期刊库搜索",
-              target: jump("journal-search-page"),
-            },
-            {
-              id: "overview-feature-datasets",
-              title: "数据集搜索",
-              target: jump("datasets-search"),
-            },
-            {
-              id: "overview-feature-intelligence",
-              title: "scholay 情报",
-              target: jump("research-news"),
-            },
-            {
-              id: "overview-feature-journal-selection",
-              title: "scholay 选刊（敬请期待）",
-              target: jump("journal-selection-guide"),
-            },
-          ],
+        },
+        {
+          id: "overview-feature-smart-search",
+          title: "学术搜索 · 智能搜论文",
+          target: jump("smart-search"),
+        },
+        {
+          id: "overview-feature-paper-search",
+          title: "学术搜索 · 论文库搜索",
+          target: jump("literature-search-guide"),
+        },
+        {
+          id: "overview-feature-journal-search",
+          title: "学术搜索 · 期刊库搜索",
+          target: jump("journal-search-page"),
+        },
+        {
+          id: "overview-feature-datasets",
+          title: "学术搜索 · 数据集搜索",
+          target: jump("datasets-search"),
+        },
+        {
+          id: "overview-feature-intelligence",
+          title: "学术搜索 · scholay 情报",
+          target: jump("research-news"),
+        },
+        {
+          id: "overview-feature-journal-selection",
+          title: "学术搜索 · scholay 选刊（敬请期待）",
+          target: jump("journal-selection-guide"),
         },
         {
           id: "overview-feature-assistant",
@@ -73,50 +71,46 @@ export const overviewNavCategory: WikiNavCategoryMeta = {
           id: "overview-feature-resources",
           title: "我的资源",
           target: jump("my-resources"),
-          children: [
-            {
-              id: "overview-feature-paper-library",
-              title: "文献集",
-              target: jump("literature-library"),
-            },
-            {
-              id: "overview-feature-journal-library",
-              title: "期刊集",
-              target: jump("my-resources", "four-sections"),
-            },
-            {
-              id: "overview-feature-manuscript-library",
-              title: "稿件集",
-              target: jump("manuscript-collection"),
-            },
-            {
-              id: "overview-feature-asset-library",
-              title: "资源集",
-              target: jump("my-resources", "four-sections"),
-            },
-          ],
+        },
+        {
+          id: "overview-feature-paper-library",
+          title: "我的资源 · 文献集",
+          target: jump("literature-library"),
+        },
+        {
+          id: "overview-feature-journal-library",
+          title: "我的资源 · 期刊集",
+          target: jump("my-resources", "four-sections"),
+        },
+        {
+          id: "overview-feature-manuscript-library",
+          title: "我的资源 · 稿件集",
+          target: jump("manuscript-collection"),
+        },
+        {
+          id: "overview-feature-asset-library",
+          title: "我的资源 · 资源集",
+          target: jump("my-resources", "four-sections"),
         },
         {
           id: "overview-feature-plaza",
           title: "scholay广场",
           target: jump("scholay-plaza"),
-          children: [
-            {
-              id: "overview-feature-tools",
-              title: "学术工具",
-              target: jump("feature-tools"),
-            },
-            {
-              id: "overview-feature-skills",
-              title: "学术skills",
-              target: jump("community-skills"),
-            },
-            {
-              id: "overview-feature-prompts",
-              title: "学术prompts",
-              target: jump("academic-prompts"),
-            },
-          ],
+        },
+        {
+          id: "overview-feature-tools",
+          title: "scholay广场 · 学术工具",
+          target: jump("feature-tools"),
+        },
+        {
+          id: "overview-feature-skills",
+          title: "scholay广场 · 学术skills",
+          target: jump("community-skills"),
+        },
+        {
+          id: "overview-feature-prompts",
+          title: "scholay广场 · 学术prompts",
+          target: jump("academic-prompts"),
         },
         {
           id: "overview-ai-workflows",

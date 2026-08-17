@@ -102,7 +102,11 @@ export function WizardLayout({
           </div>
           {ctaHint}
         </div>
-        <FeatureGuideCards topic={heading} wikiHref="/wiki/peer-review" />
+        <FeatureGuideCards
+          topic={heading}
+          wikiHref="/wiki/peer-review"
+          scholayPath="/peer-review"
+        />
       </CenteredLanding>
     );
   }

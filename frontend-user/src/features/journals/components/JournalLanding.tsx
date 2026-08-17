@@ -42,7 +42,8 @@ export function JournalLanding({
       </div>
       <FeatureGuideCards
         topic={topic}
-        wikiHref={isSelect ? '/wiki/journal-selection-guide' : '/wiki/journal-search'}
+        wikiHref={isSelect ? '/wiki/journal-selection-guide' : '/wiki/journal-search-page'}
+        scholayPath={isSelect ? '/search' : '/journals/search'}
       />
     </CenteredLanding>
   );
