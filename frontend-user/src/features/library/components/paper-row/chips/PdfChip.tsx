@@ -6,13 +6,6 @@
  * click: 弹操作菜单, 按 status 切换:
  *   - complete (已上传): 查看 PDF / 更换 PDF / 社区求助(敬请期待 disabled)
  *   - missing  (未上传): 本地上传 / 打开在线全文(有 OA 直链时可点)/ 社区求助(敬请期待 disabled)
- *
- * 菜单项点击 → 对应 callback:
- *   - 查看 PDF  → onViewPdf  (useOpenPdfInBrowser)
- *   - 更换 PDF  → onUploadPdf (PdfUploadDialog)
- *   - 本地上传  → onUploadPdf (同上, 文案不同)
- *   - 打开在线全文 → 收藏时带来的 OA 直链(pdf_url)非空时新标签打开;否则 disabled 占位
- *   - 社区求助  → 暂未支持
  */
 
 import { ExternalLink, Eye, File as FileIcon, Search, Upload, Users } from 'lucide-react';
@@ -27,9 +20,7 @@ import {
 
 interface PdfChipProps {
   paper: UserLibraryPaper;
-  /** 在 PDF 浏览器 tab 打开当前 PDF (useOpenPdfInBrowser) */
   onViewPdf: () => void;
-  /** 上传 / 更换 PDF (PdfUploadDialog) */
   onUploadPdf: () => void;
 }
 
@@ -44,8 +35,6 @@ export function PdfChip({ paper, onViewPdf, onUploadPdf }: PdfChipProps) {
         { icon: Users, label: '社区求助', hint: '敬请期待', disabled: true },
       ];
     }
-    // missing —— 有收藏时带来的 OA 直链就让用户能直接打开在线全文,
-    // 否则保持 disabled 占位(pdf_url 是在线直链,不是已上传文件,故仍属 missing 态)。
     const onlineUrl = paper.pdf_url?.trim();
     return [
       { icon: Upload, label: '本地上传', onClick: onUploadPdf },

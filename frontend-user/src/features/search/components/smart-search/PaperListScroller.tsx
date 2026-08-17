@@ -11,12 +11,12 @@ import { toast } from 'sonner';
 import type { Paper, UpstreamSource } from '@/shared/api/types';
 import { useFavoriteCheck } from '@/shared/api/user-library-mutations';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
-import { enrichPmdAbstracts } from '@/shared/api/paper-enrich';
 import { trackPaperImpressions } from '@/shared/api/hot-content';
 import { PaperResultCard } from '@/shared/components/PaperResultCard';
 import { useStagingActions } from '../../hooks/useStagingActions';
 import { useStagingView } from '../../hooks/useStagingView';
 import { parsePapersFromToolResult } from './types';
+import { useEnrichedPapers } from './useEnrichedPapers';
 
 /**
  * 智能搜索一次 mcp__minicod__search_papers 工具返回的论文列表。
@@ -36,10 +36,8 @@ import { parsePapersFromToolResult } from './types';
  *     ─ 卡片 props ─▶ <PaperResultCard>
  *
  * 两层折叠:
- *   - 组级 (本组件): groupCollapsed —— 把整组论文收成一个 header, 减少长会话噪声;
- *   - 卡级 (PaperResultCard): effectivelyCollapsed —— **暂存即自动折叠**(与传统搜索 SearchPage
- *     同公式 (staged ∪ 手动) \ 展开覆盖), 暂存的论文收成 StagedRow 绿行。
- *   两者独立,各自维护 state, 互不干扰。
+ *   - 组级 (本组件): groupCollapsed —— 整组收成 header;
+ *   - 卡级: 仅手动「折叠」;勾选暂存不改变折叠态。
  */
 
 const VISIBLE_CARD_COUNT = 3;
@@ -124,31 +122,11 @@ export function PaperListScroller({
   );
   const journalEnrichments = useJournalEnrichments(venues);
 
-  // 卡级折叠态 —— 与传统搜索 SearchPage 同公式:**暂存即自动折叠**。
-  //   effectivelyCollapsed = (stagedIds ∪ manuallyCollapsedIds) \ expandedOverrides
-  //   - 暂存的论文自动收成 StagedRow(绿行),与列表搜索一致;
-  //   - 用户可对已暂存卡点"展开"(进 expandedOverrides 覆盖 auto-fold)。
-  const [manuallyCollapsedIds, setManuallyCollapsedIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [expandedOverrides, setExpandedOverrides] = useState<Set<string>>(
-    () => new Set()
-  );
-  const effectivelyCollapsed = useMemo(() => {
-    const s = new Set<string>(manuallyCollapsedIds);
-    stagedIds.forEach((id) => s.add(id));
-    expandedOverrides.forEach((id) => s.delete(id));
-    return s;
-  }, [manuallyCollapsedIds, stagedIds, expandedOverrides]);
+  // 折叠与暂存独立:仅手动「折叠」写入;勾选暂存不再自动收卡。
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
 
   const onCollapse = useCallback((id: string) => {
-    setExpandedOverrides((s) => {
-      if (!s.has(id)) return s;
-      const next = new Set(s);
-      next.delete(id);
-      return next;
-    });
-    setManuallyCollapsedIds((s) => {
+    setCollapsedIds((s) => {
       if (s.has(id)) return s;
       const next = new Set(s);
       next.add(id);
@@ -156,33 +134,19 @@ export function PaperListScroller({
     });
   }, []);
   const onRestore = useCallback((id: string) => {
-    setManuallyCollapsedIds((s) => {
+    setCollapsedIds((s) => {
       if (!s.has(id)) return s;
       const next = new Set(s);
       next.delete(id);
       return next;
     });
-    setExpandedOverrides((s) => {
-      if (s.has(id)) return s;
-      const next = new Set(s);
-      next.add(id);
-      return next;
-    });
   }, []);
 
-  // 暂存即自动折叠(由 stagedIds 派生);顺手清掉该 paper 的 expandedOverrides,
-  // 避免"刚暂存还展开着"的诡异态。
   const handleStage = useCallback(
     (paper: Paper) => {
       stagePaper(paper, 'smart');
-      setExpandedOverrides((s) => {
-        if (!s.has(paper.paperId)) return s;
-        const next = new Set(s);
-        next.delete(paper.paperId);
-        return next;
-      });
     },
-    [stagePaper]
+    [stagePaper],
   );
 
   // 组级折叠: 默认展开 (流式结果到达时直接看到), 用户可一键收成 header。
@@ -289,7 +253,7 @@ export function PaperListScroller({
               key={p.paperId || `${toolUseId}-${i}`}
               paper={p}
               isStaged={stagedIds.has(p.paperId)}
-              isFolded={effectivelyCollapsed.has(p.paperId)}
+              isFolded={collapsedIds.has(p.paperId)}
               isFavorited={favoritedIds.has(p.paperId)}
               journalEnrichment={
                 p.venue
@@ -306,42 +270,4 @@ export function PaperListScroller({
       )}
     </div>
   );
-}
-
-/**
- * PMD 缺 abstract 补全: useEffect 检测后异步调 `/public/papers/batch`, merge 回去。
- *
- * dep stabilization: papers 数组每次父组件 re-render 都是新引用,
- * 用 paperId join 做 stable key 避免无限重 enrich。
- */
-function useEnrichedPapers(papers: Paper[]): Paper[] {
-  const [enriched, setEnriched] = useState<Paper[]>(papers);
-
-  const paperKey = papers
-    .map((p) => `${p.source ?? 'stc'}:${p.paperId}`)
-    .join('|');
-
-  useEffect(() => {
-    setEnriched(papers);
-    const pmdMissing = papers.some(
-      (p) =>
-        p.source === 'pmd' &&
-        !(p.abstract && p.abstract.trim().length > 0)
-    );
-    if (!pmdMissing) return;
-
-    let cancelled = false;
-    void enrichPmdAbstracts(papers).then((result) => {
-      if (cancelled) return;
-      setEnriched((curr) => (curr === result ? curr : result));
-    });
-
-    return () => {
-      cancelled = true;
-    };
-    // paperKey 是 papers 内容的稳定签名, 引用变但内容没变时不触发。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paperKey]);
-
-  return enriched;
 }

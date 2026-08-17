@@ -59,7 +59,7 @@ function AttachmentChip({
   const removeBtn = (
     <button
       type="button" onClick={onRemove}
-      title="移除" className="absolute -right-1.5 -top-1.5 z-raised inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-on-dark transition-transform hover:scale-110">
+      title="移除" className="absolute -right-1.5 -top-1.5 z-raised inline-flex size-4 items-center justify-center rounded-pill bg-inverse text-on-inverse transition-transform hover:scale-110">
       <X className="size-2.5" strokeWidth={2.6} />
     </button>
   );

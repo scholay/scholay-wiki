@@ -329,7 +329,7 @@ function StepDot({ n, active, done, label }: { n: number; active: boolean; done:
       <span
         className={
           'flex h-5 w-5 items-center justify-center rounded-pill text-12 ' +
-          (active || done ? 'bg-foreground text-on-dark' : 'bg-surface-2 text-faint')
+          (active || done ? 'bg-inverse text-on-inverse' : 'bg-surface-2 text-faint')
         }
       >
         {done ? <Check className="h-3 w-3" /> : n}

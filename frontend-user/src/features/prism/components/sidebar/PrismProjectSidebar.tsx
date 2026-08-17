@@ -20,12 +20,9 @@ import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import {
   Sidebar,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
   SidebarContent,
   SidebarSection,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
@@ -51,7 +48,6 @@ export function PrismProjectSidebar({
   /** 删除的是当前打开的项目时回退(= 回项目主页)。 */
   onDeletedActive: () => void;
 }) {
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const token = useAuthStore((s) => s.token);
   const { data: projects, isLoading } = useProjects();
   const create = useCreateProject();
@@ -72,7 +68,7 @@ export function PrismProjectSidebar({
       <SidebarContent>
         <SidebarSection
           id="prism-projects"
-          label={<span className="font-serif">项目</span>}
+          label="项目"
           prominent
           action={
             <button
@@ -87,11 +83,11 @@ export function PrismProjectSidebar({
           }
         >
           {!token ? (
-            <div className="px-4 py-3 text-12 text-faint">登录后可见写作项目</div>
+            <div className="px-4 py-3 text-2xs text-faint">登录后可见写作项目</div>
           ) : isLoading ? (
-            <div className="px-4 py-3 text-12 text-faint">加载中…</div>
+            <div className="px-4 py-3 text-2xs text-faint">加载中…</div>
           ) : !projects || projects.length === 0 ? (
-            <div className="px-4 py-3 text-12 text-faint">还没有写作项目, 点「新建」开始</div>
+            <div className="px-4 py-3 text-2xs text-faint">还没有写作项目, 点「新建」开始</div>
           ) : (
             <div className="flex flex-col">
               {projects.map((p) => (
@@ -108,8 +104,6 @@ export function PrismProjectSidebar({
           )}
         </SidebarSection>
       </SidebarContent>
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
       <RenameDialog key={renameTarget?.id} target={renameTarget} onClose={() => setRenameTarget(null)} />
       <DeleteDialog
         target={deleteTarget}
@@ -139,31 +133,26 @@ function ProjectRow({
   return (
     <div
       className={cn(
-        'group flex cursor-pointer items-center gap-2 px-4 py-2 transition-colors',
+        'group flex cursor-pointer items-center gap-2 px-4 py-1.5 transition-colors',
         active ? 'bg-surface-2' : 'hover:bg-surface-1'
       )}
       onClick={onOpen}
     >
       <div className="min-w-0 flex-1">
         <div
-          className={cn(
-            'truncate text-14 font-medium',
-            active ? 'text-foreground' : 'text-subtle'
-          )}
+          className={cn('truncate text-sm', active ? 'font-semibold text-foreground' : 'text-subtle')}
           title={project.title || '未命名项目'}
         >
           {project.title || '未命名项目'}
         </div>
-        <div className="mt-px text-12 font-normal text-faint">
-          更新于 {project.updated_at?.slice(0, 10)}
-        </div>
+        <div className="text-2xs text-faint">更新于 {project.updated_at?.slice(0, 10)}</div>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex size-6 items-center justify-center rounded-4 text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100"
+            className="inline-flex size-6 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100"
             aria-label="更多操作"
           >
             <MoreVertical className="size-3.5" />

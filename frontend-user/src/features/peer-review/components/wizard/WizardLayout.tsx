@@ -1,6 +1,10 @@
 import { type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
+import { CenteredLanding } from '@/shared/components/CenteredLanding';
+import { FeatureBrandHeading } from '@/shared/components/FeatureBrandHeading';
+import { FeatureGuideCards } from '@/shared/components/FeatureGuideCards';
 import { StepIndicator } from './StepIndicator';
 import type { WizardStep } from '@/shared/lib/peer-review/types';
 
@@ -57,9 +61,57 @@ export function WizardLayout({
   rightPane,
 }: WizardLayoutProps) {
   const showPrev = step > 1;
+  const { pathname } = useLocation();
+  const heading = pathname.startsWith('/peer-review/thesis')
+    ? '学位论文'
+    : pathname.startsWith('/peer-review/conference')
+      ? '会议论文'
+      : pathname.startsWith('/peer-review/other')
+        ? '其他'
+        : '期刊论文';
+
+  if (step === 1) {
+    return (
+      <CenteredLanding contentClassName="max-w-2xl">
+        <FeatureBrandHeading as="h1" title={heading} mark={false} />
+        <div className="mt-6 w-full">{children}</div>
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={cancelLoading}
+                className="inline-flex h-9 items-center rounded-8 border border-border bg-surface-card px-3 text-12 text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-40"
+                title="取消并删除当前草稿,上传的文件、AI 已识别的内容都会清空"
+              >
+                {cancelLoading ? '正在取消…' : '取消草稿'}
+              </button>
+            )}
+            <Button
+              type="button"
+              variant="destructive"
+              size="lg"
+              onClick={onNext}
+              disabled={nextDisabled || nextLoading}
+              className="h-9 gap-1.5"
+            >
+              {nextLoading ? 'AI 处理中…' : nextLabel}
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
+          {ctaHint}
+        </div>
+        <FeatureGuideCards topic={heading} wikiHref="/wiki/peer-review" />
+      </CenteredLanding>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col bg-surface-1">
+      <div className="flex shrink-0 justify-center bg-surface-1 px-8 pt-6 pb-2">
+        <FeatureBrandHeading as="h1" title={heading} mark={false} />
+      </div>
       {/* NavBar — 对照 .pen `yf01S` 进度条标准:
             ┌ 左侧 200px:返回上一步 outline 按钮(只在 step>1 显示, 否则 invisible 占位保中心对齐)
             ├ 中间 flex-1:StepIndicator (撑开 + 中心居中)

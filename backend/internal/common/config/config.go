@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -72,6 +73,7 @@ type MinIOConfig struct {
 	BucketAgentArtifacts      string // 存 agent (claw 等) 成果交付物字节的 bucket
 	BucketAgentAttachments    string // 存 agent 输入框**上传附件**字节的 bucket (0112;与产出物分桶,生命周期完全不同)
 	BucketSkillBundles        string // 存 skill 市场用户上传的 skill 原始 bundle (tarball) 的 bucket
+	BucketNewsCovers          string // 存情报封面缩略图 (webhook 后台生成的 ~640px JPEG) 的 bucket
 	UseSSL                    bool
 
 	// AttachmentReaperDelete —— 输入框附件孤儿对象 reaper 是否**真删**(默认 false = dry-run)。
@@ -93,8 +95,46 @@ type RateLimitConfig struct {
 	// 注:曾有 VIPMultiplier（RATE_LIMIT_VIP_MULTIPLIER），但 is_vip 从无人写入 → 配了不生效的假象,已删(性能审计 #4)。
 }
 
+// 部署环境角色(env APP_ENV)。
+//
+// 这是**这台机器扮演什么角色**,与 GIN_MODE(gin 的日志/调试档位)是两件事:
+// 一个测试环境通常也跑 GIN_MODE=release,但它不是权威站点。
+//
+// 存在的理由:区分两套环境需要拨动的开关不止一个(是否可被索引、是否对外推送、
+// 是否上报统计、是否允许测试支付……)。逐个记 = 迟早漏一个,而漏掉的那个恰恰
+// 是最贵的(比如测试站被搜索引擎收录成权威站的镜像)。APP_ENV 把「这是哪套环境」
+// 收敛成**一次决策**,其余开关从它派生默认值。
+//
+// ⚠️ 派生的是**默认值**,不是强制值 —— 显式设置的 env 永远优先。
+const (
+	AppEnvProd = "prod" // 权威生产站:可被索引、对外推送、真实支付
+	AppEnvTest = "test" // 测试 / 预发 / 克隆:默认不可索引、不对外推送
+	AppEnvDev  = "dev"  // 本机开发
+)
+
+// AppEnvName 返回归一化后的 APP_ENV。
+//
+// 🔴 未设置时返回 prod。这是刻意的向后兼容:本变量 2026-08-13 才引入,而生产的
+// .env 里没有这一行 —— 若未设置按 test 处理,一次升级就会让已上线的站点静默
+// 从搜索引擎里掉出去(几周后才发现、恢复更久)。让「旧配置 = 旧行为」。
+// 新环境靠 deploy.sh 的强制检查来保证它被显式写上,而不是靠这个默认值。
+func AppEnvName() string {
+	switch strings.ToLower(strings.TrimSpace(getEnv("APP_ENV", ""))) {
+	case AppEnvTest, "testing", "staging", "stage", "preview":
+		return AppEnvTest
+	case AppEnvDev, "development", "local":
+		return AppEnvDev
+	default:
+		return AppEnvProd
+	}
+}
+
+// IsProdEnv 本环境是不是权威生产站。
+func IsProdEnv() bool { return AppEnvName() == AppEnvProd }
+
 // AppConfig_ 通用应用配置（避免与全局变量 AppConfig 冲突）
 type AppConfig_ struct {
+	Env                string   // APP_ENV: prod / test / dev —— 这台机器扮演的角色
 	GinMode            string   // GIN_MODE: release / debug
 	CORSAllowedOrigins string   // 逗号分隔的允许 CORS 来源
 	TurnstileSecretKey string   // Cloudflare Turnstile 密钥
@@ -230,7 +270,11 @@ func Load() *Config {
 		ExternalServices: ExternalServicesConfig{
 			SerperAPIKey:  getEnv("SERPER_API_KEY", ""),
 			CrossrefEmail: getEnv("CROSSREF_EMAIL", ""),
-			SupportEmail:  getEnv("SUPPORT_EMAIL", "support@scholay.com"),
+			// 默认必须为空,不能是任何真实邮箱 —— 这个值会 ① 下发给前端当客服邮箱兜底,
+			// ② 拼进 Unpaywall / Crossref 的礼貌池请求(对方按 email 维度限速)。
+			// 留一个生产邮箱当默认值,等于让任何漏配 SUPPORT_EMAIL 的环境冒用生产身份
+			// 对外发请求,被限速的是生产。空值时调用方各自降级(见 openaccess.go)。
+			SupportEmail: getEnv("SUPPORT_EMAIL", ""),
 		},
 		RateLimit: RateLimitConfig{
 			IPRPS:         getEnvAsInt("RATE_LIMIT_IP_RPS", 100),
@@ -253,6 +297,7 @@ func Load() *Config {
 		BucketAgentArtifacts:      getEnv("MINIO_BUCKET_AGENT_ARTIFACTS", "scholar-agent-artifacts"),
 		BucketAgentAttachments:    getEnv("MINIO_BUCKET_AGENT_ATTACHMENTS", "scholar-agent-attachments"),
 		BucketSkillBundles:        getEnv("MINIO_BUCKET_SKILL_BUNDLES", "scholar-skill-bundles"),
+		BucketNewsCovers:          getEnv("MINIO_BUCKET_NEWS_COVERS", "scholar-news-covers"),
 		UseSSL:                    getEnvAsBool("MINIO_USE_SSL", false),
 		AttachmentReaperDelete:    getEnvAsBool("AGENT_ATTACHMENT_REAPER_DELETE", false),
 	}
@@ -281,6 +326,7 @@ func Load() *Config {
 	// 通用应用配置
 	ginMode := getEnv("GIN_MODE", "debug")
 	AppConfig.App = AppConfig_{
+		Env:                AppEnvName(),
 		GinMode:            ginMode,
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", ""),
 		TurnstileSecretKey: getEnv("TURNSTILE_SECRET_KEY", ""),
@@ -354,6 +400,13 @@ func (c *Config) Validate() error {
 	if c.App.IsRelease {
 		if c.JWT.Secret == "" || c.JWT.Secret == "default-secret-change-in-production" {
 			errs = append(errs, "release 模式禁止使用默认 JWT_SECRET")
+		}
+		// SEO_BASE_URL 同样 hard-fail:它是全站唯一的对外绝对 URL 来源(canonical /
+		// og:url / sitemap <loc> / 邮件正文链接 / SEO 主动推送 origin,共 24 处消费点)。
+		// 以前它有个生产域名的默认值,于是「漏配」和「配对了」在启动时完全同形 ——
+		// 任何环境漏配都会静默宣称自己是生产站。现在没有默认值了,必须显式给。
+		if strings.TrimSpace(getEnv("SEO_BASE_URL", "")) == "" {
+			errs = append(errs, "release 模式必须显式设置 SEO_BASE_URL(站点权威域名,如 https://www.example.com);compose 由 .env 的 SITE_URL fan-out")
 		}
 	}
 
@@ -437,21 +490,109 @@ func getEnvAsFloat(key string, defaultValue float64) float64 {
 	return value
 }
 
+// devFallbackBaseURL debug 模式下 SEO_BASE_URL 缺省时的回落值。
+//
+// 刻意是 localhost 而**不是**任何真实域名:回落值会流进 canonical、og:url、
+// sitemap <loc>、邮件正文里的绝对链接、SEO 主动推送的 origin。一旦回落到某个
+// 真实站点的域名,漏配 SEO_BASE_URL 的环境就会静默宣称自己是那个站点 ——
+// 这类错误不报错、不留日志,只在搜索引擎那头显形。localhost 至少是自证的错。
+const devFallbackBaseURL = "http://localhost:5411"
+
 // CanonicalBaseURL 站点权威域名，用作 sitemap <loc> 前缀和 HTML canonical 标签。
-// 优先读环境变量 SEO_BASE_URL；默认 https://www.scholay.com。
+// 唯一来源是环境变量 SEO_BASE_URL(compose 里由 .env 的 SITE_URL fan-out)。
 //
-// 必须使用带 www 的版本作为权威域名:
-//   - 整站统一一个 host,避免 www / apex 两套 URL 让 Google 判定 duplicate content
-//   - sitemap <loc>、canonical link、Open Graph url 必须保持完全一致(包括 www)
-//   - apex(scholay.com) 应通过 301 跳到 www,在 nginx/CDN 层做
+// 权威域名要与全站对外 URL 完全一致(含 www 与否):
+//   - 整站统一一个 host,避免两套 URL 让 Google 判定 duplicate content
+//   - sitemap <loc>、canonical link、Open Graph url 必须逐字一致
+//   - 非权威形态(如 apex)应通过 301 跳到权威 host,在 nginx/CDN 层做
 //
-// 变更此值会影响 SEO 收录 —— 修改前确认搜索引擎后台的资源地址已经同步更新。
+// 缺省行为:release 模式下 Validate() 已把「为空」拦成启动失败,走不到回落;
+// debug / 本地裸跑回落 localhost。**任何情况下都不回落到真实生产域名。**
 // 返回值保证无尾部 "/"，调用方直接拼接 path 即可。
 func CanonicalBaseURL() string {
-	v := getEnv("SEO_BASE_URL", "https://www.scholay.com")
+	v := strings.TrimSpace(getEnv("SEO_BASE_URL", ""))
+	if v == "" {
+		v = devFallbackBaseURL
+	}
 	// 去掉尾部 "/" 让拼接更一致
 	for len(v) > 0 && v[len(v)-1] == '/' {
 		v = v[:len(v)-1]
+	}
+	return v
+}
+
+// CanonicalHost 从 CanonicalBaseURL 取裸 host(如 "www.example.com")。
+// 解析失败或未配置时返回空串 —— 调用方必须把空串当作「无法判定」,
+// 不能当作「不匹配」(否则漏配会把生产自己判成非权威 host)。
+func CanonicalHost() string {
+	u, err := url.Parse(CanonicalBaseURL())
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return u.Host
+}
+
+// SEOIndexable 本环境是否允许被搜索引擎索引。
+//
+// 取值:显式的 SEO_INDEXABLE 优先;未设置时**从 APP_ENV 派生** —— prod 可索引,
+// test/dev 不可索引。
+//
+// 这个派生解掉了一个本来两头不讨好的默认值选择:单独看 SEO_INDEXABLE,默认 true
+// 会让新环境忘配就被收录,默认 false 会让老生产升级后静默掉出索引 —— 两种误配
+// 代价都不小。挂到 APP_ENV 上之后,两边同时正确:生产不写 APP_ENV(或写 prod)
+// 保持可索引,测试环境写一次 APP_ENV=test 就自动关掉,不必再记住这一行。
+//
+// false 时的完整效果(见 internal/seo/handler.go 与 internal/config/handler_ssr.go):
+//   - /robots.txt 只输出 Disallow: /,且不输出 Sitemap 指令
+//   - /sitemap*.xml 与 IndexNow key 文件返回 404
+//   - 所有 SSR 响应带 X-Robots-Tag: noindex, nofollow 并注入 <meta name="robots">
+//
+// robots.txt 只劝阻抓取,已被外链/CT 日志发现的 URL 仍需 noindex 才不进索引,
+// 所以三者必须一起生效,少一样都堵不住。
+func SEOIndexable() bool {
+	return getEnvAsBool("SEO_INDEXABLE", IsProdEnv())
+}
+
+// RequestIndexable 判断某个具体请求能否被索引。
+//
+// 目前等价于 SEOIndexable() —— 保留这个按请求取值的入口,是为了将来真要按请求
+// 维度分流时有个统一的地方,调用方(robots / sitemap 路由 / SSR 写出口)不用再改。
+//
+// ── 这里曾经有一道「请求 Host ≠ 权威 host 就强制 noindex」的守卫,已移除 ──
+// 初衷是给「某个环境忘了声明自己不是权威站、却对外可达」兜底。但它的失败模式
+// 与它要防的问题严重不对称:
+//
+//   · 它能防的:一个配置照抄了权威站、又用别的域名对外服务的环境被收录。
+//     而这个场景现在由 APP_ENV 覆盖 —— 那是一次显式决策,deploy.sh 还强制它必须存在。
+//   · 它会误伤的:**任何 Host 头与配置不完全一致的情况都会让权威站静默全站 noindex**。
+//     CDN / 反代改写 Host、apex 在 301 生效前被直接访问、SEO_BASE_URL 写法有细微
+//     出入(带不带 www)、健康检查用 IP 访问…… 全都会命中。
+//
+// 也就是说,这道「保险」自身的故障后果,恰好就是它想避免的那一个(权威站掉出索引),
+// 而且是静默的、要几周后排名塌了才会被发现。用一个不可靠的自动判断去兜一个已经
+// 有显式开关的场景,是净负收益。
+//
+// 参数保留是为了调用点不必改动;当前不使用。
+func RequestIndexable(_ string) bool {
+	return SEOIndexable()
+}
+
+// defaultSEOOnMissHourlyBudget SSR 冷门实体「现拉上游」的每小时全局默认配额。
+//
+// 200/h 的来路:生产 24h 实测**真人**实体页浏览量 31 次/天,而爬虫 6.5 万次/天。
+// 200/h ≈ 真人用量的 100 倍余量,对真实用户等于不存在;它存在的唯一理由是
+// 「伪装成浏览器 UA 的爬虫不能把 minicod 配额抽干」—— UA 闸门挡不住谎报 UA 的,
+// 预算能。
+const defaultSEOOnMissHourlyBudget = 200
+
+// SEOOnMissHourlyBudget SSR on-miss 现拉上游的每小时全局配额(env SEO_ONMISS_HOURLY_BUDGET)。
+//
+//	0        = 不限(仅解除预算,**不解除**爬虫 UA 闸门)
+//	负数/缺省/非法值 = 默认 200
+func SEOOnMissHourlyBudget() int {
+	v := getEnvAsInt("SEO_ONMISS_HOURLY_BUDGET", defaultSEOOnMissHourlyBudget)
+	if v < 0 {
+		return defaultSEOOnMissHourlyBudget
 	}
 	return v
 }

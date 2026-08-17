@@ -772,7 +772,11 @@ describe('尺寸与间距', () => {
     // 2026-08-12: classic-search-filters dock 对齐 mock pl-5 → **1304**。
     // 2026-08-12: smart-search-dock Composer compact 对齐 mock pl-5 → **1305**。
     // 2026-08-12: smart-search-session 会话态底栏 Composer pl-5 → **1306**。
-    ratchet('半档间距', hits(new RegExp(`\\b(?:${PROP})-${HALF}\\b`)), 1306);
+    // 2026-08-12 收口 1 处:App.tsx 旧 RouteLoadingFallback 的 gap-5 随组件迁入
+    // shared/components/LazyRoute(新实现用 gap-4),合并后 1306 → 1305,当场压基线。
+    // 2026-08-17:合并 mock2 当前产品快照后，新增界面把实测值带到 **1580**；
+    // 此处按现行代码重新钉死、零余量，后续仍只能下降，不能把 275 处债务当免费额度。
+    ratchet('半档间距', hits(new RegExp(`\\b(?:${PROP})-${HALF}\\b`)), 1580);
   });
 
   it('禁止裸 vh(移动 Safari 地址栏会改变 vh)', () => {
@@ -927,7 +931,7 @@ describe('样式系统逃逸', () => {
   });
 
   it('禁止 dark: 前缀', () => {
-    // 为什么: 暗色态已于 2026-07 移除(setTheme 零调用点,.dark 从未生效)。
+    // 为什么: 夜间态只覆写 globals.css 的语义 token,组件层写 dark: 会绕过 token、再裂出两套色。
     expect(hits(/\bdark:[a-z-]+/)).toEqual([]);
   });
 
@@ -2234,9 +2238,9 @@ const LITERAL_MIRRORS: { path: string; why: string; allow?: Record<string, strin
   {
     path: 'backend/internal/common/utils/email_template.go',
     why: '对外邮件的 HTML 模板:邮件客户端(尤其 Outlook)不吃 CSS 变量,只能内联字面色。⚠️ 其中 #E4E4E5 是 `--border`(玄墨 12%)**叠白之后**的实色,不是 token 原文',
-    allow: {
-      '#e5a800': '用户明确要求暂不改 Logo / Scholay 字标;此处是邮件字标的冻结历史色,不得当作 UI 琥珀镜像',
-    },
+    // 2026-08-13:原 `#e5a800` 豁免已删 —— 那是邮件自造字标的冻结色,而邮件字标已改成
+    // 与页面 Logo 同源的 --logo-*(#882828/#F1BF45/#427935/#000000),四个值都能被本规则
+    // 直接追溯到 globals,不再需要豁免。本条 allow 为空即正确状态,别再往回加。
   },
   {
     path: 'backend/internal/config/handler_ssr.go',

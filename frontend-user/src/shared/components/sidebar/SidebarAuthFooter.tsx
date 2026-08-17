@@ -12,6 +12,7 @@ import { SidebarUser } from './SidebarUser';
  *     下拉(与顶栏 user pill 弹出内容完全一致,对照 .pen `g1qah`)
  *   - 未登录:渲染 "登录 / 注册" 两个按钮(同样的 h-14 + 顶 border,
  *     不会撑变 sidebar 高度)
+ * 收起由 SidebarLayout 裁到 0 宽,本条保持完整以免动画期跳成窄轨。
  *
  * 用法:任意 sidebar 在最下面 `<SidebarAuthFooter />` 即可,无 props。
  */

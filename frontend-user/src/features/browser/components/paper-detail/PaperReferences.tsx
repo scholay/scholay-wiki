@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { AlertCircle, ChevronDown, Inbox, Loader2 } from 'lucide-react';
 import { CitationProse } from '@/shared/components/CitationProse';
 import { generateCitation } from '@/shared/lib/citation';
-import { isModifiedClick, paperPath, useOpenPaperInBrowser } from '@/shared/hooks';
+import { useOpenPaperDetail } from '@/shared/hooks';
 import type { Paper } from '@/shared/api/types';
 // 跨 feature import —— browser ⇄ library 设计交叉,详见 PaperDetailPane 顶部注释
 import {
@@ -37,13 +36,13 @@ export function PaperReferences({ paper }: { paper: Paper }) {
   return (
     <section className="mt-16 space-y-4">
       <div className="space-y-1.5">
-        <div className="text-12 font-medium uppercase text-faint">
+        <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
           REFERENCES
         </div>
-        <h2 className="font-display font-bold text-24 text-foreground">
+        <h2 className="font-display font-bold text-2xl text-foreground">
           参考文献
           {totalLabel && (
-            <span className="ml-2 text-14 font-normal text-faint">
+            <span className="ml-2 text-base font-normal text-faint">
               · {totalLabel}
             </span>
           )}
@@ -62,7 +61,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
       )}
 
       {hasReferences && refsQ.error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-12">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-md bg-danger-soft text-brand-red text-xs">
           <AlertCircle className="size-3.5" />
           参考文献暂时没能加载出来,请稍后再试
         </div>
@@ -88,7 +87,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
             <button
               type="button"
               onClick={() => setVisible((v) => v + STEP)}
-              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-8 border border-border py-2.5 text-12 text-muted-foreground transition-colors hover:bg-surface-1 active:bg-surface-2"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-2.5 text-sm text-muted-foreground transition-colors hover:bg-surface-1 active:bg-surface-2"
             >
               <ChevronDown className="size-4" />
               显示更多({refs.length - visible} 篇)
@@ -102,10 +101,10 @@ export function PaperReferences({ paper }: { paper: Paper }) {
 
 function ReferencesEmpty({ reason }: { reason: string }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-10 rounded-16 bg-surface-1 border border-dashed border-border text-center">
+    <div className="flex flex-col items-center justify-center px-4 py-10 rounded-md bg-surface-1 border border-dashed border-border text-center">
       <Inbox className="size-6 text-faint mb-2" strokeWidth={1.5} />
-      <p className="text-12 font-medium text-subtle">还没有参考文献</p>
-      <p className="mt-1 text-12 text-muted-foreground">{reason}</p>
+      <p className="text-sm font-bold text-subtle">还没有参考文献</p>
+      <p className="mt-1 text-xs text-muted-foreground">{reason}</p>
     </div>
   );
 }
@@ -120,50 +119,46 @@ function ReferenceItem({
   // 走共享 citation generator 生成 APA-style prose,标题/期刊会自动 italic
   const cite = useMemo(() => generateCitation({ ...r }, 'apa'), [r]);
 
-  const openPaper = useOpenPaperInBrowser();
+  const openPaper = useOpenPaperDetail();
 
-  // 优先内嵌打开:有 paperId → 站内 <Link> 跳论文详情(浏览器内新开 tab)
+  // 优先内嵌打开:有 paperId → 搜索页右栏 / 浏览器内新开 tab
   // 兜底外链:仅有 r.url → target=_blank 跳出去
   // 都没 → 纯文本
-  const inAppPaper: Paper | null = r.paperId
-    ? {
-        paperId: r.paperId,
-        title: r.title,
-        year: r.year,
-        venue: r.venue,
-        authors: r.authors,
-        url: r.url,
-        // 从 paperId 前缀推 source —— normalizeID 约定:olx: / pmd: / 无前缀=stc
-        source: r.paperId.startsWith('olx:')
-          ? 'olx'
-          : r.paperId.startsWith('pmd:')
-            ? 'pmd'
-            : 'stc',
-      }
-    : null;
+  const handleOpenInApp = () => {
+    if (!r.paperId) return;
+    openPaper({
+      paperId: r.paperId,
+      title: r.title,
+      year: r.year,
+      venue: r.venue,
+      authors: r.authors,
+      url: r.url,
+      // 从 paperId 前缀推 source —— normalizeID 约定:olx: / pmd: / 无前缀=stc
+      source: r.paperId.startsWith('olx:')
+        ? 'olx'
+        : r.paperId.startsWith('pmd:')
+          ? 'pmd'
+          : 'stc',
+    });
+  };
 
   return (
-    <li className="flex gap-3.5 text-14 leading-paragraph text-subtle">
-      <span className="shrink-0 w-8 font-medium text-faint tabular-nums">
+    <li className="flex gap-3.5 text-base leading-[1.7] text-subtle">
+      <span className="shrink-0 w-8 font-bold text-faint tabular-nums">
         [{index}]
       </span>
       <span className="flex-1 min-w-0">
-        {inAppPaper ? (
-          // 真实 <a href> 是 SEO 硬约束:水合后的 DOM 必须保留站内内链,
-          // 引用列表是论文详情之间最密的内链网。ctrl/cmd+click 开新标签正是
-          // 真锚点的**正确行为**(修饰键守卫直接让给浏览器);平点仍是 <Link>
-          // 的 SPA 导航,onClick 只做副作用(store 写 tab + 热点上报)。
-          <Link
-            to={paperPath(inAppPaper)}
-            onClick={(e) => {
-              if (isModifiedClick(e)) return;
-              openPaper.prepare(inAppPaper);
-            }}
+        {r.paperId ? (
+          // 用 button 而不是 <a>:避免浏览器 ctrl+click 走外链导致语义混乱;
+          // 用户期望"点引用 = 在站内看详情",和详情页其他论文跳转一致
+          <button
+            type="button"
+            onClick={handleOpenInApp}
             className="text-left hover:text-foreground hover:underline transition-colors"
             title="在站内打开该论文详情"
           >
             <CitationProse text={cite} />
-          </Link>
+          </button>
         ) : r.url ? (
           <a
             href={r.url}

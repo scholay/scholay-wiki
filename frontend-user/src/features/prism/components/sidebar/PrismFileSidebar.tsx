@@ -19,13 +19,10 @@ import {
 import { Input } from '@/shared/ui/input';
 import {
   Sidebar,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
   SidebarContent,
   SidebarItem,
   SidebarSection,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 import { toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
 import { useDeleteFile, useRenameFile, type PrismFile } from '../../api/prism';
@@ -66,7 +63,6 @@ export function PrismFileSidebar({
   onBack: () => void;
   onOutlineClick: (line: number) => void;
 }) {
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const rename = useRenameFile(projectId);
   const del = useDeleteFile(projectId);
   const [renamingId, setRenamingId] = useState<number | null>(null);
@@ -85,14 +81,13 @@ export function PrismFileSidebar({
 
   return (
     <Sidebar>
-      {/* 顶部菜单导航与其它菜单页一致(不塞额外按钮);返回项目列表放到下面的标题面包屑。 */}
       <SidebarContent>
         {/* 项目标题行兼作「‹ 返回项目列表」面包屑 */}
         <button
           type="button"
           onClick={onBack}
           title="返回项目列表"
-          className="group flex w-full items-center gap-1 px-3 pb-1 pt-3 text-left text-14 font-medium text-foreground"
+          className="group flex w-full items-center gap-1 px-3 pb-1 pt-3 text-left text-xs font-bold text-foreground"
         >
           <ChevronLeft className="size-3.5 shrink-0 text-faint transition-colors group-hover:text-brand-red" />
           <span className="truncate group-hover:text-brand-red">{projectTitle || '未命名项目'}</span>
@@ -132,8 +127,6 @@ export function PrismFileSidebar({
           </SidebarSection>
         )}
       </SidebarContent>
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
       <DeleteFileDialog
         target={deleteTarget}
         pending={del.isPending}
@@ -190,7 +183,7 @@ function FileRow({
             if (e.key === 'Escape') onCancelRename();
           }}
           onBlur={(e) => onSubmitRename(e.target.value)}
-          className="h-7 text-12"
+          className="h-7 text-xs"
         />
       </div>
     );
@@ -203,9 +196,9 @@ function FileRow({
         onClick={onSelect}
         disabled={disabled}
         className={cn(
-          'flex h-8 min-w-0 flex-1 items-center gap-1.5 text-left text-12 transition-colors',
+          'flex h-8 min-w-0 flex-1 items-center gap-1.5 text-left text-sm transition-colors',
           active
-            ? '-ml-px border-l-[3px] border-l-foreground pl-[13px] font-medium text-foreground'
+            ? '-ml-px border-l-[3px] border-l-foreground pl-[13px] font-semibold text-foreground'
             : 'pl-4 text-subtle'
         )}
       >
@@ -217,7 +210,7 @@ function FileRow({
           <button
             type="button"
             disabled={disabled}
-            className="mr-1.5 inline-flex size-6 items-center justify-center rounded-4 text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100 disabled:hidden"
+            className="mr-1.5 inline-flex size-6 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100 disabled:hidden"
             aria-label="更多操作"
           >
             <MoreVertical className="size-3.5" />

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { authorPath, isModifiedClick, useOpenAuthorInBrowser } from '@/shared/hooks';
+import { useOpenAuthorDetail } from '@/shared/hooks';
 import type { TranslatePaperResult } from '@/shared/api/translate';
 import type { Paper, UserLibraryPaper } from '@/shared/api/types';
 import { PaperMetadataBlock } from './PaperMetadataBlock';
@@ -44,10 +43,9 @@ export function PaperHeader({
   }, [paper]);
 
   // 作者:最多展示 12 个,超出 "… (N 位作者)"。
-  // 有 authorId 的渲染成真实 <Link href>(SEO 硬约束:水合后的 DOM 必须保留内链),
-  // 没 id 的纯文本不可点,与 MetaLine 里的搜索结果卡保持一致。
-  // 自由文件(source='local')无上游 → 不可点。
-  const openAuthor = useOpenAuthorInBrowser();
+  // 有 authorId 的渲染成 button(可点跳学者详情),没 id 的纯文本不可点,
+  // 与 MetaLine 里的搜索结果卡保持一致。自由文件(source='local')无上游 → 不可点。
+  const openAuthor = useOpenAuthorDetail();
   const authors = paper.authors ?? [];
   const visibleAuthors = useMemo(
     () =>
@@ -61,24 +59,15 @@ export function PaperHeader({
   );
   const overflowCount = authors.length - visibleAuthors.length;
   const isLocal = paper.source === 'local';
-  // isLocal 已守门:这里 paper.source 必然是 UpstreamSource('stc' | 'olx' | 'pmd')
-  // 之一,但 TS 不能从局部变量 isLocal 反推 paper.source 类型,所以再判一次
-  const authorSource = paper.source === 'local' ? undefined : paper.source;
-  const authorTo = (a: (typeof authors)[number]): string | null =>
-    isLocal ? null : authorPath({ authorId: a.authorId, source: authorSource });
-  // <Link> 的 onClick 只做副作用(store 写 tab),导航由 <Link> 自己完成;
-  // 修饰键点击(新标签)不写 store,由新标签自己 fallback fetch
-  const handleClickAuthor = (
-    a: (typeof authors)[number],
-    e: React.MouseEvent
-  ) => {
-    if (isModifiedClick(e)) return;
+  const handleClickAuthor = (a: (typeof authors)[number]) => {
     if (!a.authorId || isLocal) return;
-    openAuthor.prepare({
+    openAuthor({
       authorId: a.authorId,
       name: a.name ?? '',
       affiliations: a.affiliations,
-      source: authorSource,
+      // isLocal 已守门:这里 paper.source 必然是 UpstreamSource('stc' | 'olx' | 'pmd')
+      // 之一,但 TS 不能从局部变量 isLocal 反推 paper.source 类型,所以再判一次
+      source: paper.source === 'local' ? undefined : paper.source,
     });
   };
 
@@ -95,20 +84,17 @@ export function PaperHeader({
 
   return (
     <header className="space-y-5 sm:space-y-8">
-      {/* metaRow —— uppercase 段标。注释原写「letter-spaced 10px #888」,是 .pen 时代的
-          遗留口径:10px 不在 Figma 六档内、tracking 已按 Figma §2.5 全站删除、#888 已退休。
-          现行实现 = text-12 + text-faint,无 tracking。 */}
+      {/* metaRow —— uppercase letter-spaced 10px #888 */}
       {meta && (
-        <div className="text-12 font-medium uppercase text-faint">
+        <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
           {meta}
         </div>
       )}
 
-      {/* Title —— 详情页 h1。当前 dev.pen 的正式阶梯包含 28/32px,
-          与 AuthorHero / JournalDetailPane / HelpLayout 的详情页标题统一。
-          移动端保持 28px,桌面升到 32px。
+      {/* Title —— Playfair 42(.pen `J6zGLj`),token 表最大 24,arbitrary 必要。
+          移动端收到 text-3xl,避免 42px 在 ~390px 屏一行没几个字、占满整屏;桌面恢复 42px。
           展示用 displayedTitle,翻译切换时这里跟着变 */}
-      <h1 className="font-display font-bold leading-display-tight sm:leading-display-tight text-28 sm:text-32 text-foreground">
+      <h1 className="font-display font-bold leading-[1.2] sm:leading-[1.18] text-3xl sm:text-[42px] text-foreground tracking-tight">
         {displayedTitle}
       </h1>
 
@@ -116,27 +102,24 @@ export function PaperHeader({
       {(visibleAuthors.length > 0 || affiliations.length > 0) && (
         <div className="space-y-1.5">
           {visibleAuthors.length > 0 && (
-            <p className="text-14 leading-paragraph text-subtle">
-              {visibleAuthors.map((a, i) => {
-                const to = authorTo(a);
-                return (
-                  <span key={a.authorId ?? `${i}-${a.name}`}>
-                    {i > 0 && <span className="text-faint">, </span>}
-                    {to ? (
-                      <Link
-                        to={to}
-                        onClick={(e) => handleClickAuthor(a, e)}
-                        title={`查看学者详情:${a.name}`}
-                        className="underline decoration-dotted decoration-faint underline-offset-2 hover:text-brand-red hover:decoration-brand-red transition-colors"
-                      >
-                        {a.name}
-                      </Link>
-                    ) : (
-                      <span>{a.name}</span>
-                    )}
-                  </span>
-                );
-              })}
+            <p className="text-md leading-relaxed text-subtle">
+              {visibleAuthors.map((a, i) => (
+                <span key={a.authorId ?? `${i}-${a.name}`}>
+                  {i > 0 && <span className="text-faint">, </span>}
+                  {a.authorId && !isLocal ? (
+                    <button
+                      type="button"
+                      onClick={() => handleClickAuthor(a)}
+                      title={`查看学者详情:${a.name}`}
+                      className="underline decoration-dotted decoration-faint underline-offset-2 hover:text-brand-red hover:decoration-brand-red transition-colors"
+                    >
+                      {a.name}
+                    </button>
+                  ) : (
+                    <span>{a.name}</span>
+                  )}
+                </span>
+              ))}
               {overflowCount > 0 && (
                 <span className="text-faint">
                   {' '}
@@ -146,7 +129,7 @@ export function PaperHeader({
             </p>
           )}
           {affiliations.length > 0 && (
-            <p className="text-12 leading-paragraph text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               {affiliations.join('   ')}
             </p>
           )}
@@ -154,7 +137,7 @@ export function PaperHeader({
       )}
 
       {/* 元数据条 —— DOI / 发表日期 / 引用 / 参考 / OA / 学科 / 上游链接 */}
-      <PaperMetadataBlock paper={paper} />
+      <PaperMetadataBlock paper={paper} libRow={libRow} />
 
       {/* action 行 + 分隔 */}
       <PaperActionRow

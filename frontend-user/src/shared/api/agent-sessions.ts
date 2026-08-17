@@ -20,6 +20,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { stashFirstConnectTicket } from '@/shared/lib/agent-first-ticket';
 import { useAuthStore } from '@/stores/auth.store';
 
 /** 单条 session 元数据 —— 跟 backend agentbridge.SessionListItem 对齐。 */
@@ -38,6 +39,9 @@ export interface AgentSessionItem {
 
 export interface AgentSessionEnvelope {
   sessionId: string;
+  /** 后端顺带附的首连 ws ticket(agentbridge.SessionEnvelopeWithTicket,best-effort 可缺省)。 */
+  wsToken?: string;
+  expiresInSeconds?: number;
 }
 
 interface ListSessionsResponse {
@@ -138,6 +142,8 @@ export function makeAgentSessionApi({ feature, basePath }: AgentSessionApiConfig
           >(`${basePath}/sessions`, {});
           const payload = unwrap<AgentSessionEnvelope>(data);
           if (!payload?.sessionId) throw new Error('后端未返回 sessionId');
+          // 建新会话后前端立刻连它的 WS —— 首连票入栈,socket 的 fetchTicket 出栈即省一跳 POST。
+          stashFirstConnectTicket(basePath, payload);
           return payload;
         } catch (err) {
           throw toApiError(err);
@@ -186,7 +192,11 @@ export function makeAgentSessionApi({ feature, basePath }: AgentSessionApiConfig
     return useMutation<void, Error, string>({
       mutationFn: async (sessionId) => {
         try {
-          await http.post(`${basePath}/sessions/${sessionId}/activate`, {});
+          const { data } = await http.post<
+            { data?: AgentSessionEnvelope } & Partial<AgentSessionEnvelope>
+          >(`${basePath}/sessions/${sessionId}/activate`, {});
+          // 切会话 → sessionId 变化 → WS 重连:响应里的首连票入栈,重连省一跳 POST。
+          stashFirstConnectTicket(basePath, unwrap<AgentSessionEnvelope>(data));
         } catch (err) {
           throw toApiError(err);
         }

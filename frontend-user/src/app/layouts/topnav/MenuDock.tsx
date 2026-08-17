@@ -552,9 +552,8 @@ function DockItem({
         // 不在 duration 四档 token 上
         'transition-colors duration-fast',
         active
-          // 玄墨实底用 on-dark 而非纯白 —— 与紧邻的首页/浏览器按钮(MenuCarousel)
-          // 必须是同一种白,否则同一条顶栏上并排出现两种白
-          ? 'bg-foreground text-on-dark'
+          // 反相实底随主题对翻,字色走 on-inverse,避免夜间浅底浅字
+          ? 'bg-inverse text-on-inverse'
           : 'text-subtle hover:bg-surface-2 hover:text-foreground'
       )}
     >

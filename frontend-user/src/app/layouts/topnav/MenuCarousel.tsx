@@ -1,114 +1,215 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Globe, Home, LayoutGrid } from 'lucide-react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type TransitionEvent,
+} from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Home } from 'lucide-react';
+import { MENUS, findActiveMenuIndex, type Menu } from '@/app/menus';
 import { IconButton } from '@/shared/components/IconButton';
 import { cn } from '@/shared/lib/utils';
-import { browserTabUrl, useBrowserTabs } from '@/stores/browser-tabs.store';
-import { AllMenusOverlay } from './AllMenusOverlay';
-import { MenuDock } from './MenuDock';
 
 /**
- * 顶栏中段 —— 固定入口 + 功能坞。
+ * 顶栏中段菜单 carousel —— 左右箭头步进 + active 居中:
  *
- *   [浏览器?] [首页] │ ← MenuDock(scrub 平移 / 光标放大) → │ [全站功能]
+ *   [Home] | ← [viewport: active 居中,左右邻近 menu] →
  *
- * ── 演进:carousel → Dock(2026-07)→ scrub(2026-07-29)──────────
- * 最早是「离散换页 carousel」(跳隔 4 个的菜单要点 4 次);后改 macOS Dock 式
- * 「光标靠边连续滚」,但速度型控制没有平衡点,「看到了刹不住、点不中」,
- * 四轮调参无解;现改为位置映射 scrub:光标横移直接平移内容,光标静止内容
- * 就静止,悬停项放大保留。具体实现与取舍见 MenuDock.tsx 的注释。
- *
- * 数据流不变:URL 仍是唯一真理,点击只 navigate,不自己存选中态。
+ * URL 是唯一真理:click → navigate → pathname → activeIndex → 滑动同步。
+ * 3 拷贝无缝循环,wrap 后 silent snap 回 main 段。
  */
 export function MenuCarousel() {
   const navigate = useNavigate();
   const location = useLocation();
+  const N = MENUS.length;
 
-  const onHome = location.pathname === '/';
-  // detail pane 路由(2026-05 由 /browser/* 改为 SEO 友好 canonical)
-  const isInDetailPane = /^\/(paper|author|journal|pdf)\//.test(location.pathname);
+  const activeIndex = useMemo(
+    () => findActiveMenuIndex(location.pathname),
+    [location.pathname],
+  );
 
-  // 浏览器入口 —— 论文/期刊/学者/PDF 详情承载页。
-  // 没有打开过任何详情 tab 时整个按钮**不渲染**(不是 disabled),
-  // 避免出现一颗"无意义的灰按钮"占位污染顶栏。有 tab 才显出来,点击进活跃 tab。
-  const browserTabs = useBrowserTabs((s) => s.tabs);
-  const browserActiveId = useBrowserTabs((s) => s.activeTabId);
-  const refreshReturnTo = useBrowserTabs((s) => s.refreshReturnTo);
-  const hasBrowserTabs = browserTabs.length > 0;
-  const goBrowser = () => {
-    const target = browserTabs.find((t) => t.id === browserActiveId) ?? browserTabs[0];
-    if (!target) return;
-    // 关键:从顶栏 Globe 按钮跳浏览器,要把当前路径作为新的 returnTo —— 否则
-    // tab 内的"返回"会跳回当初创建该 tab 的来源(可能是好几次操作前的页面),
-    // 用户预期是"刚才从哪个页面点过来的就回那里"。已经在 detail pane 里就不动
-    // (避免内部跳 tab 互相串改 returnTo)。
-    if (!isInDetailPane) {
-      refreshReturnTo(target.id, `${location.pathname}${location.search}`);
-    }
-    navigate(browserTabUrl(target));
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  const [trackIndex, setTrackIndex] = useState(N + activeIndex);
+  const [trackX, setTrackX] = useState(0);
+  const [animating, setAnimating] = useState(true);
+
+  useEffect(() => {
+    setTrackIndex((curr) => {
+      const currMenuIdx = ((curr % N) + N) % N;
+      if (currMenuIdx === activeIndex) return curr;
+      const forward = (activeIndex - currMenuIdx + N) % N;
+      const backward = (currMenuIdx - activeIndex + N) % N;
+      const signedDelta = forward <= backward ? forward : -backward;
+      setAnimating(true);
+      return curr + signedDelta;
+    });
+  }, [activeIndex, N]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const item = itemRefs.current[trackIndex];
+    if (!viewport || !item) return;
+    const vr = viewport.getBoundingClientRect();
+    const ir = item.getBoundingClientRect();
+    const delta = vr.left + vr.width / 2 - (ir.left + ir.width / 2);
+    setTrackX((prev) => prev + delta);
+  }, [trackIndex]);
+
+  useEffect(() => {
+    const onResize = () => {
+      const viewport = viewportRef.current;
+      const item = itemRefs.current[trackIndex];
+      if (!viewport || !item) return;
+      const vr = viewport.getBoundingClientRect();
+      const ir = item.getBoundingClientRect();
+      const delta = vr.left + vr.width / 2 - (ir.left + ir.width / 2);
+      setTrackX((prev) => prev + delta);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [trackIndex]);
+
+  const handleTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
+    if (e.propertyName !== 'transform') return;
+    if (trackIndex >= N && trackIndex < 2 * N) return;
+    const inMain = N + (((trackIndex % N) + N) % N);
+    if (inMain === trackIndex) return;
+    setAnimating(false);
+    setTrackIndex(inMain);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setAnimating(true));
+    });
   };
 
-  return (
-    <div className="flex items-center gap-1.5 justify-center w-full">
-      {/* 浏览器入口 —— 放在首页(小房子)左边。没有 tab 时整颗按钮直接 unmount。 */}
-      {hasBrowserTabs && (
-        <IconButton
-          tooltip="浏览器"
-          aria-label="浏览器"
-          className={cn(
-            'rounded-8',
-            isInDetailPane
-              ? // active 态与首页按钮一致:固定黑底白字
-                'bg-foreground text-on-dark cursor-default hover:bg-foreground hover:text-on-dark'
-              : 'bg-surface-2'
-          )}
-          onClick={goBrowser}
-        >
-          <Globe strokeWidth={2} />
-        </IconButton>
-      )}
+  const goPrev = () => {
+    const next = (activeIndex - 1 + N) % N;
+    navigate(MENUS[next].href);
+  };
+  const goNext = () => {
+    const next = (activeIndex + 1) % N;
+    navigate(MENUS[next].href);
+  };
 
-      {/* 首页是路由型入口 → 真实 <Link href>(SEO 硬约束);
-          Globe(浏览器)按钮是会话态 URL + returnTo store 写,保持 button。 */}
+  const tripled = useMemo(() => [...MENUS, ...MENUS, ...MENUS], []);
+  const onHome = location.pathname === '/';
+
+  return (
+    <div className="flex w-full items-center justify-center gap-1.5">
       <IconButton
-        asChild
         tooltip="首页"
         aria-label="首页"
         className={cn(
-          'rounded-8',
+          'rounded-lg',
           onHome
-            ? // 选中态:固定黑底白字,显式同色 hover 抵消 IconButton 内置的
-              // hover:bg-surface-2 / hover:text-foreground —— 否则 hover 会
-              // 把按钮"变浅"看着像取消选中
-              'bg-foreground text-on-dark cursor-default hover:bg-foreground hover:text-on-dark'
-            : 'bg-surface-2'
+            ? 'cursor-default bg-foreground text-background hover:bg-foreground hover:text-background'
+            : 'bg-surface-2',
         )}
+        onClick={() => navigate('/')}
       >
-        <Link to="/">
-          <Home strokeWidth={2} />
-        </Link>
+        <Home strokeWidth={2} />
       </IconButton>
 
       <Separator />
 
-      <MenuDock />
+      <button
+        type="button"
+        aria-label="上一个菜单"
+        onClick={goPrev}
+        className="inline-flex size-5 shrink-0 cursor-pointer items-center justify-center text-faint transition-colors hover:text-foreground"
+      >
+        <ChevronLeft className="size-4" />
+      </button>
 
-      <Separator />
+      <div
+        ref={viewportRef}
+        className="w-[260px] overflow-hidden lg:w-[420px]"
+        aria-roledescription="carousel"
+      >
+        <div
+          className={cn(
+            'flex h-9 items-center gap-1 will-change-transform',
+            animating && 'transition-transform duration-300 ease-out',
+          )}
+          style={{ transform: `translate3d(${trackX}px, 0, 0)` }}
+          onTransitionEnd={handleTransitionEnd}
+        >
+          {tripled.map((menu, i) => {
+            const isCentered = i === trackIndex;
+            const isActive = isCentered && menu.match(location.pathname);
+            return (
+              <div
+                key={`${menu.id}-${i}`}
+                ref={(el) => {
+                  itemRefs.current[i] = el;
+                }}
+                className="shrink-0 px-1"
+              >
+                <MenuChip
+                  menu={menu}
+                  active={isActive}
+                  onClick={() => {
+                    if (!menu.match(location.pathname)) navigate(menu.href);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-      <AllMenusOverlay
-        trigger={
-          // 不挂 tooltip —— hover 即弹浮层,再叠 tooltip 会"两层提示打架"
-          <IconButton aria-label="全站功能" className="rounded-8 bg-surface-2">
-            <LayoutGrid strokeWidth={2} />
-          </IconButton>
-        }
-      />
+      <button
+        type="button"
+        aria-label="下一个菜单"
+        onClick={goNext}
+        className="inline-flex size-5 shrink-0 cursor-pointer items-center justify-center text-faint transition-colors hover:text-foreground"
+      >
+        <ChevronRight className="size-4" />
+      </button>
     </div>
   );
 }
 
+function MenuChip({
+  menu,
+  active,
+  onClick,
+}: {
+  menu: Menu;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap transition-all duration-300 ease-out',
+        active
+          ? 'h-9 rounded-lg bg-foreground px-4 text-sm font-medium text-background'
+          : 'h-7 rounded-lg px-2.5 text-xs text-faint hover:bg-surface-1 hover:text-foreground',
+      )}
+    >
+      <menu.icon className="size-3.5" />
+      <span>{menu.label}</span>
+      {menu.comingSoon && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'inline-flex shrink-0 items-center rounded-pill bg-brand-amber px-1 text-[9px] font-medium leading-none whitespace-nowrap text-background',
+            active ? 'h-4' : 'h-3.5',
+          )}
+        >
+          即将推出
+        </span>
+      )}
+    </button>
+  );
+}
+
 function Separator() {
-  // `bg-divider` 是这条竖线的正名 —— globals.css 的 `--divider` 条目原文就是
-  // 「Nav/Toolbar 内组间竖线(h-5 w-px)」。原先写的 `bg-border-separator` 是
-  // 过渡兼容层的旧色名(指向同一个 --divider,零像素变化),按 CLAUDE.md §5 收口到新名。
-  return <span aria-hidden className="h-5 w-px bg-divider shrink-0" />;
+  return <span aria-hidden className="h-5 w-px shrink-0 bg-border-separator" />;
 }

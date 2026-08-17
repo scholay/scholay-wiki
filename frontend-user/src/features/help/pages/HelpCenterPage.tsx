@@ -103,7 +103,7 @@ function QACard({ article }: { article: ArticleCardData }) {
   return (
     <Link
       to={`/qa/${article.slug}`}
-      className="group flex flex-col gap-2 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
+      className="group flex flex-col gap-2 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-colors"
     >
       <p className="text-14 font-medium text-foreground line-clamp-2">{article.title}</p>
       <p className="text-12 text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>

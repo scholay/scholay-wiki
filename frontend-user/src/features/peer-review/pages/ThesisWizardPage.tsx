@@ -15,7 +15,6 @@ import { RightRailPanel } from '../components/wizard/RightRailPanel';
 import { Step4Rail } from '../components/wizard/Step4Rail';
 import { SubmitQuotaHint } from '../components/wizard/SubmitQuotaHint';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
-import { http } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
 import {
   isQuotaHandled,
@@ -29,12 +28,12 @@ import {
   useSubmissionAssets,
   useSubmitSubmission,
   useUploadAsset,
+  uploadSubmissionAsset,
   type UploadAssetParams,
   type SubmissionPatch,
 } from '../api/submissions';
-import { unwrap } from '../api/_unwrap';
 import { extractPartialMeta, useStreamingPartial } from '../api/stream';
-import type { ExtraMeta, SchoolTarget, SubmissionAsset, WizardStep } from '@/shared/lib/peer-review/types';
+import type { ExtraMeta, SchoolTarget, WizardStep } from '@/shared/lib/peer-review/types';
 
 const SUBKEY = (...rest: (string | number)[]) =>
   ['peer-review', 'submissions', ...rest] as const;
@@ -52,7 +51,8 @@ const TIPS: Record<WizardStep, { title: string; bullets: string[] }> = {
     bullets: [
       '点击下一步,AI 会自动识别标题、摘要、关键词',
       '附件可以放实验数据、评审表、已发论文等',
-      '稿件 ≤ 200 MB · 附件最多 10 个 · 单个附件 ≤ 200 MB',
+      // 与 UploadStep 的 MAIN_MAX/ATT_MAX(后端 MaxManuscriptBytes/MaxAttachmentBytes)保持一致
+      '稿件 ≤ 50 MB · 附件最多 10 个 · 单个附件 ≤ 30 MB',
     ],
   },
   2: {
@@ -108,8 +108,10 @@ export function ThesisWizardPage() {
   const { data: latestDraft, isLoading: latestLoading } = useLatestDraft('thesis');
   useEffect(() => {
     if (!id && latestDraft) {
+      // 侧栏 / Hub 进第一屏永远落 Step 1(居中上传)。未完成草稿只带回 id,
+      // 不跳到上次离开的步;「继续投稿」带 ?id 的链接仍由下面 effect 恢复进度。
       setParams(
-        { id: String(latestDraft.id), step: String(latestDraft.step) },
+        { id: String(latestDraft.id), step: '1' },
         { replace: true }
       );
     }
@@ -130,25 +132,19 @@ export function ThesisWizardPage() {
   }, [shouldLeaveAsNonDraft, submission?.id]);
 
   // Lazy 上传 — 首次上传时 create draft 再 upload。
+  const [lazyProgress, setLazyProgress] = useState<number | null>(null);
   const lazyUploadMut = useMutation({
     mutationFn: async (params: UploadAssetParams) => {
       const draft = await createMut.mutateAsync('thesis');
-      const fd = new FormData();
-      fd.append('file', params.file);
-      fd.append('role', params.role);
-      if (params.category) fd.append('category', params.category);
-      const r = await http.post<{ data?: SubmissionAsset } & Partial<SubmissionAsset>>(
-        `/user/peer-review/submissions/${draft.id}/assets`,
-        fd,
-        { headers: { 'Content-Type' : 'multipart/form-data' } }
-      );
-      const asset = unwrap<SubmissionAsset>(r.data);
+      setLazyProgress(0);
+      const asset = await uploadSubmissionAsset(draft.id, params, setLazyProgress);
       qc.invalidateQueries({ queryKey: SUBKEY('detail', draft.id) });
       qc.invalidateQueries({ queryKey: SUBKEY('assets', draft.id) });
       qc.invalidateQueries({ queryKey: SUBKEY('latest-draft', 'thesis') });
       setParams({ id: String(draft.id), step: '1' }, { replace: true });
       return asset;
     },
+    onSettled: () => setLazyProgress(null),
     onError: (e) => toast.error(`上传失败:${(e as Error).message}`),
   });
 
@@ -256,6 +252,7 @@ export function ThesisWizardPage() {
     return (
       <EmptyThesisWizard
         uploadPending={lazyUploadMut.isPending || createMut.isPending}
+        uploadProgress={lazyProgress}
         onUpload={(p) => lazyUploadMut.mutate(p)}
       />
     );
@@ -412,6 +409,7 @@ export function ThesisWizardPage() {
         <UploadStep
           assets={assets}
           uploadPending={uploadMut.isPending}
+          uploadProgress={uploadMut.uploadProgress}
           onUpload={(p) => uploadMut.mutate(p)}
           deletePending={deleteAssetMut.isPending}
           onDelete={(aid) =>
@@ -564,9 +562,11 @@ function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void 
  */
 function EmptyThesisWizard({
   uploadPending,
+  uploadProgress,
   onUpload,
 }: {
   uploadPending: boolean;
+  uploadProgress?: number | null;
   onUpload: (p: UploadAssetParams) => void;
 }) {
   return (
@@ -579,6 +579,7 @@ function EmptyThesisWizard({
       <UploadStep
         assets={[]}
         uploadPending={uploadPending}
+        uploadProgress={uploadProgress}
         onUpload={onUpload}
         deletePending={false}
         onDelete={() => {}}

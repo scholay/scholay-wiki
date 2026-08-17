@@ -15,9 +15,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/agent"
@@ -67,12 +69,20 @@ import (
 	"scholar-backend/internal/wechat"
 )
 
-// domainFromSiteURL 从 https://www.scholay.com → www.scholay.com,给 umami
-// auto-create website 时填 domain 字段。失败回落 localhost(纯本地起服不影响)。
+// domainFromSiteURL 从 https://www.example.com → www.example.com,给 umami
+// auto-create website 时填 domain 字段。
+//
+// 回落链:SITE_URL → CanonicalBaseURL()(= SEO_BASE_URL,compose 里两者同源)
+// → "localhost"。**刻意不回落任何真实域名** —— 这个值决定 umami 里自动建出来的
+// website 叫什么、统计归到哪个 domain 名下,回落成生产域名会让一个全新环境的
+// 统计面板看起来就是生产站,两套环境的数据在人眼里再也分不开。
 func domainFromSiteURL() string {
 	raw := os.Getenv("SITE_URL")
 	if raw == "" {
-		raw = "https://www.scholay.com"
+		if h := appconfig.CanonicalHost(); h != "" {
+			return h
+		}
+		return "localhost"
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
@@ -81,12 +91,10 @@ func domainFromSiteURL() string {
 	return u.Host
 }
 
-// siteName 从 SITE_NAME env 拿,缺省 Scholay。
+// siteName 从 SITE_NAME env 拿。缺省返回空串,由调用方决定怎么降级 ——
+// 不再兜底成品牌名,理由同 domainFromSiteURL:漏配时不该冒充别的站点。
 func siteName() string {
-	if v := os.Getenv("SITE_NAME"); v != "" {
-		return v
-	}
-	return "Scholay"
+	return strings.TrimSpace(os.Getenv("SITE_NAME"))
 }
 
 // newCrawlerAnalyticsClient 爬虫监控 website 的 umami 查询客户端。
@@ -109,6 +117,7 @@ type services struct {
 	seoService        *seo.Service
 	seoSubmitService  *seosubmit.Service
 	seoIngestService  *seoingest.Service // 期刊全量摄取(background.go 注册每日增量检查)
+	newsService       *news.Service      // 情报(background.go 启动封面缩略图回填)
 	wsHub             *websocket.Hub
 	// supportCenter 客服与联系中心(IMAP 收件轮询在 startBackgroundTasks 启动)
 	supportCenterService *supportcenter.Service
@@ -466,6 +475,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	aiB.minicodHandler.SetPaperSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetAuthorSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetJournalSEORecorder(plat.seoService)
+	// 期刊详情的本地回落读路径:上游 /v1/jnl/get 挂掉时用 seo_journals 顶上,
+	// 避免期刊页对真实用户整体白屏(2026-08-13 事故;见 minicod/journal_fallback.go)。
+	aiB.minicodHandler.SetJournalFallback(plat.seoService)
 
 	// 已登录用户的论文搜索结果由 library 标注 isFavorited(省一次 /user/library/check 往返)
 	aiB.minicodHandler.SetFavoriteChecker(libraryHandler)
@@ -653,6 +665,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// ---- 情报(学术新闻):上游 webhook 接收/落库 + 公开读 + admin 配置 ----
 	newsService := news.NewService(news.NewRepository(db))
 	newsHandler := news.NewHandler(newsService)
+	// 封面缩略图管线取 minicod 原图时优先经内部 nginx 的 /img-remote —— 同一次回源
+	// 顺带预热 30d proxy_cache(详情页大图受益)。容器外裸跑连不上 nginx 时自动回落直连。
+	nginxInternalURL := os.Getenv("NGINX_INTERNAL_URL")
+	if nginxInternalURL == "" {
+		nginxInternalURL = "http://nginx"
+	}
+	newsService.SetCoverProxyBase(nginxInternalURL)
 	// 情报详情/列表页 /news SSR 元数据(NewsArticle JSON-LD + 全文 noscript;功能关闭时 provider 返回 nil)
 	core.configHandler.SetNewsSEOProvider(newsService)
 	// 情报内容首发/更新 → 主动推送该 URL 入收录队列(freshness 闭环;队列未启用时 no-op)
@@ -750,6 +769,17 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	prism.SetTitleSink(prismService)            // agent 回传标题落库的反查入口(见 handleAgentTitle)
 	prism.SetProfileSink(prismService)          // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
 	prism.SetModelResolver(modelCatalogService) // planner 选择轮按 prism.planner 绑定取便宜模型(P1)
+	// 编译状态推送(2026-08-12):经全站常连的通知 WS 按 userID 下发 compile_status 帧,
+	// 前端收帧 setQueryData,把 1s 编译轮询降级为 5s 兜底。best-effort:序列化/发送失败静默,
+	// DB 是真源。用通知 WS 而非 prism 的 agent pipe:编译是 project 维度、pipe 是 session 维度,
+	// 一项目多对话会漏推(见 internal/prism/compile_notify.go)。
+	prism.SetCompileNotifier(func(userID uint, cm *prism.Compile) {
+		data, err := json.Marshal(cm)
+		if err != nil {
+			return
+		}
+		_ = plat.wsHub.SendToUser(userID, &websocket.Message{Type: websocket.MessageTypeCompileStatus, Data: data})
+	})
 	prismService.StartBackgroundGC()            // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
@@ -852,6 +882,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		seoService:           plat.seoService,
 		seoSubmitService:     plat.seoSubmitService,
 		seoIngestService:     seoIngestService,
+		newsService:          newsService,
 		wsHub:                plat.wsHub,
 		supportCenterService: supportCenterService,
 		agentBridge:          agentBridge,

@@ -2,8 +2,8 @@ import type { TokenBreakdownItem } from '../api/token-usage';
 import type { UsageEvent } from '../api/usage-stats';
 
 const FEATURE_LABELS: Record<string, string> = {
-  paper_search: '传统搜索',
-  smart_search: '智能搜索',
+  paper_search: '论文库搜索',
+  smart_search: '智能搜论文',
   journal_search: '期刊搜索',
   staging: '暂存',
   favorite: '收藏',

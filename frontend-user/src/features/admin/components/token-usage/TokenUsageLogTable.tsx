@@ -179,7 +179,7 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
                 className={cn(
                   'h-7 px-2.5 rounded-8 text-12 font-medium transition-colors',
                   sort === k
-                    ? 'bg-foreground text-on-dark'
+                    ? 'bg-inverse text-on-inverse'
                     : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
                 )}
               >

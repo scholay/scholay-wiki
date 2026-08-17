@@ -20,6 +20,10 @@ export interface QuotaOverview {
     credit_autopay: boolean;
   };
   reset_passes: number;
+  /** 最近一批恢复次数的到期时刻；无可用次数时为 null。 */
+  reset_pass_next_expiry?: string | null;
+  /** 分批余量 + 到期日(按失效日升序)。旧后端可能省略。 */
+  reset_pass_lots?: { count: number; expires_at: string }[];
 }
 
 /** 与设置页、推广资格查询共享同一份 query cache。 */

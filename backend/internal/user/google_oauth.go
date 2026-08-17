@@ -65,7 +65,8 @@ func (h *Handler) GetGoogleClientID(c *gin.Context) {
 
 // GoogleIDTokenLoginRequest represents the login request with Google ID token
 type GoogleIDTokenLoginRequest struct {
-	IDToken string `json:"id_token" binding:"required"`
+	IDToken        string `json:"id_token" binding:"required"`
+	InvitationCode string `json:"invitation_code"` // 邀请码（可选；业务侧暂 noop，保留 API 兼容）
 }
 
 // GoogleIDTokenLogin handles Google Sign-In via ID token verification
@@ -105,6 +106,7 @@ func (h *Handler) GoogleIDTokenLogin(c *gin.Context) {
 	}
 
 	// Find or create user (三态:登录 / 新建 / 需合并确认 —— 见 oauthOutcome)
+	_ = req.InvitationCode // 邀请业务已移除，参数保留以兼容前端传参
 	ip := c.ClientIP()
 	outcome, err := h.findOrCreateGoogleUser(c.Request.Context(), tokenInfo, ip)
 	if err != nil {

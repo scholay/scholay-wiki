@@ -10,7 +10,8 @@ import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
-import { InviteAuthNotice } from './InviteAuthNotice';
+import { OAuthConfirmPanel } from './OAuthConfirmPanel';
+import { PROVIDER_META } from './oauth-flow';
 
 /**
  * 移动端登录/注册 **底部弹窗**(MobileShell 挂一份,全局 useAuthDialog 驱动)。
@@ -24,10 +25,12 @@ export function MobileAuthSheet() {
   const open = useAuthDialog((s) => s.open);
   const mode = useAuthDialog((s) => s.mode);
   const initialAccountType = useAuthDialog((s) => s.initialAccountType);
+  const pendingOAuth = useAuthDialog((s) => s.pendingOAuth);
   const setMode = useAuthDialog((s) => s.setMode);
   const close = useAuthDialog((s) => s.close);
 
   const visible = open && mode !== 'wechat-qr';
+  const pendingMeta = pendingOAuth ? PROVIDER_META[pendingOAuth] : null;
   const t = mode === 'wechat-qr' ? AUTH_TITLES.login : AUTH_TITLES[mode];
 
   // 关闭(点蒙层/Esc/下滑/✕)= 放弃登录 → 清掉待执行动作(与 PC AuthDialog.handleClose 一致);
@@ -57,27 +60,40 @@ export function MobileAuthSheet() {
           <X className="size-5" />
         </button>
         <BrandLogo size="md" />
-        <h1 className="mt-1.5 text-16 font-medium text-foreground">{t.title}</h1>
-        <p className="text-12 text-muted-foreground">{t.desc}</p>
+        <h1 className="mt-1.5 text-16 font-medium text-foreground">
+          {pendingMeta ? `使用 ${pendingMeta.label} 继续` : t.title}
+        </h1>
+        <p className="text-12 text-muted-foreground">
+          {pendingMeta ? '确认后将前往授权，邀请码可随时填写' : t.desc}
+        </p>
       </div>
 
       {/* 表单(可滚)+ 第三方;放大触控目标(同整页),仅作用本弹窗。 */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 [&_input]:h-12 [&_input]:rounded-12 [&_input]:text-14 [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-14">
-        {mode === 'login' && (
-          <LoginForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
+        {pendingOAuth ? (
+          <OAuthConfirmPanel />
+        ) : (
+          <>
+            {mode === 'login' && (
+              <LoginForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
+            )}
+            {mode === 'register' && (
+              <RegisterForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
+            )}
+            {mode === 'forgot' && (
+              <ForgotPasswordForm
+                initialAccountType={initialAccountType}
+                onSwitchMode={setMode}
+              />
+            )}
+          </>
         )}
-        {mode === 'register' && (
-          <RegisterForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
-        )}
-        {mode === 'forgot' && (
-          <ForgotPasswordForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
-        )}
-
-        {mode === 'register' && <InviteAuthNotice className="mx-0 mt-5" />}
         <div className="mt-6">
           <div className="relative flex items-center">
             <Separator className="flex-1" />
-            <span className="px-3 text-12 uppercase text-faint">或继续使用</span>
+            <span className="px-3 text-12 uppercase text-faint">
+              {pendingOAuth ? '切换授权方式' : '或继续使用'}
+            </span>
             <Separator className="flex-1" />
           </div>
           <div className="mt-4">

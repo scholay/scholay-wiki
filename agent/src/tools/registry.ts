@@ -16,6 +16,7 @@ import { log } from "../obs/log.ts";
 import { resolveFileForDelivery } from "../evidence/deliver.ts";
 import { markRead, resolveEidForPath } from "../evidence/ledger.ts";
 import { citationFailureText } from "../evidence/render.ts";
+import { MCP_PREFIX, callMcpTool } from "../mcp/mcpTools.ts";
 
 /**
  * 「读过原文」留痕(2026-08-01 Phase 0)。Read / ReadDocument 成功后调用。
@@ -53,6 +54,10 @@ export interface ToolCtx {
    *  ICMJE 要求分析用 AI 必须写进 Methods 含工具与版本,而此前只披露了 statkit
    *  这个**不是 AI** 的部件(2026-08-06 审计 G-04)。 */
   model?: string;
+  /** 本轮**延迟披露**的 MCP 工具(允许调用但不在 tools[] 里;见 mcp/deferred.ts)。
+   *  唯一消费者是 ToolSearch / ToolInvoke —— 前者据此检索定义、后者据此校验可调性。
+   *  空/缺省 = 渐进披露关闭或本 feature 无延迟工具 → 两个工具都如实回「无」。 */
+  deferredTools?: Array<{ name: string; description?: string; input_schema: unknown }>;
 }
 
 export interface ToolResult {
@@ -1084,6 +1089,104 @@ const skillTool: BuiltinTool = {
   },
 };
 
+// ── 渐进披露:ToolSearch / ToolInvoke(2026-08-14)────────────────────────────
+// 与 Skill 工具同一手法(菜单常驻、正文按需),对象换成 minicod 的冷门工具。
+// 设计取舍与「为什么不把发现到的工具加进 tools[]」见 mcp/deferred.ts 文件头。
+
+/** 延迟工具的一行菜单项(给 ToolSearch 的无参列表与检索结果头部用)。 */
+function deferredMenuLine(t: { name: string; description?: string }): string {
+  const first = String(t.description ?? "").split("\n")[0] ?? "";
+  return `- ${t.name}: ${first.slice(0, 160)}`;
+}
+
+const toolSearchTool: BuiltinTool = {
+  name: "ToolSearch",
+  description:
+    "Discover additional research tools that are available but not listed in your tools. " +
+    "Use this when the resident tools cannot do what you need (e.g. journal submission guidelines, " +
+    "university lookup, OpenAlex entities, recommendation pools). Input: { query } — a few keywords " +
+    "describing what you need; omit query to list everything available. " +
+    "The result gives each tool's full name, description and JSON input schema; call it afterwards with ToolInvoke.",
+  input_schema: { type: "object", properties: { query: { type: "string" } } },
+  parallelSafe: true,
+  async run(input, ctx) {
+    const pool = ctx.deferredTools ?? [];
+    if (pool.length === 0) {
+      return ok("No additional tools are available for this session; everything you can use is already in your tools list.");
+    }
+    const q = String(input.query ?? "").trim().toLowerCase();
+    const terms = q.split(/[\s,]+/).filter(Boolean);
+    const hits = terms.length === 0
+      ? pool
+      : pool.filter((t) => {
+          const hay = (t.name + " " + (t.description ?? "")).toLowerCase();
+          return terms.some((w) => hay.includes(w));
+        });
+    log.info("tool_search", { query: q, hits: hits.length, pool: pool.length, session: ctx.workDir.split("/").pop() ?? "" });
+    if (hits.length === 0) {
+      // 零命中回完整菜单而不是空手:模型的检索词与工具名往往对不上(它并不知道这批工具叫什么),
+      // 回空会让它转而编造工具名或放弃。菜单只有一行一条,比全量 schema 便宜一个量级。
+      return ok(
+        `No tool matched "${q}". Available additional tools (${pool.length}):\n` +
+          pool.map(deferredMenuLine).join("\n") +
+          "\n\nRe-run ToolSearch with one of these names to get its full input schema.",
+      );
+    }
+    // 命中面过大时只回菜单 —— 全量 schema 一次几千 token,与常驻它们没有区别。
+    if (hits.length > 4) {
+      return ok(
+        `${hits.length} tools matched "${q}":\n` +
+          hits.map(deferredMenuLine).join("\n") +
+          "\n\nRe-run ToolSearch with a more specific name to get its full input schema.",
+      );
+    }
+    return ok(
+      hits
+        .map((t) => `${t.name}\n${t.description ?? ""}\ninput_schema: ${JSON.stringify(t.input_schema)}`)
+        .join("\n\n---\n\n") +
+        "\n\nCall these with ToolInvoke: { tool: \"<name>\", input: { ... } }.",
+    );
+  },
+};
+
+const toolInvokeTool: BuiltinTool = {
+  name: "ToolInvoke",
+  description:
+    "Call a tool discovered via ToolSearch (one that is not in your tools list). " +
+    "Input: { tool: exact tool name from ToolSearch, input: the arguments object for that tool }. " +
+    "For tools that ARE in your tools list, call them directly instead — do not route them through here.",
+  input_schema: {
+    type: "object",
+    properties: { tool: { type: "string" }, input: { type: "object" } },
+    required: ["tool"],
+  },
+  parallelSafe: true,
+  async run(input, ctx) {
+    const pool = ctx.deferredTools ?? [];
+    const name = String(input.tool ?? "").trim();
+    if (!name) return fail("ToolInvoke failed: missing `tool`. Run ToolSearch first to get exact tool names.");
+    // 只放行**本轮延迟池**里的工具。刻意不回落到「常驻工具也能经此调用」:
+    // 那会让同一个工具有两条调用路径,而其中一条绕过 tool_use 的原生 schema 校验 ——
+    // 模型会开始用它来「重试」参数不合法的常驻调用,失败模式从此变得不可归因。
+    const found = pool.find((t) => t.name === name || t.name === MCP_PREFIX + name);
+    if (!found) {
+      return fail(
+        `ToolInvoke failed: "${name}" is not an additional tool for this session. ` +
+          (pool.length
+            ? `Run ToolSearch to see what is available. If the tool is already in your tools list, call it directly.`
+            : `No additional tools exist for this session.`),
+      );
+    }
+    const args = (input.input ?? {}) as Record<string, unknown>;
+    log.info("tool_invoke", { tool: found.name, session: ctx.workDir.split("/").pop() ?? "" });
+    const r = await callMcpTool(found.name, args);
+    const text = Array.isArray(r.content)
+      ? r.content.map((b) => (typeof b === "string" ? b : ((b as { text?: string }).text ?? JSON.stringify(b)))).join("\n")
+      : String(r.content ?? "");
+    return r.isError ? fail(text) : ok(text);
+  },
+};
+
 // AskUserQuestion(2026-07,交互提问):当模型被「只有用户能拍板的决策」卡住时,把问题做成
 // 选项卡片让用户点选,而不是用纯文本反问。本工具是**哑的**:真正的问题卡片由前端读
 // tool_use.input.questions 渲染(见 shared/components/chat/QuestionCard);run() 只回一个占位
@@ -1783,7 +1886,7 @@ export function stripStatReportPaths(raw: string): string {
   return JSON.stringify(j, null, 2);
 }
 
-const all: BuiltinTool[] = [statRunTool, statReportTool, readTool, readDocumentTool, exportDocumentTool, buildDeckTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool, askUserQuestionTool, evidenceGetTool, submitAnswerTool, declareInsufficientTool];
+const all: BuiltinTool[] = [statRunTool, statReportTool, readTool, readDocumentTool, exportDocumentTool, buildDeckTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool, toolSearchTool, toolInvokeTool, askUserQuestionTool, evidenceGetTool, submitAnswerTool, declareInsufficientTool];
 
 export const builtinRegistry: Map<string, BuiltinTool> = new Map(all.map((t) => [t.name, t]));
 

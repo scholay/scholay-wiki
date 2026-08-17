@@ -99,6 +99,16 @@ func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimit
 	return vipChecker.RemainingBudget(ctx, userID)
 }
 
+// turnCostCapProvider(逐帧硬闸)给 hub 在**轮起点**取一次本轮成本硬顶(微元真实成本)。
+// 与 budgetProvider 同源但刻意各取一次:vip 侧 RemainingBudget = TurnCostCap × 收尾比例,
+// 那个比例是留给 agent 优雅收尾的尾巴,与硬闸没有语义关系 —— 在这里反推会让硬顶随它悄悄漂移。
+func turnCostCapProvider(ctx context.Context, userID uint) (int64, bool) {
+	if vipChecker == nil {
+		return 0, true
+	}
+	return vipChecker.TurnCostCap(ctx, userID)
+}
+
 func recordQuestion(uid *uint) {
 	if usageRecorder == nil {
 		return
@@ -172,6 +182,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,
 		BudgetProvider:    budgetProvider,
+		TurnCostCap:       turnCostCapProvider,
 		SessionOptions: &agent.CreateSessionOptions{
 			// 放开文件工具 + Bash(清洗)+ StatRun(统计);禁网/子任务。
 			DisallowedTools: agentbridge.SessionDisallowedTools(statLabDisallowedTools, true),

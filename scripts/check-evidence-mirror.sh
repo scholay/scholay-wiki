@@ -73,6 +73,14 @@ TESTS_REL=(
   "src/evidence/parse.mirror.test.ts"
   "src/tools/permissionParity.test.ts"
   "src/server/composeVolumeParity.test.ts"
+  # AGENT_EXECUTOR_FEATURES:.env* 的显式名单不得少于 compose 默认值。
+  #
+  # 2026-08-13 补挂。这条测试早就写好了(而且写它的直接原因就是 2026-08-06 漏 stat_lab
+  # 那次事故),但一直没进这个名单 —— 于是它从来没被自动跑过,而线上 .env 的
+  # AGENT_EXECUTOR_FEATURES 就一直缺着 stat_lab、「数据分析」一直走已退役的 fork 路径,
+  # 直到人肉比对线上 .env 才发现。
+  # 正是本文件头写的那句:**一条永远绿的规则和一条不存在的规则等价。**
+  "src/server/executorFeatures.test.ts"
   "src/skills/skillSize.test.ts"
 )
 

@@ -16,41 +16,54 @@ interface FetchPaperOptions {
   enabled: boolean;
 }
 
+/** 论文详情的 queryKey/staleTime —— hook 与 route loader 的 prefetch 必须共用,键漂移=白预取。 */
+export const paperDetailQueryKey = (source: UpstreamSource, paperId: string) =>
+  ['paper', 'detail', source, paperId] as const;
+export const PAPER_DETAIL_STALE_TIME = STALE_COOL;
+
+/** 独立 fetcher —— useFetchPaperDetail 与 browser 路由 loader 的 prefetch 共用。 */
+export async function fetchPaperDetail(
+  source: UpstreamSource,
+  paperId: string
+): Promise<Paper> {
+  try {
+    const { data } = await http.get<{ data: Record<string, unknown> }>(
+      `/public/papers/${encodeURIComponent(paperId)}`
+    );
+    const raw = data.data ?? {};
+    // 后端 minicod.Paper 字段大多与前端 Paper 一致,补 source 让 PaperDetailPane
+    // 能正确显示 stc / olx / pmd 来源 badge
+    return {
+      paperId: String(raw.paperId ?? paperId),
+      title: raw.title as string | undefined,
+      abstract: raw.abstract as string | undefined,
+      year: raw.year as number | undefined,
+      venue: raw.venue as string | undefined,
+      url: raw.url as string | undefined,
+      citationCount: raw.citationCount as number | undefined,
+      referenceCount: raw.referenceCount as number | undefined,
+      isOpenAccess: raw.isOpenAccess as boolean | undefined,
+      openAccessPdf: raw.openAccessPdf as Paper['openAccessPdf'],
+      externalIds: raw.externalIds as Paper['externalIds'],
+      authors: raw.authors as Paper['authors'],
+      fieldsOfStudy: raw.fieldsOfStudy as string[] | undefined,
+      source,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 export function useFetchPaperDetail({
   source,
   paperId,
   enabled,
 }: FetchPaperOptions) {
   return useQuery({
-    queryKey: ['paper', 'detail', source, paperId] as const,
+    queryKey: paperDetailQueryKey(source, paperId),
     enabled: enabled && !!paperId,
-    staleTime: STALE_COOL,
-    queryFn: async (): Promise<Paper> => {
-      try {
-        const { data } = await http.get<{ data: Record<string, unknown> }>(
-          `/public/papers/${encodeURIComponent(paperId)}`
-        );
-        const raw = data.data ?? {};
-        // 后端 minicod.Paper 字段大多与前端 Paper 一致,补 source 让 PaperDetailPane
-        // 能正确显示 stc / olx / pmd 来源 badge
-        return {
-          paperId: String(raw.paperId ?? paperId),
-          title: raw.title as string | undefined,
-          abstract: raw.abstract as string | undefined,
-          year: raw.year as number | undefined,
-          venue: raw.venue as string | undefined,
-          url: raw.url as string | undefined,
-          citationCount: raw.citationCount as number | undefined,
-          referenceCount: raw.referenceCount as number | undefined,
-          isOpenAccess: raw.isOpenAccess as boolean | undefined,
-          authors: raw.authors as Paper['authors'],
-          fieldsOfStudy: raw.fieldsOfStudy as string[] | undefined,
-          source,
-        };
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
+    staleTime: PAPER_DETAIL_STALE_TIME,
+    queryFn: () => fetchPaperDetail(source, paperId),
   });
 }
 

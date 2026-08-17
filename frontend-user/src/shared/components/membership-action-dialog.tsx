@@ -1,14 +1,23 @@
 // 会员「购买 / 升级 / 续费」弹窗 —— 三条流程共用一个外壳,靠 mode + 合法选项集区分。
 //
-// 版式依据 2026-08-12 用户设计稿(与价格页同源的卡片语言):
-//   ① 顶部周期切换(年付在前、带「省 N%」)—— 只在本场景真有两种周期可选时才出现
-//   ② 档位卡两列:划线原价 + 主数字(月口径)+ 计费副行 + 权益列表 + 右上角单选指示
-//   ③ 支付方式两列卡片(品牌 logo + 名称 + 说明 + 单选)
-//   ④ 底部结算条:合计金额(+ 折合月价)/ 这一单到底发生什么 / 主 CTA
+// ── 版式:左右两栏(2026-08-13 改版)──────────────────────────────────────────
+//   【左栏】周期切换 + 档位卡(划线原价 + 主数字月口径 + 计费副行 + 权益 + 单选指示)
+//   【右栏】支付方式(纵向)+ 应付金额 + 这一单发生什么 + 主 CTA,整块做成抬升面板
 //
-// 🔴 卡片与结算条的分工(本弹窗最关键的一条,别再合并):
+// 🔴 为什么从「上下堆叠」改成「左右分栏」:原版式是
+//   周期 → 档位卡 → 支付方式 → 结算条 的纵向长条,实测整体约 700px。
+//   笔记本常见的 768px 高屏上 `max-h-[90dvh]` ≈ 691px —— **付款区被挤到折叠线以下**,
+//   用户要先滚动才能看到自己付多少、按哪个键。价格页可以滚,收银台不行。
+//   分栏后总高 ≈ max(左 360, 右 260) + 头部,一屏装得下,且付款区恒在视野内。
+//
+// 🔴 右栏刻意做得比左栏重(bg-surface-1 抬升 + border-border-strong + 32px 金额 + 满宽实心 CTA):
+//   这是用户真正要做决策的地方(付多少、用什么付、按哪里)。左栏是「挑哪一档」,
+//   信息量大但每一项都轻;右栏是「这一单」,项少而每一项都贵 —— 视觉重量按这个分。
+//   窄屏(<lg)自动回落成上下堆叠,顺序仍是「先选套餐、后付款」。
+//
+// 🔴 卡片与结算区的分工(本弹窗最关键的一条,别再合并):
 //   · **卡片讲价值**:牌价口径(划线 + 折合月价),回答「这一档值不值」;
-//   · **结算条讲事实**:`合计` 恒等于后端报价的应付金额,回答「我现在付多少、买到什么」。
+//   · **结算区讲事实**:`应付金额` 恒等于后端报价,回答「我现在付多少、买到什么」。
 //   升级的补差价、switch 的整年价、续费的周期价三种口径都由后端算,前端一分钱都不推算。
 //   历史上正是把这两件事挤进同一个数字,才出现「卡上 ¥2690、实扣 ¥105」的价格对不上。
 //
@@ -51,15 +60,17 @@ interface OptionQuote {
 
 const qKey = (tier: string, cycle: string) => `${tier}/${cycle}`;
 
-/** 权益列表(与价格页同源;弹窗只做转化,取前四条真卖点)。 */
+/** 权益列表(与价格页同源;弹窗只做转化,取前三条真卖点)。
+ * 🔴 2026-08-13:摘掉「最强 / 更强 AI 模型」「高峰期优先处理」「新功能先给你用」——
+ * 实测代码里全不存在(详见 membership-plan-card.tsx planFeatures 的红字)。 */
 function benefits(plan: MembershipPlanData): string[] {
   const quota =
     plan.tier === 'max'
       ? `AI 额度是 Pro 的 ${plan.multiplier} 倍`
       : `AI 额度是 Free 的 ${plan.multiplier} 倍`;
   return plan.tier === 'max'
-    ? [quota, '每周约够 15 份完整审稿、150 轮对话', '最强 AI 模型', '高峰期优先处理']
-    : [quota, '每周约够 40 轮对话、3 份完整审稿', '优先用上更强的 AI 模型', '新功能先给你用'];
+    ? [quota, '每周约够 15 份完整审稿、150 轮对话', '多篇稿件并行推进时仍有余量']
+    : [quota, '每周约够 40 轮对话、3 份完整审稿', '额度足以完整跑完 AI 审稿'];
 }
 
 /** 结算条第二行:这一单到底发生什么(动作 + 到期日变化)。 */
@@ -197,7 +208,9 @@ export function MembershipActionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
+      {/* max-w-5xl:分栏后左栏要同时放下两张档位卡(右栏定宽 300)。
+          3xl(768)减去右栏只剩 ~430,两张卡各 ~210 —— ¥ 主数字 32px 会撑破。 */}
+      <DialogContent className="max-h-[90dvh] max-w-5xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{desc}</DialogDescription>
@@ -220,17 +233,36 @@ export function MembershipActionDialog({
             当前没有可{mode === 'renew' ? '续费' : '升级'}的套餐。
           </p>
         ) : (
-          <>
-            {/* ① 周期切换 —— 只在真有两种周期可选时出现。年费会员续费只能按年、
-                年费会员升级只能年付,那些场景下画一个禁用切换器等于摆个点不动的控件。 */}
-            {cycles.length > 1 && cycle && (
-              <div className="flex justify-center">
-                <BillingCycleToggle value={cycle} onChange={setCycle} savingsPct={savingsPct} />
-              </div>
-            )}
+          // 左右两栏:左选套餐、右付款(理由见文件头)。右栏定宽 300 —— 支付卡与金额
+          // 都是短内容,给弹性宽度只会让它在宽屏上摊薄、反而不聚焦;左栏吃掉全部余量。
+          // lg 以下回落单列,顺序仍是「先选套餐、后付款」。
+          // 🔴 刻意**不写** lg:items-start:栅格项默认 stretch,右栏才会被拉到整行高度,
+          // 它的 border-l 也才是一条**从上到下贯通**的分割线(items-start 下只有内容那么长)。
+          // 间距不用 gap 而用两侧对称 padding —— 分割线要落在两栏正中,gap 会让它贴着右栏。
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-0">
+            {/* ── 左栏:周期 + 档位卡 ────────────────────────────────────── */}
+            <div className="flex min-w-0 flex-col gap-2 lg:pr-6">
+              {/* 周期切换 —— 只在真有两种周期可选时出现。年费会员续费只能按年、
+                  年费会员升级只能年付,那些场景下画一个禁用切换器等于摆个点不动的控件。
+                  `block` + 与卡片只隔 gap-2:让它读起来是**下面这组卡片的控制条**,
+                  而不是一枚与卡片无关、浮在左上角的独立药丸(切周期会改卡上的价,关系必须看得见)。
+                  ⚠️ 但**不能真的拉满整个左栏**:实拍(1366×768)下两项各占一半 = 每项 300px,
+                  「月付」那半是一大片空,「省 N%」徽标浮在中间显得散。收到 320px 定宽 + 居中 ——
+                  居中而非贴左:它管的是**整组卡片**(两张都受影响),压在卡组中轴上才对得起这层关系;
+                  贴左会读成「只跟左边那张有关」。与价格页的切换器也统一为居中。 */}
+              {cycles.length > 1 && cycle && (
+                <BillingCycleToggle
+                  block
+                  className="sm:mx-auto sm:max-w-[320px]"
+                  value={cycle}
+                  onChange={setCycle}
+                  savingsPct={savingsPct}
+                />
+              )}
 
-            {/* ② 档位卡 */}
-            <div className={cn('grid gap-3', tiers.length > 1 ? 'md:grid-cols-2' : 'grid-cols-1')}>
+              {/* 档位卡 —— sm 起并排(原为 md:)。左栏比整个弹窗窄,断点跟着提前,
+                  否则在 md 宽度上会出现「左栏已经够宽、卡却还堆成一列」的空当。 */}
+              <div className={cn('mt-1 grid gap-3', tiers.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1')}>
               {tiers.map((t) => {
                 const plan = plans.find((p) => p.tier === t);
                 if (!plan || !cycle) return null;
@@ -324,82 +356,105 @@ export function MembershipActionDialog({
                   </button>
                 );
               })}
+              </div>
             </div>
 
-            {/* ③ 支付方式 */}
-            {methods.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-12 text-faint">支付方式</p>
-                <div className={cn('grid gap-2', methods.length > 1 ? 'md:grid-cols-2' : 'grid-cols-1')}>
-                  {methods.map((m) => {
-                    const on = sel === m.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setMethod(m.id)}
-                        className={cn(
-                          'flex items-center gap-3 rounded-12 border p-3 text-left transition-colors',
-                          on ? 'border-brand-red bg-brand-red-soft' : 'border-border hover:border-border-strong',
+            {/* ── 右栏:订单区 ──────────────────────────────────────────────
+                🔴 **不做成卡片**(2026-08-13 用户拍板):卡片是「一块可选的东西」的语言,
+                而这一栏是这一单的**结算凭据**,要读起来像收银小票而不是又一个待选项。
+                因此去掉底色 / 圆角 / 描边盒,只留一条贯通的 border-l 与正文分区,
+                重量全部交给排版:右对齐金额、32px 主数字、满宽实心 CTA。
+                窄屏(<lg)竖排时分割线转成顶部横线,分区语义不丢。 */}
+            <aside className="flex flex-col border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+              {/* sticky 挂在内层:外层 aside 已被 stretch 拉满高(那是分割线的载体),
+                  内容要留在顶部并在左栏超高时跟随视口。 */}
+              <div className="flex flex-col gap-4 lg:sticky lg:top-0">
+                {/* 支付方式 —— 表单行,不是卡片:行间发丝线分隔,选中态靠字重 + 勾选圈,
+                    不用填充底色(填充块=卡片语言,与本栏定位冲突)。 */}
+                {methods.length > 0 && (
+                  <div>
+                    <p className="text-12 font-medium text-faint">支付方式</p>
+                    <div className="mt-1 flex flex-col">
+                      {methods.map((m) => {
+                        const on = sel === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setMethod(m.id)}
+                            className={cn(
+                              'flex items-center gap-3 border-b border-border-hairline py-3 text-left transition-colors last:border-b-0',
+                              on ? 'text-foreground' : 'text-subtle hover:text-foreground',
+                            )}
+                          >
+                            <PayMethodLogo method={m.id} className="size-5 shrink-0" />
+                            <span className="min-w-0 flex-1">
+                              <span className={cn('block truncate text-14', on && 'font-medium')}>
+                                {m.name}
+                              </span>
+                              <span className="block truncate text-12 text-faint">{m.desc}</span>
+                            </span>
+                            <span
+                              className={cn(
+                                'flex size-5 shrink-0 items-center justify-center rounded-pill border',
+                                on
+                                  ? 'border-brand-red bg-brand-red text-on-brand'
+                                  : 'border-border-button',
+                              )}
+                            >
+                              {on && <Check className="size-3" strokeWidth={3} />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 应付金额 —— 「现在付多少 / 买到什么」的唯一出处,金额恒等于后端报价。
+                    标签左、金额右的同基线行是收银台的通行写法,比左对齐更像结算单。 */}
+                <div className="border-t border-border pt-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="shrink-0 text-12 font-medium text-faint">应付金额</span>
+                    {current?.loading ? (
+                      <Loader2 className="size-5 animate-spin text-faint" />
+                    ) : q ? (
+                      <span className="flex items-baseline gap-1 text-right">
+                        <span className="font-display text-32 font-bold leading-display-tight text-foreground tabular-nums">
+                          ¥{yuanText(q.amount_cents)}
+                        </span>
+                        {/* 单位只在「买的是一个完整周期」时才写:升级补差是一次性金额,
+                            标「/年」会让人以为往后每年都收这个数。 */}
+                        {q.action !== 'upgrade' && (
+                          <span className="text-12 text-faint">/{yearly ? '年' : '月'}</span>
                         )}
-                      >
-                        <PayMethodLogo method={m.id} className="size-5 shrink-0" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-14 font-medium text-foreground">{m.name}</span>
-                          <span className="block text-12 text-faint">{m.desc}</span>
-                        </span>
-                        <span
-                          className={cn(
-                            'flex size-5 shrink-0 items-center justify-center rounded-pill border',
-                            on ? 'border-brand-red bg-brand-red text-on-brand' : 'border-border',
-                          )}
-                        >
-                          {on && <Check className="size-3" strokeWidth={3} />}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* ④ 结算条 —— 「现在付多少 / 买到什么」的唯一出处,金额恒等于后端报价。 */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-hairline pt-4">
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-12 text-faint">合计</span>
-                  {current?.loading ? (
-                    <Loader2 className="size-4 animate-spin text-faint" />
-                  ) : q ? (
-                    <>
-                      <span className="font-display text-24 font-bold leading-display-tight text-foreground tabular-nums">
-                        ¥{yuanText(q.amount_cents)}
                       </span>
-                      {/* 单位只在「买的是一个完整周期」时才写:升级补差是一次性金额,
-                          标「/年」会让人以为往后每年都收这个数。 */}
-                      {q.action !== 'upgrade' && (
-                        <span className="text-12 text-faint">
-                          /{yearly ? '年' : '月'}
-                          {yearly && ` (折合 ¥${yuanText(monthlyEquivalentCents(q.amount_cents))}/月)`}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-14 text-faint">暂时拿不到价格</span>
+                    ) : (
+                      <span className="text-14 text-faint">暂时拿不到价格</span>
+                    )}
+                  </div>
+                  {/* 折合月价右对齐跟在金额下:窄栏里跟在主数字后面会把 ¥ 数字挤换行 */}
+                  {q && q.action !== 'upgrade' && yearly && (
+                    <p className="mt-1 text-right text-12 text-faint">
+                      折合 ¥{yuanText(monthlyEquivalentCents(q.amount_cents))}/月
+                    </p>
                   )}
-                </p>
-                <p className="mt-1 text-12 text-muted-foreground">{settlementNote(q)}</p>
+                  <p className="mt-2 text-12 leading-paragraph text-muted-foreground">
+                    {settlementNote(q)}
+                  </p>
+                </div>
+
+                <Button
+                  className="w-full rounded-pill"
+                  disabled={!q || !sel || paying}
+                  onClick={() => void onConfirm()}
+                >
+                  {paying && <Loader2 className="size-4 animate-spin" />}
+                  {ctaText(q)}
+                </Button>
               </div>
-              <Button
-                className="shrink-0 rounded-pill px-5"
-                disabled={!q || !sel || paying}
-                onClick={() => void onConfirm()}
-              >
-                {paying && <Loader2 className="size-4 animate-spin" />}
-                {ctaText(q)}
-              </Button>
-            </div>
-          </>
+            </aside>
+          </div>
         )}
       </DialogContent>
     </Dialog>

@@ -70,7 +70,7 @@ export function MetaRow({
             </span>
           )}
           {enrichment.ccf_rank && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-foreground text-on-dark text-12 font-medium">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-inverse text-on-inverse text-12 font-medium">
               CCF {enrichment.ccf_rank}
             </span>
           )}

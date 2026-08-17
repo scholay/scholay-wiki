@@ -94,7 +94,7 @@ function BlogTab() {
             className={cn(
               'inline-flex items-center h-7 px-3 rounded-pill text-12 font-medium transition-colors',
               cat === c.id
-                ? 'bg-foreground text-on-dark'
+                ? 'bg-inverse text-on-inverse'
                 : 'bg-surface-1 text-muted-foreground hover:bg-surface-2 hover:text-foreground'
             )}
           >
@@ -237,9 +237,9 @@ function HeroCard({ article }: { article: ArticleCardData }) {
         <span>·</span>
         <span>{article.date}</span>
       </div>
-      <span className="mt-2 inline-flex items-center gap-1 text-12 font-medium text-brand-red group-hover:gap-2 transition-all">
+      <span className="mt-2 inline-flex items-center gap-1 text-12 font-medium text-brand-red">
         阅读全文
-        <ArrowRight className="size-3" />
+        <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
       </span>
     </Link>
   );
@@ -260,7 +260,7 @@ function ContentCard({
   return (
     <Link
       to={to}
-      className="group flex flex-col gap-2 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
+      className="group flex flex-col gap-2 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-colors"
     >
       {showCategory && (
         <span className="inline-flex items-center w-fit h-5 px-2 rounded-4 bg-surface-1 text-12 font-medium text-muted-foreground">

@@ -67,6 +67,9 @@ type PushSubmitter interface {
 type Service struct {
 	repo      *Repository
 	submitter PushSubmitter
+	// coverProxyBase 内部 nginx 基址(如 http://nginx):取 minicod 原图时经它的
+	// /img-remote 走,顺带预热 30d proxy_cache。空 = 直连上游。见 thumbnail.go。
+	coverProxyBase string
 }
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
@@ -209,6 +212,8 @@ func (s *Service) ProcessContent(rawBody []byte) error {
 	if err := s.repo.UpsertItem(item); err != nil {
 		return err
 	}
+	// 封面缩略图:后台异步生成(不阻塞 webhook 应答;失败由回填任务兜底)。见 thumbnail.go。
+	s.scheduleCoverThumb(item.ID)
 	// 内容首发/更新 → 主动推送该 URL,促搜索引擎/AI 快速重抓(freshness 闭环)。
 	// 热度刷新(ProcessHeat)不推(热度≠内容更新)。submitter nil / 队列未启用时为 no-op。
 	// 仅在功能已开启时推:未上线时 /news/{slug} 是空壳/404,推过去反伤 SEO。
@@ -412,6 +417,7 @@ func toCard(it NewsItem) CardDTO {
 		SectionLabel: it.SectionLabel,
 		ReportType:   it.ReportType,
 		CoverImage:   proxifyImageURL(it.CoverImage),
+		CoverThumb:   coverThumbURL(it.CoverThumbKey),
 		Sources:      parseSources(it.Sources),
 		IsFeatured:   it.IsFeatured,
 		Score:        it.Score,

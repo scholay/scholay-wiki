@@ -11,14 +11,11 @@ import {
   SidebarContent,
   SidebarSection,
   SidebarItem,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 
 /**
  * Prism · AI 写作侧栏 — 对照 .pen `wzCqs`:
- *   header + 项目元信息 + 目录(已完成/编辑中/待写)+ LaTeX 源文件树 + 编译状态 + user + 收起
+ *   项目元信息 + 目录(已完成/编辑中/待写)+ LaTeX 源文件树 + 编译状态 + user + 收起
  *
  * 简化版:目录 + 源文件两段,目录 active 用 danger 高亮"编辑中章节"。
  */
@@ -51,17 +48,25 @@ const FILES = [
 export function PrismSidebar() {
   const [activeToc, setActiveToc] = useState('method');
   const [activeFile, setActiveFile] = useState('main');
-  const toggleSidebar = useSidebar((s) => s.toggle);
 
   return (
     <Sidebar>
       <SidebarContent>
         {/* 项目信息 */}
-        <div className="px-4 pt-2 pb-3">
-          <div className="text-14 font-medium text-foreground truncate">
-            DiT-3D Sampling
+        <div className="flex items-start gap-2 px-4 pt-3 pb-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-foreground truncate">
+              DiT-3D Sampling
+            </div>
+            <div className="text-2xs text-faint mt-0.5">CVPR 2026 投稿</div>
           </div>
-          <div className="text-12 text-faint mt-0.5">CVPR 2026 投稿</div>
+          <button
+            type="button"
+            aria-label="新建"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
+            <Plus className="size-4" strokeWidth={1.8} />
+          </button>
         </div>
 
         {/* 目录 */}
@@ -129,9 +134,6 @@ export function PrismSidebar() {
           ))}
         </SidebarSection>
       </SidebarContent>
-
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }

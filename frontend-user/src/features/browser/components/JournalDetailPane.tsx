@@ -169,7 +169,7 @@ export function JournalDetailPane() {
                 </span>
               )}
               {journal.type && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-foreground text-on-dark text-12 font-medium uppercase">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-inverse text-on-inverse text-12 font-medium uppercase">
                   {journal.type}
                 </span>
               )}
@@ -229,7 +229,7 @@ export function JournalDetailPane() {
                   href={`https://portal.issn.org/resource/ISSN/${encodeURIComponent(journal.issns[0])}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-on-dark text-12 font-medium hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-inverse text-on-inverse text-12 font-medium hover:opacity-90 transition-opacity"
                 >
                   <ExternalLink className="size-3" strokeWidth={2.5} />
                   查询原刊
@@ -377,7 +377,7 @@ function IndexCard({
       className={cn(
         'rounded-16 p-5 space-y-1.5',
         highlight
-          ? 'bg-foreground text-on-dark'
+          ? 'bg-inverse text-on-inverse'
           : 'bg-surface-card border border-border'
       )}
     >

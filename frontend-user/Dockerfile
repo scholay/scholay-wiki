@@ -6,16 +6,19 @@ WORKDIR /app
 # 先装依赖,利用 Docker 层缓存
 # .npmrc 指向 npmmirror(中国镜像),解决 docker 内网络 ECONNRESET
 COPY package*.json .npmrc ./
-# npm 下载缓存挂进 BuildKit 缓存卷:package.json 变化导致该层重建时,
-# 依赖包走本地缓存增量补齐,不再全量重拉(node_modules 本身仍由 npm ci 全新生成,可复现性不变)
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline
+RUN npm ci
 
 COPY . .
 
 # Vite build-time env(VITE_ 前缀会被自动注入)
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+# 当前设计分支默认构建成浏览器内全量 Mock；显式传 off 可恢复真实后端版本。
+ARG VITE_MOCK_MODE="full"
+ENV VITE_MOCK_MODE=$VITE_MOCK_MODE
+# 临时:智能写作「即将推出」门(见 src/shared/lib/feature-flags.ts)。'true' = 入口角标 + 页面蒙层。
+ARG VITE_PRISM_COMING_SOON
+ENV VITE_PRISM_COMING_SOON=$VITE_PRISM_COMING_SOON
 # Umami 接入完全运行时化:index.html 加载后 fetch /api/v1/public/umami-config 拿
 # website_id 再动态插入 tracker 脚本 —— 不再需要 build-time 注入 website id。
 # 见 frontend-user/index.html 顶部注释 + backend internal/umami/client.go EnsureWebsiteID。

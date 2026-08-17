@@ -1,9 +1,9 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 export const prismRoutes: RouteObject[] = [
   {
     path: 'prism/*',
-    lazy: () =>
-      import('./pages/PrismPage').then((m) => ({ Component: m.PrismPage })),
+    element: lazyRoute(() => import('./pages/PrismPage'), 'PrismPage'),
   },
 ];

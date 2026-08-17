@@ -46,6 +46,24 @@ type AuthorSEOProvider interface {
 	ResolveByAuthorID(source, authorID string) (*seo.AuthorSSRMeta, error)
 }
 
+// PaperCorpusProvider / AuthorCorpusProvider —— 「抓取前沿必须闭合在自己的语料上」。
+//
+// 论文页把 authors_json 里的作者渲染成 /author/{source}/{id} 内链、作者页把 top_works
+// 渲染成 /paper/{source}/{id} 内链;这些 ID 来自上游,绝大多数在我们库里**没有对应行**。
+// 于是每渲染一个实体页,就等于给爬虫发了 3~25 个新的未落地 URL,爬虫顺着爬 → on-miss →
+// 建行 → 又吐出新链接,沿整张学术图谱指数扩散(生产 24h:新建 4.5 万论文 + 7.4 万作者)。
+// 渲染前批量核对一次「哪些已落地」,未落地的降级成纯文本,爬取前沿就闭合了。
+//
+// 与 ToolSEOListingProvider 同一模式(可选接口 + 类型断言):轻量测试桩不必实现;
+// 生产上 seo.Service 两个都实现,断言必中。
+type PaperCorpusProvider interface {
+	ExistingPaperIDs(paperIDs []string) (map[string]bool, error)
+}
+
+type AuthorCorpusProvider interface {
+	ExistingAuthorIDs(authorIDs []string) (map[string]bool, error)
+}
+
 // JournalSEOProvider 由 seo.Service 直接实现, 用于期刊详情页 SSR 元数据注入。
 type JournalSEOProvider interface {
 	ResolveByJournalID(journalID int64) (*seo.JournalSSRMeta, error)
@@ -124,6 +142,10 @@ type Handler struct {
 	paperEnricher  PaperEnricher
 	authorEnricher AuthorEnricher
 
+	// on-miss 现拉的准入闸门(爬虫 UA + 每小时预算 + 单 IP 上限)。
+	// 见 ssr_onmiss_gate.go 文件头:这条路径曾占上游调用量的 94%。
+	onMissGate *onMissGate
+
 	// WeChat OAuth 启用探针 —— bootstrap 注入,handler_system.GetSystemConfig 用它
 	// 决定 public 响应里 `wechat_enabled` 的值。这里用 probe 是为了避免 config 包
 	// 直接 import wechat 包(那样会形成循环依赖:wechat → config → wechat)。
@@ -150,6 +172,7 @@ func NewHandler(service *Service) *Handler {
 		service:     service,
 		frontendURL: frontendURL,
 		ssrCache:    newSSRCache(indexHTMLCacheTTL),
+		onMissGate:  newOnMissGate(appconfig.SEOOnMissHourlyBudget(), onMissPerIPHourly),
 	}
 }
 

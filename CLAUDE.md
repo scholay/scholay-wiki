@@ -945,13 +945,102 @@ When adding new external API integrations:
 ### Environment Variables
 
 Key variables in `.env`:
+- **`APP_ENV`** — `prod` | `test`,**这台机器扮演什么角色**。详见下一节
 - `JWT_SECRET` - Change in production
 - `MYSQL_*` - Database credentials
 - `REDIS_PASSWORD` - Redis password (optional, currently empty)
-- `SEMANTIC_SCHOLAR_API_KEY` - Optional (uses free tier if not set)
 - Port mapping: `HTTP_PORT` (整站唯一对外端口, default: 5411;后台 `/admin` 同端口同 SPA)。旧的 `ADMIN_PORT` 已废弃
 
 外部观测平台(SigNoz / OpenTelemetry)已下线,所有日志走 docker logs(`json-file` 驱动,见 docker-compose.yml `x-default-logging`)。
+
+### 多环境部署:一套代码 + 一份 .env(2026-08-13 重做)
+
+生产与测试跑**同一份代码、同一个镜像 tag**,唯一差别是 `.env`。为此有三条硬约定,
+改动前请先读完 —— 每一条都是在修一类「配了但不生效」或「漏配却静默用了别的站点的值」的坑。
+
+#### 一、`APP_ENV` 是环境角色的单一开关
+
+区分两套环境要拨的开关不止一个,逐个记迟早漏一个,而漏掉的那个往往最贵
+(典型:测试站被搜索引擎收录成生产站的镜像,几周后排名塌了才发现)。
+`APP_ENV` 把「这是哪套环境」收敛成**一次决策**,其余开关从它**派生默认值**:
+
+| 开关 | 派生规则 | 想偏离时 |
+|---|---|---|
+| `SEO_INDEXABLE` | `prod`=true / `test`=false | 显式写该变量,永远优先于派生 |
+
+- 后端未设置时按 `prod` 处理(向后兼容:本变量 2026-08-13 才引入,老 `.env` 没有它 ——
+  若按 test 处理,一次升级就会让已上线站点静默掉出索引)。
+- `scripts/deploy.sh` **强制**要求 `.env` 里有这一行,并在生产上部署前要求确认一次
+  (最常见的误操作不是敲错命令,是敲对了命令但在错的机器上)。
+- 启动日志每次回显:`docker logs scholar_backend | head` 能直接看到本机身份。
+
+🔴 **不要为测试环境复制一份 `docker-compose.test.yml`。** 本仓库已经吃过
+dev/prod 两份 compose 漂移的亏(`PAYMENT_TEST_ENABLED` / `SEO_ONMISS_HOURLY_BUDGET` /
+`HTTP_BIND_ADDRESS` 三个变量长期只在 dev 接线、prod 漏掉,于是在 `.env` 里设了不生效
+且无任何提示)。第三份文件 = 三倍漂移面。测试环境与生产的**部署拓扑相同**
+(都是拉镜像跑栈),`docker-compose.prod.yml` 就是对的那一份。
+将来真需要拓扑差异(砍掉 umami、改内存上限),用 compose 原生的 override:
+`docker compose -f docker-compose.prod.yml -f docker-compose.test.override.yml`,
+只写增量,base 保持单一真源。
+
+#### 二、`SEO_INDEXABLE` 关掉的是**四处**,少一处都堵不住
+
+`false` 时:① `robots.txt` 只输出 `Disallow: /` 且**不输出 Sitemap 指令**;
+② `sitemap*.xml` 与 IndexNow key 文件 404;③ 所有 SSR 响应带
+`X-Robots-Tag: noindex, nofollow` + 注入 `<meta name="robots">`。
+
+- robots 只劝阻守规矩的爬虫,已被外链或**证书透明日志(CT)**发现的 URL 仍要靠 noindex 才不进索引。
+- Sitemap 那一行是「整份可抓 URL 清单」的地址,对不守 robots 的爬虫等于递地图。
+- SSR 的 noindex 钉在**唯一写出口** `writeSSRHTML`(`internal/config/handler_ssr.go`),
+  不是逐个页面分支加 —— SSR 有实体页/内容页/品牌页/软 404/503 一堆分支,逐个加必然漏。
+  注入的 robots meta **刻意不带** `data-seo-fallback="server"` 标记,否则会被前端
+  RouteSEO 当成服务端兜底移除掉。
+- 回归测试:`backend/internal/seo/robots_indexable_test.go`。
+
+⚠️ 曾经还有一道「请求 Host ≠ 权威 host 就强制 noindex」的守卫,**已移除**:它的误伤面
+(CDN/反代改写 Host、apex 在 301 前被访问、健康检查用 IP)恰好会让权威站静默全站 noindex ——
+自身故障后果就是它想避免的那一个。有了 `APP_ENV` 这个显式开关后它是净负收益。
+
+#### 三、站点身份走**运行时注入**,不走 build-arg
+
+Vite 在**编译期**把 `import.meta.env.VITE_*` 字面替换进 bundle,任何走 build-arg 的
+方案都等价于「换域名 = 换镜像」。所以域名/Clarity/ICP/标题前缀全部运行时注入:
+
+```
+frontend-user/index.html 留占位符(__SITE_URL__ / __CLARITY_ID__ / __ICP_BEIAN__ / 标题前缀)
+        ↓  容器启动
+docker-entrypoint.d/50-inject-site.sh 按 env 替换 → /usr/share/nginx/html/index.html
+        ↓
+浏览器直连 SPA ✓   backend SSR ✓(它是 HTTP fetch 本容器的 `/` 拿 index.html)
+        ↓
+`npm run dev` 由 vite.config.ts 的 siteConfigPlaceholders 插件(apply:'serve')用本地默认值替换
+```
+
+- 编号即顺序:`40-sync-site.sh` 先把 `/opt/dist` 同步进 web root(index.html 每次回到
+  带占位符的原始态),`50` 再替换。**顺序反了会被 40 覆盖掉且不报错。**
+- 🔴 **改完 index.html 必须同代重建 `index.html.gz`。** postbuild 的
+  `scripts/precompress-assets.mjs` 把 `.html` 也预压缩(它自己写明不变式
+  「有 X 必有同代 X.gz」),而 `nginx.conf` 开着 `gzip_static on` —— 该指令
+  **不比较 mtime**,只要客户端带 `Accept-Encoding: gzip` 就直接发 `.gz`。
+  所有浏览器都带这个头,backend SSR 用的 Go http.Client 也自动带并透明解压。
+  少了这一步,整套注入对真实用户 100% 无效,而 entrypoint 还会打印「已注入」。
+  症状极具迷惑性:`curl` 不带该头时一切正常,浏览器里却是裸占位符。
+- 🔴 **entrypoint 必须 fail-open。** nginx 官方 entrypoint 自带 `set -e`,
+  脚本非 0 退出 = **nginx 根本不启动** = 整站不可用(backend SSR 也 fetch 这个容器)。
+  而注入失败的后果只是页面多几个难看的占位符。40 与 50 两个脚本都一律 `exit 0`。
+- 构建产物必须**保留**占位符 —— 那正是运行时注入的输入。dev 插件刻意只在 `serve` 生效。
+- React 侧需要的值(目前只有 ICP)经 `window.__SITE_CONFIG__` 传递,读取封装在
+  `src/shared/lib/site-config.ts`(会把未替换的占位符当作「未配置」,绝不渲染给用户)。
+- canonical **不需要任何配置**:`RouteSEO` 用 `window.location.origin`,天然跟随部署域名。
+
+🔴 **代码里不再有任何真实域名的默认值。** `SEO_BASE_URL` 在 release 模式漏配 =
+**启动失败**(以前默认生产域名,于是「漏配」与「配对了」在启动时完全同形);
+`SUPPORT_EMAIL` 默认空(它会拼进 Unpaywall/Crossref 请求,那两家**按 email 维度限速**,
+共用一个地址 = 任何一套环境跑批量测试都会连累其它所有环境)。
+
+⚠️ `scripts/build-and-push.sh` 曾传 `--build-arg VITE_SITE_URL/VITE_SITE_NAME`,
+但 Dockerfile 从没声明对应 `ARG`、源码也无消费点 —— docker 静默丢弃,而脚本却打印
+「已注入」。**已删除。** 别再加回来。
 
 ### Email Verification Codes
 

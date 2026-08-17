@@ -49,6 +49,7 @@ export function ComposerPlusMenu({
           <button
             type="button"
             disabled={disabled}
+            data-tour="claw-attach"
             aria-label="添加附件或引用"
             title="添加附件或引用"
             className="inline-flex h-8 w-8 items-center justify-center rounded-8 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"

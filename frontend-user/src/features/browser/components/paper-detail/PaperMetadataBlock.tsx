@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { toast } from 'sonner';
-import { ArrowUpRight, Copy } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { copyToClipboard } from '@/shared/lib/clipboard';
+import { PaperPdfChip } from '@/shared/components/PaperPdfChip';
 import { useOpenAccess } from '../../api/open-access';
-import type { Paper } from '@/shared/api/types';
+import type { Paper, UserLibraryPaper } from '@/shared/api/types';
 
 /**
  * 论文 metadata 块 —— Hero 第二层。label-value 表格,只渲染有值的字段,
@@ -11,7 +12,13 @@ import type { Paper } from '@/shared/api/types';
  *
  * 字段:DOI / 发表 / 计数(citationCount + referenceCount) / 开放 / 学科 / 原始页
  */
-export function PaperMetadataBlock({ paper }: { paper: Paper }) {
+export function PaperMetadataBlock({
+  paper,
+  libRow,
+}: {
+  paper: Paper;
+  libRow?: UserLibraryPaper | null;
+}) {
   // DOI 从 externalIds 抽 —— STC 用 "DOI",OLX 用 "doi",兜底大小写
   const doi = useMemo<string | undefined>(() => {
     const ext = paper.externalIds;
@@ -35,19 +42,12 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
   const hasMinicodPdf = !!paper.openAccessPdf?.url;
   const oaQ = useOpenAccess(doi, !!doi && !hasMinicodPdf);
   const foundOA = oaQ.data?.is_oa ? oaQ.data : null;
+  const chipPaper =
+    !hasMinicodPdf && foundOA?.url
+      ? { ...paper, openAccessPdf: { url: foundOA.url, status: 'green' as const } }
+      : paper;
 
-  // 至少一项有值才渲染整块,避免空块占位
   // 注:`paper.url`(原始页)入口已合并到 ActionRow 的"原始链接",这里不再重复展示
-  const hasAny =
-    !!doi ||
-    !!publishedDate ||
-    !!paper.citationCount ||
-    !!paper.referenceCount ||
-    !!paper.isOpenAccess ||
-    hasMinicodPdf ||
-    !!foundOA ||
-    fields.length > 0;
-  if (!hasAny) return null;
 
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-14 text-subtle">
@@ -97,41 +97,9 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
         </MetadataRow>
       )}
 
-      {(paper.isOpenAccess || hasMinicodPdf || foundOA) && (
-        <MetadataRow label="开放">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-4 bg-brand-green/12 text-12 font-medium text-brand-green">
-              OA
-            </span>
-            {paper.openAccessPdf?.url ? (
-              <a
-                href={paper.openAccessPdf.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-12 text-brand-amber hover:text-brand-red hover:underline"
-                title="直接下载 OA PDF"
-              >
-                PDF 直链
-                <ArrowUpRight className="size-3" />
-              </a>
-            ) : (
-              foundOA && (
-                <a
-                  href={foundOA.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-12 text-brand-amber hover:text-brand-red hover:underline"
-                  title="经 Unpaywall 找到的合法开放获取版本"
-                >
-                  {foundOA.is_pdf ? '免费全文 PDF' : '免费全文'}
-                  <ArrowUpRight className="size-3" />
-                  <span className="text-faint">via Unpaywall</span>
-                </a>
-              )
-            )}
-          </span>
-        </MetadataRow>
-      )}
+      <MetadataRow label="开放">
+        <PaperPdfChip paper={chipPaper} libRow={libRow} />
+      </MetadataRow>
 
       {fields.length > 0 && (
         <MetadataRow label="学科">

@@ -1,14 +1,18 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Download, Loader2, Scale } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Download, Loader2, PenLine, Scale } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { ResourceError } from '@/shared/components';
 import { LoadingState } from '@/shared/components/LoadingState';
+import { toApiError } from '@/shared/lib/http';
+import { useManuscriptBySubmission } from '@/shared/api/manuscripts';
+import { parseRevision } from '@/features/prism/api/prism';
 import { isQuotaHandled, useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
 import { useSubmissionReports } from '../api/reports';
+import { useStreamingPartial } from '../api/stream';
 import {
   recBadgeClasses,
   recFillBg,
@@ -51,6 +55,17 @@ export function RecordDetailPage() {
   const { data: sub, isLoading: subLoading, isError: subError, error: subErr } = useSubmission(id);
   // failed 终态不会再产出报告 → 停止轮询(性能审计:失败但没凑齐 4 份时旧逻辑每 5s 永久空打后端)。
   const { data: reports, isLoading: reportsLoading } = useSubmissionReports(id, sub?.status === 'failed');
+
+  // 方法论阶段的控制通道(2026-08-12 推送化补盲区):computing_methodology 期间
+  // reviewer/chief 面板都不订阅 SSE(前者 preparing 停订、后者等 reviewersAllDone),
+  // 后端广播的 state 帧(→reviewing 转场)会全场落空、只剩 15s 慢轮询。
+  // 挂一条 methodology slot 的订阅:它天然能收到 BroadcastAll 的控制帧(收帧即
+  // invalidate,见 stream.ts),顺带把该阶段 agent 的实时输出流保持在线。返回值不渲染。
+  useStreamingPartial({
+    submissionId: id,
+    enabled: sub?.computeState === 'computing_methodology',
+    slot: 'methodology',
+  });
 
   const reportMap = useMemo(() => {
     const m = new Map<ReviewerRole, ReviewReport>();
@@ -249,6 +264,7 @@ function Header({
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
+          <BackToWritingButton sub={sub} reports={reports} />
           <Button
             variant="outline"
             size="sm"
@@ -279,6 +295,96 @@ function Header({
       />
     </section>
   );
+}
+
+/**
+ * 「回到写作修改」—— 稿件桥接的"审 → 写"半环,仅对 prism 源稿 + 已结案工单显示。
+ * 把主审 mustFix / suggestions + 各审稿人意见拼成 decision letter 文本,喂给
+ * Prism 既有的 revision/parse 拆条(一条意见 = 一轮改稿),再带 ?revision=1
+ * 跳回写作工作区自动打开「修改意见回应」工作流,循环闭合。
+ */
+function BackToWritingButton({
+  sub,
+  reports,
+}: {
+  sub: NonNullable<ReturnType<typeof useSubmission>['data']>;
+  reports: Map<ReviewerRole, ReviewReport>;
+}) {
+  const navigate = useNavigate();
+  const manuscriptQ = useManuscriptBySubmission(sub.id);
+  const [pending, setPending] = useState(false);
+
+  const manuscript = manuscriptQ.data;
+  const projectId =
+    manuscript?.origin === 'prism' ? manuscript.prismProjectId : undefined;
+  if (!projectId || sub.status !== 'completed') return null;
+
+  const backToWriting = async () => {
+    setPending(true);
+    try {
+      const feedback = buildRevisionFeedback(reports);
+      if (feedback) {
+        const items = await parseRevision(projectId, feedback);
+        toast.success(`审稿意见已拆成 ${items.length} 条,回写作逐条处理`);
+      }
+      navigate(`/prism?p=${projectId}&revision=1`);
+    } catch (err) {
+      toast.error(toApiError(err).message || '回流失败,请稍后重试');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="primary"
+      size="sm"
+      className="h-8 gap-1.5"
+      disabled={pending}
+      title="把审稿意见拆条带回智能写作,逐条修改后可再次送审"
+      onClick={() => {
+        void backToWriting();
+      }}
+    >
+      {pending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <PenLine className="h-3.5 w-3.5" />
+      )}
+      {pending ? '意见拆条中…' : '回到写作修改'}
+    </Button>
+  );
+}
+
+/** 把 4 份报告压成一封给 revision/parse 的 decision letter 文本。 */
+function buildRevisionFeedback(reports: Map<ReviewerRole, ReviewReport>): string {
+  const parts: string[] = [];
+  const chief = reports.get('chief');
+  if (chief?.mustFix?.length) {
+    parts.push(
+      `主审必改项:\n${chief.mustFix.map((item, i) => `${i + 1}. ${item}`).join('\n')}`,
+    );
+  }
+  if (chief?.suggestions?.length) {
+    parts.push(
+      `主审建议:\n${chief.suggestions.map((item, i) => `${i + 1}. ${item}`).join('\n')}`,
+    );
+  }
+  (['alpha', 'beta', 'gamma'] as const).forEach((role, index) => {
+    const report = reports.get(role);
+    if (!report) return;
+    const letter = String.fromCharCode(65 + index);
+    const comments = (report.lineComments ?? [])
+      .map((c) => `- [${c.severity}] ${c.issue} 建议:${c.suggestion}`)
+      .join('\n');
+    const summary = report.finalSummaryMd?.trim();
+    if (comments || summary) {
+      parts.push(
+        `审稿人 ${letter}:\n${[summary, comments].filter(Boolean).join('\n')}`,
+      );
+    }
+  });
+  return parts.join('\n\n');
 }
 
 function TabsBar({

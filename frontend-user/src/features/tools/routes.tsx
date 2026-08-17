@@ -1,23 +1,40 @@
 import type { RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 export const toolsRoutes: RouteObject[] = [
   {
     // 功能广场壳:侧栏挂一层,目录/详情走子路由的 <Outlet/>,跳转不重挂侧栏。
     path: 'tools',
-    lazy: () => import('./pages/ToolsLayout').then((m) => ({ Component: m.ToolsLayout })),
+    element: lazyRoute(() => import('./pages/ToolsLayout'), 'ToolsLayout'),
     children: [
       {
         index: true,
-        lazy: () => import('./pages/ToolsCatalogPage').then((m) => ({ Component: m.ToolsCatalogPage })),
+        element: lazyRoute(() => import('./pages/ToolsHubPage'), 'ToolsHubPage'),
+      },
+      {
+        path: 'catalog',
+        element: lazyRoute(() => import('./pages/ToolsCatalogPage'), 'ToolsCatalogPage'),
+      },
+      {
+        path: 'datasets',
+        element: lazyRoute(() => import('./pages/ToolsDatasetsPage'), 'ToolsDatasetsPage'),
       },
       {
         // 社区技能分段 —— 静态段,排在 :idOrSlug 之前避免被 param 吃(功能广场融合)。
         path: 'skills',
-        lazy: () => import('./pages/ToolsSkillsPage').then((m) => ({ Component: m.ToolsSkillsPage })),
+        element: lazyRoute(() => import('./pages/ToolsSkillsPage'), 'ToolsSkillsPage'),
+      },
+      {
+        path: 'news',
+        element: lazyRoute(() => import('./pages/ToolsNewsPage'), 'ToolsNewsPage'),
+      },
+      {
+        path: 'prompts',
+        element: lazyRoute(() => import('./pages/ToolsPromptsPage'), 'ToolsPromptsPage'),
       },
       {
         path: ':idOrSlug',
-        lazy: () => import('./pages/ToolDetailPage').then((m) => ({ Component: m.ToolDetailPage })),
+        element: lazyRoute(() => import('./pages/ToolDetailPage'), 'ToolDetailPage'),
       },
     ],
   },
@@ -32,32 +49,20 @@ export const toolsMobileRoutes: RouteObject[] = [
   {
     // /m/tools = 功能首页(站内功能 + 全网功能入口),设计稿 g2rFng。
     path: 'tools',
-    lazy: () =>
-      import('./pages/mobile/MobileToolsHomePage').then((m) => ({
-        Component: m.MobileToolsHomePage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileToolsHomePage'), 'MobileToolsHomePage'),
   },
   {
     // /m/tools/all = 功能广场列表(原 MobileToolsPage,改挂子路由)。静态段,排在 :idOrSlug 之前。
     path: 'tools/all',
-    lazy: () =>
-      import('./pages/mobile/MobileToolsPage').then((m) => ({
-        Component: m.MobileToolsPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileToolsPage'), 'MobileToolsPage'),
   },
   {
     // /m/tools/pc/:key = 纯 PC 能力的「建议电脑端使用」引导页(审稿/写作/矩阵)。
     path: 'tools/pc/:key',
-    lazy: () =>
-      import('./pages/mobile/MobilePcOnlyPage').then((m) => ({
-        Component: m.MobilePcOnlyPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobilePcOnlyPage'), 'MobilePcOnlyPage'),
   },
   {
     path: 'tools/:idOrSlug',
-    lazy: () =>
-      import('./pages/mobile/MobileToolDetailPage').then((m) => ({
-        Component: m.MobileToolDetailPage,
-      })),
+    element: lazyRoute(() => import('./pages/mobile/MobileToolDetailPage'), 'MobileToolDetailPage'),
   },
 ];

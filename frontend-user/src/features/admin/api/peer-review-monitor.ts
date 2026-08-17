@@ -1,7 +1,7 @@
 // mirrors backend/internal/peerreview/admin.go
 //   AdminPRListRow / AdminPRSubmission / AdminPRAsset / AdminPRReport / AdminPRDetail
 // 改字段时两侧一起改。
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import { retryDetailQuery } from '@/shared/lib/query-config';
 
@@ -109,6 +109,8 @@ export interface PRListParams {
 export function usePRSubmissions(params: PRListParams) {
   return useQuery({
     queryKey: ['admin', 'pr-monitor', 'list', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // 线上分页参数统一 page_size(与其余 ~16 个列表端点一致,架构报告 M3)。本地 TS 字段保留
       // pageSize 不动组件,只在出网这一处映射。后端已同时认 page_size / pageSize,过渡零中断。

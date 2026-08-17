@@ -212,21 +212,21 @@ export interface LandingFeature {
 const search: LandingFeature = {
   key: 'search',
   slug: 'search',
-  name: '文献搜索',
-  pageTitle: '文献搜索 · Scholay学术 — 用一句中文,读懂一整个研究领域',
+  name: '学术搜索',
+  pageTitle: '学术搜索 · Scholay学术 — 用一句中文,读懂一整个研究领域',
   metaDesc:
-    'Scholay 文献搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献。',
+    'Scholay 学术搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献。',
   metaKeywords:
-    '文献搜索,学术搜索,论文检索,语义搜索,中文学术搜索,引文矩阵,Semantic Scholar,OpenAlex,PubMed,Scholay',
+    '学术搜索,文献搜索,论文检索,语义搜索,中文学术搜索,引文矩阵,Semantic Scholar,OpenAlex,PubMed,Scholay',
 
   hero: {
-    eyebrow: { dot: '●', dotColor: 'red', text: '全新发布 · 文献搜索 2.0' },
+    eyebrow: { dot: '●', dotColor: 'red', text: '全新发布 · 学术搜索 2.0' },
     titleLines: [
       { text: '用一句中文,' },
       { text: '读懂一整个研究领域。', italic: true },
     ],
     description:
-      'Scholay 文献搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献,支持中英文混合检索,并与「文件夹」无缝集成。',
+      'Scholay 学术搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献,支持中英文混合检索,并与「文件夹」无缝集成。',
     primaryCTA: { label: '开始免费检索', href: '/search' },
     secondaryCTA: { label: '观看 2 分钟演示', href: '#demo' },
     checkMeta: ['无需信用卡', '支持中英文', 'Free 档即可体验'],
@@ -307,7 +307,7 @@ const search: LandingFeature = {
   useCasesHeader: {
     eyebrow: '使用场景',
     title: '为不同的研究角色而设计。',
-    sub: '无论你正在准备开题报告、撰写综述,还是带领一个 30 人的实验室,Scholay 文献搜索都能与你的研究节奏对齐。',
+    sub: '无论你正在准备开题报告、撰写综述,还是带领一个 30 人的实验室,Scholay 学术搜索都能与你的研究节奏对齐。',
   },
   useCases: [
     {
@@ -347,13 +347,13 @@ const search: LandingFeature = {
 
   comparison: {
     eyebrow: '对比',
-    title: '传统数据库检索 vs. Scholay 文献搜索',
+    title: '传统数据库检索 vs. Scholay 学术搜索',
     sub: '为什么我们觉得是时候换一种检索方式?以下是与传统关键词数据库的真实对比。',
     theme: 'dark',
     columns: [
       { label: '维度' },
       { label: '传统数据库' },
-      { label: 'Scholay 文献搜索', highlight: true },
+      { label: 'Scholay 学术搜索', highlight: true },
     ],
     rows: [
       {
@@ -414,14 +414,14 @@ const search: LandingFeature = {
     },
     {
       q: 'Free 有多少搜索次数限制?',
-      a: '论文检索与文献管理不限次、不耗额度。智能搜索等 AI 能力按 7 天周期额度计,Free 档即可体验,Pro / Max 提供更高额度,详见定价页。',
+      a: '论文检索与文献管理不限次数,不消耗额度。智能搜论文等 AI 能力按额度计费,额度用完后自动恢复;Free 档即可体验,Pro / Max 提供更高额度,详见定价页。',
     },
   ],
 
   finalCTA: {
     eyebrow: 'START SEARCHING SMARTER',
     titleLines: [{ text: '让下一次文献调研,从一句中文开始。', italic: true }],
-    sub: '免费创建账号,即刻使用 Scholay 文献搜索;Pro / Max 提供更高 AI 额度,也可通过站内活动与兑换码获得权益。',
+    sub: '免费创建账号,即刻使用 Scholay 学术搜索;Pro / Max 提供更高 AI 额度,也可通过站内活动与兑换码获得权益。',
     primaryCTA: { label: '立即免费开始', href: '/search' },
     secondaryCTA: { label: '预约 30 分钟产品演示', href: '/contact' },
     metaChips: ['无需信用卡', '支持中英文', 'Free 档即可体验'],

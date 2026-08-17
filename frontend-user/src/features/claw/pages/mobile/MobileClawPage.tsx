@@ -342,7 +342,6 @@ function MobileClawWorkspace({
           }
           busy={busy}
           stopping={stopping}
-          context={contextQuery.data}
           onStop={conv.handleStop}
           onSubmit={conv.handleSubmit}
           sessionId={sessionId}

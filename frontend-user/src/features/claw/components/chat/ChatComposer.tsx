@@ -14,8 +14,7 @@ import {
 } from '@/shared/components/chat';
 import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
 import type { TurnReference } from '@/shared/types/chat';
-import type { QuotaBlockedControls } from '@/shared/components/chat';
-import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
+import { useUploadClawAttachment, useReferenceClawLibrary } from '../../api/session';
 import type { AttachmentDTO, ReferenceItemDTO } from '../../api/types';
 import { ComposerSkillsButton } from './ComposerSkillsButton';
 
@@ -24,17 +23,9 @@ import { ComposerSkillsButton } from './ComposerSkillsButton';
  * @/shared/hooks/useComposerAttachments + ComposerPlusMenu / ComposerAttachmentRow,
  * 本文件只剩 claw 业务:上传/引用 mutation、多会话 adopt、发送打包)。
  *
- * 上传时机:用户选了文件 → 立即 POST <uploadBasePath>/upload → DTO 进 attachments,上方出 chip;
+ * 上传时机:用户选了文件 → 立即 POST /claw/upload → DTO 进 attachments,上方出 chip;
  * 不是 send 时才传(否则点击 send 后要等几秒)。
  */
-
-/** 上下文水位 — 跟 ClawContextSnapshot 子集对齐, 放输入框 footer 展示 (参考 Claude/Cursor)。 */
-export interface ComposerContext {
-  totalTokens: number;
-  maxTokens: number;
-  percentage: number;
-  model: string;
-}
 
 export interface ChatComposerProps {
   /** 输入框 + 发送按钮 整体禁用 (WS 未就绪 / busy 中均传 true) */
@@ -43,8 +34,6 @@ export interface ChatComposerProps {
   busy?: boolean;
   /** 用户点过 stop 后 AI 还在收尾时, 防止重复点 — 把 stop 按钮转 spinner+disabled */
   stopping?: boolean;
-  /** 当前会话上下文水位; 放 footer 右下角展示。null / totalTokens=0 时不显示。 */
-  context?: ComposerContext | null;
   onSubmit: (text: string, attachments: AttachmentDTO[], references: ReferenceItemDTO[]) => void;
   /** 停止生成 — busy 时点按钮调这个; 不传时 stop 按钮 disable */
   onStop?: () => void;
@@ -64,10 +53,6 @@ export interface ChatComposerProps {
   onRequireAuth?: () => void;
   /** 会话模型选择器(P2 模型目录化):ClawPage 组装 shared ModelSelector 后经此插槽注入。 */
   modelSlot?: ReactNode;
-  /** 额度耗尽「被拦未发送」控制 —— 透传给 shared Composer 的输入框上方额度条。 */
-  quotaBlocked?: QuotaBlockedControls | null;
-  /** 预警条准入(对话已有轮次才出),透传 shared Composer。 */
-  quotaWarn?: boolean;
   /** 当前会话模型是否支持图片输入(P2 图片通道;false → 图片被拦下并提示)。 */
   acceptImages?: boolean;
   /** 「新对话」回调 —— 输入框技能面板「在新对话中应用」用(启用变更建会话时冻结)。 */
@@ -75,22 +60,6 @@ export interface ChatComposerProps {
   /** 附件/引用/技能入口开关(默认 true = claw)。制作PPT 纯文本描述,置 false 隐藏上传+引用+技能,
    *  并关掉拖拽/粘贴(该 feature 无对应后端上传端点)。 */
   enableAttachments?: boolean;
-  /** 附件上传 / 引用文献的 feature 端点前缀(如 `/user/claw`、`/user/stat_lab`)。
-   *
-   * 🔴 **必须随 feature 走,不能写死。** 2026-08-05 浏览器端到端测试实测的事故:
-   * 本组件此前硬编码 `useUploadClawAttachment()`(= `/user/claw/upload`),
-   * 而 boltslides / sci_draw 都靠 `enableAttachments: false` 绕开了它,从未暴露。
-   * 数据分析(stat_lab)是 claw 之外**第一个真开上传的 feature**,于是第一个撞上:
-   * 文件被传到 claw 的 uploader → 创建的是一个 **claw** 会话 → 该 id 被 stat_lab 前端 adopt
-   * → 所有 `/stat_lab/session/*` 对这个 id 全部 404 → 页面显示「对话不存在或无权访问」。
-   * 后端 `/stat_lab/upload` 路由一直是好的,只是前端从来不调它。 */
-  uploadBasePath?: string;
-  /** 「引用文献」入口开关(默认 true)。
-   *
-   * 与 `enableAttachments` **刻意分开**:数据分析要收数据文件(上传开),
-   * 但不需要把文献集里的论文物化进会话 —— 那是给写作/审稿用的,分析数据用不上,
-   * 而且后端 `/stat_lab/reference` 端点根本不存在,显示它 = 点了必 404。 */
-  enableLibraryReference?: boolean;
   /** 输入框占位文案(默认 claw 文案)。 */
   placeholder?: string;
   /**
@@ -109,7 +78,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   disabled,
   busy,
   stopping,
-  context,
   onSubmit,
   onStop,
   sessionId,
@@ -120,18 +88,14 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   acceptImages,
   onNewConversation,
   enableAttachments = true,
-  uploadBasePath = '/user/claw',
-  enableLibraryReference = true,
   placeholder,
   disabledPlaceholder,
-  quotaBlocked = null,
-  quotaWarn = false,
 }, ref) {
   // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
   const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const reference = useReferenceAgentLibrary(`${uploadBasePath}/reference`);
-  const upload = useUploadAgentAttachment(`${uploadBasePath}/upload`);
+  const reference = useReferenceClawLibrary();
+  const upload = useUploadClawAttachment();
   const composerRef = useRef<ComposerHandle>(null);
 
   // 附件交互状态机(选择/拖拽/粘贴/chips/lightbox)—— 共享 hook,上传动作注入。
@@ -153,8 +117,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     trackEvent('claw_query', { len: text.length, files: att.attachments.length, refs: references.length });
     onSubmit(text, att.attachments, references);
     // 提交后释放 compose 预览的 object URL —— 已发送气泡的缩略图改用后端代理 URL
-    // (走 makeAgentConversationHook 的 sessionFileUrl → shared/lib/agent-attachment 的统一
-    //  附件端点, 与历史回放同一条路径), 不留 blob 泄漏。
+    // (ClawPage 用 clawSessionFileUrl 拼, 与历史回放一致), 不留 blob 泄漏。
     att.clearAttachments();
     setReferences([]);
   };
@@ -216,15 +179,15 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         onStop={onStop}
         requireAuth={requireAuth}
         onRequireAuth={onRequireAuth}
-        context={context}
-        quotaBlocked={quotaBlocked}
-        quotaWarn={quotaWarn}
-        maxHeightPx={140}
+        maxHeightPx={120}
         onPaste={enableAttachments ? att.handlePaste : undefined}
-        containerProps={enableAttachments ? att.dragHandlers : undefined}
+        containerProps={{
+          ...(enableAttachments ? att.dragHandlers : undefined),
+          'data-tour': 'claw-composer',
+        }}
         overlay={
           enableAttachments && att.dragOver ? (
-            <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-surface-card/90 text-14 font-medium text-brand-green">
+            <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
               <Upload className="size-4" />
               {acceptImages === false ? '松开上传文件' : '松开上传图片 / 文件'}
             </div>
@@ -247,7 +210,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
                   onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
                 />
                 {reference.isPending && (
-                  <span className="inline-flex items-center gap-1 text-12 text-faint">
+                  <span className="inline-flex items-center gap-1 text-2xs text-faint">
                     <Loader2 className="size-3 animate-spin" />
                     引用中…
                   </span>
@@ -263,17 +226,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
                 disabled={disabled || att.uploading}
                 accept={ATTACHMENT_ACCEPT}
                 onFiles={(files) => void att.addFiles(files)}
-                onPickLibrary={
-                  enableLibraryReference
-                    ? () => {
-                        if (requireAuth) {
-                          onRequireAuth?.();
-                          return;
-                        }
-                        setPickerOpen(true);
-                      }
-                    : undefined
-                }
+                onPickLibrary={() => {
+                  if (requireAuth) {
+                    onRequireAuth?.();
+                    return;
+                  }
+                  setPickerOpen(true);
+                }}
               />
               {/* 技能入口(登录后可见):事前声明本会话将启用的能力 + 内嵌启用列表(桌面/移动通用)。 */}
               {!requireAuth && onNewConversation && (

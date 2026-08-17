@@ -181,6 +181,12 @@ func (r *Repository) GetAuthorByAuthorID(authorID string) (*SEOAuthor, error) {
 	return &a, nil
 }
 
+// ExistingAuthorIDs 批量判定哪些 author_id 已在 seo_authors 落地(与 ExistingPaperIDs 同构,
+// 走 uk_author_id 唯一索引)。用途见 internal/config/ssr_link_frontier.go。
+func (r *Repository) ExistingAuthorIDs(authorIDs []string) (map[string]bool, error) {
+	return existingIDs(r.db, &SEOAuthor{}, "author_id", authorIDs)
+}
+
 // ListAuthorSitemapPage 读取指定分页的 sitemap 条目
 //
 // 同时取 source + author_id —— sitemap URL 采用 canonical `/author/{source}/{authorId}`,

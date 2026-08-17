@@ -23,7 +23,7 @@ export function ToolDetailPage() {
   const [q, setQ] = useState('');
   const submitSearch = () => {
     const t = q.trim();
-    if (t) navigate(`/tools?q=${encodeURIComponent(t)}`);
+    if (t) navigate(`/tools/catalog?q=${encodeURIComponent(t)}`);
   };
 
   return (

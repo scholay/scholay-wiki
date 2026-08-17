@@ -4,12 +4,12 @@ import {
   BookOpen,
   ClipboardCheck,
   FolderOpen,
-  MessagesSquare,
   PenLine,
   Rocket,
   Search,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 
 /**
  * 帮助文章 / 长内容页底部的"回到产品"区。
@@ -31,10 +31,10 @@ interface Shortcut {
 
 // 单个功能入口(复用,组成各主题预设)
 const SC = {
-  search: { to: '/search', icon: Search, title: '文献搜索', desc: '多源并行 + AI 智能检索' },
+  search: { to: '/search', icon: Search, title: '学术搜索', desc: '多源并行 + AI 智能检索' },
   library: { to: '/library', icon: FolderOpen, title: '我的文件夹', desc: '收藏 / 分组 / PDF 管理' },
-  journals: { to: '/journals', icon: BookOpen, title: '期刊搜索', desc: '检索 + IF / 分区 / 收录' },
-  claw: { to: '/claw', icon: MessagesSquare, title: '智能助手', desc: 'AI 学术对话与调研' },
+  journals: { to: '/journals/search', icon: BookOpen, title: '期刊库搜索', desc: '检索 + IF / 分区 / 收录' },
+  claw: { to: '/claw', icon: RhinoBrandIcon, title: '智能助手', desc: 'AI 学术对话与调研' },
   prism: { to: '/prism', icon: PenLine, title: '智能写作 Prism', desc: 'AI-native LaTeX 写作' },
   review: { to: '/peer-review', icon: ClipboardCheck, title: 'AI 审稿', desc: '投稿前多维度预审' },
 } satisfies Record<string, Shortcut>;
@@ -115,7 +115,7 @@ function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 p-4 rounded-12 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
+      className="group flex items-center gap-3 p-4 rounded-12 bg-surface-card border border-border-soft hover:border-foreground/40 transition-colors"
     >
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors shrink-0">
         <Icon

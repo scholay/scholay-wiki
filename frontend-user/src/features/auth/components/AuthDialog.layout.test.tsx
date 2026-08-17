@@ -7,7 +7,9 @@ vi.mock('@/stores/auth-dialog.store', () => ({
     open: true,
     mode: 'register',
     initialAccountType: 'email',
+    pendingOAuth: null,
     setMode: vi.fn(),
+    setPendingOAuth: vi.fn(),
     close: vi.fn(),
   }),
 }));
@@ -30,12 +32,9 @@ vi.mock('./RegisterForm', () => ({
 }));
 vi.mock('./ForgotPasswordForm', () => ({ ForgotPasswordForm: () => null }));
 vi.mock('./OAuthRow', () => ({ OAuthRow: () => <div data-testid="oauth-row" /> }));
+vi.mock('./OAuthConfirmPanel', () => ({ OAuthConfirmPanel: () => null }));
+vi.mock('./InvitationCodeField', () => ({ InvitationCodeField: () => null }));
 vi.mock('./WeChatQRPanel', () => ({ WeChatQRPanel: () => null }));
-vi.mock('./InviteAuthNotice', () => ({
-  InviteAuthNotice: ({ className }: { className?: string }) => (
-    <div data-testid="invite-notice" className={className} />
-  ),
-}));
 
 import { AuthDialog } from './AuthDialog';
 
@@ -48,7 +47,7 @@ function expectClasses(element: Element, classes: string[]) {
 }
 
 describe('AuthDialog 横向收缩契约', () => {
-  it('限制横向滚动，并允许注册表单与邀请卡所在的 grid item 收缩', () => {
+  it('限制横向滚动，并允许注册表单与第三方入口所在的 grid item 收缩', () => {
     render(<AuthDialog />);
 
     expectClasses(screen.getByRole('dialog'), [
@@ -57,7 +56,6 @@ describe('AuthDialog 横向收缩契约', () => {
       'overflow-x-hidden',
     ]);
     expectClasses(screen.getByTestId('register-form').parentElement!, ['min-w-0']);
-    expectClasses(screen.getByTestId('invite-notice').parentElement!, ['min-w-0']);
-    expectClasses(screen.getByTestId('invite-notice'), ['mx-0', 'mt-0']);
+    expectClasses(screen.getByTestId('oauth-row').parentElement!, ['min-w-0']);
   });
 });

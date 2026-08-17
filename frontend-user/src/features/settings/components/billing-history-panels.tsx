@@ -78,7 +78,7 @@ export function OrdersTable() {
             <button
               key={id}
               onClick={() => setFilter(id)}
-              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ? 'bg-foreground text-on-dark' : 'bg-surface-2 text-subtle hover:bg-surface-1')}
+              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ? 'bg-inverse text-on-inverse' : 'bg-surface-2 text-subtle hover:bg-surface-1')}
             >
               {label}
             </button>

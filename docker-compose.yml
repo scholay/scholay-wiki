@@ -236,12 +236,24 @@ services:
       # 测试支付:开后「账户资产」出现"测试支付"按钮, 下单后一键完成履约(无网关)。生产务必 false。
       PAYMENT_TEST_ENABLED: ${PAYMENT_TEST_ENABLED:-false}
       # 站点 / 第三方服务地址 —— 来源是 .env 的 SITE_URL 等单一变量,这里 fan-out 给 backend
-      SEO_BASE_URL: ${SITE_URL:-https://www.scholay.com}
+      #
+      # 🔴 本地默认指向 localhost,**不再回落生产域名**。回落值会流进 canonical / og:url /
+      #    sitemap <loc> / 邮件里的绝对链接 / SEO 推送 origin —— 一个漏配的环境会就此
+      #    静默宣称自己是生产站,而这类错误不报错、不留日志,只在搜索引擎那头显形。
+      SEO_BASE_URL: ${SITE_URL:-http://localhost:${HTTP_PORT:-5411}}
       # 公网 origin 原值也直接透传(邀请分享链接等要拼用户可达的公网 URL;
       # FRONTEND_USER_URL 是容器内网地址,不能给用户)
-      SITE_URL: ${SITE_URL:-https://www.scholay.com}
+      SITE_URL: ${SITE_URL:-http://localhost:${HTTP_PORT:-5411}}
       SITE_NAME: ${SITE_NAME:-Scholay}
-      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
+      # 默认留空(理由同 prod compose):不给任何环境一个可以冒用的真实邮箱。
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+      # 对外学术 API(Crossref / Unpaywall)的礼貌池联系邮箱。留空则回落 SUPPORT_EMAIL;
+      # 两者都空 → 后端跳过 Unpaywall 查询(不拿别的环境的身份去打上游,那两家按 email 限速)。
+      CROSSREF_EMAIL: ${CROSSREF_EMAIL:-}
+      # 本机器扮演的角色 —— 本地 compose 恒为 dev,由它派生「不可索引」等默认值。
+      APP_ENV: ${APP_ENV:-dev}
+      # 留空 = 从 APP_ENV 派生(dev → 不可索引)。本机不该出现在任何搜索引擎里。
+      SEO_INDEXABLE: ${SEO_INDEXABLE:-}
       # 主动 SEO 提交(详见 .env 注释段)
       SEO_SUBMIT_ENABLED: ${SEO_SUBMIT_ENABLED:-false}
       INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
@@ -256,6 +268,10 @@ services:
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       # SEO 完整性回填(H1 论文摘要 + M2 冷门 URL 现拉):默认关,置 true 才消耗 minicod 配额
       SEO_ENRICH_ENABLED: ${SEO_ENRICH_ENABLED:-false}
+      # M2 现拉的每小时全局配额。爬虫 UA 一律不放行(硬编码),这个数只管「非爬虫」那部分:
+      # 0 = 不限;留空取默认 200(≈ 真人实体页浏览量的 100 倍余量)。理由见
+      # backend/internal/config/ssr_onmiss_gate.go 文件头。必须在这里透传,否则 .env 里设了不生效。
+      SEO_ONMISS_HOURLY_BUDGET: ${SEO_ONMISS_HOURLY_BUDGET:-}
       # MinIO 对象存储(用户上传 PDF) —— endpoint 用容器名 minio:9000
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
@@ -281,6 +297,12 @@ services:
       # 留空 = 中间件完全不挂载,零开销。
       UMAMI_CRAWLER_WEBSITE_ID: ${UMAMI_CRAWLER_WEBSITE_ID:-}
       UMAMI_CRAWLER_BASE_URL: ${UMAMI_CRAWLER_BASE_URL:-}
+      # umami 管理员凭据。backend 靠登录 umami 拿 token 取统计数据,凭据在代码里是
+      # 编译期常量 admin/umami(umami 出厂默认)。留这两个 env 是为了:新装一个 umami
+      # 实例时若按安全实践改掉默认口令,/admin/analytics 的四个面板会同时 401 哑掉,
+      # 而报错只是 401 看不出根因。留空 = 用出厂默认(现状)。
+      UMAMI_ADMIN_USER: ${UMAMI_ADMIN_USER:-}
+      UMAMI_ADMIN_PASSWORD: ${UMAMI_ADMIN_PASSWORD:-}
       # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       # P6:fork 已退役,后端唯一 agent 后端 = clean-room executor。默认即指向 executor,
@@ -292,7 +314,6 @@ services:
       #   AGENT_JOURNAL_VALIDATE=on   → 后台持续校验(只读、只 slog)
       AGENT_TURN_JOURNAL: ${AGENT_TURN_JOURNAL:-shadow}
       AGENT_JOURNAL_VALIDATE: ${AGENT_JOURNAL_VALIDATE:-}
-      AGENT_JOURNAL_READ: ${AGENT_JOURNAL_READ:-}
       # executor 路由:P6 后所有 feature 都走 executor(fork 已删)。默认即指向 executor + 全 feature,
       # 与 AGENT_BASE_URL 同一 executor;开箱即用,无需手动 env。
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
@@ -552,14 +573,23 @@ services:
       context: ./frontend-user
       dockerfile: Dockerfile
       args:
+        # 🔴 这里只放与部署环境无关的东西。站点身份(域名 / Clarity / ICP / 标题前缀)
+        #    一律走**运行时** env(见下面 environment),不走 build-arg ——
+        #    Vite 编译期就把 VITE_* 字面替换进 bundle,走 build-arg 就等于把域名烘进镜像。
         VITE_API_BASE_URL: ""
-        # umami tracker 已改为运行时 fetch /api/v1/public/umami-config 拿 website_id,
-        # 不需要 build-time 注入。换 umami DB / 重建 website 都无需 rebuild 前端。
     container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging
     environment:
       <<: *tz-env
+      # 站点身份运行时注入 —— 与 prod compose 同名同语义(见那边的长注释)。
+      # 本地默认指向 nginx 的对外端口,分享链 / og:url 才是可点开的。
+      SITE_URL: ${SITE_URL:-http://localhost:${HTTP_PORT:-5411}}
+      # 本地默认**关闭** Clarity:开发点击流没有分析价值,只会污染真实项目。
+      CLARITY_PROJECT_ID: ${CLARITY_PROJECT_ID:-}
+      # 本地不是备案主体,留空(Footer 整块不渲染)。
+      ICP_BEIAN: ${ICP_BEIAN:-}
+      SITE_TITLE_PREFIX: ${SITE_TITLE_PREFIX:-[LOCAL] }
     volumes:
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       # ⚠️ 这里【刻意不挂】./data/frontend-assets —— 这是 dev 与 prod 在本服务上的差异之一

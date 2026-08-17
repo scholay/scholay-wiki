@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { http } from '@/shared/lib/http';
 import type { AdminSessionArtifact } from '../api/session-monitor';
-import { composeFigure } from '@/features/claw/components/figure/compose';
 import { FigureSvgDisplay } from '@/features/claw/components/figure/FigureSvgDisplay';
 import { parseFigureSpec } from '@/features/claw/components/figure/figure-spec';
 
@@ -105,7 +104,11 @@ function ComposedFigure({ text, name }: { text: string; name: string }) {
       setSvg('');
       return;
     }
-    void composeFigure(spec)
+    // 与用户端 TurnFigures 同款:compose.ts 顶层初始化 elkjs(~1.4MB raw),必须动态 import,
+    // 否则整个 elk chunk 会静态挂进 SessionMonitorPage 闭包(2026-08-12 审计实测 +1.5MB)。
+    // parseFigureSpec 判定在前:只有真拿到可解析的 *.fig.json 才触发下载。
+    void import('@/features/claw/components/figure/compose')
+      .then(({ composeFigure }) => composeFigure(spec))
       .then((value) => active && setSvg(value))
       .catch(() => active && setSvg(''));
     return () => {

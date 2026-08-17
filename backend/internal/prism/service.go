@@ -370,8 +370,9 @@ func (s *Service) gatherAssets(ctx context.Context, projectID uint) (map[string]
 	return out, sha256Hex(strings.Join(shas, "\n")), nil
 }
 
-// StartCompile 立即建 queued 记录并起后台编译,返回该记录(前端轮询 GetCompile)。
-func (s *Service) StartCompile(projectID uint, mainFile, engine string) (*Compile, error) {
+// StartCompile 立即建 queued 记录并起后台编译,返回该记录。ownerID = 项目属主,
+// 供状态推送寻址(compile_status 经通知 WS 下发;前端轮询降级为兜底)。
+func (s *Service) StartCompile(projectID, ownerID uint, mainFile, engine string) (*Compile, error) {
 	if engine != EngineXeLaTeX {
 		engine = EnginePDFLaTeX
 	}
@@ -381,16 +382,16 @@ func (s *Service) StartCompile(projectID uint, mainFile, engine string) (*Compil
 	}
 	compileID := c.ID
 	safego.Go("prism-compile", func() {
-		s.runCompile(compileID, projectID, mainFile, engine)
+		s.runCompile(compileID, projectID, ownerID, mainFile, engine)
 	})
 	return c, nil
 }
 
 // runCompile 后台执行:纯 DB 算缓存键 → 命中直接复用(零 MinIO);miss 才排队拿并发闸、下载资产、沙箱编译。
-func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string) {
+func (s *Service) runCompile(compileID, projectID, ownerID uint, mainFile, engine string) {
 	files, hash, err := s.gatherCurrent(projectID)
 	if err != nil {
-		s.failCompile(compileID, "内部错误,无法读取项目文件", err)
+		s.failCompile(ownerID, projectID, compileID, "内部错误,无法读取项目文件", err)
 		return
 	}
 
@@ -404,7 +405,7 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	// 也先白下载全部资产字节)。
 	assetRefs, assetHash, err := s.assetDigest(projectID)
 	if err != nil {
-		s.failCompile(compileID, "内部错误,无法读取项目文件", err)
+		s.failCompile(ownerID, projectID, compileID, "内部错误,无法读取项目文件", err)
 		return
 	}
 	cacheKey := sha256Hex(hash + "|" + engine + "|" + assetHash)
@@ -417,6 +418,8 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 			"duration_ms": 0, "expires_at": time.Now().Add(time.Hour),
 			"page_count": cached.PageCount, "overfull_count": cached.OverfullCount,
 		})
+		// 注意:缓存命中是 queued→success 直跳,前端不能假设有 running 帧。
+		s.notifyCompileStatus(ownerID, projectID, compileID)
 		return
 	}
 
@@ -430,12 +433,13 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 		defer func() { <-sem }()
 	case <-queueCtx.Done():
 		queueCancel()
-		s.failCompileKind(compileID, compileErrTimeout, "编译排队超时,请稍后重试", queueCtx.Err())
+		s.failCompileKind(ownerID, projectID, compileID, compileErrTimeout, "编译排队超时,请稍后重试", queueCtx.Err())
 		return
 	}
 
 	// 拿到 slot 才置 running(排队期间保持 queued;前端 queued/running 都显示编译中,UX 无回退)。
 	_ = s.repo.UpdateCompile(compileID, map[string]any{"status": CompileRunning, "content_hash": cacheKey, "engine": engine})
+	s.notifyCompileStatus(ownerID, projectID, compileID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), prismCompileTimeout)
 	defer cancel()
@@ -443,13 +447,13 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	// 缓存 miss 才下载资产字节;取失败=可重试的 infra 错误(不再静默缺图污染缓存)。
 	assets, ferr := s.fetchAssetBytes(ctx, assetRefs)
 	if ferr != nil {
-		s.failCompileKind(compileID, compileErrInfra, "素材读取失败,请稍后重试", ferr)
+		s.failCompileKind(ownerID, projectID, compileID, compileErrInfra, "素材读取失败,请稍后重试", ferr)
 		return
 	}
 
 	res, err := s.tex.Compile(ctx, files, assets, mainFile, engine)
 	if err != nil {
-		s.failCompile(compileID, "编译服务异常,请稍后重试", err)
+		s.failCompile(ownerID, projectID, compileID, "编译服务异常,请稍后重试", err)
 		return
 	}
 
@@ -461,7 +465,7 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	if res.Status == CompileSuccess && len(res.PDF) > 0 {
 		pdfKey := base + ".pdf"
 		if err := s.putObject(ctx, pdfKey, res.PDF, "application/pdf"); err != nil {
-			s.failCompile(compileID, "保存编译产物失败,请稍后重试", err)
+			s.failCompile(ownerID, projectID, compileID, "保存编译产物失败,请稍后重试", err)
 			return
 		}
 		pages, overfull := parseCompileStats(res.Log)
@@ -470,6 +474,7 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 			"duration_ms": res.DurationMs, "expires_at": time.Now().Add(time.Hour),
 			"page_count": pages, "overfull_count": overfull,
 		})
+		s.notifyCompileStatus(ownerID, projectID, compileID)
 		return
 	}
 
@@ -497,19 +502,22 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 		"status": CompileError, "error_kind": compileErrLatex, "log_object_key": logKey,
 		"log_excerpt": excerpt, "error_summary": summary, "duration_ms": res.DurationMs,
 	})
+	s.notifyCompileStatus(ownerID, projectID, compileID)
 }
 
 // failCompileKind 记一次失败并【分类】(latex/infra/timeout)。前端只对 latex arm auto-fix,infra/timeout 停琥珀 banner。
-func (s *Service) failCompileKind(compileID uint, kind, friendly string, err error) {
+// ownerID/projectID 只为状态推送寻址;写库本身仍只按 compileID。
+func (s *Service) failCompileKind(ownerID, projectID, compileID uint, kind, friendly string, err error) {
 	slog.Error("prism compile failed", "compile_id", compileID, "kind", kind, "err", err)
 	_ = s.repo.UpdateCompile(compileID, map[string]any{
 		"status": CompileError, "error_kind": kind, "error_summary": friendly, "log_excerpt": friendly,
 	})
+	s.notifyCompileStatus(ownerID, projectID, compileID)
 }
 
 // failCompile 是 infra 类失败的便捷包装(内部/沙箱/保存错;非用户可修的 LaTeX 语法错)。
-func (s *Service) failCompile(compileID uint, friendly string, err error) {
-	s.failCompileKind(compileID, compileErrInfra, friendly, err)
+func (s *Service) failCompile(ownerID, projectID, compileID uint, friendly string, err error) {
+	s.failCompileKind(ownerID, projectID, compileID, compileErrInfra, friendly, err)
 }
 
 func (s *Service) putObject(ctx context.Context, key string, body []byte, contentType string) error {

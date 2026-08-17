@@ -1,10 +1,7 @@
 import {
   Sidebar,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
   SidebarContent,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 import { ClawSessionList, type ClawSessionListProps } from './ClawSessionList';
 
 /**
@@ -36,7 +33,6 @@ export function ClawSidebar({
   sectionId,
   emptyHint,
 }: ClawSidebarProps) {
-  const toggleSidebar = useSidebar((s) => s.toggle);
 
   return (
     <Sidebar>
@@ -50,8 +46,6 @@ export function ClawSidebar({
           emptyHint={emptyHint}
         />
       </SidebarContent>
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }

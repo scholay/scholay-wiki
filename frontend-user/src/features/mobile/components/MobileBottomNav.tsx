@@ -4,7 +4,7 @@ import { Compass, LayoutGrid, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { SNAPPY_SPRING } from '@/shared/lib/motion';
-import { ClawBrandIcon } from '@/shared/components/ClawBrandIcon';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 
 interface NavItem {
   key: string;
@@ -25,8 +25,8 @@ const ITEMS: NavItem[] = [
     key: 'claw',
     label: 'AI Claw',
     to: '/m/claw',
-    // Claw 品牌符号:矢量龙虾(替代设计稿的 🦞 emoji,跟随导航文字色)
-    icon: () => <ClawBrandIcon className="size-5.5" />,
+    // 智能助手品牌符号：牛犀犀（跟随导航文字色）
+    icon: () => <RhinoBrandIcon className="size-5.5" />,
   },
   {
     key: 'tools',

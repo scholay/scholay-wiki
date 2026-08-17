@@ -1,14 +1,24 @@
-import { useId, useState, type ReactElement } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useState, type ComponentType, type ReactElement } from 'react';
+import {
+  ArrowLeft,
+  BookMarked,
+  ChartSpline,
+  FileText,
+  Grid3x3,
+  Presentation,
+} from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
-import { FEATURE_ICON, type TemplateFeature } from '../../lib/feature-meta';
+import type { TemplateFeature } from '../../lib/feature-meta';
 
 /**
  * 「模板卡片」—— 智能助手空态(新对话)**输入框上方**的一组创作模板。
  *
  * 定位:PPT / 科研绘图 不是与「对话」并列的顶部 tab,而是**统一对话里可套用的模板**。默认就是普通聊天
  * (直接打字);想做 PPT / 画图就点对应卡进入该模板。每张卡带一段**封面动画诠释功能目的**。
+ *
+ * 另有「即将推出」占位卡(智能选刊 / 矩阵分析 / PDF-Chat)——仅视觉入口,点击 toast 提示。
  *
  * 布局:feature=claw 时把可选模板做成「扑克牌拱形展开」——卡片沿弧线扇形铺开、微旋转叠放,鼠标悬停哪张
  * 就把它扶正+放大+抬起聚焦(邻卡让位)。卡片数量增减自适应(2 张起,后续可加更多)。
@@ -19,9 +29,11 @@ export type { TemplateFeature };
 
 interface CardMeta {
   key: string;
-  feature: Exclude<TemplateFeature, 'claw'>;
+  /** claw 模板 feature;占位卡无此字段 */
+  feature?: Exclude<TemplateFeature, 'claw'>;
   title: string;
   subtitle: string;
+  Icon: ComponentType<{ className?: string }>;
   Illustration: (p: { reduce: boolean }) => ReactElement;
   /** 品牌强调色(悬停聚焦光环 + 模式条配色)。 */
   accent: {
@@ -30,6 +42,8 @@ interface CardMeta {
     modeBar: string; // 模式条边 + 底
     modeText: string;
   };
+  /** 功能尚未接线 —— 点击只 toast,不进 feature。 */
+  comingSoon?: boolean;
 }
 
 const CARDS: CardMeta[] = [
@@ -38,6 +52,7 @@ const CARDS: CardMeta[] = [
     feature: 'boltslides',
     title: '制作PPT',
     subtitle: '一句话描述主题 → 多页可交互演示稿',
+    Icon: Presentation,
     Illustration: DeckIllustration,
     accent: {
       chip: 'bg-brand-amber/10 text-brand-amber',
@@ -51,6 +66,7 @@ const CARDS: CardMeta[] = [
     feature: 'sci_draw',
     title: '科研绘图',
     subtitle: '一句话描述 → 论文级图表 / 示意图',
+    Icon: ChartSpline,
     Illustration: FigureIllustration,
     accent: {
       chip: 'bg-brand-green/10 text-brand-green',
@@ -60,16 +76,45 @@ const CARDS: CardMeta[] = [
     },
   },
   {
-    key: 'statlab',
-    feature: 'stat_lab',
-    title: '数据分析',
-    subtitle: '传数据 → 自动选对检验 → 三线表与结果段',
-    Illustration: StatsIllustration,
+    key: 'journal',
+    title: 'scholay 选刊',
+    subtitle: '根据稿件画像匹配目标期刊',
+    Icon: BookMarked,
+    Illustration: JournalPickIllustration,
+    comingSoon: true,
     accent: {
       chip: 'bg-brand-red/10 text-brand-red',
       focusRing: 'ring-brand-red/35 border-brand-red/50',
       modeBar: 'border-brand-red/40 bg-brand-red/10',
       modeText: 'text-brand-red',
+    },
+  },
+  {
+    key: 'matrix',
+    title: '矩阵分析',
+    subtitle: '多文献多维度横向对比',
+    Icon: Grid3x3,
+    Illustration: MatrixIllustration,
+    comingSoon: true,
+    accent: {
+      chip: 'bg-foreground/10 text-foreground',
+      focusRing: 'ring-foreground/25 border-foreground/40',
+      modeBar: 'border-border-strong bg-surface-1',
+      modeText: 'text-foreground',
+    },
+  },
+  {
+    key: 'pdfchat',
+    title: 'PDF-Chat',
+    subtitle: '对着 PDF 提问 · 摘要 · 划段解读',
+    Icon: FileText,
+    Illustration: PdfChatIllustration,
+    comingSoon: true,
+    accent: {
+      chip: 'bg-brand-amber/10 text-brand-amber',
+      focusRing: 'ring-brand-amber/35 border-brand-amber/50',
+      modeBar: 'border-brand-amber/40 bg-brand-amber/10',
+      modeText: 'text-brand-amber',
     },
   },
 ];
@@ -94,11 +139,7 @@ export function TemplateCards({
   // 普通对话空态:扑克牌拱形展开的模板卡。
   return (
     <div className="w-full">
-      <div className="mb-1.5 text-center text-12 uppercase text-faint">
-        从模板开始 · 或直接输入
-      </div>
       <FanCards reduce={!!reduce} onPick={onPick} />
-      <div className="mt-2 text-center text-12 text-faint">更多创作模板陆续加入</div>
     </div>
   );
 }
@@ -112,10 +153,10 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
   const n = CARDS.length;
   const center = (n - 1) / 2;
 
-  // 数量自适应:卡越多越窄、叠得越多,保证一扇不超出 max-w-2xl 容器。
-  const cardW = n <= 2 ? 15 : n === 3 ? 13.5 : 12; // rem
-  const overlap = n <= 2 ? 2.4 : 3; // rem,相邻卡重叠
-  const SPREAD = n <= 2 ? 5 : 6.5; // deg / 步
+  // 数量自适应:卡越多越窄、叠得越多,保证整扇落在 max-w-2xl / max-w-3xl 容器内。
+  const cardW = n <= 2 ? 15 : n === 3 ? 13.5 : n === 4 ? 11.5 : 9.5; // rem
+  const overlap = n <= 2 ? 2.4 : n <= 4 ? 3 : 3.2; // rem,相邻卡重叠
+  const SPREAD = n <= 2 ? 5 : n <= 4 ? 6.5 : 4.5; // deg / 步
   const ARC = 9; // px,外侧卡下沉形成拱形
   const LIFT = 16; // px,悬停抬起
   const PUSH = 16; // px,邻卡让位
@@ -128,11 +169,11 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
         // pt 只需 ≥ 悬停抬起量(LIFT=16px)即可,收紧到 pt-6 减少卡片上方的无用留白。
         reduce ? 'flex justify-center gap-3' : 'flex items-end justify-center pt-6 pb-1',
       )}
+      data-tour="claw-templates"
       onMouseLeave={() => setHovered(null)}
     >
       {CARDS.map((card, i) => {
-        const { key, feature, title, subtitle, Illustration, accent } = card;
-        const Icon = FEATURE_ICON[feature];
+        const { key, feature, title, Illustration, accent, Icon, comingSoon } = card;
         const baseRot = (i - center) * SPREAD;
         const baseY = Math.abs(i - center) * ARC;
         const isH = hovered === i;
@@ -149,7 +190,13 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
           <motion.button
             key={key}
             type="button"
-            onClick={() => onPick(feature)}
+            onClick={() => {
+              if (comingSoon || !feature) {
+                toast.message(`${title} · 即将推出`);
+                return;
+              }
+              onPick(feature);
+            }}
             onHoverStart={() => setHovered(i)}
             onFocus={() => setHovered(i)}
             onBlur={() => setHovered((h) => (h === i ? null : h))}
@@ -160,12 +207,10 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
               width: `${cardW}rem`,
               marginLeft: reduce || i === 0 ? 0 : `-${overlap}rem`,
               transformOrigin: 'bottom center',
-              // 兄弟卡之间的叠压次序(扇形叠牌:后一张压前一张,hover 的那张提到最上)。
-              // 不是全站浮层层级,故刻意不走 --z-* 标度 —— 值随 index 动态计算,只在本扇形内比较。
               zIndex: isH ? 30 : i + 1,
             }}
             className={cn(
-              'group relative flex flex-col overflow-hidden rounded-12 border bg-surface-card text-left transition-[border-color,box-shadow]',
+              'group relative flex flex-col overflow-hidden rounded-xl border bg-background text-left shadow-sm outline-none transition-[border-color,box-shadow]',
               isH ? cn('ring-2', accent.focusRing) : 'border-border',
             )}
           >
@@ -173,15 +218,12 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
             <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2">
               <Illustration reduce={reduce} />
             </div>
-            {/* 标签区 */}
-            <div className="flex items-center gap-2 px-3 py-2.5">
-              <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-8', accent.chip)}>
+            {/* 标签区 —— 只保留标题,居中;副文案在扇形卡上不展示(模式条里仍用 subtitle)。 */}
+            <div className="flex items-center justify-center gap-2 px-3 py-2.5">
+              <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', accent.chip)}>
                 <Icon className="size-3.5" />
               </span>
-              <div className="min-w-0">
-                <div className="truncate text-14 font-medium text-foreground">{title}</div>
-                <div className="truncate text-12 text-muted-foreground">{subtitle}</div>
-              </div>
+              <div className="truncate text-base font-semibold text-foreground">{title}</div>
             </div>
           </motion.button>
         );
@@ -203,22 +245,21 @@ function SelectedModeBar({
   reduce: boolean;
   onBack: () => void;
 }) {
-  const { feature, title, subtitle, Illustration, accent } = card;
-  const Icon = FEATURE_ICON[feature];
+  const { title, subtitle, Illustration, accent, Icon } = card;
   return (
     <motion.div
       initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       className={cn(
-        'mx-auto flex w-full max-w-md items-center gap-3 rounded-12 border px-3 py-2.5',
+        'mx-auto flex w-full max-w-md items-center gap-3 rounded-xl border px-3 py-2.5 shadow-sm',
         accent.modeBar,
       )}
     >
       {/* 缩略封面 —— 与刚点的卡片同一段动画,视觉延续。
           封面内部用了按整卡尺寸(~240px)标定的固定 px 内边距/条高,直接塞进 80px 缩略图会被压变形;
           故**按原始尺寸渲染再整体等比缩小**(scale),比例完全不变。 */}
-      <div className="relative aspect-[16/9] w-20 shrink-0 overflow-hidden rounded-8 bg-surface-2 ring-1 ring-foreground/5">
+      <div className="relative aspect-[16/9] w-20 shrink-0 overflow-hidden rounded-md bg-surface-2 ring-1 ring-black/5">
         <div
           className="absolute left-0 top-0 origin-top-left"
           style={{ width: '240px', height: '135px', transform: 'scale(0.3333)' }}
@@ -229,16 +270,16 @@ function SelectedModeBar({
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <div className={cn('flex items-center gap-1.5 text-14 font-medium', accent.modeText)}>
+        <div className={cn('flex items-center gap-1.5 text-sm font-semibold', accent.modeText)}>
           <Icon className="size-3.5" />
           {title} 模式
         </div>
-        <div className="mt-0.5 truncate text-12 text-muted-foreground">{subtitle}</div>
+        <div className="mt-0.5 truncate text-2xs text-muted-foreground">{subtitle}</div>
       </div>
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-12 text-muted-foreground transition-colors hover:bg-surface-card/60 hover:text-foreground"
+        className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
         换回对话
@@ -259,17 +300,17 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
   return (
     <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-[#111c30] via-[#0a1019] to-[#05070a]">
       {/* 右上柔光,给深底一点层次 */}
-      <div className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-pill bg-brand-green/10 blur-2xl" />
+      <div className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-full bg-brand-green/10 blur-2xl" />
 
       {/* 身后叠页(多页暗示,恒显) */}
-      <div className="absolute left-1/2 top-1/2 h-[66%] w-[72%] -translate-x-[58%] -translate-y-1/2 rounded-8 bg-surface-card/5 ring-1 ring-on-brand/5" />
-      <div className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-[54%] -translate-y-1/2 rounded-8 bg-surface-card/5 ring-1 ring-on-brand/10" />
+      <div className="absolute left-1/2 top-1/2 h-[66%] w-[72%] -translate-x-[58%] -translate-y-1/2 rounded-lg bg-white/5 ring-1 ring-white/5" />
+      <div className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-[54%] -translate-y-1/2 rounded-lg bg-white/5 ring-1 ring-white/10" />
 
       {/* 当前幻灯片(内容恒显) */}
-      <div className="absolute left-1/2 top-1/2 flex h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-8 bg-surface-card/10 p-3 ring-1 ring-on-brand/20">
+      <div className="absolute left-1/2 top-1/2 flex h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-lg bg-white/10 p-3 ring-1 ring-white/20">
         {/* kicker */}
         <motion.div
-          className="h-1 w-6 rounded-pill bg-brand-green"
+          className="h-1 w-6 rounded-full bg-brand-green"
           style={{ transformOrigin: 'left' }}
           initial={{ scaleX: reduce ? 1 : 0 }}
           animate={{ scaleX: 1 }}
@@ -277,7 +318,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
         />
         {/* 标题条 */}
         <motion.div
-          className="h-2 rounded-4 bg-surface-card/85"
+          className="h-2 rounded bg-white/85"
           initial={{ width: reduce ? '70%' : 0 }}
           animate={{ width: '70%' }}
           transition={reduce ? { duration: 0 } : { duration: 0.5, delay: 0.32, ease: 'easeOut' }}
@@ -287,7 +328,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
           {[0.84, 0.6].map((w, i) => (
             <motion.div
               key={i}
-              className="h-1 rounded-4 bg-surface-card/30"
+              className="h-1 rounded bg-white/30"
               initial={{ width: reduce ? `${w * 100}%` : 0 }}
               animate={{ width: `${w * 100}%` }}
               transition={reduce ? { duration: 0 } : { duration: 0.45, delay: 0.46 + i * 0.12, ease: 'easeOut' }}
@@ -303,8 +344,8 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
               <motion.div
                 key={i}
                 className={cn(
-                  'w-full rounded-4',
-                  isPeak ? 'bg-gradient-to-t from-brand-green/50 to-brand-green' : 'bg-surface-card/20',
+                  'w-full rounded-sm',
+                  isPeak ? 'bg-gradient-to-t from-brand-green/50 to-brand-green' : 'bg-white/20',
                 )}
                 initial={{ height: reduce ? `${h * 100}%` : 0 }}
                 animate={{ height: `${h * 100}%` }}
@@ -320,7 +361,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
-            className="size-1 rounded-pill bg-surface-card/50"
+            className="size-1 rounded-full bg-white/50"
             initial={{ opacity: reduce ? (i === 0 ? 1 : 0.35) : 0.35 }}
             animate={reduce ? undefined : { opacity: [0.35, 1, 0.35] }}
             transition={
@@ -418,16 +459,15 @@ function FigureIllustration({ reduce }: { reduce: boolean }) {
           />
         )}
 
-        {/* 数据点(白描边光晕,论文风):依次淡入一次后保持。
-            底是浅色(from-surface-1 to-background),白圈用于把点从同色面积填充里「抠」出来
-            → 走 surface-card(=#FFFFFF 内层纯白 token),不是深底前景色族。 */}
+        {/* 数据点(白描边,论文风):依次淡入一次后保持 */}
         {main.map(([cx, cy], i) => (
           <motion.circle
             key={i}
             cx={cx}
             cy={cy}
             r="2.6"
-            className="fill-current stroke-surface-card text-brand-green"
+            className="fill-current text-brand-green"
+            stroke="white"
             strokeWidth="0.9"
             initial={{ opacity: reduce ? 1 : 0 }}
             animate={{ opacity: 1 }}
@@ -439,159 +479,118 @@ function FigureIllustration({ reduce }: { reduce: boolean }) {
   );
 }
 
-/**
- * 正态密度的小提琴轮廓(闭合路径)。**只在 ±2.6σ 内取样**:取满会在两端拖出一条宽度≈0 的
- * 「发丝垂尾」—— 左右两侧路径几乎重合、描边叠成一根竖线,在 216px 卡上非常显眼(实测)。
- * 72 个采样点是「曲线够顺」与「路径字符串够短」的折中,再少两端会露出多边形折角。
- */
-function violinPath(cx: number, mu: number, sd: number, maxW: number): string {
-  const Z = 2.6;
-  const N = 72;
-  const lo = mu - Z * sd;
-  const hi = mu + Z * sd;
-  const right: string[] = [];
-  const left: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const y = lo + ((hi - lo) * i) / N;
-    const z = (y - mu) / sd;
-    const w = maxW * Math.exp(-0.5 * z * z);
-    right.push(`${(cx + w).toFixed(2)} ${y.toFixed(2)}`);
-    left.push(`${(cx - w).toFixed(2)} ${y.toFixed(2)}`);
-  }
-  left.reverse();
-  return `M ${right.concat(left).join(' L ')} Z`;
+/** 智能选刊封面(占位)—— 期刊封面叠卡 + 分区徽章依次点亮。 */
+function JournalPickIllustration({ reduce }: { reduce: boolean }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-red/10 via-surface-1 to-background">
+      <div className="pointer-events-none absolute -left-4 top-2 size-20 rounded-full bg-brand-red/10 blur-2xl" />
+      {/* 叠放的期刊封面 */}
+      <div className="absolute left-1/2 top-1/2 h-[62%] w-[38%] -translate-x-[90%] -translate-y-[45%] rotate-[-8deg] rounded-sm bg-brand-red/15 ring-1 ring-brand-red/20" />
+      <div className="absolute left-1/2 top-1/2 h-[68%] w-[42%] -translate-x-[40%] -translate-y-1/2 rotate-[4deg] rounded-sm bg-background shadow-sm ring-1 ring-border">
+        <motion.div
+          className="mx-2 mt-2 h-1.5 rounded-full bg-brand-red/70"
+          initial={{ width: reduce ? '70%' : 0 }}
+          animate={{ width: '70%' }}
+          transition={reduce ? { duration: 0 } : { duration: 0.45, delay: 0.15 }}
+        />
+        <div className="mx-2 mt-2 space-y-1">
+          {[0.85, 0.6, 0.72].map((w, i) => (
+            <motion.div
+              key={i}
+              className="h-1 rounded-full bg-foreground/15"
+              initial={{ width: reduce ? `${w * 100}%` : 0 }}
+              animate={{ width: `${w * 100}%` }}
+              transition={reduce ? { duration: 0 } : { duration: 0.4, delay: 0.3 + i * 0.1 }}
+            />
+          ))}
+        </div>
+      </div>
+      {/* 分区徽章 */}
+      <div className="absolute bottom-2.5 right-3 flex gap-1">
+        {['Q1', '1区'].map((label, i) => (
+          <motion.span
+            key={label}
+            className="rounded-pill bg-brand-red px-1.5 py-0.5 text-[8px] font-bold text-white"
+            initial={{ opacity: reduce ? 1 : 0, y: reduce ? 0 : 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.35, delay: 0.55 + i * 0.12 }}
+          >
+            {label}
+          </motion.span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-/**
- * 数据分析封面(2026-08-08 重绘)—— 画的是**这张卡真正在卖的东西**:不是「能画箱线图」
- * (那是科研绘图那张卡),而是「两组比较 → 检验 → 显著性结论」。
- *
- * 构图:两把 **小提琴 + 内嵌箱线 + 白色中位点**(对照组玄墨 / 实验组朱砂),上方一条显著性
- * 标线穿过 `P<.001` 胶囊,基线下两条组别标签条。满铺 16:9。
- *
- * 为什么换掉上一版(两个细箱线 + 裸星号):① 内容全挤在上半区、下 1/4 与左右两侧大片空白;
- * ② 箱线**只有上须没有下须**、直角细描边,像两个小窗框而不像统计图;③ 星号 `y=4.2` 顶到画布
- * 边缘,几乎被裁掉,且「一个星号」在缩略图里等于没有;④ 两组同为朱砂 → 看不出「对照 vs 实验」。
- *
- * 为什么是小提琴而不是继续用箱线:同排的科研绘图卡是**面积图**,箱线太细弱压不住场,而面积图
- * 语言又与它撞车;小提琴的密度轮廓既是统计学独有的图形语言,又有足够的体量与曲线感,在
- * 216px 卡与 80px 缩略图(模式条)上都能一眼认出来。
- *
- * 动效:入场**画一次即定格**(绝不循环淡出到空白 —— 那是之前「图不见了」的根因);唯一持续的
- * 「活着」信号是实验组中位点的白色光晕脉冲(底下的实心点恒在)。honors reduced-motion。
- */
-function StatsIllustration({ reduce }: { reduce: boolean }) {
-  // 同一页会同时挂多个实例(扇形里的卡 + 模式条里的缩略图),渐变 id 必须实例唯一,
-  // 否则 url(#id) 一律解析到文档里第一个同名节点。useId() 带冒号,不能直接进 url()。
-  const uid = useId().replace(/:/g, '');
-  const BASE = 74; // 基线(x 轴)
-  const BOX_W = 10; // 内嵌箱体宽
-  const groups = [
-    // 对照组:玄墨中性 —— 与实验组的朱砂形成「基准 vs 处理」的对照关系
-    { key: 'ctrl', cx: 46, mu: 58, sd: 5.7, maxW: 21, q3: 54, q1: 62, med: 58, wLo: 48, wHi: 68, accent: false },
-    // 实验组:朱砂 —— 位置更高(效应),是整张图的视觉主角
-    { key: 'exp', cx: 114, mu: 40, sd: 5.7, maxW: 23, q3: 36, q1: 44, med: 40, wLo: 30, wHi: 50, accent: true },
+/** 矩阵分析封面(占位)—— 淡网格 + 单元格依次填色。 */
+function MatrixIllustration({ reduce }: { reduce: boolean }) {
+  const cells = [
+    [1, 0, 1, 0],
+    [0, 1, 1, 1],
+    [1, 1, 0, 1],
   ];
-
   return (
-    <div className="absolute inset-0 bg-gradient-to-b from-surface-1 to-background">
-      {/* viewBox 160×90 = 精确 16:9,与容器同比,故 preserveAspectRatio="none" 不产生形变 */}
-      <svg viewBox="0 0 160 90" preserveAspectRatio="none" className="h-full w-full">
-        <defs>
-          {/* stopColor="currentColor" + 类名给 color:两个渐变都走设计 token,不落任何字面色值 */}
-          <linearGradient id={`${uid}-accent`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.36" className="text-brand-red" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0.08" className="text-brand-red" />
-          </linearGradient>
-          <linearGradient id={`${uid}-ink`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.13" className="text-foreground" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0.03" className="text-foreground" />
-          </linearGradient>
-        </defs>
-
-        {/* 淡网格 + 基线(满宽贴边,与科研绘图卡同一套坐标语言) */}
-        {[34, 48, 62].map((gy) => (
-          <line key={gy} x1="0" y1={gy} x2="160" y2={gy} className="stroke-current text-border" strokeWidth="0.7" />
-        ))}
-        <line x1="0" y1={BASE} x2="160" y2={BASE} className="stroke-current text-border-strong" strokeWidth="1.1" />
-
-        {groups.map((g, i) => {
-          const tone = g.accent ? 'text-brand-red' : 'text-subtle';
-          return (
-            <motion.g
-              key={g.key}
-              // 从基线「长出来」:transform-origin 定在该组基线中点(动态计算值,不是设计 token 能表达的东西)
-              style={{ transformBox: 'view-box', transformOrigin: `${g.cx}px ${BASE}px` }}
-              initial={reduce ? { opacity: 1, scaleY: 1 } : { opacity: 0, scaleY: 0.2 }}
-              animate={{ opacity: 1, scaleY: 1 }}
-              transition={reduce ? { duration: 0 } : { duration: 0.42, delay: 0.18 + i * 0.16, ease: 'easeOut' }}
-            >
-              {/* 密度轮廓 */}
-              <path
-                d={violinPath(g.cx, g.mu, g.sd, g.maxW)}
-                fill={`url(#${uid}-${g.accent ? 'accent' : 'ink'})`}
-                className={cn('stroke-current', tone)}
-                strokeWidth="1.2"
-                strokeOpacity={g.accent ? 0.9 : 0.45}
-                strokeLinejoin="round"
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-surface-1 to-background p-3">
+      <div className="flex h-full flex-col gap-1">
+        {cells.map((row, ri) => (
+          <div key={ri} className="flex flex-1 gap-1">
+            {row.map((on, ci) => (
+              <motion.div
+                key={`${ri}-${ci}`}
+                className={cn(
+                  'flex-1 rounded-sm ring-1 ring-border',
+                  on ? 'bg-foreground/70' : 'bg-background',
+                )}
+                initial={{ opacity: reduce ? 1 : 0, scale: reduce ? 1 : 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={
+                  reduce
+                    ? { duration: 0 }
+                    : { duration: 0.3, delay: 0.12 + (ri * 4 + ci) * 0.05, ease: 'easeOut' }
+                }
               />
-              {/* 须(1.5 IQR) */}
-              <line x1={g.cx} y1={g.wLo} x2={g.cx} y2={g.wHi}
-                className={cn('stroke-current', tone)} strokeWidth="1.1" opacity={g.accent ? 0.85 : 0.45} />
-              {/* 四分位箱体 */}
-              <rect x={g.cx - BOX_W / 2} y={g.q3} width={BOX_W} height={g.q1 - g.q3} rx="2"
-                className={cn('fill-current', tone)} opacity={g.accent ? 0.92 : 0.5} />
-              {/* 中位点脉冲光晕(唯一持续动画;放大淡出的是光晕,底下实心点恒在,绝不致空白) */}
-              {!reduce && g.accent && (
-                <motion.circle
-                  cx={g.cx}
-                  cy={g.med}
-                  className="fill-current text-surface-card"
-                  initial={{ r: 2.2, opacity: 0 }}
-                  animate={{ r: [2.2, 7], opacity: [0.45, 0] }}
-                  // duration 走 token 四档(--duration-deliberate=0.7),节奏靠 repeatDelay 拉开 ——
-                  // 护栏「framer duration 字面量只减不增」只认 {0,.16,.28,.42,.7}
-                  transition={{ duration: 0.7, repeat: Infinity, ease: 'easeOut', delay: 1.6, repeatDelay: 1.8 }}
-                />
-              )}
-              {/* 中位数 */}
-              <circle cx={g.cx} cy={g.med} r="2.2" className="fill-current text-surface-card" />
-              {/* 基线下的组别标签条(占位式,不写真文字 —— 216px 卡上任何真标签都是糊的) */}
-              <rect x={g.cx - 12} y="79" width="24" height="3.2" rx="1.6"
-                className={cn('fill-current', g.accent ? 'text-brand-red' : 'text-foreground')}
-                opacity={g.accent ? 0.72 : 0.26} />
-            </motion.g>
-          );
-        })}
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        {/* 显著性标线 —— 这一笔才是「数据分析」区别于「画图」的地方 */}
-        <motion.path
-          d="M 46 21 L 46 10.5 L 114 10.5 L 114 21"
-          fill="none"
-          className="stroke-current text-brand-red"
-          strokeWidth="1.2"
-          strokeLinecap="round"
-          opacity="0.8"
-          initial={{ pathLength: reduce ? 1 : 0 }}
-          animate={{ pathLength: 1 }}
-          transition={reduce ? { duration: 0 } : { duration: 0.42, delay: 0.9, ease: 'easeInOut' }}
-        />
-        {/* P 值胶囊 —— 用 SVG 表现属性而非 inline style:viewBox 单位不是像素,设计 token 在这里
-            没有意义,且本文件既有的 strokeWidth/opacity 也都走属性(护栏的「inline style 魔法数字」
-            规则针对的是真像素值)。字体刻意不指定,继承全站 sans。 */}
-        <motion.g
-          style={{ transformBox: 'view-box', transformOrigin: '80px 10.5px' }}
-          initial={reduce ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.82 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 340, damping: 20, delay: 1.15 }}
-        >
-          <rect x="58" y="3" width="44" height="15" rx="7.5" className="fill-current text-brand-red-soft" />
-          <rect x="58" y="3" width="44" height="15" rx="7.5" fill="none"
-            className="stroke-current text-brand-red" strokeWidth="1" opacity="0.45" />
-          <text x="80" y="13.6" textAnchor="middle" fontSize="9" fontWeight="600"
-            className="fill-current text-brand-red">P&lt;.001</text>
-        </motion.g>
-      </svg>
+/** PDF-Chat 封面(占位)—— 左侧 PDF 页 + 右侧对话气泡依次出现。 */
+function PdfChatIllustration({ reduce }: { reduce: boolean }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-amber/10 via-surface-1 to-background">
+      {/* PDF 页 */}
+      <div className="absolute left-3 top-1/2 h-[72%] w-[36%] -translate-y-1/2 rounded-sm bg-background shadow-sm ring-1 ring-border">
+        <div className="space-y-1 p-1.5">
+          {[0.9, 0.7, 0.8, 0.55].map((w, i) => (
+            <div
+              key={i}
+              className="h-1 rounded-full bg-foreground/12"
+              style={{ width: `${w * 100}%` }}
+            />
+          ))}
+        </div>
+      </div>
+      {/* 对话气泡 */}
+      <div className="absolute right-3 top-1/2 flex w-[42%] -translate-y-1/2 flex-col gap-1.5">
+        {[
+          { cls: 'self-start bg-brand-amber/25', w: '85%' },
+          { cls: 'self-end bg-background ring-1 ring-border', w: '70%' },
+          { cls: 'self-start bg-brand-amber/25', w: '60%' },
+        ].map((b, i) => (
+          <motion.div
+            key={i}
+            className={cn('h-3 rounded-pill', b.cls)}
+            style={{ width: b.w }}
+            initial={{ opacity: reduce ? 1 : 0, x: reduce ? 0 : 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.35, delay: 0.2 + i * 0.15 }}
+          />
+        ))}
+      </div>
     </div>
   );
 }

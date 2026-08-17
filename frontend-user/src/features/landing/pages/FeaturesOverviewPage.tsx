@@ -7,9 +7,9 @@ import {
   Folder,
   PenTool,
   Search,
-  Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { LandingLayout } from '../layout/LandingLayout';
 
@@ -24,21 +24,22 @@ interface FeatureEntry {
   englishName: string;
   desc: string;
   icon: LucideIcon;
+  comingSoon?: boolean;
 }
 
 const FEATURES: FeatureEntry[] = [
   {
     to: '/features/search',
-    name: '文献搜索',
+    name: '学术搜索',
     englishName: 'Paper Search',
     desc: '覆盖 2 亿+ 论文,关键词 + 语义双引擎,中英双语',
     icon: Search,
   },
   {
     to: '/features/library',
-    name: '文件夹',
-    englishName: 'Folders',
-    desc: '收藏 / 分组 / 跨设备同步 · 一站式个人知识库',
+    name: '文献集',
+    englishName: 'Collections',
+    desc: '收藏 / 文件夹 / 跨设备同步 · 一站式个人知识库',
     icon: Folder,
   },
   {
@@ -47,13 +48,14 @@ const FEATURES: FeatureEntry[] = [
     englishName: 'Scholay Prism',
     desc: '浏览器内的科研级 LaTeX 编辑器 + AI 续写',
     icon: PenTool,
+    comingSoon: true,
   },
   {
     to: '/features/claw',
     name: '智能助手',
     englishName: 'Claw AI',
-    desc: '基于你的文件夹的可溯源学术对话',
-    icon: Sparkles,
+    desc: '基于你的文献集的可溯源学术对话',
+    icon: RhinoBrandIcon,
   },
   {
     to: '/features/submit',
@@ -68,6 +70,7 @@ const FEATURES: FeatureEntry[] = [
     englishName: 'Peer Review',
     desc: '为期刊与会议设计的智能评审工作台',
     icon: BookOpen,
+    comingSoon: true,
   },
 ];
 
@@ -81,11 +84,11 @@ export function FeaturesOverviewPage() {
       />
       <section className="px-6 py-16 md:py-24 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-1 h-5 px-2 rounded-pill bg-surface-2 text-muted-foreground text-12 font-medium">
+          <span className="inline-flex items-center gap-1 h-5 px-2 rounded-pill bg-surface-2 text-muted-foreground text-2xs font-bold">
             <Compass className="size-3" strokeWidth={2.5} />
             FEATURES OVERVIEW
           </span>
-          <h1 className="mt-4 text-28 md:text-32 font-medium text-foreground">
+          <h1 className="mt-4 text-3xl md:text-4xl font-bold text-foreground">
             从检索到投稿,覆盖科研全流程的一套工具
           </h1>
           <p className="mt-3 text-muted-foreground">
@@ -109,23 +112,28 @@ function FeatureCard({ feature }: { feature: FeatureEntry }) {
   return (
     <Link
       to={feature.to}
-      className="group flex flex-col gap-3 p-6 rounded-16 bg-surface-card border border-border hover:border-border-strong transition-colors"
+      className="group flex flex-col gap-3 p-6 rounded-md bg-background border border-border hover:border-border-strong transition-colors"
     >
       <div className="flex items-start justify-between">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-8 bg-surface-1 border border-border">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-surface-1 border border-border">
           <Icon className="size-5 text-foreground" strokeWidth={1.8} />
         </span>
+        {feature.comingSoon && (
+          <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none">
+            即将推出
+          </span>
+        )}
       </div>
       <div>
-        <p className="text-14 font-medium text-foreground">{feature.name}</p>
-        <p className="text-12 text-faint mt-0.5 font-medium uppercase">
+        <p className="text-base font-bold text-foreground">{feature.name}</p>
+        <p className="text-2xs text-faint mt-0.5 font-bold uppercase tracking-[0.12em]">
           {feature.englishName}
         </p>
       </div>
-      <p className="text-12 text-muted-foreground leading-paragraph flex-1">
+      <p className="text-sm text-muted-foreground leading-relaxed flex-1">
         {feature.desc}
       </p>
-      <span className="inline-flex items-center gap-1 text-12 text-brand-red font-medium group-hover:gap-2 transition-all">
+      <span className="inline-flex items-center gap-1 text-xs text-brand-red font-bold group-hover:gap-2 transition-all">
         了解更多 <ArrowRight className="size-3" />
       </span>
     </Link>

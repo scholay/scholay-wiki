@@ -9,6 +9,7 @@
 
 import { keepPreviousData, useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { stashFirstConnectTicket } from '@/shared/lib/agent-first-ticket';
 import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
 import { makeAgentSessionApi, type AgentSessionItem } from '@/shared/api/agent-sessions';
 import { STALE_FRESH } from '@/shared/lib/query-config';
@@ -23,6 +24,9 @@ import type {
 
 interface SessionEnvelope {
   sessionId: string;
+  /** 后端顺带附的首连 ws ticket(agentbridge.SessionEnvelopeWithTicket,best-effort 可缺省)。 */
+  wsToken?: string;
+  expiresInSeconds?: number;
 }
 
 function unwrap<T>(raw: { data?: T } & Partial<T>): T {
@@ -44,6 +48,8 @@ export function useClawSession(): UseQueryResult<SessionEnvelope> {
         >('/user/claw/session');
         const payload = unwrap<SessionEnvelope>(data);
         if (!payload?.sessionId) throw new Error('后端未返回 sessionId');
+        // 首连 ws ticket 入栈(一次性,socket 的 fetchTicket 出栈即删)→ 首连省一跳 POST。
+        stashFirstConnectTicket('/user/claw', payload);
         return payload;
       } catch (err) {
         throw toApiError(err);

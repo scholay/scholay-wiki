@@ -39,13 +39,18 @@ const (
 	MinicodSearchTTL         = 30 * time.Minute // 搜索结果：用户行为敏感，半小时
 	MinicodPaperTTL          = 24 * time.Hour   // 论文详情：变化极慢，1 天
 	MinicodPaperBatchTTL     = 24 * time.Hour
-	MinicodCitationsTTL      = 1 * time.Hour // 引用列表：会增长但不频繁
-	MinicodReferencesTTL     = 1 * time.Hour // 参考文献：论文发布后几乎不变
-	MinicodPaperAuthorsTTL   = 24 * time.Hour
-	MinicodAutocompleteTTL   = 1 * time.Hour // 前缀自动补全：query 热点集中，命中率高
-	MinicodAuthorSearchTTL   = 1 * time.Hour
-	MinicodAuthorTTL         = 24 * time.Hour
-	MinicodAuthorPapersTTL   = 6 * time.Hour
+	MinicodCitationsTTL = 6 * time.Hour // 引用列表：会增长但不频繁
+	// 参考文献：论文一旦发表其参考文献表**不再变化**(不像被引数会增长),
+	// 1h 与这句注释自相矛盾。2026-08-13 抓取审计:Googlebot 渲染时打
+	// /references?limit=100 的 p95 达 2.8s、max 4.2s —— 全部是冷 miss 直穿 minicod,
+	// 逼近 Google 的渲染预算(渲染超时 = 正文进不了索引)。按其真实变化频率拉到 24h。
+	MinicodReferencesTTL   = 24 * time.Hour
+	MinicodPaperAuthorsTTL = 24 * time.Hour
+	MinicodAutocompleteTTL = 1 * time.Hour // 前缀自动补全：query 热点集中，命中率高
+	MinicodAuthorSearchTTL = 1 * time.Hour
+	MinicodAuthorTTL       = 24 * time.Hour
+	// 作者论文列表：新发表才会变，日级足够。同上,爬虫遍历作者页时该端点实测 max 5.4s。
+	MinicodAuthorPapersTTL = 24 * time.Hour
 	MinicodRecommendationTTL = 6 * time.Hour // 推荐：相对稳定但有一定更新
 	MinicodSuggestionsTTL    = 1 * time.Hour
 )

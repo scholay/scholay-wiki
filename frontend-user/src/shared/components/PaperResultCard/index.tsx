@@ -9,25 +9,14 @@ import { CollapsedRow } from './CollapsedRow';
  * 论文结果卡 —— 两个独立维度,4 种渲染:
  *
  *                        isStaged=false        isStaged=true
- *   isFolded=false  →    DefaultCard(红 CTA)   DefaultCard(绿 CTA)
+ *   isFolded=false  →    DefaultCard           DefaultCard(绿底+勾选)
  *   isFolded=true   →    CollapsedRow(灰行)    StagedRow(绿行)
  *
- *   - 暂存(stage)= 加入右侧工作区,只影响按钮颜色 / 紧凑行底色
- *   - 折叠(fold)= 在搜索结果列里把卡收成一行;独立于 stage
- *
- * 对应 .pen `CMKIx`(default)/ `Q6TEbO`(staged-folded)/ `BEXqq`(folded)。
+ *   - 暂存:左侧 Checkbox,只进/出暂存区,不改变折叠
+ *   - 折叠:hover「折叠」/「还原」,不改变暂存
  *
  * **memo 友好**:父组件按 paperId 自查后传入**标量** `isStaged / isFolded / isFavorited` + 4 个
- * 稳定回调(不再传整个 Set)。这样暂存/折叠一篇时只有该篇的标量变化, 其余卡 memo 命中、不重渲。
- * (早先传 Set 引用: 任一篇 stage/fold 都会让 Set 换引用, 打穿全页所有卡的 memo —— 性能审计 fe-render。)
- *
- * **文件拆分**(原 647 行 → 拆成 5 个 ≤ 200 行的子文件):
- *   - index.tsx        路由分发 + memo 入口(本文件)
- *   - DefaultCard.tsx  标准卡(最大体)
- *   - StagedRow.tsx    已暂存折叠行
- *   - CollapsedRow.tsx 未暂存折叠行
- *   - MetaLine.tsx     venue · 作者 · year 元信息
- *   - tags.tsx         pickTags / quartileTone / renderHighlight 纯函数
+ * 稳定回调(不再传整个 Set)。
  */
 interface PaperResultCardProps {
   paper: Paper;
@@ -44,7 +33,7 @@ interface PaperResultCardProps {
   onCollapse: (paperId: string) => void;
   onRestore: (paperId: string) => void;
   highlightQuery?: string;
-  /** 隐藏「暂存」按钮(智能助手等无暂存区语境用):收藏/翻译/折叠照常,只是不出现暂存。
+  /** 隐藏左侧暂存复选框(智能助手等无暂存区语境用)。
    *  此模式下调用方应恒传 isStaged=false(无暂存区→不会进 StagedRow)。 */
   hideStage?: boolean;
   /** 管理端回放：保留同一张卡片和本地折叠，去掉收藏/翻译/暂存等写操作。 */
@@ -79,11 +68,22 @@ function PaperResultCardImpl({
 
   if (isFolded && isStaged) {
     return (
-      <StagedRow paper={paper} onUnfold={toggleFold} onUnstage={toggleStage} />
+      <StagedRow
+        paper={paper}
+        onUnstage={toggleStage}
+        onUnfold={toggleFold}
+      />
     );
   }
   if (isFolded && !isStaged) {
-    return <CollapsedRow paper={paper} onUnfold={toggleFold} />;
+    return (
+      <CollapsedRow
+        paper={paper}
+        onUnfold={toggleFold}
+        onStage={toggleStage}
+        hideStage={hideStage}
+      />
+    );
   }
   return (
     <DefaultCard

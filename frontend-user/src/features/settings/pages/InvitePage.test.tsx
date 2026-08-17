@@ -68,7 +68,7 @@ describe("InvitePage", () => {
     });
     const share = screen.getByTestId("invite-share-methods");
 
-    expect(poster.getAttribute("src")).toBe("/images/invite-reward-poster.png");
+    expect(poster.getAttribute("src")).toBe("/images/invite-reward-poster-v2.webp");
     expect(poster.compareDocumentPosition(share)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );

@@ -117,17 +117,17 @@ func (h *Handler) TestEmailConfig(c *gin.Context) {
 	}
 
 	// Prepare email content(统一品牌模板)
-	subject := "Scholay 邮箱配置测试"
+	subject := utils.EmailSubject("邮箱配置测试")
 	body := utils.RenderBrandedEmail(utils.EmailContent{
 		Title: "邮箱配置测试成功",
-		Intro: "您的 SMTP 邮箱配置已成功通过测试。能收到这封邮件,说明发信配置正确。",
+		Intro: "SMTP 配置已通过测试。收到本邮件即表示发信配置正确,以下为本次使用的参数:",
 		Rows: [][2]string{
 			{"SMTP 服务器", emailConfig.SMTPHost},
 			{"SMTP 端口", fmt.Sprintf("%d", emailConfig.SMTPPort)},
 			{"发件邮箱", emailConfig.FromEmail},
 			{"发件人名称", emailConfig.FromName},
 		},
-		Note: "这是一封自动发送的测试邮件。",
+		Note: "本邮件由管理后台手动触发发送,不会发给用户。",
 	})
 
 	// Send email with TLS/SSL support using shared utility

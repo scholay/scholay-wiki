@@ -17,7 +17,7 @@ import (
 // Feature 功能维度常量。每个值对应用户端一个可统计的功能。
 const (
 	FeaturePaperSearch   = "paper_search"   // 传统文献搜索
-	FeatureSmartSearch   = "smart_search"   // 智能搜索
+	FeatureSmartSearch   = "smart_search"   // 智能搜论文
 	FeatureJournalSearch = "journal_search" // 期刊搜索
 	FeatureStaging       = "staging"        // 暂存
 	FeatureFavorite      = "favorite"       // 收藏
@@ -34,7 +34,7 @@ const (
 // FeatureNames 功能中文名 —— admin 展示用。新增功能时在这里登记。
 var FeatureNames = map[string]string{
 	FeaturePaperSearch:   "传统搜索",
-	FeatureSmartSearch:   "智能搜索",
+	FeatureSmartSearch:   "智能搜论文",
 	FeatureJournalSearch: "期刊搜索",
 	FeatureStaging:       "暂存",
 	FeatureFavorite:      "收藏",

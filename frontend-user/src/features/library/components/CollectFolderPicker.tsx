@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LazyMotion, domMax } from 'framer-motion';
+import { LazyMotion, domMax, MotionConfig } from 'framer-motion';
 import { BookmarkCheck, Check, ChevronRight, Library, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -63,24 +63,37 @@ export function CollectFolderPicker() {
     });
   };
 
-  const body = (
+  /**
+   * 两套壳共用一份内容。`showClose` 只在移动端为 true:
+   * MobileBottomSheet 自己不渲染关闭按钮(只有抓手 + 下滑关闭),抽屉里必须自带一个;
+   * 而 PC 的 `DialogContent` 基座**永远**在 right-4 top-4 渲染一枚 Close(shared/ui/dialog.tsx),
+   * 这里再放一枚就是右上角两个 X(2026-08-13 视觉 bug)。PC 一律跟随基座那枚,与其它弹窗一致。
+   */
+  const renderBody = (showClose: boolean) => (
     <div className="flex max-h-[70dvh] flex-col">
-      {/* 头部 */}
-      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-5 pb-3.5 pt-0.5">
+      {/* 头部 —— 标题区上下各 12px(py-3);PC 无自带按钮时留 pr-10 给基座右上角那枚 Close 让位 */}
+      <div
+        className={cn(
+          'flex shrink-0 items-start justify-between gap-2 border-b border-border px-5 py-3',
+          !showClose && 'pr-10'
+        )}
+      >
         <div className="flex flex-col gap-0.5">
           <h2 className="text-16 font-medium text-foreground">收藏到文件夹</h2>
           <p className="text-12 text-muted-foreground">
             {request?.paperTitle ? `把《${request.paperTitle}》保存到一个文件夹` : '将这篇论文保存到一个文件夹'}
           </p>
         </div>
-        <button
-          type="button"
-          aria-label="关闭"
-          onClick={close}
-          className="flex size-7 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-muted-foreground active:opacity-70"
-        >
-          <X className="size-4" />
-        </button>
+        {showClose && (
+          <button
+            type="button"
+            aria-label="关闭"
+            onClick={close}
+            className="flex size-7 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-muted-foreground active:opacity-70"
+          >
+            <X className="size-4" />
+          </button>
+        )}
       </div>
 
       {/* 列表 */}
@@ -170,10 +183,15 @@ export function CollectFolderPicker() {
     // 拿不到壳里的 LazyMotion),故自带一层(domMax 与 MobileShell 同款,同模块零额外体积),
     // 否则滑入/退场动画与拖拽关闭全失效。
     return (
+      // MotionConfig reducedMotion="user":本组件挂在 providers(MobileShell 之外),拿不到壳里的
+      // MotionConfig —— 没有它,「减少动态」下这个 providers 级孤岛的弹簧滑入照常播放
+      // (globals.css 的 @media 只杀 CSS 动画,管不到 framer 的 inline style,2026-08-12 审计)。
       <LazyMotion features={domMax}>
-        <MobileBottomSheet open={open} onOpenChange={(v) => !v && close()} title="收藏到文件夹">
-          {body}
-        </MobileBottomSheet>
+        <MotionConfig reducedMotion="user">
+          <MobileBottomSheet open={open} onOpenChange={(v) => !v && close()} title="收藏到文件夹">
+            {renderBody(true)}
+          </MobileBottomSheet>
+        </MotionConfig>
       </LazyMotion>
     );
   }
@@ -182,7 +200,7 @@ export function CollectFolderPicker() {
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
       <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">收藏到文件夹</DialogTitle>
-        {body}
+        {renderBody(false)}
       </DialogContent>
     </Dialog>
   );

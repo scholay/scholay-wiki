@@ -193,6 +193,13 @@ type ModelCatalog interface {
 	// "" = 默认 provider(scholay-managed,executor 走 active);"scholay-p<id>" = 额外 provider。
 	// hub 组 set_runtime_config 帧与计费 Provider 归属共用此口径。
 	ProviderKey(modelID string) string
+	// PriceUsage 返回 (四类 token 原始总量, 真实成本微元)。逐帧硬闸用它把执行器上报的
+	// per-call usage 就地折成微元 —— 与 llmusage 落账走的**同一个** pricer,故「闸门看到的钱」
+	// 与「账本记下的钱」天然同口径,不会出现「按估算掐断、按真价收费」的两套账。
+	// ⚠️ 刻意不用 CostPerToken:那是「80% 缓存 + 15% 输入 + 5% 输出」的混合**估算**,
+	// 只配用于把微元换成执行器可比的 token 预算(建议值);拿它做硬闸会在缓存命中率
+	// 偏离假设时系统性错杀或漏放(线上实测命中率在 46%~92% 之间摆动)。
+	PriceUsage(model string, input, output, cacheRead, cacheWrite int) (int64, int64)
 }
 
 // SetModelCatalog 注入模型目录(bootstrap 调用一次)。

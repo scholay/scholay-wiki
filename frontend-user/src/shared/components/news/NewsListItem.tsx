@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Flame, TrendingUp } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import {
+  RESULT_ROW_ABSTRACT_CLASS,
+  RESULT_ROW_CLASS,
+  RESULT_ROW_META_CLASS,
+  RESULT_ROW_TITLE_CLASS,
+  rowChipClass,
+} from '@/shared/components/result-row';
 import {
   formatHeat,
   isNewsSurging,
@@ -16,7 +23,23 @@ import {
  * PC 情报信息流卡片(纯展示,props-in)—— 首页情报区主流 + /news 列表页共用。
  * 整卡 Link → /news/:slug;不取正文(列表只展示卡片字段)。
  */
-export function NewsListItem({ item, deferDetails = false }: { item: NewsCard; deferDetails?: boolean }) {
+// memo:消费方 NewsListPage 是 useInfiniteQuery 无限列表,「加载更多」时 items 全量重建,
+// 但 react-query 结构共享保证旧 item 引用稳定 → memo 直接命中,已加载页不重渲
+// (移动端对应组件 NewsCard / JournalFeedCard / PaperFeedCard 均已同款 memo)。
+export const NewsListItem = memo(function NewsListItem({
+  item,
+  deferDetails = false,
+  variant = 'card',
+}: {
+  item: NewsCard;
+  deferDetails?: boolean;
+  /**
+   * card = 首页情报区的圆角封面卡(默认);
+   * row  = 检索列表行卡 —— 排版参照参考文献基础信息卡(标题/meta/徽章/摘要),
+   *        供 /tools/news 与 /news 等检索面使用。
+   */
+  variant?: 'card' | 'row';
+}) {
   const linkRef = useRef<HTMLAnchorElement>(null);
   const [detailsVisible, setDetailsVisible] = useState(!deferDetails);
   // 父级取消延迟时应在当次 render 立即展示，不等 effect 再同步一份 state。
@@ -47,6 +70,88 @@ export function NewsListItem({ item, deferDetails = false }: { item: NewsCard; d
     return () => observer.disconnect();
   }, [deferDetails, detailsVisible]);
 
+  if (variant === 'row') {
+    return (
+      <Link
+        ref={linkRef}
+        to={`/news/${item.slug}`}
+        className={RESULT_ROW_CLASS}
+        style={deferDetails ? { minHeight: 96 } : undefined}
+      >
+        {!showDetails ? (
+          <>
+            <h3 className="sr-only" style={{ fontFamily: 'Arial, sans-serif' }}>
+              {item.title}
+            </h3>
+            <span
+              aria-hidden
+              className="h-16 w-full animate-pulse rounded-4 bg-surface-1"
+            />
+          </>
+        ) : (
+          <div className="min-w-0 flex-1">
+            <h3
+              className={cn(
+                RESULT_ROW_TITLE_CLASS,
+                'line-clamp-2 group-hover:text-brand-red',
+              )}
+            >
+              {item.title}
+            </h3>
+
+            <div className={RESULT_ROW_META_CLASS}>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1 font-medium',
+                    tone.text,
+                  )}
+                >
+                  <span className={cn('size-2 rounded-pill', tone.dot)} />
+                  {item.section_label || '情报'}
+                </span>
+                {source && (
+                  <span className="min-w-0 truncate">来源 · {source}</span>
+                )}
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1 text-faint">
+                <Clock className="size-3" />
+                {newsRelativeTime(item.published_at)}
+              </span>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {item.is_featured && (
+                <span className={rowChipClass('solid-red')}>头条</span>
+              )}
+              <span className={rowChipClass('neutral')}>
+                {newsReportLabel(item.report_type)}
+              </span>
+              {item.heat_external > 0 && (
+                <span className={rowChipClass('neutral')} title="外部热度">
+                  <Flame className="size-3" />
+                  {formatHeat(item.heat_external)}
+                </span>
+              )}
+              {surging && (
+                <span className={rowChipClass('red')} title="热度飙升">
+                  <TrendingUp className="size-3" />
+                  飙升
+                </span>
+              )}
+            </div>
+
+            {item.summary && (
+              <p className={cn(RESULT_ROW_ABSTRACT_CLASS, 'line-clamp-2')}>
+                {item.summary}
+              </p>
+            )}
+          </div>
+        )}
+      </Link>
+    );
+  }
+
   return (
     <Link
       ref={linkRef}
@@ -65,11 +170,26 @@ export function NewsListItem({ item, deferDetails = false }: { item: NewsCard; d
         </>
       ) : (
         <>
-          {item.cover_image && (
+          {(item.cover_thumb || item.cover_image) && (
+            /* 优先本站缩略图(后端生成,~640px JPEG);fetchPriority=low:列表配图
+               永远让位于导航/正文请求 —— 首页曾因原图抢带宽把全站点击拖死(2026-08)。
+               onError:上游换图后旧 thumb 对象会被后端删除,拿着 5min staleTime 旧 DTO
+               的用户会 404 —— 运行时降级回原图,不留空白占位框。 */
             <img
-              src={item.cover_image}
+              src={item.cover_thumb || item.cover_image}
               alt=""
+              width={96}
+              height={96}
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (item.cover_image && !img.dataset.fellBack) {
+                  img.dataset.fellBack = '1';
+                  img.src = item.cover_image;
+                }
+              }}
               className="hidden size-24 shrink-0 rounded-12 object-cover sm:block"
             />
           )}
@@ -130,4 +250,4 @@ export function NewsListItem({ item, deferDetails = false }: { item: NewsCard; d
       )}
     </Link>
   );
-}
+});

@@ -27,6 +27,7 @@ import {
 } from '@/features/legacy-redirects/routes';
 import { authRoutes, authMobileRoutes, wechatCallbackRoutes } from '@/features/auth/routes';
 import { settingsRoutes, settingsMobileRoutes } from '@/features/settings/routes';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 顶层路由 —— 仅做组装,不再写死任何 feature 的页面路径。
@@ -36,9 +37,13 @@ import { settingsRoutes, settingsMobileRoutes } from '@/features/settings/routes
  *   1. 在 features/<x>/ 加 `routes.tsx`,导出 `<x>Routes`
  *   2. 在本文件 import + spread 一次,不动其他文件
  *
- * **页面级 lazy 是默认** —— AppShell / HomePage / NotFoundPage 也走 route lazy:
- *   · 让 /m、/admin、landing、help 等独立壳不再静态下载桌面壳与首页闭包;
- *   · route lazy 在导航提交前解析,仍由 RouteErrorBoundary 承接 stale chunk。
+ * **页面级 lazy 是默认** —— 但用的是 element 级 `lazyRoute`(React.lazy + Suspense),
+ * 不是 RR 的 route-level `lazy:`:
+ *   · route-level lazy 在导航【提交前】下载 chunk —— 慢网/图片抢带宽时点击毫无响应,
+ *     全站交互手感「卡死」(2026-08 线上排查根因,详见 shared/components/LazyRoute.tsx);
+ *   · element 级则导航同步提交(交互最高优先级),chunk 在新页面内部异步补齐;
+ *   · 独立壳(/m、/admin、landing、help)依然互不静态依赖,code-split 粒度不变;
+ *   · stale chunk 由 lazyRoute 内部自愈 + RouteErrorBoundary 兜底承接。
  *
  * Admin 是独立 shell(adminRoutes 已自带 path 前缀 + loader 守卫),
  * 也只是 spread,不掺到 AppShell 里。
@@ -110,10 +115,9 @@ export const router = createBrowserRouter([
   // 详见 features/mobile/routes.tsx 顶部注释。
   {
     path: '/m',
-    lazy: () =>
-      import('@/features/mobile/layouts/MobileShell').then((m) => ({
-        Component: m.MobileShell,
-      })),
+    element: lazyRoute(() => import('@/features/mobile/layouts/MobileShell'), 'MobileShell', {
+      full: true,
+    }),
     errorElement: <RouteErrorBoundary />,
     // 反向闸:桌面 UA(含手机浏览器开「请求桌面版」把 UA 改成桌面)落在 /m/* → 自动回 PC 对等页。
     // 与 '/' 的正向闸对称,二者都被 isPhoneDevice() 门控:到了正确的壳就 return null,不会来回弹。
@@ -134,10 +138,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    lazy: () =>
-      import('./layouts/AppShell').then((m) => ({
-        Component: m.AppShell,
-      })),
+    element: lazyRoute(() => import('./layouts/AppShell'), 'AppShell', { full: true }),
     errorElement: <RouteErrorBoundary />,
     // 正向闸:手机 UA 落在 PC 路由 → 进移动对等页(映射表 MOBILE_EQUIVALENTS)。
     //   - 有 /m 对等页才跳(/settings/*→/m/me、/tools/*→/m/tools/*、/library/*→/m/library/* 等)
@@ -154,9 +155,8 @@ export const router = createBrowserRouter([
     },
     children: [
       {
-        // scholay-wiki 分支以写 Wiki 为主：首页直接进百科，产品壳仍保留可直达。
         index: true,
-        loader: () => redirect('/wiki'),
+        element: lazyRoute(() => import('@/features/home/HomePage'), 'HomePage'),
       },
       ...searchRoutes,
       ...journalsRoutes,
@@ -173,10 +173,7 @@ export const router = createBrowserRouter([
       ...settingsRoutes,
       {
         path: '*',
-        lazy: () =>
-          import('@/features/home/NotFoundPage').then((m) => ({
-            Component: m.NotFoundPage,
-          })),
+        element: lazyRoute(() => import('@/features/home/NotFoundPage'), 'NotFoundPage'),
       },
     ],
   },

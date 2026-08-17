@@ -41,7 +41,7 @@ import {
 } from '../api/session-monitor';
 
 export const FEATURE_LABEL: Record<MonitorFeature, string> = {
-  smart_search: '智能搜索',
+  smart_search: '智能搜论文',
   claw: '智能助手',
   prism: '智能写作',
   boltslides: '制作 PPT',

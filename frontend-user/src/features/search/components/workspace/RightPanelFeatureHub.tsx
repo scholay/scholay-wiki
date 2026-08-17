@@ -1,0 +1,384 @@
+import {
+  forwardRef,
+  useState,
+  type ComponentType,
+  type ReactElement,
+} from 'react';
+import {
+  Globe,
+  Grid3x3,
+  MessageSquare,
+  Share2,
+} from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { QuickOpenPaperDialog } from '@/features/browser/components/QuickOpenPaperDialog';
+import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
+import {
+  useSearchRightPanelStore,
+  WORKSPACE_FUNCTION_LABEL,
+  type RightPanelVariant,
+} from '@/stores/search-right-panel.store';
+import { cn } from '@/shared/lib/utils';
+import { ExpansionAreaOpenDock } from './ExpansionAreaOpenDock';
+
+/** @deprecated 边缘吸附后不再预留右轨宽度;保留导出以免外部引用断裂。 */
+export const FEATURE_HUB_RAIL_PX = 268;
+/** @deprecated 同上。 */
+export const FEATURE_HUB_RAIL_MAX_PX = 560;
+
+/** 卡宽;收起态露出更多封面(别埋太深)。 */
+const CARD_W_PX = 168;
+const PEEK_PX = 112;
+/** 封面高度 —— 文字叠在图上,不再另占标题条。 */
+const CARD_H_PX = 72;
+
+type Accent = {
+  chip: string;
+  focusRing: string;
+};
+
+type HubCard = {
+  key: string;
+  title: string;
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  accent: Accent;
+  Illustration: (p: { reduce: boolean }) => ReactElement;
+  onClick?: () => void;
+};
+
+/**
+ * 右侧拓展入口。
+ *
+ * - `search`:右上角按钮打开扩展区 + 右缘功能名片(PDF Chat / 图谱 / 矩阵 / 浏览器)
+ * - `assistant`:智能助手 / 文献集 —— 仅右上角小图标(无边缘大卡)
+ */
+export function RightPanelFeatureHub({
+  variant = 'search',
+}: {
+  variant?: RightPanelVariant;
+}) {
+  const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
+  const openPaper = useOpenPaperDetail();
+  const reduce = !!useReducedMotion();
+  const [hovered, setHovered] = useState<string | null>(null);
+  const assistant = variant === 'assistant';
+
+  if (assistant) {
+    return <ExpansionAreaOpenDock variant="assistant" />;
+  }
+
+  const functionCards: HubCard[] = [
+    {
+      key: 'pdf-chat',
+      title: WORKSPACE_FUNCTION_LABEL['pdf-chat'],
+      description: '针对工作区 PDF 提问与解读',
+      icon: MessageSquare,
+      accent: {
+        chip: 'bg-brand-amber/10 text-brand-amber',
+        focusRing: 'ring-brand-amber/35 border-brand-amber/50',
+      },
+      Illustration: PdfChatIllustration,
+      onClick: () => setActiveFunction('pdf-chat'),
+    },
+    {
+      key: 'citation-graph',
+      title: WORKSPACE_FUNCTION_LABEL['citation-graph'],
+      description: '可视化文献引用与关联',
+      icon: Share2,
+      accent: {
+        chip: 'bg-brand-green/10 text-brand-green',
+        focusRing: 'ring-brand-green/35 border-brand-green/50',
+      },
+      Illustration: GraphIllustration,
+      onClick: () => setActiveFunction('citation-graph'),
+    },
+    {
+      key: 'matrix',
+      title: WORKSPACE_FUNCTION_LABEL.matrix,
+      description: '多维度 AI 对比表',
+      icon: Grid3x3,
+      accent: {
+        chip: 'bg-foreground/10 text-foreground',
+        focusRing: 'ring-foreground/25 border-foreground/40',
+      },
+      Illustration: MatrixIllustration,
+      onClick: () => setActiveFunction('matrix'),
+    },
+  ];
+
+  const browserCard: HubCard = {
+    key: 'browser',
+    title: '浏览器',
+    description: '搜索并打开论文详情',
+    icon: Globe,
+    accent: {
+      chip: 'bg-brand-blue/10 text-brand-blue',
+      focusRing: 'ring-brand-blue/35 border-brand-blue/50',
+    },
+    Illustration: BrowserIllustration,
+  };
+
+  return (
+    <>
+      <ExpansionAreaOpenDock />
+      <aside
+        aria-label="工作区拓展入口"
+        className="pointer-events-none absolute inset-y-0 right-0 z-30 flex items-center"
+      >
+        <div
+          className="flex flex-col gap-2 py-5"
+          onMouseLeave={() => setHovered(null)}
+        >
+          {functionCards.map((card) => (
+            <EdgeTemplateCard
+              key={card.key}
+              card={card}
+              reduce={reduce}
+              focused={hovered === card.key}
+              onHover={() => setHovered(card.key)}
+            />
+          ))}
+
+          <QuickOpenPaperDialog align="end" onPickPaper={openPaper}>
+            <EdgeTemplateCard
+              card={browserCard}
+              reduce={reduce}
+              focused={hovered === browserCard.key}
+              onHover={() => setHovered(browserCard.key)}
+            />
+          </QuickOpenPaperDialog>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+const EdgeTemplateCard = forwardRef<
+  HTMLButtonElement,
+  {
+    card: HubCard;
+    reduce: boolean;
+    focused: boolean;
+    onHover: () => void;
+  }
+>(function EdgeTemplateCard({ card, reduce, focused, onHover }, ref) {
+  const { title, description, accent, Illustration, onClick } = card;
+  const peekX = CARD_W_PX - PEEK_PX;
+
+  return (
+    <motion.button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      title={description ? `${title} · ${description}` : title}
+      aria-label={title}
+      onHoverStart={onHover}
+      onFocus={onHover}
+      initial={false}
+      animate={{
+        x: focused ? 0 : peekX,
+        scale: reduce ? 1 : focused ? 1.04 : 1,
+        y: reduce ? 0 : focused ? -4 : 0,
+      }}
+      transition={
+        reduce
+          ? { duration: 0.15 }
+          : { type: 'spring', stiffness: 260, damping: 22, mass: 0.6 }
+      }
+      style={{ width: CARD_W_PX }}
+      className={cn(
+        'pointer-events-auto overflow-hidden rounded-xl border bg-background text-left shadow-sm outline-none',
+        'transition-[border-color,box-shadow]',
+        focused ? cn('z-10 ring-2', accent.focusRing) : 'z-0 border-border',
+      )}
+    >
+      {/* 一体窄顶栏 + 封面;无图标/描述 */}
+      <span className="block truncate border-b border-border/60 bg-surface-1 px-2.5 py-1 text-2xs font-semibold leading-none text-foreground">
+        {title}
+      </span>
+      <span
+        style={{ height: CARD_H_PX }}
+        className="relative block w-full overflow-hidden"
+      >
+        <span className="absolute inset-0 bg-surface-2">
+          <Illustration reduce={reduce} />
+        </span>
+      </span>
+    </motion.button>
+  );
+});
+
+/* ── 封面插画(风格对齐 TemplateCards) ─────────────────────────────── */
+
+function PdfChatIllustration({ reduce }: { reduce: boolean }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-amber/10 via-surface-1 to-background">
+      <div className="absolute left-2.5 top-1/2 h-[70%] w-[34%] -translate-y-1/2 rounded-sm bg-background shadow-sm ring-1 ring-border">
+        <div className="space-y-1 p-1.5">
+          {[0.9, 0.7, 0.8, 0.55].map((w, i) => (
+            <div
+              key={i}
+              className="h-1 rounded-full bg-foreground/12"
+              style={{ width: `${w * 100}%` }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="absolute right-2.5 top-1/2 flex w-[44%] -translate-y-1/2 flex-col gap-1.5">
+        {[
+          { cls: 'self-start bg-brand-amber/25', w: '85%' },
+          { cls: 'self-end bg-background ring-1 ring-border', w: '70%' },
+          { cls: 'self-start bg-brand-amber/25', w: '60%' },
+        ].map((b, i) => (
+          <motion.div
+            key={i}
+            className={cn('h-2.5 rounded-pill', b.cls)}
+            style={{ width: b.w }}
+            initial={{ opacity: reduce ? 1 : 0, x: reduce ? 0 : 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={
+              reduce
+                ? { duration: 0 }
+                : { duration: 0.35, delay: 0.15 + i * 0.12 }
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GraphIllustration({ reduce }: { reduce: boolean }) {
+  const nodes = [
+    { x: 28, y: 32 },
+    { x: 70, y: 22 },
+    { x: 78, y: 58 },
+    { x: 38, y: 68 },
+    { x: 52, y: 44 },
+  ];
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-surface-1 to-background">
+      <svg viewBox="0 0 100 80" className="h-full w-full" aria-hidden>
+        {[
+          [0, 4],
+          [1, 4],
+          [2, 4],
+          [3, 4],
+          [0, 1],
+          [1, 2],
+        ].map(([a, b], i) => (
+          <motion.line
+            key={i}
+            x1={nodes[a].x}
+            y1={nodes[a].y}
+            x2={nodes[b].x}
+            y2={nodes[b].y}
+            className="stroke-current text-brand-green/35"
+            strokeWidth="1.2"
+            initial={{ pathLength: reduce ? 1 : 0 }}
+            animate={{ pathLength: 1 }}
+            transition={
+              reduce
+                ? { duration: 0 }
+                : { duration: 0.5, delay: 0.1 + i * 0.06 }
+            }
+          />
+        ))}
+        {nodes.map((n, i) => (
+          <motion.circle
+            key={i}
+            cx={n.x}
+            cy={n.y}
+            r={i === 4 ? 4.5 : 3.2}
+            className={
+              i === 4
+                ? 'fill-current text-brand-green'
+                : 'fill-current text-brand-green/50'
+            }
+            initial={{ opacity: reduce ? 1 : 0, scale: reduce ? 1 : 0.4 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={
+              reduce
+                ? { duration: 0 }
+                : { duration: 0.3, delay: 0.25 + i * 0.08 }
+            }
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function MatrixIllustration({ reduce }: { reduce: boolean }) {
+  const cells = [
+    [1, 0, 1, 0],
+    [0, 1, 1, 1],
+    [1, 1, 0, 1],
+  ];
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-surface-1 to-background p-2.5">
+      <div className="flex h-full flex-col gap-1">
+        {cells.map((row, ri) => (
+          <div key={ri} className="flex flex-1 gap-1">
+            {row.map((on, ci) => (
+              <motion.div
+                key={`${ri}-${ci}`}
+                className={cn(
+                  'flex-1 rounded-sm ring-1 ring-border',
+                  on ? 'bg-foreground/70' : 'bg-background',
+                )}
+                initial={{ opacity: reduce ? 1 : 0, scale: reduce ? 1 : 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={
+                  reduce
+                    ? { duration: 0 }
+                    : {
+                        duration: 0.28,
+                        delay: 0.1 + (ri * 4 + ci) * 0.04,
+                        ease: 'easeOut',
+                      }
+                }
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BrowserIllustration({ reduce }: { reduce: boolean }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-blue/10 via-surface-1 to-background p-2.5">
+      <motion.div
+        className="flex h-full flex-col overflow-hidden rounded-md bg-background shadow-sm ring-1 ring-border"
+        initial={reduce ? false : { y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={reduce ? { duration: 0 } : { duration: 0.4, ease: 'easeOut' }}
+      >
+        <div className="flex h-3 items-center gap-1 border-b border-border-soft px-1.5">
+          <span className="size-1 rounded-full bg-brand-red/70" />
+          <span className="size-1 rounded-full bg-brand-amber/70" />
+          <span className="size-1 rounded-full bg-brand-green/70" />
+          <span className="ml-1 h-1 flex-1 rounded-pill bg-surface-2" />
+        </div>
+        <div className="space-y-1 p-1.5">
+          {[0.9, 0.65, 0.8].map((w, i) => (
+            <motion.div
+              key={i}
+              className="h-1 rounded-full bg-brand-blue/25"
+              initial={{ width: reduce ? `${w * 100}%` : 0 }}
+              animate={{ width: `${w * 100}%` }}
+              transition={
+                reduce
+                  ? { duration: 0 }
+                  : { duration: 0.4, delay: 0.2 + i * 0.1 }
+              }
+            />
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}

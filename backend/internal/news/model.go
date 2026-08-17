@@ -36,7 +36,11 @@ type NewsItem struct {
 	BodyHTML        string `gorm:"column:body_html"`
 	CredibilityNote string `gorm:"column:credibility_note"`
 	CoverImage      string `gorm:"column:cover_image"`
-	OriginalDate    string `gorm:"column:original_date"`
+	// 本站缩略图(0127):webhook 后台生成,存 MinIO;两列刻意不进 upsert 覆盖列表
+	// (newsUpdatableCols),上游重推不会冲掉。key 内嵌 src 哈希做缓存穿透。
+	CoverThumbKey string `gorm:"column:cover_thumb_key"`
+	CoverThumbSrc string `gorm:"column:cover_thumb_src"`
+	OriginalDate  string `gorm:"column:original_date"`
 	PublishedAt     *time.Time `gorm:"column:published_at"`
 	Sources         string     `gorm:"column:sources"` // JSON 字符串 [{url,label}]
 	Status          string     `gorm:"column:status"`
@@ -95,6 +99,7 @@ type CardDTO struct {
 	SectionLabel string   `json:"section_label"`
 	ReportType   string   `json:"report_type"`
 	CoverImage   string   `json:"cover_image,omitempty"`
+	CoverThumb   string   `json:"cover_thumb,omitempty"` // 本站缩略图 URL(/api/v1/public/news/cover/…);列表优先用
 	Sources      []Source `json:"sources"`
 	IsFeatured   bool     `json:"is_featured"`
 	Score        float64  `json:"score"`

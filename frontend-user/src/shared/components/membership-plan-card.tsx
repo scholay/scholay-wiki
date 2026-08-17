@@ -38,17 +38,36 @@ export interface MembershipPlanData {
   year_original_cents: number;
 }
 
-/** 各档展示文案(价格页 + 弹窗共用,保持一致)。 */
-export const PLAN_META: Record<'free' | 'pro' | 'max', { name: string; sub: string }> = {
+/** 各档展示文案(价格页 + 弹窗共用,保持一致)。
+ *
+ * audience =「这一档适合谁」。与 sub 分工:sub 是**一句话定位**(这档是干嘛的),
+ * audience 是**对号入座**(我是不是这类人)。两句都从用户视角写,不写我们的分层标签。
+ * 只在价格页整卡渲染,购买弹窗(compact)不渲染 —— 那里用户已经决定要买,再讲人群是噪音。 */
+export const PLAN_META: Record<
+  'free' | 'pro' | 'max',
+  { name: string; sub: string; audience: string }
+> = {
   // 等级名全站统一 Free / Pro / Max;sub 是各档定位副标题。
   // 🔴 定位语写「这说的是不是我」,不写我们的分层标签。
   // 原文是「面向全体学者永久免费 / 轻量检索与日常写作 / 高频科研的主力之选」——
   // 「面向全体学者」是投放口径、「轻量/高频」是我们给用户贴的用量标签、「主力之选」是货架语言,
   // 三句都从**我们怎么切分市场**出发,用户读完不知道该对号入座哪一档。
   // 另:「永久免费」与产品拍板禁止的「永不过期」类承诺属同一类 forever 承诺,一并去掉。
-  free: { name: 'Free', sub: '不花钱,也能把研究做起来' },
-  pro: { name: 'Pro', sub: '查文献、写论文,日常够用' },
-  max: { name: 'Max', sub: '天天跑审稿、绘图、写作的节奏' },
+  free: {
+    name: 'Free',
+    sub: '不花钱,也能把研究做起来',
+    audience: '适合初次使用 AI 辅助科研、希望先完整体验一遍的用户',
+  },
+  pro: {
+    name: 'Pro',
+    sub: '查文献、写论文,日常够用',
+    audience: '适合在读研究生与青年研究者:每周固定做文献调研、论文写作与修改',
+  },
+  max: {
+    name: 'Max',
+    sub: '天天跑审稿、绘图、写作的节奏',
+    audience: '适合投稿密集期与课题组:多篇稿件并行,审稿、绘图、写作高频使用',
+  },
 };
 
 /** 金额展示(分 → 元):整元显示整数(¥59),非整元保留两位小数(¥19.90)。
@@ -120,10 +139,11 @@ function planFeatures(plan: MembershipPlanData, cycle: BillingCycle): string[] {
   // 保守口径的静态估算,调整须与 /pricing「这些额度能做什么」区块同步。
   if (plan.tier === 'free') {
     return [
-      '检索和文献管理不限次,不占 AI 额度',
-      '智能搜索、助手、翻译、矩阵全都能用',
-      '基础 AI 额度,每 7 天自动回满',
-      '标准 AI 模型',
+      '论文检索、期刊检索、文献管理不限次数,不消耗额度',
+      '智能搜论文、智能助手、全文翻译、矩阵对比均可使用',
+      // 不写死天数:恢复周期是 admin 旋钮(billing_config.window_days),而卡片拿不到它
+      // (planFeatures 只吃 plan/cycle)。机制解释交给 /pricing 的 FAQ —— 那里动态取值。
+      '基础 AI 额度,用完后自动恢复',
     ];
   }
   // 倍率口径:Pro 相对 Free,Max 相对 Pro(后端 WindowCeiling 同步)。
@@ -135,7 +155,7 @@ function planFeatures(plan: MembershipPlanData, cycle: BillingCycle): string[] {
       ? `AI 额度是 Pro 的 ${plan.multiplier} 倍`
       : `AI 额度是 Free 的 ${plan.multiplier} 倍`;
   const yearly = cycle === 'yearly' && planYearlyEnabled(plan);
-  // 「额度每 7 天自动回满」是三档共有的事实,只在 Free 卡说一次 —— 累加式列表里
+  // 「额度用完后自动恢复」是三档共有的事实,只在 Free 卡说一次 —— 累加式列表里
   // 「包含 Free 的全部」已经把它承接过来了,再在 Pro/Max 各写一遍等于用两个卖点位讲同一句话。
   // 0090:「每月赠送 N 经费」与「经费可随时重置额度」两条卖点都已删 ——
   // 订阅不再赠送经费,且经费也买不到重置(重置改扣重置次数)。留着就是虚假承诺。
@@ -145,19 +165,25 @@ function planFeatures(plan: MembershipPlanData, cycle: BillingCycle): string[] {
       '包含 Free 的全部,再加上:',
       quota,
       '每周约够 40 轮对话、3 份完整审稿',
-      '优先用上更强的 AI 模型',
-      '新功能先给你用',
+      // 括号补充(「Free 档额度不足以跑完一份」)已由 /pricing 对比表的行内 hint 承担,
+      // 卡上留着会折成两行、与 Max 卡的 bullet 节奏对不齐(实拍 1366 宽)。
+      '额度足以完整跑完 AI 审稿',
       ...(yearly ? ['一年之内价格不变'] : []),
     ];
   }
-  // max —— 体现比 Pro 更高的优先级 / 模型 / 新功能
+  // max —— 与 Pro 的真实差异只有额度量级,卖点就照实写在量级上。
+  // 🔴 2026-08-13 摘掉四条**代码里不存在**的卖点(实测):
+  //   「最强 / 更强 AI 模型」—— agent_models.min_tier 12 条全为空,三档可选模型完全相同;
+  //   「高峰期优先处理」  —— agentbridge/vip 零实现,没有任何优先级队列;
+  //   「新功能先给你用」  —— 无灰度机制;
+  //   「专属客服」        —— feedback/supportcenter 对所有档位一视同仁。
+  // 这四条真要卖,得先有实现(min_tier 后台可配,配了再动态渲染);在付费页写未兑现承诺
+  // 是客诉与合规风险,别再加回来。
   return [
     '包含 Pro 的全部,再加上:',
     quota,
     '每周约够 15 份完整审稿、150 轮对话',
-    '最强 AI 模型',
-    '高峰期优先处理',
-    '专属客服',
+    '多篇稿件并行推进时仍有余量',
     ...(yearly ? ['一年之内价格不变'] : []),
   ];
 }
@@ -211,7 +237,7 @@ export interface MembershipPlanCardProps {
 }
 
 export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, badgeText, highlighted, onSelect, compact, muted, footer, priceOverride = null }: MembershipPlanCardProps) {
-  const meta = PLAN_META[plan.tier] ?? { name: plan.tier, sub: '' };
+  const meta = PLAN_META[plan.tier] ?? { name: plan.tier, sub: '', audience: '' };
   const isFree = plan.tier === 'free';
   // 该档未开放年付时,即使全局切到年付也回落月度展示(报价/下单侧同样回落)。
   const effCycle: BillingCycle = cycle === 'yearly' && planYearlyEnabled(plan) ? 'yearly' : 'monthly';
@@ -257,8 +283,11 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, badg
           <span className="shrink-0 rounded-pill bg-surface-2 px-2 py-1 text-12 font-medium text-subtle">{badgeText}</span>
         )}
       </div>
-      {/* ② 一句话定位 */}
+      {/* ② 一句话定位 + 适合谁(compact 弹窗不渲染人群句,见 PLAN_META 注释) */}
       <p className="mt-1 text-12 text-faint">{meta.sub}</p>
+      {!compact && meta.audience && (
+        <p className="mt-2 text-12 leading-paragraph text-muted-foreground">{meta.audience}</p>
+      )}
 
       {/* ③ 主价格 —— 展示档字号 + 展示字族(系统衬线栈)。
           ⚠️ `font-display` 必须与 `font-bold` 写在**同一行 className**:设计护栏的
@@ -328,6 +357,8 @@ export function BillingCycleToggle({
   savingsPct,
   disabled,
   disabledHint,
+  block = false,
+  className,
 }: {
   value: BillingCycle;
   onChange: (cycle: BillingCycle) => void;
@@ -336,11 +367,26 @@ export function BillingCycleToggle({
   /** 禁用切换(如升级动作锁定当前周期),并可附提示。 */
   disabled?: boolean;
   disabledHint?: string;
+  /**
+   * 满宽模式:整条与下方内容等宽、两项均分。
+   *
+   * 购买弹窗用它建立「这条控制的是下面那两张卡」的从属关系 —— 原来是一枚小药丸浮在
+   * 左上角、右侧一大片空,读起来与卡片各自独立,用户不容易发现切周期会改卡上的价。
+   * 满宽后它就是卡片组的控制条(tab bar → panel 的经典关系)。
+   * 价格页仍用默认的 inline 居中形态,不受影响。
+   */
+  block?: boolean;
+  className?: string;
 }) {
   const pct = Math.round((savingsPct ?? 0) * 100);
   return (
     <div
-      className={cn('inline-flex items-center gap-1 rounded-pill border border-border bg-surface-1 p-1', disabled && 'opacity-60')}
+      className={cn(
+        'items-center gap-1 rounded-pill border border-border bg-surface-1 p-1',
+        block ? 'flex w-full' : 'inline-flex',
+        disabled && 'opacity-60',
+        className,
+      )}
       title={disabled ? disabledHint : undefined}
     >
       {/* 🔴 年付在前(2026-08-12 设计稿):它是我们希望用户选的那一档,带「省 N%」徽标。
@@ -361,6 +407,7 @@ export function BillingCycleToggle({
             onClick={() => !disabled && onChange(opt.id)}
             className={cn(
               'flex h-8 items-center gap-2 rounded-pill px-4 text-14 font-medium transition-colors',
+              block && 'flex-1 justify-center',
               active ? 'bg-surface-card text-foreground shadow-raised' : 'text-muted-foreground',
               !disabled && !active && 'hover:text-foreground',
               disabled && 'cursor-not-allowed',

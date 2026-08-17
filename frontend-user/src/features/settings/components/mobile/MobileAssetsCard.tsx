@@ -76,7 +76,7 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
   // 与 PC AccountAssetsCard 同口径:展示**剩余**百分比,进度条宽度 = 剩余(未开窗=满额)
   const remaining = token.unlimited || !token.window_started_at ? 100 : Math.max(0, 100 - token.percent);
   const exhausted = !token.unlimited && remaining <= 0;
-  const ri = resetInfo(token); // 7 天窗口重置信息(相对 + 绝对)
+  const ri = resetInfo(token); // 额度恢复信息(相对 + 绝对)
 
   return (
     <section className="overflow-hidden rounded-16 border border-border bg-surface-card">
@@ -110,10 +110,10 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
         </Button>
       </div>
 
-      {/* 本周期额度 */}
+      {/* AI 额度 */}
       <div className="space-y-2 px-4 py-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-14 font-medium text-foreground">本周期额度</span>
+          <span className="text-14 font-medium text-foreground">AI 额度</span>
           <span className="text-12 text-muted-foreground">
             {token.unlimited
               ? '不限'
@@ -181,8 +181,8 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
         </button>
         {/* 0090:经费不再分临时/永久,只有一种 —— 拆分行删掉。 */}
         <div className="ml-auto flex shrink-0 flex-col items-end text-12 text-faint">
-          <span>剩余重置次数 {data.reset_passes}</span>
-          {/* 最近一批重置次数的到期时刻(null = 无可用次数);批内计数后端不下发,N 用总次数。 */}
+          <span>剩余恢复次数 {data.reset_passes}</span>
+          {/* 最近一批恢复次数的到期时刻(null = 无可用次数);批内计数后端不下发,N 用总次数。 */}
           {data.reset_passes > 0 && data.reset_pass_next_expiry && (
             <span>{data.reset_passes} 次将于 {monthDay(data.reset_pass_next_expiry)} 前有效</span>
           )}
@@ -195,7 +195,7 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
       <div className="flex items-center gap-3 border-t border-border-soft px-4 py-3">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-14 text-foreground">用经费继续</span>
-          <span className="text-12 leading-paragraph text-faint">额度耗尽后自动用经费按量续用</span>
+          <span className="text-12 leading-paragraph text-faint">额度用完后,仅对超出部分按量扣除经费</span>
         </div>
         <Switch
           checked={credit.credit_autopay}
@@ -203,7 +203,7 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
           onCheckedChange={(v) => {
             autopayMut.mutate(v, {
               onSuccess: () =>
-                toast.success(v ? '已开启:额度用完将自动使用经费' : '已关闭:额度用完不再自动扣经费'),
+                toast.success(v ? '已开启,额度用完后将自动使用经费' : '已关闭,额度用完后不会自动扣除经费'),
               onError: (e) => toast.error(toApiError(e).message || '保存失败'),
             });
           }}
@@ -237,24 +237,25 @@ export function MobileAssetsCard({ membershipSignal = 0 }: { membershipSignal?: 
       <ConfirmDialog
         open={resetOpen}
         onOpenChange={setResetOpen}
-        title="重置本周期额度"
+        title="立即恢复额度"
         description={
-          // 0090:按**重置次数**判,不是经费余额。次数用完时不引导充值 —— 经费买不到重置。
+          // 0090:按**恢复次数**判,不是经费余额。次数用完时不引导充值 —— 经费买不到恢复次数。
+          // 用词与全站额度文案同律:说「恢复」不说「重置」,也不提周期机制。
           data.reset_passes > 0
-            ? `将使用 1 次重置次数立即恢复本周期额度(剩余 ${data.reset_passes} 次),确认重置?`
-            : '你已没有可用的重置次数。可等待本周期额度自动重置,或升级会员获得更高额度。'
+            ? `使用 1 次恢复次数,额度将立即回到满额(当前剩余 ${data.reset_passes} 次)。`
+            : '恢复次数已用完。额度到期会自动恢复至满额;如需更多额度,可升级会员。'
         }
-        confirmText="确认重置"
+        confirmText="确认恢复"
         onConfirm={async () => {
           if (data.reset_passes <= 0) {
-            toast.error('重置次数已用完');
+            toast.error('恢复次数已用完');
             return;
           }
           try {
             await resetMut.mutateAsync();
-            toast.success('本周期额度已重置');
+            toast.success('额度已恢复至满额');
           } catch (e) {
-            toast.error((e as Error).message || '重置失败');
+            toast.error((e as Error).message || '恢复失败,请稍后重试');
           }
         }}
       />

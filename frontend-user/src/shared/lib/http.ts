@@ -44,6 +44,14 @@ http.interceptors.request.use((config) => {
     // 仅当未显式指定超时(默认 30s 或 undefined,取决于 axios 何时合并实例默认)才豁免;显式传的超时尊重不动。
     if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 0;
   }
+  // FormData 上传同款豁免:axios 的 timeout 是含上传传输的总预算,30s 套在 50MB 稿件 /
+  // 30MB agent 附件上要求 >8~14Mbps 持续上行,弱上行(热点/校园网/跨境)确定性中断且被
+  // 报成「网络连接失败」误导重试。此前只有 library PDF 一个站点手补过(features/library/api/pdf.ts,
+  // 2026-08-07 事故),这里一处收口覆盖现存+未来所有上传站点。
+  // 不用 0(不限时):真挂死时用户永远转圈无反馈;600s 对齐后端 object-serve 的 10min 预算。
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 600_000;
+  }
   return config;
 }, undefined, {
   // 必须同步冻结调用时会话：Axios 默认用 microtask 跑 request interceptor。
@@ -60,7 +68,10 @@ http.interceptors.response.use(
   (resp) => resp,
   (err) => {
     const apiErr = toApiError(err);
-    if (isAuthError(apiErr)) {
+    // 本次请求是否带了 Authorization(请求时刻真值)—— 请求拦截器仅在 token 存在时设该头。
+    const requestHadToken =
+      err instanceof AxiosError && err.config?.headers?.Authorization != null;
+    if (isAuthError(apiErr, requestHadToken)) {
       notifyAuthLost({ code: apiErr.code, message: apiErr.message });
     }
     // AI 额度耗尽 → 汇入全局额度通知器(弹重置弹窗)。统一谓词,与 SSE/WS 同一判断(Theme 2)。
@@ -213,9 +224,15 @@ export function toApiError(err: unknown): ApiError {
  *   全局登出(否则登录失败反而弹"登录已过期"+ 双 toast)。这是 defense-in-depth:
  *   后端也已把"邮箱验证码登录失败"从 2016(→401)改成 2004(→400),双保险。
  */
-export function isAuthError(err: ApiError): boolean {
+export function isAuthError(err: ApiError, requestHadToken?: boolean): boolean {
   if (err.code === BizCode.TokenRevoked || err.code === BizCode.TokenExpired) {
     return true;
   }
-  return err.status === BizCode.Unauthorized && getAuthToken() != null;
+  // 裸 401 是否算「会话丢失」取决于**本次请求是否带了凭证**。
+  // requestHadToken 由响应拦截器从 err.config 传入(请求时刻的真值);缺省才回落
+  // getAuthToken()(响应时刻现值)—— 后者有竞态:匿名请求在途中用户完成登录,
+  // 401 返回时现值非空会误清刚建立的会话(sse-post 已按请求时 token 修过同型竞态,
+  // 2026-08-12 审计指出主 HTTP 通道遗漏,这里补齐)。
+  const hadToken = requestHadToken ?? getAuthToken() != null;
+  return err.status === BizCode.Unauthorized && hadToken;
 }

@@ -2,8 +2,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
-import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { notifyAuthSuccess } from '@/shared/lib/auth-events';
+import { useInvitePromptStore } from '@/stores/invite-prompt.store';
 import type { AuthResponse, CodePurpose, User } from '../types';
 
 /**
@@ -13,23 +12,28 @@ import type { AuthResponse, CodePurpose, User } from '../types';
  *
  * **登录后全局刷新**:`invalidateQueries()` 不带 key,所有 query 一次性失效。
  * 这样未登录态拉到的"匿名空数据"会立即被新会话下的真实数据替换 ——
- * 文件夹、订阅、配额、连接列表、UI 上一切受登录态影响的服务端数据都会重 fetch。
+ * 文献集、订阅、配额、连接列表、UI 上一切受登录态影响的服务端数据都会重 fetch。
  */
 
-export function handleAuthSuccess(qc: QueryClient, data: AuthResponse) {
+export type AuthSuccessOptions = {
+  /** 本次注册/登录请求是否已携带邀请码（有则不再弹补填提醒） */
+  usedInvitationCode?: boolean;
+};
+
+export function handleAuthSuccess(
+  qc: QueryClient,
+  data: AuthResponse,
+  opts?: AuthSuccessOptions,
+) {
   useAuthStore.getState().setSession(data.token, normalizeUser(data.user));
-  // Google GIS 等就地 OAuth 不会发生整页跳转，在统一成功点收起鉴权壳。
-  const authDialog = useAuthDialog.getState();
-  const suppressInviteFlow = authDialog.suppressInviteFlow === true;
-  authDialog.close();
   // 全量失效 —— 比逐个枚举 queryKey 简单且不漏。代价是触发一次 refetch 风暴,
   // 但登录是低频事件,可以接受。
   qc.invalidateQueries();
-  notifyAuthSuccess({
-    isNewUser: data.is_new_user === true,
-    userId: data.user.id,
-    ...(suppressInviteFlow ? { suppressInviteFlow: true } : {}),
-  });
+
+  // 新用户 + 注册时未填邀请码 → 首次登录弹一次补填提醒
+  if (data.is_new_user && !opts?.usedInvitationCode && data.user?.id) {
+    useInvitePromptStore.getState().openForNewUser(data.user.id);
+  }
 }
 
 function normalizeUser(raw: User): import('@/stores/auth.store').StoredUser {
@@ -162,18 +166,22 @@ export function useRegisterEmail() {
       password: string;
       code: string;
       turnstile_token?: string;
+      invitation_code?: string;
     }) => {
       try {
         const { data } = await http.post<{ data: AuthResponse }>(
           '/user/register',
           input
         );
-        return { ...data.data, is_new_user: data.data.is_new_user ?? true };
+        return data.data;
       } catch (err) {
         throw toApiError(err);
       }
     },
-    onSuccess: (data) => handleAuthSuccess(qc, data),
+    onSuccess: (data, variables) =>
+      handleAuthSuccess(qc, data, {
+        usedInvitationCode: !!variables.invitation_code?.trim(),
+      }),
   });
 }
 
@@ -185,18 +193,22 @@ export function useRegisterPhone() {
       password: string;
       code: string;
       turnstile_token?: string;
+      invitation_code?: string;
     }) => {
       try {
         const { data } = await http.post<{ data: AuthResponse }>(
           '/user/register-phone',
           input
         );
-        return { ...data.data, is_new_user: data.data.is_new_user ?? true };
+        return data.data;
       } catch (err) {
         throw toApiError(err);
       }
     },
-    onSuccess: (data) => handleAuthSuccess(qc, data),
+    onSuccess: (data, variables) =>
+      handleAuthSuccess(qc, data, {
+        usedInvitationCode: !!variables.invitation_code?.trim(),
+      }),
   });
 }
 

@@ -110,7 +110,7 @@ func clampWechatInput(s string) string {
 }
 
 // wechatReplyRateLimited 命中成本帽时回给粉丝的友好提示(不消耗 LLM)。
-const wechatReplyRateLimited = "今天聊得有点多啦,我先歇一歇,明天再来找我吧~"
+const wechatReplyRateLimited = "今日消息已达上限,请明天再来。"
 
 // allowAIReply 原子地为一次 AI 回复计数并判断是否在每日上限内。先判单粉丝(超限即拦,
 // 不再累加全局),再判全局。Redis 不可用 → fail-open(不因配额设施故障拒服务,与系统其余
@@ -269,7 +269,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 			reply, err = h.service.GetAIReply(c.Request.Context(), clampWechatInput(msg.Content), "")
 			if err != nil {
 				slog.Error("failed to get AI reply", "err", err)
-				reply = "抱歉，我暂时无法处理您的消息，请稍后再试。"
+				reply = "暂时无法处理您的消息,请稍后重试。"
 			}
 		}
 
@@ -302,14 +302,14 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 			base64Image, derr := h.service.DownloadImage(c.Request.Context(), msg.MediaId)
 			if derr != nil {
 				slog.Error("failed to download WeChat image", "err", derr)
-				reply = "抱歉，我无法处理这张图片，请稍后再试。"
+				reply = "暂时无法识别这张图片,请稍后重试。"
 			} else {
 				// Get AI reply with image
 				userMessage := prompts.WechatOfficialImageUserPrompt
 				reply, err = h.service.GetAIReplyWithImage(c.Request.Context(), userMessage, base64Image, "")
 				if err != nil {
 					slog.Error("failed to get AI reply with image", "err", err)
-					reply = "抱歉，我暂时无法处理您的图片，请稍后再试。"
+					reply = "暂时无法处理您的图片,请稍后重试。"
 				}
 			}
 		}

@@ -611,7 +611,15 @@ func entityLastModXML(e SitemapEntry) string {
 
 // ServeRobotsTxt 返回 robots.txt，声明 sitemap 入口
 // 索引文件 /sitemap.xml 会枚举所有子 sitemap，爬虫跟随即可
+//
+// 非权威环境(APP_ENV=test/dev,或显式 SEO_INDEXABLE=false)只输出整站 Disallow,
+// 并且**不输出 Sitemap 指令** —— 输出了等于把整份 URL 清单白送给不守 robots 的爬虫。
 func (h *Handler) ServeRobotsTxt(c *gin.Context) {
+	if !appconfig.RequestIndexable(c.Request.Host) {
+		WriteBodyWithETag(c, "text/plain; charset=utf-8", "User-agent: *\nDisallow: /\n", 300)
+		return
+	}
+
 	// 规则按 robots 规范:爬虫只遵从**最具体匹配**的 User-agent 组,**不继承** * 组。
 	// 故 Baiduspider / Sogou 这两个主力中文爬虫的具名组必须各自自带 Disallow,
 	// 否则它们会无视下面的禁爬目录,去爬 /admin、/api、OAuth 回调(query 带 code/state)等非 SEO 面。
@@ -637,8 +645,15 @@ Disallow: /api/`
 	// ② 给"训练类"重爬虫加 Crawl-delay 护栏, 减轻 SSR 后端压力。
 	// 两类区分(依据 OpenAI/Anthropic/Perplexity 官方文档):
 	//   - 检索/实时取页类(被引前提, 不限速): OAI-SearchBot / *-User / *-SearchBot / PerplexityBot
-	//   - 训练/批量类(放行但限速): GPTBot / ClaudeBot / Google-Extended / Amazonbot / Meta-ExternalAgent / CCBot
+	//   - 训练/批量类(放行但限速): GPTBot / ClaudeBot / Google-Extended / Amazonbot / CCBot
 	// 注: 不输出 llms.txt —— Google 官方已否定, 实测几乎无引擎读取, 不投入。
+	//
+	// 🔴 Meta-ExternalAgent 已从"训练类放行"移出, 整站 Disallow(2026-08-12):
+	// 生产 24h 实测 33,796 次实体页抓取(全站爬虫量第一), 换来的收录/引用/流量为零,
+	// 却是 SSR on-miss 现拉上游的最大单一来源 —— 它不给我们任何东西, 只花我们的 minicod 配额。
+	// 大小写两种拼写("Meta-ExternalAgent" / "meta-externalagent")线上都出现过:
+	// robots 规范里 UA 匹配本就不区分大小写, 但这个爬虫量级太大, 宁可各写一组也不赌解析器实现。
+	// robots 只是声明, 强制执行在 nginx/conf.d/user.conf 的 $block_meta_bot(403)。
 	body := fmt.Sprintf(`User-agent: *
 %s
 
@@ -662,10 +677,15 @@ User-agent: GPTBot
 User-agent: ClaudeBot
 User-agent: Google-Extended
 User-agent: Amazonbot
-User-agent: Meta-ExternalAgent
 User-agent: CCBot
 %s
 Crawl-delay: 5
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
 
 Sitemap: %s/sitemap.xml
 `, rules, rules, rules, rules, rules, baseURL())

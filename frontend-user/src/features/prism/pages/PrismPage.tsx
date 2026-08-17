@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { FeatureHub } from '@/app/layouts/FeatureHub';
 import { useUrlState } from '@/shared/hooks';
 import { LoadingState, ResourceError } from '@/shared/components';
 import { PrismHome } from '../components/PrismHome';
@@ -14,6 +15,7 @@ const PrismWorkspaceV2 = lazy(() => import('../components/PrismWorkspaceV2').the
  * `?p=<projectId>` 无 → 主页(sidebar=项目记录);有 → 工作区(sidebar=文件目录+大纲 / 主区=编辑器+对话+PDF)。
  */
 export function PrismPage() {
+  const [mode] = useUrlState('mode', '');
   const [pid, setPid] = useUrlState('p', 0, Number);
 
   // 工作区挂载前先在这一层探活项目:?p 指向不存在 / 非本人的项目时后端返回 404,
@@ -39,12 +41,15 @@ export function PrismPage() {
     return (
       <Suspense fallback={<LoadingState className="h-full" />}>
         {proj.schema_version === 'struct' ? (
-          <PrismWorkspaceV2 projectId={pid} onBack={() => setPid(0)} />
+          <PrismWorkspaceV2 projectId={pid} />
         ) : (
           <PrismWorkspace projectId={pid} onBack={() => setPid(0)} readOnly={!!proj.read_only} onOpen={(id) => setPid(id)} />
         )}
       </Suspense>
     );
+  }
+  if ((!mode || mode === 'quick') && pid <= 0) {
+    return <FeatureHub featureId="prism" />;
   }
   return <PrismHome onOpen={(id) => setPid(id)} />;
 }

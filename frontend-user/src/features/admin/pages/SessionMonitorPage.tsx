@@ -9,7 +9,7 @@ import type { MonitorFeature } from '../api/session-monitor';
 type Tab = MonitorFeature | 'peerreview';
 
 const TABS: { value: Tab; label: string }[] = [
-  { value: 'smart_search', label: '智能搜索' },
+  { value: 'smart_search', label: '智能搜论文' },
   { value: 'claw', label: '智能助手' },
   { value: 'boltslides', label: '制作 PPT' },
   { value: 'sci_draw', label: '科研绘图' },

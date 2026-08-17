@@ -148,27 +148,27 @@ describe('额度耗尽条 · 按钮矩阵', () => {
     expect(labels.join()).not.toContain('升级');
   });
 
-  it('有重置次数:上区额外出「立即恢复」,与下区付费路并存', async () => {
+  it('有恢复次数:上区额外出「立即恢复」,与下区付费路并存', async () => {
     await renderBlocked(overview({ tier: 'pro', credit: 0, passes: 2 }));
     const labels = buttonLabels();
     expect(labels).toContain('立即恢复');
     expect(labels).toContain('升级 Max');
-    expect(screen.getByText(/重置次数还剩/)).toBeTruthy();
+    expect(screen.getByText(/可立即恢复/)).toBeTruthy();
   });
 
-  it('无重置次数:不出上区(不显示 0 次)', async () => {
+  it('无恢复次数:不出上区(不显示 0 次)', async () => {
     await renderBlocked(overview({ tier: 'pro', credit: 0, passes: 0 }));
     expect(buttonLabels().join()).not.toContain('立即恢复');
-    expect(screen.queryByText(/重置次数还剩/)).toBeNull();
+    expect(screen.queryByText(/可立即恢复/)).toBeNull();
   });
 });
 
 describe('额度耗尽条 · 分区结构', () => {
-  it('有重置次数时:上区(立即恢复)在前、下区(说明+付费路)在后,且两区之间有分隔线', async () => {
+  it('有恢复次数时:上区(立即恢复)在前、下区(说明+付费路)在后,且两区之间有分隔线', async () => {
     await renderBlocked(overview({ tier: 'pro', credit: 12.5, passes: 2 }));
     const strip = screen.getByRole('status');
     const resetBtn = screen.getByRole('button', { name: '立即恢复' });
-    const title = screen.getByText('本周期用量已达上限');
+    const title = screen.getByText('额度已用完');
     // DOM 顺序 = 视觉顺序(条内是纵向 flex,无 order 覆写)
     expect(
       resetBtn.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -177,19 +177,29 @@ describe('额度耗尽条 · 分区结构', () => {
     // 分隔线:免费的那条路不能和要花钱的挤成一排被整体读成付费墙
     const divider = strip.querySelector('.border-b');
     expect(divider, '两区之间缺少分隔线').toBeTruthy();
-    expect(divider!.textContent).toContain('重置次数');
+    expect(divider!.textContent).toContain('立即恢复');
   });
 });
 
 describe('额度耗尽条 · 文案', () => {
-  it('标题主语是用量而非用户;正文只讲恢复时刻,不掺其他信息', async () => {
+  it('标题主语是额度而非用户;正文只讲恢复时刻,不掺其他信息', async () => {
     await renderBlocked(overview({ tier: 'pro', credit: 0 }));
-    expect(screen.getByText('本周期用量已达上限')).toBeTruthy();
-    const body = screen.getByText(/恢复/);
+    expect(screen.getByText('额度已用完')).toBeTruthy();
+    const body = screen.getByText(/恢复满额/);
     expect(body.textContent, '必须给绝对恢复时刻,不许写「稍后再试」').toMatch(/8月18日 19:53/);
     // 2026-08-12 拍板:正文只留恢复时刻,其余一律不展示
     for (const noise of ['消息已保存', '未消耗', '自动发送']) {
       expect(body.textContent, `正文不应出现「${noise}」`).not.toContain(noise);
+    }
+  });
+
+  // 2026-08-13 文案铁律:周期/重置这类内部机制口径不进用户文案(规则在变,写进去就会过期)。
+  // 钉在这里而不是靠 review:这条条文历史上被「本周期用量已达上限」违反了整整一个版本。
+  it('条内任何一格都不出现周期/重置这类机制口径', async () => {
+    await renderBlocked(overview({ tier: 'pro', credit: 12.5, passes: 2 }));
+    const text = screen.getByRole('status').textContent ?? '';
+    for (const banned of ['本周期', '周期', '重置', '重新计算']) {
+      expect(text, `额度条不应出现机制口径「${banned}」`).not.toContain(banned);
     }
   });
 });

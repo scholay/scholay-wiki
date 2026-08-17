@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import { STALE_COLD } from '@/shared/lib/query-config';
 
@@ -103,6 +103,8 @@ export interface JournalHubListOptions {
 export function useJournalHubList({ dimension, key, page = 1 }: JournalHubListOptions) {
   return useQuery({
     queryKey: ['journal', 'hub-list', dimension, key ?? '', page] as const,
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     staleTime: STALE_COLD,
     // category/country 缺 key 时不打后端(路由参数还没就位)
     enabled: dimension === 'warning' || dimension === 'oa' || !!key,

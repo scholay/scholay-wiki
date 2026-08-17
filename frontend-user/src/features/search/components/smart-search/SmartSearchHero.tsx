@@ -1,4 +1,5 @@
-import { Sparkles } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
+import type { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/shared/lib/utils';
 import { BrandLogo } from '@/shared/components/BrandLogo';
@@ -32,6 +33,8 @@ export interface SmartSearchHeroProps {
   loggedOut?: boolean;
   /** 已登录态:WS 是否就绪(未就绪禁用发送)。 */
   ready?: boolean;
+  /** 底部附加区(如会话历史 dock)。 */
+  footer?: ReactNode;
   /** 附件/引用装配插槽(2026-07 输入框统一)—— 原样转发 SmartComposer,起手即可带附件。 */
   composerExtras?: Pick<
     import('./SmartComposer').SmartComposerProps,
@@ -45,41 +48,42 @@ export function SmartSearchHero({
   onSubmit,
   loggedOut = false,
   ready = true,
+  footer,
   composerExtras,
 }: SmartSearchHeroProps) {
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden px-6 py-8">
+    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
       <AmbientBackdrop />
 
-      <div className="relative z-raised flex w-full max-w-2xl flex-col items-center gap-6">
-        {/* 图标 + 标题(挂钩品牌:和 Scholay 一起找论文) */}
-        <div className="flex flex-col items-center gap-3">
-          <HeroSpark />
-          {/* font-serif 只作用于「和 / 一起找论文」两个文字 span;
-              中间的 SCHOLAY 是 BrandLogo 的 SVG 路径,不吃 font-family,保持冻结 */}
-          <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 font-serif text-24 font-medium text-foreground">
-            <span>和</span>
-            {/* 句中内联 —— 只用文字标(放完整锁定组合会打断句子),
-                高度 17px 对齐周围 text-24 的大写字身高 */}
-            <BrandLogo variant="wordmark" height={17} />
-            <span>一起找论文</span>
-          </h2>
-        </div>
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="flex min-h-full flex-col px-6 py-8">
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <div className="flex w-full max-w-2xl flex-col items-center gap-6">
+              <div className="flex flex-col items-center gap-3">
+                <HeroSpark />
+                <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 text-2xl font-bold text-foreground">
+                  <span>和</span>
+                  <BrandLogo variant="wordmark" height={17} />
+                  <span>一起找论文</span>
+                </h2>
+              </div>
 
-        {/* 对话框 —— 普通 div。原「共用 layoutId 从居中滑到底部」的共享 layout 动画已移除
-            (会 scaleY morph 高度、被路由过渡打断即卡住 → 输入框拉高变形)。 */}
-        <div className="w-full">
-          <SmartComposer
-            prominent
-            autoFocus
-            value={value}
-            onChange={onChange}
-            onSubmit={onSubmit}
-            loggedOut={loggedOut}
-            ready={ready}
-            rotatingPlaceholders={SUGGESTIONS}
-            {...composerExtras}
-          />
+              <div className="w-full">
+                <SmartComposer
+                  prominent
+                  autoFocus
+                  value={value}
+                  onChange={onChange}
+                  onSubmit={onSubmit}
+                  loggedOut={loggedOut}
+                  ready={ready}
+                  rotatingPlaceholders={SUGGESTIONS}
+                  {...composerExtras}
+                />
+                {footer && <div className="mt-3">{footer}</div>}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -91,16 +95,16 @@ function HeroSpark() {
   return (
     <div className="relative">
       <motion.div
-        className="absolute inset-0 rounded-16 bg-brand-green/30 blur-xl"
+        className="absolute inset-0 rounded-2xl bg-brand-green/30 blur-xl"
         animate={{ scale: [1, 1.6, 1], opacity: [0.5, 0, 0.5] }}
         transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.div
-        className="relative flex size-14 items-center justify-center rounded-16 bg-surface-2"
+        className="relative flex size-14 items-center justify-center rounded-2xl bg-surface-2"
         animate={{ scale: [1, 1.08, 1] }}
         transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <Sparkles className="size-7 text-brand-green" strokeWidth={1.8} />
+        <RhinoBrandIcon className="size-7 text-brand-green" strokeWidth={1.8} />
       </motion.div>
     </div>
   );
@@ -142,13 +146,13 @@ function AmbientBackdrop() {
   ];
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-base overflow-hidden"
+      className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
       aria-hidden="true"
     >
       {blobs.map((b) => (
         <motion.div
           key={b.cls}
-          className={cn('absolute rounded-pill blur-3xl', b.cls)}
+          className={cn('absolute rounded-full blur-3xl', b.cls)}
           animate={reduce ? b.calm : b.anim}
           transition={{ duration: b.dur, repeat: Infinity, ease: 'easeInOut' }}
         />

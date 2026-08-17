@@ -38,7 +38,7 @@ type Handler struct {
 func NewHandler(feature *agentbridge.FeatureBridge, libReader *library.Reader) *Handler {
 	labels := agentbridge.DefaultLabels()
 	// 用户可见文案: smart-search 偏"检索"语境
-	labels.AgentUnreachableOnGetSession = "智能搜索服务暂时不可用,请稍后重试"
+	labels.AgentUnreachableOnGetSession = "智能搜论文服务暂时不可用,请稍后重试"
 	labels.AgentUnreachableOnResetSession = "重置会话失败,请稍后重试"
 	labels.LoadMessagesFailed = "无法加载历史会话,请稍后重试"
 	labels.ContextEstimateFailed = "无法读取上下文用量"

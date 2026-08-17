@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 移动端路由 —— 全新设计逻辑的移动版,**不挂 AppShell**,自带 MobileShell
@@ -16,27 +17,19 @@ export const mobileRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="/m/feed" replace /> },
   {
     path: 'feed',
-    lazy: () =>
-      import('./components/FeedPrefetcher').then((m) => ({
-        Component: m.FeedPrefetchLayout,
-      })),
+    element: lazyRoute(() => import('./components/FeedPrefetcher'), 'FeedPrefetchLayout'),
     children: [
       {
         index: true,
-        lazy: () =>
-          import('./pages/FeedPage').then((m) => ({ Component: m.FeedPage })),
+        element: lazyRoute(() => import('./pages/FeedPage'), 'FeedPage'),
       },
       {
         path: 'journals',
-        lazy: () =>
-          import('./pages/JournalFeedPage').then((m) => ({
-            Component: m.JournalFeedPage,
-          })),
+        element: lazyRoute(() => import('./pages/JournalFeedPage'), 'JournalFeedPage'),
       },
       {
         path: 'news',
-        lazy: () =>
-          import('./pages/NewsPage').then((m) => ({ Component: m.NewsPage })),
+        element: lazyRoute(() => import('./pages/NewsPage'), 'NewsPage'),
       },
     ],
   },

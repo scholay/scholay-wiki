@@ -8,6 +8,8 @@ import { EmptyState } from '@/shared/components/EmptyState';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { ResourceError } from '@/shared/components/ResourceError';
 import { Button, Badge } from '@/shared/ui';
+import { useAuthStore } from '@/stores/auth.store';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import {
   useMySkills,
   usePublishSkill,
@@ -33,6 +35,25 @@ const MOD_BADGE: Record<
  */
 export function MySkillsPage() {
   const { data: skills, isLoading, isError, refetch } = useMySkills();
+  // 登录守卫(与 PeerReviewShell 同款 shell 层分叉):useMySkills 已按 token 门控不发请求,
+  // 这里补 UI 引导 —— 否则未登录用户看到的是空态/错误态而不是登录入口。
+  const token = useAuthStore((s) => s.token);
+  const openDialog = useAuthDialog((s) => s.openDialog);
+
+  if (!token) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-6">
+        <RouteSEO title="我的 Skills" description="管理我上传的智能助手技能" />
+        <EmptyState
+          className="min-h-[50dvh]"
+          icon={Lock}
+          title="登录后管理我的 Skills"
+          description="登录后即可上传、发布和管理自己的智能助手技能"
+          action={<Button variant="primary" onClick={() => openDialog('login')}>登录 / 注册</Button>}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6">

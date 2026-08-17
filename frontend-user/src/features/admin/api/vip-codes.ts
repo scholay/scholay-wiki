@@ -1,5 +1,5 @@
 // 会员兑换码 —— admin hooks。字段对齐 backend/internal/vip (RedemptionCode / handler)。
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 export interface VipCode {
@@ -92,6 +92,8 @@ export interface GenerateCodesReq {
 export function useVipCodes(params: VipCodeParams) {
   return useQuery({
     queryKey: ['admin', 'vip-codes', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: { codes: VipCode[]; total: number } }>(
         '/admin/vip-codes',
@@ -106,6 +108,8 @@ export function useVipCodes(params: VipCodeParams) {
 export function useVipCodeBatches(params: VipCodeBatchParams) {
   return useQuery({
     queryKey: ['admin', 'vip-codes', 'batches', params],
+    // 分页参数在 key 里,翻页保留上一页数据,避免列表塌空闪白(2026-08-12 审计)。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{
         data: { batches: VipCodeBatch[]; total: number };

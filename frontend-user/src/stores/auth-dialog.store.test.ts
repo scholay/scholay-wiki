@@ -5,18 +5,17 @@ afterEach(() => {
   useAuthDialog.getState().close();
 });
 
-describe('auth dialog invite-flow suppression', () => {
-  it('OAuth merge 目标账号标记在关闭时立即复位', () => {
-    useAuthDialog.getState().openDialog('login', {
-      accountType: 'email',
-      suppressInviteFlow: true,
-    });
-    expect(useAuthDialog.getState().suppressInviteFlow).toBe(true);
+describe('auth dialog pending oauth', () => {
+  it('选中第三方后关闭或重新打开会清掉确认层', () => {
+    useAuthDialog.getState().openDialog('register');
+    useAuthDialog.getState().setPendingOAuth('github');
+    expect(useAuthDialog.getState().pendingOAuth).toBe('github');
 
     useAuthDialog.getState().close();
-    expect(useAuthDialog.getState().suppressInviteFlow).toBe(false);
+    expect(useAuthDialog.getState().pendingOAuth).toBeNull();
 
+    useAuthDialog.getState().setPendingOAuth('google');
     useAuthDialog.getState().openDialog('login');
-    expect(useAuthDialog.getState().suppressInviteFlow).toBe(false);
+    expect(useAuthDialog.getState().pendingOAuth).toBeNull();
   });
 });

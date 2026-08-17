@@ -106,7 +106,7 @@ const AVATAR: Record<RecTier, string> = {
   minor: 'bg-brand-green text-on-brand',
   major: 'bg-brand-amber text-foreground',
   reject: 'bg-brand-red text-on-brand',
-  unknown: 'bg-foreground text-on-dark',
+  unknown: 'bg-inverse text-on-inverse',
 };
 
 /** 实心头像/圆点配色 (状态栏审稿人/主审圆形 avatar 按结果上色用)。 */

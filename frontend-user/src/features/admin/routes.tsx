@@ -1,6 +1,7 @@
 import { redirect, type RouteObject } from 'react-router-dom';
 import { useAuthStore, canAccessAdmin } from '@/stores/auth.store';
 import { getAuthToken } from '@/shared/lib/auth-token';
+import { lazyRoute } from '@/shared/components/LazyRoute';
 
 /**
  * 管理员路由守卫 —— React Router v7 loader 模式。
@@ -22,12 +23,11 @@ function adminGuard() {
   return null;
 }
 
-/** 每个 admin 子路由共用一个 lazy() 包装,自动 code-split */
+/** 每个 admin 子路由共用一个 element 级懒加载包装,自动 code-split(导航即时提交,chunk 在页内异步补齐) */
 const lazyPage =
-  (loader: () => Promise<Record<string, unknown>>) =>
+  (load: () => Promise<Record<string, unknown>>) =>
   (key: string) =>
-  () =>
-    loader().then((m) => ({ Component: m[key] as React.ComponentType }));
+    lazyRoute(load, key);
 
 /**
  * 每条 admin 路由的 `handle.title` 在 AdminShell 中由 useMatches 取出,
@@ -38,18 +38,17 @@ export const adminRoutes: RouteObject[] = [
   {
     path: 'admin',
     loader: adminGuard,
-    lazy: () =>
-      import('./layouts/AdminShell').then((m) => ({ Component: m.AdminShell })),
+    element: lazyRoute(() => import('./layouts/AdminShell'), 'AdminShell', { full: true }),
     children: [
       {
         index: true,
         handle: { title: '总览' },
-        lazy: lazyPage(() => import('./pages/DashboardPage'))('DashboardPage'),
+        element: lazyPage(() => import('./pages/DashboardPage'))('DashboardPage'),
       },
       {
         path: 'users',
         handle: { title: '用户管理' },
-        lazy: lazyPage(() => import('./pages/UsersPage'))('UsersPage'),
+        element: lazyPage(() => import('./pages/UsersPage'))('UsersPage'),
       },
       {
         // 代码片段库已并入「系统设置」页的 tab;老书签重定向。
@@ -59,72 +58,72 @@ export const adminRoutes: RouteObject[] = [
       {
         path: 'announcements',
         handle: { title: '公告' },
-        lazy: lazyPage(() => import('./pages/AnnouncementsPage'))('AnnouncementsPage'),
+        element: lazyPage(() => import('./pages/AnnouncementsPage'))('AnnouncementsPage'),
       },
       {
         path: 'hot-content',
         handle: { title: '热门内容' },
-        lazy: lazyPage(() => import('./pages/HotContentPage'))('HotContentPage'),
+        element: lazyPage(() => import('./pages/HotContentPage'))('HotContentPage'),
       },
       {
         path: 'journal-sync',
         handle: { title: '期刊数据同步' },
-        lazy: lazyPage(() => import('./pages/JournalSyncPage'))('JournalSyncPage'),
+        element: lazyPage(() => import('./pages/JournalSyncPage'))('JournalSyncPage'),
       },
       {
         path: 'tools',
         handle: { title: '功能广场' },
-        lazy: lazyPage(() => import('./pages/FeatureToolsPage'))('FeatureToolsPage'),
+        element: lazyPage(() => import('./pages/FeatureToolsPage'))('FeatureToolsPage'),
       },
       {
         path: 'tools-import',
         handle: { title: '导入工具' },
-        lazy: lazyPage(() => import('./pages/FeatureToolImportPage'))('FeatureToolImportPage'),
+        element: lazyPage(() => import('./pages/FeatureToolImportPage'))('FeatureToolImportPage'),
       },
       {
         path: 'tools-jobs',
         handle: { title: '导入任务' },
-        lazy: lazyPage(() => import('./pages/FeatureToolJobsPage'))('FeatureToolJobsPage'),
+        element: lazyPage(() => import('./pages/FeatureToolJobsPage'))('FeatureToolJobsPage'),
       },
       {
         path: 'tools-webhooks',
         handle: { title: 'Webhook 同步' },
-        lazy: lazyPage(() => import('./pages/FeatureToolWebhooksPage'))('FeatureToolWebhooksPage'),
+        element: lazyPage(() => import('./pages/FeatureToolWebhooksPage'))('FeatureToolWebhooksPage'),
       },
       {
         path: 'feedback',
         handle: { title: '用户反馈' },
-        lazy: lazyPage(() => import('./pages/FeedbackPage'))('FeedbackPage'),
+        element: lazyPage(() => import('./pages/FeedbackPage'))('FeedbackPage'),
       },
       {
         path: 'skills-review',
         handle: { title: 'Skill 审核' },
-        lazy: lazyPage(() => import('./pages/SkillReviewPage'))('SkillReviewPage'),
+        element: lazyPage(() => import('./pages/SkillReviewPage'))('SkillReviewPage'),
       },
       {
         path: 'messages',
         handle: { title: '消息中心' },
-        lazy: lazyPage(() => import('./pages/MessagesPage'))('MessagesPage'),
+        element: lazyPage(() => import('./pages/MessagesPage'))('MessagesPage'),
       },
       {
         path: 'email-logs',
         handle: { title: '发送记录' },
-        lazy: lazyPage(() => import('./pages/EmailLogsPage'))('EmailLogsPage'),
+        element: lazyPage(() => import('./pages/EmailLogsPage'))('EmailLogsPage'),
       },
       {
         path: 'session-monitor',
         handle: { title: '用户会话监控' },
-        lazy: lazyPage(() => import('./pages/SessionMonitorPage'))('SessionMonitorPage'),
+        element: lazyPage(() => import('./pages/SessionMonitorPage'))('SessionMonitorPage'),
       },
       {
         path: 'analytics',
         handle: { title: '数据统计' },
-        lazy: lazyPage(() => import('./pages/AnalyticsPage'))('AnalyticsPage'),
+        element: lazyPage(() => import('./pages/AnalyticsPage'))('AnalyticsPage'),
       },
       {
         path: 'usage-stats',
         handle: { title: '使用统计' },
-        lazy: lazyPage(() => import('./pages/UsageStatsPage'))('UsageStatsPage'),
+        element: lazyPage(() => import('./pages/UsageStatsPage'))('UsageStatsPage'),
       },
       {
         // 使用日志(旧)已下线:usagelog v1 模块 + 后端 /admin/usage-logs 接口早已移除,
@@ -135,37 +134,37 @@ export const adminRoutes: RouteObject[] = [
       {
         path: 'token-usage',
         handle: { title: '算力用量统计' },
-        lazy: lazyPage(() => import('./pages/TokenUsageStatsPage'))('TokenUsageStatsPage'),
+        element: lazyPage(() => import('./pages/TokenUsageStatsPage'))('TokenUsageStatsPage'),
       },
       {
         path: 'invites',
         handle: { title: '邀请监控' },
-        lazy: lazyPage(() => import('./pages/InvitesPage'))('InvitesPage'),
+        element: lazyPage(() => import('./pages/InvitesPage'))('InvitesPage'),
       },
       {
         path: 'orders',
         handle: { title: '订单与营收' },
-        lazy: lazyPage(() => import('./pages/OrdersPage'))('OrdersPage'),
+        element: lazyPage(() => import('./pages/OrdersPage'))('OrdersPage'),
       },
       {
         path: 'mail-center',
         handle: { title: '邮件中心' },
-        lazy: lazyPage(() => import('./pages/MailCenterPage'))('MailCenterPage'),
+        element: lazyPage(() => import('./pages/MailCenterPage'))('MailCenterPage'),
       },
       {
         path: 'support-config',
         handle: { title: '客服配置' },
-        lazy: lazyPage(() => import('./pages/SupportCenterConfigPage'))('SupportCenterConfigPage'),
+        element: lazyPage(() => import('./pages/SupportCenterConfigPage'))('SupportCenterConfigPage'),
       },
       {
         path: 'vip-codes',
         handle: { title: '会员兑换码' },
-        lazy: lazyPage(() => import('./pages/VipCodesPage'))('VipCodesPage'),
+        element: lazyPage(() => import('./pages/VipCodesPage'))('VipCodesPage'),
       },
       {
         path: 'activities',
         handle: { title: '活动管理' },
-        lazy: lazyPage(() => import('./pages/ActivitiesPage'))('ActivitiesPage'),
+        element: lazyPage(() => import('./pages/ActivitiesPage'))('ActivitiesPage'),
       },
       {
         // 限时活动统一管理(2026-07-31):原独立「限时领取会员」页并入 /admin/activities;老书签重定向。
@@ -186,17 +185,17 @@ export const adminRoutes: RouteObject[] = [
         // 模型目录 + 三方账号合并为「模型与账号」页(tab 切换)
         path: 'model-catalog',
         handle: { title: '模型与账号' },
-        lazy: lazyPage(() => import('./pages/AiUpstreamPage'))('AiUpstreamPage'),
+        element: lazyPage(() => import('./pages/AiUpstreamPage'))('AiUpstreamPage'),
       },
       {
         path: 'dimensions',
         handle: { title: '分析维度' },
-        lazy: lazyPage(() => import('./pages/DimensionsPage'))('DimensionsPage'),
+        element: lazyPage(() => import('./pages/DimensionsPage'))('DimensionsPage'),
       },
       {
         path: 'wechat-official',
         handle: { title: '微信公众号' },
-        lazy: lazyPage(() => import('./pages/WechatOfficialPage'))('WechatOfficialPage'),
+        element: lazyPage(() => import('./pages/WechatOfficialPage'))('WechatOfficialPage'),
       },
       {
         // 「小程序登录」已并入 OAuth / SSO 页作为「微信小程序」tab;老书签重定向。
@@ -206,27 +205,27 @@ export const adminRoutes: RouteObject[] = [
       {
         path: 'news-webhook',
         handle: { title: '情报 Webhook' },
-        lazy: lazyPage(() => import('./pages/NewsWebhookConfigPage'))('NewsWebhookConfigPage'),
+        element: lazyPage(() => import('./pages/NewsWebhookConfigPage'))('NewsWebhookConfigPage'),
       },
       {
         path: 'system',
         handle: { title: '系统配置' },
-        lazy: lazyPage(() => import('./pages/SystemConfigPage'))('SystemConfigPage'),
+        element: lazyPage(() => import('./pages/SystemConfigPage'))('SystemConfigPage'),
       },
       {
         path: 'oauth',
         handle: { title: 'OAuth 配置' },
-        lazy: lazyPage(() => import('./pages/OAuthConfigPage'))('OAuthConfigPage'),
+        element: lazyPage(() => import('./pages/OAuthConfigPage'))('OAuthConfigPage'),
       },
       {
         path: 'payment',
         handle: { title: '支付配置' },
-        lazy: lazyPage(() => import('./pages/PaymentConfigPage'))('PaymentConfigPage'),
+        element: lazyPage(() => import('./pages/PaymentConfigPage'))('PaymentConfigPage'),
       },
       {
         path: 'billing-config',
         handle: { title: '计费配置' },
-        lazy: lazyPage(() => import('./pages/BillingConfigPage'))('BillingConfigPage'),
+        element: lazyPage(() => import('./pages/BillingConfigPage'))('BillingConfigPage'),
       },
     ],
   },

@@ -19,11 +19,13 @@ import { useRegisterEmail, useRegisterPhone } from '../api/auth';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import type { AccountType } from '../types';
 import { AccountTypeTabs } from './AccountTypeTabs';
+import { InvitationCodeField } from './InvitationCodeField';
 import { SendCodeButton } from './SendCodeButton';
 import { TurnstileField } from './TurnstileField';
 import { usePublicConfig } from '../api/public-config';
 import { trackEvent } from '@/shared/lib/track';
 import { emailRule, phoneRule } from '@/shared/lib/account-validation';
+import { consumeInvitationCode } from '@/shared/lib/auth-invitation';
 
 const codeRule = z.string().length(6, '验证码为 6 位数字').regex(/^\d{6}$/, '验证码为 6 位数字');
 const passwordRule = z.string().min(8, '密码至少 8 位,建议含字母和数字').max(64, '密码长度不能超过 64 位');
@@ -60,6 +62,8 @@ export function RegisterForm({
   const [accountType, setAccountType] = useState<AccountType>(initialAccountType);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const close = useAuthDialog((s) => s.close);
+  const invitationCode = useAuthDialog((s) => s.invitationCode);
+  const unlockInvitation = useAuthDialog((s) => s.unlockInvitation);
   const apiToast = useApiToast();
   const { data: publicConfig } = usePublicConfig();
   const turnstileRequired = !!publicConfig?.enable_turnstile && !!publicConfig.turnstile_site_key;
@@ -87,12 +91,14 @@ export function RegisterForm({
       // 关闭验证码时,后端 handler 会把任何前端传来的 code 直接置空跳过 cache.VerifyCode;
       // 这里也对应传空字符串,语义清晰且不暴露脏 state。
       const code = emailVerifyRequired ? values.code : '';
+      const invite = invitationCode.trim() || undefined;
       if (accountType === 'email') {
         await registerEmail.mutateAsync({
           email: values.account,
           password: values.password,
           code,
           turnstile_token: ts,
+          invitation_code: invite,
         });
       } else {
         await registerPhone.mutateAsync({
@@ -100,8 +106,11 @@ export function RegisterForm({
           password: values.password,
           code,
           turnstile_token: ts,
+          invitation_code: invite,
         });
       }
+      consumeInvitationCode();
+      unlockInvitation();
       trackEvent('register', { method: accountType });
       toast.success('注册成功,欢迎加入 Scholay~');
       close();
@@ -186,6 +195,8 @@ export function RegisterForm({
             </FormItem>
           )}
         />
+
+        <InvitationCodeField />
 
         <FormField
           control={form.control}

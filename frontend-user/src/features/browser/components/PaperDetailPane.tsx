@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useMatch } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
-import { RouteSEO } from '@/shared/components/RouteSEO';
-import type { TranslatePaperResult } from '@/shared/api/translate';
 import { trackPaperSeoView } from '@/shared/api/hot-content';
 import {
   paperTabKey,
@@ -14,18 +12,12 @@ import type {
   PaperSource,
   UserLibraryPaper,
 } from '@/shared/api/types';
-// 跨 feature import —— 详情面板天然需要 library 的"是否已收藏 / 是否上传过 PDF"
-// 上下文,是 browser ⇄ library 设计上的交叉点,违反"feature 互不 import"约束
-// 是有意识的折衷;以后若 PaperDetailPane 进一步抽离再考虑提到 shared/api
 import { useFetchPaperDetail } from '@/shared/api/paper-detail';
 import {
   libraryRowToPaper,
   useLibraryPaperByUpstream,
 } from '@/shared/api/user-library-papers';
-import { PaperHeader } from './paper-detail/PaperHeader';
-import { PaperAbstract } from './paper-detail/PaperAbstract';
-import { PaperReferences } from './paper-detail/PaperReferences';
-import { PaperFooter } from './paper-detail/PaperFooter';
+import { PaperDetailContent } from './paper-detail/PaperDetailContent';
 
 /**
  * 论文详情面板 —— 浏览器 pane 主内容,设计稿 .pen `n2WkyU`(论文详情页)。
@@ -73,7 +65,7 @@ export function PaperDetailPane() {
     enabled: needsFetch && !!source && !!paperId,
   });
 
-  // 用户文件夹行 —— 任何 source(stc/olx/pmd/local)都查。
+  // 用户文献集行 —— 任何 source(stc/olx/pmd/local)都查。
   // - 上游论文:决定"是否已收藏 + 是否上传过 PDF",ActionRow 用
   // - 自由文件:本就是数据源,paper 整个由 libraryRowToPaper 转出
   const libRowQ = useLibraryPaperByUpstream(source, paperId);
@@ -140,89 +132,15 @@ export function PaperDetailPane() {
       <EmptyState
         icon={AlertCircle}
         title="页签已失效"
-        description="请回到搜索结果或文件夹列表,重新打开论文"
+        description="请回到搜索结果或文献集列表,重新打开论文"
       />
     );
   }
 
-  const title = paper.title?.trim() || '论文详情';
-  const description =
-    paper.abstract?.trim().slice(0, 180) ||
-    `查看《${title}》的摘要、作者、引用与参考文献信息。`;
-  const canonical =
-    source && paperId
-      ? `/paper/${encodeURIComponent(source)}/${encodeURIComponent(paperId)}`
-      : undefined;
-
   return (
-    <>
-      <RouteSEO
-        title={`${title} - Scholay学术`}
-        description={description}
-        keywords={paper.fieldsOfStudy?.filter(Boolean).join(',')}
-        canonical={canonical}
-        noindex={isLocal}
-      />
-      <PaperDetailView paper={paper} libRow={libRow} isLocal={isLocal} />
-    </>
-  );
-}
-
-// ============================================================================
-// 视图层 —— 翻译切换 + 详情/PDF 切换 + 880 居中阅读栏
-// ============================================================================
-
-function PaperDetailView({
-  paper,
-  libRow,
-  isLocal,
-}: {
-  paper: Paper;
-  libRow: UserLibraryPaper | null;
-  isLocal: boolean;
-}) {
-  // 翻译缓存 —— TranslatePaperButton 拿到结果后回灌,displayPaper 据此切原文/译文
-  const [zh, setZh] = useState<TranslatePaperResult | null>(null);
-  const [showZh, setShowZh] = useState(false);
-
-  // 显示用 paper:翻成中文时把 title / abstract 替换,其他字段(authors / year / venue
-  // 等)保持原样。子组件 Header / Abstract 透明感知。
-  const displayPaper = useMemo<Paper>(() => {
-    if (!showZh || !zh) return paper;
-    return {
-      ...paper,
-      title: zh.title_zh || paper.title,
-      abstract: zh.abstract_zh || paper.abstract,
-    };
-  }, [paper, showZh, zh]);
-
-  // **不再内嵌 PDF 预览 tab** —— PDF 预览统一走 /browser/pdf/:libPaperId 独立 tab,
-  // 由 PaperActionRow 的"查看 PDF"按钮触发 useOpenPdfInBrowser 打开。
-  // 旧 ViewTabs(详情 / PDF 预览) + 内联 PdfViewer 已移除。
-
-  return (
-    <article className="h-full flex flex-col bg-background min-h-0">
-      <div className="flex-1 min-h-0 overflow-auto">
-        {/* 880 居中阅读栏 —— .pen `MVlP1` width 880;移动端收窄 padding 单列阅读 */}
-        <div className="max-w-[880px] mx-auto px-4 pt-6 pb-16 sm:px-8 sm:pt-16 sm:pb-20">
-          <PaperHeader
-            paper={paper}
-            displayedTitle={displayPaper.title || '无标题'}
-            libRow={libRow}
-            zh={zh}
-            showZh={showZh}
-            onTranslated={(r) => {
-              setZh(r);
-              setShowZh(true);
-            }}
-            onToggleZh={() => setShowZh((v) => !v)}
-          />
-          {/* abstract 跟着 displayPaper 走(可翻译);references / footer 用原 paper
-              —— references 只依赖 paperId / source;footer 引用必须按原文格式 */}
-          <PaperAbstract paper={displayPaper} />
-          {!isLocal && <PaperReferences paper={paper} />}
-          <PaperFooter paper={paper} />
-        </div>
+    <article className="flex h-full min-h-0 flex-col bg-background">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <PaperDetailContent paper={paper} libRow={libRow} isLocal={isLocal} />
       </div>
     </article>
   );

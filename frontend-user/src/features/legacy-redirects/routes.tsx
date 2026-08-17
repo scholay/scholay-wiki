@@ -31,13 +31,6 @@ export const legacyRedirectRoutes: RouteObject[] = [
     element: <Navigate to="/search" replace />,
   },
 
-  // ── 期刊 ───────────────────────────────────────────
-  // 旧 /journals 列表页 → 新 /journals/search
-  {
-    path: 'journals',
-    element: <Navigate to="/journals/search" replace />,
-  },
-
   // ── 论文 / 作者 SEO slug ──────────────────────────
   // 旧 /paper/:slug 和 /author/:slug 已经是 redirect 到 / 的占位 ——
   // 保持同一行为(新前端这两类 SEO slug 入口尚未规划)

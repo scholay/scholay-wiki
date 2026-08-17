@@ -36,6 +36,7 @@ func (h *Handler) RegisterRoutes(g *gin.RouterGroup) {
 		// 整区清空 —— 一次性删 area 内所有论文(保留 area 本身)
 		// 必须放在 /:source/:paperId 之前,避免 :source 把 "papers" 当成参数
 		sa.DELETE("/:id/papers", h.ClearPapers)
+		sa.PATCH("/:id/papers/reorder", h.ReorderPapers)
 		sa.DELETE("/:id/papers/:source/:paperId", h.RemovePaper)
 		sa.POST("/migrate", h.Migrate)
 	}
@@ -363,6 +364,80 @@ func (h *Handler) ClearPapers(c *gin.Context) {
 	}
 
 	utils.Success(c, gin.H{"deleted": res.RowsAffected})
+}
+
+// ReorderPapers PATCH /api/v1/user/staging-areas/:id/papers/reorder
+//
+// paper_ids 必须是当前区内全部 source_paper_id 的排列,按下标写回 position。
+func (h *Handler) ReorderPapers(c *gin.Context) {
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
+	areaID, ok := parseAreaID(c)
+	if !ok {
+		return
+	}
+
+	var req ReorderPapersRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, "参数错误："+err.Error())
+		return
+	}
+	if len(req.PaperIDs) == 0 || len(req.PaperIDs) > MaxPapersPerArea {
+		utils.Error(c, http.StatusBadRequest, "paper_ids 非法")
+		return
+	}
+
+	db := database.GetDB()
+	if _, ok := loadOwnedArea(c, db, uid, areaID); !ok {
+		return
+	}
+
+	var rows []StagingAreaPaper
+	if err := db.Where("area_id = ? AND user_id = ?", areaID, uid).
+		Find(&rows).Error; err != nil {
+		utils.Error(c, http.StatusInternalServerError, "查询失败")
+		return
+	}
+	if len(req.PaperIDs) != len(rows) {
+		utils.Error(c, http.StatusBadRequest, "paper_ids 与区内论文不一致")
+		return
+	}
+
+	byID := make(map[string]struct{}, len(rows))
+	for _, r := range rows {
+		byID[r.SourcePaperID] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(req.PaperIDs))
+	for _, id := range req.PaperIDs {
+		if _, ok := byID[id]; !ok {
+			utils.Error(c, http.StatusBadRequest, "paper_ids 含未知论文")
+			return
+		}
+		if _, dup := seen[id]; dup {
+			utils.Error(c, http.StatusBadRequest, "paper_ids 重复")
+			return
+		}
+		seen[id] = struct{}{}
+	}
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		for i, id := range req.PaperIDs {
+			if err := tx.Model(&StagingAreaPaper{}).
+				Where("area_id = ? AND source_paper_id = ?", areaID, id).
+				Update("position", i).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "排序失败")
+		return
+	}
+
+	utils.Success(c, gin.H{"reordered": true})
 }
 
 // RemovePaper DELETE /api/v1/user/staging-areas/:id/papers/:source/:paperId

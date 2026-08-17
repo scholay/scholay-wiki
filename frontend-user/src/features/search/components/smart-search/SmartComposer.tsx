@@ -1,24 +1,15 @@
 import { useEffect, useState, type ClipboardEvent, type HTMLAttributes, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Composer } from '@/shared/components/chat';
-import type { SmartSearchContextSnapshot } from '../../api/smart-search';
+import { SmartSearchToggle } from '@/shared/components/SmartSearchToggle';
+import type { SearchMode } from '../../search-mode';
 
 /**
- * 智能搜索输入框 —— 三 agent 统一 Composer(shared/components/chat)的智能搜索包装:
- * 保留本 feature 特有件:轮播示例提问。
- * 起始态 hero(prominent,rows=3 自动聚焦)与对话中底部栏共用同一组件,两处样式天然一致。
- * (多会话改造后,「重置会话」已由顶部「新对话」按钮取代,本组件不再有 reset 入口。)
- *
- * 注:原 hero↔底栏「共用 layoutId 从居中滑到底部」的停靠动画已移除 —— 那个 framer 共享 layout 会在
- *     返回页面时用 scaleY morph 高度、被路由过渡打断即卡住 → 输入框拉高变形(反复偶现)。现改为
- *     hero 淡出 + 底栏 composer 直接就位(SmartSearchHero / SmartSearchPanel 各渲一份,无共享 layout)。
+ * 智能搜索输入框 —— 与首页 SearchAutocomplete smart 态同壳(h-12 + 内嵌开关)。
+ * hero / 底栏共用;附件 chips 有则叠在单行栏上方。
  */
 
 export interface SmartComposerProps {
-  /** 额度耗尽「被拦未发送」控制 —— 透传给 shared Composer 的输入框上方额度条。 */
-  quotaBlocked?: import('@/shared/components/chat').QuotaBlockedControls | null;
-  /** 预警条准入(对话已有轮次才出),透传 shared Composer。 */
-  quotaWarn?: boolean;
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
@@ -34,16 +25,14 @@ export interface SmartComposerProps {
   busy?: boolean;
   onStop?: () => void;
   stopping?: boolean;
-  /** 上下文水位 chip(底部栏用)。 */
-  contextSnapshot?: SmartSearchContextSnapshot;
-  /** hero 起始态尺寸:更大(rows=3)。 */
+  /** @deprecated 搜索器已统一单行壳,保留以免旧调用报错。 */
   prominent?: boolean;
   /** 挂载时自动聚焦 —— 空态 hero 需要,底部栏不需要(避免抢焦/滚动跳)。 */
   autoFocus?: boolean;
   /** 会话模型选择器插槽(P2 模型目录化,页面组装 shared ModelSelector 注入)。 */
   modelSlot?: ReactNode;
   // ── 附件/引用装配插槽(2026-07 输入框统一;页面组装 shared 件注入,本组件不感知业务)──
-  /** 「+」号菜单(leftActions 最左,Cursor/GPT 同位)。 */
+  /** 「+」号菜单(输入框右侧,发送键左侧)。 */
   plusSlot?: ReactNode;
   /** chips 区(附件预览行 + 引用文献行),渲染在 textarea 上方。 */
   topExtras?: ReactNode;
@@ -54,6 +43,11 @@ export interface SmartComposerProps {
   containerProps?: HTMLAttributes<HTMLDivElement>;
   /** 拖拽蒙层等覆盖层。 */
   overlay?: ReactNode;
+  /** 传给 Composer 容器的额外 class。 */
+  className?: string;
+  /** 内嵌智能搜索开关;与首页 SearchAutocomplete 一致。 */
+  mode?: SearchMode;
+  onModeChange?: (mode: SearchMode) => void;
 }
 
 export function SmartComposer({
@@ -67,8 +61,6 @@ export function SmartComposer({
   busy = false,
   onStop,
   stopping = false,
-  contextSnapshot,
-  prominent = false,
   autoFocus = false,
   modelSlot,
   plusSlot,
@@ -77,51 +69,50 @@ export function SmartComposer({
   onPaste,
   containerProps,
   overlay,
-  quotaBlocked = null,
-  quotaWarn = false,
+  className,
+  mode,
+  onModeChange,
 }: SmartComposerProps) {
   const rotating = !!rotatingPlaceholders && rotatingPlaceholders.length > 0;
-  const hasUsage = !!contextSnapshot && contextSnapshot.maxTokens > 0;
 
   return (
     <Composer
+      compact
       value={value}
       onChange={onChange}
       onSend={() => onSubmit()}
       placeholder={rotating ? '' : placeholder}
-      placeholderOverlay={rotating ? <RotatingPlaceholder items={rotatingPlaceholders!} /> : undefined}
+      placeholderOverlay={
+        rotating ? <RotatingPlaceholder items={rotatingPlaceholders!} /> : undefined
+      }
       sendReady={ready && !busy}
       canSendEmpty={canSendEmpty}
-      quotaBlocked={quotaBlocked}
-      quotaWarn={quotaWarn}
       busy={busy}
       stopping={stopping}
       onStop={onStop}
       requireAuth={loggedOut}
       onRequireAuth={onSubmit}
-      context={
-        hasUsage
-          ? {
-              totalTokens: contextSnapshot!.totalTokens,
-              maxTokens: contextSnapshot!.maxTokens,
-              percentage: contextSnapshot!.percentage,
-              model: contextSnapshot!.model ?? '',
-            }
-          : null
-      }
-      minRows={prominent ? 3 : 1}
       autoFocus={autoFocus}
       onPaste={onPaste}
       containerProps={containerProps}
       overlay={overlay}
       topSlot={topExtras}
-      leftActions={plusSlot}
+      leftActions={
+        mode != null && onModeChange ? (
+          <SmartSearchToggle
+            checked={mode === 'smart'}
+            onCheckedChange={(on) => onModeChange(on ? 'smart' : 'classic')}
+          />
+        ) : null
+      }
+      inputTrailing={plusSlot}
       rightActions={modelSlot}
+      className={className}
     />
   );
 }
 
-/** 输入框内轮播提示 —— 空输入时在 placeholder 位置淡入淡出循环示例提问。 */
+/** 输入框内轮播提示 —— 与首页 compact 占位垂直居中对齐。 */
 function RotatingPlaceholder({ items }: { items: string[] }) {
   const [i, setI] = useState(0);
   const reduce = useReducedMotion();
@@ -131,7 +122,7 @@ function RotatingPlaceholder({ items }: { items: string[] }) {
     return () => clearInterval(t);
   }, [reduce, items.length]);
   return (
-    <div className="pointer-events-none absolute left-1 right-1 top-1 overflow-hidden text-14 leading-paragraph text-faint">
+    <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center overflow-hidden text-base leading-normal text-faint">
       <AnimatePresence mode="wait">
         <motion.div
           key={i}

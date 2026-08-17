@@ -6,7 +6,7 @@ export type { User };
 export interface AuthResponse {
   token: string;
   user: User;
-  /** 所有鉴权端点的统一新用户信号；验证码“登录”也可能自动建号。 */
+  /** 本次鉴权是否新建了账号（扫码/第三方注册、邮箱手机注册） */
   is_new_user?: boolean;
 }
 

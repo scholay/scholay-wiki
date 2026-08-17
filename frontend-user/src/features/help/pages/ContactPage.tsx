@@ -10,6 +10,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RouteSEO } from '@/shared/components/RouteSEO';
+import { useSiteSupportEmail } from '@/shared/api/public-config';
 import { HelpLayout } from '../components/HelpLayout';
 import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
 import { useSupportContact } from '../api/contact';
@@ -31,26 +32,34 @@ interface Channel {
   href: string;
 }
 
-// 后台未配置时的回落邮箱(与历史展示一致)。
-const FALLBACK_SUPPORT_EMAIL = 'support@scholay.com';
-const FALLBACK_BUSINESS_EMAIL = 'hello@scholay.com';
-
+// 🔴 这里以前是两个写死的 `*@<品牌域>` 兜底常量。问题不在于「写死」本身,而在于
+// **兜底的触发条件**:它只在后台客服中心未配置时生效 —— 恰恰是任何全新部署环境的
+// 必然初始状态。于是每套新环境一上线,/contact 和所有带 ContactChannels 的页面
+// 都会展示另一个站点的真实客服邮箱,测试期造的假问题会直接发进真实工单流。
+//
+// 现在的取值顺序:后台客服中心配置 → 本环境 SUPPORT_EMAIL(经 /config/system 下发)
+// → 空(整个渠道卡不渲染)。没有任何一档会落到别的站点上。
 function buildChannels(supportEmail: string, businessEmail: string): Channel[] {
-  return [
-    {
+  const channels: Channel[] = [];
+  if (supportEmail) {
+    channels.push({
       icon: Mail,
       title: '产品支持',
       desc: '使用问题、bug 报告、账号问题',
       cta: supportEmail,
       href: `mailto:${supportEmail}`,
-    },
-    {
+    });
+  }
+  if (businessEmail) {
+    channels.push({
       icon: Briefcase,
       title: '商务合作',
       desc: '机构席位、API 接入、媒体采访',
       cta: businessEmail,
       href: `mailto:${businessEmail}`,
-    },
+    });
+  }
+  channels.push(
     {
       icon: MessageSquare,
       title: '产品反馈',
@@ -65,7 +74,8 @@ function buildChannels(supportEmail: string, businessEmail: string): Channel[] {
       cta: '查看帮助',
       href: '/help',
     },
-  ];
+  );
+  return channels;
 }
 
 interface SLAItem {
@@ -94,9 +104,10 @@ const SLA: SLAItem[] = [
 
 export function ContactPage() {
   const { data: contact } = useSupportContact();
+  const siteSupportEmail = useSiteSupportEmail();
   const channels = buildChannels(
-    contact?.support_email || FALLBACK_SUPPORT_EMAIL,
-    contact?.business_email || FALLBACK_BUSINESS_EMAIL,
+    contact?.support_email || siteSupportEmail,
+    contact?.business_email || '',
   );
   const qrs = [
     { title: '企业微信', src: contact?.wecom_qr },
@@ -179,7 +190,7 @@ function ChannelCard({ channel }: { channel: Channel }) {
   const { icon: Icon, title, desc, cta, href } = channel;
   const isInternal = href.startsWith('/');
   const inner = (
-    <div className="group flex flex-col gap-2.5 p-5 rounded-16 bg-surface-card border border-border hover:border-foreground/40 transition-all hover:h-full">
+    <div className="group flex flex-col gap-2.5 p-5 rounded-16 bg-surface-card border border-border hover:border-foreground/40 transition-colors">
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors">
         <Icon
           className="size-4 text-subtle group-hover:text-brand-red transition-colors"
@@ -188,9 +199,9 @@ function ChannelCard({ channel }: { channel: Channel }) {
       </span>
       <p className="text-12 font-medium text-foreground">{title}</p>
       <p className="text-12 text-muted-foreground leading-paragraph">{desc}</p>
-      <span className="mt-auto inline-flex items-center gap-1 text-12 font-medium text-brand-red group-hover:gap-2 transition-all">
+      <span className="mt-auto inline-flex items-center gap-1 text-12 font-medium text-brand-red">
         {cta}
-        <ArrowRight className="size-3" />
+        <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
       </span>
     </div>
   );

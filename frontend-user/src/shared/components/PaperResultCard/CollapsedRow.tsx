@@ -1,35 +1,51 @@
 import { Minimize2, RotateCcw } from 'lucide-react';
+import { Checkbox } from '@/shared/ui/checkbox';
 import type { Paper } from '@/shared/api/types';
 
 /**
- * 未暂存折叠行 — .pen `BEXqq`(浅灰底)
- *   "还原" = 展开成完整卡(取消主动折叠)
+ * 未暂存折叠行 —— 勾选只进暂存(行变绿 StagedRow,仍折叠);「还原」只展开卡。
  */
 export function CollapsedRow({
   paper,
   onUnfold,
+  onStage,
+  hideStage,
 }: {
   paper: Paper;
   onUnfold: () => void;
+  onStage?: () => void;
+  hideStage?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 h-10 px-3.5 bg-surface-1 border-b border-border-soft">
-      <Minimize2 className="size-2.5 text-muted-foreground" strokeWidth={2.5} />
-      {/* 标题即展开热区 —— 与 StagedRow 同构:折叠态下点标题就能还原,
-          不必去瞄右侧那颗「还原」按钮。两者调用同一个 onUnfold,不存在行为分叉。 */}
-      <button
-        type="button"
-        onClick={onUnfold}
-        title="还原为完整卡"
-        className="flex-1 min-w-0 cursor-pointer truncate text-left text-12 text-muted-foreground transition-colors hover:text-foreground"
-      >
+    <div
+      data-paper-id={paper.paperId}
+      className="flex items-center gap-2.5 h-10 px-3.5 bg-surface-1 border-b border-border-soft"
+    >
+      {!hideStage && onStage && (
+        <Checkbox
+          checked={false}
+          onCheckedChange={(v) => {
+            if (v === true) onStage();
+          }}
+          aria-label="加入暂存区"
+          title="勾选以加入暂存区(保持折叠)"
+          className="shrink-0"
+        />
+      )}
+      {hideStage && (
+        <Minimize2
+          className="size-2.5 shrink-0 text-muted-foreground"
+          strokeWidth={2.5}
+        />
+      )}
+      <span className="flex-1 min-w-0 truncate text-sm text-muted-foreground">
         {paper.title}
-      </button>
-      <span className="text-12 text-faint">已折叠</span>
+      </span>
+      <span className="text-xs text-faint shrink-0">已折叠</span>
       <button
         type="button"
         onClick={onUnfold}
-        className="inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-border-strong text-12 font-medium text-subtle hover:bg-surface-card"
+        className="inline-flex items-center gap-1 h-6 px-2 rounded-sm border border-border-strong text-2xs font-bold text-subtle hover:bg-background shrink-0"
       >
         <RotateCcw className="size-2.5" strokeWidth={2.5} />
         还原

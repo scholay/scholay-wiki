@@ -1,115 +1,190 @@
-import { useMemo, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronRight, LayoutGrid, List } from 'lucide-react';
-import {
-  HoverCard,
-  HoverCardTrigger,
-  HoverCardContent,
-} from '@/shared/ui/hover-card';
 import { useLocalStorage } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
-import { MENUS, groupMenusByCategory, findActiveMenuIndex, type Menu } from '@/app/menus';
+import {
+  MENUS,
+  groupMenusByCategory,
+  findActiveMenuIndex,
+  type Menu,
+} from '@/app/menus';
+
+function filterGroups(query: string) {
+  const q = query.trim().toLowerCase();
+  const groups = groupMenusByCategory();
+  if (!q) return groups;
+  return groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (m) =>
+          m.label.toLowerCase().includes(q) ||
+          m.englishName.toLowerCase().includes(q) ||
+          m.description.toLowerCase().includes(q),
+      ),
+    }))
+    .filter((g) => g.items.length > 0);
+}
+
+export function navigateToMenu(
+  navigate: ReturnType<typeof useNavigate>,
+  menu: Menu,
+) {
+  if (menu.id === 'search') {
+    navigate('/search', { state: { fresh: true } });
+    return;
+  }
+  navigate(menu.href);
+}
 
 /**
- * 全站功能菜单浮层。
- *
- * (原注释写「对照 .pen `S72unz`」—— .pen 真源已于 2026-07 作废,现行真源是 Figma
- *  `JIv8fxQthMS37JLGHNOEbB`,见 docs/figma-design-spec-2026-07.md。)
- *
- * 交互:hover 顶部 grid 按钮触发,鼠标可平滑移到内容(Radix HoverCard 自动
- * 跨越 trigger ↔ content 的 gap)。**不是 modal**,不锁滚动、不抢 ESC。
- *
- * 双视图:
- *   - list:  3 个分类段,行 icon + 双行 + chevron / kbd
- *   - grid:  3 列卡片,icon + 中英文双行
- *
- * 视图切换:点击头部右上的 "网格视图 / 列表视图" 按钮。
+ * 全站功能面板本体 —— 功能名悬停菜单等复用。
+ * `query` 非空时按名称/英文/描述过滤。
+ * `compact`：仅列表、单行一级标题。
  */
-export function AllMenusOverlay({
-  trigger,
+export function AllMenusPanel({
+  query = '',
+  onSelect,
+  className,
+  compact = false,
 }: {
-  trigger: ReactNode;
+  query?: string;
+  onSelect?: (menu: Menu) => void;
+  className?: string;
+  compact?: boolean;
 }) {
-  // 视图偏好持久化到 localStorage —— 用户上次选了 grid,下次再打开仍是 grid
   const [view, setView] = useLocalStorage<'list' | 'grid'>(
     'scholay.all-menus.view',
-    'list'
+    'list',
   );
+  const navigate = useNavigate();
   const location = useLocation();
-
   const activeIndex = findActiveMenuIndex(location.pathname);
-  const groups = useMemo(() => groupMenusByCategory(), []);
+  const groups = useMemo(() => filterGroups(query), [query]);
+  const effectiveView = compact ? 'list' : view;
 
-  // 菜单项是真实 <Link href>(SEO 硬约束),导航由 Link 完成,不再 useNavigate
+  const handleSelect = (menu: Menu) => {
+    if (onSelect) onSelect(menu);
+    else navigateToMenu(navigate, menu);
+  };
 
   return (
-    <HoverCard openDelay={120} closeDelay={180}>
-      <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
-      <HoverCardContent
-        align="end"
-        sideOffset={8}
-        className="w-[420px] p-0 overflow-hidden border border-border shadow-overlay"
-      >
-        {/* 头部 */}
-        <header className="h-12 flex items-center justify-between px-4 border-b border-border-soft">
-          <div className="flex items-center gap-2">
+    <div className={cn('overflow-hidden', className)}>
+      {!compact && (
+        <header className="flex h-12 items-center justify-between border-b border-border-soft px-4">
+          <div className="flex items-center gap-2.5">
             <LayoutGrid className="size-4 text-faint" />
-            <span className="text-12 font-medium text-foreground">全站功能</span>
+            <span className="text-sm font-bold text-foreground">全站功能</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setView((v) => (v === 'list' ? 'grid' : 'list'))}
-            className="inline-flex items-center gap-2 text-12 text-faint hover:text-foreground transition-colors"
-          >
-            {view === 'list' ? (
-              <>
-                <LayoutGrid className="size-3" />
-                网格视图
-              </>
-            ) : (
-              <>
-                <List className="size-3" />
-                列表视图
-              </>
-            )}
-          </button>
+          <ViewModeSwitch value={view} onChange={setView} />
         </header>
+      )}
 
-        {/* 主体 */}
-        {view === 'list' ? (
-          <ListView groups={groups} activeIndex={activeIndex} />
-        ) : (
-          <GridView groups={groups} activeIndex={activeIndex} />
-        )}
-
-      </HoverCardContent>
-    </HoverCard>
+      {groups.length === 0 ? (
+        <div className="px-4 py-8 text-center text-sm text-faint">
+          没有匹配「{query.trim()}」的功能
+        </div>
+      ) : effectiveView === 'list' ? (
+        <ListView
+          groups={groups}
+          activeIndex={activeIndex}
+          onSelect={handleSelect}
+          compact={compact}
+        />
+      ) : (
+        <GridView
+          groups={groups}
+          activeIndex={activeIndex}
+          onSelect={handleSelect}
+        />
+      )}
+    </div>
   );
 }
 
-// ============================================================================
-// 列表视图
-// ============================================================================
+function ViewModeSwitch({
+  value,
+  onChange,
+}: {
+  value: 'list' | 'grid';
+  onChange: (v: 'list' | 'grid') => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="视图切换"
+      className="inline-flex shrink-0 items-center rounded-md bg-surface-2 p-0.5"
+    >
+      <button
+        type="button"
+        aria-label="列表视图"
+        aria-pressed={value === 'list'}
+        onClick={() => onChange('list')}
+        className={cn(
+          'inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors',
+          value === 'list'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-faint hover:text-foreground',
+        )}
+      >
+        <List className="size-3.5" />
+        列表
+      </button>
+      <button
+        type="button"
+        aria-label="网格视图"
+        aria-pressed={value === 'grid'}
+        onClick={() => onChange('grid')}
+        className={cn(
+          'inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors',
+          value === 'grid'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-faint hover:text-foreground',
+        )}
+      >
+        <LayoutGrid className="size-3.5" />
+        网格
+      </button>
+    </div>
+  );
+}
 
 function ListView({
   groups,
   activeIndex,
+  onSelect,
+  compact = false,
 }: {
   groups: ReturnType<typeof groupMenusByCategory>;
   activeIndex: number;
+  onSelect: (m: Menu) => void;
+  compact?: boolean;
 }) {
   return (
-    <div className="py-2">
+    <div className="max-h-[min(70vh,520px)] overflow-y-auto py-1.5">
       {groups.map((g, gi) => (
-        <section key={g.category} className={cn(gi > 0 && 'border-t border-border-soft', 'py-2')}>
-          <header className="h-7 flex items-center justify-between px-4">
-            <span className="text-12 font-medium text-subtle">{g.label}</span>
-            <span className="text-12 text-faint">查看全部</span>
+        <section
+          key={g.category}
+          className={cn(gi > 0 && 'border-t border-border-soft', 'py-1.5')}
+        >
+          <header className="flex h-7 items-center justify-between px-4">
+            <span className="text-xs font-bold tracking-[0.06em] text-faint">
+              {g.label}
+            </span>
           </header>
           {g.items.map((m) => {
             const flatIdx = MENUS.findIndex((x) => x.id === m.id);
             const isActive = flatIdx === activeIndex;
-            return <ListItem key={m.id} menu={m} isActive={isActive} />;
+            return (
+              <ListItem
+                key={m.id}
+                menu={m}
+                isActive={isActive}
+                onSelect={() => onSelect(m)}
+                compact={compact}
+              />
+            );
           })}
         </section>
       ))}
@@ -120,80 +195,107 @@ function ListView({
 function ListItem({
   menu,
   isActive,
+  onSelect,
+  compact = false,
 }: {
   menu: Menu;
   isActive: boolean;
+  onSelect: () => void;
+  compact?: boolean;
 }) {
   const Icon = menu.icon;
   return (
-    // 真实 <Link href>(SEO 硬约束);平点 = SPA 导航,无额外副作用
-    <Link
-      to={menu.href}
+    <button
+      type="button"
+      onClick={onSelect}
       className={cn(
-        'group w-full flex items-center gap-3 h-14 px-4 transition-colors text-left',
-        isActive ? 'bg-surface-1' : 'hover:bg-surface-1'
+        'group flex w-full cursor-pointer items-center gap-3 px-4 text-left transition-colors',
+        compact ? 'h-10' : 'h-14',
+        isActive ? 'bg-surface-1' : 'hover:bg-surface-1',
       )}
     >
-      {/* icon 容器:24×24 白底 + 1px 边 */}
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0">
+      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-border bg-background">
         <Icon className="size-3.5 text-subtle" />
       </span>
-      {/* 双行 文字 */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <span className="text-14 font-medium text-foreground truncate inline-flex items-center gap-2">
+      {compact ? (
+        <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm font-semibold text-foreground">
           {menu.label}
+          {menu.comingSoon && (
+            <span className="inline-flex h-3.5 shrink-0 items-center rounded-pill bg-brand-amber px-1 text-[9px] font-bold leading-none text-background">
+              即将推出
+            </span>
+          )}
         </span>
-        <span className="text-12 text-faint truncate mt-px">
-          {menu.englishName} · {menu.description}
-        </span>
-      </div>
-      <ChevronRight className="size-3.5 text-faint shrink-0" />
-    </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col leading-tight">
+          <span className="inline-flex items-center gap-1.5 truncate text-base font-bold text-foreground">
+            {menu.label}
+            {menu.comingSoon && (
+              <span className="inline-flex h-3.5 items-center rounded-pill bg-brand-amber px-1 text-[9px] font-bold leading-none text-background">
+                即将推出
+              </span>
+            )}
+          </span>
+          <span className="mt-px truncate text-xs text-faint">
+            {menu.englishName} · {menu.description}
+          </span>
+        </div>
+      )}
+      <ChevronRight className="size-3.5 shrink-0 text-faint" />
+    </button>
   );
 }
-
-// ============================================================================
-// 网格视图
-// ============================================================================
 
 function GridView({
   groups,
   activeIndex,
+  onSelect,
 }: {
   groups: ReturnType<typeof groupMenusByCategory>;
   activeIndex: number;
+  onSelect: (m: Menu) => void;
 }) {
   return (
-    <div className="px-4 py-4 space-y-4 max-h-[480px] overflow-y-auto">
+    <div className="max-h-[min(70vh,520px)] space-y-3.5 overflow-y-auto px-4 py-3.5">
       {groups.map((g) => (
         <section key={g.category}>
-          <header className="h-7 flex items-center justify-between px-1">
-            <span className="text-12 font-medium text-subtle">{g.label}</span>
-            <span className="text-12 text-faint">查看全部</span>
+          <header className="flex h-7 items-center px-1">
+            <span className="text-xs font-bold tracking-[0.06em] text-faint">
+              {g.label}
+            </span>
           </header>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             {g.items.map((m) => {
               const Icon = m.icon;
               const flatIdx = MENUS.findIndex((x) => x.id === m.id);
               const isActive = flatIdx === activeIndex;
               return (
-                // 真实 <Link href>(SEO 硬约束);平点 = SPA 导航,无额外副作用
-                <Link
+                <button
                   key={m.id}
-                  to={m.href}
+                  type="button"
+                  onClick={() => onSelect(m)}
                   className={cn(
-                    'relative flex flex-col items-center gap-2 py-3 px-2 rounded-12 transition-colors text-center',
-                    isActive ? 'bg-surface-1' : 'hover:bg-surface-1'
+                    'relative flex cursor-pointer flex-col items-center gap-2 rounded-md px-2 py-3 text-center transition-colors',
+                    isActive ? 'bg-surface-1' : 'hover:bg-surface-1',
                   )}
                 >
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-card border border-border">
+                  {m.comingSoon && (
+                    <span className="absolute right-1.5 top-1.5 inline-flex h-3.5 items-center rounded-pill bg-brand-amber px-1 text-[9px] font-bold leading-none text-background">
+                      即将推出
+                    </span>
+                  )}
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-border bg-background">
                     <Icon className="size-4 text-subtle" />
                   </span>
-                  <div className="flex flex-col">
-                    <span className="text-14 font-medium text-foreground">{m.label}</span>
-                    <span className="text-12 text-faint mt-1">{m.englishName}</span>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-sm font-bold text-foreground">
+                      {m.label}
+                    </span>
+                    <span className="mt-0.5 text-2xs text-faint">
+                      {m.englishName}
+                    </span>
                   </div>
-                </Link>
+                </button>
               );
             })}
           </div>

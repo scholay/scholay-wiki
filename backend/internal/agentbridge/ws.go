@@ -326,6 +326,17 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	if toolName == "Skill" {
 		return true, true
 	}
+	// ToolSearch / ToolInvoke(2026-08-14 渐进披露):minicod 的冷门 MCP 工具不再进 tools[],
+	// 改由这两个工具「检索定义 → 调用」(见 agent/src/mcp/deferred.ts)。
+	//   · ToolSearch 纯只读:在**本轮已被 allowedMcpTools 放行**的工具集里做字符串匹配,
+	//     不碰文件系统与网络,权限面为零。
+	//   · ToolInvoke 只是 mcp__minicod__* 的调用外壳 —— 它能调的集合恒等于执行器侧
+	//     ctx.deferredTools(= allowedMcpTools ∩ 非常驻),而上面第 2 条对 mcp__ 前缀本就无条件放行。
+	//     所以这条放行**不放大任何权限边界**,只是让同一批工具换了个调用形状。
+	// 真正的边界仍是 featurePolicy.toolPermitted(执行器二道墙)与各 feature 的 AllowedMcpTools。
+	if toolName == "ToolSearch" || toolName == "ToolInvoke" {
+		return true, true
+	}
 	// Bash 三件套: 走到这里 = 该 feature AllowBash=true (否则已在顶部 denylist 被拒)。
 	// shell 无法做路径限制, 对 AllowBash feature (claw) 放行 (风险见上方注释 / 生产靠 sandbox)。
 	// ⚠️ 只判 Bash:BashOutput / KillShell 是 Claude Code 的后台 shell 配套工具,本执行器
@@ -967,6 +978,32 @@ func extractErrorUsage(raw []byte) (usage AgentUsage, calls []AgentUsage, sessio
 		return AgentUsage{}, nil, nil, false
 	}
 	return *probe.Usage, probe.Calls, probe.SessionTotal, true
+}
+
+// extractTurnUsageDelta 浅 parse 一帧 turn_usage_delta —— 执行器在**每次 LLM call 落地后立刻**
+// 上报的单次用量增量(逐帧上报,2026-08)。
+//
+// 🔴 这一帧**只喂轮内硬闸,绝不进计费链路**。理由是双计:计费的水位去重锚点是终帧上的
+// session_total(见 bridge.go accrueTurnUsage),而 delta 帧刻意不带累计量 —— 它们描述的是
+// 同一批 LLM call。两条路都记账 = 每轮扣两遍。所以本帧的产物只进 hub 的轮内计数器
+// (beginTurn 清零、endTurn 丢弃),钱的真源一行不动。
+//
+// 老执行器不发这一帧 → 硬闸永不触发 → 行为与上线前逐字相同(向后兼容,可灰度)。
+func extractTurnUsageDelta(raw []byte) (AgentUsage, bool) {
+	if len(raw) == 0 || raw[0] != '{' {
+		return AgentUsage{}, false
+	}
+	var probe struct {
+		Type  string     `json:"type"`
+		Usage AgentUsage `json:"usage"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "turn_usage_delta" {
+		return AgentUsage{}, false
+	}
+	if probe.Usage == (AgentUsage{}) {
+		return AgentUsage{}, false
+	}
+	return probe.Usage, true
 }
 
 // extractTokenUsageFrame 浅 parse 一帧 token_usage(带外模型调用,如会话标题生成):

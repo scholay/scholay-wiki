@@ -102,7 +102,7 @@ shared/lib       → 无依赖(纯 TS)
 | 数学公式 | `katex` + `rehype-katex` | MathJax |
 | PDF | `react-pdf` + `pdfjs-dist` | 自研 worker |
 | 编辑器(LaTeX) | `@codemirror/*` | Monaco、自研 |
-| 图(引用网络) | `@xyflow/react` | D3 手搓、cytoscape |
+| 图(节点/关系图) | ⚠️ `@xyflow/react` **已审计移除且禁装回**(tests/dependency-contract.test.ts:30 钉死;引用网络功能未落地)。现有图形渲染走 elkjs + 自有 figure 管线(claw 细胞图)与 mermaid | 装回 @xyflow、D3 手搓 |
 | 图表(折线/柱状/饼图) | `recharts` —— admin 仪表板 / 用户分析 / umami analytics 都用 | D3 手搓、chart.js |
 | 树 | `react-arborist` | 自研 |
 | 多窗格 | `react-resizable-panels`(经 `shared/ui/resizable.tsx`) | 自研 split-pane |

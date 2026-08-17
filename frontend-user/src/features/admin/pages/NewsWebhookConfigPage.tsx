@@ -84,7 +84,7 @@ export function NewsWebhookConfigPage() {
                 <div className="flex flex-col gap-0.5">
                   <span className="text-12 font-medium text-foreground">在用户端展示情报</span>
                   <span className="text-12 text-muted-foreground">
-                    关闭后用户端「学术情报」入口/列表/详情不显示;接收落库照常(可先攒数据)
+                    关闭后用户端「scholay 情报」入口/列表/详情不显示;接收落库照常(可先攒数据)
                   </span>
                 </div>
                 <Switch checked={enabled} onCheckedChange={setEnabled} />

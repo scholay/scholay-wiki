@@ -2,27 +2,13 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <!-- 标签页图标 —— 用 Figma 品牌标本体(ScholayMark,六芒星犀牛头)。
-         v4(2026-08-02):标志换色为 Logo 亮色组(#427935/#F1BF45,红不变),见 ScholayMark.tsx。
-         此前 v3(2026-07-28)从手搓的 S 字母方块换成真标志。
-
-         为什么必须换文件名(favicon-v4.svg)而不是原地改 favicon.svg:
-           favicon 不带内容 hash,nginx 对 svg/png 发 max-age(见 nginx.conf 与
-           nginx/conf.d/user.conf 的品牌资产 location)。原地改内容,已缓存的老访客
-           要等 TTL 到期才看得到。换 URL = 新访客立即生效;favicon.svg / favicon-v3.svg
-           保留同内容副本,让老访客在 TTL 到期后自愈。两件事都要做,只做一件都会留长尾。
-
-         PNG 回退:Safari 对 SVG favicon 的支持历史上不稳,给一张 32px PNG 兜底
-         (同理换名 favicon-32-v2.png,旧名 favicon-32.png 保留同内容副本)。 -->
-    <link rel="icon" type="image/svg+xml" href="/favicon-v4.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32-v2.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v4.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- viewport-fit=cover: 移动端 /m 的底部导航用 env(safe-area-inset-bottom) 给全面屏 home indicator 让位
          maximum-scale=1 + user-scalable=no: 禁止页面缩放 —— ① 拦掉妨碍使用的误触放大/缩小;
          ② 同时阻止 iOS 聚焦输入框时的「自动放大」(maximum-scale=1 时 iOS 不再 focus-zoom)。
          注:桌面浏览器 Ctrl± 缩放不受 viewport 影响,仅作用移动端。 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#F6F4EE" data-default-color="#F6F4EE" data-wiki-light-color="#FFFFFF" data-wiki-dark-color="#0B0B0D" />
+    <meta name="theme-color" content="#ffffff" data-default-color="#ffffff" data-wiki-light-color="#FFFFFF" data-wiki-dark-color="#0B0B0D" />
     <!-- Wiki 主题首屏引导：必须早于 Vite 主模块同步执行，否则深色偏好会先闪一帧白底。
          data-wiki-theme 只作为 Wiki 壳与 portal 的选择器，不能用于覆写 :root 产品 token。 -->
     <script id="wiki-theme-bootstrap">
@@ -65,52 +51,54 @@
         document.addEventListener('gestureend', stop, { passive: false });
       })();
     </script>
+    <!-- 主题 FOUC：在 React 挂载前同步 html.dark，避免闪白 -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('scholay.theme');
+          var theme = 'light';
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            theme = (parsed && parsed.state && parsed.state.theme) || theme;
+          }
+          var dark =
+            theme === 'dark' ||
+            (theme === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (_) {}
+      })();
+    </script>
 
     <!--
-      字体(2026-08-11 用户两段指令):UI/正文 = 系统字体零下载;
-      标题层中文 = 自托管 Noto Serif SC(唯一保留的 webfont,swap 分片按需加载)。
-      Google Sans / Playfair Display 的 preload 与资产已移除,不得回流。
-      这里只 preload Noto 的首屏 UI 常用字小子集(~33KB,覆盖侧栏/页面标题的
-      高频字,避免首屏标题先宋体后切换的闪动);其余 101 个分片按需加载。
-      栈定义与两条实现铁律见 src/styles/globals.css 文件头「字体策略」。
-      KaTeX 数学字体保留(build 产物内,数学页按需加载)。
+      字体加载策略 —— 故意不走 Google Fonts CDN:
+        1) 国内访问 fonts.googleapis.com 经常超时/慢,首屏卡顿
+        2) display=swap 会先用 fallback 再切换,视觉上有"字体在变"
+        3) CSS link 是 render-blocking 串行 → preconnect+link 仍然慢
+
+      改成:
+        - Inter 走系统字体后备栈(macOS 用 SF,Windows 用 Segoe UI,
+          与 Inter 设计同源,视觉差异极小且无网络代价)
+        - Playfair Display 700 自托 woff2(品牌 logo 字体,
+          ~20KB 一帧前就能拉完),preload + font-display: block,
+          短暂不可见 → 直接显示真字体,绝无切换感
     -->
     <link
       rel="preload"
-      href="/fonts/noto-serif-sc/noto-serif-sc-ui-239f956f88b7.woff2"
+      href="/fonts/playfair-display-700.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
 
-    <!--
-      非关键第三方/运营脚本统一在 page load 后的 idle 期启动。
-      这些任务不参与首屏渲染，不应与 entry/CSS/LCP 图片竞争。
-      timeout 是上限：即使浏览器持续繁忙，也会在 load 后 2s 内执行。
-    -->
-    <script>
-      window.__afterCriticalLoad = function (task) {
-        var schedule = function () {
-          if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(task, { timeout: 2000 });
-          } else {
-            window.setTimeout(task, 250);
-          }
-        };
-        if (document.readyState === 'complete') schedule();
-        else window.addEventListener('load', schedule, { once: true });
-      };
-    </script>
-
     <!-- Microsoft Clarity Analytics -->
     <script>
-      window.__afterCriticalLoad(function () {
-        (function(c,l,a,r,i,t,y){
-          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "u14c9rnomm");
-      });
+      (function(c,l,a,r,i,t,y){
+        if (window.__SCHOLAY_MOCK_MODE__) return;
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "u14c9rnomm");
     </script>
     <!--
       Umami tracker —— 运行时加载,website_id 由 backend 接口动态提供。
@@ -123,10 +111,9 @@
         3) backend 不可达 / umami 没起 → 默默跳过,主站功能完全不受影响
     -->
     <script>
-      window.__afterCriticalLoad(function () {
-        // 使用浏览器默认 HTTP 缓存语义：后端 max-age=300 到期后会重新验证。
-        // 不能 force-cache，否则 Umami 重建后旧 website_id 可被长期强制复用。
-        fetch('/api/v1/public/umami-config')
+      (function () {
+        if (window.__SCHOLAY_MOCK_MODE__) return;
+        fetch('/api/v1/public/umami-config', { cache: 'force-cache' })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (resp) {
             var data = resp && resp.data;
@@ -135,13 +122,10 @@
             s.defer = true;
             s.src = data.script_url;
             s.setAttribute('data-website-id', data.website_id);
-            s.onload = function () {
-              if (window.__flushScholayUmamiQueue) window.__flushScholayUmamiQueue();
-            };
             document.head.appendChild(s);
           })
           .catch(function () { /* 静默 —— 监控不可用不应该影响站点 */ });
-      });
+      })();
     </script>
 
     <!--
@@ -151,11 +135,10 @@
       空 / backend 不可达 → 静默跳过,不影响站点。
     -->
     <script>
-      // 队列 stub 必须同步就绪：React 在 load/idle 前打的首屏事件
-      // 先进 dataLayer；只把配置请求与第三方网络脚本延后。
-      window.dataLayer = window.dataLayer || [];
-      window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
-      window.__afterCriticalLoad(function () {
+      (function () {
+        if (window.__SCHOLAY_MOCK_MODE__) return;
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
         fetch('/api/v1/config/system')
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (resp) {
@@ -175,7 +158,7 @@
             }
           })
           .catch(function () { /* 静默 —— 监控不可用不应影响站点 */ });
-      });
+      })();
     </script>
 
     <!--
@@ -200,6 +183,7 @@
     -->
     <script>
       (function () {
+        if (window.__SCHOLAY_MOCK_MODE__) return;
         // 把一组片段拼成一个 fragment(保持 priority 顺序,一次性插入)。
         // 注:innerHTML 解析出的 <script> 带「已停止」标记、永不执行 → 必须逐个重建成新 script 才会跑。
         function build(list) {
@@ -223,26 +207,6 @@
           }
           return frag;
         }
-
-        function select(list, deferred) {
-          return (list || []).filter(function (item) {
-            return !!item.defer_until_idle === deferred;
-          });
-        }
-
-        function inject(group) {
-          document.head.appendChild(build(group.head));
-          var doBody = function () {
-            document.body.insertBefore(build(group.body_start), document.body.firstChild);
-            document.body.appendChild(build(group.body_end));
-          };
-          if (document.body) doBody();
-          else document.addEventListener('DOMContentLoaded', doBody, { once: true });
-        }
-
-        // 配置请求立即发起，保留 head/body_start 的时序契约；只将后台明确
-        // 标记 defer_until_idle 的广告/分析片段延后，避免“全部延迟”破坏验证 meta、
-        // consent 或 bootstrap 脚本。
         fetch('/api/v1/config/code-snippets')
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (resp) {
@@ -251,21 +215,13 @@
             // 见上「时序坑」:此刻 head 已解析完,爬虫的 SSR flag 若在就说明原始 HTML 已注入过。
             if (window.__SSR_SNIPPETS_INJECTED__) return;
             window.__SSR_SNIPPETS_INJECTED__ = true;
-
-            inject({
-              head: select(d.head, false),
-              body_start: select(d.body_start, false),
-              body_end: select(d.body_end, false),
-            });
-
-            var deferred = {
-              head: select(d.head, true),
-              body_start: select(d.body_start, true),
-              body_end: select(d.body_end, true),
+            document.head.appendChild(build(d.head || []));
+            var doBody = function () {
+              document.body.insertBefore(build(d.body_start || []), document.body.firstChild);
+              document.body.appendChild(build(d.body_end || []));
             };
-            if (deferred.head.length || deferred.body_start.length || deferred.body_end.length) {
-              window.__afterCriticalLoad(function () { inject(deferred); });
-            }
+            if (document.body) doBody();
+            else document.addEventListener('DOMContentLoaded', doBody);
           })
           .catch(function () { /* 静默 —— 片段拉不到不应影响主站 */ });
       })();
@@ -274,36 +230,28 @@
     <!-- ───────── SEO 基础 meta(静态兜底)─────────
          非 JS 爬虫 / 百度首屏即可见;详情页由后端 SSR(handler_ssr.go)用正则替换 title/description/keywords。
          首页 RouteSEO(React 注入)与此处保持品牌词一致即可。 -->
-    <title data-seo-fallback="default">Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理</title>
+    <title>Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理</title>
     <meta
-      data-seo-fallback="default"
       name="description"
       content="Scholay学术(scholay)是 AI 驱动的一站式学术研究平台:智能论文搜索、AI 论文分析、AI 智能审稿、学者库、期刊查询、文献集管理与 LaTeX 在线写作。覆盖全球 2 亿+ 学术论文,助你高效科研。"
     />
     <meta
-      data-seo-fallback="default"
       name="keywords"
       content="Scholay,Scholay学术,Scholay科研,Scholay工具,Scholay AI,AI 学术工具,学术搜索,论文搜索,AI 论文分析,智能审稿,文献管理,期刊查询,学者库,LaTeX 在线编辑"
     />
 
-    <!-- Open Graph / 微信 / Twitter 分享卡(首页默认;1200×630,放在 public/)
-
-         ⚠️ 文件名带版本号是必须的,不是洁癖:og-image / favicon 都不带内容 hash,
-         而 nginx 对 png/svg 发 `max-age=31536000, immutable`(frontend-user/nginx.conf
-         与 nginx/conf.d/user.conf 两层都发)。**原地改文件内容,老访客与已抓取过的
-         社交平台最长一年拿不到新版**。所以换品牌色时必须同时换 URL。
-         og-image.png 保留同内容副本,只为让历史分享链接在缓存过期后也能自愈。 -->
+    <!-- Open Graph / 微信 / Twitter 分享卡(首页默认;og-image.png 需放到 public/,1200×630) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Scholay学术" />
     <meta property="og:title" content="Scholay学术 - AI 驱动的学术搜索与研究平台" />
     <meta property="og:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台,覆盖全球 2 亿+ 学术论文。" />
     <meta property="og:url" content="https://www.scholay.com/" />
-    <meta property="og:image" content="https://www.scholay.com/og-image-v2.png" />
+    <meta property="og:image" content="https://www.scholay.com/og-image.png" />
     <meta property="og:locale" content="zh_CN" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Scholay学术 - AI 学术搜索工具" />
     <meta name="twitter:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台。" />
-    <meta name="twitter:image" content="https://www.scholay.com/og-image-v2.png" />
+    <meta name="twitter:image" content="https://www.scholay.com/og-image.png" />
 
     <!-- 结构化数据:品牌(Organization)+ 站点搜索框(WebSite/SearchAction)+ 产品(SoftwareApplication)。
          这是百度/必应「官网 + 子链(sitelinks)」与品牌知识卡的关键启用项;不写假评分(会被判作弊)。 -->

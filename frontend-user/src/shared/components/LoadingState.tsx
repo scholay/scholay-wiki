@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { cn } from '@/shared/lib/utils';
+import { usePageLoadingClaim } from '@/stores/page-loading.store';
 
 interface LoadingStateProps {
   /** 单行文字提示,默认 "加载中…" */
@@ -12,26 +13,47 @@ interface LoadingStateProps {
 }
 
 /**
- * 单图标 loading — 适合按钮/小区域。
+ * 加载态。dense = 小区域转圈;默认登记全站蒙层(半透明遮罩 + 牛犀犀跑步),
+ * 不在局部再画一层,避免刷新时叠出多只犀牛。
  */
 export const LoadingState = forwardRef<HTMLDivElement, LoadingStateProps>(
   ({ label = '加载中…', dense, className }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          'flex items-center justify-center gap-2 text-12 text-muted-foreground',
-          dense ? 'py-6' : 'py-16',
-          className
-        )}
-      >
-        <Loader2 className="size-4 animate-spin" />
-        <span>{label}</span>
-      </div>
-    );
+    if (dense) {
+      return (
+        <div
+          ref={ref}
+          className={cn(
+            'flex items-center justify-center gap-2 py-6 text-12 text-muted-foreground',
+            className,
+          )}
+        >
+          <Loader2 className="size-4 animate-spin" />
+          <span>{label}</span>
+        </div>
+      );
+    }
+    return <PageLoadingSlot ref={ref} label={label} className={className} />;
   }
 );
 LoadingState.displayName = 'LoadingState';
+
+const PageLoadingSlot = forwardRef<
+  HTMLDivElement,
+  { label: string; className?: string }
+>(({ label, className }, ref) => {
+  usePageLoadingClaim();
+  return (
+    <div
+      ref={ref}
+      role="status"
+      aria-label={label}
+      className={cn('min-h-32', className)}
+    >
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+});
+PageLoadingSlot.displayName = 'PageLoadingSlot';
 
 interface ListSkeletonProps {
   rows?: number;

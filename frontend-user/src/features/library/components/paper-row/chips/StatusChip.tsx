@@ -30,6 +30,10 @@ import {
   PopoverTrigger,
 } from '@/shared/ui/popover';
 import { cn } from '@/shared/lib/utils';
+import {
+  STATUS_CHIP_SHELL,
+  STATUS_CHIP_TONE,
+} from '@/shared/components/status-chip-styles';
 import type { ChipStatus } from '../../../lib/paper-status';
 
 export interface ChipMenuItem {
@@ -66,15 +70,7 @@ function labelWithSuffix(label: string, status: ChipStatus): string {
   return label;
 }
 
-// 主色调 map —— 三态对应的 border/text 一组
-const TONE_CLASSES: Record<ChipStatus, string> = {
-  complete:
-    'border-brand-green/40 text-brand-green hover:bg-brand-green/[0.04] data-[state=open]:bg-brand-green/[0.06]',
-  partial:
-    'border-brand-amber/50 text-brand-amber hover:bg-brand-amber/[0.05] data-[state=open]:bg-brand-amber/[0.08]',
-  missing:
-    'border-border text-faint hover:bg-surface-1 data-[state=open]:bg-surface-2',
-};
+const TONE_CLASSES = STATUS_CHIP_TONE;
 
 export function StatusChip({
   status,
@@ -101,10 +97,7 @@ export function StatusChip({
               // 按设计 .pen `of4Xd` 的 chip:
               //   h-7 (28px), px-2.5 圆角 sm, 内部 gap-1.5; 1px 边框
               //   字号 12, 描边/文字色按 tone 切
-              className={cn(
-                'group inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 border bg-surface-card shrink-0 transition-colors',
-                TONE_CLASSES[status]
-              )}
+              className={cn(STATUS_CHIP_SHELL, TONE_CLASSES[status])}
             >
               {Icon && <Icon className="size-3" strokeWidth={2} />}
               <span className="text-12 font-medium whitespace-nowrap">
@@ -150,7 +143,7 @@ interface ChipMenuListProps {
   onItemClick?: () => void;
 }
 
-function ChipMenuList({ items, onItemClick }: ChipMenuListProps) {
+export function ChipMenuList({ items, onItemClick }: ChipMenuListProps) {
   return (
     <div className="flex flex-col">
       {items.map((item, i) => {

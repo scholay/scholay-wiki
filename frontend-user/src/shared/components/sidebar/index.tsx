@@ -1,16 +1,14 @@
 /**
- * 侧栏组件家族 —— 对照 .pen `gs3tU` (文件夹) / `wzCqs` (Prism) 等设计
+ * 侧栏组件家族 —— 对照 .pen `gs3tU` (文献集) / `wzCqs` (Prism) 等设计
  * 全部用组合式 API,业务页面按需拼装:
  *
  *   <Sidebar>
  *     <SidebarHeader>...</SidebarHeader>
- *     <SidebarContent>
- *       <SidebarSection label="文件夹">
+ *     <SidebarContent>   -- 滚动区;展开/收起在顶栏 Logo 左侧
+ *       <SidebarSection label="文献集">
  *         <SidebarItem ... />
  *       </SidebarSection>
  *     </SidebarContent>
- *     <SidebarUser ... />
- *     <SidebarCollapseButton ... />
  *   </Sidebar>
  */
 export { Sidebar, SidebarContent } from './Sidebar';
@@ -21,8 +19,12 @@ export {
 } from './SidebarHeader';
 export { SidebarSection } from './SidebarSection';
 export { SidebarItem } from './SidebarItem';
-export { SidebarRichItem } from './SidebarRichItem';
+export { SidebarRailItem } from './SidebarRailItem';
 export { SidebarUser } from './SidebarUser';
 export { SidebarAuthFooter } from './SidebarAuthFooter';
-export { SidebarCollapseButton, SidebarExpandButton } from './SidebarCollapse';
-export { SidebarLayout } from './SidebarLayout';
+export { SidebarCollapseButton } from './SidebarCollapse';
+export {
+  SidebarLayout,
+  SIDEBAR_EXPANDED_PX,
+} from './SidebarLayout';
+export { formatRailCount } from './format-rail-count';

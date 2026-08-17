@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense, type ChangeEvent } from 'react';
-import { Play, Loader2, Download, AlertTriangle, ListTree, Image as ImageIcon, FileText, X, MessageSquarePlus, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Play, Loader2, Download, AlertTriangle, ListTree, Image as ImageIcon, FileText, X, MessageSquarePlus, Sparkles, ChevronUp, ChevronDown, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Select } from '@/shared/ui/select';
 // 懒加载(性能审计 #4):pdfjs(react-pdf,~412KB)推迟到首次编译成功(pdfKey>0)真正要看 PDF 时才拉,不进 workspace 首屏。
 const PdfViewer = lazy(() => import('@/shared/components/PdfViewer').then((m) => ({ default: m.PdfViewer })));
 import { LoadingState } from '@/shared/components';
-import { SidebarLayout } from '@/shared/components/sidebar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/ui/resizable';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { http, toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
 import { StructEditor, type StructEditorHandle } from './StructEditor';
 import { PrismLivePreview } from './PrismLivePreview';
-import { PrismStructSidebar } from './sidebar/PrismStructSidebar';
 import { PrismChatPanel } from './PrismChatPanel';
 import { MathEditorDialog } from './MathEditorDialog';
 import { PrismCitationDialog } from './PrismCitationDialog';
@@ -43,6 +42,11 @@ import {
   type DocStruct,
   type CiteCandidate,
 } from '../api/prism';
+import {
+  useCreateManuscriptVersion,
+  useCreateReviewRound,
+  useManuscriptByProject,
+} from '@/shared/api/manuscripts';
 
 // 2026-07 线上审计:bibliography 类编译错(bibtex 条目结构问题)回喂 AI 改 document.md 修不了
 // (线上曾 11 轮白烧)—— 横幅改人话提示,不再消耗 AI 轮。
@@ -55,7 +59,7 @@ const INFRA_COMPILE_HINT = '(编译服务暂时不可用,可点上方「编译�
  * 新版结构体写作工作台(Scholay Prism v2)。真源 = 结构体 JSON。
  * 布局:通用侧边栏(大纲/配图)| 左=AI 对话 | 右=预览(渲染文档);精确 PDF 默认隐藏,打开时与预览上下叠。
  */
-export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onBack: () => void }) {
+export function PrismWorkspaceV2({ projectId }: { projectId: number }) {
   const structQ = useStruct(projectId);
   const save = useSaveStruct(projectId);
   const templates = useTemplates();
@@ -177,8 +181,6 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
     }
     if (stored && list.some((s) => s.sessionId === stored)) setCurrentSessionId(stored);
   }, [convQ.data, projectId, convStorageKey]);
-  // 侧栏高亮用的活动对话:显式选中优先,否则后端最近活跃(列表首条)。
-  const activeConvId = currentSessionId ?? convQ.data?.[0]?.sessionId ?? null;
   // 切到某条已有对话:记住选择 → currentSessionId 变 → hook 重连 + 重载该对话历史。
   const switchConversation = useCallback(
     (sessionId: string) => {
@@ -397,6 +399,56 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [translateOpen, setTranslateOpen] = useState(false);
   const [numbersOpen, setNumbersOpen] = useState(false);
+
+  // ── 稿件桥接(写 → 审 → 改循环)────────────────────────────────────────
+  // 「送审」= 快照当前稿为新版本 + 建审稿轮(自动建工单,稿件已附带)→ 跳审稿 wizard step 2。
+  // 审稿报告页的「回到写作修改」带 ?revision=1 跳回来 → 自动打开修改意见回应工作流。
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const manuscriptQ = useManuscriptByProject(projectId);
+  const createVersionMut = useCreateManuscriptVersion();
+  const createRoundMut = useCreateReviewRound();
+  const [reviewSending, setReviewSending] = useState(false);
+  const sendForReview = async () => {
+    const manuscript = manuscriptQ.data;
+    if (!manuscript) {
+      toast.error('该项目还没有登记稿件身份,无法送审');
+      return;
+    }
+    setReviewSending(true);
+    try {
+      // 先落未保存编辑,让快照 = 当前所见。
+      const flushed = editorRef.current?.flush();
+      if (flushed) await save.mutateAsync(flushed);
+      const version = await createVersionMut.mutateAsync({
+        manuscriptId: manuscript.id,
+      });
+      const { round } = await createRoundMut.mutateAsync({
+        manuscriptId: manuscript.id,
+        versionNo: version.versionNo,
+      });
+      toast.success(`已生成送审版本 v${version.versionNo},稿件已附带`);
+      navigate(
+        `/peer-review/${round.submissionMode === 'thesis' ? 'thesis' : 'journal'}?id=${round.submissionId}&step=2`,
+      );
+    } catch (err) {
+      toast.error(toApiError(err).message || '送审失败,请稍后重试');
+    } finally {
+      setReviewSending(false);
+    }
+  };
+  const revisionParam = searchParams.get('revision');
+  useEffect(() => {
+    if (revisionParam !== '1') return;
+    setRevisionOpen(true);
+    setSearchParams(
+      (p) => {
+        p.delete('revision');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [revisionParam, setSearchParams]);
   const onPickCite = async (c: CiteCandidate) => {
     try {
       // 1) 先落未保存编辑:否则 ApplyStructCite 基于旧正文加 bib 后,下面 insert 的 autosave 会用旧正文覆盖、丢 bib。
@@ -678,18 +730,6 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   );
 
   return (
-    <SidebarLayout
-      sidebar={
-        <PrismStructSidebar
-          doc={doc}
-          title={title}
-          onBack={onBack}
-          conversations={convQ.data ?? []}
-          activeSessionId={activeConvId}
-          onSwitchConversation={switchConversation}
-        />
-      }
-    >
       <div className="flex h-full flex-col bg-background">
         <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -755,6 +795,22 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             </Button>
             <Button size="sm" variant="outline" onClick={exportDocx} disabled={compiling}>
               <Download className="size-3.5" /> 导出 Word
+            </Button>
+            {/* 送审(稿件桥接):快照当前稿为版本 → 建审稿轮 → 跳审稿 wizard(稿件已附带,跳过上传步)。 */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { void sendForReview(); }}
+              disabled={reviewSending || save.isPending || !manuscriptQ.data}
+              title={
+                manuscriptQ.data
+                  ? '把当前稿快照成新版本,送入智能审稿'
+                  : '该项目还没有登记稿件身份'
+              }
+              className="border-brand-red/40 text-brand-red hover:bg-brand-red/10 hover:text-brand-red"
+            >
+              {reviewSending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+              送审
             </Button>
           </div>
         </header>
@@ -878,6 +934,5 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         />
         <PrismNumbersDialog projectId={projectId} open={numbersOpen} onOpenChange={setNumbersOpen} />
       </div>
-    </SidebarLayout>
   );
 }

@@ -356,6 +356,20 @@ export async function runTurn(
   // 计费(C1):逐轮累加每个 LLM call 的 usage → calls[];message_complete 带 usage(本轮合计)+ calls。
   // session_total(会话累计)由 WS 层(server/ws.ts)据会话内存累计补上,executor 无状态不自持有。
   const calls: CallUsage[] = [];
+  // ── 逐帧上报(2026-08)────────────────────────────────────────────────────
+  // recordCall 是**本轮 usage 的唯一收集点**:入 calls[](终帧计费,口径不变)+ 立刻发一帧
+  // turn_usage_delta 给 backend(轮内成本硬闸)。
+  //
+  // 🔴 刻意收成一个函数而不是「在三个 calls.push 后面各补一句 sink.frame」:那三处分别是
+  //    正常轮末、abort 抢救、瞬态重试抢救 —— 恰恰是最容易被后来者漏掉的两条异常路径,而漏掉
+  //    没有任何红灯(硬闸静默少算,表现为「大部分时候管用」)。同 sendError 单点收口的理由。
+  //
+  // backend 只拿它做闸门、**不记账**(记账仍走终帧的 calls[] + session_total 水位),故这一帧
+  // 多发/漏发都不会影响钱;老 backend 不认识该帧型会原样忽略。
+  const recordCall = (u: CallUsage) => {
+    calls.push(u);
+    sink.frame({ type: "turn_usage_delta", usage: u });
+  };
   // —— 轮末 guard 链状态(2026-07 审计修复,唯一集成点在 stop_reason!==tool_use 分支)——
   // 共享纠偏预算:每 turn 纠偏轮总数 ≤2,各 guard 各 ≤1(max_tokens 恢复/语言/字符画)。
   // 🔴 2026-08 证据账本 P0:**诚实性核验已退出这个预算** —— 它降级为纯观测,不再注入纠偏轮,
@@ -620,7 +634,7 @@ export async function runTurn(
         if (signal?.aborted) {
           // 抢救被中断轮的真实上游消耗(input 已发给 provider 计费、partial output 已产出),
           // 记一笔 best-effort usage,否则整轮漏记 + 可绕过 token 配额。走 finally 补终帧,不报 error。
-          if (partialUsage) calls.push(normUsage(partialUsage, model));
+          if (partialUsage) recordCall(normUsage(partialUsage, model));
           break;
         }
         const errMsg = String((e as Error)?.message ?? e);
@@ -682,7 +696,7 @@ export async function runTurn(
           !roundEmittedThinking
         ) {
           transientRetries++;
-          if (partialUsage) calls.push(normUsage(partialUsage, model));
+          if (partialUsage) recordCall(normUsage(partialUsage, model));
           // 撤回已流出的残缺前缀(实时 fold 与 journal 回放同步清掉),否则重放的完整答案会拼在其后。
           // 2026-08-07:帧带上**原因**(旧版 payload 只有 type,线上 39 条 round_discarded
           // 全靠「同轮碰巧还有 error 帧」才归得了因)。消费方只 switch type,加字段是纯增量。
@@ -719,7 +733,7 @@ export async function runTurn(
         if (tailK) sink.frame({ type: "thinking", text: tailK });
       }
 
-      calls.push(normUsage(msg.usage, model)); // 每轮 LLM call 计费(C1)
+      recordCall(normUsage(msg.usage, model)); // 每轮 LLM call 计费(C1)+ 逐帧上报
 
       // DSML 泄漏轮级裁决(P0-5):history 消毒(marker 起一刀切,协议残渣绝不回喂下一 round/seed);
       // 干净正文几乎为零且无工具 → 整 round 作废重打一次(deepseek 该故障非确定性,重试通常即恢复);
@@ -790,6 +804,41 @@ export async function runTurn(
           });
           sendError("模型输出出现协议异常,本轮已终止,请重试或更换模型。", "model_protocol_error");
           break;
+        }
+      }
+
+      // ── 供给面校验(2026-08-14):丢弃**本轮没提供过**的工具调用 ─────────────────────
+      //
+      // 🔴 线上事故根因(2026-08-13,user 873):wind-down 把 activeTools 收成 [] 之后,模型仍在
+      //    调 Bash/Edit/Write/MCP,又跑了 21 轮,单轮实花是预算的 8.2 倍,把余额打穿到负数。
+      //    直接原因在 OpenAI 兼容道:toOpenAITools([]) 依 OpenAI 规范回 undefined(空数组非法)
+      //    → 请求里没有 tools 字段,而 qwen 带着历史里 20 多对 tool_call/tool_result 的惯性照样
+      //    吐 tool_calls,adapter 无条件采信 → stop_reason=tool_use → 本循环继续。
+      //    同一份 wind-down 在原生 Anthropic 道上是生效的 —— 两条道行为必须对齐。
+      //
+      // 为什么校验在**响应侧**而不是请求侧(tool_choice:"none" / 只发一个哑工具):
+      //   ① 本仓库 harness/toolChoiceProbe 已实测「主力 provider 静默无视 tool_choice」,请求侧约束不可靠;
+      //   ② 任何请求体改动都会打断上游前缀缓存(Anthropic 官方口径:tools→system→messages 分层,
+      //      改 tools 作废全部)。响应侧校验**请求体一个字节不变**,缓存完整保留 —— 线上 OpenAI 道
+      //      的冷调用成本占比已达 51%~71%,不能再自己打自己的缓存。
+      //
+      // 为什么放在这里(messages.push 之前):被丢弃的 tool_use **绝不能进 history** ——
+      // 进了就会留下一个永远等不到 tool_result 的悬挂块,下一轮请求必然 400(Anthropic 形)
+      // 或让模型更加确信那个工具存在(OpenAI 形)。
+      {
+        // 可调集 = 本轮广告面(activeTools)。**刻意不含延迟披露的 MCP 工具** ——
+        // 它们要经 ToolInvoke 走(见 mcp/deferred.ts):若在这里额外放行,就等于「不在 tools[] 里
+        // 也能直接调」,而那正是本守卫要挡的形状,两条规则会互相拆台。ToolInvoke 自己在
+        // ctx.deferredTools 里做可调性校验,权限边界不变。
+        const verdict = dropUnofferedToolUses(msg.content, activeTools.map((t) => t.name), msg.stop_reason);
+        if (verdict.dropped.length > 0) {
+          log.warn("tool supply violation: 丢弃未提供的工具调用", {
+            session_id: input.sessionId, model, round,
+            dropped: verdict.dropped.join(","),
+            offered: activeTools.length,
+            winding_down: windingDown,
+          });
+          msg = { ...msg, content: verdict.content, stop_reason: verdict.stopReason } as Anthropic.Message;
         }
       }
 
@@ -1149,6 +1198,44 @@ function truncatedToolResult(toolUseId: string, sink: EventSink): Anthropic.Tool
   ];
   sink.frame({ type: "tool_result", toolUseId, content, isError: true });
   return { type: "tool_result", tool_use_id: toolUseId, content, is_error: true };
+}
+
+// ── 供给面校验(2026-08-14)· 纯函数,便于单测 ──────────────────────────────────
+//
+// 🔴 线上事故(2026-08-13,user 873):wind-down 把 activeTools 收成 [] 之后,模型仍在调
+//    Bash/Edit/Write/MCP,又跑了 21 轮,单轮实花是预算的 8.2 倍,余额从 +662.86 打穿到 -3430.83。
+//    直接原因在 OpenAI 兼容道:toOpenAITools([]) 依 OpenAI 规范回 undefined(空数组非法)→
+//    请求里没有 tools 字段;而模型带着历史里 20 多对 tool_call/tool_result 的惯性照样吐
+//    tool_calls,adapter 无条件采信并合成 stop_reason="tool_use" → 工具循环继续。
+//    同一份 wind-down 在原生 Anthropic 道上是生效的 —— 两条道行为必须对齐。
+//
+// 本函数干两件事,少任何一件都不成立:
+//   ① 丢掉不在广告面里的 tool_use 块(它们绝不能进 history —— 会留下永远等不到 tool_result
+//      的悬挂块,下一轮请求在 Anthropic 形上必然 400);
+//   ② 若因此一个 tool_use 都不剩,把 stop_reason 从 "tool_use" 改回 "end_turn" ——
+//      不改就会进工具轮却无工具可跑,空转到 round_cap,与修复前的成本形态完全一样。
+//
+// 校验刻意放在**响应侧**而不是请求侧(tool_choice:"none"):① 本仓库 harness/toolChoiceProbe
+// 已实测主力 provider 静默无视 tool_choice;② 任何请求体改动都会作废上游前缀缓存
+// (Anthropic 官方口径 tools→system→messages 分层),而该路径冷调用成本占比已达 51%~71%。
+export function dropUnofferedToolUses(
+  content: Anthropic.ContentBlock[],
+  offeredNames: string[],
+  stopReason: Anthropic.Message["stop_reason"],
+): { content: Anthropic.ContentBlock[]; stopReason: Anthropic.Message["stop_reason"]; dropped: string[] } {
+  const offered = new Set(offeredNames);
+  const dropped: string[] = [];
+  const kept: Anthropic.ContentBlock[] = [];
+  for (const b of content) {
+    if (b.type === "tool_use" && !offered.has(b.name)) {
+      dropped.push(b.name);
+      continue;
+    }
+    kept.push(b);
+  }
+  if (dropped.length === 0) return { content, stopReason, dropped };
+  const stillHasTool = kept.some((b) => b.type === "tool_use");
+  return { content: kept, stopReason: stillHasTool ? stopReason : "end_turn", dropped };
 }
 
 // 中性 usage(Go AgentUsage 的 json 形)。Anthropic 字段名 cache_read_input_tokens → cache_read_tokens。

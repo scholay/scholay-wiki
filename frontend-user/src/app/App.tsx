@@ -1,16 +1,16 @@
-import { useEffect, useRef, useSyncExternalStore, lazy, Suspense } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Providers } from './providers';
 import { router } from './router';
 import { AuthBootstrap } from './AuthBootstrap';
-import { UserActivityReporter } from './UserActivityReporter';
+import { useApplyTheme } from '@/stores/theme.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useClaimInvite } from '@/stores/claim-invite.store';
+import { useInvitePromptStore } from '@/stores/invite-prompt.store';
 import { usePromoStore } from '@/stores/promo.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import { useShareSheet } from '@/stores/share.store';
-import { useInviteEntry } from '@/stores/invite-entry.store';
-import { InviteFlowController } from './InviteFlowController';
-import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { ClaimInviteDialog } from '@/features/auth/components/ClaimInviteDialog';
 
 // 诊断:把 data router 挂到 window,卡住时可在控制台读 `__appRouter.state.location.pathname`
 // (RR 已提交的路由)/ `.state.navigation.state`(idle/loading)与地址栏对比。配合 RouteCommitWatchdog。
@@ -30,9 +30,6 @@ if (typeof window !== 'undefined') {
  *   - 只比较 pathname(忽略 search / hash):保留 library 工作台 `?manage=` 这类**同页深链**不被误关;
  *   - **刻意排除 mobile-search 浮层** —— 它 `suspendForDetail` 进详情要保 open、回 feed 再复原,
  *     是有意的跨路由保留,不能在这里清。
- *   - **刻意排除额度重置弹窗(useQuotaStore.resetOpen)** —— 它挂在 Providers 层、永不随路由卸载
- *     (无 Radix 锁泄漏风险),且 6010 常在流式/后台请求里迟到:导航瞬间弹出的额度弹窗被这里
- *     秒关 = 用户根本没看见就没了。弹窗内自己的跳转(充值/升级)会先显式 closeReset 再 navigate。
  */
 function useCloseGlobalModalsOnNavigate() {
   useEffect(() => {
@@ -47,60 +44,28 @@ function useCloseGlobalModalsOnNavigate() {
       queueMicrotask(() => {
         const ad = useAuthDialog.getState();
         if (ad.open) ad.close();
+        const ip = useInvitePromptStore.getState();
+        // 仅关窗不 mark done —— 用户若被导航打断,下次登录仍可提醒
+        if (ip.open) ip.close();
+        const ci = useClaimInvite.getState();
+        if (ci.open) ci.closeClaim();
         const pm = usePromoStore.getState();
         if (pm.open) pm.closePromo();
-        // 额度重置弹窗豁免(见上方 docstring)—— 这里刻意不 closeReset。
         const cp = useCollectPicker.getState();
         if (cp.request) cp.closeCollect();
         const ss = useShareSheet.getState();
         if (ss.target) ss.closeShare();
-        const invite = useInviteEntry.getState();
-        if (invite.open) invite.closeInvite();
       });
     });
   }, []);
 }
 
-/**
- * 支付收银台回程:跳支付宝前(QuotaNotifier 等)把当前 location.pathname+search 写进
- * localStorage 'scholay:pay-return-path';支付宝回跳落回站点任意页后,这里启动时读到
- * 就 navigate 回去并**立即清除**(一次性锚点,防止陈旧值在下次访问把用户传送走)。
- * 只接受站内相对路径(拒绝 `//host` 协议相对形态,防开放跳转)。
- */
-const PAY_RETURN_KEY = 'scholay:pay-return-path';
-function usePayReturnPath() {
-  useEffect(() => {
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(PAY_RETURN_KEY);
-      if (saved !== null) localStorage.removeItem(PAY_RETURN_KEY);
-    } catch {
-      return; // 隐私模式等 localStorage 不可用:无回程锚点,正常启动
-    }
-    if (!saved || !saved.startsWith('/') || saved.startsWith('//')) return;
-    if (saved === window.location.pathname + window.location.search) return;
-    void router.navigate(saved, { replace: true });
-  }, []);
-}
-
-// 注:产品壳的全站暗色态已于 2026-07 移除 —— 旧机制虽完整,但 setTheme 零调用点、
-// 设置页没有入口,`.dark` 从未被挂上。Wiki 后来增加的夜间模式是自身路由子树内的
-// 独立主题，不恢复全站 store，也不改 document 根 token。
 function ShellRoot() {
+  useApplyTheme();
   useCloseGlobalModalsOnNavigate();
-  usePayReturnPath();
-  const routerInitialized = useSyncExternalStore(
-    (onStoreChange) => router.subscribe(() => onStoreChange()),
-    () => router.state.initialized,
-    () => router.state.initialized,
-  );
   return (
     <>
       <AuthBootstrap />
-      <UserActivityReporter />
-      <ErrorBoundary fallback={() => null}>
-        <InviteFlowController />
-      </ErrorBoundary>
       {/*
         useTransitions={false} —— 根因修复:RR v7 默认把导航的 state 提交包在 React 19 低优
         `startTransition` 里(react-router 源码 chunk RouterProvider:`useTransitions===false ?
@@ -112,63 +77,28 @@ function ShellRoot() {
         本项目路由层无 render-suspense(用 RR `lazy:` 在导航阶段加载 + 普通 useQuery,非 Suspense),
         故关掉过渡无副作用。RouteCommitWatchdog 保留作安全网 + 回归探针(理论上此后永不触发)。
       */}
-      {!routerInitialized && <RouteLoadingFallback />}
       <RouterProvider router={router} useTransitions={false} />
       {/* 全局鉴权弹窗 — 任何位置通过 useAuthDialog.openDialog 触发。懒加载(性能审计 #2):AuthDialog 全家桶
           (zod+react-hook-form+turnstile+微信扫码 ~105KB)此前 eager 常驻入口 chunk。改成首次打开才拉,
           之后保持挂载(内部本靠 store.open 控制 Radix Dialog 开合,常驻无副作用)。 */}
-      <ErrorBoundary fallback={() => null}>
-        <AuthDialogGate />
-      </ErrorBoundary>
-      <ErrorBoundary fallback={() => null}>
-        <InviteEntryDialogGate />
-      </ErrorBoundary>
+      <AuthDialogGate />
+      <InvitePromptGate />
+      <ClaimInviteDialog />
     </>
   );
 }
 
-/**
- * Data Router 首次解析 route-lazy 时的零依赖占位。不引入图标、动画库
- * 或任何 feature，避免为消除空白反而抬高入口闭包。
- */
-function RouteLoadingFallback() {
-  return (
-    <main
-      role="status"
-      aria-label="页面加载中"
-      className="flex min-h-dvh items-center justify-center bg-background px-6"
-    >
-      <div className="flex w-full max-w-sm flex-col items-center gap-6">
-        <span className="font-brand text-24 font-medium tracking-brand text-foreground">
-          Scholay
-        </span>
-        <div aria-hidden className="flex w-full flex-col gap-2.5">
-          <span className="h-3 w-full animate-pulse rounded-pill bg-surface-2" />
-          <span className="h-3 w-4/5 animate-pulse rounded-pill bg-surface-2" />
-          <span className="h-3 w-2/3 animate-pulse rounded-pill bg-surface-2" />
-        </div>
-      </div>
-    </main>
-  );
-}
-
 const AuthDialog = lazy(() => import('@/features/auth').then((m) => ({ default: m.AuthDialog })));
-const InviteEntryDialog = lazy(() =>
-  import('./InviteEntryDialog').then((module) => ({
-    default: module.InviteEntryDialog,
+const InviteCodePromptDialog = lazy(() =>
+  import('@/features/auth/components/InviteCodePromptDialog').then((m) => ({
+    default: m.InviteCodePromptDialog,
   })),
 );
 
 function AuthDialogGate() {
   const open = useAuthDialog((s) => s.open);
-  const mode = useAuthDialog((s) => s.mode);
   const everOpened = useRef(false);
-  const onMobileRoute =
-    typeof window !== 'undefined' &&
-    (window.location.pathname === '/m' || window.location.pathname.startsWith('/m/'));
-  // /m 下普通登录由 MobileShell 的 MobileAuthSheet 承接；仅微信扫码仍需 PC Dialog 的 QR 面板。
-  // 否则一次移动登录会同时下载两套鉴权 UI，抵消 MobileAuthSheet 的独立 lazy 边界。
-  if (open && (!onMobileRoute || mode === 'wechat-qr')) everOpened.current = true;
+  if (open) everOpened.current = true;
   if (!everOpened.current) return null; // 从未打开过 → 不加载 AuthDialog chunk
   return (
     <Suspense fallback={null}>
@@ -177,14 +107,12 @@ function AuthDialogGate() {
   );
 }
 
-function InviteEntryDialogGate() {
-  const open = useInviteEntry((state) => state.open);
-  const everOpened = useRef(false);
-  if (open) everOpened.current = true;
-  if (!everOpened.current) return null;
+function InvitePromptGate() {
+  const open = useInvitePromptStore((s) => s.open);
+  if (!open) return null;
   return (
     <Suspense fallback={null}>
-      <InviteEntryDialog />
+      <InviteCodePromptDialog />
     </Suspense>
   );
 }

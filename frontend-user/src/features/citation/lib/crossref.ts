@@ -10,8 +10,6 @@
 import type { CitationPaper } from '@/shared/lib/citation';
 
 const CROSSREF_API = 'https://api.crossref.org/works';
-// Crossref「礼貌池(polite pool)」联系邮箱 —— 提升配额与稳定性,非鉴权。
-const CROSSREF_MAILTO = 'support@scholay.com';
 
 /** 把各种写法(URL / doi: 前缀 / 裸 DOI)归一成裸 DOI。 */
 export function normalizeDoi(input: string): string {
@@ -61,15 +59,26 @@ function crossrefToCitationPaper(m: CrossrefMessage): CitationPaper {
   };
 }
 
-/** DOI → CitationPaper。失败抛出可读 Error(供 useMutation 透出给 UI)。 */
-export async function fetchCrossrefByDoi(rawDoi: string): Promise<CitationPaper> {
+/**
+ * DOI → CitationPaper。失败抛出可读 Error(供 useMutation 透出给 UI)。
+ *
+ * @param mailto Crossref「礼貌池(polite pool)」联系邮箱 —— 提升配额与稳定性,非鉴权。
+ *   由调用方从 `useSiteSupportEmail()`(本环境的 SUPPORT_EMAIL)传入,留空则不带该参数。
+ *
+ *   🔴 这里以前是模块级写死的 `support@<品牌域>` 常量。Crossref 与 Unpaywall 这类
+ *   开放 API 的限速/封禁都是**按 email 维度**做的 —— 多套环境共用一个邮箱,任何一套
+ *   跑批量测试把额度打满,被限的是所有环境,而权威站那边只会看到「引用生成开始失败」,
+ *   完全归因不到别处。
+ */
+export async function fetchCrossrefByDoi(rawDoi: string, mailto?: string): Promise<CitationPaper> {
   const doi = normalizeDoi(rawDoi);
   if (!looksLikeDoi(doi)) {
     throw new Error('DOI 格式不正确,应形如 10.xxxx/xxxxx');
   }
-  const url = `${CROSSREF_API}/${encodeURIComponent(
-    doi
-  )}?mailto=${encodeURIComponent(CROSSREF_MAILTO)}`;
+  const polite = mailto?.trim();
+  const url = `${CROSSREF_API}/${encodeURIComponent(doi)}${
+    polite ? `?mailto=${encodeURIComponent(polite)}` : ''
+  }`;
 
   let resp: Response;
   try {

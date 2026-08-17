@@ -9,7 +9,9 @@ import {
   useStagingAreas,
 } from '@/stores/staging-areas.store';
 import { useStagingUi } from '@/stores/staging-ui.store';
+import { useSidebar } from '@/stores/sidebar.store';
 import { useStageFly } from '@/stores/stage-fly.store';
+import { revealStagingFileArea } from '../lib/reveal-staging-file-area';
 import {
   stagingAreasKey,
   useAddRemotePaper,
@@ -18,6 +20,7 @@ import {
   useDeleteRemoteArea,
   useRemoveRemotePaper,
   useRenameRemoteArea,
+  useReorderRemotePapers,
   type RemoteStagingArea,
 } from '../api/staging-areas';
 import { trackStaging } from '@/shared/api/usage-stat';
@@ -72,6 +75,7 @@ export interface StagingActions {
   removePaper: (areaId: string, paperId: string) => void;
   /** 清空 area 内全部 papers,保留 area —— 走后端 batch endpoint,1 个请求搞定 */
   clearArea: (areaId: string) => void;
+  reorderPapers: (areaId: string, orderedIds: string[]) => void;
 }
 
 export function useStagingActions(): StagingActions {
@@ -87,6 +91,7 @@ export function useStagingActions(): StagingActions {
   const localStagePaper = useStagingAreas((s) => s.stagePaper);
   const localRemovePaper = useStagingAreas((s) => s.removePaper);
   const localClearArea = useStagingAreas((s) => s.clearArea);
+  const localReorderPapers = useStagingAreas((s) => s.reorderPapers);
 
   // === 登录态 mutations(只在调用方使用时实例化) ===
   const setActiveRemote = useStagingUi((s) => s.setActiveRemote);
@@ -96,6 +101,7 @@ export function useStagingActions(): StagingActions {
   const addPaperMut = useAddRemotePaper();
   const removePaperMut = useRemoveRemotePaper();
   const clearPapersMut = useClearRemotePapers();
+  const reorderPapersMut = useReorderRemotePapers();
 
   // 关键:登录态下不**订阅** remote areas(订阅 = 数据变化重渲 = 列表项级联重渲)。
   // 改用 queryClient 在 callback 里**按需读缓存**。
@@ -254,16 +260,21 @@ export function useStagingActions(): StagingActions {
 
   const stagePaper = useCallback(
     (paper: Paper, source?: 'traditional' | 'smart') => {
-      // 飞入动画:点暂存的瞬间(卡片折叠前)抓源卡 rect,请求一枚芯片飞向右侧矩阵落点。
-      // 抓不到卡(非交互式暂存)或矩阵未挂载(首次暂存)时 requestFly 内部会自动跳过。
+      // 展开侧栏 + 文件区暂存夹,芯片飞入落点才看得见去向
+      useSidebar.getState().setExpanded(true);
+      revealStagingFileArea();
+
       const cardEl = document.querySelector<HTMLElement>(
-        `[data-paper-id="${CSS.escape(paper.paperId)}"]`
+        `[data-paper-id="${CSS.escape(paper.paperId)}"]`,
       );
       const r = cardEl?.getBoundingClientRect();
-      useStageFly.getState().requestFly(
-        r ? { top: r.top, left: r.left, width: r.width, height: r.height } : null,
-        paper.title ?? ''
-      );
+      const from = r
+        ? { top: r.top, left: r.left, width: r.width, height: r.height }
+        : null;
+      // 等侧栏/手风琴展开后再飞
+      requestAnimationFrame(() => {
+        useStageFly.getState().requestFly(from, paper.title ?? '');
+      });
 
       if (isAuthed) {
         ensureAuthedArea().then((area) => {
@@ -358,7 +369,10 @@ export function useStagingActions(): StagingActions {
         );
         const added = settles.filter(Boolean).length;
         skipped += settles.length - added;
-        if (added > 0) trackStaging(source, added); // 功能使用统计: 一键批量暂存(登录)
+        if (added > 0) {
+          if (source === 'traditional') revealStagingFileArea();
+          trackStaging(source, added); // 功能使用统计: 一键批量暂存(登录)
+        }
         return { added, skipped, capped };
       }
 
@@ -372,7 +386,10 @@ export function useStagingActions(): StagingActions {
         return { added: 0, skipped: 0, capped: 0 };
       }
       const res = useStagingAreas.getState().bulkAddPapers(activeId, candidates);
-      if (res.added > 0) trackStaging(source, res.added); // 功能使用统计: 一键批量暂存(匿名)
+      if (res.added > 0) {
+        if (source === 'traditional') revealStagingFileArea();
+        trackStaging(source, res.added); // 功能使用统计: 一键批量暂存(匿名)
+      }
       return res;
     },
     [isAuthed, ensureAuthedArea, addPaperMut]
@@ -426,6 +443,25 @@ export function useStagingActions(): StagingActions {
     [isAuthed, clearPapersMut, localClearArea]
   );
 
+  const reorderPapers = useCallback(
+    (areaId: string, orderedIds: string[]) => {
+      if (isAuthed) {
+        const remoteId = normalizeRemoteId(areaId);
+        if (remoteId == null) return;
+        reorderPapersMut.mutate(
+          { areaId: remoteId, paperIds: orderedIds },
+          {
+            onError: (err) =>
+              toast.error(`排序失败:${(err as Error).message}`),
+          },
+        );
+      } else {
+        localReorderPapers(areaId, orderedIds);
+      }
+    },
+    [isAuthed, reorderPapersMut, localReorderPapers],
+  );
+
   return {
     setActive,
     createArea,
@@ -435,5 +471,6 @@ export function useStagingActions(): StagingActions {
     bulkStagePapers,
     removePaper,
     clearArea,
+    reorderPapers,
   };
 }

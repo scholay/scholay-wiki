@@ -109,11 +109,11 @@ describe('AdminTranscriptView', () => {
       />,
     );
 
-    expect(screen.getByText(/AI 额度用完了/)).toBeTruthy();
+    expect(screen.getByText(/额度已用完/)).toBeTruthy();
     expect(screen.getByText('未发送')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '重新发送' })).toBeNull();
     expect(screen.queryByRole('button', { name: '去恢复额度' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '不发了' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '取消发送' })).toBeNull();
   });
 
   it('进行中轮依权威 status 保持生成中，不伪装成已完成或已暂停', () => {

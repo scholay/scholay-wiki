@@ -18,6 +18,7 @@
  * queryKey 约定: ['peer-review', 'submissions', ...params]
  */
 
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError, type ApiError } from '@/shared/lib/http';
 import { retryDetailQuery } from '@/shared/lib/query-config';
@@ -81,17 +82,20 @@ export function useSubmission(id?: number) {
       );
       return unwrap<Submission>(r.data);
     },
-    // computing_* / reviewing 状态下 2s 一次 polling, idle / failed 后停。
+    // computing_* / reviewing 状态下轮询, idle / failed 后停。
     // 用 query 函数级 refetchInterval, 而不是组件层 useEffect, 自动跟着 enabled / status 走。
     // computing_methodology 必须在列 —— 否则方法论阶段(数分钟)轮询会停, 前端永远看不到
     // computing_methodology → reviewing 的切换, 卡在方法论态。
+    // 2026-08-12 推送化:状态推进的即时性改由 SSE 控制帧保证(后端在 computeState 翻转时
+    // 广播 state 帧、done/error 帧到达时 stream.ts 均 invalidate 本查询),这里从 2s 降到
+    // 15s 只作兜底(SSE 断连/方法论期无订阅流的窗口)。每份投稿 ~150 次 GET → ~20 次。
     refetchInterval: (q) => {
       const s = q.state.data?.computeState;
       return s === 'computing_meta' ||
         s === 'computing_letter' ||
         s === 'computing_methodology' ||
         s === 'reviewing'
-        ? 2000
+        ? 15_000
         : false;
     },
   });
@@ -280,29 +284,52 @@ export interface UploadAssetParams {
   category?: AttachmentCategory;
 }
 
+/**
+ * 共享上传执行器 —— useUploadAsset 与两个 wizard 的 lazy-create 路径共用。
+ * 稿件最大 50MB,慢上行要传很久(超时预算由 http.ts 的 FormData 豁免统一给 600s),
+ * 没有进度反馈用户会当卡死刷新,所以这里必带 onUploadProgress 出口。
+ */
+export async function uploadSubmissionAsset(
+  submissionId: number | undefined,
+  { file, role, category }: UploadAssetParams,
+  onProgress?: (pct: number) => void
+): Promise<SubmissionAsset> {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('role', role);
+  if (category) fd.append('category', category);
+  // 必须显式设 'multipart/form-data' 覆盖 http client 全局默认的 'application/json'
+  // (否则 axios 把 FormData 当 JSON 发,后端 ParseMultipartForm 直接 400)。
+  // axios 1.x 收到 FormData + 这个 Content-Type 会自动补 boundary 参数。
+  const r = await http.post<{ data?: SubmissionAsset } & Partial<SubmissionAsset>>(
+    `/user/peer-review/submissions/${submissionId}/assets`,
+    fd,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => {
+        if (e.total) onProgress?.(Math.round((e.loaded / e.total) * 100));
+      },
+    }
+  );
+  return unwrap<SubmissionAsset>(r.data);
+}
+
 export function useUploadAsset(id?: number) {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ file, role, category }: UploadAssetParams) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('role', role);
-      if (category) fd.append('category', category);
-      // 必须显式设 'multipart/form-data' 覆盖 http client 全局默认的 'application/json'
-      // (否则 axios 把 FormData 当 JSON 发,后端 ParseMultipartForm 直接 400)。
-      // axios 1.x 收到 FormData + 这个 Content-Type 会自动补 boundary 参数。
-      const r = await http.post<{ data?: SubmissionAsset } & Partial<SubmissionAsset>>(
-        `/user/peer-review/submissions/${id}/assets`,
-        fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
-      return unwrap<SubmissionAsset>(r.data);
+  // null = 没有进行中的上传;0-100 = 上传中的百分比。settle 后归 null 让 UI 回到常态。
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const mutation = useMutation({
+    mutationFn: async (params: UploadAssetParams) => {
+      setUploadProgress(0);
+      return uploadSubmissionAsset(id, params, setUploadProgress);
     },
+    onSettled: () => setUploadProgress(null),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY('detail', id ?? 0) });
       qc.invalidateQueries({ queryKey: KEY('assets', id ?? 0) });
     },
   });
+  return { ...mutation, uploadProgress };
 }
 
 export interface DeleteAssetResult {
@@ -357,8 +384,9 @@ export function useSubmissionAssets(id?: number) {
 // + fingerprint cache + 异步 goroutine, 详见 [[backend/internal/peerreview/service.go]]
 // AdvanceStep。
 //
-// 调用后 submission.computeState 会变成 computing_meta / computing_letter,
-// useSubmission 的 refetchInterval 自动开始 2s polling, computing 结束转 idle 时停。
+// 调用后 submission.computeState 会变成 computing_meta / computing_letter。
+// 状态推进的即时性由 SSE 推送保证(state/done 帧 → stream.ts invalidate),
+// useSubmission 的 refetchInterval 只作 15s 兜底轮询,computing 结束转 idle 时停。
 // 组件层只需 watch submission.computeState + step + extraMeta 渲染。
 
 export function useAdvanceStep(id?: number) {

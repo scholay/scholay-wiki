@@ -1,35 +1,18 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, Outlet, useMatches } from 'react-router-dom';
-import { PanelLeft, Search } from 'lucide-react';
+import { PanelLeft } from 'lucide-react';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
-import { IconButton } from '@/shared/components/IconButton';
 import { BrandLogo } from '@/shared/components/BrandLogo';
-import { Kbd } from '@/shared/ui/kbd';
-import { useHotkey } from '@/shared/hooks';
+import { IconButton } from '@/shared/components/IconButton';
+import { useIsAuthenticated } from '@/stores/auth.store';
 import { useSidebar } from '@/stores/sidebar.store';
-import { useIsAuthenticated, useAuthStore } from '@/stores/auth.store';
 import { AdminSidebar } from '../components/AdminSidebar';
-import { AdminUserDetailProvider } from '../components/AdminUserDetailProvider';
-import { ROLE_LABEL } from '../permissions';
-
-const AdminCommandPalette = lazy(() =>
-  import('../components/AdminCommandPalette').then((m) => ({
-    default: m.AdminCommandPalette,
-  })),
-);
-const CMDK_HOTKEY = 'mod+k';
 
 /**
  * Admin 专用 shell —— 结构对齐用户端 AppShell:
- *   - 顶部一条 h-16 占位导航条(TopBar):**不放菜单**,只承载「展开/收起侧栏」☰ 按钮,
- *     让后台侧栏开合与用户端 TopNav 的 ☰ 交互完全一致(按钮恒在左上角同一位置/样式)。
+ *   - 顶部 h-16 占位导航条:展开/收起 + Logo。
  *   - 左侧 AdminSidebar 在 TopBar 之下常驻(受 useSidebar 全局开合)。
- *
- * 历史:之前无顶栏,侧栏折叠后整条被 width=0 隐藏、连内部展开按钮一起锁死,只能在左边缘
- * 挂一个悬浮 fixed 按钮兜底 —— 与用户端不一致、也遮挡内容。现改为顶栏常驻 ☰,悬浮按钮下线。
- *
- * ⌘B / ⌘K 快捷键(含 AdminCommandPalette)此前已下线,后续要恢复重新挂 hotkey 即可。
  */
 /** 取当前匹配路由的 `handle.title`(在 routes.tsx 集中维护) */
 function useRouteTitle(): string | null {
@@ -42,109 +25,41 @@ function useRouteTitle(): string | null {
 }
 
 export function AdminShell() {
-  // React 19 原生 <title> 标签会被自动 hoist 到 <head>;
-  // 路由变化自动重渲 → 标题随路由更新,无需 effect 调 document.title
   const routeTitle = useRouteTitle();
   const docTitle = routeTitle
     ? `${routeTitle} · Scholay Admin`
     : 'Scholay Admin';
 
-  // ⌘K 命令面板 —— AdminCommandPalette 是一个写好的 200 行面板(20 个页面跳转 +
-  // 用户搜索 + 快捷动作),但此前只有定义没有任何调用方,整整一个组件是死代码。
-  // 单人运维、35 个页面靠侧栏一项项翻,这是最高性价比的一次"接线"。
-  const [cmdkOpen, setCmdkOpen] = useState(false);
-  const cmdkEverOpened = useRef(false);
-  if (cmdkOpen) cmdkEverOpened.current = true;
-  useHotkey(CMDK_HOTKEY, () => setCmdkOpen(true), { enableOnFormTags: true });
-
-  // 当前角色 —— 菜单是按 role 过滤的(nav.ts 的 requires),排查"为什么我看不到计费配置"
-  // 时界面上此前没有任何地方告诉你自己是什么角色。
-  const role = useAuthStore((s) => s.user?.role);
-
-  // 顶栏 ☰ —— 与用户端一致:hasPanel 决定可否切换(后台恒有侧栏面板 → 恒可用)。
-  const hasPanel = useSidebar((s) => s.hasPanel);
-  const toggleSidebar = useSidebar((s) => s.toggle);
-
-  // 反应式兜底:token 一旦消失(本 tab 退出 / 跨 tab 登出 / 失效)立刻离开后台回首页。
-  // adminGuard 只在导航时跑一次;停在 /admin 页时的跨 tab 登出不会触发 loader,靠这里收尾。
-  // (被动 401 已由 AuthBootstrap 的 auth-evicted → window.location 处理;这里覆盖"无 401 的纯登出"。)
   const authed = useIsAuthenticated();
+  const toggleSidebar = useSidebar((s) => s.toggle);
   useEffect(() => {
     if (!authed && typeof window !== 'undefined') window.location.assign('/');
   }, [authed]);
 
   return (
-    // h-dvh 不是 h-screen —— 后者是裸 100vh,移动端地址栏收起/展开时底部会被截(项目铁律:视口高度用 dvh)。
-    <div className="flex h-dvh min-h-0 flex-col bg-background text-foreground">
+    <div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
       <title>{docTitle}</title>
 
-      {/* 顶部导航条 —— 左上角 [☰][Logo] 对齐用户端 TopNav;右侧放搜索入口与当前角色。 */}
-      <header className="h-16 shrink-0 flex items-center gap-2 px-6 border-b border-border bg-background sticky top-0 z-nav">
+      <header className="h-16 shrink-0 flex items-center gap-2 px-6 border-b border-border bg-background sticky top-0 z-30">
         <IconButton
           aria-label="展开/收起侧栏"
           tooltip="展开/收起侧栏"
-          disabled={!hasPanel}
           onClick={toggleSidebar}
         >
           <PanelLeft />
         </IconButton>
-        <Link
-          to="/admin"
-          className="inline-flex items-center"
-          aria-label="返回后台首页"
-        >
+        <Link to="/admin" className="inline-flex items-center" aria-label="返回后台首页">
           <BrandLogo size="sm" />
         </Link>
-
-        {/* 当前页标题 —— 侧栏收起后原本无从知道自己在哪一页(此前 routeTitle 只写进了 <title>) */}
-        {routeTitle && (
-          <>
-            <span className="hidden sm:block h-4 w-px bg-border" aria-hidden />
-            <span className="hidden sm:block text-14 text-subtle truncate">
-              {routeTitle}
-            </span>
-          </>
-        )}
-
-        <div className="flex-1" />
-
-        {/* 显式搜索入口:只有快捷键的话,不知道有这功能的人等于没有 */}
-        <button
-          type="button"
-          onClick={() => setCmdkOpen(true)}
-          className="inline-flex items-center gap-2 h-8 rounded-8 border border-border px-2.5 text-12 text-faint hover:bg-surface-1 hover:text-foreground transition-colors"
-        >
-          <Search className="size-3.5" />
-          <span className="hidden sm:inline">搜索页面 / 用户</span>
-          <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
-        </button>
-
-        {role && (
-          <span
-            className="hidden md:inline text-12 text-faint"
-            title="当前登录角色 —— 侧栏菜单按角色过滤"
-          >
-            {ROLE_LABEL[role] ?? role}
-          </span>
-        )}
       </header>
-
-      {cmdkEverOpened.current && (
-        <Suspense fallback={null}>
-          <AdminCommandPalette open={cmdkOpen} onOpenChange={setCmdkOpen} />
-        </Suspense>
-      )}
 
       <div className="flex-1 min-h-0">
         <SidebarLayout sidebar={<AdminSidebar />}>
           <ErrorBoundary>
-            <AdminUserDetailProvider>
-              <Outlet />
-            </AdminUserDetailProvider>
+            <Outlet />
           </ErrorBoundary>
         </SidebarLayout>
       </div>
-      {/* ConfirmDialogRoot 已上移到 app/providers,全应用全局可用 */}
     </div>
   );
 }

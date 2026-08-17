@@ -143,7 +143,7 @@ export function RecordsPage() {
                 <GraduationCap className="size-4 shrink-0 text-brand-red" />
                 <span className="flex flex-col">
                   <span className="text-14 font-medium text-foreground">毕业审稿</span>
-                  <span className="text-12 text-muted-foreground">毕业论文预审,按学位标准评议</span>
+                  <span className="text-12 text-muted-foreground">学位论文预审,按学位标准评议</span>
                 </span>
               </Link>
             </div>

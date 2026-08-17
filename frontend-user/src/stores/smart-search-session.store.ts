@@ -9,9 +9,8 @@ import { create } from 'zustand';
  *   会话列表在 SearchSidebar(页面左栏),聊天在 SmartSearchPanel(SearcherColumn 内),新对话
  *   按钮在 SearcherColumn header。本地 state 无法跨这三处,故用一个极小的 zustand slice 协调。
  *
- * 生命周期:不持久化(与 claw 的「每次进页面 adopt 最近会话」一致)。SmartSearchPanel 卸载
- *   (= 离开 /search)时 reset(),下次进来 activeSessionId=null → panel 的 didInitialSelect 采用
- *   sessions[0](最近活跃)。切会话 / 新对话 / 懒建都只改这里,panel 与 sidebar 都订阅它。
+ * 生命周期:不持久化。SmartSearchPanel 卸载(= 离开 /search)时 reset(),下次进来 activeSessionId=null
+ *   → 默认 hero 空态 + 底部会话历史。切会话 / 新对话 / 懒建都只改这里,panel 与 sidebar 都订阅它。
  *
  * busy 由 SmartSearchPanel 每轮同步进来 —— 供 header 的「新对话」按钮做 disabled(回答中不给切)。
  */
@@ -20,8 +19,11 @@ interface SmartSearchSessionState {
   activeSessionId: string | null;
   /** 当前会话是否正在生成回答(panel 同步)。 */
   busy: boolean;
+  /** 是否已进入对话态(有消息 / 选中历史会话 / 加载中)—— SearchPage 据此切换全宽 hero vs 窄列聊天。 */
+  conversationActive: boolean;
   setActiveSessionId: (id: string | null) => void;
   setBusy: (b: boolean) => void;
+  setConversationActive: (active: boolean) => void;
   /** panel 卸载时复位(离开 /search),避免陈旧 id 跨页面残留。 */
   reset: () => void;
 }
@@ -29,7 +31,9 @@ interface SmartSearchSessionState {
 export const useSmartSearchSessionStore = create<SmartSearchSessionState>((set) => ({
   activeSessionId: null,
   busy: false,
+  conversationActive: false,
   setActiveSessionId: (id) => set({ activeSessionId: id }),
   setBusy: (b) => set({ busy: b }),
-  reset: () => set({ activeSessionId: null, busy: false }),
+  setConversationActive: (active) => set({ conversationActive: active }),
+  reset: () => set({ activeSessionId: null, busy: false, conversationActive: false }),
 }));

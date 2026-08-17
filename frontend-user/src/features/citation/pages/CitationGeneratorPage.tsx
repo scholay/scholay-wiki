@@ -20,6 +20,7 @@ import {
 } from '@/shared/lib/citation';
 import { cn } from '@/shared/lib/utils';
 import { copyToClipboard } from '@/shared/lib/clipboard';
+import { useSiteSupportEmail } from '@/shared/api/public-config';
 import { fetchCrossrefByDoi } from '../lib/crossref';
 
 /**
@@ -45,11 +46,14 @@ function authorsToList(input: string): CitationPaper['authors'] {
 
 export function CitationGeneratorPage() {
   const [mode, setMode] = useState<'doi' | 'manual'>('doi');
+  // Crossref 礼貌池邮箱用本环境自己的 SUPPORT_EMAIL,不再共用一个写死的地址
+  // (Crossref 按 email 维度限速,共用会让一套环境的批量测试拖累其它所有环境)。
+  const politeEmail = useSiteSupportEmail();
 
   // ── DOI 模式 ──
   const [doiInput, setDoiInput] = useState('');
   const resolve = useMutation({
-    mutationFn: (doi: string) => fetchCrossrefByDoi(doi),
+    mutationFn: (doi: string) => fetchCrossrefByDoi(doi, politeEmail),
     onError: (err) => toast.error((err as Error).message || '解析失败'),
   });
 
@@ -243,7 +247,7 @@ function CitationResult({ paper }: { paper: CitationPaper }) {
             className={cn(
               'h-7 px-3 rounded-8 text-12 font-medium transition-colors',
               format === f
-                ? 'bg-foreground text-on-dark'
+                ? 'bg-inverse text-on-inverse'
                 : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
             )}
             title="单击切换 · 双击设为默认"

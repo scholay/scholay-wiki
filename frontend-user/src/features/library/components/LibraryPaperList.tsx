@@ -1,17 +1,17 @@
 import { useMemo } from 'react';
-import { ArrowDown, ArrowUp, Inbox, Loader2 } from 'lucide-react';
+import { Inbox, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import type { UserLibraryPaper } from '@/shared/api/types';
-import type { LibraryFolderFilter, LibrarySortOrder } from '../api/papers';
+import type { LibraryFolderFilter } from '../api/papers';
 import type { LibrarySelectionApi } from '../hooks/useLibrarySelection';
 import { LibraryPaperRow } from './paper-row/LibraryPaperRow';
 
 /**
  * 文件夹内的论文列表 —— **纯展示**:papers / 文件夹 / 选择状态全从 props 进来。
- * 选择状态由父级 LibraryFolderView 持有(`useLibrarySelection`),批量操作 toolbar
- * 也在父级外层 header 渲染,本组件只负责行 + 分页 + 跨页统计。
+ * 选择状态由父级 LibraryFolderView 持有(`useLibrarySelection`),批量操作
+ * 在父级底栏渲染,本组件只负责行 + 分页。
  *
  * 行内交互(LibraryPaperRow)与子组件(AuthorsRow / MetaRow / StatusRow)
  * 都拆到 paper-row/ 子目录,避免本文件膨胀(原 798 行 → 现 ~120 行)。
@@ -28,13 +28,11 @@ interface Props {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
-  /** 排序方向 —— 当前后端仅 created_at 维度,只切方向 */
-  sortOrder: LibrarySortOrder;
-  /** 顶部"排序"按钮点击 —— 父级翻转方向 */
-  onToggleSortOrder: () => void;
+  /** 矩阵对齐时分页挪到列表外 footer,避免撑高滚动区。 */
+  hidePagination?: boolean;
 }
 
-const LIBRARY_PAGE_SIZE_OPTIONS = [20, 50] as const;
+export const LIBRARY_PAGE_SIZE_OPTIONS = [20, 50] as const;
 
 export function LibraryPaperList({
   papers,
@@ -47,20 +45,8 @@ export function LibraryPaperList({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  sortOrder,
-  onToggleSortOrder,
+  hidePagination = false,
 }: Props) {
-  // 头部「已上传 PDF」计数 —— 口径必须与行内 PdfChip 一致(看 pdf_uploaded_at,
-  // 即用户上传到 MinIO 的文件),不能用 pdf_url(那是收藏时带来的在线 OA 直链,
-  // 有直链但未上传 PDF 的行会被误计,与同页 chip 显示"缺失"自相矛盾)。
-  const pdfStats = useMemo(() => {
-    let uploaded = 0;
-    for (const p of papers) {
-      if (p.pdf_uploaded_at) uploaded += 1;
-    }
-    return { uploaded };
-  }, [papers]);
-
   // 当前页所有 venue —— 批量查 journal enrichment(JCR/IF/CCF 等)
   const pageVenues = useMemo(
     () =>
@@ -105,48 +91,6 @@ export function LibraryPaperList({
 
   return (
     <div className="flex flex-col px-8">
-      {/* inner header —— 跨页统计 + 本页 PDF 计数 + 排序/视图描述
-          注:total 是跨页总数,pdfStats 是本页统计(分页下只反映本页) */}
-      <header className="flex items-center justify-between gap-3 pt-1 pb-2">
-        <div className="flex items-center gap-2.5 text-12">
-          <span className="font-medium text-foreground">
-            共 {total.toLocaleString()} 篇
-          </span>
-          {papers.length > 0 && (
-            <>
-              <span className="text-border-strong">·</span>
-              <span className="text-faint">
-                本页{' '}
-                <span className="tabular-nums">{papers.length}</span> 篇 · PDF{' '}
-                <span className="tabular-nums">{pdfStats.uploaded}</span> /{' '}
-                <span className="tabular-nums">{papers.length}</span>
-              </span>
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-3 text-12 text-subtle">
-          {/* 排序按钮 —— 当前仅一个维度 "加入时间",点击翻转 asc/desc;
-              "视图: 列表" 标识已删除(本就只有列表一种视图) */}
-          <button
-            type="button"
-            onClick={onToggleSortOrder}
-            className="inline-flex items-center gap-1 h-6 px-2 rounded-8 hover:bg-surface-1 hover:text-foreground transition-colors"
-            title={
-              sortOrder === 'asc'
-                ? '当前升序(早加入在前),点击切降序'
-                : '当前降序(最新在前),点击切升序'
-            }
-          >
-            <span>排序: 加入时间</span>
-            {sortOrder === 'asc' ? (
-              <ArrowUp className="size-3" strokeWidth={2.5} />
-            ) : (
-              <ArrowDown className="size-3" strokeWidth={2.5} />
-            )}
-          </button>
-        </div>
-      </header>
-
       {/* onToggle 直接传 selection.toggle(它是稳定的 useCallback)—— 行内不 inline lambda,
           memo 化的 LibraryPaperRow 在翻页 / 单行选区变化时 0 重渲未变行 */}
       <ul className="divide-y divide-border-soft">
@@ -166,7 +110,8 @@ export function LibraryPaperList({
 
       {/* 分页器 —— 抽到 shared/components/PaginationPrevNext;
           全单页 + 小数据量时不渲染(干净点) */}
-      {!(total <= LIBRARY_PAGE_SIZE_OPTIONS[0] && total <= pageSize) && (
+      {!hidePagination &&
+        !(total <= LIBRARY_PAGE_SIZE_OPTIONS[0] && total <= pageSize) && (
         <PaginationPrevNext
           page={page}
           onPageChange={onPageChange}

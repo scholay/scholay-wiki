@@ -50,7 +50,8 @@ func (h *Handler) GetSession(c *gin.Context) {
 		utils.InternalError(c, codeAgentUnreachable, "制作PPT暂时不可用,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 附带首连 ws ticket(best-effort),省掉前端首连前的 POST /session/ws-ticket 一跳。
+	utils.Success(c, agentbridge.SessionEnvelopeWithTicket(c.Request.Context(), h.feature, userID, sessionID))
 }
 
 func (h *Handler) ResetSession(c *gin.Context) {
@@ -197,7 +198,8 @@ func (h *Handler) CreateNewSession(c *gin.Context) {
 		utils.InternalError(c, codeAgentUnreachable, "新建会话失败,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 建后必连:附首连 ws ticket 省一跳 POST(best-effort)。
+	utils.Success(c, agentbridge.SessionEnvelopeWithTicket(c.Request.Context(), h.feature, userID, sessionID))
 }
 
 func (h *Handler) RenameSession(c *gin.Context) {
@@ -258,7 +260,8 @@ func (h *Handler) ActivateSession(c *gin.Context) {
 		utils.InternalError(c, codeAgentUnreachable, "切换会话失败,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": sessionID})
+	// 切会话后 WS 必重连:附首连 ws ticket 省一跳 POST。
+	utils.Success(c, agentbridge.SessionEnvelopeWithTicket(c.Request.Context(), h.feature, userID, sessionID))
 }
 
 // ExportPptx — POST /user/boltslides/session/export-pptx {session_id, path}

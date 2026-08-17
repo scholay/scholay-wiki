@@ -61,6 +61,22 @@ type PreUserMessageFn func(ctx context.Context, userID uint, content string) err
 // 行为不变。只读、不预扣;计费仍走后置 AddUsage 精确累加。
 type BudgetProviderFn func(ctx context.Context, userID uint) (soft, hard int64, unlimited bool)
 
+// TurnCostCapFn(逐帧硬闸)返回该用户此刻的**单轮成本硬顶**(微元真实成本)。
+//
+// 与 BudgetProviderFn 的区别是**谁执法**,不是算法:
+//   - BudgetProviderFn 给的是 cap × turnWindDownRatio 的**收尾触发点**,盖进 user_message 帧
+//     下发给执行器,由 agent 自己优雅收尾 —— 是**建议值**,agent 不听就没辙。
+//   - 本函数给的是**未打折的硬顶**,由 hub 在轮内逐帧累计真实成本后自己执法(越顶即
+//     stop_generation)。执行器配合与否都拦得住。
+//
+// 两者刻意各取一次而不是互相推导:vip 侧 TurnCostCap 与 RemainingBudget 本就同源
+// (后者 = 前者 × 0.75),在这里再做一次 ÷0.75 反推,会让「hub 认为的硬顶」随那个比例常量
+// 悄悄漂移 —— 而那个常量是给 agent 留收尾尾巴用的,与硬闸没有语义关系。
+//
+// unlimited=true(未登录 / 收费总开关关 / 该档不限额)→ hub 不设闸。nil = 不设闸
+// (peerreview 等任务型 feature 必须跑完,由它自己的起跑闸把关)。
+type TurnCostCapFn func(ctx context.Context, userID uint) (capMicro int64, unlimited bool)
+
 // SessionProfileFn(Phase 2, prism)返回该**会话**的项目级 in-band 注入块(如 prism 的写作画像)。
 // 与 MemoryBlocks(user 级)不同:身份是 sessionID(项目级),故单开一条 provider——hub seed 时它有
 // sessionID 而 buildCreateOptions 只有 userID。返回空串 = 不注入(该会话无项目/未定画像)。
@@ -211,6 +227,11 @@ type FeatureSpec struct {
 	// BudgetProvider(SS#2)非 nil 时,hub 每条 user_message 现算「单轮预算」并盖到帧上,
 	// 执行器据此让 agent 自我配速 + 到界优雅收尾。nil = 不盖(peerreview 任务型,必须跑完)。
 	BudgetProvider BudgetProviderFn
+
+	// TurnCostCap(逐帧硬闸)非 nil 时,hub 在 beginTurn 现算本轮硬顶,并用执行器逐帧上报的
+	// turn_usage_delta 在**轮内**累计真实成本;越顶即向 agent 发 stop_generation。
+	// nil = 不设闸(行为与本机制上线前逐字相同)。
+	TurnCostCap TurnCostCapFn
 
 	// OnMessageComplete 在每轮 agent 回答完 (拿到 message_complete) 后异步调用。
 	// nil → 不记账 (usage 仅在 agent 端 transcript 留底)。

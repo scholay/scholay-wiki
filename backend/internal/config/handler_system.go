@@ -6,6 +6,7 @@
 package config
 
 import (
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 
@@ -16,6 +17,14 @@ const publicSystemConfigCacheControl = "public, max-age=60, must-revalidate"
 
 func setPublicSystemConfigCache(c *gin.Context) {
 	c.Header("Cache-Control", publicSystemConfigCacheControl)
+}
+
+// supportEmail 本环境的客服邮箱(env SUPPORT_EMAIL)。AppConfig 未初始化(单测)时返回空串。
+func supportEmail() string {
+	if appconfig.AppConfig == nil {
+		return ""
+	}
+	return appconfig.AppConfig.ExternalServices.SupportEmail
 }
 
 // GetSystemConfig handles getting system configuration (public endpoint)
@@ -49,8 +58,13 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 		"turnstile_site_key":         config.TurnstileSiteKey,
 		"turnstile_secret_key":       turnstileSecretKey,
 		"google_analytics_id":        config.GoogleAnalyticsID,
-		"created_at":                 config.CreatedAt,
-		"updated_at":                 config.UpdatedAt,
+		// 客服邮箱下发给前端(env SUPPORT_EMAIL,非机密)。
+		// 前端此前把 support@<品牌域> 写死成兜底常量,而兜底只在「后台客服配置为空」时
+		// 生效 —— 恰恰是全新环境的必然状态,于是每个新环境都会把用户导向另一个站点的
+		// 客服信箱。改由本环境自己的配置下发,空则前端不显示邮箱入口。
+		"support_email": supportEmail(),
+		"created_at":    config.CreatedAt,
+		"updated_at":    config.UpdatedAt,
 	}
 
 	// 每个 provider 的"可用"判定: enabled=true AND 全部必备凭据非空。

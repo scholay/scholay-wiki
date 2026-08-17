@@ -157,7 +157,11 @@ func (s *Service) ensureReviewBudget(ctx context.Context, userID uint64) error {
 	}
 	slog.Info("peerreview: 剩余额度不足以起跑一场审稿,拒绝投递",
 		"user_id", userID, "remaining_micro", remaining, "need_micro", peerreviewMinBudgetMicro)
-	return vip.NewQuotaError("剩余额度不够跑完一份完整的审稿,所以这次没有开始 —— 没有扣掉任何额度,你的稿件和填好的信息都还在。等额度自动恢复满额后再投递就行;想现在就跑,可以用 1 次重置次数、升级会员,或开启「用经费继续」(只扣超出额度的那部分)。")
+	// 文案(2026-08-13 收口):只留「没开始 / 没扣额度 / 东西还在」这三条用户猜不到的信息。
+	// 出路一律不在这里枚举 —— 旧文案把「用 1 次重置次数、升级会员、用经费继续」全列了一遍,
+	// 而这三条对具体某个用户往往有两条走不通(次数多为 0、Max 无可升)。真实可用的入口由前端
+	// 按 overview 状态出按钮,判定与对话位额度条同源。全站额度文案铁律见 vip/quota.go。
+	return vip.NewQuotaError("剩余额度不足以完成一次完整审稿,本次未开始。未扣除任何额度,稿件与已填写的信息均已保留。额度恢复后可重新投递。")
 }
 
 // VIPCheckerWired 报告配额校验器是否已注入(bootstrap 启动断言付费功能已接线)。
@@ -198,6 +202,24 @@ func (s *Service) modelFor(purpose string) string {
 
 // Broker 暴露给 handler — 单例 broker 由 service 持有,SSE 端点订阅它。
 func (s *Service) Broker() *StreamBroker { return s.broker }
+
+// setComputeStateNotify = SetComputeState + 向该 submission 当前全部 SSE 订阅者广播 state 控制帧。
+// 推送是 best-effort:没有订阅者时静默落空,DB 才是真源,错过帧由前端慢轮询兜底
+// (2026-08-12 推送化:此前前端只能 2s 轮询感知翻转,每份投稿 ~130-210 次 GET)。
+// service 内的翻转点一律走这里;repo 层的兜底路径(boot reconcile / sweeper)没有 broker,维持纯 DB 写。
+func (s *Service) setComputeStateNotify(submissionID uint64, state, errMsg string) error {
+	err := s.repo.SetComputeState(submissionID, state, errMsg)
+	if err == nil {
+		s.broker.BroadcastAll(submissionID, StreamEvent{Phase: StreamPhaseState, ComputeState: state})
+	}
+	return err
+}
+
+// notifyReportReady 广播「role 报告已落库」控制帧 —— 必须在 UpsertReport 成功**之后**调,
+// 前端收帧即 invalidate reports 查询,拿到的一定是已可读的 DB 行。
+func (s *Service) notifyReportReady(submissionID uint64, role string) {
+	s.broker.BroadcastAll(submissionID, StreamEvent{Phase: StreamPhaseReportReady, Role: role})
+}
 
 // BucketName 暴露 MinIO bucket 名 — DownloadAssets handler 流式打包 zip 时用。
 func (s *Service) BucketName() string { return s.bucket() }
@@ -1157,8 +1179,10 @@ func (s *Service) AdvanceStep(ctx context.Context, userID, submissionID uint64, 
 		if !won {
 			return nil, errors.New("当前正在计算中, 请稍候")
 		}
+		// 抢到计算权 = computeState 已翻转,同样广播 state 控制帧(与 setComputeStateNotify 同语义)。
+		s.broker.BroadcastAll(submissionID, StreamEvent{Phase: StreamPhaseState, ComputeState: to})
 		release := func() {
-			if e := s.repo.SetComputeState(submissionID, StateIdle, ""); e != nil {
+			if e := s.setComputeStateNotify(submissionID, StateIdle, ""); e != nil {
 				slog.Error("peerreview: 向导计算权释放失败(会卡在 computing 但无人在跑)",
 					"submission_id", submissionID, "err", e)
 			}
@@ -1224,7 +1248,7 @@ func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission,
 		// 因为上次成功后 goroutine 已经回填过)。
 		// 归还计算权(审计 P1-8):调用方为抢并发把 compute_state 置成了 computing_meta,
 		// 而这条分支不跑 LLM、没有 goroutine 会去清它 —— 不还就永远卡在「计算中」。
-		if err := s.repo.SetComputeState(sub.ID, StateIdle, ""); err != nil {
+		if err := s.setComputeStateNotify(sub.ID, StateIdle, ""); err != nil {
 			return nil, err
 		}
 		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 2}); err != nil {
@@ -1241,7 +1265,7 @@ func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission,
 	if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 2}); err != nil {
 		return nil, err
 	}
-	if err := s.repo.SetComputeState(sub.ID, StateComputingMeta, ""); err != nil {
+	if err := s.setComputeStateNotify(sub.ID, StateComputingMeta, ""); err != nil {
 		return nil, err
 	}
 
@@ -1318,7 +1342,7 @@ func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission,
 	if cache != nil && cache.InputFingerprint == fingerprint {
 		// 命中: 已经写过 letter_body 到 submission, 直接转 step=3
 		// 归还计算权(审计 P1-8,同 advanceTo2 的红字):这条分支不跑 LLM,没人会清 computing_letter。
-		if err := s.repo.SetComputeState(sub.ID, StateIdle, ""); err != nil {
+		if err := s.setComputeStateNotify(sub.ID, StateIdle, ""); err != nil {
 			return nil, err
 		}
 		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 3}); err != nil {
@@ -1331,7 +1355,7 @@ func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission,
 	if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 3}); err != nil {
 		return nil, err
 	}
-	if err := s.repo.SetComputeState(sub.ID, StateComputingLetter, ""); err != nil {
+	if err := s.setComputeStateNotify(sub.ID, StateComputingLetter, ""); err != nil {
 		return nil, err
 	}
 
@@ -1442,7 +1466,7 @@ func capManuscriptForContext(text string) (string, bool) {
 
 func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
 	failure := func(reason string) {
-		_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
+		_ = s.setComputeStateNotify(submissionID, StateFailed, reason)
 		s.broker.Fail(submissionID, SlotMeta, reason)
 	}
 	// panic 兜底: 否则 compute_state 永远卡在 computing_meta —— 前端按钮禁用 + AdvanceStep 400,
@@ -1561,7 +1585,7 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 	if len(fields) > 0 {
 		_ = s.repo.PatchSubmission(submissionID, fields)
 	}
-	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+	_ = s.setComputeStateNotify(submissionID, StateIdle, "")
 	s.broker.Done(submissionID, SlotMeta)
 }
 
@@ -1572,7 +1596,7 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 // (前置依赖: advanceTo3 的 safety check 保证 assets 没变, 会话里的稿件头仍是当前版本。)
 func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
 	failure := func(reason string) {
-		_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
+		_ = s.setComputeStateNotify(submissionID, StateFailed, reason)
 		s.broker.Fail(submissionID, SlotLetter, reason)
 	}
 	// panic 兜底: 否则 compute_state 永远卡在 computing_letter (同 runMetaExtract)。
@@ -1643,7 +1667,7 @@ func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessi
 		PayloadJSON:      payload,
 	})
 	_ = s.repo.PatchSubmission(submissionID, map[string]any{"letter_body": body})
-	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+	_ = s.setComputeStateNotify(submissionID, StateIdle, "")
 	s.broker.Done(submissionID, SlotLetter)
 }
 
@@ -1725,7 +1749,7 @@ func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, e
 		revert()
 		return nil, err
 	}
-	_ = s.repo.SetComputeState(id, StateReviewing, "")
+	_ = s.setComputeStateNotify(id, StateReviewing, "")
 
 	// 异步跑 agent — 用 safego 包一层 recover,避免 panic 把主进程带崩
 	safego.Go(fmt.Sprintf("peerreview-runner-%d", id), func() {
@@ -1775,7 +1799,7 @@ func (s *Service) RetryReview(ctx context.Context, userID, id uint64) (*Submissi
 		revert()
 		return nil, fmt.Errorf("agent session: %w", err)
 	}
-	_ = s.repo.SetComputeState(id, StateReviewing, "")
+	_ = s.setComputeStateNotify(id, StateReviewing, "")
 	safego.Go(fmt.Sprintf("peerreview-retry-%d", id), func() {
 		s.runReviewBackground(id, sessionID)
 	})
@@ -1887,7 +1911,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	//
 	// 挑审稿人已从后端 Go(原 4 个 PersonaRandomPicker + feature_prompts DB)整体移进 agent;
 	// 返回的 choices 恒为 3 位 ReviewerChoice(选择失败自动退化到内置三人格), 永不 hard-fail。
-	_ = s.repo.SetComputeState(submissionID, StateComputingMethodology, "")
+	_ = s.setComputeStateNotify(submissionID, StateComputingMethodology, "")
 	// 把投稿人长期记忆(画像/偏好)作为背景注入「方法论分析」这一用户向步骤(帮助理解论文所属
 	// 领域/作者水平)。注意:只注入方法论会话,**不进入审稿人盲评打分**——methodology 产出的是
 	// 分析文本而非原始记忆,commonContext 据此不含用户画像,保持评分客观(融合进智能审稿,但不偏审)。
@@ -1904,7 +1928,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		methodology, choices, methTokens = s.runMethodologyPhase(ctx, submissionID, files, memCtx)
 		reviewTokens += methTokens
 	}
-	_ = s.repo.SetComputeState(submissionID, StateReviewing, "")
+	_ = s.setComputeStateNotify(submissionID, StateReviewing, "")
 
 	// 把抽好的正文作为**一条** preamble 注入共享 session(只此一次);随后审稿人/主审的每轮都只把它当作
 	// 已在上文的稳定前缀(prompt-cache 命中走 cache-read 折扣),不再各自重读。注入失败 → 清空回退到 ReadDocument。
@@ -1965,6 +1989,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 				fmt.Errorf("save role=%s report: %w", role, err))
 			return
 		}
+		s.notifyReportReady(submissionID, role)
 		if ok {
 			reviewerOutputs[role] = out
 		}
@@ -1974,10 +1999,12 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// chief — 把 3 份 reviewer JSON 拼成上下文, 让主审能逐位回应。chief 人格固定(内置 const)。
 	chiefSlot := ReviewerSlot("chief")
 	// P0 止血(债#4):chief 已持久化(crash 在 chief upsert 与 MarkCompleted 之间)→ 直接收尾,不重跑。
+	// 顺序铁律:**先写库后 Done**(与 runMetaExtract/runLetterDraft 一致)—— done 帧会让前端
+	// 立即 refetch,若终局 UPDATE 还没落库,refetch 读到 reviewing 只能等 15s 兜底轮询纠正。
 	if _, err := s.repo.GetReportByRole(submissionID, "chief"); err == nil {
-		s.broker.Done(submissionID, chiefSlot)
 		_ = s.repo.MarkCompleted(submissionID)
-		_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+		_ = s.setComputeStateNotify(submissionID, StateIdle, "")
+		s.broker.Done(submissionID, chiefSlot)
 		return
 	}
 	chiefPrompt := buildChiefPrompt(commonContext, reviewerOutputs)
@@ -1994,10 +2021,11 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		s.failUser(submissionID, chiefSlot, "保存审稿结果失败,请稍后重试", fmt.Errorf("save chief report: %w", err))
 		return
 	}
-	s.broker.Done(submissionID, chiefSlot)
-
+	s.notifyReportReady(submissionID, "chief")
+	// 先写终局库再发 done 帧(顺序铁律,同上):done 触发的 refetch 必须能读到 completed/idle。
 	_ = s.repo.MarkCompleted(submissionID)
-	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+	_ = s.setComputeStateNotify(submissionID, StateIdle, "")
+	s.broker.Done(submissionID, chiefSlot)
 
 	// 审稿完成后,把投稿人的长期记忆「抽取」任务推给 agent 执行(server-side 路径:新开一条到该会话的
 	// WS 发 extract_memory 帧,无前端连接 → 不 displacement)。best-effort、独立 goroutine + 自带 ctx,
@@ -2133,6 +2161,8 @@ func (s *Service) skipRemainingReviewers(submissionID uint64, roles []string) {
 		if err := s.repo.UpsertReport(rep); err != nil {
 			slog.Warn("peerreview skip-reviewer placeholder save failed",
 				"submission_id", submissionID, "role", role, "err", err)
+		} else {
+			s.notifyReportReady(submissionID, role)
 		}
 		s.broker.Done(submissionID, slot)
 	}
@@ -2252,7 +2282,7 @@ func (s *Service) buildReportFromChief(submissionID uint64, out *ChiefOutput, ok
 
 func (s *Service) markFailedAndLog(submissionID uint64, reason string) {
 	_ = s.repo.MarkFailed(submissionID, reason)
-	_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
+	_ = s.setComputeStateNotify(submissionID, StateFailed, reason)
 }
 
 // failUser 审稿失败统一收口: 原始错误(agent/存储/JSON 解析等内部细节)只进日志,
@@ -2260,8 +2290,9 @@ func (s *Service) markFailedAndLog(submissionID uint64, reason string) {
 // 避免把 "agent chat role=alpha reviewer=...: <raw>" 这类内部串漏给用户。
 func (s *Service) failUser(submissionID uint64, slot, friendly string, raw error) {
 	slog.Error("peerreview failed", "submission_id", submissionID, "slot", slot, "err", raw)
-	s.broker.Fail(submissionID, slot, friendly)
+	// 先写失败库再发 error 帧(顺序铁律,同 chief 收尾):error 帧触发的 refetch 必须能读到 failed。
 	s.markFailedAndLog(submissionID, friendly)
+	s.broker.Fail(submissionID, slot, friendly)
 }
 
 

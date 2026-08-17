@@ -8,9 +8,9 @@ import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
 import { TruncatedText } from '@/shared/components/TruncatedText';
 import {
   useApiToast,
-  useOpenJournalInBrowser,
-  useOpenPaperInBrowser,
-  useOpenPdfInBrowser,
+  useOpenJournalDetail,
+  useOpenPaperDetail,
+  useOpenPdfDetail,
 } from '@/shared/hooks';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 import {
@@ -78,9 +78,9 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
   selected,
   onToggle,
 }: RowProps) {
-  const openPaper = useOpenPaperInBrowser();
-  const openJournal = useOpenJournalInBrowser();
-  const openPdf = useOpenPdfInBrowser();
+  const openPaper = useOpenPaperDetail();
+  const openJournal = useOpenJournalDetail();
+  const openPdf = useOpenPdfDetail();
 
   // AI 翻译:与搜索页 DefaultCard 同款
   const [zh, setZh] = useState<TranslatePaperResult | null>(null);
@@ -179,6 +179,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
 
   return (
     <li
+      data-paper-row={paper.source_paper_id || `lib:${paper.id}`}
       className={cn(
         // before:w-[3px] = 选中行的左侧强调竖条,对应 globals.css §十一 的 --rule-accent(3px):
         // Figma 描边只有 1 / 1.5px,3px 强调条是代码内生共识;--rule-accent 未注册成 Tailwind

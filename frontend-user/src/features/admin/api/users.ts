@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 /** 字段对齐 backend/internal/user/model.go User struct(指针字段 JSON 为 null/string) */
@@ -113,6 +113,8 @@ export interface UserListResponse {
 export function useUserList(params: UserListParams) {
   return useQuery({
     queryKey: ['admin', 'users', 'list', params],
+    // params(含 page)在 key 里,翻页保留上一页数据,避免表格塌空闪白。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = await http.get<{ data: UserListResponse }>('/admin/users', {
         params,

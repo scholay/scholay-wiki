@@ -1,24 +1,27 @@
 import {
   ArrowUpRight,
-  Download,
-  FileText,
   Loader2,
   Quote,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
+import { PdfChatPaperButton } from '@/shared/components/PdfChatPaperButton';
 import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
 import {
   needsTranslation,
   type TranslatePaperResult,
 } from '@/shared/api/translate';
-import { useOpenPdfInBrowser } from '@/shared/hooks';
+import { useOpenPdfChat } from '@/shared/hooks/useOpenInSearchPanel';
+import { paperHasReadablePdf } from '@/shared/lib/paper-pdf';
 import { cn } from '@/shared/lib/utils';
+import { usePdfChatBridge } from '@/stores/pdf-chat-bridge.store';
+import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
 import type { Paper, UserLibraryPaper } from '@/shared/api/types';
 
 /**
- * Hero 第三层 —— 我的 PDF / OA / 原始链接 / 引用 / 笔记 + 收藏 + AI 翻译。
+ * Hero 第三层 —— PDF Chat / 原始链接 / 引用 + 收藏 + AI 翻译。
  *
- * 内部一组 link 式 action(由静态数组渲染),收藏 / 翻译走对应共享组件。
+ * PDF 状态芯片(Scholay / OA / None)在 metadata「开放」行,见 PaperMetadataBlock。
  */
 export function PaperActionRow({
   paper,
@@ -35,50 +38,35 @@ export function PaperActionRow({
   onTranslated: (r: TranslatePaperResult) => void;
   onToggleZh: () => void;
 }) {
-  const pdfUrl =
-    paper.openAccessPdf?.url || (paper.isOpenAccess ? paper.url : undefined);
   const origin = paper.url;
+  const navigate = useNavigate();
+  const embedMode = useSearchRightPanelStore((s) => s.embedMode);
+  const openPdfChat = useOpenPdfChat();
+  const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
+  const beginPdfChat = usePdfChatBridge((s) => s.beginPdfChat);
 
-  const hasUploadedPdf = !!libRow?.pdf_uploaded_at;
   const isFavorited = !!libRow;
-  // 翻译按钮仅当 ORIGINAL paper 含可翻译文字时显示;不能用 displayPaper 否则
-  // 已切到中文时按钮会消失。
   const canTranslate =
     needsTranslation(paper.title) || needsTranslation(paper.abstract);
+  const needsUpload = !paperHasReadablePdf(paper, libRow);
 
-  const openPdf = useOpenPdfInBrowser();
-  const handleViewPdf = () => {
-    if (!libRow) return;
-    openPdf({ libPaperId: libRow.id, title: paper.title || '无标题' });
+  const handlePdfChat = () => {
+    if (embedMode) {
+      openPdfChat({ paperId: paper.paperId });
+      return;
+    }
+    beginPdfChat(paper);
+    setActiveFunction('pdf-chat');
+    navigate('/search?mode=smart');
   };
 
-  // 静态 link 式 actions(href / onClick 二选一,可选 primary / loading)
-  // —— 收藏 / 翻译 已下沉到 FavoritePaperButton / TranslatePaperButton,不在这里
   const actions: Array<{
     label: string;
-    icon: typeof Download;
+    icon: typeof ArrowUpRight;
     href?: string;
     onClick?: () => void;
-    primary?: boolean;
     loading?: boolean;
   }> = [
-    hasUploadedPdf
-      ? {
-          label: '查看 PDF',
-          icon: FileText,
-          onClick: handleViewPdf,
-          primary: true,
-        }
-      : null,
-    pdfUrl
-      ? {
-          label: 'OA 原文',
-          icon: Download,
-          href: pdfUrl,
-          primary: !hasUploadedPdf,
-        }
-      : null,
-    // 上游论文页 —— 用通用文案"原始链接",对终端用户不暴露 stc/olx/pmd 品牌名
     origin
       ? {
           label: '原始链接',
@@ -95,22 +83,24 @@ export function PaperActionRow({
           ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       },
     },
-    // 笔记功能暂未实现 —— 等研究论坛 / 笔记模块上线后再加回
   ].filter((a): a is NonNullable<typeof a> => a !== null);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center flex-wrap gap-x-3 gap-y-2 text-12">
-        {actions.map((a, idx) => {
+        <PdfChatPaperButton
+          onClick={handlePdfChat}
+          needsUpload={needsUpload}
+          size="md"
+        />
+
+        {actions.map((a) => {
           const Icon = a.icon;
           const inner = (
             <span
               className={cn(
-                'inline-flex items-center gap-1.5 text-12 transition-colors',
-                a.primary
-                  ? 'font-medium text-foreground hover:text-brand-red'
-                  : 'font-normal text-subtle hover:text-brand-red',
-                a.loading && 'opacity-70 cursor-not-allowed'
+                'inline-flex items-center gap-1.5 text-12 font-normal text-subtle transition-colors hover:text-brand-red',
+                a.loading && 'opacity-70 cursor-not-allowed',
               )}
             >
               {a.loading ? (
@@ -123,7 +113,7 @@ export function PaperActionRow({
           );
           return (
             <span key={a.label} className="inline-flex items-center gap-3">
-              {idx > 0 && <span className="text-border-strong">·</span>}
+              <span className="text-border-strong">·</span>
               {a.href ? (
                 <a href={a.href} target="_blank" rel="noopener noreferrer">
                   {inner}
@@ -141,7 +131,6 @@ export function PaperActionRow({
           );
         })}
 
-        {/* 收藏 —— link 变体,与上面 actions 视觉一致;非上游 source('local') 不展示 */}
         {paper.source !== 'local' && (
           <span className="inline-flex items-center gap-3">
             <span className="text-border-strong">·</span>
@@ -155,7 +144,6 @@ export function PaperActionRow({
           </span>
         )}
 
-        {/* AI 翻译 —— 仅含拉丁字母时显示 */}
         {canTranslate && (
           <span className="inline-flex items-center gap-3">
             <span className="text-border-strong">·</span>

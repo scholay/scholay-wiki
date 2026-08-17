@@ -11,6 +11,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { isMcpTool, callMcpTool } from "../mcp/mcpTools.ts";
 import { builtinRegistry } from "../tools/registry.ts";
+import { deferredMcpTools } from "../tools/toAnthropicTools.ts";
 import { toolPermitted } from "../policy/featurePolicy.ts";
 import { capToolResult } from "./resultCap.ts";
 import { ingest as ingestEvidence, annotate as annotateEvidence } from "../evidence/ledger.ts";
@@ -102,6 +103,9 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink,
         allowBash: input.allowBash,
         net: input.net,
         addDirs: input.addDirs ?? [], // Skill 工具据此定位 guides/<name>/SKILL.md
+        // 渐进披露(2026-08-14):ToolSearch/ToolInvoke 的可见域。就地取而不逐层透传 ——
+        // mcpAnthropicTools 底下的 listTools 是**进程内缓存**,这里只是对缓存数组做一次 filter。
+        deferredTools: await deferredMcpTools(input),
         turn: turnOf(input), // read_mark 用;与 ledger.ingest 同源,避免两处各算一份而对不上
         model,
       });

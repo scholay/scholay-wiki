@@ -1,6 +1,5 @@
-import { Link } from 'react-router-dom';
 import { ArrowUpRight, Loader2, Users } from 'lucide-react';
-import { authorPath, isModifiedClick, useOpenAuthorInBrowser } from '@/shared/hooks';
+import { useOpenAuthorDetail } from '@/shared/hooks';
 import type { PaperAuthor, UpstreamSource } from '@/shared/api/types';
 import { cn } from '@/shared/lib/utils';
 import { pickAvatarColor } from './pick-avatar-color';
@@ -21,12 +20,10 @@ export function CollaboratorsCol({
   /** 本学者的 source */
   currentSource: UpstreamSource;
 }) {
-  const openAuthorInBrowser = useOpenAuthorInBrowser();
-  // <Link> 的 onClick 只做副作用(store 写 tab),导航由 <Link> 完成
-  const prepareAuthor = (a: PaperAuthor, e: React.MouseEvent) => {
-    if (isModifiedClick(e)) return;
+  const openAuthorInBrowser = useOpenAuthorDetail();
+  const openAuthor = (a: PaperAuthor) => {
     if (!a.authorId) return;
-    openAuthorInBrowser.prepare({
+    openAuthorInBrowser({
       authorId: a.authorId,
       name: a.name ?? '',
       affiliations: a.affiliations,
@@ -38,24 +35,24 @@ export function CollaboratorsCol({
     <div className="space-y-3.5">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <h2 className="font-display font-bold text-20 leading-none text-foreground">
+          <h2 className="font-display font-bold text-xl leading-none text-foreground">
             合作学者
           </h2>
           {collaborators.length > 0 && (
-            <span className="text-12 text-faint pb-0.5">
+            <span className="text-xs text-faint pb-0.5">
               Top {collaborators.length}
             </span>
           )}
         </div>
       </div>
 
-      <div className="rounded-16 bg-surface-card border border-border overflow-hidden">
+      <div className="rounded-lg bg-background border border-border overflow-hidden">
         {loading && collaborators.length === 0 ? (
           <div className="flex items-center justify-center py-8 text-faint">
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : collaborators.length === 0 ? (
-          <div className="px-4 py-8 text-center text-12 text-muted-foreground">
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
             <Users
               className="size-5 mx-auto mb-2 text-faint"
               strokeWidth={1.5}
@@ -74,7 +71,7 @@ export function CollaboratorsCol({
                 )}
               >
                 <span
-                  className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-pill text-12 font-medium text-on-brand"
+                  className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-2xs font-bold text-white"
                   style={{
                     backgroundColor: pickAvatarColor(
                       c.author.authorId ?? c.author.name ?? ''
@@ -84,30 +81,27 @@ export function CollaboratorsCol({
                   {(c.author.name?.[0] ?? '?').toUpperCase()}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-12 font-medium text-foreground truncate">
+                  <div className="text-sm font-bold text-foreground truncate">
                     {c.author.name || '未知作者'}
                   </div>
                   {c.author.affiliations?.[0] && (
-                    <div className="text-12 text-faint truncate">
+                    <div className="text-2xs text-faint truncate">
                       {c.author.affiliations[0]}
                     </div>
                   )}
                 </div>
-                <span className="text-12 text-faint shrink-0 tabular-nums">
+                <span className="text-2xs text-faint shrink-0 tabular-nums">
                   合作 {c.count} 次
                 </span>
                 {c.author.authorId && (
-                  <Link
-                    to={authorPath({
-                      authorId: c.author.authorId,
-                      source: currentSource,
-                    })!}
-                    onClick={(e) => prepareAuthor(c.author, e)}
-                    className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-8 text-faint hover:bg-surface-1 hover:text-foreground transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => openAuthor(c.author)}
+                    className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-sm text-faint hover:bg-surface-1 hover:text-foreground transition-colors"
                     aria-label="打开学者详情"
                   >
                     <ArrowUpRight className="size-3.5" strokeWidth={2} />
-                  </Link>
+                  </button>
                 )}
               </li>
             ))}

@@ -45,17 +45,36 @@ import (
 // 收口成包级常量而不是每个函数各写一份:改造前同一串样式在本文件里重复了 8 次,
 // 改配色要改 8 处,漏一处就出现「同一批 noscript 里两种正文色」。
 // ---------------------------------------------------------------------------
+// 2026-08-12 视觉改版:普通用户在 JS 到达前会真实看到这份静态兜底(与爬虫同一份 HTML,
+// 刻意不做 UA 分流),此前的裸排版被用户点名「丑」。现对齐前端设计系统的视觉语言:
+// 米白画布 #F6F4EE(bg-background)+ 白卡 #FFFFFF(surface-card)+ 16px 圆角(rounded-16)
+// + hairline 边框 rgba(31,31,35,.12)(border-border)+ 720px 阅读测量宽(max-w-reading)。
+// 【内容一字不动、链接一条不少】—— 只动排版容器,SEO 面零变化。
+// 字体族收口到画布层(ssrCanvasStyle)统一声明,子元素不再各写一份。
 const (
-	ssrBaseStyle    = `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1F1F23;"`
-	ssrHeadingStyle = `style="color: #1F1F23; border-bottom: 1px solid #DCDAD6; padding-bottom: 10px; font-size: 1.4rem;"`
-	ssrHeadingTight = `style="color: #1F1F23; border-bottom: 1px solid #DCDAD6; padding-bottom: 10px;"`
-	ssrTextStyle    = `style="color: #505059; line-height: 1.8; margin-bottom: 12px;"`
-	ssrMetaStyle    = `style="color: #6E6E78; font-size: 0.9rem; margin-bottom: 8px;"`
-	ssrSubHeadStyle = `style="color: #1F1F23; font-size: 1.1rem; margin: 16px 0 8px;"`
-	ssrListStyle    = `style="color: #505059; line-height: 1.8; padding-left: 20px;"`
-	ssrNavStyle     = `style="max-width: 1000px; margin: 4px auto 20px; padding: 12px 20px 0; border-top: 1px solid #DCDAD6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.85rem;"`
-	ssrNavListStyle = `style="list-style: none; margin: 0; padding: 0; color: #6E6E78; line-height: 2;"`
+	ssrBaseStyle    = `style="max-width: 720px; margin: 0 auto 16px; padding: 24px 28px; background: #FFFFFF; border: 1px solid rgba(31,31,35,0.12); border-radius: 16px; color: #1F1F23;"`
+	ssrHeadingStyle = `style="color: #1F1F23; font-size: 1.25rem; font-weight: 500; line-height: 1.45; margin: 0 0 12px;"`
+	ssrHeadingTight = `style="color: #1F1F23; font-size: 1.15rem; font-weight: 500; line-height: 1.45; margin: 0 0 10px;"`
+	ssrTextStyle    = `style="color: #505059; line-height: 1.8; margin: 0 0 12px;"`
+	ssrMetaStyle    = `style="color: #6E6E78; font-size: 0.9rem; margin: 0 0 8px;"`
+	ssrSubHeadStyle = `style="color: #1F1F23; font-size: 1.05rem; font-weight: 500; margin: 16px 0 8px;"`
+	ssrListStyle    = `style="color: #505059; line-height: 1.8; padding-left: 20px; margin: 0;"`
+	ssrNavStyle     = `style="max-width: 720px; margin: 8px auto 0; padding: 16px 4px 0; border-top: 1px solid rgba(31,31,35,0.08); font-size: 0.85rem;"`
+	ssrNavListStyle = `style="list-style: none; margin: 0; padding: 0; color: #6E6E78; line-height: 2.1; text-align: center;"`
+
+	// 画布:整页米白底 + 系统字体栈(含中文黑体),所有静态兜底内容都包在它里面。
+	ssrCanvasStyle = `style="min-height: 100vh; background: #F6F4EE; padding: 40px 16px 36px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;"`
 )
+
+// ssrBrandHeaderHTML 品牌头:衬线 wordmark + tagline,与 React 首屏同款视觉 ——
+// 「静态兜底 → 应用接管」读起来是同一个页面在推进,而不是两个产品。
+// 刻意不用 <h1>(每页唯一 h1 属于正文标题,有路由测试钉死);wordmark 链回首页,
+// 顺带给每个 SSR 页一条品牌内链。字体栈与前端 BrandName 同源(Playfair local 匹配
+// → Didot/Georgia 系统衬线兜底)。
+var ssrBrandHeaderHTML = `<header data-ssr-brand="true" style="max-width: 720px; margin: 0 auto 20px; text-align: center;">` +
+	`<p style="margin: 0; font-family: 'Playfair Display', Didot, Georgia, 'Times New Roman', serif; font-size: 2rem; font-weight: 500; letter-spacing: -0.03em; line-height: 1.2;"><a href="/" style="color: #1F1F23; text-decoration: none;">Scholay</a></p>` +
+	`<p style="margin: 6px 0 0; color: #6E6E78; font-size: 0.8rem;">学术搜索 · AI 审稿 · LaTeX 协作</p>` +
+	`</header>`
 
 const (
 	// indexHTMLCacheTTL is how long to cache the original index.html
@@ -228,7 +247,10 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 				var meta *seo.PaperSSRMeta
 				var resolveErr error
 				canonicalRequest := false
-				enrichmentAttempted := false
+				// onMissTerminal:on-miss 分支已进入终局 —— 要么真调了上游没拿到,
+				// 要么被闸门挡掉压根没调。两者都不该再给 SPA 200 兜底:实体不在库里,
+				// 爬虫必须收到 404 才会停止沿内链扩散(见 ssr_onmiss_gate.go 文件头)。
+				onMissTerminal := false
 				switch len(parts) {
 				case 1:
 					meta, resolveErr = h.paperSEOProvider.ResolveSlug(parts[0])
@@ -241,17 +263,19 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 							// URL 中的任意 source 触发上游回填，否则首访可污染 canonical。
 							status = http.StatusNotFound
 						} else if resolveErr == nil && meta == nil && h.paperEnricher != nil {
-							enrichmentAttempted = true
-							ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
-							var e2 error
-							if m2, enrichErr := h.paperEnricher.EnrichPaperOnMiss(ctx, source, paperID); enrichErr == nil && m2 != nil {
-								meta = m2
-							} else {
-								e2 = enrichErr
-							}
-							cancel()
-							if e2 != nil {
-								resolveErr = e2
+							onMissTerminal = true
+							if h.allowOnMissEnrich(c, "paper", source, paperID) {
+								ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+								var e2 error
+								if m2, enrichErr := h.paperEnricher.EnrichPaperOnMiss(ctx, source, paperID); enrichErr == nil && m2 != nil {
+									meta = m2
+								} else {
+									e2 = enrichErr
+								}
+								cancel()
+								if e2 != nil {
+									resolveErr = e2
+								}
 							}
 						}
 					} else {
@@ -265,7 +289,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 					case resolveErr != nil:
 						status = http.StatusServiceUnavailable
 					case meta == nil:
-						if canonicalRequest && !enrichmentAttempted {
+						if canonicalRequest && !onMissTerminal {
 							// SEO 行只是缓存，canonical 深链在未启用 on-miss 时不能据此判实体不存在。
 							// 保留 SPA 让用户端数据源继续解析，同时去掉错误的首页 canonical。
 							modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
@@ -285,7 +309,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						if canonical != "" {
 							renderPath = canonical
 						}
-						modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, renderPath)
+						modifiedHTML = injectPaperSEOMeta(modifiedHTML, h.closePaperAuthorFrontier(meta), renderPath)
 						if !meta.SEOIndexable || canonical == "" {
 							if canonical == "" {
 								// 旧 SEO 行可能没有 source。没有权威 canonical 时宁可省略，
@@ -314,7 +338,8 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 				var meta *seo.AuthorSSRMeta
 				var resolveErr error
 				canonicalRequest := false
-				enrichmentAttempted := false
+				// 与论文同口径,见上面 onMissTerminal 的说明。
+				onMissTerminal := false
 				switch len(parts) {
 				case 1:
 					meta, resolveErr = h.authorSEOProvider.ResolveAuthorSlug(parts[0])
@@ -325,17 +350,19 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						if resolveErr == nil && meta == nil && !seo.IsCanonicalSource(source) {
 							status = http.StatusNotFound
 						} else if resolveErr == nil && meta == nil && h.authorEnricher != nil {
-							enrichmentAttempted = true
-							ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
-							var e2 error
-							if m2, enrichErr := h.authorEnricher.EnrichAuthorOnMiss(ctx, source, authorID); enrichErr == nil && m2 != nil {
-								meta = m2
-							} else {
-								e2 = enrichErr
-							}
-							cancel()
-							if e2 != nil {
-								resolveErr = e2
+							onMissTerminal = true
+							if h.allowOnMissEnrich(c, "author", source, authorID) {
+								ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+								var e2 error
+								if m2, enrichErr := h.authorEnricher.EnrichAuthorOnMiss(ctx, source, authorID); enrichErr == nil && m2 != nil {
+									meta = m2
+								} else {
+									e2 = enrichErr
+								}
+								cancel()
+								if e2 != nil {
+									resolveErr = e2
+								}
 							}
 						}
 					} else {
@@ -349,7 +376,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 					case resolveErr != nil:
 						status = http.StatusServiceUnavailable
 					case meta == nil:
-						if canonicalRequest && !enrichmentAttempted {
+						if canonicalRequest && !onMissTerminal {
 							modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
 							modifiedHTML = setSSRNoindex(c, modifiedHTML)
 						} else {
@@ -367,7 +394,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 						if canonical != "" {
 							renderPath = canonical
 						}
-						modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, renderPath)
+						modifiedHTML = injectAuthorSEOMeta(modifiedHTML, h.closeAuthorWorkFrontier(meta), renderPath)
 						if !meta.SEOIndexable || canonical == "" {
 							if canonical == "" {
 								modifiedHTML = ssrCanonRe.ReplaceAllString(modifiedHTML, "")
@@ -580,7 +607,22 @@ func markSSRSEOHead(html string) string {
 	return html
 }
 
+// writeSSRHTML 是**所有** SSR 响应的唯一写出口(200 走 :541,4xx/5xx 走 :638)。
+//
+// 🔴 环境级 noindex 就钉在这里,而不是逐个页面分支加。理由:SSR 有实体页、内容页、
+// 静态品牌页、软 404、503 一堆分支,逐个加必然漏,而且以后新增分支的人不会知道要加。
+// 出口只有一个,钉在出口上就是全覆盖。
+//
+// 注入的 robots meta **刻意不带** data-seo-fallback="server" 标记 ——
+// 带了会被前端 RouteSEO 在 useLayoutEffect 里当成"服务端兜底"移除掉
+// (见 markSSRSEOHead),那样会跑 JS 的爬虫就重新看到一个可索引的页面。
 func writeSSRHTML(c *gin.Context, status int, html string) {
+	if !appconfig.RequestIndexable(c.Request.Host) {
+		// nofollow 而非 follow:非权威环境的站内链接指向的也是本环境的副本,
+		// 让爬虫顺着爬下去只会把整份重复内容都发现一遍。
+		c.Header("X-Robots-Tag", "noindex, nofollow")
+		html = upsertHeadTag(html, ssrRobotsRe, `<meta name="robots" content="noindex,nofollow">`)
+	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
 	c.String(status, html)
@@ -977,7 +1019,7 @@ func buildSSRSiteNav() string {
 		if i > 0 {
 			b.WriteString(` <li style="display: inline;">·</li> `)
 		}
-		fmt.Fprintf(&b, `<li style="display: inline;"><a href="%s" style="color: #505059;">%s</a></li>`, l[0], l[1])
+		fmt.Fprintf(&b, `<li style="display: inline;"><a href="%s" style="color: #505059; text-decoration: none;">%s</a></li>`, l[0], l[1])
 	}
 	b.WriteString(`</ul></nav>`)
 	return b.String()
@@ -991,7 +1033,13 @@ func insertNoscriptBlock(html, innerHTML string) string {
 	if innerHTML == "" {
 		return html
 	}
-	block := `<main data-ssr-static="true">` + "\n" + innerHTML + "\n" + ssrSiteNavHTML + "\n</main>"
+	// 结构:main(测试钉死的裸标记)> 画布 div(米白底+字体)> 品牌头 + 正文卡片 + 栏目导航。
+	// ⚠️ <main data-ssr-static="true"> 必须保持这个精确形态(handler_ssr_routing_test 钉死),
+	// 画布样式只能放内层 div。
+	block := `<main data-ssr-static="true">` + "\n" +
+		`<div data-ssr-canvas="true" ` + ssrCanvasStyle + `>` + "\n" +
+		ssrBrandHeaderHTML + "\n" + innerHTML + "\n" + ssrSiteNavHTML + "\n" +
+		`</div>` + "\n</main>"
 	if loc := ssrEmptyRootRe.FindStringIndex(html); loc != nil {
 		root := html[loc[0]:loc[1]]
 		if openEnd := strings.Index(root, ">"); openEnd >= 0 {
@@ -1008,6 +1056,11 @@ func insertNoscriptBlock(html, innerHTML string) string {
 func appendSSRStaticContent(html, innerHTML string) string {
 	if innerHTML == "" {
 		return html
+	}
+	// 画布改造后正文都在 <div data-ssr-canvas> 内:追加内容必须落在栏目导航之前、
+	// 画布之内 —— 插到 </main> 前会掉到画布外面变成白底裸文。
+	if idx := strings.Index(html, `<nav data-ssr-nav`); idx >= 0 {
+		return html[:idx] + innerHTML + "\n" + html[idx:]
 	}
 	if idx := strings.Index(html, "</main>"); idx >= 0 {
 		return html[:idx] + "\n" + innerHTML + "\n" + html[idx:]
@@ -2547,7 +2600,7 @@ var staticPageSEO = map[string]struct{ title, desc string }{
 		"了解 Scholay 学术:用 AI 让论文检索、分析、审稿与写作更高效的一站式科研平台,以及我们的使命与团队。",
 	},
 	"/features": {
-		"全部功能 — 智能搜索 · AI 审稿 · 智能写作 · 文献集 | Scholay 学术",
+		"全部功能 — 智能搜论文 · AI 审稿 · 智能写作 · 文献集 | Scholay 学术",
 		"Scholay 学术全部功能一览:智能论文搜索、AI 论文分析、AI 智能审稿、文献集管理、期刊查询与 LaTeX 在线写作。",
 	},
 	"/features/search": {

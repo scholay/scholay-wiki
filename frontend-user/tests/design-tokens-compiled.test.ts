@@ -152,7 +152,7 @@ describe('声称「已注册」的 token 必须真的产出工具类', () => {
   // 凡是写进 CLAUDE.md「以下是全部可用」的,都必须在这里过一遍。
   it.each([
     ['颜色 · surface', ['bg-background', 'bg-surface-card', 'bg-surface-1', 'bg-surface-2', 'bg-amber-soft']],
-    ['颜色 · 文字', ['text-foreground', 'text-subtle', 'text-muted-foreground', 'text-faint', 'text-on-brand', 'text-on-dark']],
+    ['颜色 · 文字', ['text-foreground', 'text-subtle', 'text-muted-foreground', 'text-faint', 'text-on-brand', 'text-on-dark', 'bg-inverse', 'text-on-inverse']],
     ['颜色 · 边框', ['border-border', 'border-border-hairline', 'border-border-strong', 'border-border-control']],
     ['颜色 · 品牌', ['bg-brand-red', 'bg-brand-green', 'bg-brand-amber']],
     ['颜色 · 状态', ['bg-status-success', 'bg-status-error', 'bg-status-warning', 'text-status-info']],

@@ -15,7 +15,6 @@ import { RightRailPanel } from '../components/wizard/RightRailPanel';
 import { Step4Rail } from '../components/wizard/Step4Rail';
 import { SubmitQuotaHint } from '../components/wizard/SubmitQuotaHint';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
-import { http } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
 import {
   isQuotaHandled,
@@ -29,11 +28,11 @@ import {
   useSubmissionAssets,
   useSubmitSubmission,
   useUploadAsset,
+  uploadSubmissionAsset,
   type UploadAssetParams,
 } from '../api/submissions';
-import { unwrap } from '../api/_unwrap';
 import { extractPartialMeta, useStreamingPartial } from '../api/stream';
-import type { ExtraMeta, JournalTarget, SubmissionAsset, WizardStep } from '@/shared/lib/peer-review/types';
+import type { ExtraMeta, JournalTarget, WizardStep } from '@/shared/lib/peer-review/types';
 
 const SUBKEY = (...rest: (string | number)[]) =>
   ['peer-review', 'submissions', ...rest] as const;
@@ -52,7 +51,8 @@ const TIPS: Record<WizardStep, { title: string; bullets: string[] }> = {
       '点击下一步,AI 会自动识别标题、摘要、关键词',
       '正文推荐 .docx 或 PDF · 图表、数据、投稿信草稿放到「附件」',
       '保护双盲评审:请提前脱敏作者姓名、单位、基金号',
-      '稿件 ≤ 200 MB · 附件最多 10 个 · 单个附件 ≤ 200 MB',
+      // 与 UploadStep 的 MAIN_MAX/ATT_MAX(后端 MaxManuscriptBytes/MaxAttachmentBytes)保持一致
+      '稿件 ≤ 50 MB · 附件最多 10 个 · 单个附件 ≤ 30 MB',
     ],
   },
   2: {
@@ -124,8 +124,10 @@ export function JournalWizardPage() {
   const { data: latestDraft, isLoading: latestLoading } = useLatestDraft('journal');
   useEffect(() => {
     if (!id && latestDraft) {
+      // 侧栏 / Hub 进第一屏永远落 Step 1(居中上传)。未完成草稿只带回 id,
+      // 不跳到上次离开的步;「继续投稿」带 ?id 的链接仍由下面 effect 恢复进度。
       setParams(
-        { id: String(latestDraft.id), step: String(latestDraft.step) },
+        { id: String(latestDraft.id), step: '1' },
         { replace: true }
       );
     }
@@ -152,19 +154,12 @@ export function JournalWizardPage() {
   //   3. 路由 ?id=N 让 wizard 后续走标准路径
   //
   // 用单个 mutation 包住,前端 loading 状态完整覆盖整段流程。
+  const [lazyProgress, setLazyProgress] = useState<number | null>(null);
   const lazyUploadMut = useMutation({
     mutationFn: async (params: UploadAssetParams) => {
       const draft = await createMut.mutateAsync('journal');
-      const fd = new FormData();
-      fd.append('file', params.file);
-      fd.append('role', params.role);
-      if (params.category) fd.append('category', params.category);
-      const r = await http.post<{ data?: SubmissionAsset } & Partial<SubmissionAsset>>(
-        `/user/peer-review/submissions/${draft.id}/assets`,
-        fd,
-        { headers: { 'Content-Type' : 'multipart/form-data' } }
-      );
-      const asset = unwrap<SubmissionAsset>(r.data);
+      setLazyProgress(0);
+      const asset = await uploadSubmissionAsset(draft.id, params, setLazyProgress);
       // 让后续 useSubmission / useSubmissionAssets / latestDraft 都看到新数据
       qc.invalidateQueries({ queryKey: SUBKEY('detail', draft.id) });
       qc.invalidateQueries({ queryKey: SUBKEY('assets', draft.id) });
@@ -172,6 +167,7 @@ export function JournalWizardPage() {
       setParams({ id: String(draft.id), step: '1' }, { replace: true });
       return asset;
     },
+    onSettled: () => setLazyProgress(null),
     onError: (e) => toast.error(`上传失败:${(e as Error).message}`),
   });
 
@@ -286,6 +282,7 @@ export function JournalWizardPage() {
     return (
       <EmptyJournalWizard
         uploadPending={lazyUploadMut.isPending || createMut.isPending}
+        uploadProgress={lazyProgress}
         onUpload={(p) => lazyUploadMut.mutate(p)}
       />
     );
@@ -449,6 +446,7 @@ export function JournalWizardPage() {
         <UploadStep
           assets={assets}
           uploadPending={uploadMut.isPending}
+          uploadProgress={uploadMut.uploadProgress}
           onUpload={(p) => uploadMut.mutate(p)}
           deletePending={deleteAssetMut.isPending}
           onDelete={(aid) =>
@@ -587,9 +585,11 @@ function arrEq(a?: string[], b?: string[]) {
  */
 function EmptyJournalWizard({
   uploadPending,
+  uploadProgress,
   onUpload,
 }: {
   uploadPending: boolean;
+  uploadProgress?: number | null;
   onUpload: (p: UploadAssetParams) => void;
 }) {
   return (
@@ -602,6 +602,7 @@ function EmptyJournalWizard({
       <UploadStep
         assets={[]}
         uploadPending={uploadPending}
+        uploadProgress={uploadProgress}
         onUpload={onUpload}
         deletePending={false}
         onDelete={() => {}}

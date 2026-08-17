@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
-import { STALE_COLD, STALE_COOL, STALE_WARM } from '@/shared/lib/query-config';
+import { STALE_COLD, STALE_WARM } from '@/shared/lib/query-config';
 import type {
   Journal,
   JournalSearchResult,
@@ -47,49 +47,9 @@ export function useJournalStats() {
   });
 }
 
-// ============================================================================
-// List —— 默认按 jcr_impact_factor 倒序,首页 "热门期刊" 用
-// ============================================================================
-
-export interface JournalListOptions {
-  sortBy?: 'jcr_impact_factor' | 'openalex_h_index' | 'source_count';
-  sortDir?: 'asc' | 'desc';
-  page?: number;
-  pageSize?: number;
-  minSources?: number;
-}
-
-export function useJournalList(opts: JournalListOptions = {}) {
-  const {
-    sortBy = 'jcr_impact_factor',
-    sortDir = 'desc',
-    page = 1,
-    pageSize = 12,
-    minSources,
-  } = opts;
-  return useQuery({
-    queryKey: ['journal', 'list', sortBy, sortDir, page, pageSize, minSources] as const,
-    staleTime: STALE_COOL,
-    queryFn: async (): Promise<JournalSearchResult> => {
-      try {
-        const body: Record<string, unknown> = {
-          sort_by: sortBy,
-          sort_dir: sortDir,
-          page,
-          page_size: pageSize,
-        };
-        if (minSources) body.min_sources = minSources;
-        const { data } = await http.post<{ data: JournalSearchResult }>(
-          '/public/journals/list',
-          body
-        );
-        return data.data;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-  });
-}
+// (useJournalList 已删除 —— 2026-08-12 审计确认全仓零消费,且把 /journals/list 的
+//  原始行误标成 JournalSearchResult 而不做 normalize,是类型谎言。移动端 feed 走
+//  features/mobile/api/journal-feed.ts,列表需求回来时按那份或 useJournalSearch 重建。)
 
 // ============================================================================
 // Search —— 多维度过滤(Q 区 / IF 区间 / 出版社 / 国家等)
@@ -126,16 +86,19 @@ export interface JournalSearchOptions {
   sortDir?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;
+  /** 空态落地页关掉请求,避免未搜索就拉出默认列表。 */
+  enabled?: boolean;
 }
 
 /**
- * 期刊搜索 hook —— **始终启用**:无 keyword 也返回(按 sortBy 默认列表,
- * 配合期刊首页的"直接走结果页"心智)。
+ * 期刊搜索 hook。空查询默认不请求(enabled=false);
+ * 聚合榜单 / 已输入关键词 / 已选筛选再查。
  */
 export function useJournalSearch(opts: JournalSearchOptions) {
-  const { page = 1, pageSize = 20 } = opts;
+  const { page = 1, pageSize = 20, enabled = true } = opts;
 
   return useQuery({
+    enabled,
     queryKey: [
       'journal',
       'search',
@@ -163,6 +126,8 @@ export function useJournalSearch(opts: JournalSearchOptions) {
       pageSize,
     ] as const,
     staleTime: STALE_WARM,
+    // 翻页/改筛选都会换 key;保留上一页数据避免结果区塌空闪白(SEO 入口页,感知最重)。
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<JournalSearchResult> => {
       try {
         const body: Record<string, unknown> = {

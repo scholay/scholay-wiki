@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { useAuthStore } from '@/stores/auth.store';
 import type {
   UpstreamSource,
@@ -87,5 +88,23 @@ export function useLibraryFoldersSummary() {
         throw toApiError(err);
       }
     },
+  });
+}
+
+export function useRenameLibraryFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { id: number; name: string }) => {
+      try {
+        const { data } = await http.patch<{ data: UserLibraryFolderItem }>(
+          `/user/library/folders/${vars.id}`,
+          { name: vars.name },
+        );
+        return data.data;
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+    onSuccess: () => invalidateLibrary(qc),
   });
 }

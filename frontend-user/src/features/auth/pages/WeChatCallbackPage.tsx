@@ -4,8 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import {
+  consumeInvitationCode,
+  peekInvitationCode,
+} from '@/shared/lib/auth-invitation';
 import { handleAuthSuccess } from '../api/auth';
-import { authSuccessLandingPath } from '@/shared/lib/auth-events';
 import type { AuthResponse } from '../types';
 
 /**
@@ -54,15 +57,18 @@ export function WeChatCallbackPage() {
     // 场景 2:独立打开本页(冷启动 / 复制链接)—— 按登录处理
     (async () => {
       try {
+        const invitation_code = peekInvitationCode();
         const { data } = await http.post<{ data: AuthResponse }>(
           '/user/wechat/callback',
-          { code, state }
+          { code, state, invitation_code }
         );
-        const landingPath = authSuccessLandingPath(data.data.is_new_user);
-        handleAuthSuccess(qc, data.data);
+        consumeInvitationCode();
+        handleAuthSuccess(qc, data.data, {
+          usedInvitationCode: !!invitation_code,
+        });
         setPhase('success');
         toast.success('登录成功');
-        setTimeout(() => navigate(landingPath, { replace: true }), 400);
+        setTimeout(() => navigate('/', { replace: true }), 400);
       } catch (e) {
         setPhase('error');
         setErrMsg(toApiError(e).message || '微信登录失败');
@@ -71,25 +77,24 @@ export function WeChatCallbackPage() {
   }, [params, navigate, qc]);
 
   return (
-    // min-h-dvh 不是 min-h-screen —— 后者是裸 100vh,iOS 地址栏会盖住居中内容(项目铁律:视口高度用 dvh)。
-    <div className="flex min-h-dvh items-center justify-center bg-background px-6">
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center gap-4 text-center max-w-md">
         {phase === 'loading' && (
           <>
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <p className="text-12 text-muted-foreground">正在完成微信扫码…</p>
+            <p className="text-sm text-muted-foreground">正在完成微信扫码…</p>
           </>
         )}
         {phase === 'success' && (
           <>
             <CheckCircle2 className="size-8 text-brand-green" />
-            <p className="text-12 text-foreground">扫码成功</p>
+            <p className="text-sm text-foreground">扫码成功</p>
           </>
         )}
         {phase === 'error' && (
           <>
             <AlertCircle className="size-8 text-brand-red" />
-            <p className="text-12 text-foreground">{errMsg}</p>
+            <p className="text-sm text-foreground">{errMsg}</p>
           </>
         )}
       </div>

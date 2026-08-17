@@ -1,14 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
-  AlertCircle,
-  Grid3x3,
-  Inbox,
-  Loader2,
-  Lock,
-  RefreshCw,
-  Settings2,
-} from 'lucide-react';
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+  type UIEvent,
+} from 'react';
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
+import { AlertCircle, Loader2, Lock, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
@@ -30,63 +45,253 @@ import type { Paper } from '../api/papers';
 import { useStagingActions } from '../hooks/useStagingActions';
 import { useStagingView } from '../hooks/useStagingView';
 import { useStagedFavorites } from '../hooks/useStagedFavorites';
+import { useWorkspacePapers } from '../hooks/useWorkspacePapers';
 import { useStageFly } from '@/stores/stage-fly.store';
+import {
+  folderPaperOrderKey,
+  useWorkspaceFolderUi,
+} from '@/stores/workspace-folder.store';
 import { DimensionSettingsDialog } from './DimensionSettingsDialog';
-import { StagingTabs } from './StagingTabs';
+import { WorkspaceFolderPicker } from './StagingTabs';
 import { DimensionCell } from './matrix/DimensionCell';
 import { PaperCell } from './matrix/PaperCell';
+import { SortablePaperRow } from './matrix/SortablePaperRow';
 import { MatrixMoreToolsMenu } from './matrix/MatrixMoreToolsMenu';
-import { DIM_COL_MIN_WIDTH, PAPER_COL_WIDTH } from './matrix/constants';
-// EmptyImportButton / MockMatrixPreview 仍由 WelcomeBoard(无任何 area 场景)用,
-// 这里建过区后的"空 active"状态已改为纯空白(对照本文件 165-170 行)
+import { DIM_COL_MIN_WIDTH } from './matrix/constants';
+import { PdfChatPanel } from './workspace/PdfChatPanel';
+import { CitationGraphPanel } from './workspace/CitationGraphPanel';
+import {
+  AnimatedPane,
+  ExpansionAreaOpenButton,
+  FileAreaOpenButton,
+} from './workspace/ExpansionAreaOpenDock';
+import { FunctionTabGroup } from './workspace/FunctionTabGroup';
+import {
+  ColumnResizeHandle,
+  FILE_COL_DEFAULT_PX,
+  FILE_COL_MAX_PX,
+  FILE_COL_MIN_PX,
+  startColumnResize,
+} from './workspace/ColumnResizeHandle';
+import {
+  useSearchRightPanelStore,
+  type RightPanelVariant,
+  type WorkspaceFunctionKind,
+} from '@/stores/search-right-panel.store';
+import { STAGING_FOLDER_LABEL } from '@/stores/workspace-folder.store';
+import { cn } from '@/shared/lib/utils';
 
-/**
- * 工作区右栏 = 暂存区 + 矩阵分析(.pen `d3ya3` + `YMrtV`)。
- *
- * 视觉:两块独立的列(工作区 / 矩阵分析),各自有 header / sub-header / footer。
- * 结构:**只有一张 `<table>` + sticky-left 第一列**。
- *   - 行高由同行 `<td>` 共享(原生),不需要 JS sync
- *   - 横向滚动只发生在 dim 列上,sticky-left 论文列永远可见
- *   - sticky-top 让表头(dim 名字)在纵向滚动时常驻
- *
- * Header / Footer 在 scroll 容器之外,各自 flex 分成 [left:固定宽度 paper-col]
- * 与 [right:fill],与表内 sticky-left 第一列的宽度对齐 —— 任何方向滚动
- * 都不会让外层 chrome 跑位。
- */
-interface MatrixColumnProps {
-  /** 当前激活暂存区的论文 —— 由 SearchPage 计算后传入 */
-  staged: Paper[];
+const FILE_SWITCH_H = 44;
+/** Aligns with PdfChatPanel / TabStrip `h-11` (44px). */
+export const MATRIX_HEADER_H = 44;
+export const MATRIX_FOOTER_H = 40;
+const HEADER_H = MATRIX_HEADER_H;
+const FOOTER_H = MATRIX_FOOTER_H;
+
+function heightsEqual(
+  a: Record<string, number>,
+  b: Record<string, number>,
+) {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((k) => a[k] === b[k]);
 }
 
-export function MatrixColumn({ staged }: MatrixColumnProps) {
-  const token = useAuthStore((s) => s.token);
-  const openAuthDialog = useAuthDialog((s) => s.openDialog);
-  const dimensionsQ = useAnalysisDimensions();
-  const matrixQ = useMatrixAnalysis(staged);
+/**
+ * 拓展区工作台:
+ *   左列 = 文献卡(自己的高度,不跟矩阵行走)
+ *   右列 = PDF Chat 铺满,或矩阵单元格(行高去贴左列卡片)
+ */
+export function WorkspaceStage({
+  kind,
+  staged,
+  rightHeader,
+  expansion,
+  showFileArea = true,
+  showExpansion = true,
+  fileColWidth = FILE_COL_DEFAULT_PX,
+  onFileColWidthChange,
+  panelVariant = 'search',
+}: {
+  kind: WorkspaceFunctionKind;
+  staged: Paper[];
+  rightHeader?: ReactNode;
+  /** Replaces the built-in function pane (info / shell). */
+  expansion?: ReactNode;
+  showFileArea?: boolean;
+  showExpansion?: boolean;
+  fileColWidth?: number;
+  onFileColWidthChange?: (width: number) => void;
+  panelVariant?: RightPanelVariant;
+}) {
+  const isMatrix = kind === 'matrix';
+  const syncHeights = showFileArea && showExpansion && isMatrix;
+  const paperScrollRef = useRef<HTMLDivElement>(null);
+  const dimScrollRef = useRef<HTMLDivElement>(null);
+  const syncingRef = useRef(false);
+  const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
+
+  const measureRows = useCallback(() => {
+    const root = paperScrollRef.current;
+    if (!root) return;
+    const next: Record<string, number> = {};
+    root.querySelectorAll<HTMLElement>('[data-paper-row]').forEach((el) => {
+      const id = el.dataset.paperRow;
+      if (id) next[id] = el.offsetHeight;
+    });
+    setRowHeights((prev) => (heightsEqual(prev, next) ? prev : next));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!syncHeights) return;
+    const root = paperScrollRef.current;
+    if (!root) return;
+    const ro = new ResizeObserver(measureRows);
+    ro.observe(root);
+    root.querySelectorAll('[data-paper-row]').forEach((el) => ro.observe(el));
+    measureRows();
+    return () => ro.disconnect();
+  }, [measureRows, staged, syncHeights]);
+
+  const syncFrom = useCallback(
+    (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
+      if (!from || !to || syncingRef.current) return;
+      if (from.scrollTop === to.scrollTop) return;
+      syncingRef.current = true;
+      to.scrollTop = from.scrollTop;
+      requestAnimationFrame(() => {
+        syncingRef.current = false;
+      });
+    },
+    [],
+  );
+
+  return (
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 bg-background">
+      <AnimatedPane
+        open={showFileArea}
+        openWidth={fileColWidth}
+      >
+        <WorkspacePaperColumn
+          staged={staged}
+          width={fileColWidth}
+          panelVariant={panelVariant}
+          scrollRef={paperScrollRef}
+          onScroll={() => {
+            if (syncHeights)
+              syncFrom(paperScrollRef.current, dimScrollRef.current);
+          }}
+        />
+      </AnimatedPane>
+      {showFileArea && showExpansion && onFileColWidthChange ? (
+        <ColumnResizeHandle
+          label="拖动调整文件区与拓展区比例"
+          onPointerDown={(e) =>
+            startColumnResize(
+              e,
+              fileColWidth,
+              onFileColWidthChange,
+              FILE_COL_MIN_PX,
+              FILE_COL_MAX_PX,
+            )
+          }
+        />
+      ) : null}
+      <AnimatedPane
+        open={showExpansion}
+        flexWhenOpen
+      >
+        {showExpansion ? (expansion ?? (
+          <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+            {rightHeader}
+            <div className="min-h-0 min-w-0 flex-1">
+              {isMatrix ? (
+                <MatrixDimPane
+                  staged={staged}
+                  rowHeights={rowHeights}
+                  scrollRef={dimScrollRef}
+                  onScroll={() =>
+                    syncFrom(dimScrollRef.current, paperScrollRef.current)
+                  }
+                />
+              ) : kind === 'pdf-chat' ? (
+                <PdfChatPanel staged={staged} />
+              ) : (
+                <CitationGraphPanel staged={staged} />
+              )}
+            </div>
+          </div>
+        )) : null}
+      </AnimatedPane>
+    </div>
+  );
+}
+
+export function WorkspacePaperColumn({
+  staged,
+  scrollRef,
+  onScroll,
+  width = FILE_COL_DEFAULT_PX,
+  panelVariant = 'search',
+}: {
+  staged: Paper[];
+  scrollRef?: RefObject<HTMLDivElement | null>;
+  onScroll?: () => void;
+  width?: number;
+  panelVariant?: RightPanelVariant;
+}) {
+  const expansionOpen = useSearchRightPanelStore((s) => Boolean(s.activePanel));
+  const { isStaging, activeTab } = useWorkspacePapers();
   const { activeArea } = useStagingView();
-  const { removePaper, clearArea } = useStagingActions();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const setPaperOrder = useWorkspaceFolderUi((s) => s.setPaperOrder);
+  const setActiveTab = useWorkspaceFolderUi((s) => s.setActiveTab);
+  const hasUnseenStaging = useWorkspaceFolderUi((s) => s.hasUnseenStaging);
+  const { removePaper, clearArea, reorderPapers } = useStagingActions();
+  const selectedPaperId = useWorkspaceFolderUi((s) => s.selectedPaperId);
+  const setSelectedPaperId = useWorkspaceFolderUi((s) => s.setSelectedPaperId);
+  const favoritedSet = useStagedFavorites(staged);
+  const [listRef] = useAutoAnimate<HTMLDivElement>();
+  const setMatrixTarget = useStageFly((s) => s.setMatrixTarget);
+  const activePanel = useSearchRightPanelStore((s) => s.activePanel);
+  const functionTabs = useSearchRightPanelStore((s) => s.functionTabs);
+  const activeFunction =
+    activePanel?.group === 'function' ? activePanel.kind : functionTabs[0];
+  const showCardCheckbox =
+    activeFunction === 'pdf-chat' || activeFunction === 'citation-graph';
+  const showDragHandle = activeFunction === 'matrix';
+  const sortableIds = useMemo(
+    () => staged.map((p) => p.paperId),
+    [staged],
+  );
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+  const checkedPaperIds = useWorkspaceFolderUi((s) => s.checkedPaperIds);
+  const togglePaperChecked = useWorkspaceFolderUi((s) => s.togglePaperChecked);
+  const setCheckedPaperIds = useWorkspaceFolderUi((s) => s.setCheckedPaperIds);
+  const syncCheckedPapers = useWorkspaceFolderUi((s) => s.syncCheckedPapers);
+  const visibleCheckedCount = checkedPaperIds.filter((id) =>
+    staged.some((p) => p.paperId === id),
+  ).length;
+  const allChecked =
+    staged.length > 0 && visibleCheckedCount === staged.length;
 
-  // ---- 暂存飞入:滚动容器 ref + 落点注册 + 新行自动过渡 ----
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [tbodyRef] = useAutoAnimate<HTMLTableSectionElement>();
-  const setGetTarget = useStageFly((s) => s.setGetTarget);
+  useEffect(() => {
+    syncCheckedPapers(staged.map((p) => p.paperId));
+  }, [staged, syncCheckedPapers]);
+  const localScrollRef = useRef<HTMLDivElement>(null);
+  const resolvedScrollRef = scrollRef ?? localScrollRef;
 
-  // 落点 getter:即时滚到底(非 smooth,便于同步量),再算「新行将出现处」的 top。
-  // 落点 = 当前最后一行的下沿,但不超出容器可视底(overflow 时新行滚到底部对齐):
-  //   - 可滚动(overflow):最后一行贴容器底 → top ≈ 容器底 - 行高(新行滚到底后的位置)
-  //   - 不可滚动(行少):最后一行在容器中部 → top = 最后一行下沿(新行紧接其下)
-  // 空矩阵(active 区无论文,首篇)→ 落在顶部。芯片抵达即淡出,精度不敏感。
   useEffect(() => {
     const fn = () => {
-      const c = scrollRef.current;
+      const c = resolvedScrollRef.current;
       if (!c) return null;
       c.scrollTop = c.scrollHeight;
       const cr = c.getBoundingClientRect();
-      const rows = c.querySelectorAll('tbody tr');
-      const lastCell = rows[rows.length - 1]?.querySelector('td');
-      if (lastCell) {
-        const rr = lastCell.getBoundingClientRect();
+      const rows = c.querySelectorAll('[data-paper-row]');
+      const last = rows[rows.length - 1];
+      if (last) {
+        const rr = last.getBoundingClientRect();
         const H = rr.height || 76;
         return {
           top: Math.min(rr.bottom, cr.bottom - H),
@@ -98,222 +303,326 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
       return {
         top: cr.top,
         left: cr.left,
-        width: Math.min(PAPER_COL_WIDTH, cr.width),
+        width: Math.min(width, cr.width),
         height: 76,
       };
     };
-    setGetTarget(fn);
-    return () => setGetTarget(null);
-  }, [setGetTarget]);
+    setMatrixTarget(fn);
+    return () => setMatrixTarget(null);
+  }, [resolvedScrollRef, setMatrixTarget, staged.length, width]);
 
-  // 新行落定后再滚一次到底(getTarget 那次滚的是「加行前」的底,新行需要二次对齐)。
-  const prevLenRef = useRef(staged.length);
-  useEffect(() => {
-    if (staged.length > prevLenRef.current) {
-      const c = scrollRef.current;
-      if (c) {
-        requestAnimationFrame(() =>
-          c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
-        );
+  const handleRemove = useCallback(
+    (paperId: string) => {
+      if (!activeArea) return;
+      removePaper(activeArea.id, paperId);
+    },
+    [activeArea, removePaper],
+  );
+
+  const handleClearAll = useCallback(() => {
+    if (!activeArea || staged.length === 0) return;
+    clearArea(activeArea.id);
+  }, [activeArea, staged.length, clearArea]);
+
+  const handleRemoveChecked = useCallback(() => {
+    if (!activeArea || !isStaging) return;
+    for (const id of checkedPaperIds) {
+      if (staged.some((p) => p.paperId === id)) {
+        removePaper(activeArea.id, id);
       }
     }
-    prevLenRef.current = staged.length;
-  }, [staged.length]);
+  }, [activeArea, isStaging, checkedPaperIds, staged, removePaper]);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = sortableIds.indexOf(String(active.id));
+      const newIndex = sortableIds.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return;
+      const next = arrayMove(sortableIds, oldIndex, newIndex);
+      if (isStaging && activeArea) {
+        reorderPapers(activeArea.id, next);
+        return;
+      }
+      if (typeof activeTab === 'number') {
+        setPaperOrder(folderPaperOrderKey(activeTab), next);
+      }
+    },
+    [
+      sortableIds,
+      isStaging,
+      activeArea,
+      reorderPapers,
+      activeTab,
+      setPaperOrder,
+    ],
+  );
+
+  return (
+    <aside
+      aria-label="工作区文献"
+      className="flex h-full min-h-0 shrink-0 flex-col bg-background"
+      style={{ width, minWidth: width }}
+    >
+      <header
+        aria-label="工作区功能"
+        className="flex shrink-0 items-center gap-1 border-b border-border bg-surface-1 px-2 pr-1"
+        style={{ height: FILE_SWITCH_H }}
+      >
+        <FunctionTabGroup className="min-w-0 flex-1" />
+        <FileAreaOpenButton />
+        {!expansionOpen ? (
+          <ExpansionAreaOpenButton variant={panelVariant} />
+        ) : null}
+      </header>
+      <div
+        className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-surface-1 px-2"
+        style={{ height: HEADER_H }}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <WorkspaceFolderPicker />
+          {hasUnseenStaging && !isStaging ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab('staging')}
+              title="左侧有新论文，回到当前对话"
+              className="shrink-0 text-12 font-medium text-brand-red hover:underline"
+            >
+              返回当前会话
+            </button>
+          ) : null}
+          <span className="min-w-0 truncate text-xs tabular-nums text-muted-foreground">
+            {showCardCheckbox
+              ? `已选 ${visibleCheckedCount} / ${staged.length} 篇`
+              : `${staged.length} 篇`}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {showCardCheckbox && staged.length > 0 ? (
+            <button
+              type="button"
+              onClick={() =>
+                setCheckedPaperIds(
+                  allChecked ? [] : staged.map((p) => p.paperId),
+                )
+              }
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              {allChecked ? '取消全选' : '全选'}
+            </button>
+          ) : null}
+          {isStaging && showCardCheckbox && visibleCheckedCount > 0 ? (
+            <button
+              type="button"
+              onClick={handleRemoveChecked}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              移除已选
+            </button>
+          ) : null}
+          {isStaging && staged.length > 0 ? (
+            <ConfirmPopover
+              title={`清空当前「${STAGING_FOLDER_LABEL}」的 ${staged.length} 篇论文?`}
+              description="只清空这一栏,不影响收藏与其它文件夹。此操作不可撤销。"
+              confirmText="清空"
+              cancelText="取消"
+              danger
+              side="bottom"
+              align="end"
+              onConfirm={handleClearAll}
+            >
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                清空
+              </button>
+            </ConfirmPopover>
+          ) : null}
+        </div>
+      </div>
+
+      <div
+        ref={resolvedScrollRef}
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+      >
+        <div ref={showDragHandle ? undefined : listRef}>
+          {staged.length === 0 ? (
+            <p className="px-3 py-6 text-xs leading-relaxed text-faint">
+              勾选论文即可加入暂存区,供 PDF Chat 和矩阵分析使用。
+            </p>
+          ) : showDragHandle ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sortableIds}
+                strategy={verticalListSortingStrategy}
+              >
+                {staged.map((paper) => (
+                  <SortablePaperRow key={paper.paperId} id={paper.paperId}>
+                    {({ attributes, listeners }) => (
+                      <PaperCell
+                        paper={paper}
+                        isFavorited={favoritedSet.has(
+                          `${paper.source ?? 'stc'}:${paper.paperId}`,
+                        )}
+                        onRemove={isStaging ? handleRemove : undefined}
+                        isWorkspaceSelected={
+                          selectedPaperId === paper.paperId
+                        }
+                        onSelect={setSelectedPaperId}
+                        showDragHandle
+                        dragHandleAttributes={attributes}
+                        dragHandleListeners={listeners}
+                      />
+                    )}
+                  </SortablePaperRow>
+                ))}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            staged.map((paper) => (
+              <div
+                key={paper.paperId}
+                data-paper-row={paper.paperId}
+                className="group/row border-b border-border bg-background"
+              >
+                <PaperCell
+                  paper={paper}
+                  isFavorited={favoritedSet.has(
+                    `${paper.source ?? 'stc'}:${paper.paperId}`,
+                  )}
+                  onRemove={isStaging ? handleRemove : undefined}
+                  isWorkspaceSelected={selectedPaperId === paper.paperId}
+                  onSelect={setSelectedPaperId}
+                  showCheckbox={showCardCheckbox}
+                  showPdfStatus={activeFunction === 'pdf-chat'}
+                  checked={checkedPaperIds.includes(paper.paperId)}
+                  onCheckedChange={() => togglePaperChecked(paper.paperId)}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Height-only: keeps file-column rows aligned with the matrix footer. */}
+      <footer
+        className="shrink-0 border-t border-border bg-surface-1"
+        style={{ height: FOOTER_H }}
+        aria-hidden
+      />
+    </aside>
+  );
+}
+
+export function MatrixDimPane({
+  staged,
+  rowHeights,
+  scrollRef,
+  onScroll,
+  headerHeight = HEADER_H,
+  headerInScroll = true,
+}: {
+  staged: Paper[];
+  rowHeights: Record<string, number>;
+  scrollRef: RefObject<HTMLDivElement | null>;
+  onScroll: (e: UIEvent<HTMLDivElement>) => void;
+  /** 与左侧文献卡表头对齐时传入同一高度。 */
+  headerHeight?: number;
+  /** false = 表头钉在滚动区外,和文献集列表头同一条水平线。 */
+  headerInScroll?: boolean;
+}) {
+  const token = useAuthStore((s) => s.token);
+  const openAuthDialog = useAuthDialog((s) => s.openDialog);
+  const dimensionsQ = useAnalysisDimensions();
+  const matrixQ = useMatrixAnalysis(staged);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const dimensions = dimensionsQ.data ?? [];
   const results = matrixQ.data ?? [];
-
   const resultIndex = useMemo(() => {
     const m = new Map<string, PaperAnalysisItem>();
     for (const r of results) m.set(r.paperId, r);
     return m;
   }, [results]);
 
-  // 稳定 paperId-based 回调,给 memo 化的 PaperCell 用
-  const handleRemove = useCallback(
-    (paperId: string) => {
-      if (!activeArea) return;
-      removePaper(activeArea.id, paperId);
-    },
-    [activeArea, removePaper]
-  );
-
-  const handleClearAll = useCallback(() => {
-    if (!activeArea || staged.length === 0) return;
-    // 走 batch endpoint —— 登录态一个请求清空,不再循环 N 次 DELETE
-    clearArea(activeArea.id);
-  }, [activeArea, staged.length, clearArea]);
-
-  // 收藏状态:按 source 分组批量查,合并成 `{source}:{paperId}` Set,跨源不冲突
-  const favoritedSet = useStagedFavorites(staged);
-
   const isLoading =
     dimensionsQ.isLoading || (matrixQ.isLoading && results.length === 0);
   const showLoginGate = !token;
   const showDimGrid = !showLoginGate && dimensions.length > 0;
+  const headerCells = showLoginGate ? (
+    <th
+      className={cn(
+        'border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground',
+        headerInScroll && 'sticky top-0 z-20',
+      )}
+      style={{ height: headerHeight }}
+    >
+      维度
+    </th>
+  ) : showDimGrid ? (
+    dimensions.map((d) => (
+      <th
+        key={d.dimensionKey}
+        className={cn(
+          'border-b border-r border-border bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground last:border-r-0',
+          headerInScroll && 'sticky top-0 z-20',
+        )}
+        style={{ minWidth: DIM_COL_MIN_WIDTH, height: headerHeight }}
+        title={d.dimensionKey}
+      >
+        {d.name}
+      </th>
+    ))
+  ) : (
+    <th
+      className={cn(
+        'border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground',
+        headerInScroll && 'sticky top-0 z-20',
+      )}
+      style={{ height: headerHeight }}
+    >
+      维度
+    </th>
+  );
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
-      {/* ============ 顶部工具栏:两区 ============ */}
-      <header className="flex h-14 shrink-0 border-b border-border bg-background">
-        {/* 左区:工作区 */}
-        <div
-          className="flex items-center gap-2.5 px-4 border-r border-border shrink-0"
-          style={{ width: PAPER_COL_WIDTH, minWidth: PAPER_COL_WIDTH }}
-        >
-          <Inbox className="size-4 text-brand-red" strokeWidth={2.5} />
-          {/* 列标题 —— 原 .pen `wgB2T` 15px/700,B6 排印迁移后归到 Figma 规范档
-             text-16 + font-medium(sans 字族无 700) */}
-          <span className="font-serif text-16 font-medium text-foreground">工作区</span>
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      {!headerInScroll && (
+        <div className="shrink-0 overflow-hidden">
+          <table className="w-full border-separate border-spacing-0 text-xs">
+            <thead>
+              <tr>{headerCells}</tr>
+            </thead>
+          </table>
         </div>
-        {/* 右区:矩阵分析 + 工具 */}
-        <div className="flex-1 min-w-0 flex items-center justify-between gap-2 px-4">
-          {/* 标题块 —— min-w-0 + 主标 whitespace-nowrap + 副标 truncate:
-              永远单行不换行。副标在窄空间内被省略号截断,而不是把标题挤成两行 */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Grid3x3
-              className="size-4 shrink-0 text-brand-red"
-              strokeWidth={2.5}
-            />
-            <span className="shrink-0 font-serif text-16 font-medium text-foreground whitespace-nowrap">
-              矩阵分析
-            </span>
-            <span className="text-12 text-faint truncate">
-              {staged.length} 篇 · {dimensions.length} 维度
-            </span>
-            {matrixQ.isFetching && (
-              <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
-            )}
-          </div>
-
-          {/* 工具区 —— 响应式:≥lg 平铺,<lg 折成「更多 ▾」hover dropdown
-              收起态优先保证标题不被挤压换行 */}
-          <div className="hidden lg:flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              disabled={!token}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={token ? '设置维度列' : '登录后可设置'}
-            >
-              <Settings2 className="size-3" />
-              设置列
-            </button>
-            <ExportMenu
-              papers={staged}
-              dimensions={dimensions}
-              resultIndex={resultIndex}
-            />
-          </div>
-
-          <MatrixMoreToolsMenu
-            className="flex lg:hidden shrink-0"
-            disabled={!token}
-            exportDisabled={
-              staged.length === 0 || dimensions.length === 0 || !token
-            }
-            onOpenSettings={() => setSettingsOpen(true)}
-            onExport={async (fmt) => {
-              try {
-                const rows = buildMatrixRows(staged, dimensions, resultIndex);
-                if (fmt === 'csv') exportCsv(rows, dimensions, 'matrix');
-                else if (fmt === 'md')
-                  exportMarkdown(rows, dimensions, 'matrix');
-                else await exportXlsx(rows, dimensions, 'matrix');
-              } catch (err) {
-                toast.error(`导出失败:${(err as Error).message}`);
-              }
-            }}
-          />
-        </div>
-      </header>
-
-      {/* ============ 主体:单滚动容器,内含 <table> ============ */}
-      {/* 空态(用户刚建新区 / 切到空 active 区)—— **保留 thead**
-          (StagingTabs + 维度列头),只是 tbody 没有行。"假表 + 一键导入"
-           CTA 仅在 WelcomeBoard(还没有任何区的首次发现场景)展示。 */}
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
-        {/* text-12 = dim cell / footer 通用文字基准(原 11px 档,B6 归档) */}
-        <table className="w-full border-separate border-spacing-0 text-12">
-          {/* sub-header 行(h-9):左区 = StagingTabs,右区 = dimension 名字
-             整行 sticky-top;左格 sticky-left 双向冻结 */}
-          <thead>
-            <tr>
-              <th
-                className="sticky left-0 top-0 z-nav p-0 border-r border-b border-border bg-surface-card"
-                style={{
-                  width: PAPER_COL_WIDTH,
-                  minWidth: PAPER_COL_WIDTH,
-                  // maxWidth 关键:table-layout:auto 下,光有 width/minWidth 不够 —— 单元格内容
-                  // (长 DOI/URL 等无空格长 token)仍会把整列撑过 320,导致与外层固定 320 的
-                  // header/footer "工作区"列错位(偶现:取决于具体暂存论文)。封死上限即对齐。
-                  maxWidth: PAPER_COL_WIDTH,
-                  height: 36,
-                }}
-              >
-                <StagingTabs />
-              </th>
-              {/* 维度表头 —— .pen `xFPz2` h-9 bg #F8F8F8,文字 11px/700 #666 */}
-              {showLoginGate ? (
-                <th
-                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-12 font-medium text-muted-foreground border-b border-border"
-                  style={{ height: 36 }}
-                >
-                  维度
-                </th>
-              ) : showDimGrid ? (
-                dimensions.map((d) => (
-                  <th
-                    key={d.dimensionKey}
-                    className="sticky top-0 z-sticky bg-surface-1 px-3 text-left text-12 font-medium text-muted-foreground border-r border-b border-border last:border-r-0"
-                    style={{ minWidth: DIM_COL_MIN_WIDTH, height: 36 }}
-                    title={d.dimensionKey}
-                  >
-                    {d.name}
-                  </th>
-                ))
-              ) : (
-                <th
-                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-12 font-medium text-muted-foreground border-b border-border"
-                  style={{ height: 36 }}
-                >
-                  维度
-                </th>
-              )}
-            </tr>
-          </thead>
-
-          <tbody ref={tbodyRef}>
+      )}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-auto"
+      >
+        <table className="w-full border-separate border-spacing-0 text-xs">
+          {headerInScroll ? (
+            <thead>
+              <tr>{headerCells}</tr>
+            </thead>
+          ) : null}
+          <tbody>
             {matrixQ.error ? (
               <tr>
-                <td
-                  colSpan={
-                    showDimGrid ? 1 + dimensions.length : 2
-                  }
-                  className="p-0"
-                >
+                <td colSpan={Math.max(dimensions.length, 1)} className="p-0">
                   <EmptyState
                     icon={AlertCircle}
                     title="分析失败"
                     description={
                       (matrixQ.error as Error).message || '请稍后重试'
-                    }
-                    action={
-                      // 只重跑失败行(额度恢复 / 网络恢复后手动再来一次);成功缓存不动。
-                      // 额度恢复事件也会自动触发同一失效逻辑(见 useMatrixAnalysis)。
-                      <button
-                        type="button"
-                        onClick={matrixQ.retryFailed}
-                        disabled={matrixQ.isFetching}
-                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {matrixQ.isFetching ? (
-                          <Loader2 className="size-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="size-3" />
-                        )}
-                        重试
-                      </button>
                     }
                   />
                 </td>
@@ -321,58 +630,52 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             ) : (
               staged.map((p) => {
                 const r = resultIndex.get(p.paperId);
+                const h = rowHeights[p.paperId];
                 return (
-                  <tr key={p.paperId} className="group/row">
-                    {/* 第一列 = 论文卡(sticky-left,与右侧 dim 单元格共享行高) */}
-                    <td
-                      className="sticky left-0 z-raised align-top border-b border-r border-border bg-surface-card group-hover/row:bg-danger-soft transition-colors"
-                      style={{
-                        width: PAPER_COL_WIDTH,
-                        minWidth: PAPER_COL_WIDTH,
-                        // 见上方 thead 同款注释:封死 320 上限,防长 token 撑宽论文列致列错位。
-                        maxWidth: PAPER_COL_WIDTH,
-                      }}
-                    >
-                      <PaperCell
-                        paper={p}
-                        isFavorited={favoritedSet.has(
-                          `${p.source ?? 'stc'}:${p.paperId}`
-                        )}
-                        onRemove={handleRemove}
-                      />
-                    </td>
-
+                  <tr key={p.paperId}>
                     {showLoginGate ? (
-                      <td className="align-middle px-4 py-3 border-b border-border text-faint group-hover/row:bg-danger-soft transition-colors">
+                      <td
+                        className="overflow-hidden border-b border-border px-4 align-middle text-faint"
+                        style={h ? { height: h, maxHeight: h } : undefined}
+                      >
                         <button
                           type="button"
                           onClick={() => openAuthDialog('login')}
-                          className="inline-flex items-center gap-1.5 text-12 hover:text-foreground transition-colors cursor-pointer"
+                          className="inline-flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-foreground"
                         >
                           <Lock className="size-3" />
-                          <span className="underline-offset-2 hover:underline">登录后展开 AI 维度分析</span>
+                          <span className="underline-offset-2 hover:underline">
+                            登录后展开 AI 维度分析
+                          </span>
                         </button>
                       </td>
                     ) : showDimGrid ? (
                       dimensions.map((d) => (
                         <td
                           key={d.dimensionKey}
-                          className="px-3 py-3 align-top text-subtle border-b border-r border-border last:border-r-0 group-hover/row:bg-danger-soft transition-colors"
-                          style={{ minWidth: DIM_COL_MIN_WIDTH }}
+                          className="overflow-hidden border-b border-r border-border px-3 align-top text-subtle last:border-r-0"
+                          style={{
+                            minWidth: DIM_COL_MIN_WIDTH,
+                            ...(h ? { height: h, maxHeight: h } : {}),
+                          }}
                         >
-                          <DimensionCell
-                            item={r}
-                            dimensionKey={d.dimensionKey}
-                            // 单行 loading:用 matrixQ.loadingByPaperId 而非整体
-                            // matrixQ.isFetching,这样新增一篇论文时只有该行 skeleton,
-                            // 其它行依然展示缓存内容
-                            isFetching={!!matrixQ.loadingByPaperId.get(p.paperId)}
-                          />
+                          <div className="h-full min-h-0 overflow-auto py-3">
+                            <DimensionCell
+                              item={r}
+                              dimensionKey={d.dimensionKey}
+                              isFetching={
+                                !!matrixQ.loadingByPaperId.get(p.paperId)
+                              }
+                            />
+                          </div>
                         </td>
                       ))
                     ) : (
-                      <td className="align-middle px-4 py-3 border-b border-border text-faint group-hover/row:bg-danger-soft transition-colors">
-                        <span className="inline-flex items-center gap-1.5 text-12">
+                      <td
+                        className="overflow-hidden border-b border-border px-4 align-middle text-faint"
+                        style={h ? { height: h, maxHeight: h } : undefined}
+                      >
+                        <span className="inline-flex items-center gap-1.5 text-xs">
                           {isLoading ? (
                             <>
                               <Loader2 className="size-3 animate-spin" />
@@ -392,56 +695,68 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
         </table>
       </div>
 
-      {/* ============ 底部状态栏:两区 —— .pen `Rc7lA` / `rr09t` 文字 11px ============ */}
-      <footer className="flex h-10 shrink-0 border-t border-border bg-surface-1">
-        {/* 左区:暂存计数 */}
-        <div
-          className="flex items-center justify-between gap-2 px-4 border-r border-border shrink-0"
-          style={{ width: PAPER_COL_WIDTH, minWidth: PAPER_COL_WIDTH }}
-        >
-          <span className="text-12 text-muted-foreground tabular-nums">
-            {staged.length} 篇
-          </span>
-          {staged.length > 0 && (
-            <ConfirmPopover
-              title={`清空当前暂存区的 ${staged.length} 篇论文?`}
-              description="只清空这一个暂存区,不影响收藏与其它分区。此操作不可撤销。"
-              confirmText="清空"
-              cancelText="取消"
-              danger
-              side="top"
-              align="end"
-              onConfirm={handleClearAll}
-            >
-              <button
-                type="button"
-                className="text-12 text-muted-foreground hover:text-foreground"
-              >
-                × 清空
-              </button>
-            </ConfirmPopover>
-          )}
-        </div>
-        {/* 右区:矩阵就绪状态 */}
-        <div className="flex-1 min-w-0 flex items-center px-4 text-12 text-muted-foreground">
+      <footer
+        className="flex shrink-0 items-center justify-between gap-2 border-t border-border bg-surface-1 px-4 text-xs text-muted-foreground"
+        style={{ height: FOOTER_H }}
+      >
+        <span className="min-w-0 truncate">
           {showDimGrid && staged.length > 0 ? (
             `矩阵就绪 · ${staged.length} 行 × ${dimensions.length} 列`
           ) : showLoginGate ? (
             <button
               type="button"
               onClick={() => openAuthDialog('login')}
-              className="hover:text-foreground hover:underline underline-offset-2 transition-colors"
+              className="underline-offset-2 transition-colors hover:text-foreground hover:underline"
             >
               登录后启用矩阵分析
             </button>
           ) : (
             '矩阵还是空的,先添加论文吧'
           )}
+        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {matrixQ.isFetching && (
+            <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+          )}
+          <div className="hidden items-center gap-1.5 lg:flex">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              disabled={!token}
+              className="inline-flex h-7 items-center gap-1 rounded-sm border border-border px-2.5 text-xs text-subtle hover:bg-surface-1 disabled:cursor-not-allowed disabled:opacity-50"
+              title={token ? '设置维度列' : '登录后可设置'}
+            >
+              <Settings2 className="size-3" />
+              设置列
+            </button>
+            <ExportMenu
+              papers={staged}
+              dimensions={dimensions}
+              resultIndex={resultIndex}
+            />
+          </div>
+          <MatrixMoreToolsMenu
+            className="flex lg:hidden"
+            disabled={!token}
+            exportDisabled={
+              staged.length === 0 || dimensions.length === 0 || !token
+            }
+            onOpenSettings={() => setSettingsOpen(true)}
+            onExport={async (fmt) => {
+              try {
+                const rows = buildMatrixRows(staged, dimensions, resultIndex);
+                if (fmt === 'csv') exportCsv(rows, dimensions, 'matrix');
+                else if (fmt === 'md')
+                  exportMarkdown(rows, dimensions, 'matrix');
+                else await exportXlsx(rows, dimensions, 'matrix');
+              } catch (err) {
+                toast.error(`导出失败:${(err as Error).message}`);
+              }
+            }}
+          />
         </div>
       </footer>
 
-      {/* 维度设置 dialog —— 关闭后 useDimensionSettings 已经失效 react-query,
-         矩阵分析的 useAnalysisDimensions 也共享同一 queryKey 前缀,自动重 fetch */}
       <DimensionSettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
@@ -450,5 +765,6 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
   );
 }
 
-// PaperCell / DimensionCell / MatrixMoreToolsMenu 已抽到 ./matrix/ 子目录。
-// 空态(假表 + CTA)抽到 ./EmptyMatrixPreview,与 WelcomeBoard 共用。
+export function MatrixColumn({ staged }: { staged: Paper[] }) {
+  return <WorkspaceStage kind="matrix" staged={staged} />;
+}

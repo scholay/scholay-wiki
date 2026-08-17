@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { LazyMotion, domMax } from 'framer-motion';
+import { LazyMotion, domMax, MotionConfig } from 'framer-motion';
 import { FolderOpen, Loader2, Search } from 'lucide-react';
 import {
   Dialog,
@@ -288,19 +288,23 @@ export function LibraryReferencePicker({
   // ── 移动端:底部抽屉(MobileBottomSheet 用 m.*,挂在 composer 处需自带 LazyMotion 祖先)──
   if (isPhoneDevice()) {
     return (
+      // MotionConfig reducedMotion="user":挂在 composer(MobileShell 之外)的孤岛,自带兜底
+      // 让「减少动态」生效(同 CollectFolderPicker,2026-08-12 审计的 reduced-motion 缺口)。
       <LazyMotion features={domMax}>
-        <MobileBottomSheet open={open} onOpenChange={onOpenChange} title="引用文献">
-          <div className="flex max-h-[80dvh] min-h-0 flex-col">
-            <div className="border-b border-border-soft px-4 pb-2 pt-1">
-              <h2 className="text-14 font-medium text-foreground">引用文献</h2>
-              <p className="mt-0.5 text-12 text-muted-foreground">
-                从你的收藏里选论文或整夹,引用给智能助手(在线元数据 + 你上传的 PDF 都带上)。
-              </p>
+        <MotionConfig reducedMotion="user">
+          <MobileBottomSheet open={open} onOpenChange={onOpenChange} title="引用文献">
+            <div className="flex max-h-[80dvh] min-h-0 flex-col">
+              <div className="border-b border-border-soft px-4 pb-2 pt-1">
+                <h2 className="text-14 font-medium text-foreground">引用文献</h2>
+                <p className="mt-0.5 text-12 text-muted-foreground">
+                  从你的收藏里选论文或整夹,引用给智能助手(在线元数据 + 你上传的 PDF 都带上)。
+                </p>
+              </div>
+              {columns}
+              {footer}
             </div>
-            {columns}
-            {footer}
-          </div>
-        </MobileBottomSheet>
+          </MobileBottomSheet>
+        </MotionConfig>
       </LazyMotion>
     );
   }
@@ -330,7 +334,7 @@ const AVATAR_TONES = [
   'bg-brand-green text-on-brand',
   'bg-brand-amber text-foreground',
   'bg-brand-red text-on-brand',
-  'bg-foreground text-on-dark',
+  'bg-inverse text-on-inverse',
 ];
 function toneOf(name: string): string {
   let h = 0;

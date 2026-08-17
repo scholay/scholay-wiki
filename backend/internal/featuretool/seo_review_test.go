@@ -74,6 +74,19 @@ func TestSEOReviewViolationReasons(t *testing.T) {
 		{"needs enrich", func(x *Tool) { x.DataQuality.NeedsEnrich = []string{"logo"} }, "data_quality.needs_enrich pending"},
 		{"no public source", func(x *Tool) { x.DataQuality.Sources = nil }, "no public data_quality source"},
 		{"one use case", func(x *Tool) { x.UseCases = x.UseCases[:1] }, "fewer than 2 substantive use cases"},
+		// 2026-08-13 审计:期刊条目与模板文案是 tools 垂类被 Google 判 19,497 页软 404 的两个成因,
+		// 必须在审核闸门就拦住,否则批量放行 = 批量生产软 404 + 与期刊垂类重复内容。
+		{"journal entry by tag", func(x *Tool) { x.Tags = []string{"开放获取期刊", "Social sciences"} },
+			"journal entry — belongs to the journals vertical, not the tools catalog"},
+		{"journal entry by submission tag", func(x *Tool) { x.Tags = []string{"投稿入口"} },
+			"journal entry — belongs to the journals vertical, not the tools catalog"},
+		{"boilerplate description", func(x *Tool) {
+			// 必须 ≥120 字,才能越过长度那条规则、真正测到模板判据本身
+			x.DescriptionMD = strings.Repeat("这是一段足够长的说明文字", 12) + "使用前建议确认官网文档、访问条件、许可证/价格。"
+		}, "boilerplate/templated description — needs original content"},
+		{"templated intro skeleton", func(x *Tool) {
+			x.DescriptionMD = "某工具 是一个面向「统计 & 计量分析」的在线工具，" + strings.Repeat("补充说明", 30)
+		}, "boilerplate/templated description — needs original content"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tool := eligibleTool()

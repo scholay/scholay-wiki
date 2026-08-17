@@ -15,6 +15,7 @@ import {
   type ComposerHandle,
   type ReferenceSelection,
 } from '@/shared/components/chat';
+import { FundsReminderChatNotice } from '@/shared/components/funds-reminder/FundsReminder';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
@@ -215,7 +216,8 @@ export function PrismChatPanel({
       )}
 
       {/* 输入框 —— 三 agent 统一 Composer(shared/components/chat;主流形态单一真源) */}
-      <div className="shrink-0 p-3">
+      <div className="flex shrink-0 flex-col gap-2 p-3">
+        {showThread ? <FundsReminderChatNotice /> : null}
         {pendingQuestionBlock && (
           <QuestionPrompt
             key={pendingQuestionBlock.toolUseId}
@@ -249,7 +251,6 @@ export function PrismChatPanel({
           sendReady={wsReady}
           busy={chat.streaming}
           onStop={chat.stop}
-          context={chat.context}
           maxHeightPx={180}
           topSlot={
             <>

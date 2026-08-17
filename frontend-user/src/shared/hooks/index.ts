@@ -19,6 +19,14 @@ export {
   isModifiedClick,
   type OpenInBrowserFn,
 } from './useOpenInBrowser';
+export {
+  useOpenPaperDetail,
+  useOpenJournalDetail,
+  useOpenAuthorDetail,
+  useOpenPdfDetail,
+  useOpenPdfChat,
+  useIsPdfChatActive,
+} from './useOpenInSearchPanel';
 export { useReplayPendingAction } from './useReplayPendingAction';
 export { useUrlState, usePatchUrlState } from './useUrlState';
 export { useScrollRestoration } from './useScrollRestoration';

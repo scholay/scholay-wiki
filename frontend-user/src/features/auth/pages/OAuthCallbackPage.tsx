@@ -4,12 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
-import { Button } from '@/shared/ui';
+import { consumeInvitationCode } from '@/shared/lib/auth-invitation';
 import { useAuthStore } from '@/stores/auth.store';
 import type { AuthResponse } from '../types';
 import { OAuthMergeConfirmDialog } from '../components/OAuthMergeConfirmDialog';
 import { handleAuthSuccess } from '../api/auth';
-import { authSuccessLandingPath } from '@/shared/lib/auth-events';
 import {
   OAUTH_MODE_KEY,
   OAUTH_BIND_PROVIDER_KEY,
@@ -90,28 +89,21 @@ export function OAuthCallbackPage() {
     if (directToken) {
       const userJson = params.get('user');
       try {
-        let user: AuthResponse['user'];
-        if (userJson) {
-          user = JSON.parse(userJson) as AuthResponse['user'];
-        } else {
-          const userId = Number(params.get('user_id'));
-          if (!Number.isSafeInteger(userId) || userId <= 0) {
-            throw new Error('missing user_id');
-          }
-          // Apple redirect 只需先提供真实身份 ID；AuthBootstrap 随后以 /user/profile
-          // 补齐完整资料。禁止用 id:0，否则活动查询迟到时邀请 Flow 会误判账号已切换。
-          user = { id: userId, email: '', role: 'user' } as AuthResponse['user'];
-        }
-        const authResponse = {
-          token: directToken,
-          user,
-          is_new_user: params.get('is_new_user') === 'true',
-        } as AuthResponse;
-        const landingPath = authSuccessLandingPath(authResponse.is_new_user);
-        handleAuthSuccess(qc, authResponse);
+        const user = userJson
+          ? JSON.parse(userJson)
+          : { id: 0, email: '', role: 'user' };
+        const invite = consumeInvitationCode();
+        const isNew =
+          params.get('is_new_user') === 'true' ||
+          params.get('is_new_user') === '1';
+        handleAuthSuccess(
+          qc,
+          { token: directToken, user, is_new_user: isNew } as AuthResponse,
+          { usedInvitationCode: !!invite },
+        );
         setPhase('success');
         toast.success('登录成功');
-        setTimeout(() => navigate(landingPath, { replace: true }), 400);
+        setTimeout(() => navigate('/', { replace: true }), 400);
       } catch {
         setPhase('error');
         setErrMsg('登录响应解析失败');
@@ -156,7 +148,9 @@ export function OAuthCallbackPage() {
             }
             return;
           }
-          const qs = new URLSearchParams({ sso, sig }).toString();
+          const qs = new URLSearchParams({ sso, sig });
+          const invite = consumeInvitationCode();
+          if (invite) qs.set('invitation_code', invite);
           const { data } = await http.get<{
             code: number;
             message: string;
@@ -166,19 +160,19 @@ export function OAuthCallbackPage() {
               provider: string;
               target_email: string;
             };
-          }>(`/user/discourse/callback?${qs}`);
+          }>(`/user/discourse/callback?${qs.toString()}`);
           const payload = data.data;
           if ('requires_merge' in payload && payload.requires_merge) {
             setMergeToken(payload.merge_token);
             setPhase('merge_required');
             return;
           }
-          const authResponse = payload as AuthResponse;
-          const landingPath = authSuccessLandingPath(authResponse.is_new_user);
-          handleAuthSuccess(qc, authResponse);
+          handleAuthSuccess(qc, payload as AuthResponse, {
+            usedInvitationCode: !!invite,
+          });
           setPhase('success');
           toast.success('登录成功');
-          setTimeout(() => navigate(landingPath, { replace: true }), 400);
+          setTimeout(() => navigate('/', { replace: true }), 400);
         } catch (e) {
           setPhase('error');
           setErrMsg(toApiError(e).message || '登录失败');
@@ -226,7 +220,9 @@ export function OAuthCallbackPage() {
         }
 
         // 默认分支:登录 / 注册 / 合并确认
-        const qs = new URLSearchParams({ code, state }).toString();
+        const qs = new URLSearchParams({ code, state });
+        const invite = consumeInvitationCode();
+        if (invite) qs.set('invitation_code', invite);
         type MergeRequired = {
           requires_merge: true;
           merge_token: string;
@@ -237,7 +233,7 @@ export function OAuthCallbackPage() {
           code: number;
           message: string;
           data: AuthResponse | MergeRequired;
-        }>(`/user/${provider}/callback?${qs}`);
+        }>(`/user/${provider}/callback?${qs.toString()}`);
         const payload = data.data;
         // discriminated union 守门:有 requires_merge 走合并分支,否则走登录
         if ('requires_merge' in payload && payload.requires_merge) {
@@ -246,12 +242,12 @@ export function OAuthCallbackPage() {
           return;
         }
         // 正常登录
-        const authResponse = payload as AuthResponse;
-        const landingPath = authSuccessLandingPath(authResponse.is_new_user);
-        handleAuthSuccess(qc, authResponse);
+        handleAuthSuccess(qc, payload as AuthResponse, {
+          usedInvitationCode: !!invite,
+        });
         setPhase('success');
         toast.success('登录成功');
-        setTimeout(() => navigate(landingPath, { replace: true }), 400);
+        setTimeout(() => navigate('/', { replace: true }), 400);
       } catch (e) {
         setPhase('error');
         setErrMsg(toApiError(e).message || '登录失败');
@@ -260,33 +256,32 @@ export function OAuthCallbackPage() {
   }, [provider, params, navigate, bindCtx, qc]);
 
   return (
-    // min-h-dvh 不是 min-h-screen —— 后者是裸 100vh,iOS 地址栏会盖住居中内容(项目铁律:视口高度用 dvh)。
-    <div className="flex min-h-dvh items-center justify-center bg-background px-6">
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center gap-4 text-center max-w-md">
         {phase === 'loading' && (
           <>
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <p className="text-12 text-muted-foreground">正在完成 {provider} 登录…</p>
+            <p className="text-sm text-muted-foreground">正在完成 {provider} 登录…</p>
           </>
         )}
         {phase === 'success' && (
           <>
             <CheckCircle2 className="size-8 text-brand-green" />
-            <p className="text-12 text-foreground">登录成功,正在跳转…</p>
+            <p className="text-sm text-foreground">登录成功,正在跳转…</p>
           </>
         )}
         {phase === 'error' && (
           <>
             <AlertCircle className="size-8 text-brand-red" />
-            <p className="text-14 font-medium text-foreground">登录失败</p>
-            <p className="text-12 text-muted-foreground">{errMsg}</p>
-            <Button
+            <p className="text-base font-semibold text-foreground">登录失败</p>
+            <p className="text-sm text-muted-foreground">{errMsg}</p>
+            <button
               type="button"
               onClick={() => navigate('/', { replace: true })}
-              className="mt-2 h-9 px-4"
+              className="mt-2 inline-flex items-center h-9 px-4 rounded-sm bg-foreground text-background text-sm font-semibold hover:bg-foreground/85"
             >
               返回首页
-            </Button>
+            </button>
           </>
         )}
         {phase === 'merge_required' && mergeToken && (

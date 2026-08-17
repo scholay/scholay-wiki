@@ -2,10 +2,11 @@
 // 数据 = /user/billing/overview(QUOTA_OVERVIEW_QUERY_KEY 全局共享缓存,通常零请求);
 // 用户端 overview 已抹绝对额度,只有 percent(0..100),展示口径与 account-assets-card 一致。
 //
-// 「恢复方式」区(2026-08-12 拍板):重置次数与经费是**或**的关系 ——
+// 「恢复方式」区(2026-08-12 拍板):恢复次数与经费是**或**的关系 ——
 //   · 两者都为 0 → 整块不出现(没有可用的恢复方式,不给用户看空数字);
-//   · 只有其一 → 只展示那一条,带快捷操作(重置需二次确认 / 经费可就地开启);
+//   · 只有其一 → 只展示那一条,带快捷操作(立即恢复需二次确认 / 经费可就地开启);
 //   · 两者都有 → 两条并列,中间「或」分隔,任选其一。
+// 「有次数才提」这条判定与 QuotaComposerStrip 上区、耗尽 toast 的 action 三处同源(2026-08-13)。
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Coins, RefreshCw } from 'lucide-react';
@@ -20,7 +21,7 @@ import {
 } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
 import { http } from '@/shared/lib/http';
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import { isPhoneDevice } from '@/shared/lib/device';
 import { quotaNavigate } from '@/shared/lib/quota-events';
@@ -47,11 +48,13 @@ export function UsageDialog({
   const reset = useResetQuotaMutation(() => setConfirmReset(false));
   const payg = usePaygMutation(() => setConfirmPayg(false));
 
+  // 响应式登录态门控(getAuthToken 非响应式,原地弹窗登录后查询不会自动启动)。
+  const authToken = useAuthStore((s) => s.token);
   const { data } = useQuery({
     queryKey: QUOTA_OVERVIEW_QUERY_KEY,
     queryFn: async () =>
       (await http.get<{ data: QuotaOverview }>('/user/billing/overview')).data.data,
-    enabled: open && !!getAuthToken(),
+    enabled: open && !!authToken,
     staleTime: 15_000,
   });
 
@@ -73,12 +76,9 @@ export function UsageDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>用量与额度</DialogTitle>
-          <DialogDescription>
-            {data ? TIER_LABEL[data.tier] ?? data.tier : ''}
-            {data && !data.token.unlimited && (
-              <> · 额度每 {data.token.window_days} 天自动恢复</>
-            )}
-          </DialogDescription>
+          {/* 副标题只报档位:「额度每 N 天自动恢复」是周期机制,按 2026-08-13 文案铁律不进用户文案
+              (恢复时刻改由下面的绝对时间承载,那是事实不是机制)。 */}
+          <DialogDescription>{data ? TIER_LABEL[data.tier] ?? data.tier : ''}</DialogDescription>
         </DialogHeader>
 
         {data && (
@@ -86,7 +86,7 @@ export function UsageDialog({
             {/* 剩余额度 */}
             <div>
               <div className="flex items-baseline justify-between">
-                <span className="text-12 text-muted-foreground">本周期剩余额度</span>
+                <span className="text-12 text-muted-foreground">剩余额度</span>
                 <span className="text-14 font-medium text-foreground">
                   {data.token.unlimited ? '不限量' : `${remain}%`}
                 </span>
@@ -100,7 +100,7 @@ export function UsageDialog({
                 </div>
               )}
               {resetAt && !data.token.unlimited && (
-                <p className="mt-1 text-12 text-faint">{resetAt} 自动恢复满额</p>
+                <p className="mt-1 text-12 text-faint">{resetAt} 恢复满额</p>
               )}
             </div>
 
@@ -108,14 +108,14 @@ export function UsageDialog({
             {(showReset || showCredit) && (
               <div className="flex flex-col rounded-12 bg-surface-1 px-3 py-2">
                 <p className="text-12 text-faint">
-                  {showReset && showCredit ? '等不及自动恢复?以下方式任选其一' : '等不及自动恢复?'}
+                  {showReset && showCredit ? '立即恢复额度,以下方式任选其一' : '立即恢复额度'}
                 </p>
                 {showReset && (
                   <div className="mt-2 flex items-center justify-between gap-2 text-12">
                     <span className="inline-flex items-center gap-2 text-muted-foreground">
                       <RefreshCw className="size-3.5" />
-                      重置次数
-                      <span className="font-medium text-foreground">{passes} 次</span>
+                      恢复次数
+                      <span className="font-medium text-foreground">剩余 {passes} 次</span>
                     </span>
                     <Button
                       size="sm"
@@ -123,7 +123,7 @@ export function UsageDialog({
                       className="h-7"
                       onClick={() => setConfirmReset(true)}
                     >
-                      立即重置
+                      立即恢复
                     </Button>
                   </div>
                 )}

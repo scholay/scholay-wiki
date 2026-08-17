@@ -1,59 +1,65 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowDown, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowDown,
+  Loader2,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
-import { Button } from '@/shared/ui';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
+import { AgentSessionStrip } from '@/shared/components/agent-session/AgentSessionStrip';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
 import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
+import { usePdfChatBridge } from '@/stores/pdf-chat-bridge.store';
 import {
   notifySessionChanged,
   useSessionBroadcast,
 } from '@/shared/lib/agent-session-broadcast';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import { trackEvent } from '@/shared/lib/track';
-import { useHeightVar } from '@/shared/hooks';
+import { cn } from '@/shared/lib/utils';
 import { modelSupportsVision, useUserModels } from '@/shared/api/models';
+import { ContextMeter } from '@/shared/components/chat/ContextMeter';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
-import { Upload } from 'lucide-react';
 import {
+  AttachmentChipList,
   ComposerAttachmentRow,
   ComposerPlusMenu,
   LibraryReferencePicker,
   QuestionPrompt,
   ReferenceChipList,
-  SearchUserBubble,
   findPendingQuestionBlock,
   type ReferenceSelection,
 } from '@/shared/components/chat';
+import { FundsReminderChatNotice } from '@/shared/components/funds-reminder/FundsReminder';
 import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
 import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
 import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
 import { buildReferenceBlock } from '@/shared/lib/agent-references';
-import type { AttachmentDTO, ReferenceItemDTO, TurnAttachment, TurnReference } from '@/shared/types/chat';
+import type { ReferenceItemDTO, TurnAttachment, TurnReference } from '@/shared/types/chat';
 import {
   useCreateSmartSearchSession,
   useSmartSearchContext,
   useSmartSearchHistory,
   useSmartSearchSessions,
   useSmartSearchSocket,
+  smartSearchSessions,
   smartSearchSessionFileUrl,
   getSmartSearchNewConvModel,
   setSmartSearchNewConvModel,
   markSmartSearchPendingModel,
-  getSmartSearchBlockedMessage,
-  setSmartSearchBlockedMessage,
-  clearSmartSearchBlockedMessage,
-  type SmartSearchBlockedMessage,
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
 import { SmartComposer } from './SmartComposer';
-import { SmartSearchHero } from './SmartSearchHero';
+import { SearchLanding } from '../SearchLanding';
+import { SmartSearchClawHandoff } from './SmartSearchClawHandoff';
+import type { SearchMode } from '../../search-mode';
 import {
   foldMessagesIntoTurns,
   replayHistoryAsTurns,
@@ -67,7 +73,7 @@ import {
  *   - 从「单会话 + 重置上下文」改为「多会话」(与智能助手 claw 同型):可新开会话、侧边栏会话列表、
  *     每会话独立上下文。activeSessionId 收在 useSmartSearchSessionStore(跨子树:侧边栏在 SearchSidebar、
  *     聊天在本组件、新对话按钮在 SearcherColumn header)。
- *   - 进页面 didInitialSelect 采用 sessions[0](最近活跃);列表空 = 空白新对话态(不预建会话)。
+ *   - 进页面默认空白 hero + 底部会话历史;不自动 adopt 最近会话(用户点选或发首条消息后进入对话)。
  *   - 「新对话」= setActiveSessionId(null);首条消息时懒建后端会话(createSession)再 adopt。
  *   - 切会话 / 新对话 → activeSessionId 变 → 本组件 effect 清本地 turns + clearMessages,socket 按新 id 重连,
  *     history/context 按新 id 重取(全部带 ?session_id= 防 race)。
@@ -89,6 +95,13 @@ const ACK_TIMEOUT_MS = 10_000;
  *  取远大于正常 abort 收尾时长;死连接场景重连后 hub 只回放在途轮,不存在「合成后真终帧才迟到」的错配。 */
 const STOP_FALLBACK_MS = 20_000;
 
+const SMART_ROTATING_PROMPTS = [
+  '帮我找 3 篇大语言模型可解释性的代表论文',
+  '最近三年扩散模型在图像生成上的综述',
+  '对比 Transformer 与 Mamba 的长序列建模',
+  '检索增强生成 (RAG) 有哪些高引代表作',
+];
+
 /** 历史回放:给图片附件补 previewUrl(指向 /smart-search/session/file 取图代理,cookie 鉴权)。
  *  transcript 里图片只剩 @path,刷新后靠这个显示缩略图 + 点击放大。只处理 type=image 且有 path 未补的。 */
 function withHistoryImagePreviews(turns: Turn[], sessionId: string | null): Turn[] {
@@ -106,39 +119,56 @@ function withHistoryImagePreviews(turns: Turn[], sessionId: string | null): Turn
   });
 }
 
-export function SmartSearchPanel() {
+export function SmartSearchPanel({
+  mode,
+  onModeChange,
+}: {
+  mode: SearchMode;
+  onModeChange: (mode: SearchMode) => void;
+}) {
   const token = useAuthStore((s) => s.token);
   const queryClient = useQueryClient();
   const reduce = useReducedMotion();
+  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
+  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
+  // 注意:busy 在下方 socket 派生后才有;hero/dock 里的 strip 用 store busy 做 disabled。
+  const storeBusy = useSmartSearchSessionStore((s) => s.busy);
+
+  const handleNewConversation = useCallback(() => {
+    if (storeBusy) return;
+    // 当前会话已在服务端落盘;刷列表让标题/排序及时出现,再切到空白新对话。
+    void queryClient.invalidateQueries({ queryKey: ['smart-search', 'sessions'] });
+    setActiveSessionId(null);
+  }, [storeBusy, queryClient, setActiveSessionId]);
+
+  const sessionStripProps = {
+    api: smartSearchSessions,
+    activeSessionId,
+    onActivate: setActiveSessionId,
+    onNewConversation: handleNewConversation,
+    newConversationDisabled: storeBusy || activeSessionId === null,
+    newConversationTitle: storeBusy
+      ? '回答中,请稍候'
+      : activeSessionId === null
+        ? '已是新对话'
+        : '开始新对话',
+    emptyHint: '还没有会话, 发送第一句话即可开始',
+  } as const;
 
   // 跨 tab 同步: 另一个 tab 新建/切换会话会通过 BroadcastChannel 推一帧, 本 tab 收到
   // 后 invalidate ['smart-search'] 全部 query。
   useSessionBroadcast('smart-search');
 
-  // ── 多会话:activeSessionId 收在 store(跨 SearchSidebar / SearcherColumn / 本组件三处子树)──
-  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
-  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
+  // ── 多会话:activeSessionId 已在上方订阅;此处补 busy / conversationActive / reset ──
   const setStoreBusy = useSmartSearchSessionStore((s) => s.setBusy);
+  const setConversationActive = useSmartSearchSessionStore((s) => s.setConversationActive);
   const resetStore = useSmartSearchSessionStore((s) => s.reset);
   const sessionId = activeSessionId;
 
   const sessionsQuery = useSmartSearchSessions();
   const createSession = useCreateSmartSearchSession();
 
-  // 首次采用:sessions 列表首次落定且当前无活跃会话 → 采用最近一条(list[0], 后端已按
-  // last_accessed_at DESC 排)。只跑一次(didInitialSelectRef),故点「新对话」置 null 后不会被弹回 list[0]。
-  const didInitialSelectRef = useRef(false);
-  useEffect(() => {
-    if (didInitialSelectRef.current) return;
-    const list = sessionsQuery.data;
-    if (!list) return; // 还没加载完
-    didInitialSelectRef.current = true;
-    if (activeSessionId === null && list.length > 0) {
-      setActiveSessionId(list[0].sessionId);
-    }
-  }, [sessionsQuery.data, activeSessionId, setActiveSessionId]);
-
-  // 离开 /search(本组件卸载)时复位 store —— 下次进来重新采用最近会话, 不残留陈旧 id。
+  // 离开 /search(本组件卸载)时复位 store —— 下次进来重新从 hero 开始, 不残留陈旧 id。
   useEffect(() => () => resetStore(), [resetStore]);
 
   // adoptingSessionIdRef: 懒建 / upload-adopt / 引用-adopt 这类「程序化切到刚建好的会话」时,
@@ -158,11 +188,8 @@ export function SmartSearchPanel() {
   const historyDataMatches = historyQuery.data?.sessionId === sessionId;
   const historyHasMore = (historyDataMatches && historyQuery.data?.hasMore) ?? false;
 
-  // 上下文水位: panel 底部 chip 用; 每轮结束 invalidate 强制刷。
+  // 上下文水位: 顶栏 composer chip 用; 每轮结束 invalidate 强制刷。
   const contextQuery = useSmartSearchContext(sessionId);
-
-  // 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供底部留白按比例计算 (见 StickToBottom.Content)。
-  const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
 
   // 发送新一轮后立刻滚到底: scrollToBottom 由 StickToBottom 内的 <ScrollController> 注入到这个 ref。
   const scrollToBottomRef = useRef<(() => void) | null>(null);
@@ -170,8 +197,9 @@ export function SmartSearchPanel() {
   // 本轮聊天输入状态。
   // 首挂载时用 URL 的 ?q= 预填(首页输入关键词点「智能搜索」→ 登录 → 跳进来时带着它):
   // 只读一次(lazy init),之后用户敲字 / 发送清空都不再被 URL 覆写;无 q 时为空串。
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [input, setInput] = useState(() => searchParams.get('q')?.trim() ?? '');
+  const consumedInitialQRef = useRef(false);
   /** 按发送顺序排列的用户提问骨架; 长度 = 本会话生命周期内已发起的轮数 */
   const [pendingTurns, setPendingTurns] = useState<
     {
@@ -194,13 +222,8 @@ export function SmartSearchPanel() {
       stopTimerRef.current = null;
     }
   }, []);
-  /** 最近一次提交的原始 payload(text + 含 path 的 attachments + 引用)—— 命中额度 / 投递失败
-   *  被拦时据此把「未发送」消息持久化到 localStorage(QuotaComposerStrip 自动重发,与 claw 同构;
-   *  旧「原文回填输入框」方案已退役)。 */
-  const lastSubmitRef = useRef<SmartSearchBlockedMessage | null>(null);
-  // sessionId 的最新镜像 —— 给 setTimeout / 只依赖单信号的 effect 读(闭包捕获的值会过期)。
-  const sessionIdRef = useRef<string | null>(sessionId);
-  sessionIdRef.current = sessionId;
+  /** 最近一次成功提交的问题原文 —— 命中额度 / 投递失败被拦时用于回填输入框, 便于一键重发。 */
+  const lastSubmitTextRef = useRef<string>('');
 
   // 本次 mount 起的 sessionId 一旦确认, pendingSendRef 里如果还有未发的 user_message
   // 就在 WS open 后立刻发出去(flush effect 在下方 socket 解构后)。clientTurnId 与乐观气泡
@@ -238,12 +261,10 @@ export function SmartSearchPanel() {
       const timer = window.setTimeout(() => {
         ackWaitRef.current = null;
         firedAckRef.current = { clientTurnId, turnId }; // 保留配对供迟到证据解除误标
-        // 持久化「未发送」消息(同 claw):blocked 轮渲染 QuotaComposerStrip 自动重发,不再回填输入框。
-        const sid = sessionIdRef.current;
-        const payload = lastSubmitRef.current;
-        if (sid && payload) setSmartSearchBlockedMessage(sid, payload);
         setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
-        toast.error('消息未能送达,已为你保留,可点击重新发送');
+        const text = lastSubmitTextRef.current;
+        if (text) setInput((cur) => (cur.trim() ? cur : text));
+        toast.error('消息未能送达,已为你保留在输入框,可重新发送');
       }, ACK_TIMEOUT_MS);
       ackWaitRef.current = { clientTurnId, turnId, timer };
     },
@@ -288,7 +309,6 @@ export function SmartSearchPanel() {
     if (ackHit || (grew && lastLive?.id === fired.turnId)) {
       firedAckRef.current = null;
       deliveredTurnIdRef.current = fired.turnId;
-      clearSmartSearchBlockedMessage(sessionIdRef.current); // 误报解除 → 撤销持久化的「未发送」
       setPendingTurns((prev) => prev.map((t) => (t.id === fired.turnId ? { ...t, blocked: false } : t)));
       toast.success('消息其实已送达,已恢复该轮显示');
     }
@@ -353,12 +373,13 @@ export function SmartSearchPanel() {
     [referenceMutation, sessionId, adoptSession],
   );
 
-  // P2 模型目录:composer 左下角选择器(服务端权威;hub 校验落 pinned_model 后广播回显)。
+  // P2 模型目录:挂在输入框发送键左侧(服务端权威;hub 校验落 pinned_model 后广播回显)。
   // **新对话(无 sessionId)也展示** —— 选择记为「新对话默认模型」偏好,首条消息建会话后经 socket
   // onOpen 一次性下发(markSmartSearchPendingModel);不再要求先有会话才出按钮。
   const modelSlot =
     userModels && userModels.length > 0 ? (
       <ModelSelector
+        iconOnly
         models={userModels}
         current={selectorCurrent}
         currentTokens={contextQuery.data?.totalTokens ?? 0}
@@ -376,7 +397,30 @@ export function SmartSearchPanel() {
       />
     ) : null;
 
-  // ── 附件/引用装配插槽(hero 与底栏两个 SmartComposer 共用同一份)────────────────
+  const contextMeter =
+    contextQuery.data?.sessionId === sessionId &&
+    contextQuery.data.totalTokens > 0 ? (
+      <ContextMeter
+        totalTokens={contextQuery.data.totalTokens}
+        maxTokens={contextQuery.data.maxTokens}
+        percentage={contextQuery.data.percentage}
+        model={contextQuery.data.model ?? ''}
+        iconOnly
+      />
+    ) : null;
+
+  /** 与输入框同宽叠放;完整会话管理(历史/时间/标题/改名/删除),记录独立于智能助手。 */
+  const sessionStripStack = (
+    <AgentSessionStrip
+      placement="stack"
+      {...sessionStripProps}
+      trailingSlot={contextMeter}
+    />
+  );
+
+  // ── 附件/引用装配插槽(hero / 顶栏 SmartComposer 共用)────────────────
+  const hasComposerTopExtras =
+    att.items.length > 0 || references.length > 0 || referenceMutation.isPending;
   const composerExtras = {
     modelSlot,
     plusSlot: (
@@ -387,7 +431,7 @@ export function SmartSearchPanel() {
         onPickLibrary={() => setPickerOpen(true)}
       />
     ),
-    topExtras: (
+    topExtras: hasComposerTopExtras ? (
       <>
         <ComposerAttachmentRow
           items={att.items}
@@ -407,7 +451,7 @@ export function SmartSearchPanel() {
               onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
             />
             {referenceMutation.isPending && (
-              <span className="inline-flex items-center gap-1 text-12 text-faint">
+              <span className="inline-flex items-center gap-1 text-2xs text-faint">
                 <Loader2 className="size-3 animate-spin" />
                 引用中…
               </span>
@@ -415,12 +459,12 @@ export function SmartSearchPanel() {
           </div>
         )}
       </>
-    ),
+    ) : undefined,
     canSendEmpty: att.attachments.length > 0 || references.length > 0,
     onPaste: att.handlePaste,
     containerProps: att.dragHandlers,
     overlay: att.dragOver ? (
-      <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-surface-card/90 text-12 font-medium text-brand-green">
+      <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
         <Upload className="size-4" />
         松开上传图片 / 文件
       </div>
@@ -495,21 +539,19 @@ export function SmartSearchPanel() {
   // messages),agent 永不对这轮 emit message_complete → 这条 pendingTurn 永远 complete=false →
   // busy 永久为 true、composer 永久禁用、连 stop/reset 都救不了(评审 #1;claw/prism 早已修)。
   // quotaExceeded 单调自增 → 把卡住的本轮标 blocked(busy 排除 blocked → composer 解锁),
-  // 并把消息持久化到 localStorage(QuotaComposerStrip 自动重发,跳支付宝充会员整页返回 / 换设备
-  // 回来都不丢;旧「原文回填输入框」方案已退役)。用户已由全局额度弹窗知道原因。
+  // 并把原文回填输入框便于一键重发(不覆盖用户已敲的新内容)。用户已由全局额度弹窗知道原因。
   const lastQuotaRef = useRef(0);
   useEffect(() => {
     if (quotaExceeded === 0 || quotaExceeded === lastQuotaRef.current) return;
     lastQuotaRef.current = quotaExceeded;
-    const sid = sessionIdRef.current;
-    const payload = lastSubmitRef.current;
-    if (sid && payload) setSmartSearchBlockedMessage(sid, payload);
     setPendingTurns((prev) =>
       prev.length > 0
         ? prev.map((t, i) => (i === prev.length - 1 ? { ...t, blocked: true } : t))
         : prev,
     );
     setStopping(false);
+    const text = lastSubmitTextRef.current;
+    if (text) setInput((cur) => (cur.trim() ? cur : text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotaExceeded]);
 
@@ -551,11 +593,10 @@ export function SmartSearchPanel() {
     // 已有送达证明的轮绝不判「未发送」,走中断收口而非诱导重发。
     const hasContent = last.blocks.length > 0 || !!last.thinkingText || !!last.placeholder;
     const delivered = deliveredTurnIdRef.current === last.id;
-    const payload = lastSubmitRef.current;
-    if (!hasContent && !delivered && payload && payload.text === last.userText) {
-      const sid = sessionIdRef.current;
-      if (sid) setSmartSearchBlockedMessage(sid, payload); // 持久化 → QuotaComposerStrip 自动重发
+    const text = lastSubmitTextRef.current;
+    if (!hasContent && !delivered && text && text === last.userText) {
       setPendingTurns((prev) => prev.map((t) => (t.id === last.id ? { ...t, blocked: true } : t)));
+      setInput((cur) => (cur.trim() ? cur : text));
       return;
     }
     appendLocalFrame({
@@ -581,6 +622,27 @@ export function SmartSearchPanel() {
     () => [...reconciledHistoryTurns, ...liveTurns],
     [reconciledHistoryTurns, liveTurns]
   );
+
+  const loadingHistory =
+    sessionsQuery.isLoading ||
+    (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching));
+
+  // SearchPage 据此切换全宽 hero vs 窄列聊天;选中历史会话加载中也保持聊天布局,避免 hero 闪回。
+  useEffect(() => {
+    const active =
+      turns.length > 0 ||
+      pendingTurns.length > 0 ||
+      (!!sessionId && loadingHistory) ||
+      (!!sessionId && historyTurns.length > 0);
+    setConversationActive(active);
+  }, [
+    turns.length,
+    pendingTurns.length,
+    sessionId,
+    loadingHistory,
+    historyTurns.length,
+    setConversationActive,
+  ]);
 
   // 渲染窗口: 只把最近 renderLimit 轮渲染进 DOM (其余仍在内存, 仅不进 DOM)。切 session 复位。
   // in-flight 轮永远是最新一轮 → 必在窗口内, 故 streaming / 贴底 / 续流 / 底部留白都不受影响。
@@ -621,18 +683,17 @@ export function SmartSearchPanel() {
   }, [state, send, armAckWait]);
 
   // 懒新建死路兜底:createSession 成功但 WS 一直连不上(8 次退避耗尽落 error)→ pendingSendRef
-  // 永不 flush、乐观气泡永卡 busy。把这条转 blocked(未发送)+ 持久化,文字不丢(卡片一键重发)。
+  // 永不 flush、乐观气泡永卡 busy。把这条转 blocked(未发送)+ 原文回填输入框,文字不丢。
   useEffect(() => {
     if (state !== 'error' || !pendingSendRef.current) return;
     pendingSendRef.current = null;
-    const sid = sessionIdRef.current;
-    const payload = lastSubmitRef.current;
-    if (sid && payload) setSmartSearchBlockedMessage(sid, payload);
     const turnId = pendingSendTurnIdRef.current;
     pendingSendTurnIdRef.current = null;
     if (turnId) {
       setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
     }
+    const text = lastSubmitTextRef.current;
+    if (text) setInput((cur) => (cur.trim() ? cur : text));
   }, [state]);
 
   // 上下文水位实时刷新: 每一轮回答从 busy=true → false (message_complete) 时
@@ -663,11 +724,16 @@ export function SmartSearchPanel() {
   // 会话**(adoptingSessionIdRef===sessionId,懒建/upload-adopt/引用-adopt)才跳过清理 —— pending
   // turn / 待发消息 / 附件属于它;若期间用户点了侧边栏别的会话 B(≠ 采用 id),照常清理丢弃在途消息,
   // 绝不把它串进 B(评审 #1)。
+  // 「新对话」(→ null)额外清空输入框 / 附件 / 引用,页面回到空白居中输入态。
   const prevSessionIdRef = useRef(sessionId);
   useEffect(() => {
     if (prevSessionIdRef.current === sessionId) return;
+    const prev = prevSessionIdRef.current;
     prevSessionIdRef.current = sessionId;
-    if (adoptingSessionIdRef.current === sessionId) {
+    // Only skip cleanup when adopting a real session id (lazy-create / upload / cite).
+    // `null === null` must not match: 「新对话」把 sessionId 置空时 adopting 也是 null,
+    // 若跳过清理,pendingTurns 会留下旧轮,ClawHero 空态出不来。
+    if (sessionId != null && adoptingSessionIdRef.current === sessionId) {
       adoptingSessionIdRef.current = null;
       return;
     }
@@ -678,45 +744,13 @@ export function SmartSearchPanel() {
     clearAckWait();
     clearStopFallback();
     clearMessages();
-  }, [sessionId, clearMessages, clearAckWait, clearStopFallback]);
-
-  // 恢复「未发送」消息:进入(或切回)某 session 时,若 localStorage 里存着该会话的「未发送」
-  // 消息(命中额度 / 投递失败被拦),补一条 blocked 轮渲染出来(QuotaComposerStrip 自动重发)。
-  // 覆盖三条路径:跳支付宝充会员整页返回 / 换设备回来 / 切到别的会话再切回来。已有 blocked 轮
-  // (live 刚标记 / 已恢复过)则不重复补。同 claw useClawConversation 的恢复 effect。
-  useEffect(() => {
-    if (!sessionId) return;
-    const blocked = getSmartSearchBlockedMessage(sessionId);
-    if (!blocked) return;
-    setPendingTurns((prev) => {
-      if (prev.some((t) => t.blocked)) return prev;
-      return [
-        ...prev,
-        {
-          id: `blocked-${sessionId}`,
-          userText: blocked.text,
-          blocked: true,
-          // 重建引用 chip:重发时会用 blocked.references 重附引用块,这里让恢复的 blocked 轮
-          // 也把绿 chip 显示回来(与实时提交的气泡一致)。
-          userReferences: (blocked.references ?? []).map((r) => ({
-            kind: r.kind,
-            title: r.title,
-            paperCount: r.paperCount,
-            hasPdf: r.hasPdf,
-          })),
-          userAttachments: blocked.attachments.map((a) => ({
-            type: a.type,
-            name: a.name,
-            mimeType: a.mimeType,
-            size: a.size,
-            path: a.path,
-            previewUrl:
-              a.type === 'image' && a.path ? smartSearchSessionFileUrl(sessionId, a.path) : undefined,
-          })),
-        },
-      ];
-    });
-  }, [sessionId]);
+    if (sessionId === null && prev !== null) {
+      setInput('');
+      att.clearAttachments();
+      setReferences([]);
+      setPickerOpen(false);
+    }
+  }, [sessionId, clearMessages, clearAckWait, clearStopFallback, att]);
 
   // 标题生成:agent 首轮后异步产标题并推 session_title_updated 帧 → invalidate sessions,
   // 让侧边栏「生成标题中…」spinner 换成真标题(该帧晚于 message_complete,故单独盯一手)。
@@ -735,24 +769,18 @@ export function SmartSearchPanel() {
   //     pendingSendRef 待 open 后自动发。建会话失败则回滚乐观 turn。同 claw handleSubmit。
   // 2026-07 输入框统一:附件走方案 B(文件已在会话 cwd,只透传 path,backend hub 折 @"path"
   // 标记);引用块追加到 content 末尾(与 claw 同构,历史回放解析回 chip)。
-  // override = 「重新发送」路径传入的持久化 payload(命中额度被拦的那条);不传 = 正常从
-  // composer 状态取值提交。两条路径共用同一套发送逻辑(懒新建 / ack 看门狗 / 配额拦截自然生效),
-  // 仅 composer 的清空 / 失败恢复只对 composer 路径生效(重发不碰用户正在敲的新输入)。
-  const handleSubmit = useCallback(async (override?: SmartSearchBlockedMessage) => {
-    const fromComposer = !override;
-    const text = override ? override.text : input.trim();
-    const atts: AttachmentDTO[] = override ? override.attachments : att.attachments;
-    const refs: ReferenceItemDTO[] = override ? override.references ?? [] : references;
-    if (!text && atts.length === 0 && refs.length === 0) return;
-    trackEvent('search_submit', { len: text.length, files: atts.length, refs: refs.length });
-    lastSubmitRef.current = { text, attachments: atts, references: refs };
-    const turnRefs: TurnReference[] = refs.map((r) => ({
+  const handleSubmit = useCallback(async () => {
+    const text = input.trim();
+    if (!text && att.attachments.length === 0 && references.length === 0) return;
+    trackEvent('search_submit', { len: text.length, files: att.attachments.length, refs: references.length });
+    lastSubmitTextRef.current = text;
+    const turnRefs: TurnReference[] = references.map((r) => ({
       kind: r.kind,
       title: r.title,
       paperCount: r.paperCount,
       hasPdf: r.hasPdf,
     }));
-    const turnAtts: TurnAttachment[] = atts.map((a) => ({
+    const turnAtts: TurnAttachment[] = att.attachments.map((a) => ({
       type: a.type,
       name: a.name,
       mimeType: a.mimeType,
@@ -761,7 +789,7 @@ export function SmartSearchPanel() {
       // 已发送气泡里图片缩略图 —— 用后端取图代理 URL(与历史回放一致,刷新后仍有效)。
       previewUrl: a.type === 'image' && a.path ? smartSearchSessionFileUrl(a.sessionId, a.path) : undefined,
     }));
-    const wsAttachments = atts.map((a) => ({
+    const wsAttachments = att.attachments.map((a) => ({
       type: a.type,
       name: a.name,
       mimeType: a.mimeType,
@@ -789,14 +817,11 @@ export function SmartSearchPanel() {
       // 自动发(flush 成功后挂未送达看门狗)。
       // 关键:adoptingSessionIdRef 在**拿到 newId 之后**才置为该具体 id(不能 await 前置 bool)——
       // 否则 await 期间用户切到别的会话 B,那次 null→B 切换会误跳过清理、把 payload 串进 B(评审 #1)。
-      if (fromComposer) setInput('');
-      // 发新一轮时先清掉上一条「未发送」的 blocked 轮(+其持久化), 避免它和新一轮并存显得杂乱。
-      clearSmartSearchBlockedMessage(sessionIdRef.current);
+      setInput('');
+      // 重发时先清掉上一条「未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
       setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
-      if (fromComposer) {
-        att.clearAttachments();
-        setReferences([]);
-      }
+      att.clearAttachments();
+      setReferences([]);
       pendingSendRef.current = payload;
       pendingSendTurnIdRef.current = turnId;
       try {
@@ -811,7 +836,7 @@ export function SmartSearchPanel() {
         pendingSendRef.current = null;
         pendingSendTurnIdRef.current = null;
         setPendingTurns((prev) => prev.filter((t) => t.id !== turnId));
-        if (fromComposer) setInput((cur) => (cur.trim() ? cur : text));
+        setInput((cur) => (cur.trim() ? cur : text));
         toast.error((err as Error).message || '新建会话失败,请重试');
       }
       return;
@@ -823,37 +848,108 @@ export function SmartSearchPanel() {
       toast.error('连接未就绪,请稍后重试');
       return;
     }
-    if (fromComposer) setInput('');
-    // 发新一轮时先清掉上一条「未发送」的 blocked 轮(+其持久化), 避免它和新一轮并存显得杂乱。
-    clearSmartSearchBlockedMessage(sessionIdRef.current);
+    setInput('');
+    // 重发时先清掉上一条「未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
     setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
-    if (fromComposer) {
-      att.clearAttachments();
-      setReferences([]);
-    }
-    // 端到端投递确认:10s 内无 ack 且无任何流帧 → 该轮转「未发送」(持久化 + 卡片一键重发,半死 TCP 闭环)。
+    att.clearAttachments();
+    setReferences([]);
+    // 端到端投递确认:10s 内无 ack 且无任何流帧 → 该轮转「未发送」+ 回填输入框(半死 TCP 闭环)。
     armAckWait(clientTurnId, turnId);
   }, [input, state, send, att, references, sessionId, createSession, setActiveSessionId, armAckWait]);
 
-  // 一键重发「未发送」消息(BlockedTurnCard):清持久化 + 移除 blocked 轮 → 走正常发送路径
-  // (懒新建 / ack 看门狗 / 配额拦截自然生效)。若额度仍未解,会再次被拦成 blocked(行为一致,
-  // 不会卡死)。ref-latest 包 handleSubmit:它依赖 input(每键换引用),直接进依赖会让本回调
-  // 不稳、击穿全部 AssistantTurn 的 memo(长会话每键全量重渲染,智能页 CPU 风暴同款教训)。
-  const handleSubmitRef = useRef(handleSubmit);
-  handleSubmitRef.current = handleSubmit;
-  const resendBlocked = useCallback(() => {
-    const sid = sessionIdRef.current;
-    const payload = getSmartSearchBlockedMessage(sid);
-    if (sid) clearSmartSearchBlockedMessage(sid);
-    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
-    if (payload) void handleSubmitRef.current(payload);
-  }, []);
+  /** PDF Chat「开始对话」—— 程序化发首条(新会话懒建 + pendingSend flush)。
+   *  展示层与投递层分离:气泡只显示 text + 引用 chip;发给 agent 的 content 末尾
+   *  追加 buildReferenceBlock(refs),历史回放经 stripReferenceBlock 还原 chip。 */
+  const submitExternalMessage = useCallback(
+    async (
+      text: string,
+      opts?: { references?: TurnReference[]; onSession?: (id: string) => void },
+    ) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const refs = opts?.references ?? [];
+      trackEvent('search_submit', { len: trimmed.length, files: 0, refs: refs.length });
+      lastSubmitTextRef.current = trimmed;
+      const turnId = `turn-${crypto.randomUUID()}`;
+      const clientTurnId = crypto.randomUUID();
+      const payload = { content: trimmed + buildReferenceBlock(refs), clientTurnId };
+      const optimisticTurn = {
+        id: turnId,
+        userText: trimmed,
+        userReferences: refs.length > 0 ? refs : undefined,
+      };
 
-  // 忽略「未发送」消息:清持久化 + 移除 blocked 轮(用户决定不再发这条)。
-  const dismissBlocked = useCallback(() => {
-    clearSmartSearchBlockedMessage(sessionIdRef.current);
-    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
-  }, []);
+      if (!sessionId) {
+        setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
+        pendingSendRef.current = payload;
+        pendingSendTurnIdRef.current = turnId;
+        try {
+          const { sessionId: newId } = await createSession.mutateAsync();
+          opts?.onSession?.(newId);
+          markSmartSearchPendingModel(newId);
+          adoptingSessionIdRef.current = newId;
+          setActiveSessionId(newId);
+          notifySessionChanged('smart-search', newId);
+        } catch (err) {
+          adoptingSessionIdRef.current = null;
+          pendingSendRef.current = null;
+          pendingSendTurnIdRef.current = null;
+          setPendingTurns((prev) => prev.filter((t) => t.id !== turnId));
+          toast.error((err as Error).message || '新建会话失败,请重试');
+        }
+        return;
+      }
+
+      if (state !== 'open' || !send({ type: 'user_message', ...payload })) {
+        toast.error('连接未就绪,请稍后重试');
+        return;
+      }
+      opts?.onSession?.(sessionId);
+      setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
+      armAckWait(clientTurnId, turnId);
+    },
+    [sessionId, state, send, createSession, setActiveSessionId, armAckWait],
+  );
+
+  const pendingPdfChatBootstrap = usePdfChatBridge((s) => s.pendingBootstrap);
+  useEffect(() => {
+    if (!pendingPdfChatBootstrap || !token) return;
+    if (sessionId !== null) return;
+    const boot = usePdfChatBridge.getState().consumeBootstrap();
+    if (!boot) return;
+    void submitExternalMessage(boot.openerText, {
+      references: boot.references,
+      onSession: (id) =>
+        usePdfChatBridge.getState().recordEngagedSession(boot.paperId, id),
+    });
+  }, [pendingPdfChatBootstrap, token, sessionId, submitExternalMessage]);
+
+  // 首页 / 外链带 ?mode=smart&q= 进来 → 自动发首条并进入对话态(对齐 Claw ?q= 与首页 hero 提交)。
+  useEffect(() => {
+    if (!token) return;
+    if (searchParams.get('mode') !== 'smart') return;
+    const q = searchParams.get('q')?.trim();
+    if (!q || consumedInitialQRef.current) return;
+    if (turns.length > 0 || pendingTurns.length > 0 || loadingHistory) return;
+    consumedInitialQRef.current = true;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+    void submitExternalMessage(q);
+  }, [
+    token,
+    searchParams,
+    turns.length,
+    pendingTurns.length,
+    loadingHistory,
+    submitExternalMessage,
+    setSearchParams,
+  ]);
 
   // 未登录态 hero 的提交 —— 不真正发送,而是弹登录;把刚输入的关键词排进
   // pending navigate(/search?mode=smart&q=…),登录成功后由 useReplayPendingAction
@@ -876,16 +972,13 @@ export function SmartSearchPanel() {
     (text: string) => {
       const t = text.trim();
       if (!t) return;
-      // 投递失败 / 命中额度时据此持久化「未发送」(与 handleSubmit 同款;答案无附件/引用)。
-      lastSubmitRef.current = { text: t, attachments: [], references: [] };
+      lastSubmitTextRef.current = t; // 投递失败时回填输入框用(与 handleSubmit 同款)
       const clientTurnId = crypto.randomUUID();
       if (state !== 'open' || !send({ type: 'user_message', content: t, clientTurnId })) {
         toast.error('连接未就绪,请稍后重试');
         return;
       }
       const turnId = `turn-${crypto.randomUUID()}`;
-      // 与 handleSubmit 同款:发新一轮即放弃上一条「未发送」(卡片 + 持久化一起清)。
-      clearSmartSearchBlockedMessage(sessionIdRef.current);
       setPendingTurns((prev) => [...prev.filter((x) => !x.blocked), { id: turnId, userText: t }]);
       armAckWait(clientTurnId, turnId);
     },
@@ -933,44 +1026,56 @@ export function SmartSearchPanel() {
   }, [busy, stopping, clearStopFallback]);
 
   if (!token) {
-    // 未登录:居中 hero 对话框(同已登录起始态),输入框提示登录,回车/发送弹登录。
     return (
-      <div className="flex flex-col h-full min-h-0 bg-background">
-        <SmartSearchHero
-          loggedOut
-          value={input}
-          onChange={setInput}
-          onSubmit={handleLoggedOutSubmit}
-        />
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <div className="relative min-h-0 flex-1">
+          <SearchLanding
+            mode={mode}
+            onModeChange={onModeChange}
+            aboveComposer={sessionStripStack}
+            composer={
+              <SmartComposer
+                autoFocus
+                rotatingPlaceholders={SMART_ROTATING_PROMPTS}
+                value={input}
+                onChange={setInput}
+                onSubmit={handleLoggedOutSubmit}
+                loggedOut
+                mode={mode}
+                onModeChange={onModeChange}
+                {...composerExtras}
+              />
+            }
+            onPickSuggestion={setInput}
+          />
+        </div>
       </div>
     );
   }
 
-  // 加载态:
-  //   - sessions 列表还没落定 → 加载(马上会 adopt 最近会话或落到空白新对话)。
-  //   - 有活跃会话且其历史在拉(含 refetchOnMount:'always' 重入的 isFetching)→ 加载,避免 hero 闪。
-  //   - 无活跃会话(空白新对话 / 新用户空列表)→ 不加载 → 显示 hero。
-  const loadingHistory =
-    sessionsQuery.isLoading ||
-    (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching));
-
+  // 加载态:见上方 loadingHistory 定义。
+  // mode!==smart 时父级仍可能短暂挂着本组件(播 composer 向上退场),背景必须透明以免盖住文献检索。
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
+    <div
+      className={cn(
+        'relative flex h-full min-h-0 flex-col',
+        mode === 'smart' ? 'bg-background' : 'bg-transparent',
+      )}
+    >
       {/* 多窗口接管 banner: 后端 displacement 路径下发 {type:displaced} 后,
           这个 banner 占顶部一行, 用户点 "切回这里" 调 takeOver() 抢回活跃权。
           banner 只在 state='displaced' 时出现; takeOver 后 state 变 connecting → open 自动消失。 */}
-      {state === 'displaced' && (
+      {mode === 'smart' && state === 'displaced' && (
         <AgentDisplacedBanner reason={displacedReason} onTakeOver={takeOver} />
       )}
 
       {/* 内容区:hero(空态)与对话视图是两层 absolute 叠层,互不挤压布局。
-          - 对话视图常驻底层;悬浮对话框 + 底部渐隐都在这层。
-          - hero 在最上层,发送首条消息后整体淡出(大标题 + 流动背景渐隐),底栏 composer 同时就位。 */}
+          - 对话视图常驻底层;会话条+输入叠在底部悬浮。
+          - hero 在最上层,发送首条消息后整体淡出,底栏成组就位。 */}
       <div className="relative flex-1 min-h-0">
-        {/* 对话视图(底层) */}
-        {turns.length > 0 && (
-          // 外层量高 div: useHeightVar 把"对话框可视区"像素高写进 --chat-area-h,供留白按比例算。
-          <div ref={chatAreaRef} className="absolute inset-0">
+        {/* 对话视图 —— 仅 smart 激活时铺开;切走时立刻让出画面。 */}
+        {mode === 'smart' && turns.length > 0 && (
+          <div className="absolute inset-0">
             <StickToBottom
               // ⚠️ 这个 wrapper 绝对不能加任何 overflow-* 工具类。
               //
@@ -986,25 +1091,21 @@ export function SmartSearchPanel() {
               // markdown 表格 overflow-x-auto, 工具 chip max-w-full。外层不需要也不能管 overflow。
               //
               // padding / background / relative 可以放心保留 (不影响 overflow 计算)。
-              className="h-full bg-surface-1 px-4 py-4 relative"
+              className="relative h-full bg-background px-4 py-4"
               resize="smooth"
               initial="smooth"
             >
-              {/* 底部留白 = 滚动内容的 padding-bottom(算进 scrollHeight,贴底时稳定露在视口底)。
-                  现在对话框是"悬浮"在底部,所以留白要 ≥ 悬浮框高度,内容才不会被它盖住 —— 用
-                  max(三成框高, 132px) 兜底:高屏保留三成呼吸感,矮屏也至少留出悬浮框的高度。 */}
+              {/* 底部留白 ≥ 悬浮会话条+输入高度,避免末条被挡住。 */}
               <StickToBottom.Content
                 // scrollClassName 落在库真正的 scroll 元素上(overflow:auto 那层),
                 // 给它挂「仅手动滚动时浮现」的滚动条样式;className 落在内容层。
                 scrollClassName="chat-scrollbar-autohide"
-                className="space-y-3.5 min-w-0 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),132px)]"
+                className="mx-auto w-full max-w-3xl space-y-3.5 min-w-0 pb-[max(calc(var(--chat-area-h,100dvh)*0.28),180px)]"
               >
                 {(hiddenCount > 0 || historyHasMore) && (
                   <div className="flex justify-center pb-1">
-                    <Button
+                    <button
                       type="button"
-                      variant="secondary"
-                      size="sm"
                       // 两段式"加载更早": 先把已拉到但没渲染的轮放进 DOM (hiddenCount>0, 不发请求);
                       // 都渲染完了还有更早的 → 向后端多要一页 (historyLimit += STEP) 并同步放开渲染窗口。
                       onClick={() => {
@@ -1015,15 +1116,15 @@ export function SmartSearchPanel() {
                           setRenderLimit((n) => n + HISTORY_STEP);
                         }
                       }}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
                     >
                       {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
-                    </Button>
+                    </button>
                   </div>
                 )}
                 {visibleTurns.map((turn) => (
                   <div key={turn.id} className="space-y-3.5 min-w-0">
-                    <SearchUserBubble
+                    <UserBubble
                       text={turn.userText}
                       attachments={turn.userAttachments}
                       references={turn.userReferences}
@@ -1031,8 +1132,9 @@ export function SmartSearchPanel() {
                     <AssistantTurn turn={turn} />
                   </div>
                 ))}
+                {lastTurn?.complete ? <SmartSearchClawHandoff /> : null}
                 {state === 'reconnecting' && (
-                  <div className="inline-flex items-center gap-2 text-12 text-muted-foreground">
+                  <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="size-3 animate-spin" />
                     连接断开,正在重连
                     {reconnectAttempt > 0 && (
@@ -1041,7 +1143,7 @@ export function SmartSearchPanel() {
                   </div>
                 )}
                 {state === 'error' && (
-                  <div className="inline-flex items-center gap-1.5 text-12 text-brand-red">
+                  <div className="inline-flex items-center gap-1.5 text-xs text-brand-red">
                     <AlertCircle className="size-3.5" />
                     连接中断, 请刷新页面重试
                   </div>
@@ -1052,14 +1154,24 @@ export function SmartSearchPanel() {
               <ScrollToBottomFab />
             </StickToBottom>
 
-            {/* 底部渐隐:内容贴近底部时淡入 surface-1,让悬浮对话框"浮"在对话之上(不被文字顶到边)。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-raised h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
+          </div>
+        )}
 
-            {/* 悬浮对话框 —— 普通 div。原「与 hero 共用 layoutId 从居中滑到底部」的共享 layout 动画已移除:
-                那个 framer 共享 layout 会用 scaleY morph 高度,返回页面时被路由过渡打断即卡住 → 输入框拉高变形。
-                改为 hero 淡出 + 底栏 composer 直接就位。外层 pointer-events-none 不挡滚动,框本体可交互。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-sticky px-4 pb-4">
-              <div className="pointer-events-auto mx-auto w-full max-w-2xl">
+        {/* 有消息:会话条 + 输入叠在底部。无消息:回 SearchLanding 居中。 */}
+        <AnimatePresence initial={false}>
+          {mode === 'smart' && turns.length > 0 && (
+            <motion.div
+              key="smart-composer-bottom-dock"
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4"
+              initial={reduce ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? undefined : { opacity: 0, y: 16 }}
+              transition={{ duration: reduce ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="pointer-events-auto mx-auto flex w-full max-w-[640px] flex-col gap-3">
+                <FundsReminderChatNotice />
+                {sessionStripStack}
                 {pendingQuestionBlock && (
                   <QuestionPrompt
                     key={pendingQuestionBlock.toolUseId}
@@ -1068,57 +1180,58 @@ export function SmartSearchPanel() {
                   />
                 )}
                 <SmartComposer
-                  prominent
                   value={input}
                   onChange={setInput}
                   onSubmit={handleSubmit}
-                  placeholder="继续与智能搜索对话…"
-                  quotaBlocked={
-                    visibleTurns.some((t) => t.blocked)
-                      ? { onResend: resendBlocked, onDismiss: dismissBlocked }
-                      : null
-                  }
-                  quotaWarn={visibleTurns.length > 0}
+                  placeholder="继续与智能搜论文对话…"
                   ready={ready}
                   busy={busy}
                   onStop={handleStop}
                   stopping={stopping}
-                  // 切会话瞬间 context 可能是上个会话的残影(无 keepPreviousData 但 disable→refetch 有窗口)→ 只认当前会话的。
-                  contextSnapshot={
-                    contextQuery.data?.sessionId === sessionId ? contextQuery.data : undefined
-                  }
+                  mode={mode}
+                  onModeChange={onModeChange}
                   {...composerExtras}
                 />
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 加载历史(覆盖层) */}
-        {turns.length === 0 && loadingHistory && (
+        {mode === 'smart' && turns.length === 0 && loadingHistory && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
             <Loader2 className="size-5 text-muted-foreground animate-spin mb-3" />
-            <div className="text-12 text-muted-foreground">正在加载历史会话…</div>
+            <div className="text-sm text-muted-foreground">正在加载历史会话…</div>
           </div>
         )}
 
-        {/* 起始态 hero(顶层):发送首条消息后整体淡出(大标题 + 流动背景);底栏 composer 同时就位。 */}
+        {/* 空对话居中 hero —— 「新对话」/ 首次进入都走这里(含模式切换+输入;会话条在面板顶)。 */}
         <AnimatePresence initial={false}>
-          {turns.length === 0 && !loadingHistory && (
+          {mode === 'smart' && turns.length === 0 && !loadingHistory && (
             <motion.div
               key="smart-hero"
-              // 无 z-index:空状态 hero 与对话区互斥渲染(同 ConversationWorkspace);
-              // z-nav 会整片盖住侧栏展开按钮(那颗按钮已抬到 z-chrome,这里是顺手清多余层级)
-              className="absolute inset-0 flex"
+              className="absolute inset-0 z-30 flex"
               exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
               transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
             >
-              <SmartSearchHero
-                value={input}
-                onChange={setInput}
-                onSubmit={handleSubmit}
-                ready={ready}
-                composerExtras={composerExtras}
+              <SearchLanding
+                mode={mode}
+                onModeChange={onModeChange}
+                aboveComposer={sessionStripStack}
+                composer={
+                  <SmartComposer
+                    autoFocus
+                    rotatingPlaceholders={SMART_ROTATING_PROMPTS}
+                    value={input}
+                    onChange={setInput}
+                    onSubmit={handleSubmit}
+                    ready={ready}
+                    mode={mode}
+                    onModeChange={onModeChange}
+                    {...composerExtras}
+                  />
+                }
+                onPickSuggestion={setInput}
               />
             </motion.div>
           )}
@@ -1205,10 +1318,32 @@ function ScrollToBottomFab() {
       type="button"
       onClick={() => scrollToBottom()}
       // bottom-28 抬高,让它浮在底部"悬浮对话框"之上,而不是被对话框盖住。
-      className="sticky bottom-28 ml-auto mr-1 flex size-8 items-center justify-center rounded-pill bg-foreground text-on-dark shadow-overlay hover:opacity-90 transition-opacity"
+      className="sticky bottom-28 ml-auto mr-1 flex size-8 items-center justify-center rounded-pill bg-foreground text-background shadow-elevation-2 hover:opacity-90 transition-opacity"
       aria-label="回到底部"
     >
       <ArrowDown className="size-4" strokeWidth={2.4} />
     </button>
+  );
+}
+
+function UserBubble({
+  text,
+  attachments,
+  references,
+}: {
+  text: string;
+  attachments?: TurnAttachment[];
+  references?: TurnReference[];
+}) {
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      {attachments && attachments.length > 0 && <AttachmentChipList attachments={attachments} />}
+      {references && references.length > 0 && <ReferenceChipList references={references} />}
+      {text && (
+        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-xl bg-foreground text-background text-sm leading-relaxed">
+          {text}
+        </div>
+      )}
+    </div>
   );
 }

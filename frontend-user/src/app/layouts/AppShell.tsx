@@ -1,10 +1,15 @@
 import { Outlet, useMatch } from 'react-router-dom';
 import { TopNav } from './TopNav';
+import { AppSidebar } from './AppSidebar';
+import { SidebarLayout } from '@/shared/components/sidebar';
 import { cn } from '@/shared/lib/utils';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { FloatingRhinoAssistant } from '@/shared/components/FloatingRhinoAssistant';
+import { RhinoCornerNest } from '@/shared/components/RhinoCornerNest';
 import { RouteCommitWatchdog } from '@/shared/components/RouteCommitWatchdog';
 import { useReplayPendingAction } from '@/shared/hooks';
 import { useNotificationSocket } from '@/shared/hooks/useNotificationSocket';
+import { FeatureRailPanel } from '@/features/home/components/HomeFeatureNav';
 import { useStagingSync } from '@/features/search/hooks/useStagingSync';
 
 /**
@@ -53,9 +58,14 @@ export function AppShell() {
       </div>
       <main className="flex-1 min-h-0">
         <ErrorBoundary>
-          <Outlet />
+          <SidebarLayout sidebar={<AppSidebar />}>
+            <Outlet />
+          </SidebarLayout>
         </ErrorBoundary>
       </main>
+      {/* 悬浮小犀牛 —— 收起=独立 mascot;展开=框进可拖面板 */}
+      <RhinoCornerNest />
+      <FloatingRhinoAssistant featuresSlot={<FeatureRailPanel embedded />} />
     </div>
   );
 }

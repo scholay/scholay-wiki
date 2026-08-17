@@ -1,7 +1,7 @@
 // ============================================================================
 // 会员/计费事件通知 —— 走支付的(充值 / 订阅 / 续期 / 升级)+ 兑换码激活,成功后给用户
 // 发**站内信**(可靠、不依赖 SMTP)+**邮件**(有邮箱才发,best-effort 异步)。
-// 邮件统一走 utils.RenderBrandedEmail(Scholay 品牌模板)。
+// 邮件统一走 utils.RenderBrandedEmail(品牌外壳:字标与页面 Logo 同源,主题统一 utils.EmailSubject)。
 //
 // 依赖经接口注入(bootstrap):MessageSender = message adapter;EmailConfigProvider = config service。
 // ============================================================================
@@ -59,7 +59,7 @@ func (s *Service) notify(userID uint, title, inApp string, ec utils.EmailContent
 		SMTPHost: cfg.SMTPHost, SMTPPort: cfg.SMTPPort, SMTPUser: cfg.SMTPUser,
 		SMTPPassword: cfg.SMTPPassword, FromEmail: cfg.FromEmail, FromName: cfg.FromName,
 	}
-	subject := utils.EmailBrandName + " · " + title
+	subject := utils.EmailSubject(title)
 	body := utils.RenderBrandedEmail(ec)
 	safego.Go("vip-notify-email", func() {
 		if err := utils.SendEmailWithTLS(ecfg, []string{addr}, subject, body); err != nil {
@@ -79,7 +79,7 @@ func tierDisplayName(tier string) string {
 func yuanStr(f float64) string { return fmt.Sprintf("¥%.2f", f) }
 
 // NotifyInviteCampaignReward 在邀请奖励事务提交后发明确通知。
-// kind 沿用 credit_transactions.type，避免“发了钱但用户不知道是哪条规则”。
+// kind 沿用 credit_transactions.type,避免「发了钱但用户不知道是哪条规则」。
 func (s *Service) NotifyInviteCampaignReward(userID uint, credits int, kind string) {
 	if userID == 0 || credits <= 0 {
 		return
@@ -88,15 +88,15 @@ func (s *Service) NotifyInviteCampaignReward(userID uint, credits int, kind stri
 	switch kind {
 	case TxInviteRegistrationInvitee:
 		title = "受邀注册奖励到账"
-		intro = "您通过好友邀请完成注册，受邀奖励已到账。"
+		intro = "您通过好友邀请完成注册,受邀奖励已到账。"
 		inApp = fmt.Sprintf("受邀注册奖励 %d 科研经费已到账。", credits)
 	case TxInviteFirstPurchaseRebate:
 		title = "邀请首单返利到账"
-		intro = "您邀请的好友完成了首笔有效付费，返利已到账。"
+		intro = "您邀请的好友已完成首笔有效付费,返利已到账。"
 		inApp = fmt.Sprintf("好友首单返利 %d 科研经费已到账。", credits)
 	default:
 		title = "邀请注册奖励到账"
-		intro = "您邀请的好友已完成注册，邀请奖励已到账。"
+		intro = "您邀请的好友已完成注册,邀请奖励已到账。"
 		inApp = fmt.Sprintf("邀请注册奖励 %d 科研经费已到账。", credits)
 	}
 	s.notify(userID, title, inApp, utils.EmailContent{
@@ -113,7 +113,7 @@ func (s *Service) NotifyInviteRewardReversal(userID uint, reclaimed, shortfall i
 		return
 	}
 	title := "邀请首单返利已调整"
-	inApp := fmt.Sprintf("因好友首单退款，已回收 %d 科研经费返利。", reclaimed)
+	inApp := fmt.Sprintf("因好友首单退款,已回收 %d 科研经费返利。", reclaimed)
 	rows := [][2]string{{"已回收经费", fmt.Sprintf("%d 经费", reclaimed)}, {"退款单号", refundNo}}
 	if shortfall > 0 {
 		rows = append(rows, [2]string{"未回收差额", fmt.Sprintf("%d 经费", shortfall)})
@@ -197,7 +197,7 @@ func (s *Service) notifyOrderFulfilled(ord *Order) {
 		inApp := fmt.Sprintf("您的 %s 已%s,有效期至 %s。", planLabel, verb, exp)
 		s.notify(ord.UserID, title, inApp, utils.EmailContent{
 			Title:   title,
-			Intro:   fmt.Sprintf("感谢您订阅 %s 会员!您的 %s 已%s,以下是本次订单详情:", utils.EmailBrandName, planLabel, verb),
+			Intro:   fmt.Sprintf("感谢订阅 %s 会员。您的 %s 已%s,以下为本次订单详情:", utils.EmailBrandName, planLabel, verb),
 			Rows:    rows,
 			CTAText: "查看会员权益", CTAURL: membershipURL(),
 			Note: note,
@@ -230,7 +230,7 @@ func (s *Service) notifyRedeem(userID uint, r *RedeemResult) {
 		// 0090:经费只有一种,恒按「科研经费」措辞 —— 旧「临时/永久」前缀分支是死代码
 		// (兑换发放读到存量 temp 也一律按 perm 入账,见 repository.go),留着只会误导文案口径。
 		title := "经费兑换成功"
-		inApp := fmt.Sprintf("兑换成功!%d 科研经费已到账。", r.Credits)
+		inApp := fmt.Sprintf("兑换成功,%d 科研经费已到账。", r.Credits)
 		s.notify(userID, title, inApp, utils.EmailContent{
 			Title:   title,
 			Intro:   "您的兑换码已成功激活,科研经费已到账。",
@@ -245,7 +245,7 @@ func (s *Service) notifyRedeem(userID uint, r *RedeemResult) {
 		exp = r.ExpiresAt.Format("2006-01-02")
 	}
 	title := "会员兑换成功"
-	inApp := fmt.Sprintf("兑换成功!已开通 %s,有效期至 %s。", name, exp)
+	inApp := fmt.Sprintf("兑换成功,已开通 %s,有效期至 %s。", name, exp)
 	s.notify(userID, title, inApp, utils.EmailContent{
 		Title:   title,
 		Intro:   fmt.Sprintf("您的兑换码已成功激活,已为您开通 %s。", name),

@@ -61,6 +61,8 @@
  * ============================================================================= */
 
 :root {
+  color-scheme: light;
+
   /* Wiki 独立暗色页面底：同时作为 index.html theme-color 字面镜像的真源。 */
   --wiki-dark-background: #0B0B0D;
 
@@ -172,6 +174,11 @@
                                        * 按钮与 Badge 直接标 #FFFFFF),不接 var(--ink-12)。 */
   --on-dark:         var(--ink-11);   /* #E6E6F2,暗底上不用纯白避免过曝 */
   --on-dark-muted:   var(--ink-8);    /* #9A9AA6 */
+
+  /* 反相实心底(选中 tab / 实心徽章)。夜间 --foreground 会翻成浅色,
+   * bg-foreground + text-on-dark 会变成浅底浅字;这一对随主题对翻。 */
+  --inverse:         var(--ink-2);    /* #1F1F23 */
+  --on-inverse:      var(--ink-11);   /* #E6E6F2 */
 
   /* ===========================================================================
    * 四、语义 token — 边框层
@@ -853,17 +860,62 @@
 }
 
 /* =============================================================================
- * ⚠️ 产品壳的全站暗色态已移除 (2026-07)
+ * 产品壳夜间态 —— html.dark 覆写语义 token
  * -----------------------------------------------------------------------------
- * 改造前存在 .dark 块(18 个 token 覆写)与 stores/theme.store.ts,但实测:
- *   - useApplyTheme() 确实在 App.tsx:59 被调用,切换机制完整
- *   - 但 setTheme 全站【零调用点】,设置页没有任何主题 UI
- *   - theme 默认 'light' 且 persist,'system' 分支不可达
- *   → .dark 类永远不会被挂上,那 18 个覆写从来没有生效过
- * 按「快速落地」的设计前提,连同 theme.store.ts 一并移除,不留跑不到的代码。
- * Wiki 后来增加的夜间模式只在 `.wiki-doc-surface` 子树内覆写语义 token；
- * 它不恢复全站 `.dark` / store，也不改变 `:root` 产品 token。
+ * 组件层禁止写 dark: 前缀(护栏钉死)。夜间只改这一处:语义 token 镜像到玄墨暗端,
+ * 既有 bg-background / text-foreground / border-border 全部自动跟着翻。
+ *
+ * 分层仍靠 3~4% 明度差:页面 ink-1、卡片 ink-2、hover ink-3。
+ * 品牌三色 / logo / Prism 编辑器 / landing 恒暗段不在这里改 —— 它们本来就是暗底。
+ * Wiki 的独立日夜态由后文 `.wiki-doc-surface` / `.wiki-theme-portal` 局部覆写。
+ * Wiki 明确选择 light 时，html 上的 data 属性会暂时压过持久化的产品 dark 偏好，
+ * 避免根 token 与 portal 的继承链把 Wiki 日间壳重新染暗；离开 Wiki 后即自动恢复。
  * ============================================================================= */
+
+html:not([data-wiki-theme="light"]).dark {
+  color-scheme: dark;
+
+  --background:   var(--ink-1);   /* #09090A 页面底 */
+  --surface-card: var(--ink-2);   /* #1F1F23 卡片 / 输入 / 弹层 */
+  --surface-1:    #16161A;        /* 工具栏 / 弱底,夹在页面与卡片之间 */
+  --surface-2:    var(--ink-3);   /* #2B2B30 hover / 选中 / chrome */
+  --surface-3:    #25252B;
+
+  --amber-soft-bg: color-mix(in srgb, var(--amber-4) 22%, var(--surface-card));
+  --amber-soft-fg: var(--amber-8);
+
+  --foreground:          var(--ink-11); /* #E6E6F2 */
+  --inverse:             var(--ink-11); /* 浅实心底,对翻后的选中/徽章 */
+  --on-inverse:          var(--ink-2);  /* #1F1F23 */
+  --subtle-foreground:   var(--ink-9);  /* #B4B4BF */
+  --muted-foreground:    var(--ink-8);  /* #9A9AA6 */
+  --faint-foreground:    var(--ink-7);  /* #757580 */
+  --disabled-foreground: var(--ink-6);
+
+  --border-hairline: rgb(230 230 242 / 0.08);
+  --border:          rgb(230 230 242 / 0.12);
+  --border-strong:   rgb(230 230 242 / 0.22);
+  --divider:         rgb(230 230 242 / 0.14);
+  --border-control:          var(--ink-10);
+  --border-control-emphasis: var(--ink-11);
+
+  --status-success-soft: color-mix(in srgb, var(--status-success) 22%, var(--surface-card));
+  --status-error-soft:   color-mix(in srgb, var(--status-error) 22%, var(--surface-card));
+  --status-warning-soft: color-mix(in srgb, var(--status-warning) 22%, var(--surface-card));
+  --status-running-soft: color-mix(in srgb, var(--status-running) 22%, var(--surface-card));
+  --status-neutral-soft: color-mix(in srgb, var(--status-neutral) 22%, var(--surface-card));
+  --status-info-soft:    color-mix(in srgb, var(--status-info) 22%, var(--surface-card));
+
+  --chart-grid:    var(--ink-4);
+  --chart-axis-fg: var(--ink-8);
+
+  --shadow-overlay: 0 8px 24px -4px rgb(0 0 0 / 0.48),
+                    0 2px 6px -2px  rgb(0 0 0 / 0.32);
+  --shadow-raised:  0 1px 2px 0     rgb(0 0 0 / 0.40);
+
+  --ring:          rgb(230 230 242 / 0.50);
+  --ring-selected: rgb(230 230 242 / 0.14);
+}
 
 /* =============================================================================
  * Tailwind v4 主题映射
@@ -986,6 +1038,8 @@
   --color-on-brand:         var(--on-brand);
   --color-on-dark:          var(--on-dark);
   --color-on-dark-muted:    var(--on-dark-muted);
+  --color-inverse:          var(--inverse);
+  --color-on-inverse:       var(--on-inverse);
 
   /* ——— 颜色: 边框 ——— */
   --color-border-hairline:         var(--border-hairline);
@@ -1145,6 +1199,18 @@
     /* 55..100% 缓慢淡出(810ms) */
     100% { box-shadow: inset 0 0 0 0 transparent; background-color: transparent; }
   }
+
+  /* 全站 loading:仓鼠轮转动 + 外圈进度弧 */
+  --animate-rhino-wheel-spin: rhino-wheel-spin 1.15s linear infinite;
+  --animate-rhino-wheel-progress: rhino-wheel-progress 1.6s ease-in-out infinite;
+  @keyframes rhino-wheel-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes rhino-wheel-progress {
+    0%   { stroke-dasharray: 12 88; stroke-dashoffset: 0; }
+    50%  { stroke-dasharray: 46 54; stroke-dashoffset: -28; }
+    100% { stroke-dasharray: 12 88; stroke-dashoffset: -100; }
+  }
 }
 
 /* =============================================================================
@@ -1195,6 +1261,42 @@
   /* —— Prism 角标 → 琥珀软底(B4 迁移) —— */
   --color-prism-badge-bg: var(--amber-soft-bg);   /* 旧 #F0E8D8 */
   --color-prism-badge-fg: var(--amber-soft-fg);   /* 旧 #806A2E(等值) */
+
+  /* =====================================================================
+   * 🔶 mock2 桥接段 —— design/product-mock 合入 main 后的旧标度兼容
+   * ---------------------------------------------------------------------
+   * main 在 B5/B6 里删除旧圆角/字号档时的前提是「引用已归零」,但 mock 分支
+   * 保留的组件把旧类名又带了回来(实测 rounded-sm/md/lg/xl/2xl/3xl 272 处、
+   * text-2xs..2xl/15/badge 518 处、brand-blue 5 文件)。不加别名它们会静默
+   * 失效: 圆角变直角、字号回退继承、蓝色变透明。
+   * 策略: 圆角按新 Figma 标度就近映射(样式以线上为准);字号按 mock 原值
+   * 复活(避免版式炸裂);brand-blue 按 B4 三分流归入调色板 cat-blue 档。
+   * mock 组件逐处迁到新标度后,本段应整体删除。
+   * ===================================================================== */
+
+  /* —— 旧圆角档 → 新 Figma 标度(就近) —— */
+  --radius-sm:  var(--radius-4);    /* 旧 4  → 4 */
+  --radius-md:  var(--radius-8);    /* 旧 6  → 8  小控件档 */
+  --radius-lg:  var(--radius-12);   /* 旧 8  → 12 子面板档 */
+  --radius-xl:  var(--radius-12);   /* 旧 12 → 12 */
+  --radius-2xl: var(--radius-16);   /* 旧 16 → 16 */
+  --radius-3xl: var(--radius-20);   /* 旧 24 → 20 封顶 */
+
+  /* —— 旧字号档 → 原值复活(保 mock 版式) —— */
+  --text-2xs:   0.625rem;   /* 10  段标 / 小徽章 */
+  --text-xs:    0.6875rem;  /* 11  计数 / trailing */
+  --text-sm:    0.75rem;    /* 12  sidebar 子项 / 说明 */
+  --text-base:  0.8125rem;  /* 13  正文基准 */
+  --text-md:    0.875rem;   /* 14  加重按钮 / tab */
+  --text-lg:    1rem;       /* 16  page header */
+  --text-xl:    1.25rem;    /* 20  page title */
+  --text-2xl:   1.5rem;     /* 24  hero subtitle */
+  --text-15:    0.9375rem;  /* 15  列 header */
+  --text-badge: 0.5625rem;  /* 9   胶囊角标 */
+
+  /* —— brand-blue → cat-blue(B4 三分流的调色板档) —— */
+  --color-brand-blue:      var(--cat-blue);
+  --color-brand-blue-soft: var(--cat-blue-soft);
 }
 
 /* =============================================================================
@@ -1472,6 +1574,7 @@
 :where(
   [data-surface='dark'],
   .bg-foreground,
+  .bg-inverse,
   .bg-landing-dark-1,
   .bg-landing-dark-2
 ) {
@@ -1548,6 +1651,41 @@
   --subtle-foreground: var(--ink-5); /* #505059  on #FFFFFF 7.976 / on #F6F4EE 7.252 */
   --muted-foreground: var(--ink-6); /* #686873  on #FFFFFF 5.503 / on #F6F4EE 5.003 */
   --faint-foreground: #6E6E78; /* on #FFFFFF 5.043 / on #F6F4EE 4.585 */
+}
+
+/* 夜间:卡片/页面底本身就是暗的,复位必须回到暗端文字档,不能沿用上面的亮色 ramp。 */
+html:not([data-wiki-theme="light"]).dark
+  :where(.bg-background, .bg-surface-card, .bg-card, .bg-popover) {
+  --subtle-foreground: var(--ink-9);
+  --muted-foreground: var(--ink-8);
+  --faint-foreground: var(--ink-7);
+}
+
+/* 夜间 inverse 是浅实心底,嵌套弱档要回到亮色 ramp,不能沿用上面的暗段覆写。 */
+html:not([data-wiki-theme="light"]).dark :where(.bg-inverse) {
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: var(--ink-6);
+  --faint-foreground: #6E6E78;
+}
+
+html:not([data-wiki-theme="light"]).dark :where(
+  .bg-brand-red-soft, [class*='bg-brand-red-soft/'],
+  .bg-brand-green-soft, [class*='bg-brand-green-soft/'],
+  .bg-brand-amber-soft, [class*='bg-brand-amber-soft/'],
+  .bg-status-success-soft, [class*='bg-status-success-soft/'],
+  .bg-status-error-soft, [class*='bg-status-error-soft/'],
+  .bg-status-warning-soft, [class*='bg-status-warning-soft/'],
+  .bg-status-running-soft, [class*='bg-status-running-soft/'],
+  .bg-status-neutral-soft, [class*='bg-status-neutral-soft/'],
+  .bg-status-info-soft, [class*='bg-status-info-soft/'],
+  .bg-danger-soft, [class*='bg-danger-soft/'],
+  .bg-warning-soft, [class*='bg-warning-soft/'],
+  .bg-journal-soft, [class*='bg-journal-soft/'],
+  .bg-amber-soft, [class*='bg-amber-soft/'],
+  .bg-prism-badge-bg, [class*='bg-prism-badge-bg/']
+) {
+  --faint-foreground: var(--ink-8);
+  --muted-foreground: var(--ink-9);
 }
 
 /* =============================================================================
@@ -2169,6 +2307,65 @@ html[data-wiki-theme="dark"] [data-sonner-toaster] {
 }
 .animate-caret-blink {
   animation: caret-blink 1.25s ease-out infinite;
+}
+
+/* 全站 loading:仓鼠轮 + 原地跑的牛犀犀 */
+.rhino-run-loader {
+  /* 内圈 r=68 / viewBox 200 → 底边内径距容器底 16%;精灵脚垫 46/256 */
+  --rhino-wheel-floor: calc(16% - 8rem * 46 / 256);
+  position: relative;
+  display: grid;
+  width: 14rem;
+  aspect-ratio: 1;
+  place-items: center;
+  pointer-events: none;
+  color: var(--foreground);
+}
+.rhino-run-loader__wheel {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.rhino-run-loader__spokes {
+  transform-origin: 100px 100px;
+}
+.rhino-run-loader__spoke,
+.rhino-run-loader__rim-inner,
+.rhino-run-loader__hub,
+.rhino-run-loader__track,
+.rhino-run-loader__progress {
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.rhino-run-loader__spoke {
+  stroke: color-mix(in srgb, currentColor 22%, transparent);
+  stroke-width: 1.5;
+}
+.rhino-run-loader__rim-inner,
+.rhino-run-loader__hub {
+  stroke: color-mix(in srgb, currentColor 28%, transparent);
+  stroke-width: 2;
+}
+.rhino-run-loader__track {
+  stroke: color-mix(in srgb, currentColor 14%, transparent);
+  stroke-width: 3;
+}
+.rhino-run-loader__progress {
+  stroke: var(--brand-red);
+  stroke-width: 3;
+  transform: rotate(-90deg);
+  transform-origin: 100px 100px;
+}
+.rhino-run-loader__sprite {
+  position: absolute;
+  left: 50%;
+  bottom: var(--rhino-wheel-floor);
+  z-index: 1;
+  width: 8rem;
+  height: 8rem;
+  object-fit: contain;
+  transform: translateX(-50%);
 }
 
 /* 「减少动态」全局兜底 —— 系统开启 prefers-reduced-motion 时,几乎关闭所有 CSS 动画/过渡

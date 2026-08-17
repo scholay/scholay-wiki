@@ -45,7 +45,7 @@ const agentName = "scholay-smart-search"
 // PromptSlug / PromptName — 仅作 PromptChoice 的元信息标签 (审计 / 日志展示);
 // 已不再对应任何 DB 行 (prompt 内容是 prompts.SmartSearchSystemPrompt const)。
 const PromptSlug = "scholay-smart-search-v1"
-const PromptName = "Scholay 文献智能搜索 · 默认 prompt"
+const PromptName = "Scholay 智能搜论文 · 默认 prompt"
 
 // usageRecorder 由 SetUsageRecorder 注入; preUserMessageChain 每次提问时懒读取。
 var usageRecorder usagestat.Recorder
@@ -92,6 +92,16 @@ func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimit
 		return 0, 0, true
 	}
 	return vipChecker.RemainingBudget(ctx, userID)
+}
+
+// turnCostCapProvider(逐帧硬闸)给 hub 在**轮起点**取一次本轮成本硬顶(微元真实成本)。
+// 与 budgetProvider 同源但刻意各取一次:vip 侧 RemainingBudget = TurnCostCap × 收尾比例,
+// 那个比例是留给 agent 优雅收尾的尾巴,与硬闸没有语义关系 —— 在这里反推会让硬顶随它悄悄漂移。
+func turnCostCapProvider(ctx context.Context, userID uint) (int64, bool) {
+	if vipChecker == nil {
+		return 0, true
+	}
+	return vipChecker.TurnCostCap(ctx, userID)
 }
 
 func recordQuestion(uid *uint) {
@@ -190,7 +200,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 	return agentbridge.FeatureSpec{
 		Key:                    FeatureKey,
 		AgentName:              agentName,
-		Description:            "Scholay 智能搜索:基于 Minicod MCP 的学术文献检索助手",
+		Description:            "Scholay 智能搜论文:基于 Minicod MCP 的学术文献检索助手",
 		// 2026-07 线上审计:检索纪律硬约束前缀(零检索轮 + 伪造检索表述),见 smartSearchRetrievalDiscipline。
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, smartSearchRetrievalDiscipline+prompts.SmartSearchSystemPrompt),
 		Color:                  "green",
@@ -216,5 +226,6 @@ func BuildSpec() agentbridge.FeatureSpec {
 		OnMessageComplete: onComplete,
 		// SS#2:单轮预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
 		BudgetProvider: budgetProvider,
+		TurnCostCap:    turnCostCapProvider,
 	}
 }

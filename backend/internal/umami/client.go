@@ -31,12 +31,22 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"scholar-backend/internal/common/upstream"
 )
+
+// getEnvOr 读 env,空白值等同未设置(避免 compose 里 `VAR:` 传空串把默认值顶掉)。
+func getEnvOr(key, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return fallback
+}
 
 // 默认走内网 service name,本项目 docker network 上 umami 容器 hostname 就是 umami。
 // 改这个意味着 docker-compose service 名字也要改。
@@ -88,17 +98,24 @@ func newClient(upstreamName, baseURL, adminUser, adminPassword, websiteID, siteN
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
+	// umami 管理员凭据:优先 env,再回落 umami 的出厂默认。
+	// 需要 env 的理由很实在 —— 新装一个 umami 实例时按安全实践把默认口令 admin/umami
+	// 改掉是常规操作,而 backend 拿统计数据靠登录 umami,凭据写死就意味着「一改口令,
+	// /admin/analytics 四个面板同时哑掉」,且报错只是 401 看不出根因。
 	if adminUser == "" {
-		adminUser = defaultAdminUser
+		adminUser = getEnvOr("UMAMI_ADMIN_USER", defaultAdminUser)
 	}
 	if adminPassword == "" {
-		adminPassword = defaultAdminPassword
-	}
-	if siteName == "" {
-		siteName = "Scholay"
+		adminPassword = getEnvOr("UMAMI_ADMIN_PASSWORD", defaultAdminPassword)
 	}
 	if siteDomain == "" {
 		siteDomain = "localhost"
+	}
+	// 自动建 website 时的显示名:没配 SITE_NAME 就用域名本身,**不回落品牌名** ——
+	// 回落成固定品牌名会让每个新环境的统计面板都自称同一个站点,两套环境的数据
+	// 在人眼里分不开(数据本身是分库存的,混淆的是判读)。
+	if siteName == "" {
+		siteName = siteDomain
 	}
 	// 8s 超时跟原实现一致 — umami 多在 1s 内回, 8s 是个稳健 timeout
 	hc := &http.Client{Timeout: 8 * time.Second}

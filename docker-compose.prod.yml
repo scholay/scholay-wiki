@@ -233,13 +233,43 @@ services:
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?ADMIN_INITIAL_PASSWORD is required in prod}
       # 旧前端 frontend-user URL —— 后端发送邮件等场景里拼链接用
       FRONTEND_USER_URL: http://frontend-user:80
+      # 本机器扮演的角色:prod(权威生产站)/ test(测试·预发·克隆)/ dev。
+      # 一堆「两套环境要拨不同方向」的开关从它派生默认值(当前:SEO_INDEXABLE),
+      # 免得逐个记、迟早漏一个。显式设置的 env 永远优先于派生值。
+      # 未设置 = prod(向后兼容:本变量 2026-08-13 才引入,老 .env 里没有这行)。
+      APP_ENV: ${APP_ENV:-prod}
       # 站点 / 第三方服务地址(单一来源 .env 的 SITE_URL/SITE_NAME/..., fan-out 给 backend)
       SEO_BASE_URL: ${SITE_URL:?SITE_URL is required in prod}
       # 公网 origin 原值也直接透传(邀请分享链接等要拼用户可达的公网 URL;
       # FRONTEND_USER_URL 是容器内网地址,不能给用户)—— 与 dev compose 同步
       SITE_URL: ${SITE_URL:?SITE_URL is required in prod}
       SITE_NAME: ${SITE_NAME:-Scholay}
-      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
+      # 🔴 默认值刻意留空,不再回落到某个真实客服邮箱。这个值会 ① 下发给前端当客服
+      #    邮箱(/config/system),② 拼进 Unpaywall / Crossref 的礼貌池请求(对方按
+      #    email 维度限速)。留一个真实邮箱当默认,等于让任何漏配的环境冒用它的身份
+      #    对外发请求,而被限速/被打扰的是那个邮箱的主人。空值时前端不展示邮箱入口、
+      #    后端跳过 Unpaywall 查询(见 internal/openaccess/openaccess.go)。
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+      # 对外学术 API(Crossref / Unpaywall)的礼貌池联系邮箱。留空则回落 SUPPORT_EMAIL;
+      # 两者都空 → 后端跳过 Unpaywall 查询(不拿别的环境的身份去打上游,那两家按 email 限速)。
+      CROSSREF_EMAIL: ${CROSSREF_EMAIL:-}
+      # 本环境是否允许被搜索引擎索引。默认 true = 维持现状,权威生产站无需改任何东西。
+      # 🔴 任何**非权威**环境(测试 / 预发 / 克隆)必须显式设 false,否则会被抓成一个
+      #    与权威站重复的镜像站,稀释权威站的收录。false 时:robots.txt 全站 Disallow、
+      #    sitemap 与 IndexNow key 文件 404、所有 SSR 响应带 noindex + X-Robots-Tag。
+      # 留空 = 从 APP_ENV 派生(prod → 可索引;test/dev → 不可索引)。只在需要偏离
+      # 那个默认时才显式填(例如 APP_ENV=test 但确实想让某个公开演示站被收录)。
+      SEO_INDEXABLE: ${SEO_INDEXABLE:-}
+      # 测试支付:开后「账户资产」出现「测试支付」按钮,下单后一键完成履约(不走真实网关)。
+      # 以前 prod compose 刻意不引用这个变量,导致用 prod compose 起的**测试环境**也无法
+      # 使用它 —— 验证支付只能接真实商户号(微信 v3 没有沙箱 = 真实扣款,且系统内无退款链路)。
+      # 现在透传:默认 false(生产行为不变),且 backend 在 GIN_MODE=release 下还有一道
+      # 硬闸会无视它(见 cmd/server/main.go),所以生产是双保险。
+      PAYMENT_TEST_ENABLED: ${PAYMENT_TEST_ENABLED:-false}
+      # SSR 冷门实体「现拉上游」的每小时全局配额。爬虫 UA 一律不放行(硬编码),这个数
+      # 只管非爬虫流量;0 = 不限,留空取默认 200。**必须在这里透传,否则 .env 里设了不生效** ——
+      # dev compose 一直有这行、prod 一直漏,于是非权威环境无法给共享的 minicod 配额降速。
+      SEO_ONMISS_HOURLY_BUDGET: ${SEO_ONMISS_HOURLY_BUDGET:-}
       # 主动 SEO 提交 (详见 .env 注释段)
       SEO_SUBMIT_ENABLED: ${SEO_SUBMIT_ENABLED:-false}
       INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
@@ -276,6 +306,12 @@ services:
       # ⚠️ compose 是显式 environment 映射,不写这两行则 .env 里配了也不生效。
       UMAMI_CRAWLER_WEBSITE_ID: ${UMAMI_CRAWLER_WEBSITE_ID:-}
       UMAMI_CRAWLER_BASE_URL: ${UMAMI_CRAWLER_BASE_URL:-}
+      # umami 管理员凭据。backend 靠登录 umami 拿 token 取统计数据,凭据在代码里是
+      # 编译期常量 admin/umami(umami 出厂默认)。留这两个 env 是为了:新装一个 umami
+      # 实例时若按安全实践改掉默认口令,/admin/analytics 的四个面板会同时 401 哑掉,
+      # 而报错只是 401 看不出根因。留空 = 用出厂默认(现状)。
+      UMAMI_ADMIN_USER: ${UMAMI_ADMIN_USER:-}
+      UMAMI_ADMIN_PASSWORD: ${UMAMI_ADMIN_PASSWORD:-}
       # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
@@ -513,6 +549,29 @@ services:
     logging: *default-logging
     environment:
       <<: *tz-env
+      # ── 站点身份(运行时注入 index.html,见 docker-entrypoint.d/50-inject-site.sh)──
+      #
+      # 这几个值决定「本环境对外自称是谁」:og:url / og:image / JSON-LD 的 @id 与 url 图谱、
+      # ICP 备案号、Clarity 项目、标签页标题前缀。
+      #
+      # 🔴 必须是**运行时** env,不能走 build-arg:Vite 在编译期就把 VITE_* 字面替换进
+      # bundle,走 build-arg 等价于「换域名 = 换镜像」,与「同一个 tag 服务多套环境」冲突。
+      # 历史上 build-and-push.sh 传过 --build-arg VITE_SITE_URL/VITE_SITE_NAME,但
+      # Dockerfile 从没声明对应 ARG、源码也无消费点 —— 那两个参数被 docker 静默丢弃,
+      # 而脚本却打印「已注入」,是个「配了但永不生效」的陷阱。已删除。
+      #
+      # backend SSR 自动同步:它是 HTTP fetch 本容器的 `/` 拿 index.html
+      # (backend/internal/config/handler_ssr.go 的 getPageHTML),吃到的就是注入后的版本。
+      SITE_URL: ${SITE_URL:?SITE_URL is required in prod}
+      # Microsoft Clarity 项目 ID。留空 = 整段 tracker 不加载。
+      # 🔴 每套环境必须用**各自的**项目,共用会让非权威环境的会话录制、热图、点击流
+      #    全部以权威站的名义上报,而 Clarity 只能按 URL 过滤,污染无法事后剔除。
+      CLARITY_PROJECT_ID: ${CLARITY_PROJECT_ID:-}
+      # ICP 备案号。⚠️ 与【已备案的域名】绑定 —— 未接入备案的域名公开展示它属于错挂,
+      #    被举报/巡检时处理对象是那条备案本身。非权威环境**留空**。
+      ICP_BEIAN: ${ICP_BEIAN:-}
+      # 标签页标题前缀,如 "[TEST] "。生产留空;多环境并行时用它一眼分清当前在哪套。
+      SITE_TITLE_PREFIX: ${SITE_TITLE_PREFIX:-}
       # 发版灰度保留几代构建(见 frontend-user/docker-entrypoint.d/40-sync-site.sh)。
       # 上界 = legacy 残留(约 25-30MB,几次发版后老化掉) + KEEP × 单次构建(约 13MB)
       #      ≈ 峰值 95MB、稳态 65MB。足以覆盖「连续排障连发几版」的场景。
@@ -606,8 +665,18 @@ services:
       <<: *tz-env
     ports:
       # 主入口 (含 /admin 路径)。umami UI / tracker 都通过这个端口的反代,不另开端口。
-      # TLS 由宿主 Caddy 终结，只允许本机回环访问，防止绕过 Caddy/TLS 直连。
-      - "127.0.0.1:${HTTP_PORT:-5411}:80"
+      # 默认只绑回环:TLS 由宿主 Caddy 终结,不允许绕过 Caddy/TLS 直连。
+      #
+      # 🔴 绑定地址必须可覆盖,不能写死 127.0.0.1。写死时的故障形态极具误导性:
+      #    新机器上 deploy.sh 跑完、所有容器 healthy、日志全绿,但站点外网 100% 打不开,
+      #    而在 .env 里设 HTTP_BIND_ADDRESS(.env.example 里有文档的变量)完全无效 ——
+      #    排查方向会被带去 nginx / 防火墙 / DNS,而根因在这一行。
+      #    dev compose 一直是可覆盖形式,这里补齐,默认值不变(生产行为零变化)。
+      #
+      # ⚠️ 设成 0.0.0.0 前先确认前置代理:nginx.conf 的 $fwd_proto map 依赖上游传
+      #    X-Forwarded-Proto,real_ip 也只信任 172.16/12 与回环 —— 直接裸奔会让
+      #    生成的分享链变 http:// 并让按 IP 的限流退化。
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-5411}:80"
     ulimits:
       nofile:
         soft: 65535

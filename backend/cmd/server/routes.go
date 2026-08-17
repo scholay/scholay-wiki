@@ -151,25 +151,46 @@ func registerGETAndHEAD(router *gin.Engine, path string, handler gin.HandlerFunc
 	router.HEAD(path, headOnly(handler))
 }
 
+// indexableOnly 非权威环境(APP_ENV=test/dev,或显式 SEO_INDEXABLE=false)一律 404。
+//
+// 用在 sitemap 全家桶上。只把 robots.txt 改成 Disallow 是不够的:sitemap 的 URL
+// 是可以被直接猜到/被历史外链带出来的,而它恰恰是「整份可抓 URL 清单」——
+// 对不守 robots 协议的爬虫,留着 sitemap 等于把地图递过去。
+//
+// 404 而不是 403:对爬虫而言 404 是「这里没有东西」,是最干净的信号;
+// 403 反而暗示「有东西但不给你」,某些爬虫会继续重试。
+func indexableOnly(handler gin.HandlerFunc) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !appconfig.RequestIndexable(c.Request.Host) {
+			c.Status(http.StatusNotFound)
+			c.Abort()
+			return
+		}
+		handler(c)
+	}
+}
+
 func registerSEOReadRoutes(router *gin.Engine, h *allHandlers) {
-	registerGETAndHEAD(router, "/sitemap.xml", h.seo.ServeSitemapIndex)
-	registerGETAndHEAD(router, "/sitemap-static.xml", h.seo.ServeStaticSitemap)
-	registerGETAndHEAD(router, "/sitemap-blogs.xml", h.seo.ServeBlogSitemap)
-	registerGETAndHEAD(router, "/sitemap-resources.xml", h.seo.ServeResourceSitemap)
-	registerGETAndHEAD(router, "/sitemap-qa.xml", h.seo.ServeQASitemap)
-	registerGETAndHEAD(router, "/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
-	registerGETAndHEAD(router, "/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
-	registerGETAndHEAD(router, "/sitemap-journals-:page.xml", h.seo.ServeJournalSitemap)
+	registerGETAndHEAD(router, "/sitemap.xml", indexableOnly(h.seo.ServeSitemapIndex))
+	registerGETAndHEAD(router, "/sitemap-static.xml", indexableOnly(h.seo.ServeStaticSitemap))
+	registerGETAndHEAD(router, "/sitemap-blogs.xml", indexableOnly(h.seo.ServeBlogSitemap))
+	registerGETAndHEAD(router, "/sitemap-resources.xml", indexableOnly(h.seo.ServeResourceSitemap))
+	registerGETAndHEAD(router, "/sitemap-qa.xml", indexableOnly(h.seo.ServeQASitemap))
+	registerGETAndHEAD(router, "/sitemap-papers-:page.xml", indexableOnly(h.seo.ServePaperSitemap))
+	registerGETAndHEAD(router, "/sitemap-authors-:page.xml", indexableOnly(h.seo.ServeAuthorSitemap))
+	registerGETAndHEAD(router, "/sitemap-journals-:page.xml", indexableOnly(h.seo.ServeJournalSitemap))
 	// 期刊枢纽页 sitemap(/journals/browse 与各维度枢纽含路径分页;nginx 的
 	// sitemap-*.xml 正则已覆盖此文件名)。
-	registerGETAndHEAD(router, "/sitemap-journal-hubs.xml", h.seo.ServeJournalHubSitemap)
+	registerGETAndHEAD(router, "/sitemap-journal-hubs.xml", indexableOnly(h.seo.ServeJournalHubSitemap))
 	// 功能大全工具 sitemap（匿名收录）—— 索引 + 分页。
-	registerGETAndHEAD(router, "/sitemap-tools.xml", h.featureTool.ServeToolSitemapIndex)
-	registerGETAndHEAD(router, "/sitemap-tools-:page.xml", h.featureTool.ServeToolSitemap)
+	registerGETAndHEAD(router, "/sitemap-tools.xml", indexableOnly(h.featureTool.ServeToolSitemapIndex))
+	registerGETAndHEAD(router, "/sitemap-tools-:page.xml", indexableOnly(h.featureTool.ServeToolSitemap))
 	// 情报 sitemap（由 news 提供；seo 索引引用其 URL）。
-	registerGETAndHEAD(router, "/sitemap-news.xml", h.news.ServeNewsSitemap)
+	registerGETAndHEAD(router, "/sitemap-news.xml", indexableOnly(h.news.ServeNewsSitemap))
 	// Google News sitemap:仅最近 48h 的文章 + news: 命名空间(官方两天窗口要求)。
-	registerGETAndHEAD(router, "/sitemap-news-latest.xml", h.news.ServeGoogleNewsSitemap)
+	registerGETAndHEAD(router, "/sitemap-news-latest.xml", indexableOnly(h.news.ServeGoogleNewsSitemap))
+	// robots.txt 不套 indexableOnly:它必须始终 200,只是内容换成 Disallow: /。
+	// 404 的 robots 在多数爬虫眼里等同「没有限制,随便抓」,恰好是反效果。
 	registerGETAndHEAD(router, "/robots.txt", h.seo.ServeRobotsTxt)
 }
 

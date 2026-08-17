@@ -1,13 +1,13 @@
 import { NavLink, useSearchParams } from 'react-router-dom';
-import { Compass, Blocks } from 'lucide-react';
+import { Compass, Blocks, MessageSquareText } from 'lucide-react';
 
 /**
- * 科研能力广场分段:全网工具(/tools)| 社区技能(/tools/skills)。
- * 两段共用功能广场外壳与顶部头部(搜索/排序);切段保留搜索词 q,重置分类/价格/排序/分页。
+ * scholay广场分段:学术工具 / 学术skills / 学术prompts。
  */
 const SEGMENTS = [
-  { to: '/tools', label: '全网工具', icon: Compass, end: true },
-  { to: '/tools/skills', label: '社区技能', icon: Blocks, end: false },
+  { to: '/tools/catalog', label: '学术工具', icon: Compass, end: true, keepQ: true },
+  { to: '/tools/skills', label: '学术skills', icon: Blocks, keepQ: true },
+  { to: '/tools/prompts', label: '学术prompts', icon: MessageSquareText, keepQ: true },
 ] as const;
 
 export function PlazaSegmentTabs() {
@@ -20,8 +20,8 @@ export function PlazaSegmentTabs() {
       {SEGMENTS.map((s) => (
         <NavLink
           key={s.to}
-          to={s.to + suffix}
-          end={s.end}
+          to={s.to + (s.keepQ ? suffix : '')}
+          end={'end' in s ? s.end : false}
           className={({ isActive }) =>
             'flex items-center gap-1.5 rounded-8 px-3.5 py-1.5 text-12 transition-colors ' +
             (isActive

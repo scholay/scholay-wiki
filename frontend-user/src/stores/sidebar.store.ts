@@ -29,15 +29,10 @@ export interface RailItem {
 interface SidebarState {
   /**
    * 用户意图:☰ 当前态。
+ *   - true  = 桌面展开完整侧栏 / 移动端打开抽屉
+ *   - false = 桌面完全收起(宽 0) / 移动端抽屉隐藏
    *
-   * 持久化策略(产品要求):
-   *   - 默认 false(首次访问/清缓存后关闭)
-   *   - 任意来源(☰ / Rail chip 点击 / Cmd+B)打开后立刻写盘
-   *   - 浏览器级别记忆,刷新/关浏览器后仍保持
-   *   - 直到用户手动关闭才会切回 false 并写盘
-   *
-   * 实现:zustand `persist` middleware,partialize 只存 expanded
-   *      (rail/hasPanel/flashedSection 是运行时态,不持久化)
+   * 持久化:zustand persist,partialize 只存 expanded。
    */
   expanded: boolean;
   /** TopNav 折叠态的 chip 列表(当前 feature 提供) */
@@ -46,6 +41,11 @@ interface SidebarState {
   hasPanel: boolean;
   /** 当前要"闪一下"的 section id;短暂为非空,约 1800ms 后自动归 null */
   flashedSection: string | null;
+  /**
+   * 左轨手动置顶的一级功能 id(不含「新建会话」/claw)。
+   * 最前一项排在新建会话正下方;后钉的排更前。
+   */
+  railPinned: string[];
 
   toggle: () => void;
   setExpanded: (v: boolean) => void;
@@ -53,6 +53,7 @@ interface SidebarState {
   setHasPanel: (v: boolean) => void;
   /** 触发某 section 闪烁高亮(自动 1800ms 后清空,无需调用方手动 reset) */
   flashSection: (id: string) => void;
+  toggleRailPin: (id: string) => void;
 }
 
 export const useSidebar = create<SidebarState>()(
@@ -62,10 +63,22 @@ export const useSidebar = create<SidebarState>()(
       rail: [],
       hasPanel: false,
       flashedSection: null,
+      railPinned: [],
       toggle: () => set((s) => ({ expanded: !s.expanded })),
       setExpanded: (v) => set({ expanded: v }),
       setRail: (items) => set({ rail: items }),
       setHasPanel: (v) => set({ hasPanel: v }),
+      toggleRailPin: (id) => {
+        if (!id || id === 'claw') return;
+        set((s) => {
+          const pinned = s.railPinned.includes(id);
+          return {
+            railPinned: pinned
+              ? s.railPinned.filter((x) => x !== id)
+              : [id, ...s.railPinned],
+          };
+        });
+      },
       flashSection: (id) => {
         set({ flashedSection: id });
         // 直接 setTimeout,无需 React 上下文(zustand 在 hook 外也能 set)
@@ -77,7 +90,15 @@ export const useSidebar = create<SidebarState>()(
     }),
     {
       name: 'scholay.sidebar',
-      partialize: (s) => ({ expanded: s.expanded }), // 只持久化用户意图,其余是运行时
+      version: 1,
+      partialize: (s) => ({ expanded: s.expanded, railPinned: s.railPinned }),
+      migrate: (persisted, version) => {
+        const raw = persisted as { expanded?: boolean; railPinned?: string[] };
+        if (version < 1) {
+          return { expanded: raw.expanded ?? false, railPinned: raw.railPinned ?? [] };
+        }
+        return persisted as { expanded: boolean; railPinned: string[] };
+      },
     }
   )
 );

@@ -69,6 +69,15 @@ type sessionHub struct {
 	abortedTurn      bool                  // V3-4.4-2:本轮转发过 stop_generation → message_complete 广播时盖 aborted:true
 	closed           bool
 
+	// ─── 轮内成本硬闸(逐帧上报,2026-08)。三个字段全部由 h.mu 守护,beginTurn 重置 ───
+	// turnSpentMicro 本轮已上报的真实成本(微元),由 turn_usage_delta 帧逐次累加。
+	// turnCapMicro   本轮硬顶(微元);turnCapArmed=false 表示本轮不设闸(不限额/未接线/老执行器)。
+	// turnStopSent   本轮已因越顶发过 stop_generation —— 幂等位,防止后续 delta 帧重复发停机帧。
+	turnSpentMicro int64
+	turnCapMicro   int64
+	turnCapArmed   bool
+	turnStopSent   bool
+
 	// Web-native 重构 P0 影子日志(h.mu 守护):当前进行中轮的持久 turn id(0=无)+ 是否已
 	// 经 message_complete 正常完成。仅用于把 live 帧 tee 进事件日志 + 终态时 Complete/Fail/Abort。
 	// jsonl + 内存 hub 仍权威;这两字段失效不影响 live。
@@ -1212,6 +1221,10 @@ func (h *sessionHub) beginTurn(content, clientTurnID string) bool {
 	h.turnRetries = 0
 	h.currentClientTurnID = clientTurnID // 供孤儿终帧 id 匹配(审计 [18]);timedOutClientTurnID 故意不在此清
 	h.abortedTurn = false // 新一轮:清上一轮的 stop 标记
+	// 逐帧硬闸:清上一轮的计数与幂等位。cap 本身由 armTurnCostCap 在**锁外**取(要走 DB/Redis)。
+	h.turnSpentMicro = 0
+	h.turnStopSent = false
+	h.turnCapMicro, h.turnCapArmed = 0, false
 	// W3-2:arm 轮级硬超时(spec 零值 = 默认 15min;负值禁用 → d=0 不 arm)。
 	// timedOutTurn 清:新轮开始 → 不再压制散帧(审计 [19]);但 timedOutClientTurnID 不清(见字段注释)。
 	h.timedOutTurn = false
@@ -1274,6 +1287,97 @@ func (h *sessionHub) endTurn() {
 			sessionID: h.sessionID,
 		})
 	}
+}
+
+// ─── 轮内成本硬闸(逐帧上报,2026-08)────────────────────────────────────────
+//
+// 背景:此前 backend 对「一轮花了多少钱」在轮跑完之前一无所知 —— per-call 明细只随终帧
+// 一次性回来,所以唯一的调控手段是把预算**盖在 user_message 帧上建议执行器自己收尾**。
+// 建议值在 agent 不配合时完全失效(线上实证:wind-down 按时触发、模型继续跑了 21 轮工具,
+// 单轮实花是预算的 8.2 倍,把用户余额打穿到负数)。
+//
+// 执行器现在每完成一次 LLM call 就上报一帧 turn_usage_delta,hub 据此在轮内累计真实成本,
+// 越顶即 stop_generation。与建议值是**互补而非替代**:建议值让绝大多数轮优雅收尾(用户拿到
+// 完整答案),硬闸只在建议失效时兜底(用户拿到被截断的答案,但损失有界)。
+//
+// 🔴 为什么硬闸不合成终帧:stop_generation 传导到执行器的 abort 后,它的 finally 会照常发出
+// 自己的终帧,并在其中携带**完整的 calls[] + session_total** —— 计费与 journal 全部沿既有路径
+// 收口,一行不用改。这里再合成一帧只会制造「一轮两个终帧」,而那正是 W3-2a 孤儿帧机制在治的病。
+// 代价是用户侧看到的是「已停止」而非「预算用尽」,该文案是独立的一步(需要前端配合),不在此实现。
+
+// armTurnCostCap 在轮起点取一次本轮硬顶。**必须在 h.mu 之外调用**(provider 走 Redis + DB)。
+//
+// cap 取一次而非逐帧现算:payg 用户的钱包余额在轮内会被别的路径异步改(别的会话、别的 feature
+// 的扣减都在飞),逐帧现算会让同一轮的闸门口径中途缩水,表现为「同样的任务有时跑得完有时跑不完」。
+func (h *sessionHub) armTurnCostCap() {
+	fn := h.f.spec.TurnCostCap
+	if fn == nil {
+		return
+	}
+	capMicro, unlimited := fn(h.hookCtx, h.userID)
+	if unlimited || capMicro <= 0 {
+		return // 不限额 / 该档无预算概念 → 本轮不设闸
+	}
+	h.mu.Lock()
+	// 只有仍在本轮才 arm:provider 那次 Redis+DB 读是在锁外做的,期间读循环完全可能因上游断开
+	// 走 endTurn 把 inFlight 置回 false。那时再写 cap 会把这一轮的闸门口径**泄漏给下一轮**,
+	// 而下一轮的余额/窗口可能已经完全不同 —— 表现为「下一轮刚开口就被掐」,归因链彻底断掉。
+	if h.inFlight {
+		h.turnCapMicro, h.turnCapArmed = capMicro, true
+	}
+	h.mu.Unlock()
+}
+
+// accrueTurnCost 把一次 LLM call 的用量折成微元累加进本轮水位,并判定是否该停轮。
+// **纯状态迁移,无 I/O**(写 socket 在 onTurnUsageDelta) —— 分开是为了让「累加 / 幂等 / arm 与否 /
+// 越顶判定」这几条能在没有 websocket 的单测里被钉死;本仓库对 turnCapFromRemaining 那几个
+// 判定函数是同一个做法。
+//
+// 返回 stop=true 只在**越顶的那一帧**发生一次(turnStopSent 幂等位),后续帧一律 false。
+func (h *sessionHub) accrueTurnCost(u AgentUsage) (stop bool, spent, capMicro int64) {
+	cat := h.f.bridge.catalog
+	if cat == nil {
+		return false, 0, 0 // 无目录 = 无法定价 → 不设闸(宁可放过,也不按 0 成本假装安全)
+	}
+	_, costMicro := cat.PriceUsage(u.Model, u.InputTokens, u.OutputTokens, u.CacheReadTokens, u.CacheCreationTokens)
+	if costMicro <= 0 {
+		// 目录 miss(上游改名 / 未登记模型)→ 计价为 0。这里刻意**不**兜一个估算值:
+		// PriceUsage 已经在 miss 时限流告警并自动登记占位行,补单价是 admin 的一步操作;
+		// 在闸门里造一个假价格只会让「为什么这轮被掐了」无从解释。
+		return false, 0, 0
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.turnCapArmed || !h.inFlight || h.turnStopSent {
+		return false, h.turnSpentMicro, h.turnCapMicro
+	}
+	h.turnSpentMicro += costMicro
+	if h.turnSpentMicro < h.turnCapMicro {
+		return false, h.turnSpentMicro, h.turnCapMicro
+	}
+	h.turnStopSent = true
+	// 与用户主动 stop 同款语义:终帧广播时盖 aborted:true,前端按「已停止」渲染而非静默收尾。
+	h.abortedTurn = true
+	return true, h.turnSpentMicro, h.turnCapMicro
+}
+
+// onTurnUsageDelta 收一帧执行器上报的单次 LLM call 用量;越顶则向执行器发 stop_generation。
+//
+// ⚠️ 只做闸门,**不记账** —— 见 ws.go extractTurnUsageDelta 的红字。
+func (h *sessionHub) onTurnUsageDelta(u AgentUsage) {
+	stop, spent, capMicro := h.accrueTurnCost(u)
+	if !stop {
+		return
+	}
+	stopFrame, _ := json.Marshal(map[string]string{"type": "stop_generation"})
+	if werr := h.writeAgent(gorillaws.TextMessage, stopFrame); werr != nil {
+		slog.Warn("agentbridge hub: 轮内成本硬闸 stop_generation 写失败(本轮将继续烧钱直到执行器自停)",
+			"feature", h.f.spec.Key, "session_id", h.sessionID, "user_id", h.userID, "err", werr)
+		return
+	}
+	slog.Warn("agentbridge hub: 轮内成本硬闸触发,已请求执行器停轮",
+		"feature", h.f.spec.Key, "session_id", h.sessionID, "user_id", h.userID,
+		"spent_micro", spent, "cap_micro", capMicro, "model", u.Model)
 }
 
 // onTurnTimeout 轮级硬超时到点(W3-2a):hub 是唯一同时掌握 inFlight/turnID/agent 写口/广播的对象。
@@ -1598,6 +1702,15 @@ func (h *sessionHub) upstreamLoop() {
 				// C2:executor 的 error 终帧(round-cap / 上游失败 / abort 等)也必须清 inFlight,
 				// 否则该会话永远卡 busy(ping/pong 保活使读 deadline 永不触发)。仍向下广播 error 给前端解锁。
 				h.endTurn()
+			case "turn_usage_delta":
+				// 逐帧硬闸的唯一入口。同步执行(不起 goroutine):闸门必须在**下一次 LLM call
+				// 发出之前**做完判定才有意义,而读循环与执行器的帧序是同一条 TCP 流 —— 放到
+				// goroutine 里就等于把「及时」交给调度器运气。判定是纯内存 + 一次目录查表,
+				// 微秒级,不会拖慢帧转发。
+				if u, ok := extractTurnUsageDelta(data); ok {
+					h.onTurnUsageDelta(u)
+				}
+				continue // 纯后端控制信号,不广播给前端(前端无消费方,广播只会撑大 replayBuf)
 			case "token_usage":
 				if u, kind, ok := extractTokenUsageFrame(data); ok {
 					uid, feat, knd, sid, rec := h.userID, f.spec.Key, kind, h.sessionID, f.bridge.llmRec
@@ -1896,6 +2009,8 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 		s.sendSelf(busyFrame())
 		return
 	}
+	// 逐帧硬闸:在 beginTurn 之后、锁外 arm(provider 要读 Redis 窗口 + DB 钱包,不能在 h.mu 内做)。
+	h.armTurnCostCap()
 
 	// P0 影子日志:turn 账本 + user_message 事件落库(幂等于 clientTurnId)。同步一行 INSERT,
 	// 失败只 warn、绝不影响 live(jsonl + 内存 hub 仍权威)。用原文 content(注入前)。

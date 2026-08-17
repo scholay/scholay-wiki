@@ -1,12 +1,14 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
-import { ConfirmDialogRoot, ToastHost } from '@/shared/components';
-import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { ConfirmDialogRoot } from '@/shared/components';
 import { BodyPointerLockGuard } from '@/shared/components/BodyPointerLockGuard';
 import { QuotaNotifierGate } from '@/shared/components/QuotaNotifierGate';
-import { AttachmentManagerDialogGate } from '@/shared/components/AttachmentManagerDialogGate';
 import { PromoModalGate } from '@/shared/components/PromoModalGate';
+// 全局 feed 预取/水合:任意入口进入即准备好移动端论文/期刊流数据(仅手机生效)。
+// 需全站唯一挂载点而无根布局,故在此引入 mobile feature 的预取器(刻意的全局编排例外)。
+import { FeedPrefetcher } from '@/features/mobile/components/FeedPrefetcher';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import {
   DEFAULT_GC_TIME,
@@ -14,6 +16,10 @@ import {
   DEFAULT_RETRY,
   DEFAULT_STALE_TIME,
 } from '@/shared/lib/query-config';
+import { MOCK_MODE } from '@/mocks/config';
+import { MockControlPanel } from '@/mocks/MockControlPanel';
+import { FundsReminderDialog } from '@/shared/components/funds-reminder/FundsReminder';
+import { GlobalLoadingOverlay } from '@/shared/components/GlobalLoadingOverlay';
 import { WikiDevPanel } from '@/features/wiki/components/WikiDevPanel';
 
 /**
@@ -34,7 +40,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// 「收藏到文件夹」选择器懒加载 —— 它(经 MobileBottomSheet / LazyMotion)是首屏**唯一**把
+// 「收藏到文献集」选择器懒加载 —— 它(经 MobileBottomSheet / LazyMotion)是首屏**唯一**把
 // framer-motion(~42KB gz)拉进关键路径的 eager 组件。改成「仅当用户真正点收藏(store 有 request)
 // 时才加载」,framer + 该弹窗代码即移出首屏。代价:关闭时直接卸载(无退场动画),可接受。
 const CollectFolderPicker = lazy(() =>
@@ -61,8 +67,8 @@ function CollectFolderPickerGate() {
   );
 }
 
-// 小程序 web-view 内嵌页(/mp/*):纯展示上下文(图表查看等),营销弹窗/额度通知
-// 全部豁免 —— 匿名 webview 里弹「限时领会员」会直接盖住内容。
+// 小程序 web-view 内嵌页(/mp/*):纯展示上下文(图表查看等),营销弹窗/额度通知/
+// feed 预取全部豁免 —— 匿名 webview 里弹「限时领会员」会直接盖住内容。
 const isEmbedPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mp/');
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -71,36 +77,22 @@ export function Providers({ children }: { children: ReactNode }) {
       <TooltipProvider delayDuration={150}>
         {/* 全局兜底:清除 Radix 遗留在 body 上的 pointer-events:none(全站点击失灵元凶,见组件注释) */}
         <BodyPointerLockGuard />
+        {!isEmbedPage && <FeedPrefetcher />}
         {children}
-        {/* 右上角 toast —— sonner 的 Toaster + 「点整条即关闭」,见组件注释 */}
-        <ToastHost />
+        <GlobalLoadingOverlay />
+        <Toaster position="top-right" richColors closeButton />
         {/* 全局命令式确认 dialog 渲染槽 —— 任意位置 useConfirm() 都能弹 */}
         <ConfirmDialogRoot />
         {/* 全局额度通知器:6010 → 重置弹窗;用量过半/将尽 → toastr */}
-        {!isEmbedPage && (
-          <ErrorBoundary fallback={() => null}>
-            <QuotaNotifierGate />
-          </ErrorBoundary>
-        )}
+        {!isEmbedPage && <QuotaNotifierGate />}
         {/* 限时领取会员推广弹窗:首屏自动 / 额度用尽 / 导航按钮触发(开关关闭时不渲染) */}
-        {!isEmbedPage && (
-          <ErrorBoundary fallback={() => null}>
-            <PromoModalGate />
-          </ErrorBoundary>
-        )}
-        {/* 「我的附件」弹窗:附件额度满(7010)自动弹 / 输入框「+」主动打开。
-            全站唯一挂载点 —— 四个 feature 的上传口共用一条自救路径,不做 per-feature 镜像。 */}
-        {!isEmbedPage && (
-          <ErrorBoundary fallback={() => null}>
-            <AttachmentManagerDialogGate />
-          </ErrorBoundary>
-        )}
-        {/* 全局「收藏到文件夹」选择器(任意收藏按钮 openCollect 触发)——
-            懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。
-            独立错误边界确保 chunk 加载失败时只关闭选择器，不拖垮整棵应用。 */}
-        <ErrorBoundary fallback={() => null}>
-          <CollectFolderPickerGate />
-        </ErrorBoundary>
+        {!isEmbedPage && <PromoModalGate />}
+        {/* 全局「收藏到文献集」选择器(任意收藏按钮 openCollect 触发)——
+            懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。 */}
+        <CollectFolderPickerGate />
+        {/* 经费不足提醒的弹窗形态(非对话页面时触发;常驻挂载 + open 受控) */}
+        {!isEmbedPage && <FundsReminderDialog />}
+        {MOCK_MODE && !isEmbedPage && <MockControlPanel />}
         {/* Wiki 写作分支 DEV 面板：受众预览 + 快速跳转；仅 DEV，mod+shift+M 隐藏 */}
         {import.meta.env.DEV && <WikiDevPanel />}
       </TooltipProvider>

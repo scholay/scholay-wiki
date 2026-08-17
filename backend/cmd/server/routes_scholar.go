@@ -156,6 +156,10 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		// 工具 logo 从 MinIO 流式服务 (导入 zip 时上传), 永久缓存
 		publicAPI.GET("/tools/logo/:slug", h.featureTool.PublicLogo)
 
+		// 情报封面缩略图从 MinIO 流式服务 (webhook 后台生成的 ~640px JPEG);
+		// URL 内嵌原图哈希, 换图即换 URL → 可 immutable 永久缓存
+		publicAPI.GET("/news/cover/:file", h.news.PublicCoverThumb)
+
 		// 社区技能(Skills 市场)公开浏览 —— 让技能像全网工具一样可匿名浏览/被收录(功能广场融合)。
 		// OptionalUserAuthMiddleware:带 token 则 ListMarket 显示 installed 标记,匿名则 user_id=0 无标记。
 		// 复用 authed 侧同一 handler(它已读 c.GetUint("user_id"))。详情匿名走已有 /api/v1/skills/:slug。
