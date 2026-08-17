@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { WikiEmbedId } from "../types";
+import type { WikiEmbedId, WikiEmbedThemePolicy } from "../types";
 import { WikiEmbedAcademicIntelDetail } from "./WikiEmbedAcademicIntelDetail";
 import { WikiEmbedAcademicIntelList } from "./WikiEmbedAcademicIntelList";
 import { WikiEmbedAccountAssets } from "./WikiEmbedAccountAssets";
@@ -309,14 +309,17 @@ interface WikiEmbedDefinition {
   id: WikiEmbedId;
   defaultCaption: string;
   Component: ComponentType;
+  /** 缺省跟随 Wiki 主题；仅必须完整保留浅色 palette 的 fixture 显式设置。 */
+  themePolicy?: WikiEmbedThemePolicy;
 }
 
 function defineWikiEmbed(
   id: WikiEmbedId,
   defaultCaption: string,
   Component: ComponentType,
+  themePolicy?: WikiEmbedThemePolicy,
 ): WikiEmbedDefinition {
-  return { id, defaultCaption, Component };
+  return { id, defaultCaption, Component, themePolicy };
 }
 
 /**

@@ -260,7 +260,7 @@ export const policyAndHistoryArticles: WikiArticle[] = [
         title: "站级主题与 Wiki 局部主题",
         markdown: `顶栏日间/夜间按钮控制站级主题：偏好持久化在 \`scholay.theme\`，状态模型支持 light、dark、system，并在应用顶层更新 \`html.dark\` 与浏览器 \`theme-color\`；当前按钮本身只在明暗之间切换。首屏脚本会在 React 启动前预置主题，减少闪白。
 
-Wiki 有独立的局部主题，键名是 \`scholay.wiki.theme\`。没有人工选择时跟随系统，选择后只通过 Wiki 容器属性和 Wiki portal 配色生效，不应覆盖全站根 token。两个开关的存储键、作用域和系统跟随逻辑不同；在 Wiki 中切换不会等价于修改全站偏好。`,
+Wiki 有独立的局部主题，键名是 \`scholay.wiki.theme\`。没有人工选择时跟随系统，选择后只通过 Wiki 容器属性和 Wiki portal 配色生效，不应覆盖全站根 token。词条内嵌的产品演示默认继承这套主题；PDF 白纸和二维码等颜色承载内容含义的区域仍保留必要的亮底。两个开关的存储键、作用域和系统跟随逻辑不同；在 Wiki 中切换不会等价于修改全站偏好。`,
       },
       {
         id: "reference-card",

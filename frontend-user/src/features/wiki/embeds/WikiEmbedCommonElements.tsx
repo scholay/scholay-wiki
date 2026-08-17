@@ -32,7 +32,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 import { RhinoBrandIcon } from "@/shared/components/RhinoBrandIcon";
 
 const NAV_ITEMS = [
@@ -70,7 +70,7 @@ export function WikiEmbedCommonNavigationTabs() {
     >
       <section className="overflow-hidden rounded-12 border border-border bg-surface-card">
         <header className="flex h-14 items-center justify-between border-b border-border-soft px-4">
-          <BrandLogo size="sm" />
+          <WikiEmbedBrandLogo size="sm" />
           <span
             className="inline-flex size-8 items-center justify-center rounded-8 bg-surface-2 text-foreground"
             data-wiki-spot="汉堡菜单"

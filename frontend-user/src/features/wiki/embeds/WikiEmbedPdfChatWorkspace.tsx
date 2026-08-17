@@ -47,7 +47,7 @@ export function WikiEmbedPdfChatWorkspace() {
       </header>
 
       <div className="relative min-h-0 flex-1 overflow-hidden bg-surface-2 p-6">
-        <div className="mx-auto min-h-80 w-[min(100%,34rem)] border border-border bg-surface-card px-8 py-8 opacity-40 shadow-raised">
+        <div className="wiki-embed-pdf-paper mx-auto min-h-80 w-[min(100%,34rem)] border border-border bg-surface-card px-8 py-8 opacity-40 shadow-raised">
           <h2 className="text-center font-display text-20 font-medium leading-display text-foreground">
             Attention Is All You Need
           </h2>

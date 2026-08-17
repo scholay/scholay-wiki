@@ -13,47 +13,10 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 /**
- * Admin screenshots come from the sibling mock, whose neutral palette, radii
- * and compact type scale predate the current Scholar application theme. Keep
- * those tokens local to the frozen Wiki surface so the source utility roles
- * render with the same visual values without leaking into the article shell.
+ * Preserve the compact geometry from the sibling mock while inheriting the
+ * Wiki canvas palette so these surfaces follow the active color scheme.
  */
 export const ADMIN_MOCK_THEME = {
-  "--wiki-admin-background": "0 0% 100%",
-  "--wiki-admin-surface-1": "0 0% 98%",
-  "--wiki-admin-surface-2": "0 0% 96.1%",
-  "--wiki-admin-surface-3": "0 0% 97.3%",
-  "--wiki-admin-foreground": "0 0% 6.7%",
-  "--wiki-admin-subtle": "0 0% 26.7%",
-  "--wiki-admin-muted": "0 0% 40%",
-  "--wiki-admin-faint": "0 0% 60%",
-  "--wiki-admin-border-soft": "0 0% 93.3%",
-  "--wiki-admin-border": "0 0% 91.4%",
-  "--wiki-admin-border-strong": "0 0% 84.7%",
-  "--wiki-admin-red": "0 71% 47%",
-  "--wiki-admin-green": "120 49% 32%",
-  "--wiki-admin-amber": "41 84% 47%",
-  "--background": "hsl(var(--wiki-admin-background))",
-  "--surface-card": "hsl(var(--wiki-admin-background))",
-  "--surface-1": "hsl(var(--wiki-admin-surface-1))",
-  "--surface-2": "hsl(var(--wiki-admin-surface-2))",
-  "--surface-3": "hsl(var(--wiki-admin-surface-3))",
-  "--foreground": "hsl(var(--wiki-admin-foreground))",
-  "--subtle-foreground": "hsl(var(--wiki-admin-subtle))",
-  "--muted-foreground": "hsl(var(--wiki-admin-muted))",
-  "--faint-foreground": "hsl(var(--wiki-admin-faint))",
-  "--border-hairline": "hsl(var(--wiki-admin-border-soft))",
-  "--border": "hsl(var(--wiki-admin-border))",
-  "--border-strong": "hsl(var(--wiki-admin-border-strong))",
-  "--brand-red": "hsl(var(--wiki-admin-red))",
-  "--brand-green": "hsl(var(--wiki-admin-green))",
-  "--brand-amber": "hsl(var(--wiki-admin-amber))",
-  "--brand-red-soft":
-    "color-mix(in srgb, hsl(var(--wiki-admin-red)) 6%, hsl(var(--wiki-admin-background)))",
-  "--brand-green-soft":
-    "color-mix(in srgb, hsl(var(--wiki-admin-green)) 10%, hsl(var(--wiki-admin-background)))",
-  "--brand-amber-soft":
-    "color-mix(in srgb, hsl(var(--wiki-admin-amber)) 12%, hsl(var(--wiki-admin-background)))",
   "--radius-4": "0.25rem",
   "--radius-8": "0.375rem",
   "--radius-12": "0.5rem",

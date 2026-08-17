@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 import { MockModeToggle } from "./fixtures/mock-chrome";
 
 /**
@@ -13,7 +13,7 @@ export function WikiEmbedSearchAutocomplete() {
       aria-hidden
       data-wiki-fixture="search-autocomplete"
     >
-      <BrandLogo size="xl" />
+      <WikiEmbedBrandLogo size="xl" />
       <p className="mt-3 text-14 text-muted-foreground">
         学术搜索 · AI 审稿 · LaTeX 协作
       </p>

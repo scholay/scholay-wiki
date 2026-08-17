@@ -9,47 +9,10 @@ import {
 } from "lucide-react";
 
 /**
- * The product mock predates the current token scales. Keep its white/gray
- * palette and compact type/radius geometry local to these frozen Wiki scenes.
+ * Preserve the product mock's compact geometry while inheriting the Wiki
+ * canvas palette so these scenes follow the active color scheme.
  */
 export const DISCOVERY_MOCK_THEME = {
-  "--wiki-discovery-background": "0 0% 100%",
-  "--wiki-discovery-surface-1": "0 0% 98%",
-  "--wiki-discovery-surface-2": "0 0% 96.1%",
-  "--wiki-discovery-surface-3": "0 0% 97.3%",
-  "--wiki-discovery-foreground": "0 0% 6.7%",
-  "--wiki-discovery-subtle": "0 0% 26.7%",
-  "--wiki-discovery-muted": "0 0% 40%",
-  "--wiki-discovery-faint": "0 0% 60%",
-  "--wiki-discovery-border-soft": "0 0% 93.3%",
-  "--wiki-discovery-border": "0 0% 91.4%",
-  "--wiki-discovery-border-strong": "0 0% 84.7%",
-  "--wiki-discovery-red": "0 71% 47%",
-  "--wiki-discovery-green": "120 49% 32%",
-  "--wiki-discovery-amber": "41 84% 47%",
-  "--background": "hsl(var(--wiki-discovery-background))",
-  "--surface-card": "hsl(var(--wiki-discovery-background))",
-  "--surface-1": "hsl(var(--wiki-discovery-surface-1))",
-  "--surface-2": "hsl(var(--wiki-discovery-surface-2))",
-  "--surface-3": "hsl(var(--wiki-discovery-surface-3))",
-  "--foreground": "hsl(var(--wiki-discovery-foreground))",
-  "--subtle-foreground": "hsl(var(--wiki-discovery-subtle))",
-  "--muted-foreground": "hsl(var(--wiki-discovery-muted))",
-  "--faint-foreground": "hsl(var(--wiki-discovery-faint))",
-  "--border-hairline": "hsl(var(--wiki-discovery-border-soft))",
-  "--border": "hsl(var(--wiki-discovery-border))",
-  "--border-strong": "hsl(var(--wiki-discovery-border-strong))",
-  "--brand-red": "hsl(var(--wiki-discovery-red))",
-  "--brand-green": "hsl(var(--wiki-discovery-green))",
-  "--brand-amber": "hsl(var(--wiki-discovery-amber))",
-  "--brand-red-soft":
-    "color-mix(in srgb, hsl(var(--wiki-discovery-red)) 8%, hsl(var(--wiki-discovery-background)))",
-  "--brand-green-soft":
-    "color-mix(in srgb, hsl(var(--wiki-discovery-green)) 10%, hsl(var(--wiki-discovery-background)))",
-  "--brand-amber-soft":
-    "color-mix(in srgb, hsl(var(--wiki-discovery-amber)) 12%, hsl(var(--wiki-discovery-background)))",
-  "--on-dark": "hsl(var(--wiki-discovery-background))",
-  "--on-brand": "hsl(var(--wiki-discovery-background))",
   "--radius-4": "0.25rem",
   "--radius-8": "0.375rem",
   "--radius-12": "0.5rem",

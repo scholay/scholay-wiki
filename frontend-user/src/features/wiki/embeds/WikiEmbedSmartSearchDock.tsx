@@ -1,5 +1,5 @@
 import { ArrowUp } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 import { RhinoBrandIcon } from "@/shared/components/RhinoBrandIcon";
 import { MockModeToggle } from "./fixtures/mock-chrome";
 
@@ -29,7 +29,7 @@ export function WikiEmbedSmartSearchDock() {
           </div>
           <h2 className="flex items-center justify-center gap-2 font-serif text-24 font-medium text-foreground">
             <span>和</span>
-            <BrandLogo variant="wordmark" height={17} />
+            <WikiEmbedBrandLogo variant="wordmark" height={17} />
             <span>一起找论文</span>
           </h2>
         </div>

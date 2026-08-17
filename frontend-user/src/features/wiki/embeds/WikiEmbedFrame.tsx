@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
+import type { WikiEmbedThemePolicy } from "../types";
 import { WikiFigure } from "../components/WikiMedia";
 
 interface WikiEmbedFrameProps {
@@ -7,6 +8,8 @@ interface WikiEmbedFrameProps {
   caption: string;
   children: ReactNode;
   className?: string;
+  /** 缺省跟随 Wiki 主题；仅必须完整保留浅色 palette 的内容使用 light-only。 */
+  themePolicy?: WikiEmbedThemePolicy;
 }
 
 /**
@@ -17,11 +20,15 @@ export function WikiEmbedFrame({
   caption,
   children,
   className,
+  themePolicy = "follow-wiki",
 }: WikiEmbedFrameProps) {
   return (
     <WikiFigure caption={caption} className={className}>
       <div className="wiki-embed-stage w-fit max-w-full rounded-16 p-3 md:p-4">
-        <div className="wiki-embed-canvas w-fit max-w-full overflow-x-auto rounded-12 p-1">
+        <div
+          className="wiki-embed-canvas w-fit max-w-full overflow-x-auto rounded-12 p-1"
+          data-wiki-embed-theme={themePolicy}
+        >
           <ErrorBoundary
             fallback={(_error, reset) => (
               <div className="rounded-8 border border-dashed border-border bg-surface-card px-4 py-6 text-center">

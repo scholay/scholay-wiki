@@ -20,6 +20,7 @@ export function WikiEmbedList({
         key={embed.id}
         caption={embed.caption ?? definition.defaultCaption}
         className={layout === "row" ? "mt-0 w-full" : undefined}
+        themePolicy={definition.themePolicy ?? "follow-wiki"}
       >
         <Component />
       </WikiEmbedFrame>

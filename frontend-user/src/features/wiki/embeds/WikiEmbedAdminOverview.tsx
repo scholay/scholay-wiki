@@ -336,10 +336,10 @@ function DashboardTrend({
 }) {
   const stroke =
     color === "green"
-      ? "hsl(var(--brand-green))"
+      ? "var(--brand-green)"
       : color === "red"
-        ? "hsl(var(--brand-red))"
-        : "hsl(var(--brand-amber))";
+        ? "var(--brand-red)"
+        : "var(--brand-amber)";
   return (
     <section className="rounded-8 border border-border bg-background p-4">
       <div className="flex items-center justify-between">

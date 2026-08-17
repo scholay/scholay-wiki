@@ -7,7 +7,7 @@ import {
   Share2,
   Smartphone,
 } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 import { ProviderLogo, type Provider } from "@/shared/components/ProviderLogo";
 
 const MOBILE_WIDTH = "w-[min(100%,24rem)]";
@@ -22,7 +22,7 @@ export function WikiEmbedMobileAuthPage() {
       data-wiki-fixture="mobile-auth-page"
     >
       <div className="flex flex-col items-center pb-9 pt-14 text-center">
-        <BrandLogo size="lg" />
+        <WikiEmbedBrandLogo size="lg" />
         <h1 className="mt-5 text-24 font-medium text-foreground">欢迎回来</h1>
         <p className="mt-2 text-14 text-muted-foreground">继续你的学术之旅</p>
       </div>

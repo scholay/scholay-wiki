@@ -188,7 +188,7 @@ function UserMetricChart({
       <div className="relative mt-3 h-52">
         {kind === "donut" ? (
           <div className="flex h-full items-center justify-center gap-8">
-            <div className="relative size-28 rounded-pill bg-[conic-gradient(hsl(var(--brand-green))_0_58%,hsl(var(--brand-amber))_58%_78%,hsl(var(--brand-red))_78%_89%,hsl(var(--surface-2))_89%)]">
+            <div className="relative size-28 rounded-pill bg-[conic-gradient(var(--brand-green)_0_58%,var(--brand-amber)_58%_78%,var(--brand-red)_78%_89%,var(--surface-2)_89%)]">
               <span className="absolute inset-5 rounded-pill bg-background" />
             </div>
             <div className="space-y-2 text-14 text-muted-foreground">
@@ -237,14 +237,14 @@ function UserMetricChart({
             {kind === "area" ? (
               <polygon
                 points={`${points} 320,100 0,100`}
-                fill="hsl(var(--brand-green))"
+                fill="var(--brand-green)"
                 fillOpacity="0.12"
               />
             ) : null}
             <polyline
               points={points}
               fill="none"
-              stroke="hsl(var(--brand-green))"
+              stroke="var(--brand-green)"
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -252,7 +252,7 @@ function UserMetricChart({
               <polyline
                 points="0,72 35,62 70,67 105,58 140,38 175,46 210,26 245,34 280,17 320,22"
                 fill="none"
-                stroke="hsl(var(--brand-amber))"
+                stroke="var(--brand-amber)"
                 strokeWidth="2"
                 vectorEffect="non-scaling-stroke"
               />
@@ -660,25 +660,25 @@ export function WikiEmbedAdminOrders() {
           ))}
           <polygon
             points="0,140 70,122 140,128 210,96 280,110 350,70 420,82 490,51 560,64 630,28 700,42 760,22 760,160 0,160"
-            fill="hsl(var(--brand-green))"
+            fill="var(--brand-green)"
             fillOpacity="0.16"
           />
           <polygon
             points="0,150 70,140 140,142 210,124 280,132 350,105 420,113 490,88 560,98 630,72 700,80 760,58 760,160 0,160"
-            fill="hsl(var(--brand-red))"
+            fill="var(--brand-red)"
             fillOpacity="0.14"
           />
           <polyline
             points="0,140 70,122 140,128 210,96 280,110 350,70 420,82 490,51 560,64 630,28 700,42 760,22"
             fill="none"
-            stroke="hsl(var(--brand-green))"
+            stroke="var(--brand-green)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
           <polyline
             points="0,150 70,140 140,142 210,124 280,132 350,105 420,113 490,88 560,98 630,72 700,80 760,58"
             fill="none"
-            stroke="hsl(var(--brand-red))"
+            stroke="var(--brand-red)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />

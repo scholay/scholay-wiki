@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 
 /** HomeAgentHero 首屏：学术搜索统一输入框。 */
 export function WikiEmbedHomeResearchEntry() {
@@ -37,7 +37,7 @@ export function WikiEmbedHomeResearchEntry() {
     >
       <div className="flex flex-col items-center px-6 py-10">
         <div className="flex w-full max-w-3xl flex-col items-center">
-          <BrandLogo size="xl" />
+          <WikiEmbedBrandLogo size="xl" />
 
           <div
             className="mt-8 w-full max-w-[40rem]"
@@ -105,7 +105,7 @@ function AuthDialogStatic({
     <section className="relative w-[28rem] shrink-0 overflow-hidden rounded-8 border border-border bg-background shadow-overlay">
       <X className="absolute right-4 top-4 size-4 text-faint" />
       <header className="flex flex-col items-center gap-1 border-b border-border-hairline px-6 pb-4 pt-8">
-        <BrandLogo size="md" />
+        <WikiEmbedBrandLogo size="md" />
         <h3 className="mt-2 text-16 font-medium text-foreground">{title}</h3>
         <p className="text-12 text-subtle">{description}</p>
       </header>

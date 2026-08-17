@@ -15,53 +15,15 @@ import {
 import { FeatureBrandHeading } from "@/shared/components/FeatureBrandHeading";
 
 /**
- * The sibling mock predates the current app palette and type/radius scales.
- * Scope its original tokens to this frozen product surface so the same utility
- * roles render with the mock's actual white/gray palette and 4/6/8/12/16 radii.
+ * Preserve the sibling mock's compact geometry while inheriting the Wiki
+ * canvas palette so this surface follows the active color scheme.
  */
 const MOCK_THEME = {
-  "--wiki-mock-background": "0 0% 100%",
-  "--wiki-mock-surface-1": "0 0% 98%",
-  "--wiki-mock-surface-2": "0 0% 96.1%",
-  "--wiki-mock-surface-3": "0 0% 97.3%",
-  "--wiki-mock-foreground": "0 0% 6.7%",
-  "--wiki-mock-subtle": "0 0% 26.7%",
-  "--wiki-mock-muted": "0 0% 40%",
-  "--wiki-mock-faint": "0 0% 60%",
-  "--wiki-mock-border-soft": "0 0% 93.3%",
-  "--wiki-mock-border": "0 0% 91.4%",
-  "--wiki-mock-border-strong": "0 0% 84.7%",
-  "--wiki-mock-red": "0 71% 47%",
-  "--wiki-mock-green": "120 49% 32%",
-  "--wiki-mock-amber": "41 84% 47%",
-  "--wiki-mock-danger-soft": "0 100% 98%",
-  "--wiki-mock-warning-soft": "41 47% 90%",
-  "--wiki-mock-shadow": "0 0 0",
   "--wiki-mock-space-2": "0.125rem",
   "--wiki-mock-space-6": "0.375rem",
   "--wiki-mock-space-10": "0.625rem",
   "--wiki-mock-space-14": "0.875rem",
   "--wiki-mock-space-20": "1.25rem",
-  "--background": "hsl(var(--wiki-mock-background))",
-  "--surface-card": "hsl(var(--wiki-mock-background))",
-  "--surface-1": "hsl(var(--wiki-mock-surface-1))",
-  "--surface-2": "hsl(var(--wiki-mock-surface-2))",
-  "--surface-3": "hsl(var(--wiki-mock-surface-3))",
-  "--foreground": "hsl(var(--wiki-mock-foreground))",
-  "--subtle-foreground": "hsl(var(--wiki-mock-subtle))",
-  "--muted-foreground": "hsl(var(--wiki-mock-muted))",
-  "--faint-foreground": "hsl(var(--wiki-mock-faint))",
-  "--border-hairline": "hsl(var(--wiki-mock-border-soft))",
-  "--border": "hsl(var(--wiki-mock-border))",
-  "--border-strong": "hsl(var(--wiki-mock-border-strong))",
-  "--brand-red": "hsl(var(--wiki-mock-red))",
-  "--brand-green": "hsl(var(--wiki-mock-green))",
-  "--brand-amber": "hsl(var(--wiki-mock-amber))",
-  "--brand-red-soft": "hsl(var(--wiki-mock-danger-soft))",
-  "--brand-green-soft":
-    "color-mix(in srgb, hsl(var(--wiki-mock-green)) 10%, hsl(var(--wiki-mock-background)))",
-  "--brand-amber-soft": "hsl(var(--wiki-mock-warning-soft))",
-  "--on-brand": "hsl(var(--wiki-mock-background))",
   "--radius-4": "0.25rem",
   "--radius-8": "0.375rem",
   "--radius-12": "0.5rem",
@@ -76,7 +38,6 @@ const MOCK_THEME = {
   "--text-28": "1.25rem",
   "--text-32": "1.5rem",
   "--font-weight-medium": "700",
-  "--shadow-raised": "0 1px 2px 0 rgb(var(--wiki-mock-shadow) / 0.05)",
 } as CSSProperties;
 
 const SUGGESTIONS = [

@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 import { ProviderLogo, type Provider } from "@/shared/components/ProviderLogo";
 
 const PROVIDERS: Array<{ id: Provider; label: string }> = [
@@ -21,7 +21,7 @@ export function WikiEmbedAuthDialog() {
         <X className="size-4" />
       </span>
       <div className="flex flex-col items-center gap-1 border-b border-border-soft px-6 pb-4 pt-[var(--auth-header-top)]">
-        <BrandLogo size="md" />
+        <WikiEmbedBrandLogo size="md" />
         <p className="mt-2 text-16 font-medium text-foreground">欢迎回来</p>
         <p className="text-12 text-muted-foreground">继续你的学术之旅</p>
       </div>
@@ -102,7 +102,7 @@ export function WikiEmbedForgotPasswordEmail() {
       </span>
 
       <div className="flex flex-col items-center gap-1 border-b border-border-soft px-6 pb-4 pt-[var(--auth-header-top)]">
-        <BrandLogo size="md" />
+        <WikiEmbedBrandLogo size="md" />
         <p className="mt-2 text-16 font-medium text-foreground">找回密码</p>
         <p className="text-12 text-muted-foreground">通过验证码重置你的密码</p>
       </div>

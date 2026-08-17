@@ -108,6 +108,11 @@ export interface WikiPathCard extends WikiArticleTarget {
 export type WikiEmbedLayout = "stack" | "row";
 
 /**
+ * 嵌入演示的主题策略。默认跟随 Wiki；只有必须保持浅底的内容才显式设为 light-only。
+ */
+export type WikiEmbedThemePolicy = "follow-wiki" | "light-only";
+
+/**
  * 章节中可穿插的结构化内容。markdown / table / embeds 默认引用章节现有字段；
  * markdown 可带独立片段、embeds 可指定 id 子集与排版，用来把说明和图穿插排列。
  */

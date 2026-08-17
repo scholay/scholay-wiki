@@ -1,5 +1,5 @@
 import { Compass, LayoutGrid, User, X } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 import { ClawBrandIcon } from "@/shared/components/ClawBrandIcon";
 import { ProviderLogo, type Provider } from "@/shared/components/ProviderLogo";
 
@@ -19,7 +19,7 @@ export function WikiEmbedMobileAuthSurfaces() {
       data-wiki-fixture="mobile-auth-surfaces"
     >
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center">
-        <BrandLogo size="lg" />
+        <WikiEmbedBrandLogo size="lg" />
         <h2
           className="text-20 font-medium text-foreground"
           style={{ marginTop: 20 }}
@@ -53,7 +53,7 @@ export function WikiEmbedMobileAuthSurfaces() {
           <span className="absolute right-0 top-0 flex size-8 items-center justify-center rounded-pill text-muted-foreground">
             <X className="size-5" />
           </span>
-          <BrandLogo size="md" />
+          <WikiEmbedBrandLogo size="md" />
           <h2 className="mt-2 text-16 font-medium text-foreground">欢迎回来</h2>
           <p className="text-12 text-muted-foreground">继续你的学术之旅</p>
         </div>

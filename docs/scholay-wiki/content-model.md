@@ -156,3 +156,7 @@ interface WikiSection {
 `verifiedAt`。日期表示最后一次逐项对照其 `mockSourcePaths`，不表示后端交付状态。
 `npm run wiki:drift -- <old>..<new>` 命中这些来源且目标提交晚于 `verifiedAt` 时，会把
 对应 fixture 标为“过期”；复核完成后只更新实际检查过的条目，不能批量刷新日期。
+
+### 嵌入 fixture 的主题策略
+
+嵌入式组件默认使用 `follow-wiki`，通过语义色 token 跟随 Wiki 的日间或夜间模式；mock theme 只能保留间距、圆角、字号等几何变量，不得重新写入固定浅色 palette。只有 PDF 白纸、二维码等颜色本身承载内容含义的局部区域保持黑白/亮底；确需整块固定浅色时，才在注册表显式声明 `light-only`，不得用滤镜伪造暗色。

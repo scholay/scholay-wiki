@@ -81,7 +81,7 @@ const EDGES = [
 export function WikiEmbedCitationGraphPreview() {
   return (
     <div
-      className="relative h-[34rem] w-full max-w-5xl overflow-hidden rounded-8 border border-border bg-[radial-gradient(circle_at_center,hsl(var(--surface-1))_0%,hsl(var(--surface-2))_100%)]"
+      className="relative h-[34rem] w-full max-w-5xl overflow-hidden rounded-8 border border-border bg-[radial-gradient(circle_at_center,var(--surface-1)_0%,var(--surface-2)_100%)]"
       style={DISCOVERY_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="citation-graph-preview"

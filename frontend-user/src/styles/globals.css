@@ -1734,6 +1734,8 @@ html:not([data-wiki-theme="light"]).dark :where(
   --surface-3: #28282e;
 
   --foreground: var(--ink-11);
+  --inverse: var(--ink-11);
+  --on-inverse: var(--ink-2);
   --subtle-foreground: var(--ink-10);
   --muted-foreground: var(--ink-9);
   --faint-foreground: var(--ink-8);
@@ -1858,18 +1860,18 @@ html[data-wiki-theme="dark"] body {
 
 /*
  * globals.css 的承载面可读性修正规则会在 `.bg-surface-card` 等元素自身
- * 重新写回浅色 ramp；暗 Wiki 必须在更窄的 scope 内纠正。演示 canvas 在后文
- * 独立恢复完整浅色主题，因此这里明确排除它的整棵子树。
+ * 重新写回浅色 ramp；暗 Wiki 必须在更窄的 scope 内纠正。只有显式 light-only
+ * 的演示 canvas 会在后文恢复完整浅色主题，因此这里只排除这类子树。
  */
 .wiki-doc-surface[data-wiki-theme="dark"]
   :where(.bg-background, .bg-surface-card, .bg-card, .bg-popover):not(
-    .wiki-embed-canvas,
-    .wiki-embed-canvas *
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"],
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"] *
   ),
 .wiki-theme-portal[data-wiki-theme="dark"]
   :where(.bg-background, .bg-surface-card, .bg-card, .bg-popover):not(
-    .wiki-embed-canvas,
-    .wiki-embed-canvas *
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"],
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"] *
   ) {
   --subtle-foreground: var(--ink-10);
   --muted-foreground: var(--ink-9);
@@ -1877,9 +1879,15 @@ html[data-wiki-theme="dark"] body {
 }
 
 .wiki-doc-surface[data-wiki-theme="dark"]
-  :not(.wiki-embed-canvas, .wiki-embed-canvas *)::selection,
+  :not(
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"],
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"] *
+  )::selection,
 .wiki-theme-portal[data-wiki-theme="dark"]
-  :not(.wiki-embed-canvas, .wiki-embed-canvas *)::selection {
+  :not(
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"],
+    .wiki-embed-canvas[data-wiki-embed-theme="light-only"] *
+  )::selection {
   color: var(--foreground);
   background: color-mix(in srgb, var(--brand-red) 34%, transparent);
 }
@@ -1908,6 +1916,194 @@ html[data-wiki-theme="dark"] body {
   color: var(--foreground);
 }
 
+/*
+ * follow-wiki 实底对比度桥接。Tailwind v4 的 bg-* / text-* utility 直接消费
+ * 对应语义变量；早先按亮色承载面写在元素自身的 ramp 会压过 canvas 继承值，
+ * 必须在暗色 fixture 边界翻回亮端。反过来，随主题翻亮的 foreground / inverse
+ * 实底和品牌实底则需要暗墨前景。规则只进入暗色 follow-wiki canvas，不影响
+ * 正文、portal 的其他内容、light-only canvas 或全站主题。
+ */
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(
+    .bg-background,
+    .bg-surface-card,
+    .bg-card,
+    .bg-popover,
+    .bg-surface-1,
+    [class*="bg-surface-1/"],
+    .bg-surface-2,
+    [class*="bg-surface-2/"],
+    .bg-surface-3,
+    [class*="bg-surface-3/"],
+    .bg-secondary,
+    [class*="bg-secondary/"],
+    .bg-accent,
+    [class*="bg-accent/"],
+    .bg-muted,
+    [class*="bg-muted/"],
+    .bg-brand-red-soft,
+    [class*="bg-brand-red-soft/"],
+    .bg-brand-green-soft,
+    [class*="bg-brand-green-soft/"],
+    .bg-brand-amber-soft,
+    [class*="bg-brand-amber-soft/"],
+    .bg-status-success-soft,
+    [class*="bg-status-success-soft/"],
+    .bg-status-error-soft,
+    [class*="bg-status-error-soft/"],
+    .bg-status-warning-soft,
+    [class*="bg-status-warning-soft/"],
+    .bg-status-running-soft,
+    [class*="bg-status-running-soft/"],
+    .bg-status-neutral-soft,
+    [class*="bg-status-neutral-soft/"],
+    .bg-status-info-soft,
+    [class*="bg-status-info-soft/"],
+    .bg-danger-soft,
+    [class*="bg-danger-soft/"],
+    .bg-warning-soft,
+    [class*="bg-warning-soft/"],
+    .bg-journal-soft,
+    [class*="bg-journal-soft/"],
+    .bg-amber-soft,
+    [class*="bg-amber-soft/"],
+    .bg-prism-badge-bg,
+    [class*="bg-prism-badge-bg/"]
+  ),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(
+    .bg-background,
+    .bg-surface-card,
+    .bg-card,
+    .bg-popover,
+    .bg-surface-1,
+    [class*="bg-surface-1/"],
+    .bg-surface-2,
+    [class*="bg-surface-2/"],
+    .bg-surface-3,
+    [class*="bg-surface-3/"],
+    .bg-secondary,
+    [class*="bg-secondary/"],
+    .bg-accent,
+    [class*="bg-accent/"],
+    .bg-muted,
+    [class*="bg-muted/"],
+    .bg-brand-red-soft,
+    [class*="bg-brand-red-soft/"],
+    .bg-brand-green-soft,
+    [class*="bg-brand-green-soft/"],
+    .bg-brand-amber-soft,
+    [class*="bg-brand-amber-soft/"],
+    .bg-status-success-soft,
+    [class*="bg-status-success-soft/"],
+    .bg-status-error-soft,
+    [class*="bg-status-error-soft/"],
+    .bg-status-warning-soft,
+    [class*="bg-status-warning-soft/"],
+    .bg-status-running-soft,
+    [class*="bg-status-running-soft/"],
+    .bg-status-neutral-soft,
+    [class*="bg-status-neutral-soft/"],
+    .bg-status-info-soft,
+    [class*="bg-status-info-soft/"],
+    .bg-danger-soft,
+    [class*="bg-danger-soft/"],
+    .bg-warning-soft,
+    [class*="bg-warning-soft/"],
+    .bg-journal-soft,
+    [class*="bg-journal-soft/"],
+    .bg-amber-soft,
+    [class*="bg-amber-soft/"],
+    .bg-prism-badge-bg,
+    [class*="bg-prism-badge-bg/"]
+  ) {
+  --subtle-foreground: var(--ink-10);
+  --muted-foreground: var(--ink-9);
+  --faint-foreground: var(--ink-8);
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-foreground, .bg-inverse),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-foreground, .bg-inverse) {
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: var(--ink-6);
+  --faint-foreground: #6e6e78;
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-foreground),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-foreground) {
+  --on-dark: var(--ink-2);
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-brand-red, .bg-brand-green, .bg-brand-amber),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-brand-red, .bg-brand-green, .bg-brand-amber) {
+  --on-dark: var(--on-brand);
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-brand-amber),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  :where(.bg-brand-amber) {
+  --foreground: var(--on-brand);
+}
+
+/* PDF 工作区的论文页是内容介质，不是产品 chrome；只让纸张节点保持亮色。 */
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  .wiki-embed-pdf-paper,
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  .wiki-embed-pdf-paper {
+  color-scheme: light;
+
+  --surface-card: #ffffff;
+  --surface-1: #efede5;
+  --foreground: var(--ink-2);
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: var(--ink-6);
+  --faint-foreground: #6e6e78;
+  --border-hairline: rgb(31 31 35 / 0.08);
+  --border: rgb(31 31 35 / 0.12);
+
+  color: var(--foreground);
+}
+
+/* 品牌文字标只适合浅底；暗色 follow-wiki canvas 改用产品壳同款彩色 mark。 */
+.wiki-embed-brand-logo-dark {
+  display: none;
+}
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  .wiki-embed-brand-logo-light,
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  .wiki-embed-brand-logo-light {
+  display: none;
+}
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  .wiki-embed-brand-logo-dark,
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="follow-wiki"]
+  .wiki-embed-brand-logo-dark {
+  display: inline-flex;
+}
+
 /* 夜间只暗化井壁，五向 inset 的结构和顺序与亮色契约完全一致。 */
 .wiki-doc-surface[data-wiki-theme="dark"] .wiki-embed-stage,
 .wiki-theme-portal[data-wiki-theme="dark"] .wiki-embed-stage {
@@ -1926,12 +2122,13 @@ html[data-wiki-theme="dark"] body {
 }
 
 /*
- * Fixture 是被文档引用的“原产品截图”，不随 Wiki 夜间模式换肤。
- * 在 canvas 边界完整复位，而不是只复位 surface；这样 inline mock theme 仍能在
- * 更深层按自身来源覆盖，未自带 theme 的 fixture 也不会落入白底浅字混合态。
+ * 默认 fixture 跟随 Wiki 主题。只有必须维持完整浅色主题的内容显式标记为 light-only，
+ * 才在 canvas 边界完整复位浅色 token；更深层 inline mock theme 仍可自行覆盖。
  */
-.wiki-doc-surface[data-wiki-theme="dark"] .wiki-embed-canvas,
-.wiki-theme-portal[data-wiki-theme="dark"] .wiki-embed-canvas {
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"],
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"] {
   color-scheme: light;
 
   --background: #f6f4ee;
@@ -1941,6 +2138,8 @@ html[data-wiki-theme="dark"] body {
   --surface-3: #f1efe8;
 
   --foreground: var(--ink-2);
+  --inverse: var(--ink-2);
+  --on-inverse: var(--ink-11);
   --subtle-foreground: var(--ink-5);
   --muted-foreground: var(--ink-6);
   --faint-foreground: #6e6e78;
@@ -2019,6 +2218,115 @@ html[data-wiki-theme="dark"] body {
   --shadow-raised: 0 1px 2px 0 rgb(31 31 35 / 0.07);
 
   color: var(--foreground);
+}
+
+/*
+ * light-only 后代承载面复位。站级 html.dark 的后置 carrier 规则会在后代元素
+ * 自身写入暗色 ramp，canvas 上的浅色变量无法靠继承覆盖；这里按亮色承载面
+ * 的既有取值逐组复位，而不是扩大整个浅色岛。
+ */
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(.bg-background, .bg-surface-card, .bg-card, .bg-popover),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(.bg-background, .bg-surface-card, .bg-card, .bg-popover) {
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: var(--ink-6);
+  --faint-foreground: #6e6e78;
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(.bg-inverse),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(.bg-inverse) {
+  --subtle-foreground: var(--ink-10);
+  --muted-foreground: var(--ink-9);
+  --faint-foreground: var(--ink-8);
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(
+    .bg-brand-red-soft,
+    [class*="bg-brand-red-soft/"],
+    .bg-brand-green-soft,
+    [class*="bg-brand-green-soft/"],
+    .bg-brand-amber-soft,
+    [class*="bg-brand-amber-soft/"],
+    .bg-status-success-soft,
+    [class*="bg-status-success-soft/"],
+    .bg-status-error-soft,
+    [class*="bg-status-error-soft/"],
+    .bg-status-warning-soft,
+    [class*="bg-status-warning-soft/"],
+    .bg-status-running-soft,
+    [class*="bg-status-running-soft/"],
+    .bg-status-neutral-soft,
+    [class*="bg-status-neutral-soft/"],
+    .bg-status-info-soft,
+    [class*="bg-status-info-soft/"],
+    .bg-danger-soft,
+    [class*="bg-danger-soft/"],
+    .bg-warning-soft,
+    [class*="bg-warning-soft/"],
+    .bg-journal-soft,
+    [class*="bg-journal-soft/"]
+  ),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(
+    .bg-brand-red-soft,
+    [class*="bg-brand-red-soft/"],
+    .bg-brand-green-soft,
+    [class*="bg-brand-green-soft/"],
+    .bg-brand-amber-soft,
+    [class*="bg-brand-amber-soft/"],
+    .bg-status-success-soft,
+    [class*="bg-status-success-soft/"],
+    .bg-status-error-soft,
+    [class*="bg-status-error-soft/"],
+    .bg-status-warning-soft,
+    [class*="bg-status-warning-soft/"],
+    .bg-status-running-soft,
+    [class*="bg-status-running-soft/"],
+    .bg-status-neutral-soft,
+    [class*="bg-status-neutral-soft/"],
+    .bg-status-info-soft,
+    [class*="bg-status-info-soft/"],
+    .bg-danger-soft,
+    [class*="bg-danger-soft/"],
+    .bg-warning-soft,
+    [class*="bg-warning-soft/"],
+    .bg-journal-soft,
+    [class*="bg-journal-soft/"]
+  ) {
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: var(--ink-6);
+  --faint-foreground: #696973;
+}
+
+.wiki-doc-surface[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(
+    .bg-amber-soft,
+    [class*="bg-amber-soft/"],
+    .bg-prism-badge-bg,
+    [class*="bg-prism-badge-bg/"]
+  ),
+.wiki-theme-portal[data-wiki-theme="dark"]
+  .wiki-embed-canvas[data-wiki-embed-theme="light-only"]
+  :where(
+    .bg-amber-soft,
+    [class*="bg-amber-soft/"],
+    .bg-prism-badge-bg,
+    [class*="bg-prism-badge-bg/"]
+  ) {
+  --subtle-foreground: var(--ink-5);
+  --muted-foreground: #5b5b66;
+  --faint-foreground: #61616b;
 }
 
 /* Mermaid 的配色由 theme-bridge 从 :root 读取并缓存。Wiki scoped theme 不去改

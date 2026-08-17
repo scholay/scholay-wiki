@@ -1,5 +1,5 @@
 import { ArrowLeft, Compass, LayoutGrid, User } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { WikiEmbedBrandLogo } from "./WikiEmbedBrandLogo";
 import { ClawBrandIcon } from "@/shared/components/ClawBrandIcon";
 
 const TRANSACTIONS = [
@@ -33,7 +33,7 @@ export function WikiEmbedMobileMeLoggedOut() {
       data-wiki-fixture="mobile-me-logged-out"
     >
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-surface-1 px-8 text-center">
-        <BrandLogo size="lg" />
+        <WikiEmbedBrandLogo size="lg" />
         <h1
           className="text-20 font-medium text-foreground"
           style={{ marginTop: 20 }}

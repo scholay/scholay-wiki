@@ -131,20 +131,20 @@ export function WikiEmbedAdminSiteAnalytics() {
           ))}
           <polygon
             points="0,145 70,130 140,136 210,103 280,112 350,72 420,88 490,52 560,61 630,28 700,43 760,21 760,180 0,180"
-            fill="hsl(var(--brand-green))"
+            fill="var(--brand-green)"
             fillOpacity="0.12"
           />
           <polyline
             points="0,145 70,130 140,136 210,103 280,112 350,72 420,88 490,52 560,61 630,28 700,43 760,21"
             fill="none"
-            stroke="hsl(var(--brand-green))"
+            stroke="var(--brand-green)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
           <polyline
             points="0,160 70,146 140,150 210,126 280,132 350,98 420,109 490,79 560,86 630,58 700,67 760,48"
             fill="none"
-            stroke="hsl(var(--brand-red))"
+            stroke="var(--brand-red)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
@@ -314,13 +314,13 @@ export function WikiEmbedAdminFeatureUsage() {
           ))}
           <polygon
             points="0,146 70,132 140,136 210,108 280,119 350,82 420,94 490,61 560,70 630,36 700,49 760,27 760,170 0,170"
-            fill="hsl(var(--brand-green))"
+            fill="var(--brand-green)"
             fillOpacity="0.14"
           />
           <polyline
             points="0,146 70,132 140,136 210,108 280,119 350,82 420,94 490,61 560,70 630,36 700,49 760,27"
             fill="none"
-            stroke="hsl(var(--brand-green))"
+            stroke="var(--brand-green)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
