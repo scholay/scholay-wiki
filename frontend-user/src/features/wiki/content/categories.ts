@@ -21,13 +21,13 @@ export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
     slug: "research-ai",
     title: "AI 科研工作流",
     shortTitle: "AI 工作流",
-    description: "智能搜索、Claw、Prism、智能审稿、分析、绘图与演示。",
+    description: "智能搜论文、Claw、Prism、智能审稿、分析、绘图与演示。",
   },
   {
     slug: "knowledge",
     title: "知识与内容",
     shortTitle: "知识",
-    description: "个人文献集、分享、功能广场、社区技能、新闻与学术内容。",
+    description: "我的资源、分享、scholay广场、社区技能、新闻与学术内容。",
   },
   {
     slug: "membership",

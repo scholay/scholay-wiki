@@ -35,7 +35,7 @@ const PAPERS = [
 ] as const;
 
 /**
- * 智能搜索会话态 · 纯样式 fixture。
+ * 智能搜论文会话态 · 纯样式 fixture。
  * 对齐 product-mock ThinkingFold + AssistantBubble + PaperListScroller 组头
  * + AgentSessionStrip + Composer compact 底栏。
  */
@@ -49,7 +49,7 @@ export function WikiEmbedSmartSearchSession() {
       <div className="space-y-4 px-4 py-4">
         <div className="space-y-4">
           <div className="space-y-2">
-            <div className="ml-auto w-[min(100%,28rem)] rounded-16 rounded-tr-8 bg-foreground px-4 py-3 text-14 leading-paragraph text-on-dark">
+            <div className="ml-auto w-[min(100%,28rem)] rounded-16 rounded-br-4 bg-foreground px-4 py-3 text-12 leading-paragraph text-on-dark">
               找四类 AI
               代表性工作，比较生成、检索增强、注意力和结构预测的范式差异。
             </div>
@@ -67,8 +67,8 @@ export function WikiEmbedSmartSearchSession() {
               </div>
             </div>
 
-            <div className="min-w-0 overflow-hidden rounded-16 rounded-tl-8 border border-border bg-surface-card px-4 py-3 shadow-raised">
-              <p className="text-14 leading-paragraph text-foreground">
+            <div className="min-w-0 overflow-hidden rounded-16 rounded-tl-4 border border-border bg-surface-card px-4 py-3">
+              <p className="text-12 leading-paragraph text-foreground">
                 {ASSISTANT_TEXT}
               </p>
             </div>
@@ -136,10 +136,10 @@ export function WikiEmbedSmartSearchSession() {
 
           <div className="relative flex flex-col overflow-hidden rounded-16 border border-border-strong bg-surface-card shadow-raised">
             <div className="flex h-12 items-center gap-3 pl-5 pr-2">
-              <MockModeToggle label="智能搜索" tone="smart" />
+              <MockModeToggle label="智能搜论文" tone="smart" />
               <div className="relative min-w-0 flex-1">
                 <span className="block truncate text-16 text-faint">
-                  继续与智能搜索对话…
+                  继续与智能搜论文对话…
                 </span>
               </div>
               <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-faint">

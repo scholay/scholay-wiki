@@ -5,11 +5,13 @@ Scholay Wiki 是本仓库产品事实的可浏览知识层。它不是营销页�
 ## 当前基线
 
 - 建设分支：`scholay-wiki`
-- 代码基线：`f23d00032af9718f1fd31189e317a5622549f8cc`
-- 产品版本：`0.0.80`
+- 产品代码基线：`8b8e60689a9fd4e57309d924372f8e4dd495cfde`（`mock2`）
+- 产品版本：`0.1.0`
 - Wiki 入口：`/wiki`
 - 内容语言：简体中文；技术标识、路由和协议名保留原文
-- 当前内容：144 篇词条、635 个唯一仓库来源路径、226 个静态界面示意
+- 当前内容：151 篇词条、730 个唯一仓库来源路径、238 个静态界面示意
+- 可复现审计基线：127 个现行页面、32 个兼容跳转、57 个后端一级模块、
+  7 个 Agent feature、109 个 skill、15 个小程序页面、129 个迁移、201 条冷启动工具数据
 
 ## 收录范围
 
@@ -75,14 +77,18 @@ Scholay Wiki 是本仓库产品事实的可浏览知识层。它不是营销页�
 ## 目录
 
 - `audit/`：按产品表面形成的代码审计底稿。
-- `audit/frontend-pages-and-features.md`：120 个现行页面、29 个兼容跳转与前端功能规则。
-- `audit/backend-and-rules.md`：56 个后端模块、API 权限、业务状态机与数据实体。
+- `audit/frontend-pages-and-features.md`：初轮建设时的页面与前端功能审计底稿；现行数量以生成基线为准。
+- `audit/backend-and-rules.md`：初轮建设时的后端、API 权限、业务状态机与数据实体底稿。
 - `audit/agents-miniapp-infra.md`：Agent、109 个技能、15 个小程序页面、基础设施与运维边界。
-- `audit/mock-component-migration.md`：product-mock 的 240 个稳定可见表面、226 个 Wiki fixture 与 17 个明确排除组。
+- `audit/mock-component-migration.md`：初轮 product-mock 迁移底稿；现行账本为 252 个稳定可见表面、238 个 Wiki fixture 与 18 个明确排除组。
 - `content-model.md`：信息架构、导航与内容字段设计。
+- `scholay-wiki.xmind`：由当前 `WIKI_NAV_CATEGORIES` 同步生成的 16 栏目读者导航脑图。
 - `frontend-user/src/features/wiki/`：可运行的 Wiki 页面与词条数据。
 - `frontend-user/tests/wiki-content.test.ts`：词条、关联、分类与来源路径完整性检查。
-- `npm run test:wiki`：内容契约与覆盖门禁；会核对 109 个非 Wiki 懒加载页面、56 个后端模块、15 个小程序页面、7 个 Agent feature、109 个技能、128 个迁移、201 条工具数据，并验证 240 个 mock 稳定可见表面全部有已注册、已挂载的 Wiki 组件。
+- `npm run generate:wiki-baseline`：从当前路由数组、后端模块、Agent 配置/skills、小程序、迁移和冷启动工具数据生成 `coverage.ts` 基线。
+- `npm run check:wiki-baseline`：只校验、不写文件；基线与扫描事实不一致时失败。
+- `npm run wiki:drift -- <old>..<new>`：把 git 变更与词条 `sourcePaths`、fixture `mockSourcePaths` 求交，按词条/fixture 输出复核清单并标记过期 fixture。
+- `npm run test:wiki`：内容契约与覆盖门禁；数字来自生成基线，不在测试中维护第二份手写常量，并验证 mock 可见表面全部有已注册、已挂载、带复核日期的 Wiki 组件。
 
 ## 当前核验边界
 
@@ -94,4 +100,7 @@ Scholay Wiki 是本仓库产品事实的可浏览知识层。它不是营销页�
 - 数字、价格、时限和资格条件不得凭旧文档或印象填写。
 - 计划中的功能必须与已上线功能分区。
 - 同一事实只在一个词条中作为主定义，其他页面通过关联引用，避免多处漂移。
-- 每轮更新都记录基线提交并重新运行覆盖检查。
+- 产品名词只在 `content/terms.ts` 定义；正文不得使用 `deprecated` 旧称，历史引用使用精确白名单。
+- 纯 mock/MSW/占位交互标为 `experimental`，只有真实后端接线足以支持词条承诺时才标为 `current`。
+- 每轮更新先跑 `npm run wiki:drift -- <old>..<new>`，逐项复核命中来源和 fixture，
+  再运行 `npm run generate:wiki-baseline`、`npm run generate:wiki-mcp` 与 `npm run test:wiki`。

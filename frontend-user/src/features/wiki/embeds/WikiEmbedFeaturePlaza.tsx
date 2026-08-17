@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Library,
   LineChart,
+  MessageSquareText,
   Search,
   type LucideIcon,
 } from "lucide-react";
@@ -93,7 +94,7 @@ const TOOLS: Array<{
   },
 ];
 
-/** 科研能力广场的全网工具首屏 · 来源：ToolsLayout + PlazaHeader + ToolsCatalogPage。 */
+/** scholay广场的学术工具目录首屏 · 来源：ToolsLayout + PlazaHeader + ToolsCatalogPage。 */
 export function WikiEmbedFeaturePlaza() {
   return (
     <div
@@ -104,7 +105,9 @@ export function WikiEmbedFeaturePlaza() {
     >
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-background md:flex">
         <div className="px-4 pb-2 pt-3">
-          <p className="text-16 font-medium text-foreground">科研能力广场</p>
+          <p className="text-16 font-medium text-foreground">
+            scholay广场 · 学术工具
+          </p>
         </div>
 
         <div className="border-b border-border-hairline py-2">
@@ -163,15 +166,22 @@ export function WikiEmbedFeaturePlaza() {
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="shrink-0 border-b border-border bg-background px-4 py-4 sm:px-6">
           <div className="mx-auto max-w-3xl">
+            <h1 className="mb-4 text-center font-serif text-24 font-medium text-foreground">
+              学术工具
+            </h1>
             <div className="mb-3 flex justify-center">
               <div className="inline-flex rounded-12 border border-border bg-surface-1 p-1">
                 <span className="inline-flex items-center gap-1 rounded-8 bg-background px-4 py-2 text-16 font-medium text-foreground shadow-raised">
                   <Compass className="size-4" />
-                  全网工具
+                  学术工具
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-8 px-4 py-2 text-16 text-muted-foreground">
                   <Blocks className="size-4" />
-                  社区技能
+                  学术skills
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-8 px-4 py-2 text-16 text-muted-foreground">
+                  <MessageSquareText className="size-4" />
+                  学术prompts
                 </span>
               </div>
             </div>

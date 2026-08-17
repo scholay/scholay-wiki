@@ -526,7 +526,12 @@ export function WikiEmbedAdminUserTokenUsage() {
         >
           <DetailBars
             bars={[
-              { label: "智能搜索", value: "18.4", width: "full", tone: "red" },
+              {
+                label: "智能搜论文",
+                value: "18.4",
+                width: "full",
+                tone: "red",
+              },
               {
                 label: "论文对话",
                 value: "11.2",
@@ -542,7 +547,7 @@ export function WikiEmbedAdminUserTokenUsage() {
           <DetailTable
             columns={["功能", "事件", "时间"]}
             rows={[
-              { id: "usage-smart", cells: ["智能搜索", "完成会话", "10:24"] },
+              { id: "usage-smart", cells: ["智能搜论文", "完成会话", "10:24"] },
               { id: "usage-pdf", cells: ["论文对话", "发送消息", "09:58"] },
               { id: "usage-review", cells: ["同行评审", "生成报告", "昨天"] },
             ]}
@@ -615,7 +620,7 @@ export function WikiEmbedAdminUserBillingHistory() {
             columns={["变动", "余额", "归因"]}
             columnsTemplate=".7fr .7fr 1.6fr"
             rows={[
-              { id: "credit-1", cells: ["−12.6", "368.0", "智能搜索"] },
+              { id: "credit-1", cells: ["−12.6", "368.0", "智能搜论文"] },
               { id: "credit-2", cells: ["+100", "380.6", "后台补发"] },
             ]}
           />

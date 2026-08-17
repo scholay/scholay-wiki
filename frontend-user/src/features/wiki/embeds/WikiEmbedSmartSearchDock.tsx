@@ -1,9 +1,10 @@
 import { ArrowUp } from "lucide-react";
 import { BrandLogo } from "@/shared/components/BrandLogo";
+import { RhinoBrandIcon } from "@/shared/components/RhinoBrandIcon";
 import { MockModeToggle } from "./fixtures/mock-chrome";
 
 /**
- * 智能搜索空会话入口 · 纯样式 fixture。
+ * 智能搜论文空会话入口 · 纯样式 fixture。
  * 对齐 SmartSearchHero + Composer compact 的同一居中状态。
  */
 export function WikiEmbedSmartSearchDock() {
@@ -19,11 +20,10 @@ export function WikiEmbedSmartSearchDock() {
         <div className="flex flex-col items-center gap-3">
           <div className="relative">
             <div className="absolute inset-0 rounded-16 bg-brand-green/30 blur-xl" />
-            <div className="relative flex size-14 items-center justify-center overflow-hidden rounded-16 bg-surface-2">
-              <img
-                src="/wiki/assets/rhino/pet-idle-frame-000.png"
-                alt=""
-                className="size-11 object-contain"
+            <div className="relative flex size-14 items-center justify-center rounded-16 bg-surface-2">
+              <RhinoBrandIcon
+                className="size-7 text-brand-green"
+                strokeWidth={1.8}
               />
             </div>
           </div>
@@ -35,7 +35,7 @@ export function WikiEmbedSmartSearchDock() {
         </div>
         <div className="relative flex w-full flex-col overflow-hidden rounded-16 border border-border-strong bg-surface-card shadow-raised">
           <div className="flex h-12 items-center gap-3 pl-5 pr-2">
-            <MockModeToggle label="智能搜索" tone="smart" />
+            <MockModeToggle label="智能搜论文" tone="smart" />
             <div className="relative min-w-0 flex-1">
               <span className="block truncate text-16 text-faint">
                 帮我找 3 篇大语言模型可解释性的代表论文

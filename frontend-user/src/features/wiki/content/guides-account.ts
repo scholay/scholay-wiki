@@ -12,6 +12,11 @@ export const accountGuideArticles: WikiArticle[] = [
     aliases: ["产品总览", "功能与价格", "Free Pro Max", "套餐怎么选"],
     sourcePaths: [
       "frontend-user/src/app/menus.ts",
+      "frontend-user/src/features/home/components/HomeAgentHero.tsx",
+      "frontend-user/src/features/home/components/HomeFeatureEntrances.tsx",
+      "frontend-user/src/features/home/components/HomeFeatureZones.tsx",
+      "frontend-user/src/features/home/components/HomeFeatureNav.tsx",
+      "frontend-user/src/features/home/components/HomeNoviceTour.tsx",
       "frontend-user/src/features/search/components/SearcherColumn.tsx",
       "frontend-user/src/features/landing/pages/PricingPage.tsx",
       "frontend-user/src/shared/components/membership-plan-card.tsx",
@@ -27,16 +32,16 @@ export const accountGuideArticles: WikiArticle[] = [
         title: "先按任务找入口",
         markdown: `Scholay 的功能可以先分成三组来理解。
 
-**搜索文献与期刊**：文献搜索同时提供传统搜索和智能搜索。传统搜索适合按关键词、年份和来源筛选；智能搜索适合直接描述研究问题，让系统帮助拆解检索。期刊搜索是独立入口，用来查看影响因子、分区等期刊信息。
+**搜索文献与期刊**：论文库搜索适合按关键词、年份和来源做结构化筛选；智能搜论文适合直接描述研究问题，让系统帮助拆解检索。期刊指标与目录从“学术搜索 › 期刊库搜索”进入。
 
 **使用 AI 完成研究任务**：智能助手（Scholay Claw）可以阅读附件、整理材料和生成交付物；智能写作（Scholay Prism）用来维护论文项目；智能审稿（AI 模拟评议）用于在正式投稿或送审前发现问题。
 
-**管理资料与发现工具**：个人文件夹用于收藏和分组论文，科研能力广场用于查找科研工具与社区技能。学术资源中心则是一组教程和产品文章，不是个人资料库。`,
+**管理资料与发现工具**：“我的资源”集中管理文献、期刊、稿件与资源，其中文献区还共用 PDF Chat、文献图谱和矩阵分析工作区；scholay广场用于发现学术工具、学术skills和学术prompts。数据集搜索与 scholay 情报归在“学术搜索”。学术资源中心则是一组教程和产品文章，不是个人资料库。`,
       },
       {
         id: "choose-a-path",
         title: "按任务选择功能",
-        markdown: `先判断要的是“结构化检索结果”还是“AI 完成一段工作”。查论文优先用文献搜索，查期刊指标优先用期刊搜索；需要解释论文、处理附件、翻译、写作建议或组合研究任务时进入 Claw；需要直接维护 LaTeX 项目时进入 Prism；需要形成投稿前审稿报告时进入智能审稿。智能搜索不是完整的期刊筛选器，它只保留有限的期刊详情工具。`,
+        markdown: `先判断要的是“结构化检索结果”还是“AI 完成一段工作”。有明确筛选条件时用论文库搜索，需要自然语言拆解问题时用智能搜论文，查期刊指标则进入“学术搜索 › 期刊库搜索”；需要解释论文、处理附件、翻译、写作建议或组合研究任务时进入 Claw；需要直接维护 LaTeX 项目时进入 Prism 的高级模式；需要形成投稿前审稿报告时进入智能审稿。智能搜论文不是完整的期刊筛选器，它只保留有限的期刊详情工具。`,
         table: {
           columns: [
             { key: "goal", header: "目标" },
@@ -46,18 +51,18 @@ export const accountGuideArticles: WikiArticle[] = [
           rows: [
             {
               goal: "筛论文、找学者",
-              entry: "文献搜索 · 传统搜索",
+              entry: "论文库搜索",
               boundary: "结构化检索与筛选，不是生成式对话",
             },
             {
               goal: "用自然语言找论文",
-              entry: "文献搜索 · 智能搜索",
+              entry: "智能搜论文",
               boundary: "只读、证据驱动，工具范围集中在论文与作者",
             },
             {
               goal: "查期刊与分区指标",
-              entry: "期刊搜索",
-              boundary: "独立期刊目录，不应由智能搜索替代",
+              entry: "学术搜索 › 期刊库搜索",
+              boundary: "期刊库搜索与发现目录，不由智能搜论文替代",
             },
             {
               goal: "问答、读附件、做研究任务",
@@ -83,9 +88,9 @@ export const accountGuideArticles: WikiArticle[] = [
             type: "article-link",
             card: {
               articleSlug: "classic-vs-smart-search",
-              title: "传统搜索 vs 智能搜索",
+              title: "论文库搜索 vs 智能搜论文",
               description:
-                "已经有关键词就用传统搜索；还在找说法、需要系统帮你拆问题时用智能搜索。",
+                "已经有关键词就用论文库搜索；还在找说法、需要系统帮你拆问题时用智能搜论文。",
               icon: "compass",
             },
           },
@@ -96,7 +101,7 @@ export const accountGuideArticles: WikiArticle[] = [
         title: "比较 Free、Pro 和 Max",
         markdown: `Free 是注册后的默认方案，Pro 和 Max 提供更高的周期 AI 额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档方案怎样排列，不应把示例数字当成长期承诺。
 
-论文检索、期刊检索和文献管理不消耗 AI 额度。智能搜索、Claw、Prism、智能审稿，以及绘图、翻译等 AI 功能共享同一周期额度。价格页中的“约 N 次”只是按常见任务估算，不是固定可调用次数。`,
+论文库检索、期刊检索和文献管理不消耗 AI 额度。智能搜论文、Claw、Prism、智能审稿，以及绘图、翻译等 AI 功能共享同一周期额度。价格页中的“约 N 次”只是按常见任务估算，不是固定可调用次数。`,
         embeds: [{ id: "membership-plans" }],
         blocks: [
           { type: "markdown" },
@@ -112,6 +117,13 @@ export const accountGuideArticles: WikiArticle[] = [
             },
           },
         ],
+      },
+      {
+        id: "home-surfaces",
+        title: "首页怎样组织这些入口",
+        markdown: `首页把 Claw 作为主入口，并用六段产品故事依次介绍学术搜索、智能助手、Prism、智能审稿、我的资源和学术工具。故事区中的界面画面是产品说明视觉，不是可以直接操作的嵌入工作台；需要进入对应路由后才能开始真实任务。
+
+左侧功能轨允许固定、隐藏、重命名和恢复入口，并会保留最多四个常用功能；新手引导只负责指出页面结构，不会替用户创建搜索、写作或审稿任务。`,
       },
       {
         id: "price-authority",
@@ -135,6 +147,8 @@ export const accountGuideArticles: WikiArticle[] = [
       "frontend-user/src/features/landing/api/plans.ts",
       "frontend-user/src/features/landing/pages/PricingPage.tsx",
       "frontend-user/src/shared/components/subscribe-dialog.tsx",
+      "frontend-user/src/app/layouts/topnav/PromoNavButton.tsx",
+      "frontend-user/src/app/layouts/topnav/UserSection.tsx",
       "backend/internal/vip/billing_handler.go",
       "backend/internal/vip/order.go",
       "backend/internal/vip/service.go",
@@ -199,7 +213,7 @@ export const accountGuideArticles: WikiArticle[] = [
       {
         id: "offers-and-invites",
         title: "分清限时活动与邀请奖励",
-        markdown: `套餐价和结算窗口决定订单实付金额。页面出现“限时领取会员”时，弹窗会展示活动说明和客服二维码，但它不会自动修改结算价格，也不等同于优惠券。
+        markdown: `套餐价和结算窗口决定订单实付金额。活动开启且当前账户不是付费会员时，顶栏会显示活动按钮；点击后打开与自动活动相同的推广弹窗。弹窗文案、二维码和展示时机来自活动配置，但按钮本身不发放会员，也不会改变账户权益。
 
 邀请活动则是在完成有效邀请或受邀用户首次合格付费后发放科研经费，奖励会进入邀请记录和钱包流水，不会在下单前直接抵扣。活动会随运营配置启停；页面没有显示时，不要按旧截图或海报中的数字理解当前优惠。弹窗里的“今日不再弹出”只抑制当天的自动弹窗，不会关闭活动，也不会领取权益。`,
         embeds: [{ id: "promo-modal" }],
@@ -278,7 +292,11 @@ export const accountGuideArticles: WikiArticle[] = [
       "frontend-user/src/features/landing/pages/InviteLandingPage.tsx",
       "frontend-user/src/features/auth/components/InviteAuthNotice.tsx",
       "frontend-user/src/features/auth/components/PostRegisterInviteDialog.tsx",
+      "frontend-user/src/features/auth/components/ClaimInviteDialog.tsx",
+      "frontend-user/src/features/auth/hooks/useInviteFilled.ts",
       "frontend-user/src/app/InviteFlowController.tsx",
+      "frontend-user/src/app/layouts/topnav/ClaimInviteNavButton.tsx",
+      "frontend-user/src/stores/claim-invite.store.ts",
       "backend/internal/invite/model.go",
       "backend/internal/invite/service.go",
       "backend/internal/invite/campaign_bind.go",
@@ -286,6 +304,14 @@ export const accountGuideArticles: WikiArticle[] = [
     ],
     related: ["invite-campaign", "wallet-payg", "membership"],
     sections: [
+      {
+        id: "invite-hub",
+        title: "顶栏邀请 Hub 的三种场景",
+        markdown: `活动开放且邀请状态读取完成后，顶栏邀请 Hub 会在“填写邀请码”“推广有好礼”“获取邀请码”三张提示之间轮播；每张停留约 5 秒，鼠标悬停或弹窗打开时暂停，也可以手动切换。已经填写过邀请码的账户只保留“推广有好礼”，不会再出现补录入口。
+
+点击 Hub 后进入同一个三场景弹窗：填写场景校验并绑定邀请码；获取场景展示客服二维码和社交渠道；推广场景展示自己的链接、邀请码与二维码。未登录用户填写的有效邀请码会暂存到注册流程，登录用户则直接提交绑定。场景入口是否出现仍取决于活动开关、登录状态和绑定资格。`,
+        embeds: [{ id: "invite-nav-hub" }],
+      },
       {
         id: "one-campaign",
         title: "先确认活动是否开放",
@@ -378,13 +404,23 @@ export const accountGuideArticles: WikiArticle[] = [
     aliases: ["怎么登录", "邮箱登录", "微信登录", "恩特社区登录", "OAuth"],
     sourcePaths: [
       "frontend-user/src/features/auth/components/LoginForm.tsx",
+      "frontend-user/src/features/auth/components/AuthDialog.tsx",
+      "frontend-user/src/features/auth/components/MobileAuthSheet.tsx",
       "frontend-user/src/features/auth/components/OAuthRow.tsx",
+      "frontend-user/src/features/auth/components/OAuthConfirmPanel.tsx",
+      "frontend-user/src/features/auth/components/InvitationCodeField.tsx",
+      "frontend-user/src/features/auth/components/oauth-flow.ts",
+      "frontend-user/src/features/auth/pages/OAuthCallbackPage.tsx",
+      "frontend-user/src/features/auth/pages/OAuthCallbackPage.invite.test.tsx",
       "frontend-user/src/features/auth/pages/mobile/MobileAuthPage.tsx",
       "frontend-user/src/features/auth/api/auth.ts",
       "frontend-user/src/shared/api/public-config.ts",
       "backend/internal/user/handler.go",
       "backend/internal/user/service_auth.go",
       "backend/internal/user/discourse_sso.go",
+      "backend/internal/user/apple_oauth.go",
+      "backend/internal/common/cache/oauth_login_code.go",
+      "backend/cmd/server/routes_user.go",
       "backend/internal/wechat/handler.go",
       "miniprogram/services/auth.ts",
     ],
@@ -396,6 +432,14 @@ export const accountGuideArticles: WikiArticle[] = [
       "account-connections",
     ],
     sections: [
+      {
+        id: "oauth-confirmation",
+        title: "第三方授权前的确认层",
+        markdown: `选择一个第三方登录提供方后，桌面登录窗口不会立即离站，而是先放大显示所选提供方，并再次提供邀请码输入框；确认“前往授权”后才启动 OAuth。微信也先经过这层确认，随后才显示二维码；返回按钮可以改选其他方式。手机授权表同样保留确认层，但不提供桌面微信扫码。
+
+这套确认交互目前按**产品演示阶段**记录：界面与邀请码暂存逻辑已经存在，真实部署仍需逐个提供方验证回调、邀请归因和账户合并链路，不能仅凭确认面板认定所有提供方都已完成交付。`,
+        embeds: [{ id: "oauth-confirm" }],
+      },
       {
         id: "email-and-phone",
         title: "手机号与邮箱",
@@ -453,7 +497,9 @@ export const accountGuideArticles: WikiArticle[] = [
         title: "其他第三方入口也是动态的",
         markdown: `GitHub、Google、Apple、Microsoft、ORCID、微信和恩特学术社区都会按当前配置动态显示。看不到某个按钮，通常只是该方式没有启用，并不表示登录页损坏。下方两张图分别展示普通 OAuth 和微信扫码返回后的处理状态；Google 使用自己的身份服务，不经过这两张整页回调。
 
-第三方平台返回的邮箱如果已经对应一个 Scholay 账户，页面可能要求你确认是否合并。请按页面提示验证原账户，不要为了跳过确认再注册一个重复账户。需要注意的是，Google 目前可用于登录，但账户设置里的“新绑定 Google”仍未接通。`,
+第三方平台返回的邮箱如果已经对应一个 Scholay 账户，页面可能要求你确认是否合并。请按页面提示验证原账户，不要为了跳过确认再注册一个重复账户。需要注意的是，Google 目前可用于登录，但账户设置里的“新绑定 Google”仍未接通。
+
+Apple 后端已改为用 90 秒、一次性消费的 \`login_code\` 交换登录结果，避免把 JWT 放进回调 URL；但当前运行时 \`OAuthCallbackPage\` 仍读取旧的 \`token\` 参数，只有测试描述了交换流程。因此 Apple 新回调链路尚未完成前端接线，属于实验性集成，不能写成端到端已交付。`,
         embeds: [
           { id: "oauth-callback-states" },
           { id: "wechat-callback-state" },
@@ -518,14 +564,20 @@ export const accountGuideArticles: WikiArticle[] = [
   },
   {
     slug: "academic-intelligence-interface-guide",
-    title: "学术情报界面导览",
+    title: "scholay 情报界面导览",
     summary:
-      "从学术情报列表按时间、热度与版块发现内容，再进入详情核对正文、来源、可信度说明和相关情报。",
+      "从 scholay 情报列表按时间、热度与版块发现内容，再进入详情核对正文、来源、可信度说明和相关情报。",
     category: "knowledge",
     kind: "page",
     status: "current",
     audience: ["所有访客", "研究者", "学生"],
-    aliases: ["学术资讯界面", "情报列表", "顶刊速递", "科研政策"],
+    aliases: [
+      "scholay 情报",
+      "学术资讯界面",
+      "情报列表",
+      "顶刊速递",
+      "科研政策",
+    ],
     sourcePaths: [
       "frontend-user/src/features/news/pages/NewsListPage.tsx",
       "frontend-user/src/features/news/pages/NewsDetailPage.tsx",
@@ -539,7 +591,7 @@ export const accountGuideArticles: WikiArticle[] = [
       {
         id: "list-and-sort",
         title: "列表、最新与最热",
-        markdown: `进入学术情报后，正文区域先显示文章列表。“最新”按发布时间浏览近期内容，“最热”按热度信号排序；切换后列表会重新读取相应结果。每次加载一页，点击底部“加载更多”即可继续追加。加载中、请求失败和暂无情报都有独立提示，不会把旧列表伪装成新的筛选结果。`,
+        markdown: `进入 scholay 情报后，正文区域先显示文章列表。“最新”按发布时间浏览近期内容，“最热”按热度信号排序；切换后列表会重新读取相应结果。每次加载一页，点击底部“加载更多”即可继续追加。加载中、请求失败和暂无情报都有独立提示，不会把旧列表伪装成新的筛选结果。`,
         embeds: [{ id: "academic-intel-list" }],
       },
       {
@@ -564,16 +616,19 @@ export const accountGuideArticles: WikiArticle[] = [
     slug: "resources-interface-guide",
     title: "资源界面指南",
     summary:
-      "区分个人文件夹、科研能力广场与公开学术资源中心，并说明各自的数据和能力边界。",
+      "区分“我的资源”、scholay广场与公开内容中心，并说明文献区共用工作区的边界。",
     category: "knowledge",
     kind: "overview",
     status: "current",
     audience: ["研究者", "学生", "内容使用者"],
-    aliases: ["资源入口", "文件夹", "科研能力广场", "学术资源中心"],
+    aliases: ["资源入口", "我的资源", "文件夹", "scholay广场", "学术资源中心"],
     sourcePaths: [
       "frontend-user/src/app/menus.ts",
       "frontend-user/src/features/library/routes.tsx",
       "frontend-user/src/features/library/pages/LibraryPage.tsx",
+      "frontend-user/src/stores/search-right-panel.store.ts",
+      "frontend-user/src/features/search/components/workspace/PdfChatPanel.tsx",
+      "frontend-user/src/features/search/components/workspace/CitationGraphPanel.tsx",
       "frontend-user/src/features/library/components/library-import-dialog/types.ts",
       "frontend-user/src/features/library/pages/SharedReceivePage.tsx",
       "frontend-user/src/features/tools/routes.tsx",
@@ -593,7 +648,7 @@ export const accountGuideArticles: WikiArticle[] = [
       {
         id: "three-resource-surfaces",
         title: "先区分三类资源",
-        markdown: `**文件夹**是登录用户的个人论文收藏与整理空间；**科研能力广场**是站内功能、全网科研工具和社区技能的发现入口；**学术资源中心**是公开长文内容页。顶栏“资源”分类只放文件夹和科研能力广场，\`/resources\` 与 \`/blog\` 通过内容入口访问。三者名称相近，但一个保存个人资料，一个发现工具与技能，一个阅读发布内容。`,
+        markdown: `**我的资源**是登录用户的个人工作区，包含文献、期刊、稿件和资源；**scholay广场**是学术工具、学术skills和学术prompts的发现入口；数据集搜索与 scholay 情报位于“学术搜索”。**学术资源中心**与**产品博客**是公开长文内容页。它们分别保存个人资料、发现能力与信息、阅读发布内容，数据不会因为同属“资源”就自动互通。`,
         embeds: [
           { id: "literature-library" },
           { id: "feature-plaza" },
@@ -602,15 +657,17 @@ export const accountGuideArticles: WikiArticle[] = [
       },
       {
         id: "folders",
-        title: "文件夹：整理自己的论文",
-        markdown: `未登录访问 \`/library\` 会看到登录引导；登录后可创建单层文件夹、收藏论文、在当前文件夹内搜索和排序，并在桌面或移动端同步。添加工作台目前真正可用的是在线搜索加入与本地 PDF 上传；Zotero 和 EndNote 导入仍是 ComingSoon 占位，不能写成已支持。
+        title: "我的资源：四类资料，一个文献工作区",
+        markdown: `未登录访问 \`/library\` 会看到登录引导；登录后可以在文献、期刊、稿件和资源四个分区间切换。文献分区保留单层文件夹、收藏、搜索、排序、在线搜索加入和本地 PDF 上传；Zotero 和 EndNote 导入仍是 ComingSoon 占位，不能写成已支持。
+
+只有文献分区共用右侧工作区：PDF Chat、文献图谱和矩阵分析是互斥的功能页签，另有最多 12 个论文或期刊信息页签。切到期刊、稿件或资源不会把这些分析能力扩展到对应资料类型。文献图谱面板当前使用前端演示数据，应按实验性交互理解；PDF Chat 与矩阵仍需遵守各自的数据、额度和处理边界。
 
 文件夹和单篇论文都可以生成分享链接。接收者可以公开预览；开启提取码时，需要先验证提取码。登录用户还可以把允许接收的内容转存到自己的默认文件夹。`,
       },
       {
         id: "playground",
-        title: "科研能力广场：发现工具与技能",
-        markdown: `\`/tools\` 的全网工具分区支持分类、价格、访问形式、开源状态、关键词、排序和分页，详情可以指向外部网站或下载资源。\`/tools/skills\` 使用同一广场外壳展示社区技能，用户可以查看、上传和安装符合公开状态与审核条件的技能。外部工具由各自提供者负责，条目收录不等于 Scholay 对安全性、效果或持续可用性作保证。`,
+        title: "scholay广场：发现工具与信息",
+        markdown: `\`/tools\` 以功能 Hub 组织学术工具、学术skills和学术prompts；数据集搜索与 scholay 情报虽然也使用 \`/tools/*\` 路径，但导航归属“学术搜索”。社区技能可在学术skills入口浏览、上传和安装。工具目录支持分类、价格、访问形式、开源状态、关键词、排序和分页，详情可以指向外部网站或下载资源。外部工具由各自提供者负责，条目收录不等于 Scholay 对安全性、效果或持续可用性作保证。`,
       },
       {
         id: "content-center",

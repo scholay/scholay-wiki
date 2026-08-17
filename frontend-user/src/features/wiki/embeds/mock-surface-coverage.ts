@@ -12,6 +12,9 @@
 export type MockSurfaceDomain = "user" | "mobile" | "admin";
 export type MockSurfaceDisposition = "fixture" | "covered" | "excluded";
 
+/** 最后一次逐项对照静态 fixture 与产品源界面的日期。 */
+export const MOCK_SURFACE_DEFAULT_VERIFIED_AT = "2026-08-13";
+
 type NonEmptyReadonlyArray<T> = readonly [T, ...T[]];
 
 interface MockSurfaceCoverageBase {
@@ -25,6 +28,7 @@ export type MockSurfaceCoverageEntry =
   | (MockSurfaceCoverageBase & {
       readonly disposition: "fixture" | "covered";
       readonly fixtureIds: NonEmptyReadonlyArray<string>;
+      readonly verifiedAt: string;
     })
   | (MockSurfaceCoverageBase & {
       readonly disposition: "excluded";
@@ -36,6 +40,7 @@ function covered<const Key extends string>(
   key: Key,
   mockSourcePaths: NonEmptyReadonlyArray<string>,
   reason: string,
+  verifiedAt = MOCK_SURFACE_DEFAULT_VERIFIED_AT,
 ) {
   return {
     key,
@@ -43,6 +48,7 @@ function covered<const Key extends string>(
     mockSourcePaths,
     disposition: "covered",
     fixtureIds: [key],
+    verifiedAt,
     reason,
   } as const satisfies MockSurfaceCoverageEntry;
 }
@@ -52,6 +58,7 @@ function fixture<const Key extends string>(
   key: Key,
   mockSourcePaths: NonEmptyReadonlyArray<string>,
   reason: string,
+  verifiedAt = MOCK_SURFACE_DEFAULT_VERIFIED_AT,
 ) {
   return {
     key,
@@ -59,6 +66,7 @@ function fixture<const Key extends string>(
     mockSourcePaths,
     disposition: "fixture",
     fixtureIds: [key],
+    verifiedAt,
     reason,
   } as const satisfies MockSurfaceCoverageEntry;
 }
@@ -70,6 +78,7 @@ function visibleGroup(
   disposition: "fixture" | "covered",
   fixtureIds: NonEmptyReadonlyArray<string>,
   reason: string,
+  verifiedAt = MOCK_SURFACE_DEFAULT_VERIFIED_AT,
 ) {
   return {
     key,
@@ -77,6 +86,7 @@ function visibleGroup(
     mockSourcePaths,
     disposition,
     fixtureIds,
+    verifiedAt,
     reason,
   } as const satisfies MockSurfaceCoverageEntry;
 }
@@ -108,7 +118,8 @@ const USER_EXISTING_SURFACES = [
     "user",
     "academic-intel-list",
     ["frontend-user/src/features/news/pages/NewsListPage.tsx"],
-    "学术情报列表、分类和排序已有列表 fixture。",
+    "scholay 情报列表、分类和排序已按现行单列表面复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -374,7 +385,8 @@ const USER_EXISTING_SURFACES = [
     "user",
     "feature-plaza",
     ["frontend-user/src/features/tools/pages/ToolsCatalogPage.tsx"],
-    "科研能力广场目录已有 fixture。",
+    "scholay广场的学术工具目录与分类已按现行页面复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -427,7 +439,8 @@ const USER_EXISTING_SURFACES = [
     "user",
     "journal-search",
     ["frontend-user/src/features/journals/pages/JournalSearchPage.tsx"],
-    "期刊检索、过滤和状态已有 fixture。",
+    "期刊库搜索的单列结果、过滤与状态已按现行页面复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -439,7 +452,8 @@ const USER_EXISTING_SURFACES = [
     "user",
     "literature-library",
     ["frontend-user/src/features/library/pages/LibraryPage.tsx"],
-    "桌面文献库与文件夹结构已有 fixture。",
+    "我的资源中的文献集、文件夹与论文列表已按现行页面复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -509,7 +523,8 @@ const USER_EXISTING_SURFACES = [
     "user",
     "peer-review-entry",
     ["frontend-user/src/features/peer-review/pages/SubmissionLandingPage.tsx"],
-    "同行评审类型选择和入口已有 fixture。",
+    "智能审稿四入口及会议论文占位状态已按现行 Hub 复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -561,7 +576,8 @@ const USER_EXISTING_SURFACES = [
     "user",
     "prism-home",
     ["frontend-user/src/features/prism/components/PrismHome.tsx"],
-    "Prism 项目首页未选中项目的状态已有 fixture。",
+    "Prism 快速写作占位与高级写作入口已按现行 Hub 复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -584,8 +600,9 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "quota-recovery",
-    ["frontend-user/src/shared/components/QuotaNotifier.tsx"],
-    "额度耗尽后的恢复动作已有 fixture。",
+    ["frontend-user/src/shared/components/chat/QuotaComposerStrip.tsx"],
+    "Pro 额度耗尽且有恢复券、有经费的单一合法 Composer 状态已复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -631,7 +648,8 @@ const USER_EXISTING_SURFACES = [
       "frontend-user/src/features/search/components/smart-search/SmartSearchHero.tsx",
       "frontend-user/src/features/search/components/smart-search/SmartComposer.tsx",
     ],
-    "智能检索首页和输入 Dock 已有 fixture。",
+    "智能搜论文首页和输入 Dock 已按现行界面复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -639,7 +657,8 @@ const USER_EXISTING_SURFACES = [
     [
       "frontend-user/src/features/search/components/smart-search/SmartSearchPanel.tsx",
     ],
-    "智能检索会话与证据交付已有 fixture。",
+    "智能搜论文回答、论文组与多会话 Dock 已按现行界面复核。",
+    "2026-08-17",
   ),
   covered(
     "user",
@@ -876,7 +895,8 @@ const USER_GAP_SURFACES = [
       "frontend-user/src/app/layouts/TopNav.tsx",
       "frontend-user/src/features/browser/components/BrowserTabsBar.tsx",
     ],
-    "窄屏导航出口与详情浏览页签是跨功能稳定元素，本轮按 current production 补齐说明 fixture。",
+    "窄屏六功能导航出口与详情浏览页签已按现行界面复核。",
+    "2026-08-17",
   ),
   fixture(
     "user",
@@ -900,8 +920,14 @@ const USER_GAP_SURFACES = [
   fixture(
     "user",
     "search-workspace",
-    ["frontend-user/src/features/search/pages/SearchPage.tsx"],
-    "桌面搜索工作区整页尚无产品截面，本轮先挂三栏占位井。",
+    [
+      "frontend-user/src/features/search/pages/SearchPage.tsx",
+      "frontend-user/src/features/search/components/SearchRightPanel.tsx",
+      "frontend-user/src/features/search/components/workspace/FunctionTabGroup.tsx",
+      "frontend-user/src/stores/search-right-panel.store.ts",
+    ],
+    "学术搜索整页与右栏 PDF Chat、文献图谱、矩阵分析互斥工作区已按 mock2 复核。",
+    "2026-08-17",
   ),
   fixture(
     "user",
@@ -921,6 +947,100 @@ const USER_GAP_SURFACES = [
     "fixture",
     ["claw-empty-state"],
     "修正已有 fixture：以当前源码的五张真实模板卡为准，不再沿用旧 mock 数量。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "site-navigation-tree",
+    [
+      "frontend-user/src/app/menus.ts",
+      "frontend-user/src/app/layouts/AppSidebar.tsx",
+    ],
+    "顶栏六功能、侧栏二级功能树与历史区已按 mock2 现行导航复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "my-resources-sections",
+    [
+      "frontend-user/src/features/library/resource-model.ts",
+      "frontend-user/src/features/library/pages/LibraryPage.tsx",
+    ],
+    "我的资源四分入口与 section 路由语义已按 mock2 现行资源页复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "manuscript-collection",
+    [
+      "frontend-user/src/features/library/resource-model.ts",
+      "frontend-user/src/features/library/components/ManuscriptCollectionView.tsx",
+      "frontend-user/src/features/library/components/ManuscriptContentPane.tsx",
+    ],
+    "稿件集阶段、来源、详情和内容区已按 mock2 现行稿件表面复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "scholay-plaza-hub",
+    [
+      "frontend-user/src/features/tools/pages/ToolsHubPage.tsx",
+      "frontend-user/src/features/tools/pages/ToolsCatalogPage.tsx",
+      "frontend-user/src/features/tools/pages/ToolsDatasetsPage.tsx",
+      "frontend-user/src/features/tools/pages/ToolsPromptsPage.tsx",
+    ],
+    "scholay广场 Hub、工具、数据集和学术 prompts 入口已按 mock2 复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "invite-nav-hub",
+    [
+      "frontend-user/src/app/layouts/topnav/ClaimInviteNavButton.tsx",
+      "frontend-user/src/features/auth/components/ClaimInviteDialog.tsx",
+    ],
+    "顶栏邀请码填写、推广和获取三态及轮播已按 mock2 现行交互复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "funds-reminder",
+    [
+      "frontend-user/src/shared/components/funds-reminder/FundsReminder.tsx",
+      "frontend-user/src/stores/funds-reminder.store.ts",
+    ],
+    "经费不足 Dock、Dialog 与恢复出口已按 mock2 现行交互复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "oauth-confirm",
+    [
+      "frontend-user/src/features/auth/components/OAuthConfirmPanel.tsx",
+      "frontend-user/src/features/auth/components/OAuthRow.tsx",
+    ],
+    "第三方登录前往授权确认层和邀请码合填入口已按 mock2 复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "theme-and-rhino-loading",
+    [
+      "frontend-user/src/app/layouts/topnav/ThemeToggle.tsx",
+      "frontend-user/src/shared/components/GlobalLoadingOverlay.tsx",
+      "frontend-user/src/shared/components/RhinoRunLoader.tsx",
+      "frontend-user/src/stores/theme.store.ts",
+      "frontend-user/src/stores/page-loading.store.ts",
+    ],
+    "站级主题切换、彩色犀牛与全局唯一加载蒙层已按 mock2 复核。",
+    "2026-08-17",
+  ),
+  fixture(
+    "user",
+    "journal-comments",
+    ["frontend-user/src/features/journals/components/JournalCommentsPanel.tsx"],
+    "期刊评论面板按纯前端产品演示表面复核，不据此宣称后端已交付。",
+    "2026-08-17",
   ),
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
@@ -993,7 +1113,7 @@ const USER_EXCLUDED_SURFACES = [
   ),
 ] as const satisfies readonly MockSurfaceCoverageEntry[];
 
-/** 普通用户域：75 个既有覆盖 + 38 个本轮补齐或修正的 fixture，另有 8 个明确排除组。 */
+/** 普通用户域：75 个既有覆盖 + 47 个本轮补齐或修正的 fixture，另有 8 个明确排除组。 */
 export const USER_MOCK_SURFACE_COVERAGE = [
   ...USER_EXISTING_SURFACES,
   ...USER_GAP_SURFACES,
@@ -2076,11 +2196,11 @@ export const MOCK_SURFACE_COVERAGE_STATS = {
   visibleTotal: VISIBLE_MOCK_SURFACE_COVERAGE.length,
 } as const;
 
-/** 本轮审计冻结值：243 个稳定可见表面，另加 18 个明确排除组。 */
+/** 本轮审计冻结值：252 个稳定可见表面，另加 18 个明确排除组。 */
 export const MOCK_SURFACE_COVERAGE_EXPECTED_TOTALS = {
-  user: 121,
+  user: 130,
   mobile: 48,
   admin: 92,
-  all: 261,
-  visibleTotal: 243,
+  all: 270,
+  visibleTotal: 252,
 } as const;

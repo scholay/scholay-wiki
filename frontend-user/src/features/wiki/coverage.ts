@@ -1,26 +1,30 @@
+/* wiki-baseline:generated:start */
 export const WIKI_AUDIT_BASELINE = {
-  commit: "f23d00032af9718f1fd31189e317a5622549f8cc",
-  shortCommit: "f23d0003",
-  version: "0.0.80",
-  verifiedOn: "2026-08-12",
-  renderedRoutes: 120,
-  redirectRoutes: 29,
+  commit: "8b8e60689a9fd4e57309d924372f8e4dd495cfde",
+  shortCommit: "8b8e6068",
+  version: "0.1.0",
+  verifiedOn: "2026-08-17",
+  renderedRoutes: 127,
+  redirectRoutes: 32,
   backendModules: 57,
   agentFeatures: 7,
   agentSkills: 109,
   miniProgramPages: 15,
-  migrations: 128,
+  migrations: 129,
   coldStartTools: 201,
 } as const;
+/* wiki-baseline:generated:end */
 
 /** 与 mock-surface-coverage.ts 的机械统计互相校验，避免把审计账本带进运行时 bundle。 */
+/* wiki-mock-baseline:generated:start */
 export const WIKI_MOCK_SURFACE_BASELINE = {
-  visible: 243,
-  migratedOrCorrected: 108,
+  visible: 252,
+  migratedOrCorrected: 117,
   existing: 135,
   excluded: 18,
-  registeredFixtures: 229,
+  registeredFixtures: 238,
 } as const;
+/* wiki-mock-baseline:generated:end */
 
 export const WIKI_AUDIT_AREAS = [
   {

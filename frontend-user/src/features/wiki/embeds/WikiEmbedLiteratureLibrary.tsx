@@ -4,10 +4,12 @@ import {
   ChevronDown,
   FilePenLine,
   Folder,
+  Grid3x3,
+  MessageSquare,
   MoreHorizontal,
+  Network,
   Plus,
   Quote,
-  Search,
   Share2,
   Sparkles,
 } from "lucide-react";
@@ -43,11 +45,11 @@ const PAPERS = [
   },
 ] as const;
 
-/** 桌面个人文献集：资源侧栏、标准工具栏与未选择状态的论文列表。 */
+/** 桌面“我的资源 · 文献集”：资源侧栏、标准工具栏与未选择状态的论文列表。 */
 export function WikiEmbedLiteratureLibrary() {
   return (
     <div
-      className="grid h-[38rem] w-full max-w-6xl overflow-hidden rounded-8 border border-border bg-background md:grid-cols-[14rem_1fr]"
+      className="grid h-[38rem] w-full max-w-6xl overflow-hidden rounded-8 border border-border bg-background md:grid-cols-[12rem_minmax(25rem,1fr)_minmax(18rem,0.8fr)]"
       style={DISCOVERY_MOCK_THEME}
       aria-hidden
       data-wiki-fixture="literature-library"
@@ -88,39 +90,39 @@ export function WikiEmbedLiteratureLibrary() {
           <SidebarSection title="稿件集" icon={FilePenLine} bordered>
             <CompactRow label="进行中" count="3" />
           </SidebarSection>
+          <SidebarSection title="资源集" icon={Folder} bordered>
+            <CompactRow label="课题工作区" count="5" />
+          </SidebarSection>
         </div>
       </aside>
 
       <main className="flex min-h-0 min-w-0 flex-col bg-background">
-        <header className="flex h-15 shrink-0 items-center justify-end gap-6 border-b border-border bg-background px-6 lg:px-10">
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="text-24 text-muted-foreground">文献集</span>
-            <span className="text-24 text-faint">/</span>
-            <span className="text-24 font-medium text-foreground">
-              默认文件夹
+        <header className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-4">
+          <span className="inline-flex h-8 min-w-0 items-center gap-2 rounded-8 border border-border-strong bg-surface-1 px-3 text-14 font-medium text-foreground">
+            <Folder className="size-3.5 text-faint" />
+            默认文件夹
+            <ChevronDown className="size-3.5 text-faint" />
+          </span>
+          <div
+            className="flex shrink-0 items-center gap-1"
+            data-wiki-spot="文献集工作区功能"
+          >
+            <span className="inline-flex h-8 items-center gap-1 rounded-8 bg-foreground px-2 text-12 font-medium text-on-dark">
+              <Grid3x3 className="size-3.5" /> 矩阵分析
             </span>
-            <span className="inline-flex items-center rounded-4 bg-surface-2 px-2 py-1 text-16 font-medium tabular-nums text-muted-foreground">
-              28 篇
+            <span className="inline-flex h-8 items-center gap-1 rounded-8 px-2 text-12 text-subtle">
+              <Network className="size-3.5" /> 图谱
             </span>
-            <span className="inline-flex h-7 items-center gap-1 rounded-4 px-2 text-20 font-medium text-subtle">
-              <Share2 className="size-4" /> 分享
+            <span className="inline-flex h-8 items-center gap-1 rounded-8 px-2 text-12 text-subtle">
+              <MessageSquare className="size-3.5" /> PDF Chat
             </span>
           </div>
-
-          <div className="flex h-10 min-w-60 max-w-md flex-1 items-center gap-2 rounded-8 border border-border-strong bg-surface-1 px-3">
-            <Search className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate text-24 text-faint">
-              在「默认文件夹」中搜索…
-            </span>
-          </div>
-
-          <div className="hidden shrink-0 items-center gap-2 xl:flex">
-            <ToolbarAction>+ 在线搜索加入</ToolbarAction>
-            <ToolbarAction>↑ 上传 PDF</ToolbarAction>
-            <ToolbarAction muted>从 Zotero 导入</ToolbarAction>
-          </div>
-          <span className="inline-flex h-9 shrink-0 items-center gap-2 rounded-8 border border-border bg-background px-3 text-20 font-medium text-subtle xl:hidden">
-            更多 <ChevronDown className="size-4" />
+          <span className="inline-flex h-8 items-center gap-1 rounded-8 px-2 text-12 text-subtle">
+            <Plus className="size-3.5" /> 加入{" "}
+            <ChevronDown className="size-3" />
+          </span>
+          <span className="inline-flex h-8 items-center gap-1 rounded-8 px-2 text-12 text-subtle">
+            <Share2 className="size-3.5" /> 分享
           </span>
         </header>
 
@@ -146,6 +148,43 @@ export function WikiEmbedLiteratureLibrary() {
           </ul>
         </div>
       </main>
+
+      <section className="hidden min-h-0 min-w-0 flex-col border-l border-border bg-background md:flex">
+        <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-surface-1 px-3">
+          <Grid3x3 className="size-3.5 text-brand-red" />
+          <span className="text-12 font-medium text-foreground">矩阵分析</span>
+          <span className="ml-auto text-12 text-faint">当前 2 篇</span>
+        </header>
+        <div className="min-h-0 flex-1 p-3">
+          <div className="grid grid-cols-3 overflow-hidden rounded-8 border border-border text-12">
+            {[
+              "论文",
+              "方法",
+              "结论",
+              "Ho 2020",
+              "扩散",
+              "高质量生成",
+              "Rombach 2022",
+              "潜空间",
+              "降低计算量",
+            ].map((cell, index) => (
+              <span
+                key={`${cell}-${index}`}
+                className={`border-b border-r border-border px-2 py-2 ${
+                  index < 3
+                    ? "bg-surface-2 font-medium text-foreground"
+                    : "text-subtle"
+                }`}
+              >
+                {cell}
+              </span>
+            ))}
+          </div>
+          <p className="mb-0 mt-3 text-12 leading-paragraph text-faint">
+            矩阵、图谱与 PDF Chat 互斥；切换会替换当前右栏。
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
@@ -185,26 +224,6 @@ function CompactRow({ label, count }: { label: string; count: string }) {
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className="tabular-nums text-faint">{count}</span>
     </div>
-  );
-}
-
-function ToolbarAction({
-  children,
-  muted = false,
-}: {
-  children: string;
-  muted?: boolean;
-}) {
-  return (
-    <span
-      className={
-        muted
-          ? "inline-flex h-9 items-center rounded-8 border border-border bg-background px-3 text-20 font-medium text-muted-foreground"
-          : "inline-flex h-9 items-center rounded-8 border border-border bg-background px-3 text-20 font-medium text-foreground"
-      }
-    >
-      {children}
-    </span>
   );
 }
 

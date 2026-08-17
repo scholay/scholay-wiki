@@ -24,7 +24,7 @@ export function WikiEmbedAdminChatSessionDetail() {
     >
       <DetailDrawer
         title="图神经网络综述检索"
-        meta="智能搜索会话 · ss_01J5M8K7PT3F · 林晓舟 · 用户 ID 28461"
+        meta="智能搜论文会话 · ss_01J5M8K7PT3F · 林晓舟 · 用户 ID 28461"
         size="wide"
       >
         <DetailMetricStrip

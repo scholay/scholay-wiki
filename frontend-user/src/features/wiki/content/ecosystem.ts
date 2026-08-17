@@ -32,9 +32,9 @@ export const ecosystemArticles: WikiArticle[] = [
   },
   {
     slug: "feature-tools",
-    title: "功能广场",
+    title: "scholay广场：学术工具目录",
     summary:
-      "收录 Scholay 站内能力和外部科研工具的可搜索目录，并提供分类、筛选和详情。",
+      "以学术工具、学术skills和学术prompts组成发现 Hub，并提供外部工具目录、筛选与详情。",
     category: "knowledge",
     kind: "feature",
     status: "current",
@@ -43,8 +43,12 @@ export const ecosystemArticles: WikiArticle[] = [
     sourcePaths: [
       "frontend-user/src/features/tools/routes.tsx",
       "frontend-user/src/features/tools/pages/ToolsLayout.tsx",
+      "frontend-user/src/features/tools/pages/ToolsHubPage.tsx",
       "frontend-user/src/features/tools/pages/ToolsCatalogPage.tsx",
+      "frontend-user/src/features/tools/pages/ToolsPromptsPage.tsx",
       "frontend-user/src/features/tools/pages/ToolDetailPage.tsx",
+      "frontend-user/src/app/layouts/FeatureHub.tsx",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/tools/pages/mobile/MobileToolsHomePage.tsx",
       "frontend-user/src/features/tools/pages/mobile/MobileToolsPage.tsx",
       "frontend-user/src/features/tools/pages/mobile/MobileToolDetailPage.tsx",
@@ -55,9 +59,16 @@ export const ecosystemArticles: WikiArticle[] = [
     related: ["community-skills", "mobile-web", "admin-console"],
     sections: [
       {
+        id: "hub",
+        title: "Hub 与功能归属",
+        markdown: `打开 \`/tools\` 会进入 scholay广场 Hub，当前三张卡是学术工具、学术skills和学术prompts。数据集搜索与 scholay 情报虽然路径也在 \`/tools/datasets\`、\`/tools/news\`，但导航归属“学术搜索”；不要因为 URL 前缀相同就把它们写成广场分区。
+
+学术prompts当前由前端常量提供示例卡，没有后端保存、投稿或使用统计链路，显示的“使用次数”也是演示数值，应按产品演示阶段理解。`,
+      },
+      {
         id: "catalog",
         title: "目录",
-        markdown: `进入功能广场后，你可以按分类浏览工具卡片，也可以搜索关键词，再用形式与价格条件筛选。手机端从工具首页进入目录，筛选条件会在底部面板中展开。下方四张图依次展示桌面目录、移动工具首页、移动目录和移动筛选面板。`,
+        markdown: `从 scholay广场进入“学术工具”后，可以按分类浏览工具卡片，也可以搜索关键词，再用形式与价格条件筛选。手机端从工具首页进入目录，筛选条件会在底部面板中展开。下方四张图依次展示桌面目录、移动工具首页、移动目录和移动筛选面板。`,
         embeds: [
           { id: "feature-plaza" },
           { id: "mobile-tools" },
@@ -110,7 +121,7 @@ export const ecosystemArticles: WikiArticle[] = [
       {
         id: "lifecycle",
         title: "技能生命周期",
-        markdown: `在功能广场的“社区技能”中，你可以浏览详情并安装公开技能；如果你是作者，还可以创建版本、提交发布并在“我的技能”中查看状态。下方三张图依次展示浏览与安装、提交发布和版本管理。
+        markdown: `在 scholay广场的“学术skills”中，你可以浏览详情并安装公开技能；如果你是作者，还可以创建版本、提交发布并在“我的技能”中查看状态。下方三张图依次展示浏览与安装、提交发布和版本管理。
 
 技能可设为私有、仅链接可见或公开；公开提交后需要审核。第三张图的背景列表同时显示审核中、已通过、草稿，以及公开/私有状态；前景弹窗修改基本信息可即时生效，上传新内容则会让已公开版本重新审核。只有“公开、已通过、启用中”的版本会出现在市场并允许安装，草稿、待审核、被拒绝、被标记、被停用或已删除的版本不会公开分发。`,
         embeds: [
@@ -190,29 +201,41 @@ export const ecosystemArticles: WikiArticle[] = [
   },
   {
     slug: "research-news",
-    title: "学术资讯",
-    summary: "面向公开访问的学术新闻列表与详情，并由后台维护采集和发布状态。",
+    title: "scholay 情报",
+    summary:
+      "面向公开访问的学术新闻列表与详情，并为列表异步生成轻量封面缩略图。",
     category: "knowledge",
     kind: "feature",
     status: "current",
     audience: ["所有访客", "内容运营"],
-    aliases: ["资讯", "News", "学术新闻"],
+    aliases: ["资讯", "News", "学术新闻", "顶刊速递"],
     sourcePaths: [
       "frontend-user/src/features/news/routes.tsx",
       "frontend-user/src/features/news/pages/NewsListPage.tsx",
       "frontend-user/src/features/news/pages/NewsDetailPage.tsx",
+      "frontend-user/src/shared/api/news.ts",
       "backend/internal/news",
+      "backend/internal/news/thumbnail.go",
+      "backend/cmd/server/routes_scholar.go",
+      "docker/mysql/migrations/0127_news_cover_thumb_fields.sql",
     ],
     related: ["product-map", "admin-console", "wechat-mini-program"],
     sections: [
       {
         id: "pages",
         title: "页面",
-        markdown: `进入学术资讯后，你会先看到按时间排列的文章列表；点击卡片即可阅读正文、查看来源并继续加载。下图分别展示资讯列表和文章详情。列表中的头条、飙升和热度只是内容排序或运营信号，不是可信度等级；详情中的可信度说明才是核对提示。每篇文章都有稳定链接，可以在 Web 或小程序中再次打开。`,
+        markdown: `进入 scholay 情报后，你会先看到按时间排列的文章列表；点击卡片即可阅读正文、查看来源并继续加载。下图分别展示情报列表和文章详情。列表中的头条、飙升和热度只是内容排序或运营信号，不是可信度等级；详情中的可信度说明才是核对提示。每篇文章都有稳定链接，可以在 Web 或小程序中再次打开。`,
         embeds: [
           { id: "academic-intel-list" },
           { id: "academic-intel-detail" },
         ],
+      },
+      {
+        id: "thumbnails",
+        title: "列表封面为什么可能与原图不同",
+        markdown: `情报入库后，服务会 best-effort 异步下载远端封面并生成长边不超过 640 px、质量 80 的白底 JPEG，存进 MinIO；列表优先从 \`/api/v1/public/news/cover/:file\` 读取缩略图，详情仍可使用远端原图。原图过大、解码失败或对象存储异常时不会阻断发布，列表会回落原地址。
+
+服务还会延迟启动并定时回填旧记录，所以刚发布时看见原图、稍后变成站内缩略图是正常的。缩略图只是性能派生物，不是内容来源或版权凭据。`,
       },
       {
         id: "publishing",

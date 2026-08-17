@@ -16,6 +16,10 @@ export const platformArticles: WikiArticle[] = [
       "agent/src/server",
       "agent/src/tools",
       "backend/internal/agentbridge",
+      "backend/internal/agentbridge/spec.go",
+      "backend/internal/agentbridge/hub.go",
+      "backend/internal/agentbridge/hub_turncap_test.go",
+      "backend/internal/vip/quota.go",
       "backend/internal/agentrun",
       "docker-compose.yml",
     ],
@@ -45,6 +49,13 @@ export const platformArticles: WikiArticle[] = [
         id: "skills",
         title: "技能加载",
         markdown: `平台内置技能从只读挂载目录加载；用户启用的社区技能会作为受限指南加入当前会话。技能只描述做事方法，能否调用具体工具仍由执行器和后端策略决定。`,
+      },
+      {
+        id: "turn-cost-cap",
+        title: "回合成本上限",
+        markdown: `Claw、智能搜论文、Prism、科研绘图、数据分析和 Boltslides 的 Spec 注入 TurnCostCapFn。桥在回合开始时按周期剩余额度、允许续用的经费能力和安全下限计算上限；每次模型调用后解析 \`turn_usage_delta\`，用模型目录的输入、输出、缓存写入与缓存读取四类价格累计成本。达到上限后只发一次 \`stop_generation\`，并把回合标为 aborted，已完成输出不会回滚。
+
+这是一层 fail-open 的过冲保护：模型未知、目录无价格、旧 Executor 不上报 delta 或没有配置函数时不会硬停，最终仍按真实成本结算。智能审稿未接入回合内上限，因为它需要完成多阶段任务，使用自己的启动门禁。`,
       },
     ],
   },

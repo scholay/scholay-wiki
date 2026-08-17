@@ -39,7 +39,7 @@ const PAPERS = [
 ] as const;
 
 /**
- * 智能搜索论文组 · 纯样式 fixture。
+ * 智能搜论文结果组 · 纯样式 fixture。
  * 对齐 product-mock PaperListScroller 组头 + 论文行勾选列。
  */
 export function WikiEmbedSmartPaperGroup() {

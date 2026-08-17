@@ -277,7 +277,7 @@ export function WikiEmbedAdminFeatureUsageTrend() {
           <DetailTable
             columns={["功能", "次数"]}
             rows={[
-              { id: "feature-search", cells: ["智能搜索", "48,260"] },
+              { id: "feature-search", cells: ["智能搜论文", "48,260"] },
               { id: "feature-pdf", cells: ["论文对话", "36,842"] },
               { id: "feature-review", cells: ["智能审稿", "18,406"] },
             ]}
@@ -397,7 +397,7 @@ export function WikiEmbedAdminTokenUsageDimensions() {
           <DetailBars
             bars={[
               {
-                label: "智能搜索",
+                label: "智能搜论文",
                 value: "48,216.4 点",
                 width: "full",
                 tone: "red",
@@ -427,7 +427,7 @@ export function WikiEmbedAdminTokenUsageDimensions() {
           <DetailTable
             columns={["功能", "调用", "均点"]}
             rows={[
-              { id: "dim-search", cells: ["智能搜索", "86,420", "0.558"] },
+              { id: "dim-search", cells: ["智能搜论文", "86,420", "0.558"] },
               { id: "dim-pdf", cells: ["论文对话", "61,842", "0.515"] },
               { id: "dim-review", cells: ["智能审稿", "18,406", "1.217"] },
             ]}
@@ -465,7 +465,7 @@ export function WikiEmbedAdminTokenUsageLogs() {
             cells: [
               "今天 10:24",
               "林晓舟 · ID 28461",
-              "智能搜索 · house",
+              "智能搜论文 · house",
               "glm-4.5 · 智谱",
               "1.8426",
               "18,420 / 2,106",

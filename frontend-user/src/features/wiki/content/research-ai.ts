@@ -22,7 +22,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "features",
         title: "能力集合",
-        markdown: `当前可以使用智能搜索、Claw、Prism、智能审稿、演示文稿、科研绘图和数据分析。它们都支持会话、附件、额度记录和文件交付，但会根据任务使用不同的工作区和处理方法。`,
+        markdown: `当前可以使用智能搜论文、Claw、Prism 高级模式、智能审稿、演示文稿、科研绘图和数据分析。它们会根据任务使用不同的工作区和处理方法；并非每项能力都同时拥有会话、附件与文件交付，也不能从首页故事画面或 ComingSoon 卡片推断后端已经交付。`,
       },
       {
         id: "boundaries",
@@ -38,16 +38,20 @@ export const researchAiArticles: WikiArticle[] = [
   },
   {
     slug: "smart-search",
-    title: "智能搜索",
+    title: "智能搜论文",
     summary:
       "以自然语言与 Agent 会话驱动的学术检索，返回解释、论文清单和来源证据。",
     category: "research-ai",
     kind: "feature",
     status: "current",
     audience: ["登录用户", "研究者"],
-    aliases: ["AI 搜索", "Smart Search", "智能检索"],
+    aliases: ["AI 搜索", "Smart Search", "智能检索", "自然语言搜论文"],
     sourcePaths: [
       "frontend-user/src/features/search/components/smart-search/SmartSearchPanel.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchBibliography.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchSessionDock.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchClawHandoff.tsx",
+      "frontend-user/src/features/search/components/smart-search/collect-session-papers.ts",
       "frontend-user/src/features/search/api/smart-search.ts",
       "backend/internal/smartsearch",
       "backend/internal/agentbridge",
@@ -57,10 +61,10 @@ export const researchAiArticles: WikiArticle[] = [
     sections: [
       {
         id: "difference",
-        title: "与传统搜索的区别",
-        markdown: `在智能搜索输入框中直接写下完整的研究问题，例如研究对象、方法和时间范围，再发送即可；下图展示的是等待输入时的状态。智能搜索会围绕问题规划检索、整理来源并给出说明，传统搜索则更适合明确检索词和筛选条件。
+        title: "与论文库搜索的区别",
+        markdown: `在智能搜论文输入框中直接写下完整的研究问题，例如研究对象、方法和时间范围，再发送即可；下图展示的是等待输入时的状态。智能搜论文会围绕问题规划检索、整理来源并给出说明，论文库搜索则更适合明确检索词和筛选条件。
 
-两种方式都能找到论文，但智能搜索还会保留这一轮对话中的查询过程和来源线索。`,
+两种方式都能找到论文，但智能搜论文还会保留这一轮对话中的查询过程和来源线索。`,
         embeds: [{ id: "smart-search-dock" }],
         blocks: [
           { type: "markdown" },
@@ -81,7 +85,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "session",
         title: "会话与连接",
-        markdown: `发送问题后，页面会在同一会话中逐步形成回答。下图展示已经得到回答和论文组的结果态；折叠的“思考过程”用于查看本轮过程摘要，论文可逐篇选择或一键暂存。底部会话条用于切换历史任务或开启不继承旧上下文的新对话。
+        markdown: `发送问题后，页面会在同一会话中逐步形成回答。下图展示已经得到回答和论文组的结果态；折叠的“思考过程”用于查看本轮过程摘要，论文可逐篇选择或一键暂存。底部会话 Dock 展示最近任务的标题、时间和结果数，可以切换当前任务，或开启一个不继承旧上下文的新会话。每个会话独立保存消息与检索结果。
 
 连接短暂中断时，页面会另行提示并尝试恢复，你不需要重新复制已经送达的问题。实时连接使用一次性的短期凭据，不会把长期登录信息直接放进连接地址。`,
         embeds: [{ id: "smart-search-session" }],
@@ -104,7 +108,12 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "evidence",
         title: "论文与证据",
-        markdown: `搜索回答可以附带结构化论文清单和证据引用。论文卡仍连接到标准论文实体，用户应打开详情或全文验证回答中的事实，而不是只引用对话文字。`,
+        markdown: `回答可以附带结构化论文清单和证据引用。右侧参考文献栏会汇总当前会话中工具实际返回的去重论文，补全元数据并按轮次分组；可以逐篇选择或把整组加入暂存区。它不是模型凭文字临时编造的书目，也不代表论文已经保存到“我的资源”。论文卡仍连接到标准论文实体，用户应打开详情或全文验证回答中的事实，而不是只引用对话文字。`,
+      },
+      {
+        id: "claw-handoff",
+        title: "检索完成后转到 Claw",
+        markdown: `一轮检索完成后，页面会显示“检索到这里，深挖去智能助手”的交接入口，并导航到 \`/claw\`。当前交接只负责换到通用研究助手，不会自动把智能搜论文的会话、论文清单或回答作为 Claw 上下文传递；需要继续深挖时，应自行暂存论文、引用必要材料或重新说明任务。`,
       },
     ],
   },
@@ -124,6 +133,9 @@ export const researchAiArticles: WikiArticle[] = [
       "frontend-user/src/features/claw/pages/ClawPage.tsx",
       "frontend-user/src/features/claw/pages/mobile/MobileClawPage.tsx",
       "frontend-user/src/features/claw/components/chat/ConversationWorkspace.tsx",
+      "frontend-user/src/features/claw/components/chat/ClawHero.tsx",
+      "frontend-user/src/features/claw/components/chat/ClawNoviceTour.tsx",
+      "frontend-user/src/features/claw/components/chat/TemplateCards.tsx",
       "backend/internal/claw",
       "agent-skills/claw-add",
     ],
@@ -176,6 +188,13 @@ export const researchAiArticles: WikiArticle[] = [
         ],
       },
       {
+        id: "onboarding-and-templates",
+        title: "首次引导与创作模板",
+        markdown: `首次引导依次聚焦输入框、模型、Skill、附件/文库引用和模板区，并配合牛犀犀动作提示；它只说明控件位置，不会替用户发送消息。
+
+当前模板扇面有五张卡：制作PPT、科研绘图、scholay 选刊、矩阵分析和 PDF-Chat。只有制作PPT与科研绘图已经接到专用会话；后三张点击后只显示“即将推出”，属于产品占位。普通研究问答仍可直接在输入框开始，不需要先选模板。`,
+      },
+      {
         id: "skills",
         title: "技能与工具",
         markdown: `用户可以在对话中启用研究技能，Agent 也会依据任务调用经过策略控制的工具。技能提供工作方法和输出规范，工具负责检索、文件或计算等动作；二者不是同一个概念。`,
@@ -194,7 +213,7 @@ export const researchAiArticles: WikiArticle[] = [
     slug: "peer-review",
     title: "智能审稿",
     summary:
-      "面向期刊论文和学位论文的结构化 AI 评审工作台，包含提交向导、实时阶段与评审记录。",
+      "以期刊论文和学位论文为完整流程，另有会议论文占位与复用期刊向导的其他稿件入口。",
     category: "research-ai",
     kind: "feature",
     status: "current",
@@ -203,6 +222,7 @@ export const researchAiArticles: WikiArticle[] = [
     sourcePaths: [
       "frontend-user/src/features/landing/pages/PeerReviewLandingPage.tsx",
       "frontend-user/src/features/peer-review/routes.tsx",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/peer-review/layouts/PeerReviewShell.tsx",
       "frontend-user/src/features/peer-review/pages/SubmissionLandingPage.tsx",
       "frontend-user/src/features/peer-review/pages/JournalWizardPage.tsx",
@@ -210,6 +230,9 @@ export const researchAiArticles: WikiArticle[] = [
       "frontend-user/src/features/peer-review/pages/RecordsPage.tsx",
       "frontend-user/src/features/peer-review/pages/RecordDetailPage.tsx",
       "frontend-user/src/features/peer-review/pages/SubmitSuccessPage.tsx",
+      "frontend-user/src/features/peer-review/api/stream.ts",
+      "backend/internal/peerreview/stream.go",
+      "backend/internal/peerreview/service.go",
       "backend/internal/peerreview",
       "agent-skills/reviewer-skills",
     ],
@@ -217,8 +240,8 @@ export const researchAiArticles: WikiArticle[] = [
     sections: [
       {
         id: "submission",
-        title: "两类提交",
-        markdown: `进入智能审稿后，先选择“期刊论文”或“学位论文”；下图展示的是两类任务的起始入口。按向导上传主稿并填写目标期刊、研究领域或学校等信息，确认提交后才会开始评审。
+        title: "四个入口，两套完整向导",
+        markdown: `智能审稿 Hub 显示期刊论文、学位论文、会议论文和其他四个入口。期刊论文与学位论文拥有各自完整向导；会议论文当前标为“即将推出”，访问 \`/peer-review/conference\` 会回到 Hub；“其他”可以通过 \`/peer-review/other\` 进入，但暂时复用期刊论文向导，不应写成独立稿件流程。按向导上传主稿并填写目标期刊、研究领域或学校等信息，确认提交后才会开始评审。
 
 主稿上限为 50 MiB，附件每个最多 30 MiB、最多 10 个。仅上传完成时任务仍是草稿，你还可以继续检查和修改。`,
         embeds: [{ id: "peer-review-entry" }],
@@ -228,7 +251,7 @@ export const researchAiArticles: WikiArticle[] = [
         title: "评审过程",
         markdown: `提交后，进度页会显示任务正在排队、分析稿件信息、检查投稿信与方法、生成评审结果等阶段；下图冻结在“初审已通过、三位审稿人与主审仍等待、阶段 1/5 通读全文”的状态。顶部“阶段 1/5”是当前运行阶段，不等于已经得到 20% 的评审结果；初审已通过与审稿人仍等待可以同时出现，预计剩余时间只是估算。任务会从草稿进入排队、评审，最后变为完成或失败，失败后可以重试。
 
-只有草稿可以编辑。评审中断时系统会尝试恢复，页面会持续更新当前阶段，不需要手动刷新来判断是否完成。`,
+只有草稿可以编辑。服务在数据库状态写入后，会通过按提交与槽位分组的 SSE 广播 \`state\`、\`report_ready\` 等控制帧；前端据此刷新提交与报告，刷新页面时可先拿到状态快照。推送是 best-effort，数据库才是事实来源，断线或漏帧时仍会慢速轮询恢复，不能把实时消息当成唯一完成凭据。`,
         embeds: [{ id: "peer-review-progress" }],
       },
       {
@@ -253,13 +276,24 @@ export const researchAiArticles: WikiArticle[] = [
       "frontend-user/src/features/landing/pages/PrismLandingPage.tsx",
       "frontend-user/src/features/prism/routes.tsx",
       "frontend-user/src/features/prism/pages/PrismPage.tsx",
+      "frontend-user/src/app/layouts/FeatureHub.tsx",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/prism/components/PrismWorkspaceV2.tsx",
+      "frontend-user/src/features/prism/api/prism.ts",
+      "frontend-user/src/shared/hooks/useNotificationSocket.ts",
+      "frontend-user/src/shared/lib/compile-events.ts",
+      "backend/internal/prism/compile_notify.go",
       "backend/internal/prism",
       "agent-skills/prism-skills",
       "prism_tex",
     ],
     related: ["agent-runtime", "agent-artifacts", "peer-review", "paper"],
     sections: [
+      {
+        id: "modes",
+        title: "快速模式与高级模式",
+        markdown: `Prism Hub 同时展示“快速模式”和“高级模式”。高级模式从 \`/prism?mode=advanced\` 进入项目列表，是当前可用的科研级 LaTeX 工作区；快速模式标记为“即将推出”，\`/prism\` 和 \`/prism?mode=quick\` 都只会回到 Hub，不存在已经可编辑的短文工作区。已有项目 ID 仍会直接打开对应项目。`,
+      },
       {
         id: "workspace",
         title: "写作工作区",
@@ -281,7 +315,9 @@ export const researchAiArticles: WikiArticle[] = [
         title: "编译与交付",
         markdown: `点击编译后，页面会依次显示排队、编译中、成功或失败。下图只冻结一次 LaTeX 内容编译失败的状态：错误提示会出现在工作区上方，右侧预览区也会说明 PDF 尚未生成。成功时则可以直接预览或下载 PDF。
 
-只有 LaTeX 内容错误会尝试自动修复；其他错误需要稍后重试或根据提示处理。`,
+只有 LaTeX 内容错误会尝试自动修复；其他错误需要稍后重试或根据提示处理。
+
+后端在编译状态写库后，会通过用户通知 WebSocket best-effort 推送完整编译对象；前端把 \`compile_status\` 转成页面事件，并以轮询作为漏推或断线时的兜底。数据库仍是状态事实来源，所以通知到达更快不等于编译成功，最终以重新读取的任务状态和可用 PDF 为准。`,
         embeds: [{ id: "prism-compile-states" }],
       },
     ],
@@ -308,7 +344,7 @@ export const researchAiArticles: WikiArticle[] = [
       {
         id: "workflow",
         title: "工作流",
-        markdown: `在 Claw 新对话页选择“数据分析”，再附上数据文件并写清研究问题；下图中的模板卡就是这一入口。助手会先理解变量、数据质量和研究设计，再选择统计方法并执行分析。
+        markdown: `数据分析的专用会话与后端仍存在，但当前 Claw 新对话模板扇面不再提供“数据分析”卡；可见的五张卡是制作PPT、科研绘图、scholay 选刊、矩阵分析和 PDF-Chat，后三张还是占位。因此不能把下方旧起始页示意当成当前可点击入口；只有部署另行提供的数据分析入口或已有会话才能进入专用流程。进入后，应附上数据文件并写清研究问题，助手再理解变量、数据质量和研究设计并选择统计方法。
 
 结果应同时包含方法说明、关键数值、诊断和可下载产物，而不只是自然语言结论。`,
         embeds: [

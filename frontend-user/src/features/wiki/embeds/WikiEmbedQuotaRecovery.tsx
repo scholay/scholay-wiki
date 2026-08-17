@@ -1,6 +1,9 @@
 import { Info, RefreshCw, TrendingUp, X, Zap } from "lucide-react";
 
-/** QuotaComposerStrip 的 Pro 耗尽态：Reset Pass 与付费恢复路径分区呈现。 */
+/**
+ * QuotaComposerStrip 的单一合法 Pro 耗尽态：有重置次数、有经费且尚未开启按量继续。
+ * 免费恢复与付费路径分区呈现，不与“充值经费”等互斥 CTA 同时出现。
+ */
 export function WikiEmbedQuotaRecovery() {
   return (
     <div
@@ -11,8 +14,7 @@ export function WikiEmbedQuotaRecovery() {
       <div className="flex flex-wrap items-center gap-2 border-b border-brand-amber/20 px-3 py-2">
         <RefreshCw className="size-4 shrink-0 text-brand-amber" />
         <p className="min-w-0 flex-1 text-12 text-foreground">
-          重置次数还剩 <span className="font-medium">2</span> 次 · 用 1
-          次立即恢复满额，不扣经费
+          可立即恢复 <span className="font-medium">2</span> 次,不消耗经费
         </p>
         <span className="inline-flex h-7 items-center rounded-8 bg-foreground px-3 text-12 font-medium text-on-dark">
           立即恢复
@@ -23,11 +25,9 @@ export function WikiEmbedQuotaRecovery() {
         <div className="flex items-start gap-2">
           <Info className="mt-1 size-4 shrink-0 text-brand-amber" />
           <div className="min-w-0 flex-1">
-            <p className="text-14 font-medium text-foreground">
-              本周期用量已达上限
-            </p>
+            <p className="text-14 font-medium text-foreground">额度已用完</p>
             <p className="text-12 text-muted-foreground">
-              额度将于 8 月 16 日 09:30 恢复
+              8 月 18 日 09:30 恢复满额
             </p>
           </div>
           <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-4 text-faint">

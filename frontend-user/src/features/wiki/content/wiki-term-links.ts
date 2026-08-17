@@ -1,71 +1,18 @@
 import type { WikiArticle } from "../types";
+import { WIKI_TERMS } from "./terms";
 
 interface WikiTermLink {
   terms: readonly string[];
   articleSlug: string;
 }
 
-/**
- * 人工维护的规范术语表。这里只放跨章节高频概念；aliases 不会自动变成链接，
- * 避免把普通名词和界面标签过度链接。
- */
-export const WIKI_TERM_LINKS: readonly WikiTermLink[] = [
-  {
-    terms: [
-      "智能助手（Scholay Claw）",
-      "智能助手 Scholay Claw",
-      "Scholay Claw",
-      "智能助手",
-    ],
-    articleSlug: "claw",
-  },
-  {
-    terms: ["智能写作（Scholay Prism）", "Scholay Prism", "智能写作"],
-    articleSlug: "prism",
-  },
-  {
-    terms: ["智能审稿（AI 模拟评议）", "智能审稿", "AI 审稿"],
-    articleSlug: "peer-review",
-  },
-  { terms: ["传统文献搜索"], articleSlug: "literature-search-guide" },
-  { terms: ["智能搜索"], articleSlug: "smart-search" },
-  { terms: ["PDF 对话"], articleSlug: "pdf-chat-guide" },
-  { terms: ["个人文献集"], articleSlug: "literature-library" },
-  { terms: ["暂存区"], articleSlug: "staging-area" },
-  { terms: ["论文矩阵分析", "矩阵分析"], articleSlug: "matrix-analysis" },
-  { terms: ["AI 周期额度", "AI 额度"], articleSlug: "ai-usage-quota" },
-  { terms: ["科研经费"], articleSlug: "wallet-payg" },
-  { terms: ["稿件", "出版物"], articleSlug: "manuscript-vs-publication" },
-  {
-    terms: ["开放获取（OA）", "开放获取", "OA"],
-    articleSlug: "open-access-and-paper-translation",
-  },
-  {
-    terms: ["社区技能（Skill）", "社区技能", "Skill"],
-    articleSlug: "community-skills",
-  },
-  { terms: ["学术情报", "研究新闻"], articleSlug: "research-news" },
-  {
-    terms: ["中科院分区", "期刊分区", "JCR", "CCF"],
-    articleSlug: "journal-metrics-guide",
-  },
-  {
-    terms: [
-      "参考文献基础信息卡片",
-      "Function call 卡片",
-      "工具调用卡片",
-      "扩展区标签页",
-      "浏览器页签",
-      "汉堡菜单",
-      "剩余额度显示",
-      "任务进度条",
-      "推理过程",
-      "扩展区",
-      "文件树",
-    ],
-    articleSlug: "marketing-pages-and-implementation-boundaries",
-  },
-] as const;
+/** 从 terms.ts 派生；aliases 不会自动变成链接，避免普通检索别名过度链接。 */
+export const WIKI_TERM_LINKS: readonly WikiTermLink[] = WIKI_TERMS.map(
+  (term) => ({
+    terms: [term.canonical, ...(term.linkVariants ?? [])],
+    articleSlug: term.articleSlug,
+  }),
+);
 
 const FLAT_TERM_LINKS = WIKI_TERM_LINKS.flatMap((entry) =>
   entry.terms.map((term) => ({ term, articleSlug: entry.articleSlug })),

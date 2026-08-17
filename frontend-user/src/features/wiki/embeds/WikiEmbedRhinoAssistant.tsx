@@ -168,7 +168,7 @@ export function WikiEmbedRhinoAssistantNotificationsPanel() {
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         <Notice
-          title="智能搜索任务已完成"
+          title="智能搜论文任务已完成"
           copy="已整理 18 篇候选论文，可以继续核对并加入暂存区。"
           time="刚刚"
           unread

@@ -3,7 +3,7 @@ import { BrandLogo } from "@/shared/components/BrandLogo";
 import { MockModeToggle } from "./fixtures/mock-chrome";
 
 /**
- * 传统搜索入口 · 纯样式 fixture。
+ * 论文库搜索入口 · 纯样式 fixture。
  * 对应 SearchClassicLanding 的居中品牌区与 SearchAutocomplete 聚焦态。
  */
 export function WikiEmbedSearchAutocomplete() {

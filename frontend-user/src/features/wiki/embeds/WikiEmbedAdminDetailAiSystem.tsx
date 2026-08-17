@@ -169,7 +169,7 @@ export function WikiEmbedAdminModelEditor() {
             { label: "启用", value: "已启用", kind: "toggle" },
             { label: "视觉能力", value: "已关闭", kind: "readonly" },
             { label: "旗舰模型", value: "已启用", kind: "toggle" },
-            { label: "内部备注", value: "智能搜索默认模型" },
+            { label: "内部备注", value: "智能搜论文默认模型" },
           ]}
         />
       </DetailDialog>

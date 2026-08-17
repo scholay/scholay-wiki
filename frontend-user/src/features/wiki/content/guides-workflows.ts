@@ -15,6 +15,9 @@ export const workflowGuideArticles: WikiArticle[] = [
       "frontend-user/src/features/claw/pages/ClawPage.tsx",
       "frontend-user/src/features/claw/components/chat/ConversationWorkspace.tsx",
       "frontend-user/src/features/claw/components/chat/ChatComposer.tsx",
+      "frontend-user/src/features/claw/components/chat/ClawHero.tsx",
+      "frontend-user/src/features/claw/components/chat/ClawNoviceTour.tsx",
+      "frontend-user/src/features/claw/components/chat/TemplateCards.tsx",
       "frontend-user/src/features/claw/components/sidebar/UnifiedSidebar.tsx",
       "frontend-user/src/features/claw/components/preview/ClawArtifactPanel.tsx",
     ],
@@ -28,7 +31,9 @@ export const workflowGuideArticles: WikiArticle[] = [
       {
         id: "entry-and-modes",
         title: "入口与任务模式",
-        markdown: `打开智能助手后，你会先看到一个空白的新对话，如下图所示。可以直接在输入框描述任务，也可以从制作 PPT、科研绘图和数据分析中选择一个模板。模板只是帮你更快进入对应工作流，不会替你自动发送消息。
+        markdown: `打开智能助手后，你会先看到一个空白的新对话，如下图所示。可以直接在输入框描述任务，也可以从扇面选择制作PPT、科研绘图、scholay 选刊、矩阵分析或 PDF-Chat。只有前两张已经接到专用会话；后三张当前点击只提示“即将推出”，是规划占位，不是已交付工具。
+
+首次引导会依次聚焦输入框、模型、Skill、附件/文库引用和模板区，牛犀犀会配合做动作提示；引导只说明控件位置，不会自动发消息或创建任务。
 
 只有当你发出第一条消息、上传文件或引用文献后，系统才会创建并保存这次会话。此后刷新页面或从历史记录返回，才能继续查看同一任务。`,
         embeds: [{ id: "claw-empty-state" }],
@@ -124,18 +129,24 @@ Skill 相当于给助手补充一套做事方法，不会改变你的会员档�
     aliases: ["Prism 界面", "智能写作工作区", "LaTeX 写作界面"],
     sourcePaths: [
       "frontend-user/src/features/prism/pages/PrismPage.tsx",
+      "frontend-user/src/app/layouts/FeatureHub.tsx",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/prism/components/PrismHome.tsx",
       "frontend-user/src/features/prism/components/PrismWorkspaceV2.tsx",
       "frontend-user/src/features/prism/components/PrismLivePreview.tsx",
       "frontend-user/src/features/prism/components/sidebar/PrismStructSidebar.tsx",
       "frontend-user/src/features/prism/components/PrismChatPanel.tsx",
+      "frontend-user/src/features/prism/api/prism.ts",
+      "frontend-user/src/shared/hooks/useNotificationSocket.ts",
+      "frontend-user/src/shared/lib/compile-events.ts",
+      "backend/internal/prism/compile_notify.go",
     ],
     related: ["prism", "prism-writing-workflow", "latex-project-guide"],
     sections: [
       {
         id: "home",
         title: "项目首页",
-        markdown: `打开 Prism 后，左侧会列出已有项目，主区用于新建或继续最近的项目。下图展示的是还没有选中项目的首页；点击主区按钮即可开始新项目，点击左侧条目则继续已有项目。项目名可以暂时留空，系统会先以“未命名项目”保存，你可以稍后再改名。
+        markdown: `Prism Hub 展示快速模式和高级模式。快速模式面向短文与段落级写作，但目前标记“即将推出”；直接打开 \`/prism\` 或 \`?mode=quick\` 只会停在 Hub。选择高级模式 \`?mode=advanced\` 后，左侧才列出已有项目，主区用于新建或继续最近的项目。下图展示的是高级模式还没有选中项目的首页；项目名可以暂时留空，系统会先以“未命名项目”保存，你可以稍后再改名。
 
 如果链接里的项目已被删除，或不属于当前账户，页面会回到项目列表。此时从列表重新选择项目即可，不需要反复刷新失效的地址。`,
         embeds: [{ id: "prism-home" }],
@@ -174,7 +185,7 @@ Skill 相当于给助手补充一套做事方法，不会改变你的会员档�
         title: "模板、编译与导出",
         markdown: `顶栏可以新建对话、选择目标模板、编译 PDF 或导出 Word；编辑区工具栏用于插入图片、公式和文献引用。第一张图只展示一次 LaTeX 内容编译失败的可恢复状态，第二张图展示从个人文献集插入引用的窗口，第三张图展示公式编辑窗口。
 
-编译成功后，PDF 面板会自动展开并提供下载。正文中的 LaTeX 错误有时可以交给 AI 尝试修复；如果问题来自参考文献、服务异常或超时，请按页面提示检查或重试。`,
+编译成功后，PDF 面板会自动展开并提供下载。后端会在状态写库后 best-effort 推送编译对象，页面收到 \`compile_status\` 会立即刷新；漏推或断线时仍以轮询补齐，因此数据库状态和实际 PDF 才是完成凭据。正文中的 LaTeX 错误有时可以交给 AI 尝试修复；如果问题来自参考文献、服务异常或超时，请按页面提示检查或重试。`,
         embeds: [
           { id: "prism-compile-states" },
           { id: "prism-document-insert-dialogs" },
@@ -206,6 +217,9 @@ Skill 相当于给助手补充一套做事方法，不会改变你的会员档�
       "frontend-user/src/features/prism/components/PrismTranslateDialog.tsx",
       "frontend-user/src/features/prism/components/PrismNumbersDialog.tsx",
       "frontend-user/src/features/prism/components/MathEditorDialog.tsx",
+      "frontend-user/src/features/prism/pages/PrismPage.tsx",
+      "frontend-user/src/app/layouts/FeatureHub.tsx",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "backend/internal/prism/struct_service.go",
     ],
     related: [
@@ -218,7 +232,7 @@ Skill 相当于给助手补充一套做事方法，不会改变你的会员档�
       {
         id: "prepare",
         title: "第一步：先确定任务边界",
-        markdown: `新建项目后，先写下文章类型、研究问题、目标读者、目标期刊或格式要求，以及可以使用哪些材料。已有稿件时，先导入或整理标题、摘要和主体结构；从空白开始时，先让 AI 帮你搭提纲，不要一开始就要求生成整篇可投稿论文。下图展示写作画像窗口，用于确定文体、章节惯例、语气和严谨度；可用材料仍需在任务描述、附件或文献引用中另行说明。切换写作画像只影响下一轮 AI 对话，不会追溯改写已经保存的正文；“当前使用”表示后续轮次采用该画像。模板只负责排版，不能替你判断研究设计是否成立。`,
+        markdown: `先从 Prism Hub 进入高级模式；快速模式目前只是“即将推出”的短文入口，不能用来执行以下项目工作流。新建项目后，先写下文章类型、研究问题、目标读者、目标期刊或格式要求，以及可以使用哪些材料。已有稿件时，先导入或整理标题、摘要和主体结构；从空白开始时，先让 AI 帮你搭提纲，不要一开始就要求生成整篇可投稿论文。下图展示写作画像窗口，用于确定文体、章节惯例、语气和严谨度；可用材料仍需在任务描述、附件或文献引用中另行说明。切换写作画像只影响下一轮 AI 对话，不会追溯改写已经保存的正文；“当前使用”表示后续轮次采用该画像。模板只负责排版，不能替你判断研究设计是否成立。`,
         embeds: [{ id: "prism-writing-profile-dialog" }],
         blocks: [
           { type: "markdown" },
@@ -570,7 +584,7 @@ AI 可以帮助解释、组织或改写材料，但不能替你确认事实。�
       {
         id: "product-surfaces",
         title: "在 Scholay 中分别出现在哪里",
-        markdown: `Prism 项目和智能审稿上传区处理的是用户自己的稿件：内容可继续编辑，元数据也可能由 AI 识别后再由用户修正。文献搜索与论文详情主要展示来自学术数据源或个人文献集的论文记录，包括摘要、作者、发表时间、期刊、引用和参考文献等信息。把稿件上传到个人空间或智能审稿，不会自动把它登记为公开出版物。`,
+        markdown: `Prism 项目和智能审稿上传区处理的是用户自己的稿件：内容可继续编辑，元数据也可能由 AI 识别后再由用户修正。论文库搜索、智能搜论文与论文详情主要展示来自学术数据源或个人文献集的论文记录，包括摘要、作者、发表时间、期刊、引用和参考文献等信息。把稿件上传到个人空间或智能审稿，不会自动把它登记为公开出版物。`,
       },
       {
         id: "version-control",
@@ -588,7 +602,7 @@ AI 可以帮助解释、组织或改写材料，但不能替你确认事实。�
     slug: "peer-review-workflow-guide",
     title: "智能审稿操作流程",
     summary:
-      "选择期刊论文或毕业论文，完成四步材料核对，并理解 AI 评议任务的运行状态与边界。",
+      "核对四个稿件入口的真实状态，完成期刊或学位论文材料核对并理解 AI 评议边界。",
     category: "research-ai",
     kind: "rule",
     status: "current",
@@ -596,11 +610,15 @@ AI 可以帮助解释、组织或改写材料，但不能替你确认事实。�
     aliases: ["智能审稿流程", "期刊论文审稿", "毕业论文审稿", "AI 盲审"],
     sourcePaths: [
       "frontend-user/src/features/peer-review/pages/SubmissionLandingPage.tsx",
+      "frontend-user/src/features/peer-review/routes.tsx",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/peer-review/pages/JournalWizardPage.tsx",
       "frontend-user/src/features/peer-review/pages/ThesisWizardPage.tsx",
       "frontend-user/src/features/peer-review/components/wizard/UploadStep.tsx",
       "frontend-user/src/features/wiki/embeds/WikiEmbedPeerReviewWizard.tsx",
       "backend/internal/peerreview/service.go",
+      "backend/internal/peerreview/stream.go",
+      "frontend-user/src/features/peer-review/api/stream.ts",
     ],
     related: [
       "peer-review",
@@ -612,7 +630,7 @@ AI 可以帮助解释、组织或改写材料，但不能替你确认事实。�
       {
         id: "scope",
         title: "先选择论文场景",
-        markdown: `入口分为“期刊投稿”和“毕业审稿”两条模拟流程，下图展示的就是这两个起点。期刊论文按目标期刊或通用 STM 场景组织评议；毕业论文按学校、学位和学科背景组织评议。这里的“论文类型”指产品流程的期刊论文与毕业论文；期刊流程中还可以把稿件标为 Research、Review 或 Short Communication，两套分类不要混为一谈。`,
+        markdown: `Hub 显示期刊论文、学位论文、会议论文和其他四个入口。期刊论文与学位论文是两套完整模拟流程；会议论文标记“即将推出”，访问 \`/peer-review/conference\` 会返回 Hub；“其他”可以通过 \`/peer-review/other\` 进入，但当前复用期刊论文向导，并非独立类型流程。期刊论文按目标期刊或通用 STM 场景组织评议；学位论文按学校、学位和学科背景组织评议。期刊流程中还可以把稿件标为 Research、Review 或 Short Communication，不要把这项稿件体裁与四个入口混为一谈。`,
         embeds: [{ id: "peer-review-entry" }],
       },
       {
@@ -631,7 +649,9 @@ AI 可以帮助解释、组织或改写材料，但不能替你确认事实。�
       {
         id: "runtime",
         title: "提交后的运行阶段",
-        markdown: `提交后，任务会从草稿进入排队和审稿，最后显示完成或失败。下图冻结在“初审已通过、三位审稿人与主审仍等待、阶段 1/5 通读全文”的状态；“阶段 1/5”是当前运行阶段，不等于已经得到 20% 的评审结果，预计剩余时间也只是估算。系统会先通读材料，再依次形成审稿人 A、B、C 和主审报告。失败时，已经完成的意见会保留，重试用于补齐其余部分。额度不足而未真正开始时，稿件和已填信息也会保留。`,
+        markdown: `提交后，任务会从草稿进入排队和审稿，最后显示完成或失败。下图冻结在“初审已通过、三位审稿人与主审仍等待、阶段 1/5 通读全文”的状态；“阶段 1/5”是当前运行阶段，不等于已经得到 20% 的评审结果，预计剩余时间也只是估算。系统会先通读材料，再依次形成审稿人 A、B、C 和主审报告。失败时，已经完成的意见会保留，重试用于补齐其余部分。额度不足而未真正开始时，稿件和已填信息也会保留。
+
+状态写入数据库后，服务会通过按提交和槽位分组的 SSE 广播状态与报告就绪信号；刷新连接可先拿到状态快照。广播是 best-effort，前端仍保留慢速轮询，所以数据库读取才是事实来源，漏掉推送不会改变任务状态。`,
         embeds: [{ id: "peer-review-progress" }],
         blocks: [
           { type: "markdown" },

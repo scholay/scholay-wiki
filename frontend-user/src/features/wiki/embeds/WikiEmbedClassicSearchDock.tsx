@@ -2,7 +2,7 @@ import { Filter, Search } from "lucide-react";
 import { MockModeToggle } from "./fixtures/mock-chrome";
 
 /**
- * 传统搜索底栏 · 纯样式 fixture。
+ * 论文库搜索底栏 · 纯样式 fixture。
  * 对齐 product-mock SearcherColumn dock(搜索引擎 + 筛选入口)。
  */
 export function WikiEmbedClassicSearchDock() {

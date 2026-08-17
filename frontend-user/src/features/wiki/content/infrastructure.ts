@@ -270,7 +270,7 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       {
         id: "pages",
         title: "15 个注册页面",
-        markdown: `四个 tab 是 **浏览 Feed、AI Claw、功能广场、我的**。完整注册路径为：pages/feed/feed、pages/claw/claw、pages/tools/tools、pages/me/me、pages/login/login、pages/search/search、pages/paper/paper、pages/journal/journal、pages/author/author、pages/news/news、pages/tool-detail/tool-detail、pages/library/library、pages/billing/billing、pages/profile-edit/profile-edit、pages/change-password/change-password。应用启动不强制登录，需要账户的动作按需进入认证；app/page 活跃事件以 60 秒门控上报。`,
+        markdown: `四个 tab 是 **浏览 Feed、AI Claw、功能、我的**。完整注册路径为：pages/feed/feed、pages/claw/claw、pages/tools/tools、pages/me/me、pages/login/login、pages/search/search、pages/paper/paper、pages/journal/journal、pages/author/author、pages/news/news、pages/tool-detail/tool-detail、pages/library/library、pages/billing/billing、pages/profile-edit/profile-edit、pages/change-password/change-password。应用启动不强制登录，需要账户的动作按需进入认证；app/page 活跃事件以 60 秒门控上报。`,
       },
       {
         id: "claw",
@@ -285,7 +285,7 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       {
         id: "parity",
         title: "与 Web 的能力差异",
-        markdown: `小程序覆盖 Feed、论文与期刊搜索、详情、文献库、工具目录、Claw、账户和账单，但没有独立 Smart Search、Peer Review、Prism、Bolt Slides、Sci Draw、Stat Lab 页面，也没有购买支付结账和完整内嵌学术 PDF 阅读器。Feed 筛选按钮仍为“即将上线”。这些差异应进入正式 parity matrix，而不是从 Web 功能推断小程序等价支持。`,
+        markdown: `小程序覆盖 Feed、论文与期刊检索、详情、文献库、工具目录、Claw、账户和账单，但没有独立 Smart Search、Peer Review、Prism、Bolt Slides、Sci Draw、Stat Lab 页面，也没有购买支付结账和完整内嵌学术 PDF 阅读器。Feed 筛选按钮仍为“即将上线”。这些差异应进入正式 parity matrix，而不是从 Web 功能推断小程序等价支持。`,
       },
       {
         id: "safety",
@@ -315,6 +315,11 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       "prism_tex/texmf.cnf",
       "docker-compose.prod.yml",
       "backend/internal/prism",
+      "backend/internal/prism/compile_notify.go",
+      "backend/cmd/server/bootstrap.go",
+      "frontend-user/src/features/prism/api/prism.ts",
+      "frontend-user/src/shared/hooks/useNotificationSocket.ts",
+      "frontend-user/src/shared/lib/compile-events.ts",
     ],
     related: ["prism", "agent-artifacts"],
     sections: [
@@ -338,11 +343,16 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
         title: "恢复缺口",
         markdown: `watcher 会跳过已经存在的 .processing。若容器在编译中崩溃，任务没有 lease、超时 reclaim、重试或死信状态，可能永久滞留；heartbeat 也只证明循环存活，不证明单任务可恢复。文件协议还没有显式版本字段和失败产物保留 SLA。`,
       },
+      {
+        id: "status-delivery",
+        title: "编译状态怎样到达前端",
+        markdown: `编译服务完成数据库状态写入后，CompileNotifier 会 best-effort 向当前用户的通知 WebSocket 推送完整编译对象。前端把 \`compile_status\` 转为页面事件，命中任务后立即刷新；推送失败不回滚数据库，也不改变编译结果，页面仍以轮询兜底。因此 WebSocket 只缩短可见延迟，数据库记录与 PDF 产物才是事实来源。`,
+      },
     ],
   },
   {
     slug: "feature-tools-coldstart-governance",
-    title: "功能广场冷启动包与下载治理",
+    title: "scholay广场冷启动包与下载治理",
     summary:
       "201 条兼容性冷启动记录用于批量导入工具目录，但大量网盘下载和明确 cracked 条目使其不能未经复核直接发布。",
     category: "history",
@@ -438,6 +448,12 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       "docker-compose.prod.yml",
       "backend/internal/seo",
       "backend/internal/seosubmit",
+      ".env.example",
+      "backend/internal/common/config/config.go",
+      "backend/cmd/server/routes.go",
+      "backend/internal/config/handler_ssr.go",
+      "backend/internal/config/ssr_onmiss_gate.go",
+      "backend/internal/config/ssr_link_frontier_test.go",
       "frontend-user/src/features/home/NotFoundPage.tsx",
     ],
     related: ["platform-topology", "device-routing"],
@@ -449,8 +465,17 @@ Claw guides 为 citation-audit、data-figures、methods-stats、paper-explain、
       },
       {
         id: "seo",
-        title: "公开内容和索引",
-        markdown: `私有 SPA 路径统一 noindex，公开内容走 SSR，未知公开路径由后端返回真实 404。Nginx 还转发 sitemap、robots 和 IndexNow；移动 User-Agent 访问根路径时 302 到 /m/feed。旧 search-results、advanced-search、journals、latex-writer、assistant、chat、peer-review-v2、qa、skills 等路径使用显式重定向。`,
+        title: "环境级索引闸门",
+        markdown: `索引资格先由环境决定：\`APP_ENV=prod\` 默认可索引，\`test\` / \`dev\` 默认不可索引，显式 \`SEO_INDEXABLE\` 可以覆盖；为兼容旧部署，未设置 \`APP_ENV\` 时仍按 prod。当前 \`RequestIndexable\` 不按 Host 区分，所以同一进程里的域名共享这个决定。
+
+不可索引时，\`robots.txt\` 仍返回 200 但只有全站 \`Disallow: /\`，所有 sitemap 与 IndexNow key 文件返回 404，SSR 同时带 \`noindex,nofollow\` 响应头和 meta。可索引也不代表任何页面自动合格：私有 SPA 路径继续 noindex，未知公开路径由后端返回真实 404。Nginx 还转发 sitemap、robots 和 IndexNow；移动 User-Agent 访问根路径时 302 到 \`/m/feed\`。`,
+      },
+      {
+        id: "seo-on-miss",
+        title: "按需补全与链接前沿",
+        markdown: `公开论文、作者或期刊在 SEO 库未命中时，已知爬虫不会触发昂贵上游补全；普通访客按默认全局 200 次/小时、每 IP 10 次/小时的门禁尝试。闸门拒绝时返回真实 404/noindex，不用空壳 200 欺骗索引。
+
+SSR 相关实体只有在目标已经落库并可路由时才生成链接；尚未落地的作者、期刊或论文只渲染为纯文本，避免爬虫沿虚假链接扩张无穷前沿。旧 \`search-results\`、\`advanced-search\`、\`latex-writer\`、\`assistant\`、\`chat\`、\`peer-review-v2\`、\`qa\`、\`skills\` 等路径仍使用显式兼容重定向。`,
       },
       {
         id: "assets",

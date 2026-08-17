@@ -61,7 +61,7 @@ function PlusMenuFixture() {
             <Plus className="size-4" strokeWidth={2.2} />
           </span>
           <span className="min-w-0 flex-1 truncate text-16 text-faint">
-            继续与智能搜索对话…
+            继续与智能搜论文对话…
           </span>
         </div>
       </div>

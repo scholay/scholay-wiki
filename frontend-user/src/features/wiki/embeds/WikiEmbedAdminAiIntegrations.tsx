@@ -95,7 +95,7 @@ export function WikiEmbedAdminModelCatalog() {
               "deepseek-chat",
               false,
             ],
-            ["智能搜索", "用户问答与检索总结", "qwen-max", false],
+            ["智能搜论文", "用户问答与检索总结", "qwen-max", false],
             [
               "智能写作",
               "planner / revision 别名归一到此用途",
@@ -338,7 +338,7 @@ export function WikiEmbedAdminModelBindings() {
               false,
             ],
             [
-              "智能搜索",
+              "智能搜论文",
               "project.smart · 用户问答与检索总结",
               "qwen-max",
               false,
@@ -504,7 +504,7 @@ export function WikiEmbedAdminNewsWebhook() {
     <AdminMockPage
       fixture="admin-news-webhook"
       title="情报 Webhook"
-      description="接收上游 Minicod 推送的学术情报（news.created / news.updated / news.heat），验签即闸"
+      description="接收上游 Minicod 推送的scholay 情报（news.created / news.updated / news.heat），验签即闸"
       actions={<AdminMockButton>保存</AdminMockButton>}
     >
       <div className="flex max-w-2xl flex-col gap-6">

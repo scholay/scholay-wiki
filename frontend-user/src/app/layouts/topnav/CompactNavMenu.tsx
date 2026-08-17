@@ -1,7 +1,14 @@
-import { Fragment, useEffect, useState, type ComponentType } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Gift, Globe, Headphones, Home, Menu as MenuIcon, UserPlus } from 'lucide-react';
-import { IconButton } from '@/shared/components/IconButton';
+import { Fragment, useEffect, useState, type ComponentType } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Gift,
+  Globe,
+  Headphones,
+  Home,
+  Menu as MenuIcon,
+  UserPlus,
+} from "lucide-react";
+import { IconButton } from "@/shared/components/IconButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,18 +16,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/shared/ui/dropdown-menu';
-import { useInviteCampaign } from '@/shared/api/invite-campaign';
-import { usePromoEligible } from '@/shared/api/promo';
-import { usePromoStore } from '@/stores/promo.store';
-import { useInviteEntry } from '@/stores/invite-entry.store';
-import { browserTabUrl, useBrowserTabs } from '@/stores/browser-tabs.store';
-import { groupMenusByCategory, type Menu } from '@/app/menus';
-import { cn } from '@/shared/lib/utils';
+} from "@/shared/ui/dropdown-menu";
+import { useInviteCampaign } from "@/shared/api/invite-campaign";
+import { usePromoEligible } from "@/shared/api/promo";
+import { usePromoStore } from "@/stores/promo.store";
+import { useInviteEntry } from "@/stores/invite-entry.store";
+import { browserTabUrl, useBrowserTabs } from "@/stores/browser-tabs.store";
+import { groupMenusByCategory, type Menu } from "@/app/menus";
+import { cn } from "@/shared/lib/utils";
 
 /**
  * 窄屏(< 1200px)顶栏的**唯一导航出口** —— 一颗汉堡按钮，点开列出顶栏在宽屏下
- * 平铺的全部去处：首页 / 浏览器 / 7 个功能 / 限时领取会员 / 反馈。
+ * 平铺的全部去处：首页 / 浏览器 / 6 个功能 / 限时领取会员 / 反馈。
  *
  * ── 为什么必须存在(P0，render-audit-2026-07-28 §五 P0-2) ─────────────
  * 宽屏顶栏是 `[1fr | auto | 1fr]` 三列几何居中：中列(功能坞)是 `auto`，
@@ -43,7 +50,7 @@ import { cn } from '@/shared/lib/utils';
  * · 换行 / 缩 gap：顶栏是 `sticky h-16` 定高，换行会顶掉内容高度；
  *   缩 gap 最多省 ~30px，而 390 下缺口是 ~100px 量级，治不了。
  * · 只隐藏次要项：促销胶囊(最宽的一颗)一隐藏就等于砍掉转化入口，
- *   而功能坞一隐藏则 7 个主功能全失联 —— 两者都不能「隐藏了事」，
+ *   而功能坞一隐藏则 6 个主功能全失联 —— 两者都不能「隐藏了事」，
  *   必须**有一个收纳处**。汉堡菜单就是那个收纳处：**零去处丢失**。
  * · 用 DropdownMenu(click)而不是复用「全站功能」那个 HoverCard：
  *   Radix HoverCard 只认 pointerType=mouse，**触屏点不开** ——
@@ -70,10 +77,13 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
   const browserTabs = useBrowserTabs((s) => s.tabs);
   const browserActiveId = useBrowserTabs((s) => s.activeTabId);
   const refreshReturnTo = useBrowserTabs((s) => s.refreshReturnTo);
-  const isInDetailPane = /^\/(paper|author|journal|pdf)\//.test(location.pathname);
+  const isInDetailPane = /^\/(paper|author|journal|pdf)\//.test(
+    location.pathname,
+  );
 
   const goBrowser = () => {
-    const target = browserTabs.find((t) => t.id === browserActiveId) ?? browserTabs[0];
+    const target =
+      browserTabs.find((t) => t.id === browserActiveId) ?? browserTabs[0];
     if (!target) return;
     // 与 MenuCarousel 的 Globe 入口同义：从顶栏进浏览器要把「当前页」设成新的 returnTo，
     // 否则 tab 内的返回会跳回当初创建该 tab 的来源页。已经在详情面里就不动。
@@ -83,7 +93,7 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
     navigate(browserTabUrl(target));
   };
 
-  const onHome = location.pathname === '/';
+  const onHome = location.pathname === "/";
 
   return (
     <DropdownMenu open={active && open} onOpenChange={setOpen}>
@@ -99,12 +109,21 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
 
       {/* 顶栏是 h-16 sticky，菜单可能比视口高(11 项)：给它自己的滚动条。
           用 dvh 不用 vh —— iOS 地址栏会改 vh(CLAUDE.md 移动端铁律)。 */}
-      <DropdownMenuContent align="end" sideOffset={8} className="w-56 max-h-[70dvh] overflow-y-auto">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="w-56 max-h-[70dvh] overflow-y-auto"
+      >
         {/* 路由型条目走 to=(真实 <Link href>,SEO 硬约束);「浏览器」是会话态 URL
             (browserTabUrl + returnTo store 写),保持 onSelect 程序化跳转 */}
         <Row icon={Home} label="首页" active={onHome} to="/" />
         {browserTabs.length > 0 && (
-          <Row icon={Globe} label="浏览器" active={isInDetailPane} onSelect={goBrowser} />
+          <Row
+            icon={Globe}
+            label="浏览器"
+            active={isInDetailPane}
+            onSelect={goBrowser}
+          />
         )}
 
         {groups.map((g) => (
@@ -112,7 +131,9 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
           // 遍历后代，多套一层 div 虽然也能用，但会在菜单里插入无语义的盒子
           <Fragment key={g.category}>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-faint">{g.label}</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-faint">
+              {g.label}
+            </DropdownMenuLabel>
             {g.items.map((m) => (
               <MenuRow key={m.id} menu={m} pathname={location.pathname} />
             ))}
@@ -126,7 +147,7 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
             icon={Gift}
             label="限时领取会员"
             tone="brand"
-            onSelect={() => openPromo('manual')}
+            onSelect={() => openPromo("manual")}
           />
         )}
         {inviteVisible && (
@@ -143,13 +164,7 @@ export function CompactNavMenu({ active = true }: { active?: boolean }) {
   );
 }
 
-function MenuRow({
-  menu,
-  pathname,
-}: {
-  menu: Menu;
-  pathname: string;
-}) {
+function MenuRow({ menu, pathname }: { menu: Menu; pathname: string }) {
   return (
     <Row
       icon={menu.icon}
@@ -173,7 +188,7 @@ function Row({
   label: string;
   active?: boolean;
   badge?: string;
-  tone?: 'brand';
+  tone?: "brand";
   /** 路由型条目 —— 渲染真实 <Link href>(SEO 硬约束),导航由 Link 完成 */
   to?: string;
   /** 动作型条目(弹窗 / 会话态跳转)—— 仍走 onSelect */
@@ -194,7 +209,11 @@ function Row({
       )}
     </>
   );
-  const className = cn('gap-2', active && 'bg-surface-2', tone === 'brand' && 'text-brand-red');
+  const className = cn(
+    "gap-2",
+    active && "bg-surface-2",
+    tone === "brand" && "text-brand-red",
+  );
   if (to) {
     return (
       // asChild:Radix 的 onSelect(关菜单)照常触发,导航由 <Link> 自己做

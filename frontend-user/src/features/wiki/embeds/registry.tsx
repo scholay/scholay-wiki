@@ -83,6 +83,18 @@ import { WikiEmbedCommunitySkill } from "./WikiEmbedCommunitySkill";
 import { WikiEmbedComposerAttachments } from "./WikiEmbedComposerAttachments";
 import { WikiEmbedContactSupport } from "./WikiEmbedContactSupport";
 import { WikiEmbedFeaturePlaza } from "./WikiEmbedFeaturePlaza";
+import {
+  WikiEmbedManuscriptCollection,
+  WikiEmbedMyResourcesSections,
+  WikiEmbedScholayPlazaHub,
+  WikiEmbedSiteNavigationTree,
+} from "./WikiEmbedCurrentProductSurfaces";
+import {
+  WikiEmbedFundsReminder,
+  WikiEmbedInviteNavHub,
+  WikiEmbedOAuthConfirm,
+  WikiEmbedThemeAndRhinoLoading,
+} from "./WikiEmbedCurrentInteractionSurfaces";
 import { WikiEmbedFeedbackForm } from "./WikiEmbedFeedbackForm";
 import { WikiEmbedFolderIconPicker } from "./WikiEmbedFolderIconPicker";
 import { WikiEmbedHelpCenter } from "./WikiEmbedHelpCenter";
@@ -94,6 +106,7 @@ import {
 import { WikiEmbedInviteShare } from "./WikiEmbedInviteShare";
 import { WikiEmbedJournalDetail } from "./WikiEmbedJournalDetail";
 import { WikiEmbedJournalDirectory } from "./WikiEmbedJournalDirectory";
+import { WikiEmbedJournalComments } from "./WikiEmbedJournalComments";
 import { WikiEmbedJournalSearch } from "./WikiEmbedJournalSearch";
 import { WikiEmbedLibraryShareReceive } from "./WikiEmbedLibraryShareReceive";
 import { WikiEmbedLiteratureLibrary } from "./WikiEmbedLiteratureLibrary";
@@ -314,12 +327,12 @@ function defineWikiEmbed(
 export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   "academic-intel-detail": {
     id: "academic-intel-detail",
-    defaultCaption: "学术情报 · 详情",
+    defaultCaption: "scholay 情报 · 详情",
     Component: WikiEmbedAcademicIntelDetail,
   },
   "academic-intel-list": {
     id: "academic-intel-list",
-    defaultCaption: "学术情报 · 列表",
+    defaultCaption: "scholay 情报 · 列表",
     Component: WikiEmbedAcademicIntelList,
   },
   "account-assets": {
@@ -469,12 +482,12 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "classic-search-dock": {
     id: "classic-search-dock",
-    defaultCaption: "传统搜索 · 底栏",
+    defaultCaption: "论文库搜索 · 底栏",
     Component: WikiEmbedClassicSearchDock,
   },
   "classic-search-filters": {
     id: "classic-search-filters",
-    defaultCaption: "传统搜索 · 默认筛选器展开",
+    defaultCaption: "论文库搜索 · 默认筛选器展开",
     Component: WikiEmbedClassicSearchFilters,
   },
   "claw-context-composer": {
@@ -489,7 +502,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "claw-hero-smart-entry": {
     id: "claw-hero-smart-entry",
-    defaultCaption: "智能搜索空态",
+    defaultCaption: "智能搜论文空态",
     Component: WikiEmbedClawHeroEntry,
   },
   "claw-run-states": {
@@ -514,14 +527,54 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "composer-attachments": {
     id: "composer-attachments",
-    defaultCaption: "智能搜索 · 附件与引用",
+    defaultCaption: "智能搜论文 · 附件与引用",
     Component: WikiEmbedComposerAttachments,
   },
   "feature-plaza": {
     id: "feature-plaza",
-    defaultCaption: "科研能力广场",
+    defaultCaption: "旧版学术工具目录（现归入 scholay广场）",
     Component: WikiEmbedFeaturePlaza,
   },
+  "site-navigation-tree": defineWikiEmbed(
+    "site-navigation-tree",
+    "顶栏六功能与 AppSidebar 二级树",
+    WikiEmbedSiteNavigationTree,
+  ),
+  "my-resources-sections": defineWikiEmbed(
+    "my-resources-sections",
+    "我的资源 · 文献集、期刊集、稿件集与资源集",
+    WikiEmbedMyResourcesSections,
+  ),
+  "manuscript-collection": defineWikiEmbed(
+    "manuscript-collection",
+    "稿件集 · 来源与阶段徽章",
+    WikiEmbedManuscriptCollection,
+  ),
+  "scholay-plaza-hub": defineWikiEmbed(
+    "scholay-plaza-hub",
+    "scholay广场 · Hub 与五类内容入口",
+    WikiEmbedScholayPlazaHub,
+  ),
+  "invite-nav-hub": defineWikiEmbed(
+    "invite-nav-hub",
+    "顶栏邀请 Hub · 填写、推广与获取三态",
+    WikiEmbedInviteNavHub,
+  ),
+  "funds-reminder": defineWikiEmbed(
+    "funds-reminder",
+    "经费不足提醒 · 按账户状态提供恢复出口",
+    WikiEmbedFundsReminder,
+  ),
+  "oauth-confirm": defineWikiEmbed(
+    "oauth-confirm",
+    "第三方登录 · 前往授权前的确认层",
+    WikiEmbedOAuthConfirm,
+  ),
+  "theme-and-rhino-loading": defineWikiEmbed(
+    "theme-and-rhino-loading",
+    "全站主题切换与唯一加载蒙层",
+    WikiEmbedThemeAndRhinoLoading,
+  ),
   "folder-icon-picker": {
     id: "folder-icon-picker",
     defaultCaption: "文件夹 · 图标与背景色",
@@ -554,9 +607,14 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "journal-search": {
     id: "journal-search",
-    defaultCaption: "期刊搜索 · 相关度排序、筛选收起",
+    defaultCaption: "期刊库搜索 · 相关度排序、筛选收起",
     Component: WikiEmbedJournalSearch,
   },
+  "journal-comments": defineWikiEmbed(
+    "journal-comments",
+    "期刊详情 · 当前会话内的评论演示",
+    WikiEmbedJournalComments,
+  ),
   "library-share-receive": {
     id: "library-share-receive",
     defaultCaption: "文献集分享接收",
@@ -564,7 +622,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "literature-library": {
     id: "literature-library",
-    defaultCaption: "个人文献集 · 文件夹与论文列表",
+    defaultCaption: "我的资源 · 文献集、文件夹与论文列表",
     Component: WikiEmbedLiteratureLibrary,
   },
   "matrix-workspace": {
@@ -579,7 +637,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "mobile-academic-intel": {
     id: "mobile-academic-intel",
-    defaultCaption: "移动端学术情报",
+    defaultCaption: "移动端 scholay 情报",
     Component: WikiEmbedMobileAcademicIntel,
   },
   "mobile-auth-surfaces": {
@@ -744,12 +802,12 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "review-and-stage": {
     id: "review-and-stage",
-    defaultCaption: "传统搜索 · 核对并暂存",
+    defaultCaption: "论文库搜索 · 核对并暂存",
     Component: WikiEmbedReviewAndStage,
   },
   "search-autocomplete": {
     id: "search-autocomplete",
-    defaultCaption: "传统搜索",
+    defaultCaption: "论文库搜索",
     Component: WikiEmbedSearchAutocomplete,
   },
   "search-workspace": {
@@ -764,17 +822,17 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   },
   "smart-paper-group": {
     id: "smart-paper-group",
-    defaultCaption: "智能搜索 · 1 篇已暂存、2 篇待选",
+    defaultCaption: "智能搜论文 · 1 篇已暂存、2 篇待选",
     Component: WikiEmbedSmartPaperGroup,
   },
   "smart-search-dock": {
     id: "smart-search-dock",
-    defaultCaption: "智能搜索 · 输入栏",
+    defaultCaption: "智能搜论文 · 输入栏",
     Component: WikiEmbedSmartSearchDock,
   },
   "smart-search-session": {
     id: "smart-search-session",
-    defaultCaption: "智能搜索 · 回答、论文组与会话条",
+    defaultCaption: "智能搜论文 · 回答、论文组与会话条",
     Component: WikiEmbedSmartSearchSession,
   },
   "staging-units": {
@@ -999,17 +1057,17 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "library-import-workbench": defineWikiEmbed(
     "library-import-workbench",
-    "个人文献集 · 在线搜索加入",
+    "我的资源 · 文献集在线搜索加入",
     WikiEmbedLibraryImportWorkbench,
   ),
   "library-bulk-actions": defineWikiEmbed(
     "library-bulk-actions",
-    "个人文献集 · 批量删除确认",
+    "我的资源 · 文献集批量删除确认",
     WikiEmbedLibraryBulkActions,
   ),
   "library-maintenance-workbench": defineWikiEmbed(
     "library-maintenance-workbench",
-    "个人文献集 · 基本信息未保存",
+    "我的资源 · 文献集基本信息未保存",
     WikiEmbedLibraryMaintenanceWorkbench,
   ),
   "library-relink-workbench": defineWikiEmbed(
@@ -1044,7 +1102,7 @@ export const WIKI_EMBED_REGISTRY: Record<WikiEmbedId, WikiEmbedDefinition> = {
   ),
   "prism-document-insert-dialogs": defineWikiEmbed(
     "prism-document-insert-dialogs",
-    "Prism · 从个人文献集插入引用",
+    "Prism · 从我的资源文献集插入引用",
     WikiEmbedPrismDocumentInsertDialogs,
   ),
   "prism-history-inline-edit": defineWikiEmbed(

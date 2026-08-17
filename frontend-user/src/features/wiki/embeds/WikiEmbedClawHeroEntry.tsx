@@ -7,9 +7,9 @@ const SMART_HERO_MOCK_THEME = {
 } as CSSProperties;
 
 /**
- * 智能搜索空态入口 · 纯样式 fixture。
+ * 智能搜论文空态入口 · 纯样式 fixture。
  * 对齐 SmartSearchHero + SmartComposer 的桌面空态；此 fixture 的历史 ID 虽含 claw，
- * 产品契约仍是智能搜索，真正的 Claw 空态由 claw-empty-state 覆盖。
+ * 产品契约仍是智能搜论文，真正的 Claw 空态由 claw-empty-state 覆盖。
  */
 export function WikiEmbedClawHeroEntry() {
   return (

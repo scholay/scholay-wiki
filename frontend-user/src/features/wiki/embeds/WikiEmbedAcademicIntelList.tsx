@@ -1,4 +1,4 @@
-import { Clock3, Flame, TrendingUp } from "lucide-react";
+import { Clock, Flame, TrendingUp } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 const SECTIONS = ["全部", "重大事件", "国内政策", "顶刊速递", "其他"] as const;
@@ -29,7 +29,7 @@ const NEWS = [
   },
 ] as const;
 
-/** 对齐 NewsListPage 的已加载状态；只冻结接口数据。 */
+/** 对齐 NewsListPage 的已加载 row 状态；只冻结接口数据。 */
 export function WikiEmbedAcademicIntelList() {
   return (
     <main
@@ -37,7 +37,7 @@ export function WikiEmbedAcademicIntelList() {
       aria-hidden
       data-wiki-fixture="academic-intel-list"
     >
-      <h1 className="text-24 font-medium text-foreground">学术情报</h1>
+      <h1 className="text-24 font-medium text-foreground">scholay 情报</h1>
       <p className="mt-2 text-14 text-muted-foreground">
         顶刊速递 · 重大事件 · 国内政策 —— 实时汇集学术界动态。
       </p>
@@ -66,50 +66,54 @@ export function WikiEmbedAcademicIntelList() {
         ))}
       </div>
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-6">
         {NEWS.map((item) => (
           <article
             key={item.title}
-            className="flex gap-4 rounded-8 border border-border-soft bg-background p-4"
+            className="flex items-start gap-2 border-b border-border px-3 py-3"
           >
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 text-12">
-                {item.featured && (
-                  <span className="rounded-4 bg-brand-red px-2 py-1 font-medium text-on-dark">
-                    头条
-                  </span>
-                )}
+              <h2 className="m-0 line-clamp-2 text-14 font-medium leading-sans text-foreground">
+                {item.title}
+              </h2>
+              <div className="mt-1 flex items-center gap-2 text-12 text-muted-foreground">
                 <span
                   className={cn(
-                    "inline-flex items-center gap-1 font-medium",
+                    "inline-flex shrink-0 items-center gap-1 font-medium",
                     item.tone,
                   )}
                 >
-                  <span className={cn("size-1 rounded-pill", item.dot)} />
+                  <span className={cn("size-2 rounded-pill", item.dot)} />
                   {item.section}
                 </span>
-                <span className="inline-flex items-center gap-1 text-faint">
+                <span className="min-w-0 flex-1 truncate">
+                  来源 · {item.source}
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 text-faint">
+                  <Clock className="size-3" /> {item.time}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {item.featured && (
+                  <span className="inline-flex h-5 items-center rounded-4 bg-brand-red px-2 text-12 font-medium text-on-brand">
+                    头条
+                  </span>
+                )}
+                <span className="inline-flex h-5 items-center rounded-4 bg-surface-2 px-2 text-12 text-subtle">
+                  快讯
+                </span>
+                <span className="inline-flex h-5 items-center gap-1 rounded-4 bg-surface-2 px-2 text-12 text-subtle">
                   <Flame className="size-3" /> {item.heat}
                 </span>
                 {item.featured && (
-                  <span className="inline-flex items-center gap-1 text-brand-red">
+                  <span className="inline-flex h-5 items-center gap-1 rounded-4 bg-danger-soft px-2 text-12 text-brand-red">
                     <TrendingUp className="size-3" /> 飙升
                   </span>
                 )}
-                <span className="ml-auto inline-flex items-center gap-1 text-faint">
-                  <Clock3 className="size-3" /> {item.time}
-                </span>
               </div>
-              <h2 className="mt-2 line-clamp-2 text-16 font-medium leading-sans text-foreground">
-                {item.title}
-              </h2>
-              <p className="mt-1 line-clamp-2 text-12 leading-paragraph text-muted-foreground">
+              <p className="mt-2 line-clamp-2 text-12 leading-paragraph text-subtle">
                 {item.summary}
               </p>
-              <div className="mt-2 flex items-center gap-2 text-12 text-faint">
-                <span className="rounded-4 bg-surface-1 px-2 py-1">快讯</span>
-                <span className="truncate">来源 · {item.source}</span>
-              </div>
             </div>
           </article>
         ))}

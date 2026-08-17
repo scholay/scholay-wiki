@@ -2,7 +2,7 @@ import { CheckCheck } from "lucide-react";
 
 const NOTICES = [
   {
-    title: "智能搜索任务已完成",
+    title: "智能搜论文任务已完成",
     body: "已整理 18 篇候选论文，可以继续核对并加入暂存区。",
     time: "刚刚",
     linkText: "查看结果",

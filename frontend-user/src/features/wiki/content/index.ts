@@ -1,5 +1,6 @@
 import { administrationArticles } from "./administration";
 import { backendDomainArticles } from "./backend-domains";
+import { currentProductArticles } from "./current-product";
 import { discoveryArticles } from "./discovery";
 import { ecosystemArticles } from "./ecosystem";
 import { foundationArticles } from "./foundations";
@@ -34,6 +35,7 @@ export { WIKI_NAV_CATEGORIES } from "./navigation";
 export const WIKI_ARTICLES: WikiArticle[] = [
   ...administrationArticles,
   ...foundationArticles,
+  ...currentProductArticles,
   ...discoveryArticles,
   ...researchAiArticles,
   ...ecosystemArticles,

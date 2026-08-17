@@ -255,7 +255,7 @@ export function WikiEmbedAdminSessionMonitoring() {
       description="内测期定位用户问题 —— 各功能下用户的 AI 会话 / 审稿数据（只读）"
       tabs={
         <AdminMockTabs
-          items={["智能搜索", "智能助手", "智能写作", "智能审稿"]}
+          items={["智能搜论文", "智能助手", "智能写作", "智能审稿"]}
           active="智能助手"
         />
       }

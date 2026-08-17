@@ -5,7 +5,7 @@ export const foundationArticles: WikiArticle[] = [
     slug: "scholay",
     title: "Scholay",
     summary:
-      "Scholay 是一款一站式智能学术工作平台，覆盖文献检索、文献阅读、文献分析、文献管理、论文写作、智能审稿、论文发表的科研全流程系统。",
+      "Scholay 是一站式智能学术工作平台，以学术搜索、智能助手、智能写作、智能审稿、我的资源和 scholay广场串联科研流程。",
     category: "getting-started",
     kind: "overview",
     status: "current",
@@ -15,16 +15,28 @@ export const foundationArticles: WikiArticle[] = [
       "frontend-user/src/features/help/pages/AboutPage.tsx",
       "frontend-user/src/features/landing/pages/FeaturesOverviewPage.tsx",
       "frontend-user/src/features/home/HomePage.tsx",
+      "frontend-user/src/features/home/components/HomeAgentHero.tsx",
+      "frontend-user/src/features/home/components/HomeFeatureEntrances.tsx",
+      "frontend-user/src/features/home/components/HomeFeatureZones.tsx",
+      "frontend-user/src/features/home/components/HomeFeatureNav.tsx",
+      "frontend-user/src/features/home/components/HomeNoviceTour.tsx",
       "frontend-user/src/app/router.tsx",
+      "frontend-user/src/app/menus.ts",
       "backend/internal/wikimcp",
     ],
-    related: ["product-map", "account", "ai-research-workflows"],
+    related: [
+      "product-map",
+      "site-navigation",
+      "account",
+      "ai-research-workflows",
+    ],
     sections: [
       {
         id: "workflow",
         title: "如何开始",
-        markdown:
-          "进入首页之后，你可以看到醒目的搜索框。下图当前选中智能搜索；切到“文献”后才进入关键词与筛选式传统检索。根据课题是否已有稳定检索词，选择对应入口。",
+        markdown: `首页主输入框默认打开“智能搜论文”；关闭输入框里的智能开关后，会改用“论文库搜索”。下图展示这个统一输入入口。根据课题是否已有稳定检索词，选择对话式检索或关键词检索。
+
+输入框下方主推智能助手：“立即培养一只学术Agent，开启智能科研之旅”。继续向下是与顶栏一致的六个功能分区。全站悬浮牛犀犀的“功能”面板还提供可编辑的“常用 / 全部”入口；第一次使用时可从牛犀犀的“帮助”启动首页新手引导。`,
         embeds: [{ id: "home-research-entry" }],
       },
       {
@@ -41,25 +53,40 @@ export const foundationArticles: WikiArticle[] = [
           ],
           rows: [
             {
-              domain: "文献检索",
-              feature: "论文检索",
+              domain: "学术搜索",
+              feature: "论文库搜索",
               description: "关键词与语义检索，多数据源、筛选排序与分页",
-              links: { label: "论文检索", href: "/wiki/academic-search" },
+              links: { label: "学术搜索", href: "/wiki/academic-search" },
             },
             {
-              domain: "文献检索",
-              feature: "智能搜索",
+              domain: "学术搜索",
+              feature: "智能搜论文",
               description: "Agent 驱动的研究问题检索，会话内组织证据与论文",
-              links: { label: "智能搜索", href: "/wiki/smart-search" },
+              links: { label: "智能搜论文", href: "/wiki/smart-search" },
             },
             {
-              domain: "文献检索",
+              domain: "学术搜索",
               feature: "作者主页",
               description: "作者主页、发文列表与引用关系",
               links: {
                 label: "作者与期刊",
                 href: "/wiki/authors-and-journals",
               },
+            },
+            {
+              domain: "学术搜索",
+              feature: "期刊库搜索",
+              description: "按刊名、ISSN、主办机构与评价条件检索全球期刊",
+              links: {
+                label: "作者与期刊",
+                href: "/wiki/authors-and-journals",
+              },
+            },
+            {
+              domain: "学术搜索",
+              feature: "数据集搜索",
+              description: "按名称、领域、用途和标签发现公开科研数据集",
+              links: { label: "数据集搜索", href: "/wiki/datasets-search" },
             },
             {
               domain: "文献阅读",
@@ -92,25 +119,32 @@ export const foundationArticles: WikiArticle[] = [
               },
             },
             {
-              domain: "文献管理",
-              feature: "个人文献集",
+              domain: "我的资源",
+              feature: "文献集",
               description: "文件夹收藏、导入识别、跨设备同步的个人知识库",
-              links: { label: "个人文献集", href: "/wiki/literature-library" },
+              links: { label: "文献集", href: "/wiki/literature-library" },
             },
             {
-              domain: "文献管理",
+              domain: "我的资源",
+              feature: "期刊集 / 稿件集 / 资源集",
+              description:
+                "分别保存期刊、工作稿件与研究过程产物；演示能力单独标注",
+              links: { label: "我的资源", href: "/wiki/my-resources" },
+            },
+            {
+              domain: "学术搜索",
               feature: "检索暂存区",
               description: "检索过程中的临时收纳，可转入矩阵或文献集",
               links: { label: "检索暂存区", href: "/wiki/staging-area" },
             },
             {
-              domain: "文献管理",
+              domain: "我的资源",
               feature: "文献集分享",
               description: "生成分享链接，他人可接收并纳入自己的文献集",
               links: { label: "文献集分享", href: "/wiki/library-sharing" },
             },
             {
-              domain: "文献管理",
+              domain: "学术搜索",
               feature: "引用生成",
               description: "按常用格式生成与复制参考文献",
               links: { label: "引用生成器", href: "/wiki/citation-generator" },
@@ -169,6 +203,18 @@ export const foundationArticles: WikiArticle[] = [
               description: "投稿前/同行评审式 AI 审稿任务与记录",
               links: { label: "智能审稿", href: "/wiki/peer-review" },
             },
+            {
+              domain: "scholay广场",
+              feature: "学术工具 / 学术skills",
+              description: "发现外部科研工具与可安装的社区技能",
+              links: { label: "scholay广场", href: "/wiki/scholay-plaza" },
+            },
+            {
+              domain: "scholay广场",
+              feature: "学术prompts",
+              description: "浏览科研提示词模板；当前为产品演示数据",
+              links: { label: "学术prompts", href: "/wiki/academic-prompts" },
+            },
           ],
         },
       },
@@ -203,7 +249,7 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
           rows: [
             {
               domain: "期刊",
-              entry: "期刊搜索",
+              entry: "期刊库搜索",
               description: "按刊名、ISSN、主办机构和质量条件筛选公开期刊目录",
               links: { label: "期刊检索页", href: "/wiki/journal-search-page" },
             },
@@ -221,9 +267,9 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
             },
             {
               domain: "工具生态",
-              entry: "功能广场",
-              description: "外部学术工具目录与冷启动导航",
-              links: { label: "功能广场", href: "/wiki/feature-tools" },
+              entry: "scholay广场",
+              description: "学术工具、学术skills 与学术prompts 的统一入口",
+              links: { label: "scholay广场", href: "/wiki/scholay-plaza" },
             },
             {
               domain: "工具生态",
@@ -362,12 +408,22 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
     aliases: ["产品与页面地图", "站点地图", "功能地图", "页面总览"],
     sourcePaths: [
       "frontend-user/src/app/router.tsx",
+      "frontend-user/src/app/menus.ts",
+      "frontend-user/src/app/layouts/AppSidebar.tsx",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/landing/routes.tsx",
       "frontend-user/src/features/help/routes.tsx",
       "frontend-user/src/features/mobile/routes.tsx",
       "frontend-user/src/app/layouts/AppShell.tsx",
     ],
-    related: ["scholay", "academic-search", "claw"],
+    related: [
+      "scholay",
+      "site-navigation",
+      "academic-search",
+      "claw",
+      "my-resources",
+      "scholay-plaza",
+    ],
     sections: [
       {
         id: "map",
@@ -381,50 +437,58 @@ classDiagram
   }
 
   Search --> Scholay
-  Analyze --> Scholay
-  Scholay --> Manage
-  Scholay --> Write
-  Scholay --> Support
+  Assistant --> Scholay
+  Write --> Scholay
+  Scholay --> Review
+  Scholay --> Resources
+  Scholay --> Plaza
 
-  class Search["文献搜索"] {
-    论文检索
-    智能搜索
-    作者主页
-    期刊检索
+  class Search["学术搜索"] {
+    智能搜论文
+    论文库搜索
+    期刊库搜索
+    数据集搜索
+    scholay情报
+    scholay选刊_敬请期待
   }
 
-  class Analyze["文献分析"] {
-    论文矩阵
-    AI数据分析
-    智能助手
-    开放获取与翻译
+  class Assistant["智能助手"] {
+    研究对话
+    附件与Skills
+    科研交付物
   }
 
-  class Manage["文献管理"] {
-    个人文献集
-    暂存区
-    文献集分享
-    引用生成
+  class Write["智能写作"] {
+    高级写作
+    快速写作_敬请期待
   }
 
-  class Write["论文写作"] {
-    智能写作
-    智能审稿
-    科研绘图
-    演示文稿
+  class Review["智能审稿"] {
+    期刊论文
+    学位论文
+    会议论文_敬请期待
+    其他
   }
 
-  class Support["会员与支持"] {
-    登录
-    会员
-    帮助中心
+  class Resources["我的资源"] {
+    文献集
+    期刊集
+    稿件集
+    资源集
+  }
+
+  class Plaza["scholay广场"] {
+    学术工具
+    学术skills
+    学术prompts
   }
 
   cssClass "Search" wikiMapSearch
-  cssClass "Analyze" wikiMapAnalyze
-  cssClass "Manage" wikiMapManage
+  cssClass "Assistant" wikiMapAnalyze
   cssClass "Write" wikiMapWrite
-  cssClass "Support" wikiMapSupport
+  cssClass "Review" wikiMapSupport
+  cssClass "Resources" wikiMapManage
+  cssClass "Plaza" wikiMapSupport
   cssClass "Scholay" wikiMapHub
 \`\`\`
 `,
@@ -445,9 +509,9 @@ classDiagram
                 icon: "overview",
               },
               {
-                title: "论文检索",
+                title: "学术搜索",
                 description:
-                  "用关键词和筛选发现论文；需要会话式检索时再打开智能搜索。",
+                  "在智能搜论文、论文库、期刊库、数据集与情报入口之间选择。",
                 articleSlug: "academic-search",
                 icon: "literature-search",
               },
@@ -458,9 +522,9 @@ classDiagram
                 icon: "assistant",
               },
               {
-                title: "个人文献集",
-                description: "把核对过的论文长期归档、整理和分享。",
-                articleSlug: "literature-library",
+                title: "我的资源",
+                description: "按文献集、期刊集、稿件集和资源集整理个人材料。",
+                articleSlug: "my-resources",
                 icon: "resources",
               },
               {
@@ -470,10 +534,10 @@ classDiagram
                 icon: "writing",
               },
               {
-                title: "会员体系",
-                description: "看 Free、Pro、Max 的额度、价格和购买入口。",
-                articleSlug: "membership",
-                icon: "subscription",
+                title: "scholay广场",
+                description: "发现学术工具、学术skills 与学术prompts。",
+                articleSlug: "scholay-plaza",
+                icon: "overview",
               },
             ],
           },
@@ -577,7 +641,7 @@ classDiagram
       {
         id: "scope",
         title: "管理范围",
-        markdown: `后台涵盖用户与用量、AI 上游和模型目录、Agent 会话、内容、功能广场、社区技能、订单与会员、营销活动、反馈、站点分析、SEO、第三方连接和系统配置。公告目前只有后台 CRUD，没有现行公开读取路由；创建“已启用”公告不等于用户端已经能获取或展示。`,
+        markdown: `后台涵盖用户与用量、AI 上游和模型目录、Agent 会话、内容、scholay广场中的学术工具、社区技能、订单与会员、营销活动、反馈、站点分析、SEO、第三方连接和系统配置。公告目前只有后台 CRUD，没有现行公开读取路由；创建“已启用”公告不等于用户端已经能获取或展示。`,
       },
       {
         id: "single-spa",

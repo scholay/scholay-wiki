@@ -20,6 +20,8 @@ export const backendDomainArticles: WikiArticle[] = [
       "backend/internal/clientlog",
       "backend/internal/config",
       "backend/internal/websocket",
+      "backend/internal/user/apple_oauth.go",
+      "backend/internal/common/cache/oauth_login_code.go",
     ],
     related: ["account", "admin-console", "agent-runtime", "platform-topology"],
     sections: [
@@ -31,7 +33,9 @@ export const backendDomainArticles: WikiArticle[] = [
       {
         id: "authentication",
         title: "认证与实时连接",
-        markdown: `HTTP 登录态优先读取 Authorization Bearer，其次读取 scholay_token cookie，不接受 query JWT。浏览器 WebSocket 不在 URL 中携带长期 token，而是先领取约 30 秒、一次性使用的 ticket，再由 WS handler 核验 ticket、用户和会话归属。`,
+        markdown: `HTTP 登录态优先读取 Authorization Bearer，其次读取 scholay_token cookie，不接受 query JWT。浏览器 WebSocket 不在 URL 中携带长期 token，而是先领取约 30 秒、一次性使用的 ticket，再由 WS handler 核验 ticket、用户和会话归属。
+
+Apple 回调后端也采用相同的“短码换结果”原则：把 JWT 与用户快照存进持久 Redis，签发 32 字节随机十六进制 \`login_code\`，90 秒过期并通过 GETDEL 只消费一次，回调 URL 只带短码；登录结果由 \`POST /api/v1/user/apple/exchange\` 交换。不过当前前端运行时回调仍读取旧 \`token\`，所以安全机制在后端已实现，端到端 Apple 登录仍是未完成接线的实验性集成。`,
       },
       {
         id: "failure",
@@ -58,6 +62,10 @@ export const backendDomainArticles: WikiArticle[] = [
       "backend/internal/library",
       "backend/internal/stagingarea",
       "backend/internal/seoenrich",
+      "frontend-user/src/features/library/pages/LibraryPage.tsx",
+      "frontend-user/src/stores/search-right-panel.store.ts",
+      "frontend-user/src/features/search/components/workspace/PdfChatPanel.tsx",
+      "frontend-user/src/features/search/components/workspace/CitationGraphPanel.tsx",
     ],
     related: [
       "academic-search",
@@ -74,7 +82,7 @@ export const backendDomainArticles: WikiArticle[] = [
       {
         id: "workspaces",
         title: "用户工作区",
-        markdown: `stagingarea 保存最多五个短期检索集合，library 保存长期文件夹、论文、PDF、分享与接收记录。ai 模块承载矩阵分析、系统维度和论文翻译。每个模块分别做资源归属检查，前端把它们组合在同一个搜索工作台中并不会合并数据权限。`,
+        markdown: `stagingarea 保存最多五个短期检索集合，library 保存长期文件夹、论文、PDF、分享与接收记录。ai 模块承载矩阵分析、系统维度和论文翻译。前端“我的资源”有文献、期刊、稿件、资源四分，但只有文献区共用 PDF Chat、文献图谱和矩阵分析三个互斥功能页签，并允许最多 12 个论文或期刊信息页签。组合成同一个工作台不会合并后端权限；文献图谱面板目前还是前端演示数据，不能据此宣称图谱后端已经交付。`,
       },
       {
         id: "limits",
@@ -102,6 +110,15 @@ export const backendDomainArticles: WikiArticle[] = [
       "backend/internal/seosubmit",
       "backend/internal/crawlerwatch",
       "backend/internal/umami",
+      "backend/internal/news/thumbnail.go",
+      "backend/cmd/server/routes_scholar.go",
+      "docker/mysql/migrations/0127_news_cover_thumb_fields.sql",
+      ".env.example",
+      "backend/internal/common/config/config.go",
+      "backend/cmd/server/routes.go",
+      "backend/internal/config/handler_ssr.go",
+      "backend/internal/config/ssr_onmiss_gate.go",
+      "backend/internal/config/ssr_link_frontier_test.go",
     ],
     related: ["research-news", "feature-tools", "admin-console"],
     sections: [
@@ -111,9 +128,23 @@ export const backendDomainArticles: WikiArticle[] = [
         markdown: `不同公开内容由不同模块维护：content 通过 go:embed 保存博客与资源文章并渲染 Markdown；news 接收带 HMAC 的 MiniCod 情报，只向公开端返回 published 记录；hotcontent 记录热搜、论文曝光与点击；seo 保存论文、作者、期刊的公开实体，以及 slug、SSR、目录页和 sitemap 数据。排查内容缺失时，应先确认它属于哪条管线。`,
       },
       {
+        id: "news-thumbnails",
+        title: "情报封面缩略图",
+        markdown: `news 摄取后会 best-effort 异步下载远端封面：原图限制 15 MiB、约 4,000 万像素和 3 分钟读取，生成长边不超过 640 px、质量 80、白底 JPEG，按来源哈希写入 MinIO。列表优先使用站内 \`/api/v1/public/news/cover/:file\` 缩略图，详情仍可用远端原图；失败时列表回落原地址，不阻断新闻发布。
+
+服务启动后延迟约 30 秒开始回填，随后每小时扫描批次并以 3 路并发处理。缩略图是缓存型派生资产，不应被当作原始新闻证据；清晰度、版权和来源仍以原发布方为准。`,
+      },
+      {
         id: "publication",
         title: "摄取与发布",
         markdown: `期刊全量摄取以 running、paused、done、failed、cancelled 状态持久化游标；暂存数据经过选择发布后才进入正式集合，并可按批次回滚。seosubmit 把合格 URL 放入 IndexNow 或百度队列，处理重试、冷却与 dead letter；“已发布”和“已被搜索引擎收录”不是同一状态。`,
+      },
+      {
+        id: "environment-gate",
+        title: "环境级 SEO 闸门",
+        markdown: `\`APP_ENV\` 默认映射为 prod 可索引、test/dev 不可索引，\`SEO_INDEXABLE\` 可显式覆盖；未设置 APP_ENV 时为兼容旧部署仍按 prod。不可索引环境的 robots 返回 200 与全站 Disallow，sitemap 和 IndexNow key 返回 404，SSR 同时输出 noindex,nofollow header 与 meta。
+
+公开实体未命中时，已知 crawler 不触发上游回填；普通访客受全局与每 IP 速率门禁。未落库的相关实体渲染成纯文本而非链接，避免扩张不可落地的爬取前沿。\`RequestIndexable\` 当前不看 Host，所以这是一项进程级而非逐域名决定。`,
       },
       {
         id: "observation",
@@ -141,6 +172,12 @@ export const backendDomainArticles: WikiArticle[] = [
       "backend/internal/wechat",
       "backend/internal/wechatofficial",
       "backend/internal/websocket",
+      "backend/internal/prism/compile_notify.go",
+      "backend/internal/peerreview/stream.go",
+      "backend/internal/peerreview/service.go",
+      "frontend-user/src/shared/hooks/useNotificationSocket.ts",
+      "frontend-user/src/shared/lib/compile-events.ts",
+      "frontend-user/src/features/peer-review/api/stream.ts",
     ],
     related: ["feedback-and-support", "account", "admin-console"],
     sections: [
@@ -148,6 +185,13 @@ export const backendDomainArticles: WikiArticle[] = [
         id: "channels",
         title: "通信渠道",
         markdown: `message 保存站内消息、用户投递和已读状态，websocket 用一次性 ticket 推送实时提醒。feedback 接收匿名或登录用户的正文与附件；supportcenter 管理公开联系方式、IMAP 收件、SMTP 回复和飞书告警；emaillog 保存全站邮件与短信发送结果。wechat 提供网页/小程序身份与内容安全，wechatofficial 处理公众号被动消息。`,
+      },
+      {
+        id: "task-broadcasts",
+        title: "编译通知与审稿广播",
+        markdown: `Prism 在编译状态写库后，通过用户通知 WebSocket best-effort 推送完整编译对象；前端把 \`compile_status\` 转成项目事件，同时保留轮询兜底。智能审稿使用独立 SSE broker，按 submissionID 与 slot 广播 \`state\`、\`report_ready\` 等控制帧，刷新连接可以取得快照，完成状态短暂保留约 30 秒；前端收到信号后重新读取提交与报告。
+
+两条链路都遵循“数据库先写、推送后发”：推送失败不回滚业务状态，数据库才是事实来源。Prism 编译事件也不等于铃铛里必然新增站内信，审稿 SSE 更不是通知中心通道。`,
       },
       {
         id: "boundaries",
@@ -191,6 +235,10 @@ export const backendDomainArticles: WikiArticle[] = [
       "backend/internal/prism",
       "backend/internal/scidraw",
       "backend/internal/statlab",
+      "backend/internal/agentbridge/spec.go",
+      "backend/internal/agentbridge/hub.go",
+      "backend/internal/agentbridge/hub_turncap_test.go",
+      "backend/internal/vip/quota.go",
     ],
     related: [
       "agent-runtime",
@@ -208,6 +256,11 @@ export const backendDomainArticles: WikiArticle[] = [
         id: "durability",
         title: "耐久状态",
         markdown: `agentbridge 保存 session、turn 和 event journal，并连接 WebSocket、计费与后台监控；agentattach 与 agentattachstore 管理长期附件；agentartifact 把工作区交付物收集到 MinIO；agentrun 用 Run、Step 和租约表示可恢复的长任务。Executor 进程内历史与临时工作区只能用于执行，不能作为产品状态的唯一依据。`,
+      },
+      {
+        id: "turn-cap",
+        title: "单回合过冲保护",
+        markdown: `除智能审稿外，六类对话式 Agent 会在回合开始时计算 TurnCostCap，并在每次模型调用后按四类 token 与模型目录价格累加本轮成本；达到上限只发送一次停止命令并标记 aborted。未知模型、旧 Executor 无增量上报或价格缺失时 fail-open，最终真实成本仍会写账。因此它是单回合安全上限，不是跨并发事务锁，也不能替代起跑额度门禁。`,
       },
       {
         id: "conditional",
@@ -242,6 +295,8 @@ export const backendDomainArticles: WikiArticle[] = [
       "backend/internal/llmusage",
       "backend/internal/usagestat",
       "backend/internal/storage",
+      "backend/internal/vip/quota.go",
+      "backend/internal/vip/wallet.go",
     ],
     related: [
       "membership",
@@ -263,7 +318,7 @@ export const backendDomainArticles: WikiArticle[] = [
       {
         id: "accounting",
         title: "统计与存储",
-        markdown: `llmusage 保存四类 token、点数与估算成本账本，usagestat 保存产品事件和漏斗；两者用途不同，不能互相代替。storage 封装 MinIO bucket、对象键和生命周期。统一 admin_audit_logs 写入链已经移除，因此角色、配置和代码片段等高风险变更并非全部拥有同一数据库审计记录。`,
+        markdown: `llmusage 保存四类 token、点数与估算成本账本，usagestat 保存产品事件和漏斗；两者用途不同，不能互相代替。vip 额度总览已经按到期日返回 \`reset_pass_lots\`，但前端公共类型只保留张数与到期时间，完整来源与设置页批次展示仍未统一，属于部分交付。storage 封装 MinIO bucket、对象键和生命周期。统一 admin_audit_logs 写入链已经移除，因此角色、配置和代码片段等高风险变更并非全部拥有同一数据库审计记录。`,
       },
     ],
   },

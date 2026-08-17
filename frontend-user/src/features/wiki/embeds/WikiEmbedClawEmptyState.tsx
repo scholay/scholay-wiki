@@ -1,16 +1,18 @@
 import type { CSSProperties } from "react";
 import {
   ArrowUp,
+  BookMarked,
   BookOpen,
   ChartSpline,
+  CircleHelp,
   FileText,
+  Grid3x3,
   Newspaper,
   Plus,
   Presentation,
   Puzzle,
-  Sigma,
 } from "lucide-react";
-import { BrandLogo } from "@/shared/components/BrandLogo";
+import { FeatureBrandHeading } from "@/shared/components/FeatureBrandHeading";
 
 /**
  * The sibling mock predates the current app palette and type/radius scales.
@@ -87,23 +89,32 @@ const TEMPLATE_CARDS = [
   {
     key: "ppt",
     title: "制作PPT",
-    subtitle: "一句话描述主题 → 多页可交互演示稿",
     icon: Presentation,
     chip: "bg-brand-amber/10 text-brand-amber",
   },
   {
     key: "scidraw",
     title: "科研绘图",
-    subtitle: "一句话描述 → 论文级图表 / 示意图",
     icon: ChartSpline,
     chip: "bg-brand-green/10 text-brand-green",
   },
   {
-    key: "statlab",
-    title: "数据分析",
-    subtitle: "传数据 → 自动选对检验 → 三线表与结果段",
-    icon: Sigma,
+    key: "journal",
+    title: "scholay 选刊",
+    icon: BookMarked,
     chip: "bg-brand-red/10 text-brand-red",
+  },
+  {
+    key: "matrix",
+    title: "矩阵分析",
+    icon: Grid3x3,
+    chip: "bg-foreground/10 text-foreground",
+  },
+  {
+    key: "pdfchat",
+    title: "PDF-Chat",
+    icon: FileText,
+    chip: "bg-brand-amber/10 text-brand-amber",
   },
 ] as const;
 
@@ -111,14 +122,16 @@ const TEMPLATE_CARDS = [
  * Claw 桌面新会话空态的静态截面。
  *
  * 结构与尺寸直接对应 ClawHero + ChatComposer + TemplateCards：42rem 内容宽、
- * 16px composer 圆角，以及按当前三张 active 模板动态计算的扇形。
+ * 16px composer 圆角，以及按当前五张模板动态计算的扇形。PPT 与科研绘图
+ * 已可用；scholay 选刊、矩阵分析与 PDF-Chat 是产品中的“即将推出”入口。
  */
 export function WikiEmbedClawEmptyState() {
-  const cardCount = TEMPLATE_CARDS.length;
+  const cardCount: number = TEMPLATE_CARDS.length;
   const center = (cardCount - 1) / 2;
-  const cardWidth = cardCount <= 2 ? 15 : cardCount === 3 ? 13.5 : 12;
-  const overlap = cardCount <= 2 ? 2.4 : 3;
-  const spread = cardCount <= 2 ? 5 : 6.5;
+  const cardWidth =
+    cardCount <= 2 ? 15 : cardCount === 3 ? 13.5 : cardCount === 4 ? 11.5 : 9.5;
+  const overlap = cardCount <= 2 ? 2.4 : cardCount <= 4 ? 3 : 3.2;
+  const spread = cardCount <= 2 ? 5 : cardCount <= 4 ? 6.5 : 4.5;
   const arc = 9;
 
   return (
@@ -128,11 +141,17 @@ export function WikiEmbedClawEmptyState() {
       aria-hidden
       data-wiki-fixture="claw-empty-state"
     >
-      <h2 className="m-0">
-        <BrandLogo size="xl" />
-      </h2>
-
-      <div className="mt-6 flex w-full flex-col gap-[var(--wiki-mock-space-6)]">
+      <div className="mt-2 flex w-full flex-col gap-[var(--wiki-mock-space-6)]">
+        <FeatureBrandHeading
+          title="智能助手"
+          mark
+          trailing={
+            <span className="inline-flex size-8 items-center justify-center rounded-8 text-faint">
+              <CircleHelp className="size-4" />
+            </span>
+          }
+          className="mb-8 w-full"
+        />
         <div className="relative flex flex-col gap-[var(--wiki-mock-space-6)] rounded-20 border border-border-strong bg-background p-2 shadow-raised">
           <div className="min-h-10 px-1 py-[var(--wiki-mock-space-2)] text-18 leading-paragraph text-faint">
             问问智能助手 · Enter 发送 / Shift+Enter 换行 ·
@@ -156,40 +175,33 @@ export function WikiEmbedClawEmptyState() {
 
       <div className="mt-[var(--wiki-mock-space-20)] w-full overflow-hidden px-2 pb-3 pt-6">
         <div className="flex items-end justify-center">
-          {TEMPLATE_CARDS.map(
-            ({ key, title, subtitle, icon: Icon, chip }, index) => (
-              <article
-                key={key}
-                className="relative flex shrink-0 flex-col overflow-hidden rounded-16 border border-border bg-background text-left shadow-raised"
-                style={{
-                  width: `${cardWidth}rem`,
-                  marginLeft: index === 0 ? "0" : `-${overlap}rem`,
-                  transform: `translateY(${Math.abs(index - center) * arc}px) rotate(${(index - center) * spread}deg)`,
-                  transformOrigin: "bottom center",
-                  zIndex: index + 1,
-                }}
-              >
-                <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2">
-                  <TemplateIllustration cardKey={key} />
+          {TEMPLATE_CARDS.map(({ key, title, icon: Icon, chip }, index) => (
+            <article
+              key={key}
+              className="relative flex shrink-0 flex-col overflow-hidden rounded-16 border border-border bg-background text-left shadow-raised"
+              style={{
+                width: `${cardWidth}rem`,
+                marginLeft: index === 0 ? "0" : `-${overlap}rem`,
+                transform: `translateY(${Math.abs(index - center) * arc}px) rotate(${(index - center) * spread}deg)`,
+                transformOrigin: "bottom center",
+                zIndex: index + 1,
+              }}
+            >
+              <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2">
+                <TemplateIllustration cardKey={key} />
+              </div>
+              <div className="flex items-center justify-center gap-2 px-3 py-[var(--wiki-mock-space-10)]">
+                <span
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-8 ${chip}`}
+                >
+                  <Icon className="size-[var(--wiki-mock-space-14)]" />
+                </span>
+                <div className="truncate text-20 font-medium text-foreground">
+                  {title}
                 </div>
-                <div className="flex items-center gap-2 px-3 py-[var(--wiki-mock-space-10)]">
-                  <span
-                    className={`flex size-7 shrink-0 items-center justify-center rounded-8 ${chip}`}
-                  >
-                    <Icon className="size-[var(--wiki-mock-space-14)]" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="truncate text-20 font-medium text-foreground">
-                      {title}
-                    </div>
-                    <div className="truncate text-12 text-muted-foreground">
-                      {subtitle}
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ),
-          )}
+              </div>
+            </article>
+          ))}
         </div>
       </div>
 
@@ -206,29 +218,10 @@ export function WikiEmbedClawEmptyState() {
       </div>
 
       <span className="sr-only">
-        制作 PPT、科研绘图和数据分析三种可用模板。
+        制作 PPT 与科研绘图已可用；scholay 选刊、矩阵分析和 PDF-Chat 即将推出。
       </span>
     </div>
   );
-}
-
-function violinPath(cx: number, mu: number, sd: number, maxWidth: number) {
-  const sampleCount = 72;
-  const lowerBound = mu - 2.6 * sd;
-  const upperBound = mu + 2.6 * sd;
-  const right: string[] = [];
-  const left: string[] = [];
-
-  for (let index = 0; index <= sampleCount; index += 1) {
-    const y = lowerBound + ((upperBound - lowerBound) * index) / sampleCount;
-    const z = (y - mu) / sd;
-    const width = maxWidth * Math.exp(-0.5 * z * z);
-    right.push(`${(cx + width).toFixed(2)} ${y.toFixed(2)}`);
-    left.push(`${(cx - width).toFixed(2)} ${y.toFixed(2)}`);
-  }
-
-  left.reverse();
-  return `M ${right.concat(left).join(" L ")} Z`;
 }
 
 function TemplateIllustration({ cardKey }: { cardKey: string }) {
@@ -332,191 +325,79 @@ function TemplateIllustration({ cardKey }: { cardKey: string }) {
     );
   }
 
-  if (cardKey === "statlab") {
-    const baseline = 74;
-    const boxWidth = 10;
-    const groups = [
-      {
-        key: "control",
-        cx: 46,
-        mu: 58,
-        sd: 5.7,
-        maxWidth: 21,
-        q3: 54,
-        q1: 62,
-        median: 58,
-        whiskerLow: 48,
-        whiskerHigh: 68,
-        accent: false,
-      },
-      {
-        key: "experiment",
-        cx: 114,
-        mu: 40,
-        sd: 5.7,
-        maxWidth: 23,
-        q3: 36,
-        q1: 44,
-        median: 40,
-        whiskerLow: 30,
-        whiskerHigh: 50,
-        accent: true,
-      },
-    ] as const;
-
+  if (cardKey === "journal") {
     return (
-      <div className="absolute inset-0 bg-gradient-to-b from-surface-1 to-background">
-        <svg
-          viewBox="0 0 160 90"
-          preserveAspectRatio="none"
-          className="h-full w-full"
-        >
-          <defs>
-            <linearGradient
-              id="wiki-claw-stat-accent"
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="1"
+      <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-red/10 via-surface-1 to-background">
+        <div className="absolute left-1/2 top-1/2 h-[62%] w-[38%] -translate-x-[90%] -translate-y-[45%] rotate-[-8deg] rounded-4 bg-brand-red/15 ring-1 ring-brand-red/20" />
+        <div className="absolute left-1/2 top-1/2 h-[68%] w-[42%] -translate-x-[40%] -translate-y-1/2 rotate-[4deg] rounded-4 bg-background shadow-raised ring-1 ring-border">
+          <div className="mx-2 mt-2 h-1.5 w-[70%] rounded-pill bg-brand-red/70" />
+          <div className="mx-2 mt-2 space-y-1">
+            {[85, 60, 72].map((width) => (
+              <div
+                key={width}
+                className="h-1 rounded-pill bg-foreground/15"
+                style={{ width: `${width}%` }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="absolute bottom-2.5 right-3 flex gap-1">
+          {["Q1", "1区"].map((label) => (
+            <span
+              key={label}
+              className="rounded-pill bg-brand-red px-1.5 py-0.5 text-[8px] font-bold text-on-brand"
             >
-              <stop
-                offset="0%"
-                stopColor="currentColor"
-                stopOpacity="0.36"
-                className="text-brand-red"
-              />
-              <stop
-                offset="100%"
-                stopColor="currentColor"
-                stopOpacity="0.08"
-                className="text-brand-red"
-              />
-            </linearGradient>
-            <linearGradient id="wiki-claw-stat-ink" x1="0" y1="0" x2="0" y2="1">
-              <stop
-                offset="0%"
-                stopColor="currentColor"
-                stopOpacity="0.13"
-                className="text-foreground"
-              />
-              <stop
-                offset="100%"
-                stopColor="currentColor"
-                stopOpacity="0.03"
-                className="text-foreground"
-              />
-            </linearGradient>
-          </defs>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-          {[34, 48, 62].map((gridY) => (
-            <line
-              key={gridY}
-              x1="0"
-              y1={gridY}
-              x2="160"
-              y2={gridY}
-              className="stroke-current text-border"
-              strokeWidth="0.7"
+  if (cardKey === "matrix") {
+    const cells = [
+      [1, 0, 1, 0],
+      [0, 1, 1, 1],
+      [1, 1, 0, 1],
+    ];
+    return (
+      <div className="absolute inset-0 bg-gradient-to-b from-surface-1 to-background p-3">
+        <div className="flex h-full flex-col gap-1">
+          {cells.map((row, rowIndex) => (
+            <div key={rowIndex} className="flex flex-1 gap-1">
+              {row.map((active, columnIndex) => (
+                <div
+                  key={`${rowIndex}-${columnIndex}`}
+                  className={`flex-1 rounded-4 ring-1 ring-border ${
+                    active ? "bg-foreground/70" : "bg-background"
+                  }`}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (cardKey === "pdfchat") {
+    return (
+      <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-amber/10 via-surface-1 to-background">
+        <div className="absolute left-3 top-1/2 h-[72%] w-[36%] -translate-y-1/2 rounded-4 bg-background p-1.5 shadow-raised ring-1 ring-border">
+          {[90, 70, 80, 55].map((width) => (
+            <div
+              key={width}
+              className="mb-1 h-1 rounded-pill bg-foreground/15"
+              style={{ width: `${width}%` }}
             />
           ))}
-          <line
-            x1="0"
-            y1={baseline}
-            x2="160"
-            y2={baseline}
-            className="stroke-current text-border-strong"
-            strokeWidth="1.1"
-          />
-
-          {groups.map((group) => {
-            const tone = group.accent ? "text-brand-red" : "text-subtle";
-            return (
-              <g key={group.key}>
-                <path
-                  d={violinPath(group.cx, group.mu, group.sd, group.maxWidth)}
-                  fill={`url(#wiki-claw-stat-${group.accent ? "accent" : "ink"})`}
-                  className={`stroke-current ${tone}`}
-                  strokeWidth="1.2"
-                  strokeOpacity={group.accent ? 0.9 : 0.45}
-                  strokeLinejoin="round"
-                />
-                <line
-                  x1={group.cx}
-                  y1={group.whiskerLow}
-                  x2={group.cx}
-                  y2={group.whiskerHigh}
-                  className={`stroke-current ${tone}`}
-                  strokeWidth="1.1"
-                  opacity={group.accent ? 0.85 : 0.45}
-                />
-                <rect
-                  x={group.cx - boxWidth / 2}
-                  y={group.q3}
-                  width={boxWidth}
-                  height={group.q1 - group.q3}
-                  rx="2"
-                  className={`fill-current ${tone}`}
-                  opacity={group.accent ? 0.92 : 0.5}
-                />
-                <circle
-                  cx={group.cx}
-                  cy={group.median}
-                  r="2.2"
-                  className="fill-current text-surface-card"
-                />
-                <rect
-                  x={group.cx - 12}
-                  y="79"
-                  width="24"
-                  height="3.2"
-                  rx="1.6"
-                  className={`fill-current ${group.accent ? "text-brand-red" : "text-foreground"}`}
-                  opacity={group.accent ? 0.72 : 0.26}
-                />
-              </g>
-            );
-          })}
-
-          <path
-            d="M 46 21 L 46 10.5 L 114 10.5 L 114 21"
-            fill="none"
-            className="stroke-current text-brand-red"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            opacity="0.8"
-          />
-          <g>
-            <rect
-              x="58"
-              y="3"
-              width="44"
-              height="15"
-              rx="7.5"
-              className="fill-current text-brand-red-soft"
-            />
-            <rect
-              x="58"
-              y="3"
-              width="44"
-              height="15"
-              rx="7.5"
-              fill="none"
-              className="stroke-current text-brand-red"
-              strokeWidth="1"
-              opacity="0.45"
-            />
-            <text
-              x="80"
-              y="13.6"
-              textAnchor="middle"
-              fontSize="9"
-              fontWeight="600"
-              className="fill-current text-brand-red"
-            >
-              P&lt;.001
-            </text>
-          </g>
-        </svg>
+        </div>
+        <div className="absolute right-3 top-1/2 flex w-[42%] -translate-y-1/2 flex-col gap-1.5">
+          <div className="h-3 w-[85%] self-start rounded-pill bg-brand-amber/25" />
+          <div className="h-3 w-[70%] self-end rounded-pill bg-background ring-1 ring-border" />
+          <div className="h-3 w-[60%] self-start rounded-pill bg-brand-amber/25" />
+        </div>
       </div>
     );
   }

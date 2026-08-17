@@ -22,7 +22,7 @@ const PAPER_TAGS = [
 ] as const;
 
 /**
- * 传统搜索 · 核对结果并加入暂存区 · 纯样式 fixture。
+ * 论文库搜索 · 核对结果并加入暂存区 · 纯样式 fixture。
  * 单一截面保留 DefaultCard 已暂存态与右侧论文详情页签，避免把暂存侧栏拼成第二状态。
  */
 export function WikiEmbedReviewAndStage() {

@@ -27,7 +27,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { BrandLogo } from "@/shared/components/BrandLogo";
 
-/** HomeAgentHero 首屏：文献搜索框。 */
+/** HomeAgentHero 首屏：学术搜索统一输入框。 */
 export function WikiEmbedHomeResearchEntry() {
   return (
     <div
@@ -41,14 +41,14 @@ export function WikiEmbedHomeResearchEntry() {
 
           <div
             className="mt-8 w-full max-w-[40rem]"
-            data-wiki-spot="文献搜索框"
+            data-wiki-spot="学术搜索框"
           >
             <div className="flex h-12 items-center gap-3 rounded-16 border border-border bg-surface-card pl-4 pr-2 shadow-raised">
               <span className="inline-flex h-7 items-center rounded-8 bg-surface-2 p-1 text-12 text-subtle">
                 <span className="inline-flex h-5 items-center rounded-4 bg-background px-2 text-foreground shadow-raised">
-                  智能
+                  智能搜论文
                 </span>
-                <span className="px-2">文献</span>
+                <span className="px-2">论文库搜索</span>
               </span>
               <span className="min-w-0 flex-1 truncate text-14 text-faint">
                 帮我找 3 篇 Transformer 可解释性方向的代表作

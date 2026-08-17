@@ -124,13 +124,15 @@ export const policyAndHistoryArticles: WikiArticle[] = [
       "backend/internal/promo/service.go",
       "backend/internal/promo/handler.go",
       "frontend-user/src/stores/promo.store.ts",
+      "frontend-user/src/app/layouts/topnav/PromoNavButton.tsx",
+      "frontend-user/src/app/layouts/topnav/UserSection.tsx",
     ],
     related: ["membership", "admin-console"],
     sections: [
       {
         id: "configuration",
         title: "配置",
-        markdown: `活动开启时，用户会在首页或额度不足场景看到带标题、福利说明、微信二维码和关闭按钮的推广弹窗；下图展示的是配置已经生效的一种代表状态。运营人员在后台控制启用状态、文案和二维码。
+        markdown: `活动开启且当前账户不是付费会员时，顶栏会显示 Promo 活动按钮；点击后打开与自动触发场景共用的推广弹窗。用户也可能在首页或额度不足场景看到带标题、福利说明、微信二维码和关闭按钮的同一弹窗；下图展示的是配置已经生效的一种代表状态。运营人员在后台控制启用状态、文案和二维码。
 
 公开摘要 API 不直接返回大体积二维码数据，客户端会通过带内容版本的独立 URL 读取图片；替换图片后地址随版本变化，避免继续显示旧缓存。`,
         embeds: [{ id: "promo-modal" }],
@@ -203,6 +205,14 @@ export const policyAndHistoryArticles: WikiArticle[] = [
     ],
     sourcePaths: [
       "frontend-user/src/app/layouts/topnav/CompactNavMenu.tsx",
+      "frontend-user/src/app/layouts/AppShell.tsx",
+      "frontend-user/src/app/layouts/AppSidebar.tsx",
+      "frontend-user/src/shared/components/sidebar/SidebarLayout.tsx",
+      "frontend-user/src/app/layouts/topnav/ThemeToggle.tsx",
+      "frontend-user/src/stores/theme.store.ts",
+      "frontend-user/src/app/App.tsx",
+      "frontend-user/index.html",
+      "frontend-user/src/features/wiki/hooks/useWikiTheme.ts",
       "frontend-user/src/features/browser/components/BrowserTabsBar.tsx",
       "frontend-user/src/shared/components/PaperResultCard/DefaultCard.tsx",
       "frontend-user/src/shared/components/PaperResultCard/MetaLine.tsx",
@@ -225,8 +235,10 @@ export const policyAndHistoryArticles: WikiArticle[] = [
     sections: [
       {
         id: "navigation-and-tabs",
-        title: "汉堡菜单与浏览器页签",
-        markdown: `**汉堡菜单**是窄屏顶栏的统一导航出口。视口小于 1200 px 时，宽屏上平铺的首页、浏览器、功能入口、活动与反馈会收进这颗按钮；它们只是换了收纳位置，并没有从产品中消失。点击路由项会进入对应页面，点击活动项则打开相应弹层。只有已经打开论文、期刊、学者或 PDF 详情时，菜单中才会出现“浏览器”。
+        title: "左侧栏、紧凑菜单与浏览器页签",
+        markdown: `全站功能树由**左侧栏**承担，而不是由一颗 1200 px 汉堡菜单统一替代。桌面宽度从顶栏 Logo 左侧开合侧栏，侧栏以内联 0↔240 px 推挤主区；小于 640 px 时同一侧栏改为覆盖式抽屉，切换路由后自动收起。侧栏上半段是一级功能与当前二级入口，进入某个功能后未选项会折叠，指针移入再展开；下半段按当前功能显示会话、项目、审稿记录或资源分区历史。
+
+**CompactNavMenu** 是另一套顶栏收纳：小于 1200 px 时，它只接管原本平铺在顶栏的宽屏快捷项和活动入口，不取代左侧功能树。点击路由项会进入对应页面，点击活动项则打开相应弹层；只有已经打开论文、期刊、学者或 PDF 详情时，紧凑菜单中才会出现“浏览器”。
 
 **浏览器页签**位于详情页面顶部，用来并行保留多个研究对象。论文、期刊、学者和 PDF 使用不同图标；当前页签由地址决定。点击页签切换对象，点击关闭会转到相邻页签，全部关闭后回到首页；最右侧“+”用于按题名或 DOI 快速打开论文。“返回”则回到打开当前对象之前的搜索、文库或其他任务页面。
 
@@ -238,15 +250,22 @@ export const policyAndHistoryArticles: WikiArticle[] = [
           {
             type: "tip",
             tip: {
-              text: "汉堡菜单只在窄屏接管导航；桌面端仍以顶栏入口为主。浏览器入口只有在至少存在一个详情页签时才会显示。",
+              text: "左侧栏在桌面是内联面板、手机是覆盖抽屉；1200 px 的紧凑菜单只收纳顶栏快捷项。浏览器入口只有在至少存在一个详情页签时才会显示。",
             },
           },
         ],
       },
       {
+        id: "theme-boundary",
+        title: "站级主题与 Wiki 局部主题",
+        markdown: `顶栏日间/夜间按钮控制站级主题：偏好持久化在 \`scholay.theme\`，状态模型支持 light、dark、system，并在应用顶层更新 \`html.dark\` 与浏览器 \`theme-color\`；当前按钮本身只在明暗之间切换。首屏脚本会在 React 启动前预置主题，减少闪白。
+
+Wiki 有独立的局部主题，键名是 \`scholay.wiki.theme\`。没有人工选择时跟随系统，选择后只通过 Wiki 容器属性和 Wiki portal 配色生效，不应覆盖全站根 token。两个开关的存储键、作用域和系统跟随逻辑不同；在 Wiki 中切换不会等价于修改全站偏好。`,
+      },
+      {
         id: "reference-card",
         title: "参考文献基础信息卡片",
-        markdown: `**参考文献基础信息卡片**是搜索结果、智能搜索和文献选择器中反复出现的论文摘要单元。它不是一份完整书目记录，而是帮助你判断“要不要打开这篇论文”的扫描视图。
+        markdown: `**参考文献基础信息卡片**是搜索结果、智能搜论文和文献选择器中反复出现的论文摘要单元。它不是一份完整书目记录，而是帮助你判断“要不要打开这篇论文”的扫描视图。
 
 - **题名**：论文的主要识别信息；点击后在浏览器中打开论文详情，并保留当前任务页面作为返回位置。
 - **来源、作者与年份**：来源匹配到站内期刊记录时可进入期刊详情；带来源 ID 的作者可进入学者详情；“+N”只展开其余作者名单。

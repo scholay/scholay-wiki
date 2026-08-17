@@ -3,16 +3,18 @@ import type { WikiArticle } from "../types";
 export const discoveryGuideArticles: WikiArticle[] = [
   {
     slug: "literature-search-guide",
-    title: "如何使用传统文献搜索",
+    title: "如何使用论文库搜索",
     summary:
       "从关键词、数据源和筛选条件出发，得到可核对的论文清单，并把候选文献送入暂存、收藏或矩阵分析。",
     category: "discovery",
     kind: "page",
     status: "current",
     audience: ["研究者", "学生", "初次使用者"],
-    aliases: ["传统搜索教程", "普通文献搜索", "关键词检索步骤"],
+    aliases: ["关键词检索步骤", "普通论文检索", "旧版传统文献搜索教程"],
     sourcePaths: [
       "frontend-user/src/features/search/pages/SearchPage.tsx",
+      "frontend-user/src/features/search/search-mode.ts",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/search/components/SearcherColumn.tsx",
       "frontend-user/src/features/search/components/SearchSidebar.tsx",
       "frontend-user/src/features/search/hooks/useUrlFilters.ts",
@@ -31,7 +33,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "prepare-query",
         title: "先确定检索问题",
-        markdown: `当你已经知道主题词、作者、方法、研究对象或目标期刊时，优先使用传统搜索。进入文献搜索页并选择“传统”，在下图所示输入框中先写一组核心关键词。结果太少时删掉过细的限制，结果太杂时再补充研究对象、方法或场景。
+        markdown: `当你已经知道主题词、作者、方法、研究对象或目标期刊时，优先使用“论文库搜索”。从学术搜索 Hub 进入 \`/search?mode=classic\`，在下图所示输入框中先写一组核心关键词。结果太少时删掉过细的限制，结果太杂时再补充研究对象、方法或场景。
 
 搜索词、筛选、排序和页码都会写入当前 URL。返回搜索页时，页面会恢复最近一次有内容的检索状态，因此可以先打开论文详情，再回到原来的结果继续筛选。`,
         embeds: [{ id: "classic-search-dock" }],
@@ -47,9 +49,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
             type: "article-link",
             card: {
               articleSlug: "academic-search",
-              title: "文献搜索的范围与共同边界",
+              title: "学术搜索的范围与共同边界",
               description:
-                "了解传统搜索、智能搜索共同使用的论文实体、数据来源和核对原则。",
+                "了解论文库搜索与智能搜论文共同使用的论文实体、数据来源和核对原则。",
               icon: "search",
             },
           },
@@ -63,7 +65,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
 
 如果没有结果，依次尝试缩短关键词、换成更常见的同义词、放宽年份、清除期刊或类型限制，最后再切换数据源。
 
-不要把结果总数当作质量结论。传统搜索最多开放前 1,000 条结果的翻页窗口，越往后的相关性通常越低；如果需要不断深翻，通常应先改写查询或增加有效筛选。`,
+不要把结果总数当作质量结论。论文库搜索最多开放前 1,000 条结果的翻页窗口，越往后的相关性通常越低；如果需要不断深翻，通常应先改写查询或增加有效筛选。`,
         embeds: [{ id: "classic-search-filters" }],
         blocks: [
           { type: "markdown" },
@@ -101,7 +103,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "图中左侧红勾表示论文已加入当前暂存区，不是收藏；右侧是当前打开的论文详情标签。顶部“PDF 对话”和“引用图谱”只是工作区入口，不表示这些任务已经执行。",
+              "图中左侧红勾表示论文已加入当前暂存区，不是收藏；右侧是当前打开的论文详情标签。PDF Chat、文献图谱和矩阵分析是互斥的工作区入口，不表示这些任务已经执行；文献图谱仍处于产品演示阶段。",
           },
           {
             type: "article-link",
@@ -119,7 +121,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "continue-workflow",
         title: "把候选清单转成研究材料",
-        markdown: `初筛完成后有两条常见路径：需要长期保存时，把确认过的论文收藏到个人文献集；需要横向比较时，把暂存论文送入矩阵分析并设置比较维度。无论走哪条路径，AI 摘要、引用量和检索排序都只能帮助筛选，正式论证仍应回到论文原文、版本信息和可追溯出处。`,
+        markdown: `初筛完成后有两条常见路径：需要长期保存时，把确认过的论文收藏到“我的资源 › 文献集”；需要横向比较时，把暂存论文送入矩阵分析并设置比较维度。无论走哪条路径，AI 摘要、引用量和检索排序都只能帮助筛选，正式论证仍应回到论文原文、版本信息和可追溯出处。`,
         blocks: [
           { type: "markdown" },
           {
@@ -130,7 +132,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
               items: [
                 {
                   articleSlug: "literature-library",
-                  title: "保存到个人文献集",
+                  title: "保存到文献集",
                   description: "把已经核对的论文长期归档，再补充文件与分类。",
                   icon: "resource",
                 },
@@ -143,7 +145,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
                 {
                   articleSlug: "smart-literature-search-guide",
                   sectionId: "guide-the-search",
-                  title: "补做智能搜索",
+                  title: "补做智能搜论文",
                   description: "当术语或覆盖仍不稳定时，用追问扩展检索路线。",
                   icon: "sparkles",
                 },
@@ -156,18 +158,21 @@ export const discoveryGuideArticles: WikiArticle[] = [
   },
   {
     slug: "smart-literature-search-guide",
-    title: "如何使用智能文献搜索",
+    title: "如何使用智能搜论文",
     summary:
-      "用自然语言描述研究问题，让智能搜索拆解查询、调用学术检索工具并组织论文与证据，再通过追问逐步收敛。",
+      "用自然语言描述研究问题，让智能搜论文拆解查询、调用学术检索工具并组织论文与证据，再通过追问逐步收敛。",
     category: "research-ai",
     kind: "page",
     status: "current",
     audience: ["登录用户", "研究者", "学生"],
-    aliases: ["智能搜索教程", "AI 找论文", "自然语言文献检索"],
+    aliases: ["AI 找论文", "自然语言文献检索", "旧版智能搜索教程"],
     sourcePaths: [
       "frontend-user/src/features/search/components/smart-search/SmartSearchPanel.tsx",
       "frontend-user/src/features/search/components/smart-search/SmartSearchHero.tsx",
       "frontend-user/src/features/search/components/smart-search/PaperListScroller.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchBibliography.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchClawHandoff.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchSessionDock.tsx",
       "frontend-user/src/features/search/api/smart-search.ts",
       "frontend-user/src/features/wiki/embeds/WikiEmbedSmartPaperGroup.tsx",
       "frontend-user/src/features/wiki/embeds/WikiEmbedSmartSearchDock.tsx",
@@ -186,9 +191,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "frame-the-question",
         title: "把需求写成可执行的问题",
-        markdown: `当你知道要解决什么问题，却还没有稳定关键词时，可以使用智能搜索。进入文献搜索页并切换到“智能”，在下图所示输入框里写清研究对象、方法或现象、时间范围，以及希望得到的结果类型和数量。例如：“找近三年关于扩散模型医学影像重建的综述，并列出常用评价指标”。
+        markdown: `当你知道要解决什么问题，却还没有稳定关键词时，可以使用“智能搜论文”。从学术搜索 Hub 进入 \`/search?mode=smart\`，在下图所示输入框里写清研究对象、方法或现象、时间范围，以及希望得到的结果类型和数量。例如：“找近三年关于扩散模型医学影像重建的综述，并列出常用评价指标”。
 
-避免只写“帮我找点论文”。约束越明确，系统越容易判断应该先宽搜、拆分概念还是沿引用关系扩展；若条件之间可能冲突，智能搜索也可能先提出澄清问题。`,
+避免只写“帮我找点论文”。约束越明确，系统越容易判断应该先宽搜、拆分概念还是沿引用关系扩展；若条件之间可能冲突，智能搜论文也可能先提出澄清问题。`,
         embeds: [{ id: "smart-search-dock" }],
         blocks: [
           { type: "markdown" },
@@ -233,7 +238,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "start-a-session",
         title: "开始并管理一次搜索会话",
-        markdown: `在空白页发出第一条消息后，系统才会创建并保存这次搜索会话。下图展示的是已经得到回答和论文结果的状态。折叠的“思考过程”只用于查看当前轮过程摘要；论文组可逐篇选择或一键暂存。底部数字是历史会话数量，“新对话”会开启一个不继承旧上下文的新任务。
+        markdown: `在空白页发出第一条消息后，系统才会创建并保存这次搜索会话。下图展示的是已经得到回答和论文结果的状态。折叠的“思考过程”只用于查看当前轮过程摘要；论文组可逐篇选择或一键暂存。空态下方的会话 dock 和 AppSidebar 下半区都能切换历史任务；“新对话”会开启一个不继承旧上下文的新任务。
 
 回答会逐步返回。正在生成时不要重复发送同一个问题；需要中止时使用停止按钮，连接未就绪或消息未送达时按页面提示重试。
 
@@ -258,9 +263,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "guide-the-search",
         title: "用追问引导检索策略",
-        markdown: `智能搜索会把问题拆成概念块，尝试同义词、不同来源、引用与参考关系或相关论文。第一轮结果不理想时，每次只改一个条件：例如要求换成英文学术术语、放宽年份、限定研究对象、补找奠基论文，或只保留近年的后续工作。这样可以判断究竟是哪一个条件造成漏检。
+        markdown: `智能搜论文会把问题拆成概念块，尝试同义词、不同来源、引用与参考关系或相关论文。第一轮结果不理想时，每次只改一个条件：例如要求换成英文学术术语、放宽年份、限定研究对象、补找奠基论文，或只保留近年的后续工作。这样可以判断究竟是哪一个条件造成漏检。
 
-还可以通过下图中的“+”菜单上传文件，或打开个人文献集选择资料，让当前会话围绕已有材料继续找文献。图中冻结的是已经展开菜单、并已挂上一份 CSV 附件的状态。附件卡会显示文件名、格式和大小，右上角“×”会在发送前移除它；“引用文献集”把选中论文交给本轮任务，不等于上传其原始 PDF。引用只有元数据或摘要的论文时，系统并不等于读过全文；有 PDF 的引用与仅有摘要的引用应分别核对。`,
+还可以通过下图中的“+”菜单上传文件，或打开“我的资源 › 文献集”选择资料，让当前会话围绕已有材料继续找文献。图中冻结的是已经展开菜单、并已挂上一份 CSV 附件的状态。附件卡会显示文件名、格式和大小，右上角“×”会在发送前移除它；“引用文献集”把选中论文交给本轮任务，不等于上传其原始 PDF。引用只有元数据或摘要的论文时，系统并不等于读过全文；有 PDF 的引用与仅有摘要的引用应分别核对。`,
         embeds: [{ id: "composer-attachments" }],
         blocks: [
           { type: "markdown" },
@@ -318,7 +323,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
         title: "检查论文组并暂存候选",
         markdown: `检索工具返回的论文会组成一个结果组，如下图所示。标题中的“1 已暂存”是当前论文组的同步状态；“一键暂存 2 篇”只加入尚未暂存者，左侧勾选用于逐篇控制。你也可以展开论文卡查看元数据或打开论文详情。
 
-暂存、收藏、期刊指标和论文详情与传统搜索使用同一套论文数据，不需要手工复制题名到另一个页面。
+暂存、收藏、期刊指标和论文详情与论文库搜索使用同一套论文数据，不需要手工复制题名到另一个页面。
 
 智能回答是检索过程的组织结果，不是可以直接引用的证据。对准备写进论文的判断，应继续打开论文详情或全文，核对作者、年份、版本、数据和原句。`,
         embeds: [{ id: "smart-paper-group" }],
@@ -343,7 +348,14 @@ export const discoveryGuideArticles: WikiArticle[] = [
         title: "判断覆盖边界和停止时机",
         markdown: `较稳妥的停止信号是：已经用至少两组术语或来源检索，既有奠基工作也有近期进展，继续一轮只反复返回已经见过的论文。此时应整理和阅读，而不是为了数量无限扩展。
 
-当前智能搜索使用 Graph、Discovery 和 Medicine 等学术来源，不等于检索了知网、万方或维普。中文或本土主题覆盖不足时，应明确记录缺口，并到相应数据库补检；智能搜索不能把未查询的数据源说成已经覆盖。`,
+当前智能搜论文使用 Graph、Discovery 和 Medicine 等学术来源，不等于检索了知网、万方或维普。中文或本土主题覆盖不足时，应明确记录缺口，并到相应数据库补检；智能搜论文不能把未查询的数据源说成已经覆盖。`,
+      },
+      {
+        id: "bibliography-and-handoff",
+        title: "参考文献侧栏与交接卡",
+        markdown: `会话中工具返回的论文会去重汇总到“参考文献”侧栏；可以逐篇暂存，也可以把本组尚未暂存的论文批量加入暂存区。侧栏按工具调用分组时，分组标题表达这一轮查询，不是新的长期文献集。
+
+一轮检索结束后，页面会显示“检索到这里，深挖去智能助手”交接卡。卡片只负责打开智能助手，不会自动复制本轮检索条件、消息记录或附件。需要继续深挖时，先把确认过的论文暂存或保存到文献集，再在智能助手中明确引用或上传材料。`,
       },
     ],
   },
@@ -351,13 +363,16 @@ export const discoveryGuideArticles: WikiArticle[] = [
     slug: "pdf-chat-guide",
     title: "如何与 PDF 对话",
     summary:
-      "在 Scholay Claw 中上传 PDF，再围绕方法、结果、证据或写作结构连续提问；这与只负责翻页阅读的 PDF 阅读器不同。",
+      "从学术搜索或文献集右栏预览 PDF 并开始对话，也可在 Scholay Claw 上传附件后围绕原文连续提问。",
     category: "research-ai",
     kind: "page",
     status: "current",
     audience: ["登录用户", "研究者", "学生"],
     aliases: ["PDF Chat", "PDF 问答", "论文对话", "上传 PDF 提问"],
     sourcePaths: [
+      "frontend-user/src/features/search/components/workspace/PdfChatPanel.tsx",
+      "frontend-user/src/features/search/components/workspace/PdfMissingOverlay.tsx",
+      "frontend-user/src/stores/pdf-chat-bridge.store.ts",
       "frontend-user/src/features/claw/pages/ClawPage.tsx",
       "frontend-user/src/features/claw/components/chat/ChatComposer.tsx",
       "frontend-user/src/shared/hooks/useComposerAttachments.ts",
@@ -369,12 +384,16 @@ export const discoveryGuideArticles: WikiArticle[] = [
       "claw-attachments-and-references",
       "pdf-reader",
       "literature-library",
+      "academic-search",
+      "matrix-analysis",
     ],
     sections: [
       {
         id: "open-claw",
-        title: "从智能助手进入，而不是从阅读器进入",
-        markdown: `现行 PDF 问答入口是 Scholay Claw。登录后打开智能助手并开始新对话，再通过输入框的附件入口上传 PDF。仅仅在个人文献集或 PDF 阅读器中把文件打开，并不会自动把该文件加入 Claw 的当前会话。
+        title: "从右侧工作区或智能助手进入",
+        markdown: `PDF Chat 是学术搜索和文献集右栏三件套之一。先在文件区勾选论文，右栏会预览可读 PDF；缺少全文时可以重试开放获取来源或上传文件。点击“开始 PDF 对话”后，系统会切到智能搜论文会话；已有对应会话时可继续。
+
+也可以在 Scholay Claw 中上传 PDF 附件，再围绕文件继续提问。仅仅在文献集或 PDF 阅读器中把文件打开，并不会自动把该文件加入 Claw 的当前会话。
 
 如果准备比较多篇论文，建议先确定这次对话的任务范围，再上传真正需要的文件；不同课题使用不同会话，后续回看时更容易判断每个回答使用了哪些附件。`,
         blocks: [
@@ -385,7 +404,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
               articleSlug: "claw-interface-guide",
               sectionId: "composer",
               title: "找到智能助手的附件与上下文入口",
-              description: "认识输入框中的附件、个人文献集、Skill 与模型选择。",
+              description: "认识输入框中的附件、文献集、Skill 与模型选择。",
               icon: "sparkles",
             },
           },
@@ -460,14 +479,14 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "reader-vs-chat",
         title: "PDF 阅读器与 PDF 对话的区别",
-        markdown: `| 能力 | PDF 阅读器 | Claw 中的 PDF 对话 |
+        markdown: `| 能力 | PDF 阅读器 | PDF Chat / 智能搜论文 |
 | --- | --- | --- |
 | 主要用途 | 翻页、缩放和直接阅读 | 围绕上传文件连续提问 |
-| 文件入口 | 个人文献集中的 PDF 鉴权流 | Claw 输入框附件上传 |
-| 上下文 | 当前可视文件 | 当前 Claw 会话及其附件 |
+| 文件入口 | 文献集中的 PDF 鉴权流 | 学术搜索/文献集右栏，或 Claw 输入框附件上传 |
+| 上下文 | 当前可视文件 | 已勾选论文及 PDF，或当前 Claw 会话附件 |
 | 产出 | 原始页面 | AI 回答、整理或后续任务 |
 
-两者可以配合：在阅读器中核对页码、图表和公式，在 Claw 中组织问题和比较结果。但二者没有“打开阅读器即自动传给助手”的隐式同步。下图展示 PDF 已可阅读、但尚未建立对话的过渡状态。点击“开始 PDF 对话”后，系统会切到智能助手并为当前 PDF 建立新会话；图中尚未出现问答区。`,
+两者可以配合：在阅读器中核对页码、图表和公式，在智能搜论文会话中组织问题和比较结果。但二者没有“打开阅读器即自动建立对话”的隐式同步。下图展示 PDF 已可阅读、但尚未建立对话的过渡状态。点击“开始 PDF 对话”后，系统会切到智能搜论文并为当前 PDF 建立或继续会话；图中尚未出现问答区。如果要在 Scholay Claw 中处理同一文件，需要另行把 PDF 作为当前 Claw 会话的附件上传。`,
         embeds: [{ id: "pdf-chat-workspace" }],
         blocks: [
           { type: "markdown" },
@@ -542,7 +561,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
                 {
                   articleSlug: "literature-library",
                   title: "保存原文与论文记录",
-                  description: "把确认使用的论文和可用全文归入个人文献集。",
+                  description: "把确认使用的论文和可用全文归入文献集。",
                   icon: "resource",
                 },
                 {
@@ -568,21 +587,22 @@ export const discoveryGuideArticles: WikiArticle[] = [
   },
   {
     slug: "search-entry-comparison",
-    title: "智能助手 vs 智能搜索",
+    title: "智能助手 vs 智能搜论文",
     summary:
-      "两个都是对话，但智能搜索用来找论文，智能助手用来拿已有材料继续做事。",
+      "两个都是对话，但智能搜论文用来发现和组织论文，智能助手用来拿已有材料继续完成研究任务。",
     category: "research-ai",
     kind: "page",
     status: "current",
     audience: ["所有研究者", "学生", "初次使用者"],
     aliases: [
-      "智能助手和智能搜索区别",
-      "智能助手与智能搜索的区别",
-      "从智能搜索的角度查看区别",
+      "智能助手和智能搜论文区别",
+      "智能助手与智能搜论文的区别",
+      "旧版智能助手与智能搜索区别",
       "搜索入口区别",
     ],
     sourcePaths: [
       "frontend-user/src/features/search/components/smart-search/SmartSearchPanel.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchClawHandoff.tsx",
       "frontend-user/src/features/claw/pages/ClawPage.tsx",
       "frontend-user/src/features/claw/lib/feature-meta.ts",
       "frontend-user/src/features/wiki/embeds/WikiEmbedSmartSearchDock.tsx",
@@ -599,20 +619,20 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "difference",
         title: "先看差别",
-        markdown: `智能搜索在文献搜索页里，用对话帮你拆问题、找论文、解释来源。它的结果仍然是论文和检索过程，不是写好的文稿或分析报告。
+        markdown: `智能搜论文在学术搜索页里，用对话帮你拆问题、找论文、解释来源。它的结果仍然是论文和检索过程，不是写好的文稿或分析报告。
 
 智能助手是单独的工作台。适合已经有 PDF、表格或一组文献之后，继续阅读、比较、写作、绘图，或把几步研究任务串起来。
 
-一句话：还在找论文，用智能搜索；已经有材料要做事，用智能助手。`,
+一句话：还在找论文，用智能搜论文；已经有材料要做事，用智能助手。`,
         embeds: [
-          { id: "smart-search-dock", caption: "智能搜索 · 输入栏" },
+          { id: "smart-search-dock", caption: "智能搜论文 · 输入栏" },
           { id: "claw-empty-state", caption: "智能助手 · 新对话" },
         ],
         blocks: [
           {
             type: "markdown",
             markdown:
-              "智能搜索在文献搜索页里，用对话帮你拆问题、找论文、解释来源。它的结果仍然是论文和检索过程，不是写好的文稿或分析报告。",
+              "智能搜论文在学术搜索页里，用对话帮你拆问题、找论文、解释来源。它的结果仍然是论文和检索过程，不是写好的文稿或分析报告。",
           },
           { type: "embeds", ids: ["smart-search-dock"] },
           {
@@ -624,23 +644,23 @@ export const discoveryGuideArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "一句话：还在找论文，用智能搜索；已经有材料要做事，用智能助手。",
+              "一句话：还在找论文，用智能搜论文；已经有材料要做事，用智能助手。",
           },
         ],
       },
       {
         id: "choose-smart-search",
-        title: "什么时候用智能搜索",
-        markdown: `同一概念有多种叫法、课题横跨几个领域、需要从一篇种子论文往外扩，或你只会描述研究问题、写不出检索式时，用智能搜索。
+        title: "什么时候用智能搜论文",
+        markdown: `同一概念有多种叫法、课题横跨几个领域、需要从一篇种子论文往外扩，或你只会描述研究问题、写不出检索式时，用智能搜论文。
 
 它可以在会话里换术语、换来源，并把这一轮找到的论文组织起来。核心产物仍是“找到并解释论文”。下一步如果是比较全文、处理数据或写成文档，把确认过的材料交给智能助手，而不要无限延长搜索会话。`,
       },
       {
         id: "choose-assistant",
         title: "什么时候用智能助手",
-        markdown: `已经有 PDF、表格、一组收藏，或要把阅读、整理、绘图、数据分析连在一起做时，用智能助手。它可以使用已安装的 Skill，也可以引用个人文献集，但主界面不是带筛选器和翻页的论文结果页。
+        markdown: `已经有 PDF、表格、一组收藏，或要把阅读、整理、绘图、数据分析连在一起做时，用智能助手。它可以使用已安装的 Skill，也可以引用“我的资源 › 文献集”，但主界面不是带筛选器和翻页的论文结果页。
 
-如果只是想得到一批满足明确条件的论文，先去文献搜索。`,
+如果只是想得到一批满足明确条件的论文，先去学术搜索。`,
         blocks: [
           { type: "markdown" },
           {
@@ -649,8 +669,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
               articleSlug: "claw-interface-guide",
               sectionId: "entry-and-modes",
               title: "智能助手界面导览",
-              description:
-                "查看新对话、任务模板、输入区和交付物工作区。",
+              description: "查看新对话、任务模板、输入区和交付物工作区。",
               icon: "sparkles",
             },
           },
@@ -659,16 +678,18 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "handoff",
         title: "找完论文之后",
-        markdown: `确认过的论文可以加入暂存区或个人文献集，再在智能助手里引用或上传 PDF。两边不会自动共享检索条件或对话记录，交接时以论文详情、文献集、暂存区或你明确上传的文件为准。`,
+        markdown: `一轮结果结束后，“检索到这里，深挖去智能助手”交接卡会直接打开智能助手。确认过的论文可以先加入暂存区或文献集，再在智能助手里引用或上传 PDF。
+
+交接卡只提供明确入口：两边仍不会自动共享检索条件、对话记录和附件。交接时以论文详情、文献集、暂存区或你明确上传的文件为准。`,
         blocks: [
           { type: "markdown" },
           {
             type: "article-link",
             card: {
               articleSlug: "classic-vs-smart-search",
-              title: "传统搜索 vs 智能搜索",
+              title: "论文库搜索 vs 智能搜论文",
               description:
-                "如果还在文献搜索页里犹豫用关键词还是用对话，先看这一篇。",
+                "如果还在学术搜索页里犹豫用关键词还是用对话，先看这一篇。",
               icon: "compass",
             },
           },
@@ -678,17 +699,18 @@ export const discoveryGuideArticles: WikiArticle[] = [
   },
   {
     slug: "classic-vs-smart-search",
-    title: "传统搜索 vs 智能搜索",
+    title: "论文库搜索 vs 智能搜论文",
     summary:
-      "已经有题名、作者或稳定关键词时用传统搜索；还在找说法、需要系统帮你拆问题时用智能搜索。",
+      "已经有题名、作者或稳定关键词时用论文库搜索；还在找说法、需要系统帮你拆问题时用智能搜论文。",
     category: "discovery",
     kind: "page",
     status: "current",
     audience: ["所有研究者", "学生", "初次使用者"],
-    aliases: ["传统搜索和智能搜索", "传统搜索与智能搜索的区别"],
+    aliases: ["关键词搜索和 AI 找论文", "旧版传统搜索与智能搜索区别"],
     sourcePaths: [
       "frontend-user/src/features/search/components/SearcherColumn.tsx",
       "frontend-user/src/features/search/components/smart-search/SmartSearchPanel.tsx",
+      "frontend-user/src/features/search/search-mode.ts",
       "frontend-user/src/shared/components/SearchAutocomplete.tsx",
       "frontend-user/src/features/landing/pages/SearchLandingPage.tsx",
       "frontend-user/src/features/wiki/embeds/WikiEmbedSearchAutocomplete.tsx",
@@ -705,26 +727,26 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "difference",
         title: "先看差别",
-        markdown: `传统搜索直接执行你写下的关键词和筛选条件。输入题名、作者、期刊或主题词后提交，就会得到可以筛选、可以翻页的论文列表。
+        markdown: `论文库搜索直接执行你写下的关键词和筛选条件。输入题名、作者、期刊或主题词后提交，就会得到可以筛选、可以翻页的论文列表。
 
 输入时还会出现联想结果，方便按已经出现过的题名、作者或期刊快速定位。
 
-智能搜索先在会话里理解问题，再去检索。适合关键词还不稳、需要系统帮你拆问题的时候。
+智能搜论文先在会话里理解问题，再去检索。适合关键词还不稳、需要系统帮你拆问题的时候。
 
-一句话：明确“搜什么”用传统搜索，需要系统“帮你找”用智能搜索。`,
+一句话：明确“搜什么”用论文库搜索，需要系统“帮你找”用智能搜论文。`,
         embeds: [
-          { id: "search-autocomplete", caption: "传统搜索" },
+          { id: "search-autocomplete", caption: "论文库搜索" },
           {
             id: "search-suggestions-dropdown",
-            caption: "传统搜索建议下拉",
+            caption: "论文库搜索建议下拉",
           },
-          { id: "claw-hero-smart-entry", caption: "智能搜索空态" },
+          { id: "claw-hero-smart-entry", caption: "智能搜论文空态" },
         ],
         blocks: [
           {
             type: "markdown",
             markdown:
-              "传统搜索直接执行你写下的关键词和筛选条件。输入题名、作者、期刊或主题词后提交，就会得到可以筛选、可以翻页的论文列表。",
+              "论文库搜索直接执行你写下的关键词和筛选条件。输入题名、作者、期刊或主题词后提交，就会得到可以筛选、可以翻页的论文列表。",
           },
           { type: "embeds", ids: ["search-autocomplete"] },
           {
@@ -736,29 +758,29 @@ export const discoveryGuideArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "智能搜索先在会话里理解问题，再去检索。适合关键词还不稳、需要系统帮你拆问题的时候。\n\n一句话：明确“搜什么”用传统搜索，需要系统“帮你找”用智能搜索。",
+              "智能搜论文先在会话里理解问题，再去检索。适合关键词还不稳、需要系统帮你拆问题的时候。\n\n一句话：明确“搜什么”用论文库搜索，需要系统“帮你找”用智能搜论文。",
           },
           { type: "embeds", ids: ["claw-hero-smart-entry"] },
         ],
       },
       {
         id: "choose-classic-search",
-        title: "什么时候用传统搜索",
-        markdown: `已经有论文题名、作者、稳定主题词、年份、期刊范围或文献类型时，用传统搜索。查询、来源、筛选、排序和页码都摊在页面上，适合改一个条件再查一次，也适合快速拉一份候选清单。
+        title: "什么时候用论文库搜索",
+        markdown: `已经有论文题名、作者、稳定主题词、年份、期刊范围或文献类型时，用论文库搜索。查询、来源、筛选、排序和页码都摊在页面上，适合改一个条件再查一次，也适合快速拉一份候选清单。
 
 例如“查 2022 年以后某主题的综述”“只看某期刊或某来源”，不必先让 AI 解释检索计划。`,
       },
       {
         id: "choose-smart-search",
-        title: "什么时候用智能搜索",
-        markdown: `同一概念有多种叫法、课题跨几个领域、需要从种子论文往外扩，或你只会描述研究问题、写不出检索式时，用智能搜索。
+        title: "什么时候用智能搜论文",
+        markdown: `同一概念有多种叫法、课题跨几个领域、需要从种子论文往外扩，或你只会描述研究问题、写不出检索式时，用智能搜论文。
 
 它会在会话里拆概念、换术语、调用学术工具，并把论文按轮次放在一起。结果仍要打开详情或全文核对。`,
       },
       {
         id: "handoff",
         title: "两种搜索可以一起用",
-        markdown: `可以先用传统搜索拿到一批可控结果，遇到同义词或覆盖不够时再切到智能搜索扩展。确认过的论文加入暂存区或个人文献集。
+        markdown: `可以先用论文库搜索拿到一批可控结果，遇到同义词或覆盖不够时再切到智能搜论文扩展。确认过的论文加入暂存区或“我的资源 › 文献集”。
 
 两个入口各自记住自己的状态，不会自动共享检索条件或对话。下一步如果是读全文、写作或处理文件，再看智能助手。`,
         blocks: [
@@ -767,9 +789,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
             type: "article-link",
             card: {
               articleSlug: "search-entry-comparison",
-              title: "智能助手 vs 智能搜索",
+              title: "智能助手 vs 智能搜论文",
               description:
-                "找论文用智能搜索；已经有材料要继续做事，用智能助手。",
+                "找论文用智能搜论文；已经有材料要继续做事，用智能助手。",
               icon: "sparkles",
             },
           },
@@ -779,54 +801,56 @@ export const discoveryGuideArticles: WikiArticle[] = [
   },
   {
     slug: "literature-graph-status",
-    title: "文献图谱：当前状态与使用边界",
+    title: "文献图谱：产品演示与使用边界",
     summary:
-      "当前已有引用计数、参考文献列表和逐条论文跳转，但尚未提供独立的节点—连线式文献图谱页面。",
+      "学术搜索和文献集右侧已经提供节点—连线式图谱演示，但关系数据与分析能力尚未由后端交付。",
     category: "discovery",
     kind: "feature",
-    status: "planned",
+    status: "experimental",
     audience: ["研究者", "产品用户", "支持人员"],
     aliases: ["文献关系图", "引用图谱", "知识图谱", "Citation graph"],
     sourcePaths: [
+      "frontend-user/src/features/search/components/workspace/CitationGraphPanel.tsx",
+      "frontend-user/src/features/search/components/workspace/CitationGraphMock.tsx",
+      "frontend-user/src/features/search/components/workspace/RightPanelFeatureHub.tsx",
+      "frontend-user/src/stores/search-right-panel.store.ts",
       "frontend-user/src/features/browser/components/paper-detail/PaperMetadataBlock.tsx",
       "frontend-user/src/features/browser/components/paper-detail/PaperReferences.tsx",
-      "frontend-user/src/shared/api/paper-detail.ts",
-      "frontend-user/src/features/browser/routes.tsx",
-      "frontend-user/src/shared/lib/search-filters.ts",
     ],
     related: [
       "paper",
       "academic-search",
       "smart-search",
+      "literature-library",
       "authors-and-journals",
     ],
     sections: [
       {
         id: "current-status",
-        title: "当前没有独立文献图谱",
-        markdown: `现行前端没有文献图谱专用路由、画布或节点—边交互组件，因此不能把“查看引用量和参考文献”描述为已经上线的可视化文献图谱。本词条标记为“计划”，用于说明边界，不代表已经提供可操作入口。
+        title: "产品演示阶段",
+        markdown: `该能力处于产品演示阶段。学术搜索与“我的资源 › 文献集”右侧都可以打开“文献图谱”，并在勾选论文后看到节点、连线、作者数和关联数；但画布由 \`CitationGraphMock\` 根据当前论文卡即时排布，仓库没有对应的图谱后端、真实引文边查询或持久化分析结果。
 
-传统搜索中的数据源名称“Graph”也只是来源品牌名称，不等于文献图谱功能。选择 Graph 会改变检索来源，不会打开关系网络。`,
+论文库搜索中的数据源名称“Graph”只是来源品牌名称，不等于这项可视化功能。选择数据源会改变检索来源，打开右栏“文献图谱”才会进入当前演示面。`,
       },
       {
         id: "available-now",
-        title: "现在可以使用的关系信息",
-        markdown: `论文详情可以显示被引用数量和参考文献数量，并按需加载参考文献列表。列表中的条目如果有站内论文标识，可以继续打开对应论文详情；只有外部 URL 时则跳到外部页面。参考文献较多时，界面分批显示，避免一次挂载全部条目。
+        title: "当前可以操作什么",
+        markdown: `图谱以工作区里已经暂存或已经进入文献集、并且当前勾选的论文作为输入。顶部可以切换“引文链、共引簇、合作者、时间轴”外观筛选；画布显示核心论文、关联论文与合作作者的示意节点。没有论文或没有勾选时会显示明确空态。
 
-这套能力适合从一篇种子论文逐条向后追溯，但它仍是列表导航，不提供全局网络布局、聚类、路径分析或图谱导出。`,
+论文详情仍可显示真实记录中已有的被引用数量和参考文献列表，并逐条打开论文。这些列表信息与右栏图谱演示是两种不同能力：前者来自论文详情数据，后者目前不计算真实全局网络。`,
       },
       {
         id: "missing-capabilities",
-        title: "尚未提供的图谱能力",
-        markdown: `下面的图是设计预览，用来说明未来的文献图谱可能怎样呈现节点、连线和聚类；它不是当前可操作页面。现阶段，Scholay 不能把多篇论文自动绘制成关系网络，也不能在画布中按作者、年份、主题或共同引用聚类；图谱缩放、路径追踪和网络数据导出同样尚未开放。
+        title: "不能从演示图推断什么",
+        markdown: `下图说明当前节点—连线界面的产品形态，不证明节点之间存在真实引文、共引或合作关系。当前的作者数和关联数也是根据已选论文前端计算的展示值。图谱缩放、真实路径追踪、聚类计算、关系证据定位、网络导出和结果持久化尚未交付。
 
-论文详情中的引用计数只是元数据字段，不能据此认为你已经查看了完整的被引网络。`,
+因此不能把画布截图当作文献计量分析结果，也不能只凭连线声称论文之间存在引用关系。正式分析仍需回到论文参考文献、被引记录或可信的文献计量数据源核对。`,
         embeds: [{ id: "citation-graph-preview" }],
       },
       {
         id: "workaround",
-        title: "上线前如何做引用扩展",
-        markdown: `可以先打开高相关论文的参考文献列表寻找奠基工作，再在智能搜索中要求沿“参考文献、被引工作、相关论文”分别扩展，并把确认过的论文加入暂存区。这样能完成检索层面的滚雪球，但结果仍应按清单核对，不能声称已经做过图谱聚类或网络分析。`,
+        title: "怎样做可核对的引用扩展",
+        markdown: `可以先打开高相关论文的参考文献列表寻找奠基工作，再在智能搜论文中要求沿“参考文献、被引工作、相关论文”分别扩展，并把确认过的论文加入暂存区。这样能完成检索层面的滚雪球，但结果仍应按清单核对，不能把当前演示图声称为真实图谱聚类或网络分析。`,
         blocks: [
           { type: "markdown" },
           {
@@ -915,6 +939,8 @@ export const discoveryGuideArticles: WikiArticle[] = [
     audience: ["投稿作者", "研究生", "研究者"],
     aliases: ["选刊策略", "期刊怎么选", "投稿期刊筛选"],
     sourcePaths: [
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
+      "frontend-user/src/features/journals/routes.tsx",
       "frontend-user/src/features/journals/pages/JournalSearchPage.tsx",
       "frontend-user/src/features/journals/components/JournalSearchResults.tsx",
       "frontend-user/src/features/journals/hooks/useJournalUrlFilters.ts",
@@ -930,6 +956,11 @@ export const discoveryGuideArticles: WikiArticle[] = [
     ],
     sections: [
       {
+        id: "entry-status",
+        title: "先确认选刊入口状态",
+        markdown: `AppSidebar 已显示“scholay 选刊”，但带“敬请期待”标记，点击不会进入工作区；\`/journals/select\` 和 \`/journals/evaluate\` 当前也只会跳回学术搜索。下面的短名单方法使用已经开放的期刊库搜索和期刊详情，不代表自动选刊功能已经交付。`,
+      },
+      {
         id: "define-constraints",
         title: "先写下不可妥协的条件",
         markdown: `在搜索前列出稿件主题、文章类型、目标读者、可接受的 OA 或费用政策、机构认定要求，以及必须避开的预警或不合规情形。分区和影响因子只是一部分约束；如果期刊范围与稿件不匹配，指标再高也不是合适目标。
@@ -938,8 +969,8 @@ Scholay 当前没有完整的期刊 aims & scope 文本，也不会替你判断�
       },
       {
         id: "build-shortlist",
-        title: "在期刊搜索中建立短名单",
-        markdown: `进入期刊搜索页，可按刊名、ISSN 或机构关键词搜索；无关键词时页面也会返回默认列表。图中筛选面板尚未展开；右上角“筛选”徽标的数字表示当前已生效条件数。打开后才可组合中科院分区、JCR 分区、最低影响因子档位、CCF 等级和出版商，结果可按相关度、影响因子或近期发文信号排序。
+        title: "在期刊库搜索中建立短名单",
+        markdown: `从学术搜索进入期刊库搜索页，可按刊名、ISSN 或机构关键词搜索；无关键词时页面也会返回默认列表。图中筛选面板尚未展开；右上角“筛选”徽标的数字表示当前已生效条件数。打开后才可组合中科院分区、JCR 分区、最低影响因子档位、CCF 等级和出版商，结果可按相关度、影响因子或近期发文信号排序。
 
 一次只加一到两个硬条件，先保留 5–10 本候选刊。筛选状态写在 URL 中，打开期刊详情后返回仍能继续原来的比较。不要一开始同时锁死分区、出版商和高 IF，以免把主题更匹配的期刊全部排除。`,
         embeds: [{ id: "journal-search" }],
@@ -971,11 +1002,11 @@ Scholay 不能保证录用、审稿速度、费用或编辑部决定。最终投
     slug: "journal-update-cycle",
     title: "Scholay 期刊数据多久更新一次",
     summary:
-      "期刊搜索与详情读取上游数据，浏览器缓存、上游构建、SEO 摄取和公开发布各有独立节奏，因此没有统一的固定更新 SLA。",
+      "期刊库搜索与详情读取上游数据，浏览器缓存、上游构建、SEO 摄取和公开发布各有独立节奏，因此没有统一的固定更新 SLA。",
     category: "discovery",
     kind: "rule",
     status: "current",
-    audience: ["期刊搜索用户", "投稿作者", "支持人员"],
+    audience: ["期刊库搜索用户", "投稿作者", "支持人员"],
     aliases: ["期刊更新周期", "期刊数据刷新", "期刊指标多久更新"],
     sourcePaths: [
       "frontend-user/src/features/journals/api/journals.ts",
@@ -1001,7 +1032,7 @@ Scholay 不能保证录用、审稿速度、费用或编辑部决定。最终投
       {
         id: "interactive-query-path",
         title: "搜索与详情的数据路径",
-        markdown: `期刊搜索、列表和详情通过后端调用上游期刊接口。浏览器为减少重复请求，会把搜索结果视为约 1 分钟内可复用的数据，把期刊统计和详情视为约 10 分钟内可复用的数据；超过这个时间只表示下次访问可以重新请求，不表示上游一定产生了新版本。
+        markdown: `期刊库搜索、列表和详情通过后端调用上游期刊接口。浏览器为减少重复请求，会把搜索结果视为约 1 分钟内可复用的数据，把期刊统计和详情视为约 10 分钟内可复用的数据；超过这个时间只表示下次访问可以重新请求，不表示上游一定产生了新版本。
 
 刷新页面也只能重新取得服务端当时可提供的数据，不能强制 JCR、中科院或其他来源立刻更新。`,
       },
@@ -1020,7 +1051,7 @@ Scholay 不能保证录用、审稿速度、费用或编辑部决定。最终投
       {
         id: "freshness-boundary",
         title: "如何理解页面之间的时间差",
-        markdown: `交互式期刊搜索可能已经读取到上游的新值，而 SEO 聚合页仍等待本地同步或发布；反过来，浏览器缓存也可能让刚打开过的详情短时间保留旧快照。这些时间差来自不同数据链路，并不自动表示某一页出错。
+        markdown: `交互式期刊库搜索可能已经读取到上游的新值，而 SEO 聚合页仍等待本地同步或发布；反过来，浏览器缓存也可能让刚打开过的详情短时间保留旧快照。这些时间差来自不同数据链路，并不自动表示某一页出错。
 
 遇到差异时，先比较指标年份、数据来源、期刊 ISSN 和上游构建时间；对投稿有实质影响的信息，以期刊官网和相应官方评价来源为最终依据。`,
       },

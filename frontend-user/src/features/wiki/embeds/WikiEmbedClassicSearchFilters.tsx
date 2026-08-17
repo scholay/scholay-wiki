@@ -5,7 +5,7 @@ const SOURCES = ["综合", "Graph", "Discovery", "Medicine"] as const;
 const TIME_OPTIONS = ["不限", "近 1 年", "近 3 年", "近 5 年"] as const;
 
 /**
- * 传统搜索筛选面板 · 纯样式 fixture。
+ * 论文库搜索筛选面板 · 纯样式 fixture。
  * 对齐 product-mock SearchFiltersPanel(popover 展开态)。
  */
 export function WikiEmbedClassicSearchFilters() {

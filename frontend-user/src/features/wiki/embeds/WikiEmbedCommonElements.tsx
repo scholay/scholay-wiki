@@ -2,15 +2,16 @@ import {
   ArrowLeft,
   BookOpen,
   Bookmark,
-  Bot,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clock,
   Coins,
+  Compass,
   Database,
   Download,
   FileText,
+  FileCheck,
   FolderArchive,
   Gift,
   Globe,
@@ -21,22 +22,28 @@ import {
   Menu,
   MoreVertical,
   Pencil,
+  PenTool,
   Plus,
   RefreshCw,
   Search,
   Sparkles,
   Trash2,
   UserRound,
+  UserPlus,
   X,
 } from "lucide-react";
 import { BrandLogo } from "@/shared/components/BrandLogo";
+import { RhinoBrandIcon } from "@/shared/components/RhinoBrandIcon";
 
 const NAV_ITEMS = [
-  { label: "首页", icon: Home },
-  { label: "浏览器", icon: Globe },
-  { label: "文献搜索", icon: Search },
-  { label: "期刊搜索", icon: BookOpen },
-  { label: "智能助手", icon: Bot },
+  { label: "首页", icon: Home, group: "" },
+  { label: "浏览器", icon: Globe, group: "" },
+  { label: "学术搜索", icon: Search, group: "检索" },
+  { label: "智能助手", icon: RhinoBrandIcon, group: "智能" },
+  { label: "智能写作", icon: PenTool, group: "智能" },
+  { label: "智能审稿", icon: FileCheck, group: "智能" },
+  { label: "我的资源", icon: Database, group: "资源" },
+  { label: "scholay广场", icon: Compass, group: "资源" },
 ] as const;
 
 const BROWSER_TABS = [
@@ -73,22 +80,34 @@ export function WikiEmbedCommonNavigationTabs() {
         </header>
         <div className="p-2">
           <p className="px-2 py-2 text-12 font-medium text-faint">导航菜单</p>
-          {NAV_ITEMS.map(({ label, icon: Icon }, index) => (
-            <div
-              key={label}
-              className={
-                index === 1
-                  ? "flex h-9 items-center gap-2 rounded-8 bg-surface-2 px-3 text-12 font-medium text-foreground"
-                  : "flex h-9 items-center gap-2 rounded-8 px-3 text-12 text-subtle"
-              }
-            >
-              <Icon className="size-4 shrink-0 text-faint" />
-              <span>{label}</span>
-            </div>
-          ))}
+          {NAV_ITEMS.map(({ label, icon: Icon, group }, index) => {
+            const previousGroup = index > 0 ? NAV_ITEMS[index - 1].group : "";
+            return (
+              <div key={label}>
+                {group && group !== previousGroup ? (
+                  <p className="mb-1 mt-2 px-3 text-12 font-medium text-faint">
+                    {group}
+                  </p>
+                ) : null}
+                <div
+                  className={
+                    index === 1
+                      ? "flex h-9 items-center gap-2 rounded-8 bg-surface-2 px-3 text-12 font-medium text-foreground"
+                      : "flex h-9 items-center gap-2 rounded-8 px-3 text-12 text-subtle"
+                  }
+                >
+                  <Icon className="size-4 shrink-0 text-faint" />
+                  <span>{label}</span>
+                </div>
+              </div>
+            );
+          })}
           <div className="my-1 h-px bg-border-soft" />
           <div className="flex h-9 items-center gap-2 rounded-8 px-3 text-12 text-brand-red">
             <Gift className="size-4" /> 限时领取会员
+          </div>
+          <div className="flex h-9 items-center gap-2 rounded-8 px-3 text-12 text-brand-red">
+            <UserPlus className="size-4" /> 邀请有礼
           </div>
           <div className="flex h-9 items-center gap-2 rounded-8 px-3 text-12 text-subtle">
             <Headphones className="size-4 text-faint" /> 反馈与建议

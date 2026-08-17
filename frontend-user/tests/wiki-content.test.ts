@@ -13,7 +13,11 @@ import {
 } from "../src/features/wiki/content";
 import { discoveryArticles } from "../src/features/wiki/content/discovery";
 import { WIKI_EMBED_REGISTRY } from "../src/features/wiki/embeds/registry";
-import { WIKI_MOCK_SURFACE_BASELINE } from "../src/features/wiki/coverage";
+import {
+  WIKI_AUDIT_BASELINE,
+  WIKI_MOCK_SURFACE_BASELINE,
+} from "../src/features/wiki/coverage";
+import { scanWikiBaseline } from "../scripts/wiki-baseline-lib";
 import {
   ADMIN_MOCK_SURFACE_COVERAGE,
   MOBILE_MOCK_SURFACE_COVERAGE,
@@ -425,9 +429,10 @@ describe("Scholay Wiki 内容契约", () => {
     );
     expect(section).toBeDefined();
     const text = wikiSectionPlainText(section!);
-    expect(text).toContain("论文检索");
+    expect(text).toContain("学术搜索");
     expect(text).toContain("智能助手");
-    expect(text).toContain("会员体系");
+    expect(text).toContain("我的资源");
+    expect(text).toContain("scholay广场");
   });
 
   it("每个 Wiki 演示都已登记并至少挂载到一个词条", () => {
@@ -435,7 +440,9 @@ describe("Scholay Wiki 内容契约", () => {
     const registered = Object.keys(WIKI_EMBED_REGISTRY) as WikiEmbedId[];
     const used = new Set(refs.map((ref) => ref.id));
 
-    expect(registered).toHaveLength(229);
+    expect(registered).toHaveLength(
+      WIKI_MOCK_SURFACE_BASELINE.registeredFixtures,
+    );
     expect(new Set(registered).size).toBe(registered.length);
     for (const ref of refs) {
       expect(WIKI_EMBED_REGISTRY[ref.id], ref.id).toBeDefined();
@@ -454,6 +461,7 @@ describe("Scholay Wiki 内容契约", () => {
     expect(article?.category).toBe("getting-started");
     expect(article?.sections.map((section) => section.id)).toEqual([
       "navigation-and-tabs",
+      "theme-boundary",
       "reference-card",
       "workspaces",
       "agent-status",
@@ -620,7 +628,7 @@ describe("Scholay Wiki 内容契约", () => {
     }
   });
 
-  it("Claw 新对话只展示当前已经开放的三类模板", () => {
+  it("Claw 新对话展示五张模板，只有 PPT 与科研绘图已经开放", () => {
     const fixture = readFileSync(
       path.join(
         repoRoot,
@@ -628,12 +636,27 @@ describe("Scholay Wiki 内容契约", () => {
       ),
       "utf8",
     );
+    const product = readFileSync(
+      path.join(
+        repoRoot,
+        "frontend-user/src/features/claw/components/chat/TemplateCards.tsx",
+      ),
+      "utf8",
+    );
 
-    expect(fixture).toContain('title: "制作PPT"');
-    expect(fixture).toContain('title: "科研绘图"');
-    expect(fixture).toContain('title: "数据分析"');
-    expect(fixture).not.toContain('title: "智能选刊"');
-    expect(fixture).not.toContain('title: "PDF-Chat"');
+    for (const title of [
+      "制作PPT",
+      "科研绘图",
+      "scholay 选刊",
+      "矩阵分析",
+      "PDF-Chat",
+    ]) {
+      expect(fixture).toContain(`title: "${title}"`);
+      expect(product).toContain(`title: '${title}'`);
+    }
+    expect(product).toContain("feature: 'boltslides'");
+    expect(product).toContain("feature: 'sci_draw'");
+    expect(product.match(/comingSoon: true/g)).toHaveLength(3);
   });
 
   it("文件夹外观选择器在暂存区与个人文献集复用同一静态示意", () => {
@@ -697,7 +720,7 @@ describe("Scholay Wiki 内容契约", () => {
     );
     expect(rhinoFixture).not.toContain("ClawBrandIcon");
     expect(rhinoFixture).not.toContain("<svg");
-    expect(clawIcon).toContain("AI Claw 品牌图标(矢量龙虾)");
+    expect(clawIcon).toContain("RhinoBrandIcon as ClawBrandIcon");
 
     for (const id of [
       "rhino-assistant-entry",
@@ -925,16 +948,16 @@ describe("Scholay Wiki 内容契约", () => {
     ).toEqual(["administration", "platform"]);
   });
 
-  it("读者目录与 XMind 的 15 个主栏目一致，并追加“其他”", () => {
+  it("读者目录保留 15 个正式栏目并追加“其他”，产品入口使用现行命名", () => {
     expect(WIKI_NAV_CATEGORIES.map((item) => item.title)).toEqual([
       "全站概览",
       "常见场景",
       "智能助手",
-      "文献搜索",
-      "期刊搜索",
+      "学术搜索",
+      "期刊库搜索",
       "智能写作",
       "智能审稿",
-      "学术情报",
+      "scholay 情报",
       "我的资源",
       "使用限额",
       "会员订阅",
@@ -957,7 +980,9 @@ describe("Scholay Wiki 内容契约", () => {
         /^\/wiki\/[a-z0-9-]+/,
       );
     }
-    expect(firstNavHref(WIKI_NAV_CATEGORIES[0]!.children)).toBe("/wiki/scholay");
+    expect(firstNavHref(WIKI_NAV_CATEGORIES[0]!.children)).toBe(
+      "/wiki/scholay",
+    );
 
     const categoryPage = readFileSync(
       path.join(
@@ -1000,9 +1025,9 @@ describe("Scholay Wiki 内容契约", () => {
     }
   });
 
-  it("XMind 中未落地或无固定口径的节点保留但不冒充现行能力", () => {
+  it("未落地或只有产品演示的节点不冒充后端现行能力", () => {
     expect(WIKI_ARTICLE_BY_SLUG.get("literature-graph-status")?.status).toBe(
-      "planned",
+      "experimental",
     );
     expect(WIKI_ARTICLE_BY_SLUG.get("roadmap-status")?.status).toBe("planned");
     const guardedCorpus = [
@@ -1020,14 +1045,14 @@ describe("Scholay Wiki 内容契约", () => {
     expect(guardedCorpus).toContain("固定");
   });
 
-  it("覆盖全部 57 个后端一级业务模块", () => {
+  it("覆盖基线扫描出的全部后端一级业务模块", () => {
     const internalRoot = path.join(repoRoot, "backend/internal");
     const modules = readdirSync(internalRoot)
       .filter((name) => statSync(path.join(internalRoot, name)).isDirectory())
       .sort();
     const corpus = wikiCorpus();
 
-    expect(modules).toHaveLength(57);
+    expect(modules).toHaveLength(WIKI_AUDIT_BASELINE.backendModules);
     for (const module of modules) {
       expect(corpus, `backend/internal/${module}`).toContain(
         `backend/internal/${module}`,
@@ -1041,31 +1066,27 @@ describe("Scholay Wiki 内容契约", () => {
     ) as { pages: string[] };
     const corpus = wikiCorpus();
 
-    expect(appConfig.pages).toHaveLength(15);
+    const scan = scanWikiBaseline();
+    expect(appConfig.pages).toHaveLength(WIKI_AUDIT_BASELINE.miniProgramPages);
     for (const page of appConfig.pages) {
       expect(corpus, page).toContain(page.toLowerCase());
     }
 
-    for (const feature of [
-      "smart_search",
-      "claw",
-      "prism",
-      "peerreview",
-      "boltslides",
-      "sci_draw",
-      "stat_lab",
-    ]) {
+    expect(scan.agentFeatureNames).toHaveLength(
+      WIKI_AUDIT_BASELINE.agentFeatures,
+    );
+    for (const feature of scan.agentFeatureNames) {
       expect(corpus, feature).toContain(feature);
     }
   });
 
-  it("Agent 的 109 个技能名称全部可检索", () => {
+  it("Agent 基线扫描出的技能名称全部可检索", () => {
     const skillFiles = walkFiles(path.join(repoRoot, "agent-skills"))
       .filter((file) => path.basename(file) === "SKILL.md")
       .sort();
     const corpus = wikiCorpus();
 
-    expect(skillFiles).toHaveLength(109);
+    expect(skillFiles).toHaveLength(WIKI_AUDIT_BASELINE.agentSkills);
     for (const skillFile of skillFiles) {
       const skillName = path.basename(path.dirname(skillFile)).toLowerCase();
       expect(corpus, path.relative(repoRoot, skillFile)).toContain(skillName);
@@ -1083,8 +1104,8 @@ describe("Scholay Wiki 内容契约", () => {
       ),
     ) as unknown[];
 
-    expect(migrations).toHaveLength(128);
-    expect(tools).toHaveLength(201);
+    expect(migrations).toHaveLength(WIKI_AUDIT_BASELINE.migrations);
+    expect(tools).toHaveLength(WIKI_AUDIT_BASELINE.coldStartTools);
     expect(wikiCorpus()).toContain("chemcad52cracked");
   });
 
@@ -1123,8 +1144,9 @@ describe("Scholay Wiki 内容契约", () => {
     const citedSources = new Set(
       WIKI_ARTICLES.flatMap((article) => article.sourcePaths),
     );
-    // scholay-wiki: `/` index 改为 redirect('/wiki')，不再懒加载 HomePage。
-    expect(targets).toHaveLength(109);
+    // 路由总数由 generate-wiki-baseline.ts 独立扫描；本门禁只守“每个实际
+    // lazy page 都有 sourcePaths”，新增页面无需再手抄第二个数量。
+    expect(targets.size).toBeGreaterThan(0);
     for (const target of targets) {
       expect(citedSources.has(target), target).toBe(true);
     }
@@ -1278,14 +1300,15 @@ describe("Scholay Wiki 内容契约", () => {
     }
   });
 
-  it("本地存在 sibling mock 时，覆盖账本中的源文件全部可解析", () => {
+  it("覆盖账本中的源文件可在当前 mock2 合并树或历史 sibling mock 解析", () => {
     const mockRoot = path.resolve(repoRoot, "../scholar-product-mock");
-    if (!existsSync(mockRoot)) return;
 
     for (const entry of MOCK_SURFACE_COVERAGE) {
       for (const sourcePath of entry.mockSourcePaths) {
         expect(
-          existsSync(path.join(mockRoot, sourcePath)),
+          existsSync(path.join(repoRoot, sourcePath)) ||
+            (existsSync(mockRoot) &&
+              existsSync(path.join(mockRoot, sourcePath))),
           `${entry.key}: ${sourcePath}`,
         ).toBe(true);
       }

@@ -3,30 +3,46 @@ import type { WikiArticle } from "../types";
 export const discoveryArticles: WikiArticle[] = [
   {
     slug: "academic-search",
-    title: "论文检索",
+    title: "学术搜索",
     summary:
-      "以关键词、筛选条件和分页结果发现论文，并把候选资料送入后续研究工作流。",
+      "从一级 Hub 进入智能搜论文、论文库搜索、期刊库搜索、数据集搜索与 scholay 情报，并衔接右侧研究工作区。",
     category: "discovery",
     kind: "feature",
     status: "current",
     audience: ["研究者", "学生"],
-    aliases: ["普通搜索", "学术搜索", "Search"],
+    aliases: ["论文检索", "Search", "旧版文献搜索入口"],
     sourcePaths: [
+      "frontend-user/src/app/menus.ts",
+      "frontend-user/src/app/layouts/app-sidebar-records.ts",
       "frontend-user/src/features/search/routes.tsx",
       "frontend-user/src/features/search/pages/SearchPage.tsx",
+      "frontend-user/src/features/search/search-mode.ts",
+      "frontend-user/src/features/search/components/SearchModeSwitch.tsx",
+      "frontend-user/src/features/search/components/workspace/RightPanelFeatureHub.tsx",
+      "frontend-user/src/features/search/components/workspace/FunctionTabGroup.tsx",
+      "frontend-user/src/stores/search-right-panel.store.ts",
       "frontend-user/src/features/search/api/papers.ts",
       "backend/internal/minicod/handler.go",
     ],
-    related: ["paper", "staging-area", "smart-search", "literature-library"],
+    related: [
+      "site-navigation",
+      "paper",
+      "staging-area",
+      "smart-search",
+      "literature-library",
+      "datasets-search",
+    ],
     sections: [
       {
         id: "overview",
         title: "概览",
-        markdown: `在搜索栏输入题目、关键词或研究主题后提交，你会先得到论文列表。
+        markdown: `\`/search\` 不带查询参数时是“学术搜索”一级 Hub。需要对话式检索时进入“智能搜论文”（\`?mode=smart\`）；已有题名、作者或稳定关键词时进入“论文库搜索”（\`?mode=classic\`）。期刊库搜索、数据集搜索和 scholay 情报使用各自二级路由，但仍属于同一个学术搜索功能树。
+
+在论文库搜索栏输入题目、关键词或研究主题后提交，你会先得到论文列表。
 
 需要缩小范围时，打开筛选面板，设置时间、学科、类型或开放获取条件。
 
-找到合适的论文后，可以在结果中查看详情，并把候选加入暂存区；之后还可以打开 PDF、收藏到个人文献集，或送入矩阵分析。`,
+找到合适的论文后，可以在结果中查看详情，并把候选加入暂存区；之后还可以打开 PDF、收藏到“我的资源 › 文献集”，或送入右侧工作区。`,
         embeds: [
           { id: "classic-search-dock" },
           { id: "classic-search-filters" },
@@ -36,7 +52,7 @@ export const discoveryArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "在搜索栏输入题目、关键词或研究主题后提交，你会先得到论文列表。",
+              "学术搜索一级 Hub 会先让你选择入口；进入论文库搜索后，在搜索栏输入题目、关键词或研究主题并提交，你会得到论文列表。",
           },
           { type: "embeds", ids: ["classic-search-dock"] },
           {
@@ -48,15 +64,17 @@ export const discoveryArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "找到合适的论文后，可以在结果中查看详情，并把候选加入暂存区；之后还可以打开 PDF、收藏到个人文献集，或送入矩阵分析。",
+              "找到合适的论文后，可以在结果中查看详情，并把候选加入暂存区；之后还可以打开 PDF、收藏到“我的资源 › 文献集”，或送入右侧工作区。",
           },
           { type: "embeds", ids: ["review-and-stage"] },
         ],
       },
       {
         id: "workspace",
-        title: "搜索工作区",
-        markdown: `桌面搜索页由搜索器、暂存区和矩阵分析组成。URL 保存检索与筛选状态，使结果页可以被刷新和分享；服务端数据由查询缓存管理，页面不会把搜索结果复制进全局客户端状态。`,
+        title: "搜索工作区与右栏三件套",
+        markdown: `桌面搜索页由搜索器、可展开的文件区和右侧拓展区组成。URL 保存模式、检索词与筛选状态，使结果页可以被刷新和分享；服务端数据由查询缓存管理，页面不会把整份搜索结果复制进全局客户端状态。
+
+右侧工作区的 **PDF Chat、文献图谱、矩阵分析** 是互斥功能：打开其中一个会切换到该功能，再点当前项可以取消。论文、作者、期刊和 PDF 详情则作为信息页签打开，不属于这组三件套。“浏览器”名片用于快速搜索并打开论文详情，也不是第四个工作区功能。文献图谱目前只有前端产品演示，不能与已交付的矩阵分析混写。`,
         embeds: [{ id: "search-workspace" }],
       },
       {
@@ -120,7 +138,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "actions",
         title: "相关动作",
-        markdown: `用户可以把论文送入暂存区或个人文献集、尝试打开全文、用于矩阵分析，并在支持论文上下文的 AI 会话中继续提问。具体可用动作取决于登录状态、数据完整度和全文可用性。`,
+        markdown: `用户可以把论文送入暂存区或“我的资源 › 文献集”、尝试打开全文、用于矩阵分析，并在支持论文上下文的 AI 会话中继续提问。具体可用动作取决于登录状态、数据完整度和全文可用性。`,
       },
     ],
   },
@@ -166,7 +184,7 @@ export const discoveryArticles: WikiArticle[] = [
     slug: "authors-and-journals",
     title: "作者与期刊",
     summary:
-      "围绕作者画像、合作关系、代表作，以及期刊搜索、学科聚合和收录信息展开的发现页面。",
+      "围绕作者画像、合作关系、代表作，以及期刊库搜索、期刊 Hub、学科聚合和收录信息展开的发现页面。",
     category: "discovery",
     kind: "feature",
     status: "current",
@@ -176,6 +194,7 @@ export const discoveryArticles: WikiArticle[] = [
       "frontend-user/src/features/browser/components/AuthorDetailPane.tsx",
       "frontend-user/src/features/browser/components/JournalDetailPane.tsx",
       "frontend-user/src/features/journals/routes.tsx",
+      "frontend-user/src/features/journals/pages/JournalHubPage.tsx",
       "frontend-user/src/features/journals/pages/JournalSearchPage.tsx",
       "backend/internal/minicod/handler.go",
     ],
@@ -192,7 +211,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "journals",
         title: "期刊页面",
-        markdown: `在期刊搜索页输入刊名、ISSN 或主办机构，再使用分区、影响因子等条件缩小范围。
+        markdown: `学术搜索中的“期刊库搜索”进入 \`/journals/search\`；\`/journals\` 本身是期刊 Hub，不再是跳转地址。在期刊库搜索页输入刊名、ISSN 或主办机构，再使用分区、影响因子等条件缩小范围。
 
 点击结果即可进入详情，其中会按实际数据列出标识、出版社、收录信息、影响指标和相关论文。不同期刊可用字段并不相同，空缺信息不会用推测值补齐。`,
         embeds: [{ id: "journal-search" }, { id: "journal-detail" }],
@@ -200,7 +219,7 @@ export const discoveryArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "在期刊搜索页输入刊名、ISSN 或主办机构，再使用分区、影响因子等条件缩小范围。",
+              "从学术搜索进入期刊库搜索页，输入刊名、ISSN 或主办机构，再使用分区、影响因子等条件缩小范围。",
           },
           { type: "embeds", ids: ["journal-search"] },
           {
@@ -260,7 +279,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "persistence",
         title: "状态与同步",
-        markdown: `每个账户最多有 5 个暂存区，每区最多 100 篇；界面按位置显示 A–E，不能改名或手动关闭。清空当前区后，它会在你切换到其他区时移除，其余字母再按位置排列。暂存区只适合短期筛选；准备长期保存时，请把论文整理进个人文献集，并用图标与背景色区分文件夹。下图展示的是这个文件夹外观选择器，不是暂存区改名功能。
+        markdown: `每个账户最多有 5 个暂存区，每区最多 100 篇；界面按位置显示 A–E，不能改名或手动关闭。清空当前区后，它会在你切换到其他区时移除，其余字母再按位置排列。暂存区只适合短期筛选；准备长期保存时，请把论文整理进“我的资源 › 文献集”，并用图标与背景色区分文件夹。下图展示的是这个文件夹外观选择器，不是暂存区改名功能。
 
 未登录时的暂存内容先保存在当前设备；登录后可以同步账户内容，但不应假定所有匿名内容都会自动完整迁移。`,
         embeds: [{ id: "folder-icon-picker" }],
@@ -288,12 +307,18 @@ export const discoveryArticles: WikiArticle[] = [
       "frontend-user/src/features/search/api/analysis/matrix.ts",
       "backend/internal/ai",
     ],
-    related: ["staging-area", "paper", "ai-usage-quota"],
+    related: [
+      "staging-area",
+      "paper",
+      "literature-library",
+      "academic-search",
+      "ai-usage-quota",
+    ],
     sections: [
       {
         id: "model",
         title: "矩阵模型",
-        markdown: `进入矩阵后，论文按行排列，分析维度按列展开；每个交叉单元格回答“这篇论文在这个维度上的结果”。
+        markdown: `从学术搜索的暂存区或“我的资源 › 文献集”打开矩阵分析后，论文按行排列，分析维度按列展开；每个交叉单元格回答“这篇论文在这个维度上的结果”。
 
 打开维度设置，可以选用系统模板，也可以增加、编辑或删除自己的维度。开关只控制维度是否显示在矩阵中，拖拽改变列顺序；系统维度右侧按钮用于恢复默认，自定义维度右侧“×”才是删除。隐藏维度不会删除已经保存的定义。
 
@@ -306,7 +331,7 @@ export const discoveryArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "进入矩阵后，论文按行排列，分析维度按列展开；每个交叉单元格回答“这篇论文在这个维度上的结果”。",
+              "从学术搜索的暂存区或“我的资源 › 文献集”打开矩阵分析后，论文按行排列，分析维度按列展开；每个交叉单元格回答“这篇论文在这个维度上的结果”。",
           },
           { type: "embeds", ids: ["matrix-workspace"] },
           {
@@ -419,34 +444,46 @@ export const discoveryArticles: WikiArticle[] = [
   },
   {
     slug: "literature-library",
-    title: "个人文献集",
+    title: "文献集",
     summary:
-      "以文件夹长期保存论文、PDF 与补充元数据，并支持导入、整理、分享和重新关联。",
+      "作为“我的资源”四分之一，以文件夹长期保存论文、PDF 与补充元数据，并支持工作区工具、导入和分享。",
     category: "knowledge",
     kind: "feature",
     status: "current",
     audience: ["登录用户", "研究者"],
-    aliases: ["文献库", "我的文献", "Library"],
+    aliases: ["个人文献集", "文献库", "我的文献", "Library"],
     sourcePaths: [
       "frontend-user/src/features/landing/pages/LibraryLandingPage.tsx",
       "frontend-user/src/features/library/routes.tsx",
       "frontend-user/src/features/library/pages/LibraryPage.tsx",
+      "frontend-user/src/features/search/components/workspace/PdfChatPanel.tsx",
+      "frontend-user/src/features/search/components/workspace/CitationGraphPanel.tsx",
+      "frontend-user/src/features/search/components/MatrixColumn.tsx",
       "frontend-user/src/features/library/pages/mobile/MobileLibraryPage.tsx",
       "frontend-user/src/features/library/pages/mobile/MobileFolderPage.tsx",
       "frontend-user/src/features/library/api/folders.ts",
       "frontend-user/src/features/library/api/papers.ts",
       "backend/internal/library",
     ],
-    related: ["paper", "pdf-reader", "staging-area", "library-sharing"],
+    related: [
+      "my-resources",
+      "paper",
+      "pdf-reader",
+      "staging-area",
+      "matrix-analysis",
+      "literature-graph-status",
+      "pdf-chat-guide",
+      "library-sharing",
+    ],
     sections: [
       {
         id: "organization",
         title: "组织方式",
-        markdown: `进入个人文献集后，桌面端会在侧栏列出文件夹，在右侧显示论文、PDF 和处理状态。列表行里的 G/D 是数据来源缩写，不是质量等级；“基础信息完整”只表示关键题录字段齐全，“PDF 完整/缺失”另行表示本账户是否有可读全文。
+        markdown: `从“我的资源”进入文献集（\`/library?section=papers\`）后，桌面端会在侧栏列出文件夹，在主区显示论文、PDF 和处理状态。列表行里的 G/D 是数据来源缩写，不是质量等级；“基础信息完整”只表示关键题录字段齐全，“PDF 完整/缺失”另行表示本账户是否有可读全文。
 
 新建或编辑文件夹时，可以选择图标和背景色。
 
-手机端先显示文件夹列表，再进入文件夹详情。文献集使用单层文件夹：每个账户最多 50 个文件夹、1,000 篇论文；你可以批量选择论文，但一次最多处理 500 篇。`,
+手机端先显示文件夹列表，再进入文件夹详情。文献集使用单层文件夹：每个账户最多 50 个文件夹、1,000 篇论文；你可以批量选择论文，但一次最多处理 500 篇。页面内继续使用“文件夹”是现行组织概念，不应与已经改名的全站入口混淆。`,
         embeds: [
           { id: "literature-library" },
           { id: "folder-icon-picker" },
@@ -457,7 +494,7 @@ export const discoveryArticles: WikiArticle[] = [
           {
             type: "markdown",
             markdown:
-              "进入个人文献集后，桌面端会在侧栏列出文件夹，在右侧显示论文、PDF 和处理状态。列表行里的 G/D 是数据来源缩写，不是质量等级；“基础信息完整”只表示关键题录字段齐全，“PDF 完整/缺失”另行表示本账户是否有可读全文。",
+              "从“我的资源”进入文献集后，桌面端会在侧栏列出文件夹，在主区显示论文、PDF 和处理状态。列表行里的 G/D 是数据来源缩写，不是质量等级；“基础信息完整”只表示关键题录字段齐全，“PDF 完整/缺失”另行表示本账户是否有可读全文。",
           },
           { type: "embeds", ids: ["literature-library"] },
           {
@@ -487,6 +524,11 @@ export const discoveryArticles: WikiArticle[] = [
             layout: "row",
           },
         ],
+      },
+      {
+        id: "workspace-tools",
+        title: "文献集复用检索工作区",
+        markdown: `宽屏登录态下，文献集右侧可以打开 **矩阵分析、文献图谱、PDF Chat**。三项互斥；打开论文、期刊、作者或 PDF 详情时，详情页签会暂时占用右栏。矩阵和 PDF Chat 使用当前列表中可见或勾选的论文；文献图谱仍是前端演示面，不能据此声称已经保存真实网络分析结果。`,
       },
       {
         id: "import",
@@ -553,7 +595,7 @@ export const discoveryArticles: WikiArticle[] = [
       "backend/internal/library/share_handler.go",
       "backend/internal/library/share_model.go",
     ],
-    related: ["literature-library", "paper"],
+    related: ["my-resources", "literature-library", "paper"],
     sections: [
       {
         id: "link",

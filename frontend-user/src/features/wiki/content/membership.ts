@@ -101,8 +101,17 @@ export const membershipArticles: WikiArticle[] = [
     sourcePaths: [
       "backend/internal/vip/quota.go",
       "backend/internal/vip/config.go",
+      "backend/internal/agentbridge/spec.go",
+      "backend/internal/agentbridge/hub.go",
+      "backend/internal/agentbridge/hub_turncap_test.go",
       "frontend-user/src/shared/lib/quota-overview.ts",
       "frontend-user/src/shared/components/QuotaNotifier.tsx",
+      "frontend-user/src/shared/components/RhinoMenuAssets.tsx",
+      "frontend-user/src/shared/components/funds-reminder/FundsReminder.tsx",
+      "frontend-user/src/stores/funds-reminder.store.ts",
+      "frontend-user/src/features/claw/components/chat/ConversationWorkspace.tsx",
+      "frontend-user/src/features/search/components/smart-search/SmartSearchPanel.tsx",
+      "frontend-user/src/features/prism/components/PrismChatPanel.tsx",
     ],
     related: [
       "membership",
@@ -171,15 +180,32 @@ export const membershipArticles: WikiArticle[] = [
         ],
       },
       {
+        id: "reset-pass-lots",
+        title: "重置次数的批次与到期日",
+        markdown: `后端额度总览会按到期时间返回可用重置次数批次，牛犀犀资产菜单悬停时会逐批显示“张数 · 到期日”。真正执行重置仍优先消耗最早到期批次。
+
+这项能力目前只完成了机器可读返回和牛犀犀菜单展示：前端公共类型只保留张数与到期时间，没有呈现后端的来源字段；设置页仍主要显示总数和最近到期日。因此“设置页完整批次明细”属于进行中的界面补全，不能写成已经全站一致交付。`,
+      },
+      {
+        id: "funds-reminder",
+        title: "经费不足提醒与四类出口",
+        markdown: `Claw、智能搜论文和 Prism 在输入框上方使用就地提醒；其他页面可以打开全局对话框。提醒会根据会员、经费、自动续用和重置次数条件，从四类出口中给出可用动作，而不是始终同时显示四个按钮：有重置次数时可“立即恢复”；Free 可“升级会员”，Pro 可“升级 Max”；付费会员有余额但尚未开启时可“用经费继续”；需要补充余额时可“充值经费”。Max 没有更高档升级按钮。
+
+标题会按账户资产显示“额度已用完”或“经费不足”。选择动作只完成相应的重置、开启续用或打开购买/充值流程；原任务是否自动恢复要以所在功能的发送状态为准。`,
+        embeds: [{ id: "funds-reminder" }],
+      },
+      {
         id: "concurrency",
-        title: "并发请求边界",
-        markdown: `额度门禁只发生在每个 AI 回合开始前，模型结束后才按真实成本记账；单轮或多个并发回合都可能跨过 100%，系统不会在生成中途硬切断。最终成本仍会记录，因此额度不是严格的并发事务上限，用户不应依靠并发请求规避额度。`,
+        title: "回合成本上限与并发边界",
+        markdown: `每个 AI 回合开始前仍会经过额度门禁；进入回合后，Claw、智能搜论文、Prism、科研绘图、数据分析和 Boltslides 会按执行器上报的每次模型调用增量成本累计本轮用量。达到动态 TurnCostCap 时，桥接层只发送一次停止生成命令，并把该回合标为 aborted；已经生成的内容会保留，所以单个回答确实可能在中途停止。
+
+TurnCostCap 由当前周期剩余额度、允许续用的经费能力和安全下限共同确定。未知模型、旧执行器未上报用量或无法计算价格时会 fail-open，最终真实成本仍照常记账，因此它是过冲保护而非严格事务上限。智能审稿为了完成整套任务，不使用这一回合内硬停机制，而是依赖自己的起跑门禁。多个并发回合仍可能各自持有在途预算，用户不应依靠并发请求规避额度。`,
         blocks: [
           { type: "markdown" },
           {
             type: "tip",
             tip: {
-              text: "不要用并发请求测试或绕过额度。门禁只判断回合开始时的状态，最终仍会按各回合真实成本记账。",
+              text: "不要用并发请求测试或绕过额度。TurnCostCap 会尽力限制单轮过冲，但最终仍按真实成本记账；看到“已停止”时先保留完成内容，再检查资产与恢复入口。",
             },
           },
           {
@@ -223,6 +249,8 @@ export const membershipArticles: WikiArticle[] = [
     aliases: ["科研经费", "钱包", "充值", "用经费继续", "Pay as you go"],
     sourcePaths: [
       "backend/internal/vip/wallet.go",
+      "backend/internal/vip/quota.go",
+      "backend/internal/agentbridge/hub.go",
       "backend/internal/vip/billing_model.go",
       "backend/internal/vip/config.go",
       "frontend-user/src/features/settings/components/account-assets-card.tsx",
@@ -279,7 +307,9 @@ export const membershipArticles: WikiArticle[] = [
       {
         id: "autopay",
         title: "何时扣经费",
-        markdown: `“用经费继续”默认关闭，必须由用户显式开启。跨过周期上限的一轮只对 included ceiling 之外的部分收费，不会把整轮重复扣款；未开启时该轮溢出由平台承担，下一轮才拦截。起跑门禁只检查余额是否大于 0，因此余额为正但不足以覆盖整轮时，异步结算可能产生不超过在途回合成本量级的小额负数。开启开关不会预扣，也不会降低模型等级或速度。`,
+        markdown: `“用经费继续”默认关闭，必须由用户显式开启。跨过周期上限的一轮只对 included ceiling 之外的部分收费，不会把整轮重复扣款；未开启时不能把经费作为后续回合预算。开启开关不会预扣，也不会降低模型等级或速度。
+
+支持 TurnCostCap 的 Agent 会把可用经费能力计入本轮动态上限，并在累计估算成本达到上限时请求停止，以降低单轮透支；未知模型、旧执行器或并发在途回合仍可能无法被严格截断。最终以异步写入的钱包流水为准，不能把保护上限理解成预授权或绝不会出现小额负数的承诺。`,
         blocks: [
           { type: "markdown" },
           {
