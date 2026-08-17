@@ -250,7 +250,21 @@ We propose provenance, reversible action, and calibrated uncertainty as core pri
             path: "proposal.tex",
             isMain: true,
             updatedAt: now,
-            content: "\\documentclass{article}\\begin{document}NSFC draft\\end{document}",
+            content: String.raw`\documentclass{article}
+\title{面向可信科研智能体的可检验交互机制}
+\author{林屿}
+\begin{document}
+\maketitle
+\begin{abstract}
+本项目研究科研智能体在文献综合、实验记录与文稿修订中的可追溯、可回退与不确定度标定问题,拟形成可复用的交互原则与评估协议。
+\end{abstract}
+\section{立项依据}
+现有科研助手多以对话补全为主,过程不可检查,出错后难以定位责任边界。
+\section{研究内容}
+围绕来源标注、可逆操作与不确定度提示三条原则,设计并评估一套写作—审稿闭环交互。
+\section{研究方案}
+采用混合方法:先做研究者工作流访谈,再在受控任务上对比三种界面变体。
+\end{document}`,
           },
         ],
       },

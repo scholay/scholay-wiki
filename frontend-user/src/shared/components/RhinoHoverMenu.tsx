@@ -1,18 +1,19 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Bell, CircleHelp, EyeOff, Headphones, LayoutGrid, MessageCircle } from 'lucide-react';
+import { ArrowUp, Bell, CircleHelp, EyeOff, Headphones, LayoutGrid, MessageCircle } from 'lucide-react';
 import { useUnreadCount } from '@/shared/api/notifications';
 import { RHINO_NAME } from '@/shared/mascot/rhino-name';
 import { cn } from '@/shared/lib/utils';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useAuthStatus } from '@/stores/auth.store';
+import { usePendingAction } from '@/stores/pending-action.store';
 import type { RhinoPanelMode } from '@/stores/rhino-assistant.store';
+import {
+  RHINO_FLOAT_CHROME_CLS,
+  RhinoFloatPortal,
+  type RhinoFloatSide,
+} from './RhinoFloatPortal';
 import { RhinoMenuAssets } from './RhinoMenuAssets';
 
 /** Hover open with a short leave delay; coarse pointers keep the menu up. */
@@ -82,7 +83,8 @@ const ITEM_CLS = cn(
 
 /**
  * Hover menu shared by the floating mascot and the in-page nest.
- * Pass `portalAnchor` from the nest so the menu escapes page overflow.
+ * Always portals; flips to the opposite side when the preferred side
+ * would overflow the viewport.
  */
 export function RhinoHoverMenu({
   open,
@@ -99,45 +101,42 @@ export function RhinoHoverMenu({
   onHide?: () => void;
   portalAnchor?: RefObject<HTMLElement | null>;
   /** Portal 菜单相对锚点的方位;顶栏 chip 用 bottom,左右缘 peek 用 left/right。 */
-  portalSide?: 'top' | 'bottom' | 'left' | 'right';
+  portalSide?: RhinoFloatSide;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
 }) {
   const reduce = useReducedMotion();
+  const navigate = useNavigate();
   const { authenticated } = useAuthStatus();
+  const openAuth = useAuthDialog((s) => s.openDialog);
   const unreadQ = useUnreadCount(authenticated);
   const unread = authenticated ? (unreadQ.data ?? 0) : 0;
-  const [fixed, setFixed] = useState<{ x: number; y: number } | null>(null);
+  const [draft, setDraft] = useState('');
 
-  useLayoutEffect(() => {
-    if (!portalAnchor) return;
-    const place = () => {
-      const el = portalAnchor.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      if (portalSide === 'left') {
-        setFixed({ x: r.left, y: r.top + r.height / 2 });
-        return;
-      }
-      if (portalSide === 'right') {
-        setFixed({ x: r.right, y: r.top + r.height / 2 });
-        return;
-      }
-      setFixed({
-        x: r.left + r.width / 2,
-        y: portalSide === 'bottom' ? r.bottom : r.top,
-      });
-    };
-    place();
-    window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, true);
-    return () => {
-      window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', place, true);
-    };
-  }, [open, portalAnchor, portalSide]);
+  useEffect(() => {
+    if (!open) setDraft('');
+  }, [open]);
 
-  const menu = (
+  const sendDraft = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    const to = `/claw?feature=claw&q=${encodeURIComponent(text)}`;
+    setDraft('');
+    if (!authenticated) {
+      usePendingAction.getState().set({ type: 'navigate', to });
+      openAuth('login');
+      return;
+    }
+    navigate(to);
+  }, [authenticated, draft, navigate, openAuth]);
+
+  return (
+    <RhinoFloatPortal
+      open={open}
+      portalAnchor={portalAnchor}
+      portalSide={portalSide}
+      fallbackSize={{ w: 200, h: 186 }}
+    >
     <AnimatePresence>
       {open ? (
         <motion.div
@@ -152,8 +151,7 @@ export function RhinoHoverMenu({
           onPointerLeave={onPointerLeave}
           className={cn(
             'flex flex-col gap-0.5 whitespace-nowrap',
-            'rounded-xl border border-border/80 bg-background/95 p-0.5',
-            'shadow-md backdrop-blur-sm',
+            RHINO_FLOAT_CHROME_CLS,
           )}
         >
           <RhinoMenuAssets />
@@ -234,46 +232,46 @@ export function RhinoHoverMenu({
               </button>
             ) : null}
           </div>
+          <form
+            className="flex w-full items-center gap-0.5 border-t border-border/50 p-0.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              sendDraft();
+            }}
+          >
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="发给智能助手…"
+              aria-label="发给智能助手"
+              className={cn(
+                'h-7 min-w-0 flex-1 rounded-8 bg-surface-1 px-2',
+                'text-12 text-foreground outline-none placeholder:text-faint',
+                'focus-visible:ring-2 focus-visible:ring-ring/30',
+              )}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <button
+              type="submit"
+              disabled={!draft.trim()}
+              aria-label="发送到智能助手"
+              className={cn(
+                'inline-flex size-7 shrink-0 items-center justify-center rounded-8',
+                'text-foreground transition-colors hover:bg-muted',
+                'disabled:pointer-events-none disabled:opacity-40',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
+              )}
+            >
+              <ArrowUp className="size-3.5" strokeWidth={2.5} />
+            </button>
+          </form>
         </motion.div>
       ) : null}
     </AnimatePresence>
-  );
-
-  if (portalAnchor) {
-    if (typeof document === 'undefined') return null;
-    return createPortal(
-      <div
-        className={cn(
-          'pointer-events-none fixed z-[70] flex justify-center',
-          (portalSide === 'top' || portalSide === 'bottom') &&
-            '-translate-x-1/2',
-          portalSide === 'top' && '-translate-y-full',
-          (portalSide === 'left' || portalSide === 'right') &&
-            '-translate-y-1/2',
-          portalSide === 'left' && '-translate-x-full',
-        )}
-        style={
-          fixed
-            ? portalSide === 'left'
-              ? { left: fixed.x - 8, top: fixed.y }
-              : portalSide === 'right'
-                ? { left: fixed.x + 8, top: fixed.y }
-                : {
-                    left: fixed.x,
-                    top: portalSide === 'bottom' ? fixed.y + 8 : fixed.y - 8,
-                  }
-            : { left: 0, top: 0, visibility: 'hidden' }
-        }
-      >
-        <div className="pointer-events-auto">{menu}</div>
-      </div>,
-      document.body,
-    );
-  }
-
-  return (
-    <div className="absolute bottom-full left-1/2 z-20 mb-1 flex -translate-x-1/2 items-center justify-center">
-      {menu}
-    </div>
+    </RhinoFloatPortal>
   );
 }

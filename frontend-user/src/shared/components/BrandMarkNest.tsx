@@ -4,7 +4,9 @@ import {
   type BrandLogoProps,
 } from '@/shared/components/BrandLogo';
 import { RhinoLogoNest } from '@/shared/components/RhinoLogoNest';
-import { isRhinoNested } from '@/shared/mascot/rhino-perch';
+import { RhinoSitOutline } from '@/shared/components/RhinoSitOutline';
+import { RHINO_DISPLAY_PX } from '@/shared/mascot/rhino-display-size';
+import { isRhinoNestedAt } from '@/shared/mascot/rhino-perch';
 import { cn } from '@/shared/lib/utils';
 import { useRhinoAssistant } from '@/stores/rhino-assistant.store';
 
@@ -18,11 +20,15 @@ type BrandMarkNestProps = {
   /** Optional pad around a mark-only well. Never wrap the hex+SCHOLAY lockup. */
   well?: boolean;
   wellClassName?: string;
+  /** Keep the nest slot; do not paint the hex / lockup. */
+  hideMark?: boolean;
+  /** Do not show the dashed sit-outline, even while dragging. */
+  hideOutline?: boolean;
 };
 
 /**
- * Site lockup stays BrandLogo. Nest is an absolute overlay on the hex
- * and must not change gap, alignment, or wordmark position.
+ * Page nest over the site lockup. Vacant chrome stays the logo (invisible nest).
+ * Drag-near snap only — no auto-home. Outline appears while dragging.
  */
 export function BrandMarkNest({
   playOnceKey,
@@ -32,30 +38,43 @@ export function BrandMarkNest({
   markOnly = false,
   well = false,
   wellClassName,
+  hideMark = false,
+  hideOutline = false,
 }: BrandMarkNestProps) {
-  const occupied = useRhinoAssistant(isRhinoNested);
+  const occupied = useRhinoAssistant((s) => isRhinoNestedAt(playOnceKey, s));
+  const dragActive = useRhinoAssistant((s) => s.dragActive);
   const mark = brandLogoMarkSize(size, height);
-  const logo = (
-    <BrandLogo
-      size={size}
-      height={height}
-      variant={markOnly ? 'mark' : 'full'}
-      className={className}
-      markClassName={occupied ? 'opacity-0' : undefined}
-    />
-  );
 
   const body = (
-    <span className="relative inline-flex overflow-visible">
-      {logo}
-      {/* 空巢常驻(不再随 perchDismissed 卸载):拉出后不自动吸回,
-          但巢仍注册在场,拖近松手才能吸附归位。 */}
+    <span className={cn('relative inline-flex overflow-visible', className)}>
+      {hideMark ? (
+        <span
+          className="shrink-0"
+          style={{ width: mark.width, height: mark.height }}
+          aria-hidden
+        />
+      ) : (
+        <BrandLogo
+          size={size}
+          height={height}
+          variant={markOnly ? 'mark' : 'full'}
+          markClassName={occupied ? 'opacity-0' : undefined}
+        />
+      )}
       <span
-        className="pointer-events-none absolute left-0 top-1/2 z-[61] -translate-y-1/2 overflow-visible"
+        className="pointer-events-none absolute left-0 top-1/2 z-[61] flex -translate-y-1/2 items-center justify-center overflow-visible"
         style={{ width: mark.width, height: mark.height }}
       >
-        <RhinoLogoNest playOnceKey={playOnceKey} className="size-full">
-          <span className="block size-full" />
+        <RhinoLogoNest
+          playOnceKey={playOnceKey}
+          className="overflow-visible"
+          style={{ width: RHINO_DISPLAY_PX, height: RHINO_DISPLAY_PX }}
+        >
+          {dragActive && !hideOutline ? (
+            <RhinoSitOutline />
+          ) : (
+            <span className="block size-full" aria-hidden />
+          )}
         </RhinoLogoNest>
       </span>
     </span>

@@ -63,7 +63,7 @@ export function WizardLayout({
   const showPrev = step > 1;
   const { pathname } = useLocation();
   const heading = pathname.startsWith('/peer-review/thesis')
-    ? '毕业论文'
+    ? '学位论文'
     : pathname.startsWith('/peer-review/conference')
       ? '会议论文'
       : pathname.startsWith('/peer-review/other')
@@ -73,7 +73,7 @@ export function WizardLayout({
   if (step === 1) {
     return (
       <CenteredLanding contentClassName="max-w-2xl">
-        <FeatureBrandHeading as="h1" title={heading} />
+        <FeatureBrandHeading as="h1" title={heading} mark={false} />
         <div className="mt-6 w-full">{children}</div>
         <div className="mt-6 flex flex-col items-center gap-2">
           <div className="flex items-center gap-2">
@@ -110,7 +110,7 @@ export function WizardLayout({
   return (
     <div className="flex h-full flex-col bg-surface-1">
       <div className="flex shrink-0 justify-center bg-surface-1 px-8 pt-6 pb-2">
-        <FeatureBrandHeading as="h1" title={heading} />
+        <FeatureBrandHeading as="h1" title={heading} mark={false} />
       </div>
       {/* NavBar — 对照 .pen `yf01S` 进度条标准:
             ┌ 左侧 200px:返回上一步 outline 按钮(只在 step>1 显示, 否则 invisible 占位保中心对齐)

@@ -162,10 +162,6 @@ export function HomeFeatureZones() {
           <h2 className="mt-3 font-display text-28 font-bold tracking-tight text-foreground sm:text-[2rem]">
             从检索到写作、审稿，一整条学术工作流
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Scholay 把文献发现、智能对话、写作与预审收在同一产品里。
-            下面按能力分段说明 —— 每一段都可以直接进入对应功能。
-          </p>
         </div>
       </section>
 

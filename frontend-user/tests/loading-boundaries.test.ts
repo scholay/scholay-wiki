@@ -50,9 +50,31 @@ describe('route and overlay loading boundaries', () => {
     expect(app).toContain('!routerInitialized && <RouteFallback full />');
     const lazyRouteSource = readSource('src/shared/components/LazyRoute.tsx');
     expect(lazyRouteSource).toContain('export function RouteFallback');
-    expect(lazyRouteSource).toContain('<RhinoRunLoader');
     expect(lazyRouteSource).not.toMatch(/<(?:[A-Z][A-Za-z]+Icon|img)\b/);
     expect(app.match(/<ErrorBoundary fallback=\{\(\) => null\}>/g)).toHaveLength(3);
+  });
+
+  it('uses one global loading overlay and the app run clip', () => {
+    const providers = readSource('src/app/providers.tsx');
+    const lazyRouteSource = readSource('src/shared/components/LazyRoute.tsx');
+    const loadingState = readSource('src/shared/components/LoadingState.tsx');
+    const loader = readSource('src/shared/components/RhinoRunLoader.tsx');
+    const overlay = readSource('src/shared/components/GlobalLoadingOverlay.tsx');
+
+    expect(providers).toContain('<GlobalLoadingOverlay');
+    expect(lazyRouteSource).toContain('usePageLoadingClaim');
+    expect(lazyRouteSource).not.toContain('<RhinoRunLoader');
+    expect(loadingState).toContain('usePageLoadingClaim');
+    expect(loadingState).not.toContain('<RhinoRunLoader');
+    expect(overlay).toContain('bg-foreground/40');
+    expect(overlay).toContain('<RhinoRunLoader');
+    expect(loader).toContain("RUN_CLIP = 'run-south-east'");
+    expect(loader).toContain('rhinoFrameUrls(RUN_CLIP)');
+    expect(loader).not.toContain('pet-run');
+    expect(loader).not.toContain('orbit');
+    expect(loader).not.toContain('run-across');
+    expect(loader).toContain('rhino-run-loader__wheel');
+    expect(loader).toContain('animate-rhino-wheel-progress');
   });
 
   it('closes responsive Radix menus instead of unmounting an open Root', () => {

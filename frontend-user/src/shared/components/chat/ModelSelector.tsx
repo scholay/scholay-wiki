@@ -90,6 +90,7 @@ export function ModelSelector({
               ? 'size-7 shrink-0 gap-0 p-0'
               : 'h-8 gap-1 px-2 text-xs',
           )}
+          data-tour="claw-model"
           title={`选择模型 · ${triggerLabel}`}
           aria-label={`选择模型,当前 ${triggerLabel}`}
         >

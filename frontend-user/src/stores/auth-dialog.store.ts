@@ -15,11 +15,23 @@ export type AccountType = 'email' | 'phone';
 // 不另起 Dialog,避免双层嵌套关闭路径混乱。
 export type AuthMode = 'login' | 'register' | 'forgot' | 'wechat-qr';
 
+/** 选中、尚未跳转的第三方。 */
+export type PendingOAuthProvider =
+  | 'github'
+  | 'google'
+  | 'wechat'
+  | 'apple'
+  | 'orcid'
+  | 'microsoft'
+  | 'discourse';
+
 interface AuthDialogState {
   open: boolean;
   mode: AuthMode;
   /** 调用方可以预设 email/phone tab,默认 email */
   initialAccountType: AccountType;
+  /** 即将二次确认后跳转的第三方；微信扫码页返回时仍保留，以便回到确认层。 */
+  pendingOAuth: PendingOAuthProvider | null;
   /** 可选邀请码 —— 仅注册流程使用;第三方从注册页发起时会带到 OAuth callback */
   invitationCode: string;
   /**
@@ -29,6 +41,7 @@ interface AuthDialogState {
   invitationLocked: boolean;
   openDialog: (mode?: AuthMode, opts?: { accountType?: AccountType }) => void;
   setMode: (mode: AuthMode) => void;
+  setPendingOAuth: (provider: PendingOAuthProvider | null) => void;
   setInvitationCode: (code: string) => void;
   /** 邀请链接落地：写入码并锁定；校验失败返回 false */
   applyInvitationFromLink: (code: string) => { ok: boolean; message?: string };
@@ -52,6 +65,7 @@ export const useAuthDialog = create<AuthDialogState>((set, get) => ({
   open: false,
   mode: 'login',
   initialAccountType: 'email',
+  pendingOAuth: null,
   invitationCode: '',
   invitationLocked: false,
   openDialog: (mode = 'login', opts) => {
@@ -61,6 +75,7 @@ export const useAuthDialog = create<AuthDialogState>((set, get) => ({
         open: true,
         mode,
         initialAccountType: opts?.accountType ?? 'email',
+        pendingOAuth: null,
         invitationCode: '',
         invitationLocked: false,
       });
@@ -70,8 +85,10 @@ export const useAuthDialog = create<AuthDialogState>((set, get) => ({
       open: true,
       mode,
       initialAccountType: opts?.accountType ?? 'email',
+      pendingOAuth: null,
     });
   },
+  setPendingOAuth: (provider) => set({ pendingOAuth: provider }),
   setMode: (mode) => {
     if (shouldClearInvitation(mode) && !get().invitationLocked) {
       persistInvitationCode(null);
@@ -114,6 +131,7 @@ export const useAuthDialog = create<AuthDialogState>((set, get) => ({
   close: () =>
     set((s) => ({
       open: false,
+      pendingOAuth: null,
       ...(s.invitationLocked ? {} : { invitationCode: '' }),
     })),
 }));

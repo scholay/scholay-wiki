@@ -43,7 +43,6 @@ export function SearchLanding({
   return (
     <ClawHero
       title={topic}
-      brandMark={isSmart}
       contentClassName="max-w-[640px]"
       suggestions={[]}
       extra={

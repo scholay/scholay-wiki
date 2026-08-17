@@ -44,7 +44,7 @@ export function CitationGraphPanel({ staged }: { staged: Paper[] }) {
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-background">
-      <div className="flex h-9 min-w-0 shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border bg-surface-1 px-3">
+      <div className="flex h-11 min-w-0 shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border bg-surface-1 px-3">
         <div className="flex min-w-0 shrink items-center gap-1">
           {FILTERS.map((item) => (
             <button

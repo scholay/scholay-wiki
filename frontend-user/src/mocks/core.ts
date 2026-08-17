@@ -287,6 +287,12 @@ function userBillingOverview() {
       : { temp: 0, perm: 0, total: 0, credit_autopay: billing.autopay, lots: [] },
     reset_passes: billing.passes ? 2 : 0,
     reset_pass_next_expiry: billing.passes ? "2026-09-01T00:00:00.000Z" : null,
+    reset_pass_lots: billing.passes
+      ? [
+          { count: 1, expires_at: "2026-09-01T00:00:00.000Z" },
+          { count: 1, expires_at: "2026-10-01T00:00:00.000Z" },
+        ]
+      : [],
   };
 }
 

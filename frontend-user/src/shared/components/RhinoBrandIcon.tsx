@@ -28,7 +28,7 @@ export const RhinoBrandIcon = forwardRef<SVGSVGElement, LucideProps>(
       viewBox="0 0 550 897"
       fill="none"
       aria-hidden
-      className={cn('inline-block shrink-0', className)}
+      className={cn('inline-block shrink-0 rotate-[21deg]', className)}
       {...rest}
     >
       <path

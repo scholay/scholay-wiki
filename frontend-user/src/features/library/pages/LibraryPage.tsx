@@ -7,15 +7,19 @@ import {
   useMemo,
   useRef,
   useState,
+  type RefObject,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ChevronDown,
   Inbox,
+  Grid3x3,
   Loader2,
   LogIn,
   Lock,
+  MessageSquare,
+  Network,
   Plus,
   Share2,
   UserPlus,
@@ -49,7 +53,20 @@ import { LIBRARY_STAGING_FOLDER_PARAM } from '../components/LibrarySidebar';
 import { ResourceCollectionView } from '../components/ResourceCollectionView';
 import { ManuscriptCollectionView } from '../components/ManuscriptCollectionView';
 import { useManuscriptCollections } from '@/shared/api/manuscripts';
-import { LibraryPaperList } from '../components/LibraryPaperList';
+import {
+  LIBRARY_PAGE_SIZE_OPTIONS,
+  LibraryPaperList,
+} from '../components/LibraryPaperList';
+import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
+import { libraryRowToPaper } from '@/shared/api/user-library-papers';
+import { useLibraryMatrixAlign } from '../hooks/useLibraryMatrixAlign';
+import {
+  MatrixDimPane,
+  MATRIX_FOOTER_H,
+  MATRIX_HEADER_H,
+} from '@/features/search/components/MatrixColumn';
+import { CitationGraphPanel } from '@/features/search/components/workspace/CitationGraphPanel';
+import { PdfChatPanel } from '@/features/search/components/workspace/PdfChatPanel';
 import {
   collectionsForSection,
   parseResourceSection,
@@ -69,13 +86,27 @@ import { useLibrarySelection } from '../hooks/useLibrarySelection';
 import { LibraryBulkToolbar } from '../components/LibraryBulkToolbar';
 import { useStagingActions } from '@/features/search/hooks/useStagingActions';
 import { useStagingView } from '@/features/search/hooks/useStagingView';
-import { STAGING_FOLDER_LABEL } from '@/stores/workspace-folder.store';
+import {
+  STAGING_FOLDER_LABEL,
+  useWorkspaceFolderUi,
+} from '@/stores/workspace-folder.store';
 import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
-import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
-import { RightPanelFeatureHub } from '@/features/search/components/workspace/RightPanelFeatureHub';
-import { FILE_COL_DEFAULT_PX } from '@/features/search/components/workspace/ColumnResizeHandle';
+import {
+  useSearchRightPanelStore,
+  type WorkspaceFunctionKind,
+} from '@/stores/search-right-panel.store';
 import { cn } from '@/shared/lib/utils';
-import type { Paper } from '@/shared/api/types';
+import type { Paper, UserLibraryPaper } from '@/shared/api/types';
+
+const LIBRARY_HEADER_H = MATRIX_HEADER_H;
+
+function toMatrixPaper(row: UserLibraryPaper): Paper {
+  const paper = libraryRowToPaper(row);
+  return {
+    ...paper,
+    paperId: paper.paperId || `lib:${row.id}`,
+  };
+}
 
 const SearchRightPanel = lazy(() =>
   import('@/features/search/components/SearchRightPanel').then((m) => ({
@@ -100,9 +131,9 @@ const PaperWorkbenchDialog = lazy(() =>
  * 我的资源 —— 四分：文献集 / 期刊集 / 稿件集 / 文件夹。
  *
  *   左:LibrarySidebar
- *   中:列表主区
- *   右:仅文献集挂 assistant 拓展区 + 工作区(论文/作者/期刊/PDF 详情);
- *      期刊集 / 稿件集 / 资源集只要列表,不挂扩展区也不挂工作区。
+ *   中:列表主区(文献集本身就是工作区,不再另挂一列工作区文献卡)
+ *   右:仅文献集挂工作区功能(矩阵分析 / 图谱 / PDF Chat);点开论文详情时让位给详情页。
+ *      期刊集 / 稿件集 / 资源集只要列表。
  */
 export function LibraryPage() {
   const [params] = useSearchParams();
@@ -120,9 +151,8 @@ function LibraryWorkspace() {
   const isNarrow = useMediaQuery('(max-width: 1024px)');
 
   const activePanel = useSearchRightPanelStore((s) => s.activePanel);
-  const fileAreaOpen = useSearchRightPanelStore((s) => s.fileAreaOpen);
-  const openPanel = useSearchRightPanelStore((s) => s.openPanel);
   const setEmbedMode = useSearchRightPanelStore((s) => s.setEmbedMode);
+  const closeFileArea = useSearchRightPanelStore((s) => s.closeFileArea);
   const resetPanel = useSearchRightPanelStore((s) => s.reset);
 
   useRegisterSidebarRail([
@@ -141,34 +171,70 @@ function LibraryWorkspace() {
       return;
     }
     setEmbedMode(true);
-    const ap = useSearchRightPanelStore.getState().activePanel;
-    if (ap?.group === 'function') {
-      useSearchRightPanelStore.getState().dismissToHub();
-    }
+    closeFileArea();
     return () => {
       setEmbedMode(false);
       resetPanel();
     };
-  }, [isPapers, setEmbedMode, resetPanel]);
+  }, [isPapers, setEmbedMode, closeFileArea, resetPanel]);
+
+  const showingInfo = activePanel?.group === 'info';
+  const [workspaceToolRaw, setWorkspaceTool] = useLocalStorage<
+    WorkspaceFunctionKind | null
+  >('library.workspace-tool', 'matrix');
+  const workspaceTool =
+    workspaceToolRaw === 'matrix' ||
+    workspaceToolRaw === 'citation-graph' ||
+    workspaceToolRaw === 'pdf-chat'
+      ? workspaceToolRaw
+      : null;
+  const [matrixPapers, setMatrixPapers] = useState<Paper[]>([]);
+  const setVisibleMatrixPapers = useCallback((next: Paper[]) => {
+    setMatrixPapers((prev) => {
+      if (
+        prev.length === next.length &&
+        prev.every((paper, index) => paper.paperId === next[index]?.paperId)
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+  const toggleWorkspaceTool = useCallback(
+    (kind: WorkspaceFunctionKind) => {
+      const panel = useSearchRightPanelStore.getState().activePanel;
+      if (panel?.group === 'info') {
+        useSearchRightPanelStore.setState({ activePanel: null });
+        setWorkspaceTool(kind);
+        return;
+      }
+      setWorkspaceTool((cur) => (cur === kind ? null : kind));
+    },
+    [setWorkspaceTool],
+  );
+  const showRightPanel = isPapers && !!token && !isNarrow;
+  const showTool = showRightPanel && !!workspaceTool && !showingInfo;
+  const showMatrix = showTool && workspaceTool === 'matrix';
+  const showInfo = showRightPanel && showingInfo;
+  const showRightChrome = showTool || showInfo;
 
   useEffect(() => {
-    if (isPapers) openPanel();
-  }, [isPapers, openPanel]);
+    if (
+      workspaceTool !== 'pdf-chat' &&
+      workspaceTool !== 'citation-graph'
+    ) {
+      return;
+    }
+    useWorkspaceFolderUi
+      .getState()
+      .setCheckedPaperIds(matrixPapers.map((paper) => paper.paperId));
+  }, [workspaceTool, matrixPapers]);
+  const align = useLibraryMatrixAlign(showMatrix, matrixPapers);
 
-  const showRightPanel = isPapers && !!token && !isNarrow;
-  const expansionOpen = Boolean(activePanel);
-  const showRightChrome = showRightPanel && (expansionOpen || fileAreaOpen);
-  const showFeatureHubDock = showRightPanel && !showRightChrome;
-  const fileOnly = fileAreaOpen && !expansionOpen;
-
-  // 列表列宽可拖:展开拓展区时中线分配比例,记忆到 localStorage
+  // 列表列宽可拖:展开矩阵 / 详情时中线分配比例,记忆到 localStorage
   const [listWidth, setListWidth] = useLocalStorage<number>(
     'library.list-width',
     LIST_DEFAULT_PX,
-  );
-  const [fileColWidth, setFileColWidth] = useLocalStorage<number>(
-    'library.file-col-width',
-    FILE_COL_DEFAULT_PX,
   );
   const draggingRef = useRef(false);
   const startDrag = useCallback(
@@ -203,17 +269,33 @@ function LibraryWorkspace() {
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="relative flex min-h-0 flex-1 bg-background">
         <div
-          style={showRightChrome && !fileOnly ? { width: listWidth } : undefined}
+          style={showRightChrome ? { width: listWidth } : undefined}
           className={cn(
             'flex h-full min-h-0 flex-col bg-background',
-            showRightChrome && !fileOnly ? 'shrink-0' : 'min-w-0 flex-1',
+            showRightChrome ? 'shrink-0' : 'min-w-0 flex-1',
           )}
         >
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             {!token ? (
               <LibraryLoginPrompt />
             ) : section === 'papers' ? (
-              <LibraryFolderView />
+              <LibraryFolderView
+                listScrollRef={align.listScrollRef}
+                onListScroll={
+                  showMatrix
+                    ? () =>
+                        align.syncFrom(
+                          align.listScrollRef.current,
+                          align.matrixScrollRef.current,
+                        )
+                    : undefined
+                }
+                hidePagination={showMatrix}
+                onVisiblePapers={setVisibleMatrixPapers}
+                workspaceTool={workspaceTool}
+                onToggleTool={toggleWorkspaceTool}
+                showWorkspaceTools={showRightPanel}
+              />
             ) : section === 'manuscripts' ? (
               <ManuscriptSectionView />
             ) : (
@@ -222,49 +304,52 @@ function LibraryWorkspace() {
           </div>
         </div>
 
-        {showFeatureHubDock && <RightPanelFeatureHub variant="assistant" />}
-
         {showRightChrome && (
           <>
-            {!fileOnly ? (
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="拖动调整列表与拓展区宽度"
-                onPointerDown={startDrag}
-                className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
-              >
-                <span className="absolute inset-y-0 -left-1 -right-1" />
-              </div>
-            ) : null}
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="拖动调整列表与工作区宽度"
+              onPointerDown={startDrag}
+              className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
+            >
+              <span className="absolute inset-y-0 -left-1 -right-1" />
+            </div>
 
             <div
-              className={cn(
-                'h-full min-h-0',
-                expansionOpen
-                  ? 'min-w-0 flex-1 overflow-x-auto'
-                  : 'ml-auto shrink-0',
-              )}
-              style={
-                expansionOpen
-                  ? { minWidth: RIGHT_MIN_PX }
-                  : { width: fileColWidth }
-              }
+              className="h-full min-h-0 min-w-0 flex-1 overflow-x-auto"
+              style={{ minWidth: RIGHT_MIN_PX }}
             >
               <div className="h-full w-full min-w-0">
-                <Suspense
-                  fallback={
-                    <div className="flex h-full items-center justify-center text-faint">
-                      <Loader2 className="size-5 animate-spin" />
-                    </div>
-                  }
-                >
-                  <SearchRightPanel
-                    variant="assistant"
-                    fileColWidth={fileColWidth}
-                    onFileColWidthChange={setFileColWidth}
+                {showInfo ? (
+                  <Suspense
+                    fallback={
+                      <div className="flex h-full items-center justify-center text-faint">
+                        <Loader2 className="size-5 animate-spin" />
+                      </div>
+                    }
+                  >
+                    <SearchRightPanel variant="assistant" />
+                  </Suspense>
+                ) : workspaceTool === 'pdf-chat' ? (
+                  <PdfChatPanel staged={matrixPapers} />
+                ) : workspaceTool === 'citation-graph' ? (
+                  <CitationGraphPanel staged={matrixPapers} />
+                ) : (
+                  <MatrixDimPane
+                    staged={matrixPapers}
+                    rowHeights={align.rowHeights}
+                    scrollRef={align.matrixScrollRef}
+                    onScroll={() =>
+                      align.syncFrom(
+                        align.matrixScrollRef.current,
+                        align.listScrollRef.current,
+                      )
+                    }
+                    headerHeight={LIBRARY_HEADER_H}
+                    headerInScroll={false}
                   />
-                </Suspense>
+                )}
               </div>
             </div>
           </>
@@ -374,7 +459,23 @@ function LibraryLoginPrompt() {
 // 文件夹视图(原 LibraryPage body) —— shell 路由 / 时渲染
 // ============================================================================
 
-function LibraryFolderView() {
+function LibraryFolderView({
+  listScrollRef,
+  onListScroll,
+  hidePagination = false,
+  onVisiblePapers,
+  workspaceTool = null,
+  onToggleTool,
+  showWorkspaceTools = false,
+}: {
+  listScrollRef?: RefObject<HTMLDivElement | null>;
+  onListScroll?: () => void;
+  hidePagination?: boolean;
+  onVisiblePapers?: (papers: Paper[]) => void;
+  workspaceTool?: WorkspaceFunctionKind | null;
+  onToggleTool?: (kind: WorkspaceFunctionKind) => void;
+  showWorkspaceTools?: boolean;
+}) {
   const [params, setParams] = useSearchParams();
   const foldersQ = useLibraryFolders();
   const openShare = useShareSheetStore((s) => s.openShare);
@@ -509,7 +610,8 @@ function LibraryFolderView() {
 
   // 列表滚动位置恢复 —— 点击论文进详情页 → 浏览器后退,自动滚回原位
   // 键 = URL(包含 folder/q/page/sort/size 所有过滤),不同视图各自独立
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const localScrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = listScrollRef ?? localScrollRef;
   useScrollRestoration(scrollRef, 'library-paper-list');
 
   // 新模型不再有"根目录论文",`?folder=` 没参数 / 非法时回落到**默认文件夹**。
@@ -542,6 +644,16 @@ function LibraryFolderView() {
   const papers = papersQ.data?.items ?? [];
   const total = isStagingView ? stagingPapers.length : (papersQ.data?.total ?? 0);
   const selection = useLibrarySelection(papers, filter);
+  const showPager =
+    !isStagingView &&
+    !(total <= LIBRARY_PAGE_SIZE_OPTIONS[0] && total <= pageSize);
+
+  useEffect(() => {
+    if (!onVisiblePapers) return;
+    onVisiblePapers(
+      isStagingView ? stagingPapers : papers.map(toMatrixPaper),
+    );
+  }, [isStagingView, onVisiblePapers, papers, stagingPapers]);
 
   // 页码钳制:批量删除/移动使 total 缩小后,当前 page 可能超界(落在空页,且
   // 分页器因 total<=pageSize 被隐藏 → 用户无 UI 途径回第 1 页)。数据落定后若
@@ -574,7 +686,7 @@ function LibraryFolderView() {
           description="暂存区 —— 检索工作区的临时文献篮。"
           noindex
         />
-        <header className="flex h-15 shrink-0 items-center gap-2 border-b border-border bg-background px-10">
+        <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background px-10">
           <span className="text-14 font-medium text-foreground">
             {STAGING_FOLDER_LABEL}
           </span>
@@ -584,8 +696,19 @@ function LibraryFolderView() {
           <span className="ml-2 text-2xs text-faint">
             检索时勾选加入的临时篮,不会自动进文献集
           </span>
+          {showWorkspaceTools && onToggleTool ? (
+            <LibraryWorkspaceTools
+              className="ml-auto"
+              active={workspaceTool}
+              onToggle={onToggleTool}
+            />
+          ) : null}
         </header>
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+        <div
+          ref={scrollRef}
+          onScroll={onListScroll}
+          className="min-h-0 flex-1 overflow-auto"
+        >
           <LibraryStagingPaperList
             papers={stagingPapers}
             areaId={activeArea?.id ?? null}
@@ -625,7 +748,7 @@ function LibraryFolderView() {
 
       <header
         className={cn(
-          '@container flex h-15 shrink-0 items-center border-b border-border bg-background',
+          '@container flex h-11 shrink-0 items-center border-b border-border bg-background',
           'px-4 @3xl:px-6 @5xl:px-10',
           selection.someSelected ? 'justify-start gap-2' : 'justify-between gap-2',
         )}
@@ -650,6 +773,12 @@ function LibraryFolderView() {
               onSelect={goFolder}
             />
             <div className="flex shrink-0 items-center gap-2">
+              {showWorkspaceTools && onToggleTool ? (
+                <LibraryWorkspaceTools
+                  active={workspaceTool}
+                  onToggle={onToggleTool}
+                />
+              ) : null}
               <LibraryImportMenu onImport={openImport} />
               {currentFolder && count > 0 ? (
                 <button
@@ -681,7 +810,11 @@ function LibraryFolderView() {
         )}
       </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <div
+        ref={scrollRef}
+        onScroll={onListScroll}
+        className="min-h-0 flex-1 overflow-auto"
+      >
         <LibraryPaperList
           papers={papers}
           filter={filter}
@@ -693,8 +826,28 @@ function LibraryFolderView() {
           pageSize={pageSize}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
+          hidePagination={hidePagination}
         />
       </div>
+      {hidePagination && showPager ? (
+        <footer
+          className="flex shrink-0 items-center border-t border-border bg-surface-1 px-4"
+          style={{ height: MATRIX_FOOTER_H }}
+        >
+          <PaginationPrevNext
+            page={page}
+            onPageChange={setPage}
+            totalPages={Math.max(1, Math.ceil(total / pageSize))}
+            total={total}
+            rangeStart={total === 0 ? 0 : (page - 1) * pageSize + 1}
+            rangeEnd={Math.min(page * pageSize, total)}
+            pageSize={pageSize}
+            pageSizeOptions={LIBRARY_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={setPageSize}
+            className="w-full py-0"
+          />
+        </footer>
+      ) : null}
 
       {/* 分享面板(PC):工具栏分享当前文件夹 / 论文行分享单篇,共用本实例(store 驱动) */}
       <ShareSheet target={shareTarget} open={!!shareTarget} onOpenChange={(v) => !v && closeShare()} />
@@ -729,6 +882,7 @@ function LibraryStagingPaperList({
       {papers.map((p) => (
         <li
           key={`${p.source ?? 'x'}:${p.paperId}`}
+          data-paper-row={p.paperId}
           className="group flex items-start gap-3 border-b border-border px-1 py-3"
         >
           <button
@@ -896,6 +1050,56 @@ function LibraryImportMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+const LIBRARY_WORKSPACE_TOOLS: Array<{
+  kind: WorkspaceFunctionKind;
+  label: string;
+  icon: typeof Grid3x3;
+}> = [
+  { kind: 'matrix', label: '矩阵分析', icon: Grid3x3 },
+  { kind: 'citation-graph', label: '图谱', icon: Network },
+  { kind: 'pdf-chat', label: 'PDF Chat', icon: MessageSquare },
+];
+
+function LibraryWorkspaceTools({
+  active,
+  onToggle,
+  className,
+}: {
+  active: WorkspaceFunctionKind | null;
+  onToggle: (kind: WorkspaceFunctionKind) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn('flex shrink-0 items-center gap-1', className)}
+      role="radiogroup"
+      aria-label="工作区功能"
+    >
+      {LIBRARY_WORKSPACE_TOOLS.map(({ kind, label, icon: Icon }) => {
+        const pressed = active === kind;
+        return (
+          <button
+            key={kind}
+            type="button"
+            role="radio"
+            aria-checked={pressed}
+            onClick={() => onToggle(kind)}
+            className={cn(
+              'inline-flex h-8 shrink-0 items-center gap-1 rounded-8 px-2 text-14 font-medium transition-colors',
+              pressed
+                ? 'bg-foreground text-background'
+                : 'text-subtle hover:bg-surface-1 hover:text-foreground',
+            )}
+          >
+            <Icon className="size-3.5" />
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

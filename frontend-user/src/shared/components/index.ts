@@ -8,6 +8,7 @@ export { Footer } from './Footer';
 export { IconButton } from './IconButton';
 export { lazyRoute, RouteFallback } from './LazyRoute';
 export { ListSkeleton, LoadingState } from './LoadingState';
+export { GlobalLoadingOverlay } from './GlobalLoadingOverlay';
 export { RhinoRunLoader } from './RhinoRunLoader';
 export { PageHeader } from './PageHeader';
 export { ResourceError } from './ResourceError';

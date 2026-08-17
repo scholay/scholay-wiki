@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Loader2, PenTool, Plus } from 'lucide-react';
+import { ArrowRight, FileText, Loader2, PenTool, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { toApiError } from '@/shared/lib/http';
@@ -8,10 +8,12 @@ import { CenteredLanding } from '@/shared/components/CenteredLanding';
 import { FeatureBrandHeading } from '@/shared/components/FeatureBrandHeading';
 import { FeatureGuideCards } from '@/shared/components/FeatureGuideCards';
 import { useUrlState } from '@/shared/hooks';
-import { useCreateProject } from '../api/prism';
+import { useCreateProject, useProjects, type PrismProject } from '../api/prism';
+
+const RECENT_LIMIT = 12;
 
 /**
- * 智能写作主页 —— 主区居中标题 + 新建入口卡;历史项目只在侧栏。
+ * 智能写作主页 —— 主区居中标题 + 新建卡与近期项目单排横滑。
  * 选中某项目 → onOpen 进入工作区(那时 sidebar 换成文件目录+大纲)。
  */
 export function PrismHome({ onOpen }: { onOpen: (id: number) => void }) {
@@ -25,6 +27,8 @@ function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
   const [mode] = useUrlState('mode', '');
   const heading = mode === 'quick' ? '快速写作' : '高级写作';
   const create = useCreateProject();
+  const { data: projects } = useProjects();
+  const recent = recentProjects(projects);
 
   const onCreate = async (title: string) => {
     try {
@@ -36,16 +40,66 @@ function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
   };
 
   return (
-    <CenteredLanding contentClassName="flex w-full max-w-[640px] flex-col items-center">
-      <FeatureBrandHeading as="h1" title={heading} />
+    <CenteredLanding contentClassName="flex w-full max-w-3xl flex-col items-center">
+      <FeatureBrandHeading as="h1" title={heading} mark={false} />
       <p className="mt-1.5 text-center text-12 text-muted-foreground">
         科研级 LaTeX 写作工作区 —— 实时编译预览、AI 定点改写润色、文献库一键 \cite
       </p>
-      <div className="mt-6">
-        <NewProjectCard onCreate={onCreate} pending={create.isPending} />
+      <div className="mt-6 w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain pb-1">
+        <div className="flex w-max min-w-full justify-center gap-4">
+          <NewProjectCard onCreate={onCreate} pending={create.isPending} />
+          {recent.map((p) => (
+            <RecentProjectCard key={p.id} project={p} onOpen={onOpen} />
+          ))}
+        </div>
       </div>
       <FeatureGuideCards topic={heading} wikiHref="/wiki/prism" />
     </CenteredLanding>
+  );
+}
+
+function recentProjects(projects: PrismProject[] | undefined): PrismProject[] {
+  if (!projects?.length) return [];
+  return [...projects]
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+    .slice(0, RECENT_LIMIT);
+}
+
+function formatUpdated(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
+
+function RecentProjectCard({
+  project,
+  onOpen,
+}: {
+  project: PrismProject;
+  onOpen: (id: number) => void;
+}) {
+  const title = project.title || '未命名项目';
+  const updated = formatUpdated(project.updated_at);
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(project.id)}
+      title={title}
+      className={cn(
+        'flex h-36 w-60 shrink-0 snap-start flex-col justify-between rounded-16 border border-border bg-surface-card p-4 text-left',
+        'transition-colors hover:border-foreground',
+      )}
+    >
+      <span className="flex size-11 items-center justify-center rounded-12 bg-surface-2">
+        <FileText className="size-5 text-foreground" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-14 font-medium text-foreground">{title}</p>
+        {updated ? (
+          <p className="mt-1 text-12 text-faint">{updated} 更新</p>
+        ) : null}
+      </div>
+    </button>
   );
 }
 
@@ -82,7 +136,7 @@ function NewProjectCard({
   // 卡片本体的几何/描边两态共用 —— 虚线描边把「待创建」与右侧实线的已有项目卡区分开,
   // 不靠颜色,色盲也分得清。
   const shell = cn(
-    'flex h-36 w-60 shrink-0 flex-col rounded-16 border border-dashed border-border-strong bg-surface-card',
+    'flex h-36 w-60 shrink-0 snap-start flex-col rounded-16 border border-dashed border-border-strong bg-surface-card',
     'transition-colors focus-within:border-foreground hover:border-foreground'
   );
 

@@ -1,7 +1,13 @@
-import type { ComponentType, ReactNode } from 'react';
-import { BookOpen, FileText, Newspaper } from 'lucide-react';
+import { useState, type ComponentType, type ReactNode } from 'react';
+import { BookOpen, CircleHelp, FileText, Newspaper } from 'lucide-react';
 import { FeatureBrandHeading } from '@/shared/components/FeatureBrandHeading';
+import { RhinoSpeechBubble } from '@/shared/components/RhinoSpeechBubble';
 import { cn } from '@/shared/lib/utils';
+import {
+  RHINO_CLAW_GREET,
+  useRhinoAssistant,
+} from '@/stores/rhino-assistant.store';
+import { ClawNoviceTour } from './ClawNoviceTour';
 
 export interface HeroSuggestion {
   icon: ComponentType<{ className?: string }>;
@@ -11,8 +17,7 @@ export interface HeroSuggestion {
 
 /**
  * 新对话空白态(桌面)—— 形态对齐 GPT / Claude / Codex 这类主流 AI 软件的新会话页:
- *   - 智能助手 / 智能搜索 / 写作 / 审稿:六芒星即牛犀犀巢;
- *     文献库、期刊库、数据集、情报与我的资源只有标题,不挂标志也不当巢。
+ *   - 智能助手空态出完整 lockup,巢在右下角;其余功能空态出标题 + 图标占位。
  *   - 中央一个对话框(与对话中底部栏**同一个 ChatComposer**,样式一致)
  *   - 模板卡(制作PPT / 科研绘图 的「扑克牌扇」)放在**输入框下方**(见 TemplateCards)
  *   - 示例提问做成带图标的轻量 chip:点一下把提示词**填进输入框**(可改后再发,不直接发送)
@@ -39,6 +44,54 @@ export const clawHeroDefaults = {
 
 const LINGXI_TITLE = '智能助手';
 
+function ClawHelpHint() {
+  const [open, setOpen] = useState(false);
+  const [origin, setOrigin] = useState({ x: 0, y: 0 });
+
+  const close = () => setOpen(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="了解智能助手"
+        aria-expanded={open}
+        onClick={(e) => {
+          if (useRhinoAssistant.getState().tourGuiding) return;
+          if (open) {
+            close();
+            return;
+          }
+          setOrigin({ x: e.clientX, y: e.clientY });
+          setOpen(true);
+        }}
+        className={cn(
+          'inline-flex size-8 items-center justify-center rounded-8',
+          'text-faint transition-colors hover:text-foreground',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
+        )}
+      >
+        <CircleHelp className="size-4" aria-hidden />
+      </button>
+      <RhinoSpeechBubble
+        open={open}
+        text={RHINO_CLAW_GREET}
+        anchorPoint={origin}
+        prompt={{
+          confirmLabel: '确认',
+          dismissLabel: '不用了',
+          seconds: 5,
+          onConfirm: () => {
+            close();
+            useRhinoAssistant.getState().requestClawTour();
+          },
+          onDismiss: close,
+        }}
+      />
+    </>
+  );
+}
+
 export function ClawHero({
   composer,
   onPickSuggestion,
@@ -48,13 +101,13 @@ export function ClawHero({
   extra,
   aboveComposer,
   contentClassName = 'max-w-2xl',
-  brandMark = true,
+  brandMark = false,
 }: {
   composer: ReactNode;
   onPickSuggestion: (text: string) => void;
   /** 空态标题。传了则 Logo 右侧出功能名。 */
   title?: string;
-  /** Hex lockup / nest beside the title. Off for literature-search landing. */
+  /** Other titles: horn mark if true. 智能助手 always shows the lockup. */
   brandMark?: boolean;
   /** 副标题(可选;空则不渲染)。 */
   subtitle?: string;
@@ -94,7 +147,9 @@ export function ClawHero({
             {isLingxi ? (
               <FeatureBrandHeading
                 title={LINGXI_TITLE}
-                className="w-full"
+                mark
+                trailing={<ClawHelpHint />}
+                className="mb-8 w-full"
               />
             ) : null}
             {composer}
@@ -102,6 +157,8 @@ export function ClawHero({
 
           {/* 模板卡 —— 移到输入框**下方**,带封面动画诠释功能(制作PPT / 科研绘图);见 TemplateCards。 */}
           {extra && <div className="mt-5 w-full">{extra}</div>}
+
+          <ClawNoviceTour />
 
           {suggestions.length > 0 ? (
             <div className="mt-4 flex flex-wrap justify-center gap-2">

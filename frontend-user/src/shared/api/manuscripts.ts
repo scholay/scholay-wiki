@@ -64,10 +64,25 @@ export interface ReviewRound {
   completedAt?: string;
 }
 
+export interface ManuscriptPreviewSection {
+  heading: string;
+  text: string;
+}
+
+/** 右侧阅读区用的正文预览(从写作主文件 / 上传稿抽出,只读)。 */
+export interface ManuscriptPreview {
+  title: string;
+  authors?: string;
+  abstract?: string;
+  sections?: ManuscriptPreviewSection[];
+  sourceLabel?: string;
+}
+
 export interface ManuscriptDetail {
   manuscript: Manuscript;
   versions: ManuscriptVersion[];
   rounds: ReviewRound[];
+  preview?: ManuscriptPreview;
 }
 
 const KEY = (...rest: (string | number)[]) => ['manuscripts', ...rest] as const;

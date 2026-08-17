@@ -63,11 +63,7 @@ export function PlazaHeader() {
     <header className="shrink-0 border-b border-border bg-background px-6 py-4">
       <div className="mx-auto max-w-[640px]">
         <div className="mb-4 flex justify-center">
-          <FeatureBrandHeading
-            as="h1"
-            title={heading}
-            mark={!isNews && !isDatasets}
-          />
+          <FeatureBrandHeading as="h1" title={heading} />
         </div>
         {isPlaza ? (
           <div className="mb-3 flex justify-center">

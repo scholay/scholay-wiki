@@ -181,7 +181,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         onRequireAuth={onRequireAuth}
         maxHeightPx={120}
         onPaste={enableAttachments ? att.handlePaste : undefined}
-        containerProps={enableAttachments ? att.dragHandlers : undefined}
+        containerProps={{
+          ...(enableAttachments ? att.dragHandlers : undefined),
+          'data-tour': 'claw-composer',
+        }}
         overlay={
           enableAttachments && att.dragOver ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">

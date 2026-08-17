@@ -79,11 +79,14 @@ import {
   type WorkspaceFunctionKind,
 } from '@/stores/search-right-panel.store';
 import { STAGING_FOLDER_LABEL } from '@/stores/workspace-folder.store';
+import { cn } from '@/shared/lib/utils';
 
 const FILE_SWITCH_H = 44;
 /** Aligns with PdfChatPanel / TabStrip `h-11` (44px). */
-const HEADER_H = 44;
-const FOOTER_H = 40;
+export const MATRIX_HEADER_H = 44;
+export const MATRIX_FOOTER_H = 40;
+const HEADER_H = MATRIX_HEADER_H;
+const FOOTER_H = MATRIX_FOOTER_H;
 
 function heightsEqual(
   a: Record<string, number>,
@@ -518,16 +521,22 @@ export function WorkspacePaperColumn({
   );
 }
 
-function MatrixDimPane({
+export function MatrixDimPane({
   staged,
   rowHeights,
   scrollRef,
   onScroll,
+  headerHeight = HEADER_H,
+  headerInScroll = true,
 }: {
   staged: Paper[];
   rowHeights: Record<string, number>;
   scrollRef: RefObject<HTMLDivElement | null>;
   onScroll: (e: UIEvent<HTMLDivElement>) => void;
+  /** 与左侧文献卡表头对齐时传入同一高度。 */
+  headerHeight?: number;
+  /** false = 表头钉在滚动区外,和文献集列表头同一条水平线。 */
+  headerInScroll?: boolean;
 }) {
   const token = useAuthStore((s) => s.token);
   const openAuthDialog = useAuthDialog((s) => s.openDialog);
@@ -547,45 +556,64 @@ function MatrixDimPane({
     dimensionsQ.isLoading || (matrixQ.isLoading && results.length === 0);
   const showLoginGate = !token;
   const showDimGrid = !showLoginGate && dimensions.length > 0;
+  const headerCells = showLoginGate ? (
+    <th
+      className={cn(
+        'border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground',
+        headerInScroll && 'sticky top-0 z-20',
+      )}
+      style={{ height: headerHeight }}
+    >
+      维度
+    </th>
+  ) : showDimGrid ? (
+    dimensions.map((d) => (
+      <th
+        key={d.dimensionKey}
+        className={cn(
+          'border-b border-r border-border bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground last:border-r-0',
+          headerInScroll && 'sticky top-0 z-20',
+        )}
+        style={{ minWidth: DIM_COL_MIN_WIDTH, height: headerHeight }}
+        title={d.dimensionKey}
+      >
+        {d.name}
+      </th>
+    ))
+  ) : (
+    <th
+      className={cn(
+        'border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground',
+        headerInScroll && 'sticky top-0 z-20',
+      )}
+      style={{ height: headerHeight }}
+    >
+      维度
+    </th>
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
+      {!headerInScroll && (
+        <div className="shrink-0 overflow-hidden">
+          <table className="w-full border-separate border-spacing-0 text-xs">
+            <thead>
+              <tr>{headerCells}</tr>
+            </thead>
+          </table>
+        </div>
+      )}
       <div
         ref={scrollRef}
         onScroll={onScroll}
         className="min-h-0 flex-1 overflow-auto"
       >
         <table className="w-full border-separate border-spacing-0 text-xs">
-          <thead>
-            <tr>
-              {showLoginGate ? (
-                <th
-                  className="sticky top-0 z-20 border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground"
-                  style={{ height: HEADER_H }}
-                >
-                  维度
-                </th>
-              ) : showDimGrid ? (
-                dimensions.map((d) => (
-                  <th
-                    key={d.dimensionKey}
-                    className="sticky top-0 z-20 border-b border-r border-border bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground last:border-r-0"
-                    style={{ minWidth: DIM_COL_MIN_WIDTH, height: HEADER_H }}
-                    title={d.dimensionKey}
-                  >
-                    {d.name}
-                  </th>
-                ))
-              ) : (
-                <th
-                  className="sticky top-0 z-20 border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground"
-                  style={{ height: HEADER_H }}
-                >
-                  维度
-                </th>
-              )}
-            </tr>
-          </thead>
+          {headerInScroll ? (
+            <thead>
+              <tr>{headerCells}</tr>
+            </thead>
+          ) : null}
           <tbody>
             {matrixQ.error ? (
               <tr>

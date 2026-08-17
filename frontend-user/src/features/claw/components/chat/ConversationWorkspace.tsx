@@ -316,15 +316,17 @@ export function ConversationWorkspace({
   const acceptImages = modelSupportsVision(userModels, selectorCurrent);
 
   const composerRef = useRef<ChatComposerHandle>(null);
-  const consumedInitialPromptRef = useRef(false);
 
   useEffect(() => {
     const prompt = initialPrompt?.trim();
-    if (!prompt || consumedInitialPromptRef.current || turns.length > 0 || loading) return;
-    consumedInitialPromptRef.current = true;
-    onInitialPromptConsumed?.();
-    void conv.handleSubmit(prompt, [], []);
-  }, [initialPrompt, turns.length, loading, onInitialPromptConsumed, conv.handleSubmit]);
+    if (!prompt || turns.length > 0 || loading) return;
+    const raf = requestAnimationFrame(() => {
+      if (!composerRef.current) return;
+      composerRef.current.prefill(prompt);
+      onInitialPromptConsumed?.();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [initialPrompt, turns.length, loading, onInitialPromptConsumed]);
 
   const disabledPlaceholder = busy
     ? undefined

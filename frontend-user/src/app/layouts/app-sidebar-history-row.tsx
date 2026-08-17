@@ -1,6 +1,17 @@
 import { Folder, Loader2, type LucideIcon } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
+/** L3 under the current-feature heading (L1=16, L2=38). */
+export const HISTORY_ROW_INSET = 'pl-12 pr-4';
+
+export function HistoryHint({ children }: { children: string }) {
+  return (
+    <div className={cn(HISTORY_ROW_INSET, 'py-3 text-12 text-faint')}>
+      {children}
+    </div>
+  );
+}
+
 export function HistoryRow({
   label,
   active,
@@ -21,7 +32,8 @@ export function HistoryRow({
       onClick={onOpen}
       title={label}
       className={cn(
-        'flex h-8 items-center gap-2 px-4 w-full text-left transition-colors',
+        'flex h-8 items-center gap-2 w-full text-left transition-colors',
+        HISTORY_ROW_INSET,
         active ? 'bg-surface-2' : 'hover:bg-surface-1',
       )}
     >

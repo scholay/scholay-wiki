@@ -52,6 +52,7 @@ export function useBillingSnapshot() {
         token: o.token,
         resetPasses: o.reset_passes ?? 0,
         resetPassExpiry: o.reset_pass_next_expiry ?? null,
+        resetPassLots: o.reset_pass_lots ?? [],
       };
     },
   });

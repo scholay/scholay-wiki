@@ -1,28 +1,22 @@
-import { OpenAccessMark } from '@/shared/components/brand/OpenAccessMark';
+import { File as FileIcon } from 'lucide-react';
 import { useOpenPdfDetail } from '@/shared/hooks/useOpenInSearchPanel';
 import { libraryRowHasUploadedPdf } from '@/shared/lib/paper-pdf';
 import { cn } from '@/shared/lib/utils';
 import type { Paper, UserLibraryPaper } from '@/shared/api/types';
-
-const PDF_CHIP_CLS =
-  'inline-flex items-center justify-center rounded-sm border shrink-0 whitespace-nowrap font-semibold transition-colors h-6 px-2.5 text-xs gap-1.5 @max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0 border-brand-red bg-brand-red text-white hover:bg-brand-red/90';
-
-const PDF_RAIL_CLS =
-  'inline-flex h-7 w-full items-center justify-center rounded-8 border font-medium transition-colors px-1.5 text-12 gap-1';
-
-const PDF_RAIL_READY =
-  'border-brand-red bg-brand-red text-white hover:bg-brand-red/90';
-
-const PDF_RAIL_NONE =
-  'border-border bg-background text-subtle hover:bg-surface-1 hover:text-foreground';
+import {
+  STATUS_CHIP_RAIL_SHELL,
+  STATUS_CHIP_SHELL,
+  STATUS_CHIP_TONE,
+} from './status-chip-styles';
 
 function scholarPdfSearchUrl(title: string): string {
   return `https://scholar.google.com/scholar?q=${encodeURIComponent(title)}`;
 }
 
 /**
- * Paper PDF status chip — same control on result cards and paper detail.
- *   Scholay = uploaded to this account · OA = open-access URL · None = not found
+ * 检索卡 / 详情上的 PDF 入口。外观以文献集 StatusChip 为准:
+ *   已上传 → 绿「PDF」;否则灰「PDF·缺失」。
+ * 点击仍是检索侧动作(打开已上传 / 打开 OA / 查找),不做文献集管理菜单。
  */
 export function PaperPdfChip({
   paper,
@@ -45,9 +39,11 @@ export function PaperPdfChip({
   const oaPdfUrl = paper.openAccessPdf?.url?.trim();
   const hasUpload = libraryRowHasUploadedPdf(libRow);
   const isRail = layout === 'rail';
+  const complete = hasUpload;
+  const tone = complete ? STATUS_CHIP_TONE.complete : STATUS_CHIP_TONE.missing;
+  const label = complete ? 'PDF' : 'PDF·缺失';
   const labelCls = !isRail && collapseLabel ? '@max-[260px]:hidden' : undefined;
-  const readyCls = isRail ? cn(PDF_RAIL_CLS, PDF_RAIL_READY) : PDF_CHIP_CLS;
-  const noneCls = isRail ? cn(PDF_RAIL_CLS, PDF_RAIL_NONE) : PDF_CHIP_CLS;
+  const shell = isRail ? STATUS_CHIP_RAIL_SHELL : STATUS_CHIP_SHELL;
 
   const handleFindPdf = () => {
     if (onFindPdf) {
@@ -71,10 +67,12 @@ export function PaperPdfChip({
           });
         }}
         title="打开系统内已保存的 PDF"
-        className={cn(readyCls, className)}
+        className={cn(shell, tone, className)}
       >
-        <OpenAccessMark width={13} height={13} />
-        <span className={labelCls}>Scholay</span>
+        <FileIcon className="size-3" strokeWidth={2} />
+        <span className={cn('text-12 font-medium whitespace-nowrap', labelCls)}>
+          {label}
+        </span>
       </button>
     );
   }
@@ -87,10 +85,12 @@ export function PaperPdfChip({
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
         title="查看 Open Access 原始 PDF(新窗口)"
-        className={cn(readyCls, className)}
+        className={cn(shell, tone, className)}
       >
-        <OpenAccessMark width={13} height={13} />
-        <span className={labelCls}>OA</span>
+        <FileIcon className="size-3" strokeWidth={2} />
+        <span className={cn('text-12 font-medium whitespace-nowrap', labelCls)}>
+          {label}
+        </span>
       </a>
     );
   }
@@ -103,10 +103,12 @@ export function PaperPdfChip({
         handleFindPdf();
       }}
       title="查找这篇论文的 PDF"
-      className={cn(noneCls, className)}
+      className={cn(shell, tone, className)}
     >
-      <OpenAccessMark width={13} height={13} />
-      <span className={labelCls}>{isRail ? 'Search' : 'None'}</span>
+      <FileIcon className="size-3" strokeWidth={2} />
+      <span className={cn('text-12 font-medium whitespace-nowrap', labelCls)}>
+        {label}
+      </span>
     </button>
   );
 }

@@ -1193,14 +1193,16 @@ html.dark {
     100% { box-shadow: inset 0 0 0 0 transparent; background-color: transparent; }
   }
 
-  /* 奔跑犀牛加载 —— 彩色 pet-run 帧 + 轨道弧 */
-  --animate-rhino-orbit: rhino-orbit-spin 1200ms linear infinite, rhino-orbit-breathe 1600ms ease-in-out infinite;
-  @keyframes rhino-orbit-spin {
-    to { transform: rotate(270deg); }
+  /* 全站 loading:仓鼠轮转动 + 外圈进度弧 */
+  --animate-rhino-wheel-spin: rhino-wheel-spin 1.15s linear infinite;
+  --animate-rhino-wheel-progress: rhino-wheel-progress 1.6s ease-in-out infinite;
+  @keyframes rhino-wheel-spin {
+    to { transform: rotate(360deg); }
   }
-  @keyframes rhino-orbit-breathe {
-    0%, 100% { stroke-dasharray: 18 82; stroke-dashoffset: 0; }
-    50%      { stroke-dasharray: 42 58; stroke-dashoffset: -14; }
+  @keyframes rhino-wheel-progress {
+    0%   { stroke-dasharray: 12 88; stroke-dashoffset: 0; }
+    50%  { stroke-dasharray: 46 54; stroke-dashoffset: -28; }
+    100% { stroke-dasharray: 12 88; stroke-dashoffset: -100; }
   }
 }
 
@@ -1764,58 +1766,63 @@ html.dark :where(
   animation: caret-blink 1.25s ease-out infinite;
 }
 
-/* 奔跑犀牛加载器(RouteFallback / LoadingState)—— 彩色 pet-run 帧 + 轨道弧 */
+/* 全站 loading:仓鼠轮 + 原地跑的牛犀犀 */
 .rhino-run-loader {
-  --rhino-orbit: 10rem;
-  --rhino-runner-h: 6rem;
+  /* 内圈 r=68 / viewBox 200 → 底边内径距容器底 16%;精灵脚垫 46/256 */
+  --rhino-wheel-floor: calc(16% - 8rem * 46 / 256);
   position: relative;
   display: grid;
-  width: var(--rhino-orbit);
+  width: 14rem;
   aspect-ratio: 1;
   place-items: center;
+  pointer-events: none;
+  color: var(--foreground);
 }
-.rhino-run-loader--compact {
-  --rhino-orbit: 8rem;
-  --rhino-runner-h: 4.5rem;
-}
-.rhino-run-loader--full {
-  --rhino-orbit: 14.5rem;
-  --rhino-runner-h: 9rem;
-}
-.rhino-run-loader__orbit {
+.rhino-run-loader__wheel {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   overflow: visible;
 }
-.rhino-run-loader__orbit-track,
-.rhino-run-loader__orbit-arc {
+.rhino-run-loader__spokes {
+  transform-origin: 100px 100px;
+}
+.rhino-run-loader__spoke,
+.rhino-run-loader__rim-inner,
+.rhino-run-loader__hub,
+.rhino-run-loader__track,
+.rhino-run-loader__progress {
   fill: none;
-  stroke-width: 2.5;
+  stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
-.rhino-run-loader__orbit-track {
-  stroke: color-mix(in srgb, currentColor 12%, transparent);
+.rhino-run-loader__spoke {
+  stroke: color-mix(in srgb, currentColor 22%, transparent);
+  stroke-width: 1.5;
 }
-.rhino-run-loader__orbit-arc {
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-dasharray: 24 76;
+.rhino-run-loader__rim-inner,
+.rhino-run-loader__hub {
+  stroke: color-mix(in srgb, currentColor 28%, transparent);
+  stroke-width: 2;
+}
+.rhino-run-loader__track {
+  stroke: color-mix(in srgb, currentColor 14%, transparent);
+  stroke-width: 3;
+}
+.rhino-run-loader__progress {
+  stroke: var(--brand-red);
+  stroke-width: 3;
   transform: rotate(-90deg);
   transform-origin: 100px 100px;
 }
-.rhino-run-loader__runner {
-  position: relative;
-  z-index: 1;
-  width: var(--rhino-runner-h);
-  height: var(--rhino-runner-h);
-  pointer-events: none;
-}
 .rhino-run-loader__sprite {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  left: 50%;
+  bottom: var(--rhino-wheel-floor);
+  z-index: 1;
+  width: 8rem;
+  height: 8rem;
   object-fit: contain;
+  transform: translateX(-50%);
 }
 
 /* 「减少动态」全局兜底 —— 系统开启 prefers-reduced-motion 时,几乎关闭所有 CSS 动画/过渡

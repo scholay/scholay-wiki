@@ -19,6 +19,7 @@ import {
 import { MOCK_MODE } from '@/mocks/config';
 import { MockControlPanel } from '@/mocks/MockControlPanel';
 import { FundsReminderDialog } from '@/shared/components/funds-reminder/FundsReminder';
+import { GlobalLoadingOverlay } from '@/shared/components/GlobalLoadingOverlay';
 
 /**
  * React 19 原生支持把 <title>/<meta>/<link> 渲染到 <head>,
@@ -77,6 +78,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <BodyPointerLockGuard />
         {!isEmbedPage && <FeedPrefetcher />}
         {children}
+        <GlobalLoadingOverlay />
         <Toaster position="top-right" richColors closeButton />
         {/* 全局命令式确认 dialog 渲染槽 —— 任意位置 useConfirm() 都能弹 */}
         <ConfirmDialogRoot />

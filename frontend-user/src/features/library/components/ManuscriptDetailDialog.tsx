@@ -28,7 +28,7 @@ import {
 import { ManuscriptStageBadge } from './ManuscriptCollectionView';
 
 /**
- * 稿件详情 —— 版本快照与审稿轮的合并时间线,动作按 origin 出:
+ * 稿件「状态与历史」—— 版本快照与审稿轮的合并时间线,动作按 origin 出:
  *
  *   origin=prism:「继续写作」回 Prism 工作区;「送审」= 落版本快照 + 建审稿轮
  *                 (工单稿件已附带)→ 跳审稿 wizard step 2,循环闭环。
@@ -129,7 +129,7 @@ export function ManuscriptDetailDialog({
         {!manuscript ? (
           <>
             <DialogHeader>
-              <DialogTitle>稿件详情</DialogTitle>
+              <DialogTitle>状态与历史</DialogTitle>
             </DialogHeader>
             {detailQ.isError ? (
               <p className="py-8 text-center text-12 text-faint">

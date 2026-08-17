@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -21,6 +22,7 @@ import { cn } from '@/shared/lib/utils';
 import { useAuthStatus } from '@/stores/auth.store';
 import { RhinoFeedbackBody } from './RhinoFeedbackBody';
 import { RhinoHoverMenu, RhinoUnreadBadge } from './RhinoHoverMenu';
+import { RhinoSpeechBubble } from './RhinoSpeechBubble';
 import { RhinoNotificationsBody } from './RhinoNotificationsBody';
 import {
   isIdleOnceClip,
@@ -62,15 +64,31 @@ import {
   type RhinoEdgeSide,
 } from '@/shared/mascot/rhino-edge-dock';
 import {
+  HOME_CARD_DOCK_PX_S,
+  HOME_CARD_ENTER_PX_S,
+  HOME_CARD_PERCH_ID,
+  HOME_CARD_SEGMENT_MIN_MS,
+  HOME_CARD_SLIDE_PX_S,
   PERCH_DIVE_PX_S,
   PERCH_RUN_PX_S,
+  getActivePerchId,
+  getHomeCardRect,
+  homeCardStartPos,
   getLiveRhinoPerchRect,
   getRhinoPerchRect,
+  hasPageRhinoPerch,
+  hasRhinoPerch,
+  homeCardEnterWaypoints,
+  homeCardFrontClip,
+  homeCardGhostClip,
+  homeCardOutsideClip,
   isNearRhinoPerch,
   perchApproachPos,
   perchDivePos,
   perchDockPos,
   perchEmergeRest,
+  shouldAutoDockToPerch,
+  subscribeActivePerch,
 } from '@/shared/mascot/rhino-perch';
 import { RHINO_NAME } from '@/shared/mascot/rhino-name';
 import { useMascotSprite } from '@/shared/mascot/useMascotSprite';
@@ -150,8 +168,12 @@ function perchEmergeStart(rect: DOMRect): Pos {
 
 function initialFloatPos(): Pos {
   if (typeof window === 'undefined') return { x: 24, y: 24 };
-  const rest = loadPos();
   const st = useRhinoAssistant.getState();
+  if (st.homeEnterPending) {
+    const card = getHomeCardRect();
+    if (card) return clampPos(homeCardStartPos(card, SIZE));
+  }
+  const rest = loadPos();
   if (st.emergeFromEdge) {
     return emergeStartPos(rest, loadEdgeSide());
   }
@@ -189,20 +211,29 @@ export function FloatingRhinoAssistant({
   const perchEnterConsumed = useRhinoAssistant((s) => s.perchEnterConsumed);
   const show = useRhinoAssistant((s) => s.show);
   const consumePerchEnter = useRhinoAssistant((s) => s.consumePerchEnter);
-  const resetPerchDismissed = useRhinoAssistant((s) => s.resetPerchDismissed);
+  const pagePerchActive = useSyncExternalStore(
+    subscribeActivePerch,
+    hasPageRhinoPerch,
+    () => false,
+  );
 
-  // 归位的第二个触发点:加载新页面。换路由即重开本页的巢吸引
-  // (被拉出过的犀牛在新页面再次自动归巢;同页内不反复吸回)。
   const { pathname } = useLocation();
-  useEffect(() => {
-    resetPerchDismissed();
-  }, [pathname, resetPerchDismissed]);
+  const beginHomeEnter = useRhinoAssistant((s) => s.beginHomeEnter);
+  const prevPathRef = useRef<string | null>(null);
 
-  const prevPerchPresent = useRef(perchPresent);
   useEffect(() => {
-    const justArrived = perchPresent && !prevPerchPresent.current;
-    prevPerchPresent.current = perchPresent;
-    // Only leave the edge when a nest appears — do not undo an explicit hide.
+    const arrivedHome = pathname === '/' && prevPathRef.current !== '/';
+    prevPathRef.current = pathname;
+    if (!arrivedHome) return;
+    if (useRhinoAssistant.getState().panel) return;
+    beginHomeEnter();
+  }, [pathname, beginHomeEnter]);
+
+  const prevPagePerch = useRef(pagePerchActive);
+  useEffect(() => {
+    const justArrived = pagePerchActive && !prevPagePerch.current;
+    prevPagePerch.current = pagePerchActive;
+    // Only leave the edge when a page nest appears — do not undo an explicit hide.
     if (
       justArrived &&
       !perchDismissed &&
@@ -213,24 +244,13 @@ export function FloatingRhinoAssistant({
       show();
     }
   }, [
-    perchPresent,
+    pagePerchActive,
     perchDismissed,
     perchEnterConsumed,
     hidden,
     hideKind,
     show,
   ]);
-
-  useEffect(() => {
-    if (!hidden || hideKind !== 'perch' || perchPresent) return;
-    const id = window.setTimeout(() => {
-      const st = useRhinoAssistant.getState();
-      if (st.hidden && st.hideKind === 'perch' && !st.perchPresent) {
-        st.hide('edge');
-      }
-    }, 400);
-    return () => window.clearTimeout(id);
-  }, [hidden, hideKind, perchPresent]);
 
   useEffect(() => {
     if (hidden && hideKind === 'perch' && perchPresent) {
@@ -241,7 +261,7 @@ export function FloatingRhinoAssistant({
   if (hidden) {
     // 真隐藏:收进右上角导航条 chip(UserSection 里的 RhinoNavChip 负责渲染)。
     if (hideKind === 'nav') return null;
-    if (hideKind === 'perch' && perchPresent) return null;
+    if (hideKind === 'perch' && hasRhinoPerch()) return null;
     return <RhinoEdgePeek />;
   }
   return <FloatingRhinoLive featuresSlot={featuresSlot} />;
@@ -249,18 +269,31 @@ export function FloatingRhinoAssistant({
 
 function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   const reduce = useReducedMotion();
+  const { pathname } = useLocation();
+  const pagePerchActive = useSyncExternalStore(
+    subscribeActivePerch,
+    hasPageRhinoPerch,
+    () => false,
+  );
   const { authenticated } = useAuthStatus();
   const unreadQ = useUnreadCount();
   const unread = authenticated ? (unreadQ.data ?? 0) : 0;
   const { frameSrc, play } = useMascotSprite('pet-idle');
   const setAnchor = useRhinoAssistant((s) => s.setAnchor);
+  const setDragActive = useRhinoAssistant((s) => s.setDragActive);
   const panel = useRhinoAssistant((s) => s.panel);
   const openPanel = useRhinoAssistant((s) => s.openPanel);
   const closePanel = useRhinoAssistant((s) => s.closePanel);
   const hide = useRhinoAssistant((s) => s.hide);
+  const setHomeEnterClip = useRhinoAssistant((s) => s.setHomeEnterClip);
+  const setHomeUnderCard = useRhinoAssistant((s) => s.setHomeUnderCard);
+  const homeEnterClip = useRhinoAssistant((s) => s.homeEnterClip);
+  const speech = useRhinoAssistant((s) => s.speech);
+  const dismissSpeech = useRhinoAssistant((s) => s.dismissSpeech);
   const clearEmerge = useRhinoAssistant((s) => s.clearEmerge);
-  const perchPresent = useRhinoAssistant((s) => s.perchPresent);
   const perchDismissed = useRhinoAssistant((s) => s.perchDismissed);
+  const homeEnterPending = useRhinoAssistant((s) => s.homeEnterPending);
+  const consumeHomeEnter = useRhinoAssistant((s) => s.consumeHomeEnter);
   const collapseNonce = useRhinoAssistant((s) => s.collapseNonce);
   const panelRef = useRef(panel);
   panelRef.current = panel;
@@ -313,12 +346,15 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   const chaseLastTRef = useRef(0);
   const dockingRef = useRef(false);
   const dockRafRef = useRef(0);
+  const dockDelayRef = useRef(0);
   const lastAnimKeyRef = useRef('');
   const playRef = useRef(play);
   playRef.current = play;
   const hoverLeaveTimerRef = useRef(0);
   /** 收起态：延迟单击姿势，以便识别双击进对话 */
   const pendingPoseTimerRef = useRef(0);
+  /** Hold without moving still reveals the corner nest. */
+  const holdTimerRef = useRef(0);
   const lastTapAtRef = useRef(0);
   const expandToRef = useRef<(mode: RhinoPanelMode) => void>(() => {});
 
@@ -514,6 +550,7 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     coastingRef.current = false;
     draggingRef.current = false;
     setDragging(false);
+    setDragActive(false);
     visualSamplesRef.current = [];
     speedEmaRef.current = 0;
     faceVelRef.current = { vx: 0, vy: 0 };
@@ -660,8 +697,10 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       stopChase();
       cancelAnimationFrame(dockRafRef.current);
       cancelAnimationFrame(emergeRafRef.current);
+      window.clearTimeout(dockDelayRef.current);
       window.clearTimeout(hoverLeaveTimerRef.current);
       window.clearTimeout(pendingPoseTimerRef.current);
+      useRhinoAssistant.getState().setHomeEnterClip('none');
     };
   }, [stopChase]);
 
@@ -698,6 +737,12 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       originY: origin.y,
       moved: false,
     };
+    window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = 0;
+      if (!dragRef.current || panelRef.current) return;
+      setDragActive(true);
+    }, 400);
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -711,16 +756,22 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
 
     if (!d.moved) {
       d.moved = true;
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = 0;
       if (dockingRef.current) {
         cancelAnimationFrame(dockRafRef.current);
         dockRafRef.current = 0;
+        window.clearTimeout(dockDelayRef.current);
+        dockDelayRef.current = 0;
         dockingRef.current = false;
         busyRef.current = false;
         setDiveBehindNest(false);
+        setHomeEnterClip('none');
       }
       draggingRef.current = true;
       coastingRef.current = false;
       setDragging(true);
+      setDragActive(true);
       window.clearInterval(idleTimerRef.current);
       visualSamplesRef.current = [];
       speedEmaRef.current = 0;
@@ -744,6 +795,9 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
     dragRef.current = null;
+    window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = 0;
+    setDragActive(false);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -752,9 +806,14 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     if (d.moved) {
       if (panelRef.current) return;
       const dockReady = performance.now() >= dockArmedAtRef.current;
-      // 归位·靠近吸附:松手时挨着页面巢 → 跑进巢里坐下(与左右贴边同级)。
+      // 靠近吸附:标题巢 / 右下角隐形巢，拖到附近松手即入巢。
       if (dockReady) {
-        const nestRect = getLiveRhinoPerchRect();
+        const homeCard = getHomeCardRect();
+        const nestRect =
+          homeCard ??
+          getLiveRhinoPerchRect({
+            perchDismissed: useRhinoAssistant.getState().perchDismissed,
+          });
         if (
           nestRect &&
           (isNearRhinoPerch(visualRef.current, SIZE, nestRect) ||
@@ -926,19 +985,24 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
 
   /** 归位入巢:页面加载自动触发,或拖近巢松手吸附。跑到巢下、钻进巢后坐下。 */
   const runDockToPerch = useCallback((): boolean => {
-    const rect = getLiveRhinoPerchRect();
+    const rect = getLiveRhinoPerchRect({
+      perchDismissed: useRhinoAssistant.getState().perchDismissed,
+    });
     if (!rect) return false;
     if (dockingRef.current) return false;
     dockingRef.current = true;
     busyRef.current = true;
     window.clearTimeout(pendingPoseTimerRef.current);
     pendingPoseTimerRef.current = 0;
+    window.clearTimeout(dockDelayRef.current);
+    dockDelayRef.current = 0;
     lastTapAtRef.current = 0;
     stopChase();
     draggingRef.current = false;
     coastingRef.current = false;
     setDragging(false);
     setDiveBehindNest(false);
+    setHomeEnterClip('none');
 
     const start = visualRef.current;
     persistFloatingPos(start);
@@ -948,14 +1012,12 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       return true;
     }
 
-    const approach = perchApproachPos(rect, SIZE);
-    const dive = perchDivePos(rect, SIZE);
-
     const runSegment = (
       from: Pos,
       to: Pos,
       speed: number,
       onDone: () => void,
+      opts?: { linear?: boolean; minMs?: number },
     ) => {
       const vx = to.x - from.x;
       const vy = to.y - from.y;
@@ -976,12 +1038,16 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
         loop: true,
         fps: locoFps('run', speed),
       });
-      const durationMs = Math.max(80, (dist / speed) * 1000);
+      const durationMs = Math.max(opts?.minMs ?? 80, (dist / speed) * 1000);
       const t0 = performance.now();
       const tick = (now: number) => {
         if (!dockingRef.current) return;
         const u = Math.min(1, (now - t0) / durationMs);
-        const eased = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+        const eased = opts?.linear
+          ? u
+          : u < 0.5
+            ? 2 * u * u
+            : 1 - (-2 * u + 2) ** 2 / 2;
         const next = {
           x: from.x + vx * eased,
           y: from.y + vy * eased,
@@ -999,6 +1065,29 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       dockRafRef.current = requestAnimationFrame(tick);
     };
 
+    const card = getHomeCardRect();
+    if (getActivePerchId() === HOME_CARD_PERCH_ID && card) {
+      const path = homeCardEnterWaypoints(card, rect, SIZE, start);
+      const homeEase = { linear: true, minMs: HOME_CARD_SEGMENT_MIN_MS };
+      setHomeEnterClip('bottom');
+      runSegment(start, path.under, HOME_CARD_ENTER_PX_S, () => {
+        if (!dockingRef.current) return;
+        setHomeEnterClip('right');
+        runSegment(path.under, path.emerge, HOME_CARD_SLIDE_PX_S, () => {
+          if (!dockingRef.current) return;
+          setHomeEnterClip('inside');
+          runSegment(path.emerge, path.dock, HOME_CARD_DOCK_PX_S, () => {
+            if (!dockingRef.current) return;
+            hide('perch');
+          }, homeEase);
+        }, { linear: true, minMs: 80 });
+      }, homeEase);
+      return true;
+    }
+
+    const approach = perchApproachPos(rect, SIZE);
+    const dive = perchDivePos(rect, SIZE);
+
     runSegment(start, approach, PERCH_RUN_PX_S, () => {
       if (!dockingRef.current) return;
       setDiveBehindNest(true);
@@ -1008,7 +1097,7 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       });
     });
     return true;
-  }, [hide, reduce, stopChase]);
+  }, [hide, reduce, setHomeEnterClip, stopChase]);
 
   /** 隐藏(非归位):跑向右上角,收进导航条 chip(hover 出菜单,点击释放)。 */
   const runDockToNav = useCallback(() => {
@@ -1081,13 +1170,15 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   };
 
   useEffect(() => {
-    if (!perchPresent || perchDismissed || panel) return;
+    if (pathname === '/') return;
+    if (panel) return;
+    if (!shouldAutoDockToPerch(perchDismissed)) return;
     let cancelled = false;
     let retryId = 0;
     const tryEnter = () => {
       if (cancelled) return;
       const st = useRhinoAssistant.getState();
-      if (st.perchDismissed || st.panel || st.hidden) return;
+      if (!shouldAutoDockToPerch(st.perchDismissed) || st.panel || st.hidden) return;
       if (emergingRef.current || draggingRef.current || dockingRef.current) {
         retryId = window.setTimeout(tryEnter, 240);
         return;
@@ -1102,7 +1193,41 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
       window.clearTimeout(id);
       window.clearTimeout(retryId);
     };
-  }, [perchPresent, perchDismissed, panel, runDockToPerch]);
+  }, [pagePerchActive, perchDismissed, panel, runDockToPerch, pathname]);
+
+  useEffect(() => {
+    if (!homeEnterPending || panel) return;
+    let cancelled = false;
+    let retryId = 0;
+    const tryEnter = () => {
+      if (cancelled) return;
+      if (useRhinoAssistant.getState().panel) return;
+      const card = getHomeCardRect();
+      if (!card) {
+        retryId = window.setTimeout(tryEnter, 80);
+        return;
+      }
+      if (emergingRef.current || draggingRef.current || dockingRef.current) {
+        retryId = window.setTimeout(tryEnter, 160);
+        return;
+      }
+      const start = clampPos(homeCardStartPos(card, SIZE));
+      visualRef.current = start;
+      targetRef.current = start;
+      setPos(start);
+      persistFloatingPos(start);
+      consumeHomeEnter();
+      if (!runDockToPerch()) {
+        retryId = window.setTimeout(tryEnter, 160);
+      }
+    };
+    const id = window.setTimeout(tryEnter, 80);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+      window.clearTimeout(retryId);
+    };
+  }, [homeEnterPending, panel, consumeHomeEnter, runDockToPerch]);
 
   useEffect(() => {
     if (!panel) return;
@@ -1211,6 +1336,27 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
     panelTabs.push({ id: 'notifications', label: '通知', icon: Bell });
   }
 
+  const homeCardRect =
+    !panel && pathname === '/' ? getHomeCardRect() : null;
+  const frontClip =
+    homeCardRect && homeEnterClip !== 'none'
+      ? homeCardFrontClip(homeEnterClip, homeCardRect, pos, SIZE)
+      : homeCardRect && dragging
+        ? homeCardOutsideClip(homeCardRect, pos, SIZE)
+        : undefined;
+  const ghostClip =
+    homeCardRect &&
+    (homeEnterClip === 'bottom' || homeEnterClip === 'right' || dragging)
+      ? homeCardGhostClip(homeCardRect, pos, SIZE)
+      : null;
+  const underCardNow = Boolean(ghostClip);
+
+  useEffect(() => {
+    setHomeUnderCard(underCardNow);
+  }, [underCardNow, setHomeUnderCard]);
+
+  useEffect(() => () => setHomeUnderCard(false), [setHomeUnderCard]);
+
   const rhinoSprite = (
     <button
       type="button"
@@ -1248,6 +1394,30 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
   );
 
   return (
+    <>
+    {ghostClip ? (
+      <div className="pointer-events-none fixed inset-0 z-[5]" aria-hidden>
+        <div
+          className="absolute"
+          style={{
+            left: pos.x,
+            top: pos.y,
+            width: SIZE,
+            height: SIZE,
+            clipPath: ghostClip,
+          }}
+        >
+          <img
+            src={frameSrc}
+            alt=""
+            draggable={false}
+            width={SIZE}
+            height={SIZE}
+            className="size-full object-contain brightness-0 opacity-40"
+          />
+        </div>
+      </div>
+    ) : null}
     <div
       className={cn(
         'pointer-events-none fixed inset-0',
@@ -1442,7 +1612,13 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="pointer-events-auto absolute"
-            style={{ left: pos.x, top: pos.y, width: SIZE, height: SIZE }}
+            style={{
+              left: pos.x,
+              top: pos.y,
+              width: SIZE,
+              height: SIZE,
+              clipPath: frontClip,
+            }}
             onPointerEnter={onHeadEnter}
             onPointerLeave={onHeadLeave}
           >
@@ -1451,11 +1627,22 @@ function FloatingRhinoLive({ featuresSlot }: { featuresSlot?: ReactNode }) {
               onSelect={expandTo}
               onHide={hideRhino}
             />
+            <RhinoSpeechBubble
+              open={Boolean(speech) && !showHeadChrome && !dragging}
+              text={speech?.text ?? ''}
+              onActivate={() => {
+                dismissSpeech();
+                expandTo('chat');
+              }}
+              onPointerEnter={onHeadEnter}
+              onPointerLeave={onHeadLeave}
+            />
 
             {rhinoSprite}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }

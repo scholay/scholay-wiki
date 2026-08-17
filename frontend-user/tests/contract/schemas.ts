@@ -88,6 +88,14 @@ export const vipOverviewSchema = z
     // 缺了它们会静默 undefined → `undefined > 0` 为 false → 重置入口对所有人永久置灰。
     reset_passes: z.number(),
     reset_pass_next_expiry: z.string().nullable(),
+    reset_pass_lots: z
+      .array(
+        z.object({
+          count: z.number(),
+          expires_at: z.string(),
+        }).passthrough(),
+      )
+      .optional(),
     reset_cost: z.never().optional(),
   })
   .passthrough();

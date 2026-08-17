@@ -24,6 +24,9 @@ import {
 } from '@/features/library/resource-model';
 import { useApiToast } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
+import { LIBRARY_SECTION_LABEL } from './app-sidebar-records';
+import { HistorySectionStatus } from './app-sidebar-section-status';
+import { HISTORY_ROW_INSET, HistoryHint } from './app-sidebar-history-row';
 
 /**
  * 我的资源下段:文献集 / 期刊集 / 稿件集 / 资源集各自列出对应文件夹。
@@ -74,15 +77,23 @@ export function LibraryFolderHistory() {
     section === 'papers' && !folderParam && defaultPaperId
       ? String(defaultPaperId)
       : folderParam;
-
   return (
-    <SidebarSection id="recent-sessions" label="文件夹" bordered>
+    <SidebarSection
+      id="recent-sessions"
+      label="文件夹"
+      bordered
+      heading={
+        <HistorySectionStatus
+          title={LIBRARY_SECTION_LABEL[section] ?? '文献集'}
+        />
+      }
+    >
       {!token ? (
-        <div className="px-4 py-3 text-12 text-faint">登录后可见文件夹</div>
+        <HistoryHint>登录后可见文件夹</HistoryHint>
       ) : section === 'papers' && isLoading ? (
-        <div className="px-4 py-3 text-12 text-faint">加载中…</div>
+        <HistoryHint>加载中…</HistoryHint>
       ) : rows.length === 0 ? (
-        <div className="px-4 py-3 text-12 text-faint">还没有文件夹</div>
+        <HistoryHint>还没有文件夹</HistoryHint>
       ) : (
         rows.map((row) => (
           <LibraryFolderRow
@@ -159,7 +170,8 @@ function LibraryFolderRow({
   return (
     <div
       className={cn(
-        'group relative flex h-8 w-full items-center gap-2 px-4 transition-colors',
+        'group relative flex h-8 w-full items-center gap-2 transition-colors',
+        HISTORY_ROW_INSET,
         active ? 'bg-surface-2' : 'hover:bg-surface-1',
       )}
     >

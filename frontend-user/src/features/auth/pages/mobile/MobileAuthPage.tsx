@@ -9,7 +9,8 @@ import { LoginForm } from '../../components/LoginForm';
 import { RegisterForm } from '../../components/RegisterForm';
 import { ForgotPasswordForm } from '../../components/ForgotPasswordForm';
 import { OAuthRow } from '../../components/OAuthRow';
-import { InviteAuthNotice } from '../../components/InviteAuthNotice';
+import { OAuthConfirmPanel } from '../../components/OAuthConfirmPanel';
+import { PROVIDER_META } from '../../components/oauth-flow';
 
 type PageMode = 'login' | 'register' | 'forgot';
 
@@ -32,7 +33,16 @@ export function MobileAuthPage() {
   const [mode, setMode] = useState<PageMode>(initialMode);
 
   const token = useAuthStore((s) => s.token);
+  const pendingOAuth = useAuthDialog((s) => s.pendingOAuth);
+  const setPendingOAuth = useAuthDialog((s) => s.setPendingOAuth);
   const navigate = useNavigate();
+  const pendingMeta = pendingOAuth ? PROVIDER_META[pendingOAuth] : null;
+
+  useEffect(() => {
+    return () => {
+      useAuthDialog.getState().setPendingOAuth(null);
+    };
+  }, []);
 
   // 登录/注册成功(或本来就已登录)→ 回触发位置(?from=,由 MobileShell 桥接带入),
   // 没有合法 from 则回「我的」。只认 /m 内路径,防开放跳转。
@@ -48,6 +58,7 @@ export function MobileAuthPage() {
   // 表单的 onSwitchMode 可能给出 wechat-qr(理论上微信只走 OAuthRow,防御处理):
   // 整页不渲染扫码视图,转交全局弹窗。
   const handleSwitchMode = (m: PageMode | 'wechat-qr') => {
+    setPendingOAuth(null);
     if (m === 'wechat-qr') {
       useAuthDialog.getState().openDialog('wechat-qr');
       return;
@@ -62,38 +73,42 @@ export function MobileAuthPage() {
       {/* 品牌 / 欢迎区 —— 大留白,移动 app 风格(无返回按钮、无分隔线) */}
       <div className="flex flex-col items-center pt-14 pb-9 text-center">
         <BrandLogo size="lg" />
-        <h1 className="mt-5 text-24 font-medium text-foreground">{t.title}</h1>
-        <p className="mt-1.5 text-12 text-muted-foreground">{t.desc}</p>
+        <h1 className="mt-5 text-24 font-medium text-foreground">
+          {pendingMeta ? `使用 ${pendingMeta.label} 继续` : t.title}
+        </h1>
+        <p className="mt-1.5 text-12 text-muted-foreground">
+          {pendingMeta ? '确认后将前往授权，邀请码可随时填写' : t.desc}
+        </p>
       </div>
 
-      {/* 表单 —— 移动端放大触控目标:输入框 / 主按钮抬到 h-12 + 圆角 + 大字号。
-          用 scoped 变体只作用于本页内的共享表单,PC 弹窗里的 h-10 紧凑样式不受影响。 */}
-      <div className="[&_input]:h-12 [&_input]:rounded-12 [&_input]:text-14 [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-14">
-        {mode === 'login' && (
-          <LoginForm initialAccountType="email" onSwitchMode={handleSwitchMode} />
-        )}
-        {mode === 'register' && (
-          <RegisterForm initialAccountType="email" onSwitchMode={handleSwitchMode} />
-        )}
-        {mode === 'forgot' && (
-          <ForgotPasswordForm
-            initialAccountType="email"
-            onSwitchMode={handleSwitchMode}
-          />
-        )}
-      </div>
-
-      {mode === 'register' && <InviteAuthNotice className="mx-0 mt-5" />}
-      {/* 第三方登录 */}
+      {pendingOAuth ? (
+        <OAuthConfirmPanel />
+      ) : (
+        <>
+          <div className="[&_input]:h-12 [&_input]:rounded-12 [&_input]:text-14 [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-14">
+            {mode === 'login' && (
+              <LoginForm initialAccountType="email" onSwitchMode={handleSwitchMode} />
+            )}
+            {mode === 'register' && (
+              <RegisterForm initialAccountType="email" onSwitchMode={handleSwitchMode} />
+            )}
+            {mode === 'forgot' && (
+              <ForgotPasswordForm
+                initialAccountType="email"
+                onSwitchMode={handleSwitchMode}
+              />
+            )}
+          </div>
+        </>
+      )}
       <div className="mt-8">
         <div className="relative flex items-center">
           <Separator className="flex-1" />
           <span className="px-3 text-12 text-faint uppercase">
-            或继续使用
+            {pendingOAuth ? '切换授权方式' : '或继续使用'}
           </span>
           <Separator className="flex-1" />
         </div>
-        {/* 微信暂不在移动端提供:PC 扫码自己扫不了自己;待公众号网页授权(P1)落地放开 */}
         <div className="mt-4">
           <OAuthRow exclude={['wechat']} />
         </div>

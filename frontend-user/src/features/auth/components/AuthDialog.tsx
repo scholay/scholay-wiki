@@ -14,104 +14,112 @@ import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
+import { OAuthConfirmPanel } from './OAuthConfirmPanel';
 import { WeChatQRPanel } from './WeChatQRPanel';
-import { InviteAuthNotice } from './InviteAuthNotice';
+import { InvitationCodeField } from './InvitationCodeField';
 import { AUTH_TITLES } from './auth-titles';
+import { PROVIDER_META } from './oauth-flow';
 
 /**
  * 鉴权弹窗 — 全局唯一,挂在 Providers 之下。
- * 任何按钮 / 引导都通过 useAuthDialog 触发,不要直接 mount 这个组件。
  *
- * mode 决定主体渲染:
- *   - login / register / forgot:对应表单 + 底部 OAuthRow
- *   - wechat-qr:**原地**切换到微信扫码视图,顶部带返回按钮回 login。
- *     这样避免双层 Dialog(老版用嵌套 WeChatQRDialog,扫码成功只关里层,
- *     主登录弹窗仍在,体验混乱)
+ * mode / pendingOAuth 决定主体渲染:
+ *   - login / register / forgot:对应表单 + 底部 OAuthRow + 邀请码
+ *   - pendingOAuth:表单收起,中心放大选中的第三方;邀请码整套组件仍在;
+ *     底部 OAuthRow 当选项卡切换授权方式
+ *   - wechat-qr:扫码视图;邀请码仍在下方。返回键回到确认层(pending 仍在)。
  */
 export function AuthDialog() {
-  const { open, mode, initialAccountType, setMode, close } = useAuthDialog();
+  const { open, mode, initialAccountType, pendingOAuth, setMode, setPendingOAuth, close } =
+    useAuthDialog();
   const t = AUTH_TITLES[mode];
   const isWeChatQR = mode === 'wechat-qr';
+  const pendingMeta = pendingOAuth ? PROVIDER_META[pendingOAuth] : null;
 
-  // 移动端(/m/*)的登录走 /m/auth 整页(MobileShell 的桥接 effect 会立刻转跳),
-  // 这里不渲染弹窗本体,避免转跳前闪一帧 PC 弹窗。扫码视图例外(移动端就用弹窗)。
-  // ⚠️ 绝不能在 open===true 时 `return null` 卸载 Dialog —— 那会让 Radix 的 body
-  // pointer-events 锁泄漏,导致切到 /m 后全站点击失灵(见 BodyPointerLockGuard)。
-  // 改为把该抑制折进 open prop:open 为 false 时 Radix 同样不渲染弹窗(不闪 PC 弹窗),
-  // 且会正常走 open→closed 过渡还原 body 锁。
   const suppressOnMobile =
     !isWeChatQR &&
     typeof window !== 'undefined' &&
     (window.location.pathname === '/m' || window.location.pathname.startsWith('/m/'));
 
-  // 用户**主动关弹窗且仍未登录**(Esc / 点外面 / ×)→ 顺手丢掉 pending-action,
-  // 否则之后从别处(topnav / OAuth)登录会被莫名重放(如未登录点首页「智能搜索」排了个
-  // navigate,取消后又从别处登录 → 莫名跳进智能搜索)。
-  // 成功登录是 LoginForm 直接调 close()(改 open prop),**不**经过这里的 onOpenChange,
-  // 且此时 token 已就位,故 guard 再兜一层,绝不会误清掉要被 useReplayPendingAction 消费的动作。
   const handleClose = () => {
     close();
     if (!useAuthStore.getState().token) usePendingAction.getState().clear();
+  };
+
+  const handleBack = () => {
+    if (isWeChatQR) {
+      setMode('login');
+      return;
+    }
+    setPendingOAuth(null);
   };
 
   return (
     <Dialog open={open && !suppressOnMobile} onOpenChange={(v) => (v ? null : handleClose())}>
       <DialogContent className="max-w-md min-w-0 grid-cols-[minmax(0,1fr)] overflow-x-hidden p-0 gap-0 border-border">
         <div className="relative flex flex-col items-center gap-1 pt-7 pb-4 px-6 border-b border-border-soft">
-          {/* 微信扫码模式:左上角返回箭头,回到 login;其他模式无返回(可关弹窗) */}
-          {isWeChatQR && (
+          {(isWeChatQR || pendingOAuth) && (
             <button
               type="button"
-              onClick={() => setMode('login')}
-              aria-label="返回登录"
+              onClick={handleBack}
+              aria-label={isWeChatQR ? '返回确认授权' : '返回登录'}
               className="absolute left-3 top-3 inline-flex size-7 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
             >
               <ArrowLeft className="size-4" />
             </button>
           )}
           <BrandLogo size="md" />
-          <DialogTitle className="mt-2 text-16 font-medium">{t.title}</DialogTitle>
+          <DialogTitle className="mt-2 text-16 font-medium">
+            {pendingMeta && !isWeChatQR ? `使用 ${pendingMeta.label} 继续` : t.title}
+          </DialogTitle>
           <DialogDescription className="text-12 text-muted-foreground">
-            {t.desc}
+            {pendingMeta && !isWeChatQR
+              ? '确认后将前往授权，邀请码可随时填写'
+              : t.desc}
           </DialogDescription>
         </div>
 
         {isWeChatQR ? (
-          // 扫码模式 —— 不渲染表单/OAuthRow,只放 QR 面板
-          // 扫码成功 onSuccess → 关掉整个 AuthDialog(handleAuthSuccess 已写 session)
-          // 邀请码只在注册表单填写;若用户从注册页点微信,store/sessionStorage 里已有码会随 callback 带上。
-          <div className="px-6 py-5">
+          <div className="min-w-0 px-6 py-5">
             <WeChatQRPanel mode="login" onSuccess={close} />
+            <div className="mt-5">
+              <InvitationCodeField />
+            </div>
           </div>
         ) : (
           <>
             <div className="min-w-0 px-6 py-5">
-              {mode === 'login' && (
-                <LoginForm
-                  initialAccountType={initialAccountType}
-                  onSwitchMode={setMode}
-                />
-              )}
-              {mode === 'register' && (
-                <RegisterForm
-                  initialAccountType={initialAccountType}
-                  onSwitchMode={setMode}
-                />
-              )}
-              {mode === 'forgot' && (
-                <ForgotPasswordForm
-                  initialAccountType={initialAccountType}
-                  onSwitchMode={setMode}
-                />
+              {pendingOAuth ? (
+                <OAuthConfirmPanel />
+              ) : (
+                <>
+                  {mode === 'login' && (
+                    <LoginForm
+                      initialAccountType={initialAccountType}
+                      onSwitchMode={setMode}
+                    />
+                  )}
+                  {mode === 'register' && (
+                    <RegisterForm
+                      initialAccountType={initialAccountType}
+                      onSwitchMode={setMode}
+                    />
+                  )}
+                  {mode === 'forgot' && (
+                    <ForgotPasswordForm
+                      initialAccountType={initialAccountType}
+                      onSwitchMode={setMode}
+                    />
+                  )}
+                </>
               )}
             </div>
 
             <div className="min-w-0 px-6 pb-6">
-              {mode === 'register' && <InviteAuthNotice className="mx-0 mt-0" />}
               <div className="relative flex items-center my-3">
                 <Separator className="flex-1" />
                 <span className="px-3 text-12 text-faint uppercase">
-                  或继续使用
+                  {pendingOAuth ? '切换授权方式' : '或继续使用'}
                 </span>
                 <Separator className="flex-1" />
               </div>

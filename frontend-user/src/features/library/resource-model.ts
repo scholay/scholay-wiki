@@ -11,6 +11,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { mockJournals } from '@/mocks/fixtures';
+import type { Journal } from '@/shared/api/types';
 
 /**
  * 我的资源 · 四分结构（产品 mock 真源）。
@@ -56,6 +57,8 @@ export interface ResourceItem {
   subtitle?: string;
   meta?: string;
   updatedAt: string;
+  /** 期刊行封面 / 分区徽章用,对应 mock / 上游 journal.id */
+  journalId?: number;
 }
 
 export const RESOURCE_SECTIONS: Array<{
@@ -149,53 +152,58 @@ export const MOCK_ASSET_COLLECTIONS: ResourceCollection[] = [
   },
 ];
 
+function journalItem(
+  id: string,
+  collectionId: string,
+  journal: Journal | undefined,
+  fallbackTitle: string,
+): ResourceItem {
+  return {
+    id,
+    collectionId,
+    kind: 'journal',
+    journalId: journal?.id,
+    title: journal?.canonical_name ?? fallbackTitle,
+    subtitle: journal
+      ? `IF ${journal.jcr_impact_factor ?? '—'} · ${journal.jcr_quartile ?? 'Q1'}`
+      : undefined,
+    meta: journal?.publisher,
+    updatedAt: TS,
+  };
+}
+
 export const MOCK_JOURNAL_ITEMS: ResourceItem[] = [
-  {
-    id: 'ji-1',
-    collectionId: 'j-target',
-    kind: 'journal',
-    title: mockJournals[0]?.canonical_name ?? 'Nature',
-    subtitle: `IF ${mockJournals[0]?.jcr_impact_factor ?? '—'} · ${mockJournals[0]?.jcr_quartile ?? 'Q1'}`,
-    meta: mockJournals[0]?.publisher,
-    updatedAt: TS,
-  },
-  {
-    id: 'ji-2',
-    collectionId: 'j-target',
-    kind: 'journal',
-    title: mockJournals[1]?.canonical_name ?? 'Science',
-    subtitle: `IF ${mockJournals[1]?.jcr_impact_factor ?? '—'} · ${mockJournals[1]?.jcr_quartile ?? 'Q1'}`,
-    meta: mockJournals[1]?.publisher,
-    updatedAt: TS,
-  },
-  {
-    id: 'ji-3',
-    collectionId: 'j-target',
-    kind: 'journal',
-    title: mockJournals[2]?.canonical_name ?? 'JMLR',
-    subtitle: `IF ${mockJournals[2]?.jcr_impact_factor ?? '—'} · ${mockJournals[2]?.jcr_quartile ?? 'Q1'}`,
-    meta: mockJournals[2]?.publisher,
-    updatedAt: TS,
-  },
-  {
-    id: 'ji-4',
-    collectionId: 'j-watch',
-    kind: 'journal',
-    title: 'Nature Methods',
-    subtitle: '方法学 · Q1',
-    meta: 'Springer Nature',
-    updatedAt: TS,
-  },
-  {
-    id: 'ji-5',
-    collectionId: 'j-watch',
-    kind: 'journal',
-    title: 'IEEE TPAMI',
-    subtitle: '计算机视觉 · Q1',
-    meta: 'IEEE',
-    updatedAt: TS,
-  },
+  journalItem('ji-1', 'j-target', mockJournals[0], 'Nature'),
+  journalItem('ji-2', 'j-target', mockJournals[1], 'Science'),
+  journalItem('ji-3', 'j-target', mockJournals[2], 'JMLR'),
+  journalItem(
+    'ji-4',
+    'j-watch',
+    mockJournals.find((j) => j.id === 106),
+    'Nature Methods',
+  ),
+  journalItem(
+    'ji-5',
+    'j-watch',
+    mockJournals.find((j) => j.id === 107),
+    'IEEE TPAMI',
+  ),
 ];
+
+export function journalForResourceItem(item: ResourceItem): Journal | undefined {
+  if (item.kind !== 'journal' || item.journalId == null) return undefined;
+  return mockJournals.find((j) => j.id === item.journalId);
+}
+
+/** ShareTarget.collection 需要 number folderId;资源集 id 是字符串,压成稳定正整数。 */
+export function collectionShareFolderId(collectionId: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < collectionId.length; i += 1) {
+    h ^= collectionId.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) % 1_000_000_000 || 1;
+}
 
 export const MOCK_MANUSCRIPT_ITEMS: ResourceItem[] = [
   {

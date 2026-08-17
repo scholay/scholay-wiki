@@ -169,6 +169,7 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
         // pt 只需 ≥ 悬停抬起量(LIFT=16px)即可,收紧到 pt-6 减少卡片上方的无用留白。
         reduce ? 'flex justify-center gap-3' : 'flex items-end justify-center pt-6 pb-1',
       )}
+      data-tour="claw-templates"
       onMouseLeave={() => setHovered(null)}
     >
       {CARDS.map((card, i) => {

@@ -14,7 +14,8 @@ import { useProjects } from '@/features/prism/api/prism';
 import { useSubmissionList } from '@/features/peer-review/api/submissions';
 import type { SubmissionListItem } from '@/shared/lib/peer-review/types';
 import { getFeatureSubs, isFeatureRecordActive } from './app-sidebar-records';
-import { HistoryRow } from './app-sidebar-history-row';
+import { HistorySectionStatus } from './app-sidebar-section-status';
+import { HistoryHint, HistoryRow } from './app-sidebar-history-row';
 import { LibraryFolderHistory } from './app-sidebar-library-history';
 
 type HistoryKind =
@@ -82,6 +83,7 @@ function ClawHistory() {
     <SessionHistoryList
       api={clawSessions}
       activeSessionId={activeId}
+      status={{ title: '智能助手' }}
       onOpen={async (item) => {
         try {
           await activate.mutateAsync(item.sessionId);
@@ -107,6 +109,7 @@ function SmartSearchHistory() {
     <SessionHistoryList
       api={smartSearchSessions}
       activeSessionId={activeSessionId}
+      status={{ title: '智能搜论文' }}
       onOpen={async (item) => {
         try {
           await activate.mutateAsync(item.sessionId);
@@ -131,13 +134,18 @@ function PrismProjectHistory() {
   const activeId = Number(new URLSearchParams(search).get('p') || 0) || null;
 
   return (
-    <SidebarSection id="recent-sessions" label="智能写作项目" bordered>
+    <SidebarSection
+      id="recent-sessions"
+      label="智能写作项目"
+      bordered
+      heading={<HistorySectionStatus title="智能写作" />}
+    >
       {!token ? (
-        <div className="px-4 py-3 text-12 text-faint">登录后可见写作项目</div>
+        <HistoryHint>登录后可见写作项目</HistoryHint>
       ) : isLoading ? (
-        <div className="px-4 py-3 text-12 text-faint">加载中…</div>
+        <HistoryHint>加载中…</HistoryHint>
       ) : !projects?.length ? (
-        <div className="px-4 py-3 text-12 text-faint">还没有写作项目</div>
+        <HistoryHint>还没有写作项目</HistoryHint>
       ) : (
         projects.map((p) => (
           <HistoryRow
@@ -159,15 +167,21 @@ function PeerReviewHistory() {
   const token = useAuthStore((s) => s.token);
   const { data: items, isLoading } = useSubmissionList();
   const activeId = activeReviewId(pathname, search);
+  const reviewTitle = activeSubLabel('peer-review', pathname, search) ?? '智能审稿';
 
   return (
-    <SidebarSection id="recent-sessions" label="审稿记录" bordered>
+    <SidebarSection
+      id="recent-sessions"
+      label="审稿记录"
+      bordered
+      heading={<HistorySectionStatus title={reviewTitle} />}
+    >
       {!token ? (
-        <div className="px-4 py-3 text-12 text-faint">登录后可见审稿记录</div>
+        <HistoryHint>登录后可见审稿记录</HistoryHint>
       ) : isLoading ? (
-        <div className="px-4 py-3 text-12 text-faint">加载中…</div>
+        <HistoryHint>加载中…</HistoryHint>
       ) : !items?.length ? (
-        <div className="px-4 py-3 text-12 text-faint">还没有审稿记录</div>
+        <HistoryHint>还没有审稿记录</HistoryHint>
       ) : (
         items.map((item) => (
           <HistoryRow
@@ -207,14 +221,28 @@ function reviewHref(item: SubmissionListItem): string {
   return `/peer-review/records/${item.id}`;
 }
 
+function activeSubLabel(
+  featureId: string,
+  pathname: string,
+  search: string,
+): string | null {
+  const subs = getFeatureSubs(featureId);
+  const active = subs.find((s) =>
+    isFeatureRecordActive(s, pathname, search, subs),
+  );
+  return active?.label ?? null;
+}
+
 function SessionHistoryList({
   api,
   activeSessionId,
   onOpen,
+  status,
 }: {
   api: AgentSessionApi;
   activeSessionId: string | null;
   onOpen: (item: AgentSessionItem) => void | Promise<void>;
+  status: { title: string };
 }) {
   const token = useAuthStore((s) => s.token);
   const sessionsQ = api.useSessions();
@@ -222,13 +250,18 @@ function SessionHistoryList({
   const isLoading = sessionsQ.isLoading;
 
   return (
-    <SidebarSection id="recent-sessions" label="对话" bordered>
+    <SidebarSection
+      id="recent-sessions"
+      label="对话"
+      bordered
+      heading={<HistorySectionStatus title={status.title} />}
+    >
       {!token ? (
-        <div className="px-4 py-3 text-12 text-faint">登录后可见对话历史</div>
+        <HistoryHint>登录后可见对话历史</HistoryHint>
       ) : isLoading ? (
-        <div className="px-4 py-3 text-12 text-faint">加载中…</div>
+        <HistoryHint>加载中…</HistoryHint>
       ) : items.length === 0 ? (
-        <div className="px-4 py-3 text-12 text-faint">还没有对话</div>
+        <HistoryHint>还没有对话</HistoryHint>
       ) : (
         items.map((s) => {
           const { displayTitle, loading } = computeSessionTitle(

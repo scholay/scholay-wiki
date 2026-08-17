@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { consumeInvitationCode, peekInvitationCode } from '@/shared/lib/auth-invitation';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useInviteCandidate } from '@/stores/invite.store';
 import { handleAuthSuccess } from '../api/auth';
 import type { AuthResponse } from '../types';
 
@@ -103,8 +104,8 @@ interface WeChatQRPanelProps {
 
 function resolveInvitationCode(): string | undefined {
   const fromStore = useAuthDialog.getState().invitationCode.trim();
-  if (fromStore) return fromStore;
-  return peekInvitationCode();
+  const fromCandidate = useInviteCandidate.getState().candidate?.code?.trim();
+  return fromStore || fromCandidate || peekInvitationCode() || undefined;
 }
 
 export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps) {

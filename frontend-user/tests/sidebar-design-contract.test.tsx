@@ -16,6 +16,7 @@ import {
   SidebarRichItem,
   SidebarSection,
 } from '@/shared/components/sidebar';
+import { useSidebar } from '@/stores/sidebar.store';
 
 afterEach(cleanup);
 
@@ -80,6 +81,23 @@ describe('SidebarSection / SidebarItem 密集型语义基线', () => {
     expectClasses(screen.getByText('检索'), ['text-12', 'font-medium']);
   });
 
+  it('heading 覆盖默认段头,居中弱化,不跟选中一级抢视线', () => {
+    useSidebar.setState({ expanded: true });
+    const { container } = render(
+      <SidebarSection label="文件夹" heading={<span>文献集</span>}>
+        <SidebarItem label="默认" />
+      </SidebarSection>,
+    );
+
+    const header = container.querySelector('header');
+    expect(header).not.toBeNull();
+    expectClasses(header!, ['h-7', 'px-4', 'justify-center']);
+    expect(header!.classList.contains('border-l-[3px]')).toBe(false);
+    expect(header!.classList.contains('bg-surface-2')).toBe(false);
+    expect(screen.getByText('文献集')).toBeTruthy();
+    expect(screen.queryByText('文件夹')).toBeNull();
+  });
+
   it.each([
     ['sm', 'h-7', 'text-12'],
     ['base', 'h-8', 'text-14'],
@@ -105,11 +123,16 @@ describe('真实页面必须接入同一套导航层级', () => {
     expect(rail).not.toContain('SidebarRichItem');
     expect(rail).toContain('getFeatureSubs');
     expect(rail).toContain('<SidebarHistory');
+    expect(rail).toContain('onMouseLeave');
+    expect(rail).toContain('compact && !isNewChat && !current');
   });
 
   it('下段历史按路由切换,首页不挂对话列表', () => {
     const history = source('app/layouts/app-sidebar-history.tsx');
     expect(history).toContain('label="对话"');
+    expect(history).toContain('HistorySectionStatus');
+    expect(history).toContain('智能助手');
+    expect(history).toContain('智能搜论文');
     expect(history).toContain("pathname === '/'");
     expect(history).toContain("id === 'smart'");
     expect(history).toContain('smartSearchSessions');
@@ -125,6 +148,8 @@ describe('真实页面必须接入同一套导航层级', () => {
     expect(history).toContain("id === 'tools'");
     const library = source('app/layouts/app-sidebar-library-history.tsx');
     expect(library).toContain('label="文件夹"');
+    expect(library).toContain('HistorySectionStatus');
+    expect(library).toContain('LIBRARY_SECTION_LABEL');
     expect(library).toContain('useLibraryFolders');
     expect(library).toContain('collectionsForSection');
   });
@@ -156,9 +181,14 @@ describe('真实页面必须接入同一套导航层级', () => {
     'shared/components/agent-session/AgentSessionList.tsx',
     'features/claw/components/sidebar/UnifiedSessionList.tsx',
     'features/prism/components/sidebar/PrismConversationList.tsx',
-    'app/layouts/app-sidebar-history-row.tsx',
   ])('%s 的历史导航行固定为 32px', (path) => {
     expect(source(path)).toMatch(/flex h-8 items-center gap-2 px-4/);
+  });
+
+  it('全站左轨下段历史行固定 32px,并比一级多一档缩进', () => {
+    const row = source('app/layouts/app-sidebar-history-row.tsx');
+    expect(row).toMatch(/flex h-8 items-center gap-2/);
+    expect(row).toContain("HISTORY_ROW_INSET = 'pl-12 pr-4'");
   });
 
   it('移动会话抽屉保留 14/500 主文与 12/400 副信息', () => {

@@ -28,9 +28,11 @@ interface Props {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  /** 矩阵对齐时分页挪到列表外 footer,避免撑高滚动区。 */
+  hidePagination?: boolean;
 }
 
-const LIBRARY_PAGE_SIZE_OPTIONS = [20, 50] as const;
+export const LIBRARY_PAGE_SIZE_OPTIONS = [20, 50] as const;
 
 export function LibraryPaperList({
   papers,
@@ -43,6 +45,7 @@ export function LibraryPaperList({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  hidePagination = false,
 }: Props) {
   // 当前页所有 venue —— 批量查 journal enrichment(JCR/IF/CCF 等)
   const pageVenues = useMemo(
@@ -107,7 +110,8 @@ export function LibraryPaperList({
 
       {/* 分页器 —— 抽到 shared/components/PaginationPrevNext;
           全单页 + 小数据量时不渲染(干净点) */}
-      {!(total <= LIBRARY_PAGE_SIZE_OPTIONS[0] && total <= pageSize) && (
+      {!hidePagination &&
+        !(total <= LIBRARY_PAGE_SIZE_OPTIONS[0] && total <= pageSize) && (
         <PaginationPrevNext
           page={page}
           onPageChange={onPageChange}

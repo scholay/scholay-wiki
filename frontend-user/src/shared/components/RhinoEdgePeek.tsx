@@ -8,7 +8,6 @@ import {
   EDGE_HIT_W,
   EDGE_PEEK_PX,
   EDGE_WIDTH_PX,
-  PULL_OUT_PX,
   clampEdgeTop,
   loadEdgeSide,
   loadEdgeTop,
@@ -31,8 +30,7 @@ const VANISH_MS = 160;
 /**
  * Hidden 牛犀犀 — docked to the left or right viewport edge.
  * Left uses the same standing art, mirrored. Vertical drag parks.
- * A short inward tug / click vanishes the art in place, then the
- * floating sprite jumps inward from the visible side.
+ * Only a click (or a hover-menu pick) releases; inward drag does not.
  */
 export function RhinoEdgePeek() {
   const hidden = useRhinoAssistant((s) => s.hidden);
@@ -63,6 +61,14 @@ export function RhinoEdgePeek() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Remount usually clears this; reset anyway when re-docking to the edge.
+  useEffect(() => {
+    if (hidden) {
+      leavingRef.current = false;
+      setLeaving(false);
+    }
+  }, [hidden]);
 
   const vanishThenEmerge = useCallback(
     (edgeTop: number, panel?: RhinoPanelMode) => {
@@ -105,8 +111,6 @@ export function RhinoEdgePeek() {
     };
   };
 
-  const inwardPull = (dx: number) => (onLeft ? dx : -dx);
-
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (leavingRef.current) return;
     const d = dragRef.current;
@@ -118,18 +122,7 @@ export function RhinoEdgePeek() {
       d.moved = true;
       setDragging(true);
     }
-    const nextTop = clampEdgeTop(d.originTop + dy);
-    setTop(nextTop);
-    if (inwardPull(dx) >= PULL_OUT_PX) {
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch {
-        /* already released */
-      }
-      dragRef.current = null;
-      setDragging(false);
-      vanishThenEmerge(nextTop);
-    }
+    setTop(clampEdgeTop(d.originTop + dy));
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -142,13 +135,12 @@ export function RhinoEdgePeek() {
       /* already released */
     }
     if (leavingRef.current) return;
-    const pulled = inwardPull(e.clientX - d.startX);
     const nextTop = clampEdgeTop(d.originTop + (e.clientY - d.startY));
     persistEdgeTop(nextTop);
     setTop(nextTop);
     setDragging(false);
 
-    if (!d.moved || pulled >= PULL_OUT_PX) {
+    if (!d.moved) {
       vanishThenEmerge(nextTop);
     }
   };
@@ -183,8 +175,7 @@ export function RhinoEdgePeek() {
         'group/peek fixed z-[60]',
         onLeft ? 'left-0' : 'right-0',
         'pointer-events-auto touch-none select-none',
-        'cursor-grab active:cursor-grabbing',
-        dragging && 'cursor-grabbing',
+        dragging ? 'cursor-grabbing' : 'cursor-pointer',
         leaving && 'pointer-events-none',
         'outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
       )}

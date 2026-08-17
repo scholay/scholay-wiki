@@ -108,6 +108,62 @@ function manuscriptStage(manuscriptId: number): "writing" | "in_review" | "decid
   return "writing";
 }
 
+function stripLatex(raw: string): string {
+  return raw
+    .replace(/\\[a-zA-Z]+\*?(\[[^\]]*\])?(\{[^}]*\})?/g, " ")
+    .replace(/[{}$]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function previewFromLatex(title: string, content: string) {
+  const authors = content.match(/\\author\{([^}]+)\}/)?.[1]?.trim();
+  const abstract = content
+    .match(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/)?.[1]
+    ?.trim();
+  const sections: Array<{ heading: string; text: string }> = [];
+  const sectionRe =
+    /\\section\{([^}]+)\}([\s\S]*?)(?=\\section\{|\\end\{document\}|$)/g;
+  for (const match of content.matchAll(sectionRe)) {
+    const text = stripLatex(match[2] ?? "");
+    if (!text) continue;
+    sections.push({ heading: match[1] ?? "", text });
+  }
+  return {
+    title,
+    authors: authors || undefined,
+    abstract: abstract ? stripLatex(abstract) : undefined,
+    sections,
+    sourceLabel: "写作稿",
+  };
+}
+
+function previewForManuscript(manuscript: MockManuscript) {
+  if (manuscript.origin === "prism" && manuscript.prismProjectId) {
+    const project = getMockDatabase().prismProjects.find(
+      (item) => item.id === manuscript.prismProjectId,
+    );
+    const main =
+      project?.files.find((file) => file.isMain) ?? project?.files[0];
+    if (main?.content) {
+      return previewFromLatex(manuscript.title, main.content);
+    }
+  }
+  return {
+    title: manuscript.title,
+    authors: "上传稿",
+    abstract:
+      "这是审稿页直接上传的稿件。右侧展示抽取的正文摘要,完整审稿记录请用「状态与历史」。",
+    sections: [
+      {
+        heading: "稿件说明",
+        text: "上传稿没有写作项目绑定,只能沿审稿路径查看进度与报告。若要进入写—审—改循环,请在智能写作中新建项目。",
+      },
+    ],
+    sourceLabel: "上传 PDF",
+  };
+}
+
 function manuscriptView(manuscript: MockManuscript): UnknownRecord {
   const versions = versionsForManuscript(manuscript.id);
   const roundViews = roundsForManuscript(manuscript.id)
@@ -306,6 +362,7 @@ export async function handleManuscriptMock(
       rounds: roundsForManuscript(manuscriptId)
         .map(roundView)
         .filter((view) => view !== null),
+      preview: previewForManuscript(manuscript),
     });
   }
 

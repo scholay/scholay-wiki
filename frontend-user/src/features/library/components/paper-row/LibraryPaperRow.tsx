@@ -179,6 +179,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
 
   return (
     <li
+      data-paper-row={paper.source_paper_id || `lib:${paper.id}`}
       className={cn(
         // before:w-[3px] = 选中行的左侧强调竖条,对应 globals.css §十一 的 --rule-accent(3px):
         // Figma 描边只有 1 / 1.5px,3px 强调条是代码内生共识;--rule-accent 未注册成 Tailwind

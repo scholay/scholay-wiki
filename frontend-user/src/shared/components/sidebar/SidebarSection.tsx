@@ -20,6 +20,13 @@ interface SidebarSectionProps {
   action?: ReactNode;
   /** 段顶部是否带 1px 分隔线(.pen `wXbDd` Prism 文件分组) */
   bordered?: boolean;
+  /**
+   * 自定义标题区。传入后不再套默认 2xs/prominent 字号,
+   * 用来强调当前一级菜单等状态。与 label 同时传时以 heading 为准。
+   */
+  heading?: ReactNode;
+  /** 覆盖默认 header 几何/底色,给状态段用。 */
+  headerClassName?: string;
   children: ReactNode;
   className?: string;
 }
@@ -27,9 +34,11 @@ interface SidebarSectionProps {
 export function SidebarSection({
   id,
   label,
+  heading,
   prominent,
   action,
   bordered,
+  headerClassName,
   children,
   className,
 }: SidebarSectionProps) {
@@ -37,7 +46,7 @@ export function SidebarSection({
   const sidebarExpanded = useSidebar((s) => s.expanded);
   const isFlashed = !!id && flashed === id;
   // 窄轨态藏段头(标题/管理),只留内容行的图标+数字。
-  const showHeader = !!label && sidebarExpanded;
+  const showHeader = (!!label || !!heading) && sidebarExpanded;
 
   return (
     <section
@@ -49,17 +58,27 @@ export function SidebarSection({
       )}
     >
       {showHeader && (
-        <header className="flex h-7 items-center justify-between gap-2 px-4 pb-1 pt-2">
-          <span
-            className={cn(
-              'font-bold',
-              prominent
-                ? 'text-xs tracking-[0.06em] text-foreground'
-                : 'text-2xs tracking-[0.18em] text-faint',
-            )}
-          >
-            {label}
-          </span>
+        <header
+          className={cn(
+            'flex items-center justify-between gap-2 px-4',
+            heading
+              ? 'h-7 justify-center'
+              : 'h-7 pb-1 pt-2',
+            headerClassName,
+          )}
+        >
+          {heading ?? (
+            <span
+              className={cn(
+                'font-bold',
+                prominent
+                  ? 'text-xs tracking-[0.06em] text-foreground'
+                  : 'text-2xs tracking-[0.18em] text-faint',
+              )}
+            >
+              {label}
+            </span>
+          )}
           {action && (
             <span
               className={cn(

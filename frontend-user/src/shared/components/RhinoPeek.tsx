@@ -5,7 +5,8 @@ import { RHINO_DISPLAY_PX } from '@/shared/mascot/rhino-display-size';
 import { RHINO_NAME } from '@/shared/mascot/rhino-name';
 import {
   PERCH_PULL_OUT_PX,
-  isRhinoNested,
+  getActivePerchId,
+  isRhinoNestedAt,
   perchEmergeRest,
   registerRhinoPerch,
   unregisterRhinoPerch,
@@ -31,8 +32,8 @@ export function RhinoPeek({
 }) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
-  const occupied = useRhinoAssistant(isRhinoNested);
-  const setPerchPresent = useRhinoAssistant((s) => s.setPerchPresent);
+  const perchId = playOnceKey ?? 'rhino-perch';
+  const occupied = useRhinoAssistant((s) => isRhinoNestedAt(perchId, s));
   const showFromPerch = useRhinoAssistant((s) => s.showFromPerch);
   const leavingRef = useRef(false);
   const dragRef = useRef<{
@@ -45,20 +46,25 @@ export function RhinoPeek({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const id = playOnceKey ?? 'rhino-perch';
-    registerRhinoPerch(id, el);
-    setPerchPresent(true);
+    registerRhinoPerch(perchId, el);
     return () => {
-      unregisterRhinoPerch(id);
-      const st = useRhinoAssistant.getState();
-      st.setPerchPresent(false);
-      if (st.hidden && st.hideKind === 'perch') {
-        const rect = el.getBoundingClientRect();
-        persistFloatingPos(perchEmergeRest(rect, RHINO_DISPLAY_PX, 12));
-        st.showFromPerch(false);
-      }
+      const wasNestedHere =
+        useRhinoAssistant.getState().hidden &&
+        useRhinoAssistant.getState().hideKind === 'perch' &&
+        getActivePerchId() === perchId;
+      unregisterRhinoPerch(perchId);
+      if (!wasNestedHere) return;
+      if (getActivePerchId()) return;
+      const rect = el.getBoundingClientRect();
+      persistFloatingPos(perchEmergeRest(rect, RHINO_DISPLAY_PX, 12));
+      useRhinoAssistant.getState().showFromPerch(false);
     };
-  }, [playOnceKey, setPerchPresent]);
+  }, [perchId]);
+
+  // Nest stays mounted while the mascot is out; reset pull guard on each re-dock.
+  useEffect(() => {
+    if (occupied) leavingRef.current = false;
+  }, [occupied]);
 
   const pullOut = () => {
     if (leavingRef.current) return;

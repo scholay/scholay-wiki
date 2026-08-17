@@ -1,13 +1,26 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useUnreadCount } from '@/shared/api/notifications';
 import { RHINO_DISPLAY_PX } from '@/shared/mascot/rhino-display-size';
 import { RHINO_NAME } from '@/shared/mascot/rhino-name';
 import { useMascotSprite } from '@/shared/mascot/useMascotSprite';
 import {
+  CORNER_PERCH_ID,
+  HOME_CARD_PERCH_ID,
   NEST_SIT_LIFT_PX,
+  PERCH_PRIORITY_PAGE,
   PERCH_PULL_OUT_PX,
-  isRhinoNested,
+  getActivePerchId,
+  isRhinoNestedAt,
   perchEmergeRest,
   registerRhinoPerch,
   unregisterRhinoPerch,
@@ -16,6 +29,7 @@ import { persistFloatingPos } from '@/shared/mascot/rhino-edge-dock';
 import { cn } from '@/shared/lib/utils';
 import { useAuthStatus } from '@/stores/auth.store';
 import {
+  RHINO_CLAW_GREET,
   useRhinoAssistant,
   type RhinoPanelMode,
 } from '@/stores/rhino-assistant.store';
@@ -24,6 +38,7 @@ import {
   RhinoUnreadBadge,
   useRhinoHoverOpen,
 } from './RhinoHoverMenu';
+import { RhinoSpeechBubble } from './RhinoSpeechBubble';
 
 /** Occupied nest sprite — same display size as the floating mascot. */
 const NEST_SPRITE_PX = RHINO_DISPLAY_PX;
@@ -43,24 +58,42 @@ function nestSitsOnRight(el: HTMLElement): boolean {
 }
 
 /**
- * Logo nest: vacant = original mark;
- * occupied = stand→sit, then sit-hold at the floating mascot's native size.
+ * Logo nest: vacant = sit-pose dashed outline (or empty for hidden corner);
+ * occupied = stand→sit, then sit-hold. On 智能助手 the nest jumps, waves,
+ * greets, then sits back.
  * Drag / click pulls the mascot out.
  */
 export function RhinoLogoNest({
   children,
   playOnceKey = 'scholay.logo-nest',
+  priority = PERCH_PRIORITY_PAGE,
+  faceLeft: faceLeftProp,
   className,
+  style,
 }: {
   children: ReactNode;
   playOnceKey?: string;
+  priority?: number;
+  /** Force sit facing left (corner nest on the right edge). */
+  faceLeft?: boolean;
   className?: string;
+  style?: CSSProperties;
 }) {
   const reduce = useReducedMotion();
-  const occupied = useRhinoAssistant(isRhinoNested);
-  const setPerchPresent = useRhinoAssistant((s) => s.setPerchPresent);
+  const { pathname } = useLocation();
+  const onClaw =
+    pathname === '/claw' ||
+    pathname.startsWith('/claw/') ||
+    pathname.startsWith('/m/claw');
+  const occupied = useRhinoAssistant((s) =>
+    isRhinoNestedAt(playOnceKey, s),
+  );
   const showFromPerch = useRhinoAssistant((s) => s.showFromPerch);
   const hide = useRhinoAssistant((s) => s.hide);
+  const speech = useRhinoAssistant((s) => s.speech);
+  const dismissSpeech = useRhinoAssistant((s) => s.dismissSpeech);
+  const maybeHomeGreet = useRhinoAssistant((s) => s.maybeHomeGreet);
+  const tourGuiding = useRhinoAssistant((s) => s.tourGuiding);
   const { authenticated } = useAuthStatus();
   const unreadQ = useUnreadCount(authenticated);
   const unread = authenticated ? (unreadQ.data ?? 0) : 0;
@@ -68,8 +101,9 @@ export function RhinoLogoNest({
   const { frameSrc, play } = useMascotSprite('idle-s');
   const ref = useRef<HTMLDivElement>(null);
   const spriteRef = useRef<HTMLButtonElement>(null);
-  const [faceLeft, setFaceLeft] = useState(false);
+  const [faceLeftState, setFaceLeft] = useState(false);
   const leavingRef = useRef(false);
+  const sittingRef = useRef(false);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -80,23 +114,29 @@ export function RhinoLogoNest({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    registerRhinoPerch(playOnceKey, el);
-    setPerchPresent(true);
+    registerRhinoPerch(playOnceKey, el, priority);
     return () => {
+      const wasNestedHere =
+        useRhinoAssistant.getState().hidden &&
+        useRhinoAssistant.getState().hideKind === 'perch' &&
+        getActivePerchId() === playOnceKey;
       unregisterRhinoPerch(playOnceKey);
-      const st = useRhinoAssistant.getState();
-      st.setPerchPresent(false);
-      if (st.hidden && st.hideKind === 'perch') {
-        persistFloatingPos(
-          perchEmergeRest(el.getBoundingClientRect(), RHINO_DISPLAY_PX, 12),
-        );
-        st.showFromPerch(false);
-      }
+      if (!wasNestedHere) return;
+      if (getActivePerchId()) return;
+      persistFloatingPos(
+        perchEmergeRest(el.getBoundingClientRect(), RHINO_DISPLAY_PX, 12),
+      );
+      useRhinoAssistant.getState().showFromPerch(false);
     };
-  }, [playOnceKey, setPerchPresent]);
+  }, [playOnceKey, priority]);
+
+  // Nest stays mounted while the mascot is out; reset pull guard on each re-dock.
+  useEffect(() => {
+    if (occupied) leavingRef.current = false;
+  }, [occupied]);
 
   useLayoutEffect(() => {
-    if (!occupied) return;
+    if (faceLeftProp !== undefined) return;
     const el = ref.current;
     if (!el) return;
     const sync = () => setFaceLeft(nestSitsOnRight(el));
@@ -107,24 +147,73 @@ export function RhinoLogoNest({
       window.removeEventListener('resize', sync);
       window.removeEventListener('scroll', sync, true);
     };
-  }, [occupied]);
+  }, [faceLeftProp]);
+
+  const faceLeft = faceLeftProp ?? faceLeftState;
 
   useEffect(() => {
-    if (!occupied) return;
+    if (!occupied) {
+      sittingRef.current = false;
+      return;
+    }
+    const clawGreet = playOnceKey === CORNER_PERCH_ID && onClaw;
     let cancelled = false;
     void (async () => {
       if (reduce) {
+        sittingRef.current = true;
+        await play('sit-hold', { loop: true });
+        if (clawGreet && !cancelled) {
+          useRhinoAssistant.getState().speak(RHINO_CLAW_GREET, {
+            id: 'claw-greet',
+            ttlMs: 8_000,
+          });
+        }
+        return;
+      }
+      if (clawGreet) {
+        if (sittingRef.current) {
+          await play('sit-to-stand-s', { loop: false });
+          if (cancelled) return;
+          sittingRef.current = false;
+        }
+        await play('pet-jump');
+        if (cancelled) return;
+        await play('wave-s');
+        if (cancelled) return;
+        useRhinoAssistant.getState().speak(RHINO_CLAW_GREET, {
+          id: 'claw-greet',
+          ttlMs: 8_000,
+        });
+        await play('sit-to-stand-s', { reverse: true, loop: false });
+        if (cancelled) return;
+        sittingRef.current = true;
+        await play('sit-hold', { loop: true });
+        return;
+      }
+      if (sittingRef.current) {
         await play('sit-hold', { loop: true });
         return;
       }
       await play('sit-to-stand-s', { reverse: true, loop: false });
       if (cancelled) return;
+      sittingRef.current = true;
       await play('sit-hold', { loop: true });
     })();
     return () => {
       cancelled = true;
     };
-  }, [occupied, play, reduce]);
+  }, [occupied, onClaw, playOnceKey, play, reduce]);
+
+  // Sit clip is 9 frames @ 10fps. Greet after the sit lands, not after play()
+  // (Strict Mode / clip swaps cancel that promise and used to swallow the bubble).
+  useEffect(() => {
+    if (!occupied || playOnceKey !== HOME_CARD_PERCH_ID) return;
+    const id = window.setTimeout(
+      () => maybeHomeGreet(),
+      reduce ? 120 : 960,
+    );
+    return () => window.clearTimeout(id);
+  }, [maybeHomeGreet, occupied, playOnceKey, reduce]);
 
   const persistEmerge = () => {
     const el = ref.current;
@@ -190,6 +279,12 @@ export function RhinoLogoNest({
     if (!d.moved) pullOut();
   };
 
+  const sitSlotStyle = {
+    width: NEST_SPRITE_PX,
+    height: NEST_SPRITE_PX,
+    transform: `translate(-50%, calc(-50% - ${NEST_SIT_LIFT_PX}px))`,
+  } as const;
+
   return (
     <div
       ref={ref}
@@ -198,15 +293,22 @@ export function RhinoLogoNest({
         occupied && 'pointer-events-auto',
         className,
       )}
+      style={style}
       onPointerEnter={hover.onEnter}
       onPointerLeave={hover.onLeave}
     >
       {occupied ? (
         <>
-          <div className="relative inline-flex items-center justify-center overflow-visible">
+          <div
+            className="absolute left-1/2 top-1/2 overflow-visible"
+            style={sitSlotStyle}
+          >
             <motion.span
               aria-hidden
-              className="relative z-0 pointer-events-none"
+              className={cn(
+                'pointer-events-none absolute inset-0',
+                faceLeft && '-scale-x-100',
+              )}
               initial={reduce ? false : { opacity: 1 }}
               animate={{ opacity: 0 }}
               transition={
@@ -215,7 +317,6 @@ export function RhinoLogoNest({
             >
               {children}
             </motion.span>
-            {/* Native-size sprite, centered on the nest — not scaled to the mark. */}
             <button
               ref={spriteRef}
               type="button"
@@ -226,15 +327,10 @@ export function RhinoLogoNest({
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
               className={cn(
-                'absolute left-1/2 top-1/2 z-[1]',
-                'touch-none cursor-grab outline-none',
+                'relative z-[1] size-full touch-none cursor-grab outline-none',
                 'active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring/30',
+                tourGuiding && 'pointer-events-none opacity-0',
               )}
-              style={{
-                width: NEST_SPRITE_PX,
-                height: NEST_SPRITE_PX,
-                transform: `translate(-50%, calc(-50% - ${NEST_SIT_LIFT_PX}px))`,
-              }}
             >
               <img
                 src={frameSrc}
@@ -258,16 +354,49 @@ export function RhinoLogoNest({
             </button>
           </div>
           <RhinoHoverMenu
-            open={hover.open}
+            open={hover.open && !speech}
             onSelect={(mode) => pullOut(mode)}
             onHide={hideToNav}
             portalAnchor={spriteRef}
             onPointerEnter={hover.onEnter}
             onPointerLeave={hover.onLeave}
           />
+          <RhinoSpeechBubble
+            open={Boolean(speech)}
+            text={speech?.text ?? ''}
+            portalAnchor={spriteRef}
+            prompt={
+              speech?.id === 'claw-greet'
+                ? {
+                    confirmLabel: '确认',
+                    dismissLabel: '不用了',
+                    seconds: 5,
+                    onConfirm: () => {
+                      dismissSpeech();
+                      useRhinoAssistant.getState().requestClawTour();
+                    },
+                    onDismiss: () => dismissSpeech(),
+                  }
+                : undefined
+            }
+            onActivate={() => {
+              dismissSpeech();
+              pullOut('chat');
+            }}
+            onPointerEnter={hover.onEnter}
+            onPointerLeave={hover.onLeave}
+          />
         </>
       ) : (
-        children
+        <span
+          aria-hidden
+          className="absolute left-1/2 top-1/2"
+          style={sitSlotStyle}
+        >
+          <span className={cn('block size-full', faceLeft && '-scale-x-100')}>
+            {children}
+          </span>
+        </span>
       )}
     </div>
   );

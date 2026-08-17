@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Coins, Crown, Gauge, Gem, Ticket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useBillingSnapshot, type ViewerTier } from '@/shared/api/membership';
@@ -5,6 +6,7 @@ import { isPhoneDevice } from '@/shared/lib/device';
 import { monthDay, resetInfo } from '@/shared/lib/quota-display';
 import { quotaNavigate } from '@/shared/lib/quota-events';
 import { cn } from '@/shared/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
 import { useIsAuthenticated } from '@/stores/auth.store';
 
 const TIER_LABEL: Record<ViewerTier, string> = {
@@ -19,7 +21,7 @@ const TIER_BADGE_CLS: Record<ViewerTier, string> = {
 };
 
 function formatCredit(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  return n.toFixed(2);
 }
 
 /**
@@ -46,15 +48,24 @@ export function RhinoMenuAssets() {
     !token || token.unlimited || !token.window_started_at
       ? 100
       : Math.max(0, Math.round(100 - token.percent));
-  const quotaLine = !token
-    ? '—'
-    : token.unlimited
-      ? '额度不限'
-      : `${remaining}% · ${resetInfo(token).rel}`;
+  const reset = token ? resetInfo(token) : null;
   const passes = data?.resetPasses ?? 0;
-  const passExpiry = data?.resetPassExpiry
-    ? ` · ${monthDay(data.resetPassExpiry)}前`
-    : '';
+  const lots = data?.resetPassLots ?? [];
+  const passHint =
+    lots.length > 0
+      ? lots
+          .map((lot) => `${lot.count} 张 · ${monthDay(lot.expires_at)}前`)
+          .join('\n')
+      : passes > 0 && data?.resetPassExpiry
+        ? `${passes} 张 · ${monthDay(data.resetPassExpiry)}前`
+        : undefined;
+  const quotaHint = reset
+    ? token?.unlimited
+      ? reset.hint
+      : reset.notStarted
+        ? reset.hint
+        : `${reset.rel}。${reset.hint}`
+    : undefined;
 
   return (
     <button
@@ -91,17 +102,44 @@ export function RhinoMenuAssets() {
           <AssetRow
             icon={Gauge}
             label="额度剩余"
-            value={quotaLine}
-            hint={token && !token.unlimited ? resetInfo(token).hint : undefined}
+            hint={quotaHint}
+            value={
+              !token ? (
+                '—'
+              ) : token.unlimited ? (
+                '不限'
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <QuotaTube remaining={remaining} />
+                  <span>{reset && reset.count > 0 ? reset.count : '—'}</span>
+                </span>
+              )
+            }
           />
           <AssetRow
             icon={Ticket}
             label="刷新券"
-            value={passes > 0 ? `${passes} 张${passExpiry}` : '暂无'}
+            hint={passHint}
+            value={String(passes)}
           />
         </>
       )}
     </button>
+  );
+}
+
+function QuotaTube({ remaining }: { remaining: number }) {
+  const pct = Math.min(100, Math.max(0, remaining));
+  return (
+    <span
+      aria-hidden
+      className="relative h-1.5 w-10 overflow-hidden rounded-pill bg-surface-3"
+    >
+      <span
+        className="absolute inset-y-0 left-0 rounded-pill bg-brand-green"
+        style={{ width: `${pct}%` }}
+      />
+    </span>
   );
 }
 
@@ -114,24 +152,47 @@ function AssetRow({
 }: {
   icon: typeof Coins;
   label: string;
-  value: string;
+  value: ReactNode;
   hint?: string;
   valueClassName?: string;
 }) {
+  const valueEl = (
+    <span
+      className={cn(
+        'min-w-0 truncate font-semibold tabular-nums text-foreground',
+        valueClassName,
+      )}
+    >
+      {value}
+    </span>
+  );
+
   return (
-    <span className="flex items-center justify-between gap-3 text-2xs" title={hint}>
+    <span className="flex items-center justify-between gap-3 text-2xs">
       <span className="inline-flex items-center gap-1 text-faint">
         <Icon className="size-3 shrink-0" strokeWidth={2} />
         {label}
       </span>
-      <span
-        className={cn(
-          'min-w-0 truncate font-semibold tabular-nums text-foreground',
-          valueClassName,
-        )}
-      >
-        {value}
-      </span>
+      {hint ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              tabIndex={0}
+              className="inline-flex min-w-0 cursor-default items-center"
+            >
+              {valueEl}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent
+            side="right"
+            className="max-w-[16rem] whitespace-pre-line"
+          >
+            {hint}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        valueEl
+      )}
     </span>
   );
 }

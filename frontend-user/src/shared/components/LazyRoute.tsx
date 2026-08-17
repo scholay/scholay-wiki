@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { isChunkLoadError, tryReloadForStaleChunk } from '@/shared/lib/stale-chunk';
-import { RhinoRunLoader } from './RhinoRunLoader';
+import { usePageLoadingClaim } from '@/stores/page-loading.store';
 
 /**
  * element 级路由懒加载 —— 「导航立即提交,页面自己等自己的代码」。
@@ -152,20 +152,18 @@ class ChunkErrorBoundary extends ReactComponent<
  *
  * - 壳内页面(默认):h-full 填满壳的主区(AppShell 的 main 有确定高度);
  *   min-h-64 兜底 —— 个别父容器高度未定时仍保证骨架可见,不出现「白屏假死」。
- * - full:不挂壳的顶层路由(landing / help / 分享页 / 各壳自身)整屏居中,
- *   用奔跑犀牛加载器,与 App.tsx 首次初始化占位同款视觉。
+ * - full:不挂壳的顶层路由(landing / help / 分享页 / 各壳自身)整屏占位;
+ *   视觉统一走 GlobalLoadingOverlay(半透明蒙层 + 牛犀犀跑步),这里只登记计数。
  */
 export function RouteFallback({ full }: { full?: boolean }) {
+  usePageLoadingClaim();
   return (
     <div
       role="status"
       aria-label="页面加载中"
-      className={cn(
-        'flex w-full items-center justify-center bg-background px-6',
-        full ? 'min-h-dvh' : 'h-full min-h-64 py-12',
-      )}
+      className={cn('w-full', full ? 'min-h-dvh' : 'h-full min-h-64')}
     >
-      <RhinoRunLoader size={full ? 'full' : 'default'} label="页面加载中" />
+      <span className="sr-only">页面加载中</span>
     </div>
   );
 }

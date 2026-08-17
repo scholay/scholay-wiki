@@ -61,7 +61,7 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
           size === 'sm' && 'h-7 text-sm',
           'text-subtle hover:bg-surface-2 hover:text-foreground',
           isPrimary &&
-            'bg-surface-2 text-foreground font-bold border-l-[3px] border-l-foreground -ml-px',
+            'bg-surface-1 hover:bg-surface-1 text-foreground font-bold border-l-[3px] border-l-foreground -ml-px',
           isDanger &&
             'bg-danger-soft text-destructive font-bold border-l-[3px] border-l-destructive -ml-px',
           className,

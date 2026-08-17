@@ -170,9 +170,9 @@ const FEATURE_SUBS: Record<string, FeatureRecord[]> = {
     },
     {
       id: 'thesis',
-      label: '毕业论文',
+      label: '学位论文',
       href: '/peer-review/thesis',
-      description: '硕博毕业论文盲审预演',
+      description: '硕博学位论文盲审预演',
       hub: {
         reviewPreview: 'thesis',
       },
@@ -306,6 +306,17 @@ export const LIBRARY_SUB_TONE: Record<string, string> = {
   manuscripts: 'text-brand-amber',
   assets: 'text-foreground',
 };
+
+export const LIBRARY_SECTION_LABEL: Record<string, string> = {
+  papers: '文献集',
+  journals: '期刊集',
+  manuscripts: '稿件集',
+  folders: '资源集',
+};
+
+export function libraryToneKey(section: string): string {
+  return section === 'folders' ? 'assets' : section;
+}
 
 export function isFeatureRecordActive(
   item: FeatureRecord,

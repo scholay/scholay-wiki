@@ -1098,6 +1098,8 @@ type Overview struct {
 	ResetPasses int `json:"reset_passes"`
 	// ResetPassNextExpiry 最近一批次数的到期时刻(null = 无可用次数)。给「N 次将于 X 到期」提示用。
 	ResetPassNextExpiry *time.Time `json:"reset_pass_next_expiry"`
+	// ResetPassLots 分批余量 + 到期日(按失效日升序)。给「各券何时过期」明细用。
+	ResetPassLots []ResetPassLotView `json:"reset_pass_lots,omitempty"`
 }
 
 // StripQuotaAmounts 抹掉额度绝对值 —— P5 成本制:用户端只看百分比,不下发 used/ceiling/consumed
@@ -1204,6 +1206,7 @@ func (s *Service) GetOverview(ctx context.Context, userID uint) (*Overview, erro
 	if len(passes.Lots) > 0 {
 		e := passes.Lots[0].ExpiresAt // Lots 按 expires_at 升序 → [0] 即最近到期
 		ov.ResetPassNextExpiry = &e
+		ov.ResetPassLots = passes.Lots
 	}
 	if isPaidTier(tier) {
 		ov.ExpiresAt = uv.VIPExpiresAt

@@ -56,6 +56,10 @@ frontend-user/dist/
 # Testing
 coverage/
 
+# Python script caches
+__pycache__/
+*.py[cod]
+
 # IDE and OS
 .vscode/
 .idea/

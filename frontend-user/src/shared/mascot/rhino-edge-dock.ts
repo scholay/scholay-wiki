@@ -16,8 +16,6 @@ export const EDGE_HIT_PAD_Y = 20;
 export const EDGE_HIT_W = EDGE_WIDTH_PX + EDGE_HIT_PAD_X;
 export const EDGE_HIT_H = EDGE_HEIGHT_PX + EDGE_HIT_PAD_Y * 2;
 
-/** A short inward tug is enough — the standing art never leaves the edge. */
-export const PULL_OUT_PX = 16;
 /** Against a side clamp (within slack) → auto-dock on release. */
 export const SNAP_EDGE_SLACK_PX = 16;
 /** Dock run speed (px/s) — high enough to play the run clip, not a walk. */

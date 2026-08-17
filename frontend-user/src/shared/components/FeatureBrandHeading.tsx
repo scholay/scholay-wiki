@@ -1,13 +1,60 @@
-import type { ComponentType } from 'react';
-import { BrandLogo } from '@/shared/components/BrandLogo';
-import { BrandMarkNest } from '@/shared/components/BrandMarkNest';
+import type { ComponentType, ReactNode } from 'react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { cn } from '@/shared/lib/utils';
 
+function HeadingIconSlot({
+  compact,
+  mark,
+  Icon,
+  iconClassName,
+}: {
+  compact: boolean;
+  mark: boolean;
+  Icon?: ComponentType<{ className?: string }>;
+  iconClassName?: string;
+}) {
+  const box = compact ? 'size-8' : 'size-10';
+
+  if (mark) {
+    return (
+      <span
+        className={cn(
+          'grid shrink-0 place-items-center overflow-visible',
+          box,
+        )}
+      >
+        <RhinoBrandIcon aria-hidden className="size-full" />
+      </span>
+    );
+  }
+
+  if (Icon) {
+    return (
+      <Icon
+        className={cn(
+          'shrink-0 text-foreground',
+          iconClassName ?? (compact ? 'size-7' : 'size-10'),
+        )}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      data-icon-placeholder
+      className={cn(
+        'inline-flex shrink-0 rounded-8 border border-dashed border-border',
+        box,
+      )}
+    />
+  );
+}
+
 /**
- * Feature first-screen heading. Default: hex + wordmark, and the hex is 牛犀犀's
- * nest. Pass `mark={false}` to keep the Scholay wordmark without the hex / nest
- * (literature search, journals, datasets, news, library).
- * Compact hub cards stay as a static lockup (too small, many on one page).
+ * Feature first-screen heading. Logo is never a nest —
+ * site nests live on the homepage card or the bottom-right corner.
+ * Wordmark is not used here; each feature supplies an icon (or a placeholder).
  */
 export function FeatureBrandHeading({
   title,
@@ -15,7 +62,8 @@ export function FeatureBrandHeading({
   iconClassName,
   as: Tag = 'h2',
   size = 'default',
-  mark = true,
+  mark = false,
+  trailing,
   className,
 }: {
   title: string;
@@ -25,13 +73,13 @@ export function FeatureBrandHeading({
   as?: 'h1' | 'h2';
   /** card = hub 入口预览,缩小 logo 与标题。 */
   size?: 'default' | 'card';
-  /** Hex lockup / nest. Off = wordmark only, no nest. */
+  /** Square horn mark to the left of the title. */
   mark?: boolean;
+  /** After the title text (e.g. a help affordance). */
+  trailing?: ReactNode;
   className?: string;
 }) {
   const compact = size === 'card';
-  const logoSize = compact ? 'md' : 'xl';
-  const nest = mark && !compact;
 
   return (
     <Tag
@@ -40,23 +88,13 @@ export function FeatureBrandHeading({
         className,
       )}
     >
-      {nest ? (
-        <BrandMarkNest playOnceKey={`scholay.nest:${title}`} size={logoSize} />
-      ) : (
-        <BrandLogo
-          size={logoSize}
-          variant={mark ? 'full' : 'wordmark'}
-        />
-      )}
       <span className="flex items-center gap-2.5">
-        {Icon ? (
-          <Icon
-            className={cn(
-              'shrink-0 text-foreground',
-              iconClassName ?? (compact ? 'size-7' : 'size-10'),
-            )}
-          />
-        ) : null}
+        <HeadingIconSlot
+          compact={compact}
+          mark={mark}
+          Icon={Icon}
+          iconClassName={iconClassName}
+        />
         <span
           className={cn(
             'font-serif font-bold tracking-tight text-foreground',
@@ -65,6 +103,7 @@ export function FeatureBrandHeading({
         >
           {title}
         </span>
+        {trailing}
       </span>
     </Tag>
   );
