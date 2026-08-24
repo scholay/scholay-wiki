@@ -5,7 +5,7 @@ export const assistantNavCategory: WikiNavCategoryMeta = {
   slug: "assistant",
   title: "智能助手",
   shortTitle: "助手",
-  description: "了解 Scholay Claw 的定位、界面、会话、附件、技能与适用边界。",
+  description: "了解智能助手的定位、界面、会话、附件、社区技能和适用边界。",
   children: [
     {
       id: "assistant-introduction",
@@ -24,7 +24,7 @@ export const assistantNavCategory: WikiNavCategoryMeta = {
         },
         {
           id: "assistant-attachments",
-          title: "附件、文库引用与 Skill",
+          title: "附件、文库引用与社区技能",
           target: primary("claw-attachments-and-references"),
         },
         {

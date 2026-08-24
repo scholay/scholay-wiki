@@ -5,7 +5,7 @@ export const referralsNavCategory: WikiNavCategoryMeta = {
   slug: "referrals",
   title: "邀请返利",
   shortTitle: "邀请",
-  description: "理解邀请媒介、奖励归因，以及当前没有达人分级的事实边界。",
+  description: "查看邀请链接、二维码和邀请码，并理解返利怎么计算。当前没有独立达人分级。",
   children: [
     {
       id: "referrals-promoter-types",

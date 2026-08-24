@@ -2,9 +2,9 @@ import type { WikiArticle } from "../../types";
 
 export const PdfUploadResolveAndRelinkArticle: WikiArticle = {
   slug: "pdf-upload-resolve-and-relink",
-  title: "PDF 上传、识别与重新关联",
+  title: "上传自己本地的文献",
   summary:
-    "把本地 PDF 放入个人文献集，核对三源匹配候选，并在识别错误时重新关联或保留自由文件。",
+    "把本地 PDF 放入文献集。核对匹配候选后，可以关联到论文，或保留为自由文件。",
   category: "knowledge",
   kind: "feature",
   status: "current",
@@ -28,7 +28,9 @@ export const PdfUploadResolveAndRelinkArticle: WikiArticle = {
     {
       id: "resolve",
       title: "流式识别与人工确认",
-      markdown: `上传 PDF 后，页面会先解析题名、摘要、DOI、arXiv、作者和年份，再搜索可能匹配的论文；下图展示的是候选已经返回、等待你确认的状态。Graph/Discovery 是候选来源，“标题精确匹配”只是匹配信号，不是身份确认；采用前仍要核对 DOI、作者和年份。左上角数字 3 表示当前流程步骤，不是候选数量。选择正确候选后保存为已关联论文，或者拒绝所有候选并保存为自由文件。
+      markdown: `上传 PDF 后，页面会先解析题名、摘要、DOI、arXiv、作者和年份，再搜索可能匹配的论文。下图展示的是候选已经返回、等待你确认的状态。
+
+Graph / Discovery 是候选来源。“标题精确匹配”只是匹配信号，不是身份确认。采用前仍要核对 DOI、作者和年份。左上角数字 3 表示当前流程步骤，不是候选数量。选择正确候选后保存为已关联论文；也可以拒绝所有候选，保存为自由文件。
 
 扫描件无法提取文字时会提示识别受限，但仍允许保存 PDF。最终确认与保存最多等待 120 秒。`,
       embeds: [{ id: "pdf-resolve" }],

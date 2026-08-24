@@ -93,7 +93,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
             type: "article-link",
             card: {
               articleSlug: "staging-area",
-              title: "检索暂存区",
+              title: "暂存区",
               description:
                 "了解逐篇暂存、当前页批量暂存，以及从候选论文进入矩阵分析的方式。",
               icon: "resource",
@@ -121,7 +121,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "continue-workflow",
         title: "把候选清单转成研究材料",
-        markdown: `初筛完成后有两条常见路径：需要长期保存时，把确认过的论文收藏到“我的资源 › 文献集”；需要横向比较时，把暂存论文送入矩阵分析并设置比较维度。无论走哪条路径，AI 摘要、引用量和检索排序都只能帮助筛选，正式论证仍应回到论文原文、版本信息和可追溯出处。`,
+        markdown: `初筛完成后有两条常见路径。需要长期保存时，把确认过的论文收藏到“我的资源 › 文献集”。需要横向比较时，把暂存论文送入论文矩阵分析，并设置比较维度。
+
+无论走哪条路径，AI 摘要、引用量和检索排序都只能帮助筛选。正式论证仍应回到论文原文、版本信息和可追溯出处。`,
         blocks: [
           { type: "markdown" },
           {
@@ -238,7 +240,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "start-a-session",
         title: "开始并管理一次搜索会话",
-        markdown: `在空白页发出第一条消息后，系统才会创建并保存这次搜索会话。下图展示的是已经得到回答和论文结果的状态。折叠的“思考过程”只用于查看当前轮过程摘要；论文组可逐篇选择或一键暂存。空态下方的会话 dock 和 AppSidebar 下半区都能切换历史任务；“新对话”会开启一个不继承旧上下文的新任务。
+        markdown: `在空白页发出第一条消息后，系统才会创建并保存这次搜索会话。下图展示的是已经得到回答和论文结果的状态。
+
+折叠的“思考过程”只用于查看当前轮过程摘要。论文组可逐篇选择，也可一键暂存。空态下方的会话栏和左侧功能栏下半区都能切换历史任务。“新对话”会开启一个不继承旧上下文的新任务。
 
 回答会逐步返回。正在生成时不要重复发送同一个问题；需要中止时使用停止按钮，连接未就绪或消息未送达时按页面提示重试。
 
@@ -363,7 +367,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
     slug: "pdf-chat-guide",
     title: "如何与 PDF 对话",
     summary:
-      "从学术搜索或文献集右栏预览 PDF 并开始对话，也可在 Scholay Claw 上传附件后围绕原文连续提问。",
+      "从学术搜索或文献集右栏预览 PDF 并开始对话。也可以在智能助手里上传附件，再围绕原文连续提问。",
     category: "research-ai",
     kind: "page",
     status: "current",
@@ -391,9 +395,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "open-claw",
         title: "从右侧工作区或智能助手进入",
-        markdown: `PDF Chat 是学术搜索和文献集右栏三件套之一。先在文件区勾选论文，右栏会预览可读 PDF；缺少全文时可以重试开放获取来源或上传文件。点击“开始 PDF 对话”后，系统会切到智能搜论文会话；已有对应会话时可继续。
+        markdown: `PDF Chat 是学术搜索和文献集右栏三件套之一。先在文件区勾选论文，右栏会预览可读 PDF。缺少全文时，可以重试开放获取来源，或上传文件。点击“开始 PDF 对话”后，系统会切到智能搜论文会话；已有对应会话时可继续。
 
-也可以在 Scholay Claw 中上传 PDF 附件，再围绕文件继续提问。仅仅在文献集或 PDF 阅读器中把文件打开，并不会自动把该文件加入 Claw 的当前会话。
+也可以在智能助手中上传 PDF 附件，再围绕文件继续提问。仅仅在文献集或 PDF 阅读器中把文件打开，并不会自动把该文件加入智能助手的当前会话。
 
 如果准备比较多篇论文，建议先确定这次对话的任务范围，再上传真正需要的文件；不同课题使用不同会话，后续回看时更容易判断每个回答使用了哪些附件。`,
         blocks: [
@@ -404,7 +408,7 @@ export const discoveryGuideArticles: WikiArticle[] = [
               articleSlug: "claw-interface-guide",
               sectionId: "composer",
               title: "找到智能助手的附件与上下文入口",
-              description: "认识输入框中的附件、文献集、Skill 与模型选择。",
+              description: "认识输入框中的附件、文献集、社区技能与模型选择。",
               icon: "sparkles",
             },
           },
@@ -482,11 +486,13 @@ export const discoveryGuideArticles: WikiArticle[] = [
         markdown: `| 能力 | PDF 阅读器 | PDF Chat / 智能搜论文 |
 | --- | --- | --- |
 | 主要用途 | 翻页、缩放和直接阅读 | 围绕上传文件连续提问 |
-| 文件入口 | 文献集中的 PDF 鉴权流 | 学术搜索/文献集右栏，或 Claw 输入框附件上传 |
-| 上下文 | 当前可视文件 | 已勾选论文及 PDF，或当前 Claw 会话附件 |
+| 文件入口 | 文献集中的 PDF 鉴权流 | 学术搜索/文献集右栏，或智能助手输入框附件上传 |
+| 上下文 | 当前可视文件 | 已勾选论文及 PDF，或当前智能助手会话附件 |
 | 产出 | 原始页面 | AI 回答、整理或后续任务 |
 
-两者可以配合：在阅读器中核对页码、图表和公式，在智能搜论文会话中组织问题和比较结果。但二者没有“打开阅读器即自动建立对话”的隐式同步。下图展示 PDF 已可阅读、但尚未建立对话的过渡状态。点击“开始 PDF 对话”后，系统会切到智能搜论文并为当前 PDF 建立或继续会话；图中尚未出现问答区。如果要在 Scholay Claw 中处理同一文件，需要另行把 PDF 作为当前 Claw 会话的附件上传。`,
+两者可以配合：在阅读器中核对页码、图表和公式，在智能搜论文会话中组织问题和比较结果。但二者没有“打开阅读器即自动建立对话”的同步。
+
+下图展示 PDF 已可阅读、但尚未建立对话的过渡状态。点击“开始 PDF 对话”后，系统会切到智能搜论文，并为当前 PDF 建立或继续会话；图中尚未出现问答区。如果要在智能助手中处理同一文件，需要另行把 PDF 作为当前会话的附件上传。`,
         embeds: [{ id: "pdf-chat-workspace" }],
         blocks: [
           { type: "markdown" },
@@ -801,9 +807,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
   },
   {
     slug: "literature-graph-status",
-    title: "文献图谱：产品演示与使用边界",
+    title: "文献图谱",
     summary:
-      "学术搜索和文献集右侧已经提供节点—连线式图谱演示，但关系数据与分析能力尚未由后端交付。",
+      "学术搜索和文献集右侧已有节点连线式图谱演示。关系数据与分析能力尚未由后端交付。",
     category: "discovery",
     kind: "feature",
     status: "experimental",
@@ -828,7 +834,9 @@ export const discoveryGuideArticles: WikiArticle[] = [
       {
         id: "current-status",
         title: "产品演示阶段",
-        markdown: `该能力处于产品演示阶段。学术搜索与“我的资源 › 文献集”右侧都可以打开“文献图谱”，并在勾选论文后看到节点、连线、作者数和关联数；但画布由 \`CitationGraphMock\` 根据当前论文卡即时排布，仓库没有对应的图谱后端、真实引文边查询或持久化分析结果。
+        markdown: `该能力处于产品演示阶段。学术搜索与“我的资源 › 文献集”右侧都可以打开“文献图谱”，并在勾选论文后看到节点、连线、作者数和关联数。
+
+画布是按当前论文卡即时排布的示意，不是真实引文网络。仓库没有对应的图谱后端、真实引文边查询或可保存的分析结果。
 
 论文库搜索中的数据源名称“Graph”只是来源品牌名称，不等于这项可视化功能。选择数据源会改变检索来源，打开右栏“文献图谱”才会进入当前演示面。`,
       },

@@ -117,7 +117,11 @@ export const WIKI_TERMS: readonly WikiTermDefinition[] = [
   },
   {
     canonical: "稿件",
-    linkVariants: ["出版物"],
+    deprecated: [],
+    articleSlug: "manuscript-vs-publication",
+  },
+  {
+    canonical: "出版物",
     deprecated: [],
     articleSlug: "manuscript-vs-publication",
   },
@@ -135,7 +139,7 @@ export const WIKI_TERMS: readonly WikiTermDefinition[] = [
   },
   {
     canonical: "中科院分区",
-    linkVariants: ["期刊分区", "JCR", "CCF"],
+    linkVariants: ["期刊分区"],
     deprecated: [],
     articleSlug: "journal-metrics-guide",
   },

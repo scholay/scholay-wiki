@@ -2,9 +2,9 @@ import type { WikiArticle } from "../../types";
 
 export const PaperFavoritesArticle: WikiArticle = {
   slug: "paper-favorites",
-  title: "论文收藏与取消收藏",
+  title: "将搜索到的文献收藏",
   summary:
-    "把论文保存到个人文献集的指定文件夹，并理解重复收藏和取消收藏的真实副作用。",
+    "把论文保存到文献集的指定文件夹。重复收藏不会搬家；取消收藏可能删掉已上传的文件。",
   category: "knowledge",
   kind: "feature",
   status: "current",

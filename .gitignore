@@ -93,3 +93,6 @@ feature-tools-coldstart/
 # Pencil editor local asset cache (fonts/images fetched from localhost during edit)
 design/pencil/fonts/
 design/pencil/images/
+
+# Local script output (e.g. artifact-baseline.sh)
+/.cache/

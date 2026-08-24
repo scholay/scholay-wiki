@@ -5,7 +5,7 @@ export const foundationArticles: WikiArticle[] = [
     slug: "scholay",
     title: "Scholay",
     summary:
-      "Scholay 是一站式智能学术工作平台，以学术搜索、智能助手、智能写作、智能审稿、我的资源和 scholay广场串联科研流程。",
+      "Scholay 是一站式智能学术工作平台。它把学术搜索、智能助手、智能写作、智能审稿、我的资源和 scholay广场串成一条科研流程。",
     category: "getting-started",
     kind: "overview",
     status: "current",
@@ -34,9 +34,13 @@ export const foundationArticles: WikiArticle[] = [
       {
         id: "workflow",
         title: "如何开始",
-        markdown: `首页主输入框默认打开“智能搜论文”；关闭输入框里的智能开关后，会改用“论文库搜索”。下图展示这个统一输入入口。根据课题是否已有稳定检索词，选择对话式检索或关键词检索。
+        markdown: `首页主输入框默认打开“智能搜论文”。关掉输入框里的智能开关后，会改用“论文库搜索”。下图展示这个统一输入入口。
 
-输入框下方主推智能助手：“立即培养一只学术Agent，开启智能科研之旅”。继续向下是与顶栏一致的六个功能分区。全站悬浮牛犀犀的“功能”面板还提供可编辑的“常用 / 全部”入口；第一次使用时可从牛犀犀的“帮助”启动首页新手引导。`,
+课题还没有稳定检索词时，用智能搜论文；已经有关键词时，用论文库搜索。
+
+输入框下方主推智能助手，文案是“立即培养一只学术 Agent，开启智能科研之旅”。再往下是与顶栏一致的六个功能分区。
+
+全站悬浮的牛犀犀“功能”面板可以编辑“常用 / 全部”入口。第一次使用时，可从牛犀犀的“帮助”启动首页新手引导。`,
         embeds: [{ id: "home-research-entry" }],
       },
       {
@@ -133,9 +137,9 @@ export const foundationArticles: WikiArticle[] = [
             },
             {
               domain: "学术搜索",
-              feature: "检索暂存区",
+              feature: "暂存区",
               description: "检索过程中的临时收纳，可转入矩阵或文献集",
-              links: { label: "检索暂存区", href: "/wiki/staging-area" },
+              links: { label: "暂存区", href: "/wiki/staging-area" },
             },
             {
               domain: "我的资源",
@@ -151,20 +155,20 @@ export const foundationArticles: WikiArticle[] = [
             },
             {
               domain: "论文写作",
-              feature: "Scholay Prism",
+              feature: "智能写作",
               description: "浏览器内 LaTeX 写作、AI 续写、编译与交付",
-              links: { label: "Scholay Prism", href: "/wiki/prism" },
+              links: { label: "智能写作", href: "/wiki/prism" },
             },
             {
               domain: "智能助手",
               feature: "学术对话",
               description: "可溯源研究会话：左侧文献、中间对话、右侧交付物",
-              links: { label: "Scholay Claw", href: "/wiki/claw" },
+              links: { label: "智能助手", href: "/wiki/claw" },
             },
             {
               domain: "智能助手",
               feature: "技能与附件",
-              description: "在对话中加载 Skill、上传附件，并从文献集引用论文",
+              description: "在对话中加载社区技能、上传附件，并从文献集引用论文",
               links: [
                 { label: "界面导览", href: "/wiki/claw-interface-guide" },
                 {
@@ -291,9 +295,9 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
             },
             {
               domain: "资讯",
-              entry: "学术资讯",
+              entry: "scholay 情报",
               description: "公开学术新闻列表与详情，由后台维护采集和发布",
-              links: { label: "学术资讯", href: "/wiki/research-news" },
+              links: { label: "scholay 情报", href: "/wiki/research-news" },
             },
             {
               domain: "帮助",
@@ -401,7 +405,7 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
     slug: "product-map",
     title: "全站功能",
     summary:
-      "用一张简表概览 Scholay 全站功能；这里只说明用途与状态，操作细节请查看后续词条。",
+      "用一张简表概览 Scholay 全站功能。这里只说明用途与状态，操作细节请查看后续词条。",
     category: "getting-started",
     kind: "overview",
     status: "current",
@@ -478,7 +482,7 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
             },
             {
               domain: "智能助手",
-              includes: "研究对话、附件与 Skill、工具调用、科研交付物",
+              includes: "研究对话、附件与社区技能、工具调用、科研交付物",
               description:
                 "围绕研究任务展开对话，并生成可预览或下载的多格式产物。",
               details: {
@@ -488,7 +492,7 @@ MCP 端点是公开只读资料入口，不提供登录、写入、后台操作�
             },
             {
               domain: "智能写作",
-              includes: "Prism 高级写作、快速写作（未开放）",
+              includes: "高级写作、快速写作（未开放）",
               description:
                 "用高级模式完成 LaTeX 写作、AI 修订、编译和论文交付。",
               details: {

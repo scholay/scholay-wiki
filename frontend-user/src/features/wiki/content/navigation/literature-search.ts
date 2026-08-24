@@ -5,8 +5,7 @@ export const literatureSearchNavCategory: WikiNavCategoryMeta = {
   slug: "literature-search",
   title: "学术搜索",
   shortTitle: "搜索",
-  description:
-    "从智能搜论文、论文库、期刊库、数据集与 scholay 情报入口发现研究材料。",
+  description: "从论文库搜索、智能搜论文和数据集入口发现研究材料。",
   children: [
     {
       id: "literature-search-introduction",

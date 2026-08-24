@@ -490,7 +490,7 @@ SSR 相关实体只有在目标已经落库并可路由时才生成链接；尚�
       {
         id: "legacy-file",
         title: "不要加载旧重定向片段",
-        markdown: `docs/nginx-legacy-redirects.conf 未被现行 Nginx 加载，并含主配置没有的 paper、author 到首页以及 admin 重定向。它只能作为历史参考，不能按注释手工复制到生产。`,
+        markdown: `仓库里曾经放过一份未加载的旧重定向片段，含主配置没有的 paper、author 到首页以及 admin 重定向。那份文件已经删除。现行重定向只以 Nginx 主配置和前端兼容路由为准，不要按记忆补回旧片段。`,
       },
     ],
   },
@@ -622,7 +622,7 @@ SSR 相关实体只有在目标已经落库并可路由时才生成链接；尚�
     slug: "design-source-of-truth",
     title: "设计依据与历史交互资料",
     summary:
-      "运行时 CSS 决定当前界面 token；外部 Pen、仓库 Pencil、Remotion 和日期型 interaction specs 分别承担不同层级的设计依据。",
+      "运行时 CSS 决定当前界面 token；外部 Pen、仓库 Pencil 和 Remotion 仍可作为设计参考。日期型交互规格已从仓库移除。",
     category: "history",
     kind: "architecture",
     status: "current",
@@ -638,8 +638,6 @@ SSR 相关实体只有在目标已经落库并可路由时才生成链接；尚�
       "design/remotion/claw-agent-flow/README.md",
       "design/remotion/peer-review-flow/README.md",
       "design/remotion/prism-writing-flow/README.md",
-      "docs/pen-design-spec-2026-08.md",
-      "docs/interaction-spec",
     ],
     related: ["product-map", "device-routing"],
     sections: [
@@ -661,7 +659,7 @@ SSR 相关实体只有在目标已经落库并可路由时才生成链接；尚�
       {
         id: "historical",
         title: "历史文档冲突",
-        markdown: `docs/interaction-spec 是 2026-05-30 快照：其中仍把 Prism、工具、Claw 或文献库描述为未开发、ComingSoon 或 mock，并使用 /journals、/journals/:id 等旧路由。agent/README 仍描述 fork 共存和仅 smart_search/claw 切换；miniprogram/README 仍称 P0 骨架并列出旧 AppID、域名和不存在页面；docs/feature-plaza 的数量、needs_review、图标、zip 与端口也已失真。这些文件应标 historical/deprecated 并链接到当前 Wiki，而不能继续作为实现说明。`,
+        markdown: `旧交互稿、工具目录说明和设计快照已经从仓库移除。它们曾把智能写作、智能助手、工具或文献库写成未开发、ComingSoon 或 mock，并使用旧路由。agent/README 仍可能残留 fork 共存和仅 smart_search/claw 切换；miniprogram/README 也可能残留历史描述。功能是否存在，只以当前路由、配置和测试为准。`,
       },
       {
         id: "maintenance",

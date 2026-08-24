@@ -195,14 +195,11 @@ shared/lib       → 无依赖(纯 TS)
 >
 > - **规范侧真源**:`/Users/youngp/Downloads/scholay设计源文件/dev.pen`，通过 Pencil MCP
 >   读取；设计系统根节点 `rfNKU`（`Scholay设计系统`）
-> - **提取快照**:[docs/pen-design-spec-2026-08.md](../docs/pen-design-spec-2026-08.md)
 > - **运行时 token 唯一真源（SSOT）**:[src/styles/globals.css](src/styles/globals.css)
-> - **历史基线**:[docs/figma-design-spec-2026-07.md](../docs/figma-design-spec-2026-07.md)
->   已被取代，只用于解释旧决策，不再决定当前 token
 >
 > `dev.pen` 在仓库外，是设计证据而不是构建依赖。**改 token = 先用 Pencil MCP 读取
-> 当前节点 → 更新 Pen 规范快照 → 更新 `globals.css` 与受护栏校验的跨包镜像。**
-> 不从截图拾色，也不再把 2026-07 Figma 值覆盖回当前 Pen 值。
+> 当前节点 → 更新 `globals.css` 与受护栏校验的跨包镜像。**
+> 不从截图拾色。
 
 所有运行时 token 定义在 [src/styles/globals.css](src/styles/globals.css)。每节应标注
 Pen 节点依据或工程推导理由。**偏离 Pen 的地方必须写明偏离原因**，便于设计师 review 时
@@ -259,7 +256,7 @@ frontend-user 的构建 `context: ./frontend-user`(docker-compose.yml),
 
 > ⚠️ 更早的版本写着「字重 ❌ 未开始 / 间距 ❌ 未开始 / 圆角字号 🟡 新旧并存」,
 > 全部与实测相反 —— 那时它在**教人写会被护栏拒绝的旧类名**。以下是实测状态。
-> 完整审计见 [docs/design-audit-2026-07.md](../docs/design-audit-2026-07.md)。
+> 完整审计以 `src/styles/globals.css` 和 `tests/design-system-guard.test.ts` 为准。
 >
 > 📏 **本表所有数字都是实测快照,不是当前值。** 两条使用须知:
 > 1. 数字随收口推进在变(2026-07-28 并行修复期间,同一个下午多个数就变过) ——
@@ -413,7 +410,7 @@ rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --
 > 其余全族零消费。**注意一个容易误判的地方**:`design-system-guard` 的「死 color token」规则
 > 只扫 `src/**/*.tsx?`,**不扫 `globals.css` 自身** —— 而 `--status-*` 其实正被 globals.css 里
 > 的 sonner 变量桥接块(`--success-bg: var(--status-success-soft)` 等)消费着,toast 配色是真在跑的。
-> 所以「guard 报它死」≠「它没在渲染」,详见 [design-audit-2026-07.md](../docs/design-audit-2026-07.md) 的计数分歧表。
+> 所以「guard 报它死」≠「它没在渲染」。计数以 `tests/design-system-guard.test.ts` 的剥注释口径为准。
 
 **分类 / 图表**:`bg-cat-1..8`(头像 / 期刊封面等哈希取色) · `--chart-1..8`(recharts 序列色)
 

@@ -2,9 +2,9 @@ import type { WikiArticle } from "../../types";
 
 export const OpenAccessAndPaperTranslationArticle: WikiArticle = {
   slug: "open-access-and-paper-translation",
-  title: "开放获取全文与论文翻译",
+  title: "开放获取与论文翻译",
   summary:
-    "优先使用论文自带的 OA 线索，并在有 DOI 时查询合法开放版本；登录后可翻译标题和摘要。",
+    "优先使用论文自带的开放获取线索。有 DOI 时，再查询合法开放版本。登录后可翻译标题和摘要。",
   category: "discovery",
   kind: "feature",
   status: "current",
@@ -29,7 +29,7 @@ export const OpenAccessAndPaperTranslationArticle: WikiArticle = {
     {
       id: "translation",
       title: "AI 翻译",
-      markdown: `只有标题或摘要包含需要翻译的文字时才显示按钮。首次翻译要求登录并消耗相应 AI 额度，完成后缓存中文标题和摘要；之后“AI 翻译/原文”只在当前已缓存内容间切换，不会重复请求。额度耗尽由全局恢复流程承接。`,
+      markdown: `只有标题或摘要包含需要翻译的文字时，才显示按钮。首次翻译要求登录，并消耗 AI 周期额度；完成后会缓存中文标题和摘要。之后“AI 翻译/原文”只在已缓存内容之间切换，不会重复请求。额度用尽后，按 AI 周期额度页的恢复流程处理。`,
     },
     {
       id: "limits",

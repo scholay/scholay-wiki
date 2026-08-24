@@ -1,8 +1,6 @@
 # Scholay 学术 · 微信小程序端
 
 原生小程序(WXML/WXSS/**TypeScript**),复用现有 Go 后端(与 `../backend` 同一套 REST API + JWT)。
-立项分析见 [`../docs/research/wechat-miniprogram-2026-07/REPORT.md`](../docs/research/wechat-miniprogram-2026-07/REPORT.md)。
-
 ## 当前进度(P0 骨架)
 
 已跑通的主链路:**`wx.login` → 后端 `jscode2session` 换 JWT → 调用受保护接口**。

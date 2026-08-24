@@ -5,7 +5,7 @@ export const subscriptionNavCategory: WikiNavCategoryMeta = {
   slug: "subscription",
   title: "会员订阅",
   shortTitle: "订阅",
-  description: "查看订阅渠道、费用口径、活动边界和购买升级规则。",
+  description: "查看订阅渠道、费用、活动和购买升级规则。",
   children: [
     {
       id: "subscription-channels",

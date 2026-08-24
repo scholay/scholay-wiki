@@ -4,7 +4,7 @@ export const SiteNavigationArticle: WikiArticle = {
   slug: "site-navigation",
   title: "全站导航与功能树",
   summary:
-    "说明顶栏六个一级功能、左侧 AppSidebar 二级入口，以及下半区怎样随当前功能切换历史记录。",
+    "说明顶栏六个一级功能、左侧功能栏的二级入口，以及下半区怎样随当前功能切换历史记录。",
   category: "getting-started",
   kind: "page",
   status: "current",
@@ -22,14 +22,16 @@ export const SiteNavigationArticle: WikiArticle = {
     {
       id: "top-level",
       title: "顶栏六个一级功能",
-      markdown: `全站功能菜单以六个一级功能为准：**学术搜索、智能助手、智能写作、智能审稿、我的资源、scholay广场**。其中学术搜索聚合论文、期刊库、数据集与情报入口；我的资源承接个人收藏与过程产物；scholay广场承接工具、skills 与 prompts。
+      markdown: `全站功能菜单以六个一级功能为准：**学术搜索、智能助手、智能写作、智能审稿、我的资源、scholay广场**。
+
+学术搜索聚合论文、期刊库、数据集与 scholay 情报入口。我的资源承接个人收藏与过程产物。scholay广场承接学术工具、学术skills 与学术prompts。
 
 论文、作者、期刊和 PDF 详情属于“浏览器”工作区。“浏览器”会作为当前页面名称和快速打开入口出现，但不是第七个一级功能。旧版把“文献搜索”“期刊搜索”“文件夹”分别放在顶栏的资料，只能用于理解历史入口，不能当作现行菜单。`,
     },
     {
       id: "feature-tree",
-      title: "AppSidebar 二级功能树",
-      markdown: `左侧 AppSidebar 上半区先列六个一级功能；进入某个功能后，再展开该功能的二级入口。指针离开上半区时，侧栏会折叠为智能助手、当前一级和当前二级；悬停或聚焦后重新展开完整树。除智能助手外，一级功能可以置顶。`,
+      title: "左侧功能栏的二级功能树",
+      markdown: `左侧功能栏上半区先列六个一级功能。进入某个功能后，再展开该功能的二级入口。指针离开上半区时，侧栏会折叠为智能助手、当前一级和当前二级；悬停或聚焦后重新展开完整树。除智能助手外，一级功能可以置顶。`,
       embeds: [{ id: "site-navigation-tree" }],
       table: {
         columns: [

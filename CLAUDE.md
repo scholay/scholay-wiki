@@ -794,8 +794,7 @@ The backend runs several background tasks for performance and maintenance:
   页面级 lazy 是默认；登录态校验用 `loader` 而非组件内 useEffect
 
 **Design system（2026-08 以 Pen 设计资产为上游证据）**：
-- 规范侧真源 = `/Users/youngp/Downloads/scholay设计源文件/dev.pen`，通过 Pencil MCP 读取；
-  提取快照见 [docs/pen-design-spec-2026-08.md](docs/pen-design-spec-2026-08.md)
+- 规范侧真源 = `/Users/youngp/Downloads/scholay设计源文件/dev.pen`，通过 Pencil MCP 读取
 - 运行时 token 唯一真源（SSOT）= `frontend-user/src/styles/globals.css`；外部 `dev.pen`
   不能被构建直接消费，修改设计资产后必须同步这里及受护栏校验的跨包镜像
 - 四色阶：朱砂 `#882828` / 松青 `#2F4D29` / 琥珀 `#B4880E` / 玄墨 `#1F1F23`；
@@ -818,7 +817,7 @@ The backend runs several background tasks for performance and maintenance:
   但**跨包镜像那族规则在 Docker 里会整族 skip**（构建 context 只有 `./frontend-user`）；
   ② `scripts/check-design-system.sh`，git `pre-push` 钩子调用（需先跑一次
   `./scripts/install-git-hooks.sh`），两个兄弟包在场，是**唯一真的校验跨包镜像**的口径
-- 落地实况与已知坑见 [docs/design-audit-2026-07.md](docs/design-audit-2026-07.md)
+- 落地实况与已知坑以 `frontend-user/src/styles/globals.css` 和设计系统护栏为准
 
 **用户端主要能力**：论文检索（普通 / 智能）· PDF 预览（react-pdf + pdfjs-dist）·
 AI 对话（智能搜索 / 智能助手 / 审稿 / 智能写作）· 文献集与暂存区 · Markdown + KaTeX 渲染 ·
@@ -1267,18 +1266,8 @@ For Alipay payment issues:
 This CLAUDE.md file consolidates all essential development information. Additional documentation:
 - **README.md** — User-facing project overview and getting started guide
 - **[frontend-user/CLAUDE.md](frontend-user/CLAUDE.md)** — 前端强制约束（第三方优先 / 分层 / 网络层 / 样式 token / 组件分层）。**在 `frontend-user/` 下工作时以它为准**
-- **[docs/pen-design-spec-2026-08.md](docs/pen-design-spec-2026-08.md)** — Pencil MCP
-  从 `dev.pen` 提取的当前规范侧真源快照
-- **[docs/figma-design-spec-2026-07.md](docs/figma-design-spec-2026-07.md)** — 2026-07
-  Figma 提取历史基线（已被 Pen 规范取代，不再决定当前 token）
-- **[docs/design-audit-2026-07.md](docs/design-audit-2026-07.md)** — 设计系统**落地实况**审计（token 层 vs 渲染层的差距、已知坑、计数口径分歧）
-- **[docs/design-migration-ledger-2026-07.md](docs/design-migration-ledger-2026-07.md)** — 改造台账。🔴 **是「改造前的计划」不是结果**，顶部列了它会主动误导的地方，读前先看那段警示
-- **[docs/interaction-spec/](docs/interaction-spec/)** — 交互规格
 - **[agent/README.md](agent/README.md)** — agent 容器部署说明
 
-> ⚠️ 以下文档在旧版本被列出/引用，2026-07-28 实测**均已不存在**，别再去找：
-> `swagger.json`、`backend/SEMANTIC_SCHOLAR_API.md`（Semantic Scholar 集成已被 minicod 取代）、
-> `frontend-user/ICONS_PREVIEW.md`、`frontend-user/SEO_*.md`（均为已删除的 CRA 版前端遗留）、
-> **`agent/docs/api.md`**（实测 `agent/` 下只有 `README.md`；本文件 agent 一节的引用已就地更正）。
+历史研究稿、交互规格、设计审计和改造台账已从 `docs/` 移除。当前界面 token 以 `frontend-user/src/styles/globals.css` 为准。
 
 All other documentation has been consolidated into this file for simplicity.

@@ -9,7 +9,7 @@ export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
     slug: "getting-started",
     title: "Scholay",
     shortTitle: "Scholay",
-    description: "平台定位、账户、入口与构成 Scholay 的基础概念。",
+    description: "Scholay 是什么、怎样登录，以及全站入口和基础概念。",
   },
   {
     slug: "discovery",
@@ -21,7 +21,7 @@ export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
     slug: "research-ai",
     title: "AI 科研工作流",
     shortTitle: "AI 工作流",
-    description: "智能搜论文、Claw、Prism、智能审稿、分析、绘图与演示。",
+    description: "智能搜论文、智能助手、智能写作、智能审稿，以及分析、绘图与演示。",
   },
   {
     slug: "knowledge",
@@ -33,7 +33,7 @@ export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
     slug: "membership",
     title: "会员与活动规则",
     shortTitle: "会员规则",
-    description: "会员、额度、钱包、支付、签到、邀请、优惠和权益变化。",
+    description: "会员、AI 周期额度、科研经费、支付、邀请和活动规则。",
   },
   {
     slug: "mobile",

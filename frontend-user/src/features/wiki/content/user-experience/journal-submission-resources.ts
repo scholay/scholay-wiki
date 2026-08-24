@@ -2,8 +2,8 @@ import type { WikiArticle } from "../../types";
 
 export const JournalSubmissionResourcesArticle: WikiArticle = {
   slug: "journal-submission-resources",
-  title: "期刊投稿资源下载",
-  summary: "在期刊详情中下载可用的作者指南 Markdown 和 LaTeX 模板 zip。",
+  title: "LaTeX 模板",
+  summary: "在期刊详情中下载作者指南和 LaTeX 模板。没有资源时，下载区会隐藏。",
   category: "discovery",
   kind: "feature",
   status: "current",

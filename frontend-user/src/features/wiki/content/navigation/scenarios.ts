@@ -5,7 +5,7 @@ export const scenariosNavCategory: WikiNavCategoryMeta = {
   slug: "scenarios",
   title: "常见场景",
   shortTitle: "场景",
-  description: "按论文查询、分析、资源管理、期刊库查询和论文写作完成一项任务。",
+  description: "按文献查询、文献分析、文献管理、期刊库查询和论文写作，完成一项具体任务。",
   children: [
     {
       id: "scenarios-literature-query",
@@ -102,12 +102,12 @@ export const scenariosNavCategory: WikiNavCategoryMeta = {
       children: [
         {
           id: "scenarios-manuscript-publication",
-          title: "稿件 vs 出版物",
+          title: "稿件与出版物的区别",
           target: jump("manuscript-vs-publication"),
         },
         {
           id: "scenarios-writing-review",
-          title: "使用 Scholay 智能审稿",
+          title: "使用智能审稿",
           target: jump("peer-review"),
         },
         {
@@ -122,7 +122,7 @@ export const scenariosNavCategory: WikiNavCategoryMeta = {
         },
         {
           id: "scenarios-writing-prism",
-          title: "使用 Scholay 智能写作",
+          title: "使用智能写作",
           target: jump("prism-writing-workflow"),
         },
       ],

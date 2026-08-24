@@ -5,7 +5,7 @@ export const overviewNavCategory: WikiNavCategoryMeta = {
   slug: "overview",
   title: "全站概览",
   shortTitle: "概览",
-  description: "先认识 Scholay、全站能力与 Free、Pro、Max 三档方案。",
+  description: "先认识 Scholay 是什么，再看全站功能和三档套餐。",
   children: [
     {
       id: "overview-introduction",
@@ -24,7 +24,7 @@ export const overviewNavCategory: WikiNavCategoryMeta = {
     },
     {
       id: "overview-pricing",
-      title: "定价方案",
+      title: "产品与套餐总览",
       target: primary("product-and-pricing-overview"),
       children: [
         {

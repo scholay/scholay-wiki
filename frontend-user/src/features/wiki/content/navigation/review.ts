@@ -5,7 +5,7 @@ export const reviewNavCategory: WikiNavCategoryMeta = {
   slug: "review",
   title: "智能审稿",
   shortTitle: "审稿",
-  description: "按论文类型完成 AI 评审，并正确理解过程、结果、维度和分页。",
+  description: "按论文类型提交智能审稿，并阅读过程、结果和审稿维度。",
   children: [
     {
       id: "review-introduction",

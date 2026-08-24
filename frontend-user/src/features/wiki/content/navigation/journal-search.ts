@@ -5,7 +5,7 @@ export const journalSearchNavCategory: WikiNavCategoryMeta = {
   slug: "journal-search",
   title: "期刊库搜索",
   shortTitle: "期刊",
-  description: "从学术搜索进入期刊库，查找期刊、理解指标并辅助选刊。",
+  description: "查找期刊、阅读指标含义，并辅助选刊。",
   children: [
     {
       id: "journal-search-introduction",
@@ -31,17 +31,17 @@ export const journalSearchNavCategory: WikiNavCategoryMeta = {
     },
     {
       id: "journal-search-metrics",
-      title: "期刊的几个指标含义",
+      title: "期刊指标含义",
       target: primary("journal-metrics-guide"),
     },
     {
       id: "journal-search-strategy",
-      title: "期刊的选刊策略",
+      title: "选刊策略",
       target: primary("journal-selection-guide"),
     },
     {
       id: "journal-search-update-cycle",
-      title: "Scholay 期刊的更新周期",
+      title: "更新周期",
       target: primary("journal-update-cycle"),
     },
   ],

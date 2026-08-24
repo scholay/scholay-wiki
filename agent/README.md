@@ -3,7 +3,7 @@
 Scholay 自有的 **clean-room、web-native、provider-agnostic** agent 执行器。基于 raw
 `@anthropic-ai/sdk` 的 tool-runner + 手写 turn loop + `@modelcontextprotocol/sdk` 从零实现。
 
-设计真源:[../docs/research/agent-service-analysis-2026-06/DETAILED-DESIGN-P3-EXECUTOR.md](../docs/research/agent-service-analysis-2026-06/DETAILED-DESIGN-P3-EXECUTOR.md)
+行为以当前代码和测试为准；历史设计稿已从仓库移除。
 
 ## 它是什么 / 不是什么
 
@@ -28,7 +28,7 @@ Scholay 自有的 **clean-room、web-native、provider-agnostic** agent 执行�
 - [x] H2 claw artifact — 走 executor workspace op + 后端 harvest;修 mtimeMs float→int。PASS。
 - [x] H6 skill 加载 — `src/skills/loader.ts` 读 addDirs 的 CLAUDE.md + SKILL.md 进 system;compose 挂 /claw-add 等。
 - [x] **P4a 切流:smart_search + claw 已切到 executor 当主**(`AGENT_EXECUTOR_FEATURES=smart_search,claw`)。实测全过。fork 保留可秒回退(清空 flag)。
-- [ ] **prism / peerreview:暂留 fork(deferred)** — peerreview `ServerSideChatStreaming` 未按 feature 路由 + 全流程需 soak;prism 持久 cwd 语义需端到端验。见 [CUTOVER-RUNBOOK](../docs/research/agent-service-analysis-2026-06/CUTOVER-RUNBOOK.md)。
+- [ ] **prism / peerreview:暂留 fork(deferred)** — peerreview `ServerSideChatStreaming` 未按 feature 路由 + 全流程需 soak;prism 持久 cwd 语义需端到端验。
 - [ ] P4b bwrap(仅生产真内核)/ P6 删 fork(不可逆,需 4 feature 全切 + owner 点头)
 
 ## 本地

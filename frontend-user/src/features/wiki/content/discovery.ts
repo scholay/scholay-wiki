@@ -163,7 +163,9 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "rendering",
         title: "阅读与渲染",
-        markdown: `打开可用全文后，你会在阅读器中看到页码、缩放和文档页面；下图展示的是 PDF 已载入、单页自适应的阅读状态。中间三枚按钮依次切换单页、连续页和双页布局；右侧“自适应”是当前缩放策略，全屏只改变查看空间，不改变 PDF 文件。PDF 与论文详情会分别保留在浏览工作区的标签中，你可以来回切换而不必离开当前检索过程。
+        markdown: `打开可用全文后，你会在阅读器中看到页码、缩放和文档页面。下图展示的是 PDF 已载入、单页自适应的阅读状态。
+
+中间三枚按钮依次切换单页、连续页和双页布局。右侧“自适应”是当前缩放策略。全屏只改变查看空间，不改变 PDF 文件。PDF 与论文详情会分别留在浏览工作区的标签中，你可以来回切换，不必离开当前检索。
 
 阅读器内置中日韩文字所需的 CMap 资源，但能否打开全文仍取决于论文是否提供合法文件。`,
         embeds: [{ id: "pdf-reader" }],
@@ -254,13 +256,13 @@ export const discoveryArticles: WikiArticle[] = [
   },
   {
     slug: "staging-area",
-    title: "检索暂存区",
-    summary: "在检索过程中临时收集候选论文，并把它们组织成矩阵分析输入。",
+    title: "暂存区",
+    summary: "在检索过程中临时收集候选论文，再把它们送入论文矩阵分析。",
     category: "discovery",
     kind: "feature",
     status: "current",
     audience: ["登录用户", "研究者"],
-    aliases: ["暂存区", "工作区", "Staging area"],
+    aliases: ["检索暂存区", "工作区", "Staging area"],
     sourcePaths: [
       "frontend-user/src/features/search/components/StagingTabs.tsx",
       "frontend-user/src/features/search/hooks/useStagingActions.ts",
@@ -273,7 +275,9 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "purpose",
         title: "用途",
-        markdown: `在搜索结果中点击“暂存”，论文会先进入当前候选区，不需要立刻决定长期收藏位置。下图展示当前已有 A–C 三个单元；系统最多可增至 A–E。字母后的数字和顶部红色计数都表示该区论文总数，右上角“+”用于新增暂存区。论文行上的绿色勾表示已进入当前暂存单元，不是长期收藏或当前单选状态；行尾箭头用于展开内容。点击字母可以切换单元，再把一组候选送入矩阵分析。`,
+        markdown: `在搜索结果中点击“暂存”，论文会先进入当前候选区，不需要立刻决定长期收藏位置。
+
+下图展示当前已有 A–C 三个单元；系统最多可增至 A–E。字母后的数字和顶部红色计数都表示该区论文总数。右上角“+”用于新增暂存区。论文行上的绿色勾表示已进入当前暂存单元，不是长期收藏。行尾箭头用于展开内容。点击字母可以切换单元，再把一组候选送入论文矩阵分析。`,
         embeds: [{ id: "staging-units" }],
       },
       {
@@ -533,7 +537,7 @@ export const discoveryArticles: WikiArticle[] = [
       {
         id: "import",
         title: "导入与识别",
-        markdown: `点击文献集中的导入入口，可以从检索结果加入论文，也可以上传本地 PDF。下图展示“在线搜索加入”：检索论文后逐条加入当前文献集。PDF 上传后的识别候选与确认状态见“PDF 上传、识别与重新关联”。
+        markdown: `点击文献集中的导入入口，可以从检索结果加入论文，也可以上传本地 PDF。下图展示“在线搜索加入”：检索论文后逐条加入当前文献集。PDF 上传后的识别候选与确认状态见“上传自己本地的文献”。
 
 单个 PDF 上限为 50 MiB。“文件已保存”和“已正确关联论文”是两个不同状态；Zotero 与 EndNote 导入目前仍显示“即将上线”。`,
         embeds: [{ id: "library-import-workbench" }],
@@ -545,7 +549,7 @@ export const discoveryArticles: WikiArticle[] = [
             card: {
               articleSlug: "pdf-upload-resolve-and-relink",
               sectionId: "resolve",
-              title: "PDF 上传、识别与重新关联",
+              title: "上传自己本地的文献",
               description:
                 "查看上传后的识别候选、人工确认、自由文件保存与错误关联修复。",
               icon: "resource",

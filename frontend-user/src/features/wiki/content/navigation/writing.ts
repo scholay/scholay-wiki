@@ -5,7 +5,7 @@ export const writingNavCategory: WikiNavCategoryMeta = {
   slug: "writing",
   title: "智能写作",
   shortTitle: "写作",
-  description: "从 Prism 工作区开始一次完整写作，并理解 LaTeX 工程和稿件状态。",
+  description: "从智能写作工作区开始一次完整写作，并理解 LaTeX 工程和稿件状态。",
   children: [
     {
       id: "writing-introduction",
@@ -29,7 +29,7 @@ export const writingNavCategory: WikiNavCategoryMeta = {
       children: [
         {
           id: "writing-prism-latex",
-          title: "Scholay Prism 与 LaTeX",
+          title: "智能写作与 LaTeX",
           target: jump("latex-project-guide"),
         },
         {

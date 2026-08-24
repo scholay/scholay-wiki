@@ -10,13 +10,13 @@
 #   ./scripts/artifact-baseline.sh                 # 全量快照(上线前基线)
 #   ./scripts/artifact-baseline.sh '2026-08-07 12:00:00'   # 只统计该时刻之后新增的行(上线后)
 #
-# 输出落 docs/research/artifact-delivery-2026-08/baseline-<时间戳>.txt 并同时打到 stdout。
+# 输出落 .cache/artifact-baselines/baseline-<时间戳>.txt 并同时打到 stdout。
 # ============================================================================
 set -euo pipefail
 
 SINCE="${1:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUTDIR="$ROOT/docs/research/artifact-delivery-2026-08"
+OUTDIR="${ARTIFACT_BASELINE_DIR:-$ROOT/.cache/artifact-baselines}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="$OUTDIR/baseline-$STAMP.txt"
 mkdir -p "$OUTDIR"
