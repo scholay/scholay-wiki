@@ -1,0 +1,524 @@
+{
+  "academic-search": {
+    "overview": "概览",
+    "workspace": "搜索工作区",
+    "source": "学术数据来源"
+  },
+  "author-profile-page": {
+    "entry": "入口与状态",
+    "derived-sections": "派生内容",
+    "navigation": "继续浏览"
+  },
+  "authors-and-journals": {
+    "authors": "作者页面",
+    "journals": "期刊页面",
+    "navigation": "关系导航"
+  },
+  "classic-vs-smart-search": {
+    "difference": "先看差别",
+    "choose-classic-search": "什么时候用传统搜索",
+    "choose-smart-search": "什么时候用智能搜索",
+    "handoff": "两种搜索可以一起用"
+  },
+  "journal-detail-page": {
+    "route-and-loading": "入口与完整详情",
+    "decision-data": "选刊信息",
+    "current-boundary": "当前边界"
+  },
+  "journal-metrics-guide": {
+    "identity-and-coverage": "先看身份与数据覆盖",
+    "citation-metrics": "影响因子、JCR 分区与 h-index",
+    "ranking-systems": "中科院分区、新锐分区与 CCF",
+    "access-and-risk-signals": "开放获取、预警与投稿资源",
+    "reading-rule": "正确的组合读法"
+  },
+  "journal-rankings-and-directories": {
+    "rankings": "四个预设榜单",
+    "directories": "目录发现",
+    "metric-caution": "指标口径"
+  },
+  "journal-search-page": {
+    "query": "搜索与默认列表",
+    "filters": "五组筛选",
+    "sort-and-states": "排序与页面状态"
+  },
+  "journal-selection-guide": {
+    "define-constraints": "先写下不可妥协的条件",
+    "build-shortlist": "在期刊搜索中建立短名单",
+    "compare-signals": "逐刊比较，而不是只看排名",
+    "verify-official-source": "回到官方渠道做最终核对",
+    "submission-boundary": "Scholay 不代替编辑部投稿"
+  },
+  "journal-submission-resources": {
+    "availability": "什么时候显示",
+    "membership": "会员限制",
+    "boundary": "使用边界"
+  },
+  "journal-update-cycle": {
+    "no-fixed-sla": "没有统一的固定更新承诺",
+    "interactive-query-path": "搜索与详情的数据路径",
+    "upstream-build-signal": "上游构建时间是变化信号，不是 SLA",
+    "seo-sync-and-publish": "SEO 同步与发布是另一条链路",
+    "freshness-boundary": "如何理解页面之间的时间差"
+  },
+  "literature-graph-status": {
+    "current-status": "当前没有独立文献图谱",
+    "available-now": "现在可以使用的关系信息",
+    "missing-capabilities": "尚未提供的图谱能力",
+    "workaround": "上线前如何做引用扩展"
+  },
+  "literature-search-guide": {
+    "prepare-query": "先确定检索问题",
+    "search-and-refine": "提交检索并逐步收窄",
+    "review-and-stage": "核对结果并加入暂存区",
+    "continue-workflow": "把候选清单转成研究材料"
+  },
+  "matrix-analysis": {
+    "model": "矩阵模型",
+    "generation": "生成与核对",
+    "export": "导出"
+  },
+  "open-access-and-paper-translation": {
+    "oa": "开放获取查找",
+    "translation": "AI 翻译",
+    "limits": "边界"
+  },
+  "paper": {
+    "identity": "实体信息",
+    "detail": "详情页",
+    "actions": "相关动作"
+  },
+  "paper-detail-and-actions": {
+    "route-and-data": "打开方式与数据来源",
+    "content": "页面内容",
+    "actions": "可用动作"
+  },
+  "paper-search-filters-and-pages": {
+    "filters": "筛选条件",
+    "sort": "排序按来源变化",
+    "pages": "分页与选择范围"
+  },
+  "paper-search-sources": {
+    "choices": "四种选择",
+    "differences": "能力并不完全相同",
+    "normalization": "统一展示与来源标识"
+  },
+  "pdf-reader": {
+    "rendering": "阅读与渲染",
+    "availability": "全文可用性",
+    "parsing": "解析与后续使用"
+  },
+  "staging-area": {
+    "purpose": "用途",
+    "persistence": "状态与同步",
+    "matrix": "进入矩阵"
+  },
+  "account": {
+    "identity": "身份与登录",
+    "settings": "账户设置",
+    "boundaries": "安全边界"
+  },
+  "account-connections": {
+    "list": "连接列表",
+    "bind": "绑定方式",
+    "unbind": "解绑保护"
+  },
+  "account-security-settings": {
+    "password": "修改密码",
+    "rebind": "换绑联系方式",
+    "boundary": "当前边界"
+  },
+  "email-phone-authentication": {
+    "entry-and-methods": "入口与登录方式",
+    "registration": "注册规则",
+    "recovery": "找回密码"
+  },
+  "login-methods-guide": {
+    "email-and-phone": "手机号与邮箱",
+    "wechat": "微信登录按终端区分",
+    "enterscholar": "恩特学术社区登录",
+    "dynamic-oauth": "其他第三方入口也是动态的"
+  },
+  "marketing-pages-and-implementation-boundaries": {
+    "navigation-and-tabs": "汉堡菜单与浏览器页签",
+    "reference-card": "参考文献基础信息卡片",
+    "workspaces": "扩展区、扩展区标签页与文件树",
+    "agent-status": "Function call、推理过程、剩余额度与进度条"
+  },
+  "notification-center": {
+    "unread-and-list": "未读数与列表",
+    "actions": "阅读、跳转与删除",
+    "realtime": "实时更新"
+  },
+  "oauth-account-merge": {
+    "why": "为什么不会自动合并",
+    "choices": "两种选择",
+    "cancellation": "取消与邀请隔离"
+  },
+  "oauth-wechat-login": {
+    "providers": "可用提供方",
+    "wechat-flow": "微信二维码流程",
+    "callback-state": "授权返回后的处理"
+  },
+  "product-and-pricing-overview": {
+    "product-layers": "先按任务找入口",
+    "choose-a-path": "按任务选择功能",
+    "plan-model": "比较 Free、Pro 和 Max",
+    "price-authority": "以结算页金额为准"
+  },
+  "product-map": {
+    "map": "功能地图",
+    "start-here": "你可以前往"
+  },
+  "profile-settings": {
+    "fields": "可编辑字段",
+    "states": "保存状态"
+  },
+  "roadmap-status": {
+    "no-committed-roadmap": "当前没有权威的下一期任务表",
+    "explicit-planned-surfaces": "能确认的规划与占位",
+    "stale-documents": "旧交互稿不是未来计划",
+    "verification-rule": "发布前如何更新状态"
+  },
+  "scholay": {
+    "workflow": "如何开始",
+    "overview": "全站功能",
+    "mcp-access": "通过 MCP 读取 Wiki",
+    "public-info": "信息公开",
+    "surfaces": "打开方式"
+  },
+  "backup-and-restore-boundary": {
+    "coverage": "当前备份覆盖",
+    "missing": "缺失状态",
+    "restore": "恢复文档兼容性",
+    "logs": "故障证据"
+  },
+  "coupon-system-legacy": {
+    "current": "当前状态",
+    "distinctions": "与其他活动区分"
+  },
+  "design-source-of-truth": {
+    "authority": "权威顺序",
+    "reproducibility": "可复现性缺口",
+    "repository-assets": "仓库内设计资产",
+    "historical": "历史文档冲突",
+    "maintenance": "Wiki 维护规则"
+  },
+  "feature-tools-coldstart-governance": {
+    "inventory": "当前包的精确统计",
+    "import": "兼容性导入用途",
+    "p0": "P0：破解下载",
+    "gate": "应建立的发布门禁"
+  },
+  "legacy-components": {
+    "docs": "旧文档不能覆盖代码",
+    "redirects": "兼容路径",
+    "data": "遗留数据"
+  },
+  "task-center-and-checkin": {
+    "current": "当前状态",
+    "compatibility": "保留痕迹"
+  },
+  "academic-intelligence-interface-guide": {
+    "list-and-sort": "列表、最新与最热",
+    "sections-and-cards": "版块与情报卡片",
+    "detail-and-sources": "详情正文与信息来源",
+    "related-and-boundary": "相关情报与核对边界"
+  },
+  "citation-dialog": {
+    "formats": "五种格式",
+    "interaction": "切换、默认与复制",
+    "quality": "元数据边界"
+  },
+  "citation-generator": {
+    "purpose": "用途",
+    "limits": "核对边界"
+  },
+  "community-skills": {
+    "lifecycle": "技能生命周期",
+    "loading": "会话加载",
+    "trust": "信任与举报"
+  },
+  "feature-tools": {
+    "catalog": "目录",
+    "access": "访问方式",
+    "operations": "内容运营"
+  },
+  "help-center-and-qa": {
+    "hub": "问答首页",
+    "rhino-assistant": "牛犀犀助手",
+    "detail": "问答详情",
+    "source": "内容来源"
+  },
+  "library-sharing": {
+    "link": "分享链接",
+    "receive": "接收行为"
+  },
+  "literature-library": {
+    "organization": "组织方式",
+    "import": "导入与识别",
+    "maintenance": "维护能力"
+  },
+  "paper-favorites": {
+    "favorite": "收藏流程",
+    "duplicate": "重复收藏",
+    "unfavorite": "取消收藏是删除记录"
+  },
+  "pdf-upload-resolve-and-relink": {
+    "validation": "文件预检",
+    "resolve": "流式识别与人工确认",
+    "relink": "重新关联与合并"
+  },
+  "research-news": {
+    "pages": "页面",
+    "publishing": "发布与来源"
+  },
+  "resource-and-blog-center": {
+    "two-tabs": "两个列表入口",
+    "details": "详情与继续阅读",
+    "boundary": "与资讯、帮助的区别"
+  },
+  "resources-interface-guide": {
+    "three-resource-surfaces": "先区分三类资源",
+    "folders": "文件夹：整理自己的论文",
+    "playground": "科研能力广场：发现工具与技能",
+    "content-center": "学术资源中心：阅读公开内容"
+  },
+  "share-cards-and-posters": {
+    "targets": "四类分享对象",
+    "channels": "链接、口令、二维码与系统分享",
+    "image": "保存分享图"
+  },
+  "ai-usage-quota": {
+    "window": "周期如何开始",
+    "amounts": "当前默认额度",
+    "accounting": "消耗与恢复",
+    "concurrency": "并发请求边界"
+  },
+  "gift-codes": {
+    "preview": "先预览后确认",
+    "grant": "发放规则"
+  },
+  "invitation-rebate-guide": {
+    "one-campaign": "先确认活动是否开放",
+    "share-methods": "链接、邀请码与二维码",
+    "binding-rules": "好友怎样完成绑定",
+    "current-rebate": "返利什么时候到账"
+  },
+  "invite-campaign": {
+    "availability": "活动开关与公开规则",
+    "binding": "邀请关系",
+    "rewards": "奖励与退款",
+    "privacy": "隐私"
+  },
+  "membership": {
+    "tiers": "三个档位",
+    "pricing": "当前默认价格",
+    "renewal": "续费方式"
+  },
+  "membership-subscription-guide": {
+    "official-price": "先看套餐，再看最终报价",
+    "purchase-cycle": "购买周期与生效方式",
+    "payment-methods": "支付渠道",
+    "offers-and-invites": "分清限时活动与邀请奖励"
+  },
+  "payment-orders": {
+    "quote": "报价与建单",
+    "payment": "支付渠道",
+    "fulfillment": "幂等履约与退款",
+    "refund-boundaries": "退款边界与状态口径"
+  },
+  "promotion-banner": {
+    "configuration": "配置",
+    "closed": "关闭状态"
+  },
+  "quota-block-and-recovery": {
+    "blocked-message": "被拦消息不会假装已发送",
+    "recovery-actions": "恢复方式",
+    "resume": "恢复原任务"
+  },
+  "subscription-lifecycle": {
+    "matrix": "合法选项矩阵",
+    "actions": "四种计价动作",
+    "quote": "报价与支付"
+  },
+  "wallet-payg": {
+    "balance": "经费是什么",
+    "rate": "当前默认兑换率",
+    "autopay": "何时扣经费"
+  },
+  "device-routing": {
+    "decision": "分流方式",
+    "responsive": "仍使用同一路径的页面"
+  },
+  "mini-program-runtime-and-parity": {
+    "pages": "15 个注册页面",
+    "claw": "小程序 Claw",
+    "environment": "环境与请求规则",
+    "parity": "与 Web 的能力差异",
+    "safety": "内容安全边界",
+    "quality": "测试与设计镜像"
+  },
+  "mobile-feed": {
+    "navigation": "三条信息流",
+    "papers-journals": "论文与期刊的种子",
+    "news-actions": "情报与卡片动作"
+  },
+  "mobile-web": {
+    "navigation": "移动导航",
+    "parity": "能力差异"
+  },
+  "wechat-mini-program": {
+    "tabs": "四个主入口",
+    "pages": "页面范围",
+    "limits": "端能力边界"
+  },
+  "feedback-and-support": {
+    "channels": "入口",
+    "privacy": "提交前注意"
+  },
+  "service-policies": {
+    "overview": "服务政策与 AI 使用边界",
+    "privacy": "隐私",
+    "documents": "法律",
+    "ai": "AI 使用安全",
+    "ethics": "学术伦理"
+  },
+  "ai-research-workflows": {
+    "features": "能力集合",
+    "boundaries": "共同边界",
+    "delivery": "交付物"
+  },
+  "claw": {
+    "entry": "入口",
+    "workspace": "智能助手工作面板",
+    "mobile": "手机怎么看",
+    "skills": "技能、附件和模型",
+    "outputs": "产物去哪了"
+  },
+  "claw-attachments-and-references": {
+    "attachment-limits": "附件限制",
+    "unsupported": "不支持的格式",
+    "references-skills": "文库引用与 Skill"
+  },
+  "claw-interface-guide": {
+    "entry-and-modes": "入口与任务模式",
+    "layout": "从左到右看界面",
+    "composer": "输入框与上下文工具",
+    "artifacts": "交付物、预览与下载",
+    "reading-states": "如何识别运行状态"
+  },
+  "claw-sessions": {
+    "routes": "会话入口",
+    "management": "管理动作",
+    "history-window": "长历史加载"
+  },
+  "claw-stream-tool-states": {
+    "delivery": "消息发出去了吗",
+    "stream": "回答还在进行时",
+    "abnormal": "掉线和另一个窗口"
+  },
+  "latex-project-guide": {
+    "definition": "LaTeX 工程包含什么",
+    "benefits": "LaTeX 的主要好处",
+    "prism-relation": "Prism 与 LaTeX 的关系",
+    "journal-template": "从期刊详情下载模板",
+    "final-check": "交付前的边界"
+  },
+  "manuscript-vs-publication": {
+    "definitions": "两个词指向不同阶段",
+    "product-surfaces": "在 Scholay 中分别出现在哪里",
+    "version-control": "版本与引用要分别核对",
+    "review-boundary": "AI 审稿不会改变发表状态"
+  },
+  "pdf-chat-guide": {
+    "open-claw": "从智能助手进入，而不是从阅读器进入",
+    "upload-pdf": "上传 PDF 并等待附件就绪",
+    "ask-grounded-questions": "提出能回到原文的问题",
+    "reader-vs-chat": "PDF 阅读器与 PDF 对话的区别",
+    "verify-answer": "把回答当作阅读辅助而非原文替代"
+  },
+  "peer-review": {
+    "submission": "两类提交",
+    "review": "评审过程",
+    "records": "记录与边界"
+  },
+  "peer-review-dimensions-guide": {
+    "four-dimensions": "四个结构化维度",
+    "grades-and-score": "等级、综合分与推荐",
+    "line-comments": "原句、问题与建议如何配对",
+    "macro-and-chief": "整体性评价与主审汇总",
+    "limitations": "评价的使用边界"
+  },
+  "peer-review-results-guide": {
+    "tabs": "初审、审稿人与终审分页",
+    "decisions": "录用、返修与拒稿",
+    "reviewer-output": "审稿人页看什么",
+    "chief-output": "主审页看什么",
+    "editorial-warning": "编辑部初审页的特殊边界"
+  },
+  "peer-review-workflow-guide": {
+    "scope": "先选择论文场景",
+    "journal-flow": "期刊论文的四步流程",
+    "thesis-flow": "毕业论文的四步流程",
+    "runtime": "提交后的运行阶段",
+    "not-a-submission": "它不是正式投稿或盲审"
+  },
+  "prism": {
+    "workspace": "写作工作区",
+    "writing-tools": "写作工具",
+    "compile": "编译与交付"
+  },
+  "prism-interface-guide": {
+    "home": "项目首页",
+    "workspace": "工作区的三部分",
+    "editing": "编辑、自动保存与 AI 改动",
+    "tools-and-output": "模板、编译与导出",
+    "project-boundary": "新版项目与旧项目"
+  },
+  "prism-writing-workflow": {
+    "prepare": "第一步：先确定任务边界",
+    "draft": "第二步：分阶段形成正文",
+    "evidence": "第三步：补齐证据、引用与素材",
+    "review": "第四步：逐轮审阅改动",
+    "deliver": "第五步：编译、修正与交付"
+  },
+  "research-data-analysis": {
+    "workflow": "工作流",
+    "environment": "执行环境",
+    "responsibility": "解释边界"
+  },
+  "research-evidence-kernel": {
+    "flow": "证据回合流程",
+    "trust": "它能保证什么",
+    "limitations": "实验性限制"
+  },
+  "research-figure-and-slides": {
+    "figures": "科研绘图",
+    "slides": "演示文稿",
+    "shared": "共同机制"
+  },
+  "search-entry-comparison": {
+    "difference": "先看差别",
+    "choose-smart-search": "什么时候用智能搜索",
+    "choose-assistant": "什么时候用智能助手",
+    "handoff": "找完论文之后"
+  },
+  "smart-literature-search-guide": {
+    "frame-the-question": "把需求写成可执行的问题",
+    "start-a-session": "开始并管理一次搜索会话",
+    "guide-the-search": "用追问引导检索策略",
+    "inspect-and-stage": "检查论文组并暂存候选",
+    "coverage-and-stop-rule": "判断覆盖边界和停止时机"
+  },
+  "smart-search": {
+    "difference": "与传统搜索的区别",
+    "session": "会话与连接",
+    "evidence": "论文与证据"
+  },
+  "stat-lab-method-boundary": {
+    "methods": "真实方法目录",
+    "workflow": "计算与报告",
+    "limits": "能力和门禁边界"
+  }
+}

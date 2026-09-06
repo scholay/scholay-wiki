@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- 标签页图标 —— 用 Figma 品牌标本体(ScholayMark,六芒星犀牛头)。
+         v4(2026-08-02):标志换色为 Logo 亮色组(#427935/#F1BF45,红不变),见 ScholayMark.tsx。
+         此前 v3(2026-07-28)从手搓的 S 字母方块换成真标志。
+
+         为什么必须换文件名(favicon-v4.svg)而不是原地改 favicon.svg:
+           favicon 不带内容 hash,nginx 对 svg/png 发 max-age(见 nginx.conf 与
+           nginx/conf.d/user.conf 的品牌资产 location)。原地改内容,已缓存的老访客
+           要等 TTL 到期才看得到。换 URL = 新访客立即生效;favicon.svg / favicon-v3.svg
+           保留同内容副本,让老访客在 TTL 到期后自愈。两件事都要做,只做一件都会留长尾。
+
+         PNG 回退:Safari 对 SVG favicon 的支持历史上不稳,给一张 32px PNG 兜底
+         (同理换名 favicon-32-v2.png,旧名 favicon-32.png 保留同内容副本)。 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon-v4.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32-v2.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v4.png" />
+    <!-- viewport-fit=cover: 移动端 /m 的底部导航用 env(safe-area-inset-bottom) 给全面屏 home indicator 让位
+         maximum-scale=1 + user-scalable=no: 禁止页面缩放 —— ① 拦掉妨碍使用的误触放大/缩小;
+         ② 同时阻止 iOS 聚焦输入框时的「自动放大」(maximum-scale=1 时 iOS 不再 focus-zoom)。
+         注:桌面浏览器 Ctrl± 缩放不受 viewport 影响,仅作用移动端。 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#F6F4EE" data-default-color="#F6F4EE" data-wiki-light-color="#FFFFFF" data-wiki-dark-color="#0B0B0D" />
+    <!-- Wiki 主题首屏引导：必须早于 Vite 主模块同步执行，否则深色偏好会先闪一帧白底。
+         data-wiki-theme 只作为 Wiki 壳与 portal 的选择器，不能用于覆写 :root 产品 token。 -->
+    <script id="wiki-theme-bootstrap">
+      (function () {
+        var path = window.location.pathname;
+        if (path !== '/wiki' && path.indexOf('/wiki/') !== 0) return;
+
+        var theme = null;
+        try {
+          var saved = window.localStorage.getItem('scholay.wiki.theme');
+          if (saved === 'light' || saved === 'dark') theme = saved;
+        } catch (_) {
+          // 隐私模式等环境禁用存储时，继续按系统偏好启动。
+        }
+
+        if (!theme) {
+          try {
+            theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+          } catch (_) {
+            theme = 'light';
+          }
+        }
+
+        document.documentElement.setAttribute('data-wiki-theme', theme);
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        var wikiThemeColor = themeColor && themeColor.getAttribute('data-wiki-' + theme + '-color');
+        if (wikiThemeColor) themeColor.setAttribute('content', wikiThemeColor);
+      })();
+    </script>
+    <!-- iOS Safari 出于无障碍会忽略 viewport 的 user-scalable=no 对「用户捏合」的限制,
+         需 JS 拦截 Safari 私有 gesture 事件才能真正禁掉双指捏合放大(双击放大由 CSS touch-action 拦)。
+         其他浏览器无 gesture 事件,addEventListener 即 no-op,无副作用。 -->
+    <script>
+      (function () {
+        var stop = function (e) { e.preventDefault(); };
+        document.addEventListener('gesturestart', stop, { passive: false });
+        document.addEventListener('gesturechange', stop, { passive: false });
+        document.addEventListener('gestureend', stop, { passive: false });
+      })();
+    </script>
+
+    <!--
+      字体(2026-08-11 用户两段指令):UI/正文 = 系统字体零下载;
+      标题层中文 = 自托管 Noto Serif SC(唯一保留的 webfont,swap 分片按需加载)。
+      Google Sans / Playfair Display 的 preload 与资产已移除,不得回流。
+      这里只 preload Noto 的首屏 UI 常用字小子集(~55KB,覆盖侧栏/页面标题的
+      高频字,避免首屏标题先宋体后切换的闪动);其余 101 个分片按需加载。
+      栈定义与两条实现铁律见 src/styles/globals.css 文件头「字体策略」。
+      KaTeX 数学字体保留(build 产物内,数学页按需加载)。
+    -->
+    <link
+      rel="preload"
+      href="/fonts/noto-serif-sc/noto-serif-sc-ui-239f956f88b7.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!--
+      非关键第三方/运营脚本统一在 page load 后的 idle 期启动。
+      这些任务不参与首屏渲染，不应与 entry/CSS/LCP 图片竞争。
+      timeout 是上限：即使浏览器持续繁忙，也会在 load 后 2s 内执行。
+    -->
+    <script>
+      window.__afterCriticalLoad = function (task) {
+        var schedule = function () {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(task, { timeout: 2000 });
+          } else {
+            window.setTimeout(task, 250);
+          }
+        };
+        if (document.readyState === 'complete') schedule();
+        else window.addEventListener('load', schedule, { once: true });
+      };
+    </script>
+
+    <!-- 站点运行时配置 —— 由 frontend-user 容器的 docker-entrypoint.d/50-inject-site.sh
+         在【容器启动时】按 env 替换下面的占位符;dev 下由 vite.config.ts 的
+         siteConfigPlaceholders 插件用本地默认值替换。
+
+         为什么是运行时而不是 build-time:Vite 的 import.meta.env.VITE_* 在编译期就被
+         替换进 bundle,那意味着「换个域名 = 重新构建一个镜像」。改成运行时注入后,
+         **同一个镜像 tag 靠 env 就能服务不同域名的多套环境**。
+         backend SSR 也吃得到:它是 HTTP fetch 本容器的 `/` 拿 index.html
+         (见 backend/internal/config/handler_ssr.go 的 getPageHTML),拿到的正是替换后的版本。 -->
+    <script>
+      window.__SITE_CONFIG__ = {
+        // ICP 备案号。⚠️ 备案号与【已备案的域名】绑定,未接入备案的站点公开展示它
+        // 属于错挂,处理对象是备案本身。非权威环境留空即可,Footer 会整块不渲染。
+        icp: "蜀ICP备2025145653号-2",
+      };
+    </script>
+
+    <!-- Microsoft Clarity Analytics —— project id 由 env 注入,留空则整段不加载。
+         这里以前写死一个 id,意味着任何环境(测试/预发/本地构建)的会话录制、热图、
+         点击流都会以那个项目的名义上报,而部署方在容器里没有任何办法关掉它。 -->
+    <script>
+      (function () {
+        var id = "u14c9rnomm";
+        if (!id || id.charAt(0) === "_") return;
+        window.__afterCriticalLoad(function () {
+          (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+          })(window, document, "clarity", "script", id);
+        });
+      })();
+    </script>
+    <!--
+      Umami tracker —— 运行时加载,website_id 由 backend 接口动态提供。
+      为什么不走静态 <script data-website-id="%VITE_..."> 的方式:
+        - 那种方式把 website id 编进 bundle,umami DB 重建 / 换 site 都要 rebuild 前端
+        - 当 id 在 umami 不存在时 (例如复用了别项目的 UUID),/api/send 直接 400
+      改成:
+        1) fetch /api/v1/public/umami-config 拿到 backend 已自动 bootstrap 好的 id
+        2) 动态插入 <script data-website-id="..."> 触发 tracker
+        3) backend 不可达 / umami 没起 → 默默跳过,主站功能完全不受影响
+    -->
+    <script>
+      window.__afterCriticalLoad(function () {
+        // 使用浏览器默认 HTTP 缓存语义：后端 max-age=300 到期后会重新验证。
+        // 不能 force-cache，否则 Umami 重建后旧 website_id 可被长期强制复用。
+        fetch('/api/v1/public/umami-config')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (resp) {
+            var data = resp && resp.data;
+            if (!data || !data.website_id || !data.script_url) return;
+            var s = document.createElement('script');
+            s.defer = true;
+            s.src = data.script_url;
+            s.setAttribute('data-website-id', data.website_id);
+            s.onload = function () {
+              if (window.__flushScholayUmamiQueue) window.__flushScholayUmamiQueue();
+            };
+            document.head.appendChild(s);
+          })
+          .catch(function () { /* 静默 —— 监控不可用不应该影响站点 */ });
+      });
+    </script>
+
+    <!--
+      Google 分析(GA4 / GTM)—— 运行时加载,衡量 ID 由后台「系统设置」配置(/config/system)。
+      自动判断:G-XXXX → 直接 gtag.js(GA4 增强衡量默认开,自动统计 SPA 路由切换);
+                GTM-XXXX → GTM 容器(GA4 标签需在 GTM 后台自行配置)。
+      空 / backend 不可达 → 静默跳过,不影响站点。
+    -->
+    <script>
+      // 队列 stub 必须同步就绪：React 在 load/idle 前打的首屏事件
+      // 先进 dataLayer；只把配置请求与第三方网络脚本延后。
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+      window.__afterCriticalLoad(function () {
+        fetch('/api/v1/config/system')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (resp) {
+            var id = resp && resp.data && resp.data.google_analytics_id;
+            if (!id) return;
+            var isGTM = id.indexOf('GTM-') === 0;
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/' +
+              (isGTM ? 'gtm.js?id=' : 'gtag/js?id=') + encodeURIComponent(id);
+            document.head.appendChild(s);
+            if (isGTM) {
+              window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+            } else {
+              window.gtag('js', new Date());
+              window.gtag('config', id);
+            }
+          })
+          .catch(function () { /* 静默 —— 监控不可用不应影响站点 */ });
+      });
+    </script>
+
+    <!--
+      后台「代码片段库」(/admin/code-snippets)—— 运行时拉取并注入,达到「配置即生效、无需重新构建/重启」。
+
+      为什么必须有这段(2026-07 修):
+        后端早已备齐 CRUD + 公开接口 + SSR 注入,但当时 nginx 按 UA 分流、**只有爬虫**走 backend SSR
+        (injectCodeSnippets 注入原始 HTML),普通用户走前端静态 SPA、压根不经过 backend;
+        而前端这一半从没实现(公开接口零消费方),导致管理员配的片段对真实用户全是哑的。
+        SSR 特地埋了 window.__SSR_SNIPPETS_INJECTED__ 防重复标记,正是留给这里用的。
+
+      ⚠️ 分流口径后来变了(UA 判定 $is_crawler 已从 nginx 移除):现在**公开 HTML 路由
+        无论谁访问都走 backend SSR**,片段在原始 HTML 里就注入好了 —— 那些路由上这段脚本会读到
+        __SSR_SNIPPETS_INJECTED__ 而直接返回。它现在的真正战场是**私有 SPA 路由**
+        (/admin /settings /library /claw /prism /m … 见 nginx/conf.d/user.conf 里 proxy_pass 到
+        frontend_upstream 的那条 location):那些请求不经 backend,只有这段脚本能注入片段。
+
+      时序坑:SSR 把「flag + 片段」注入在 head 结束标签**之前**,即排在本脚本**之后**才执行。所以
+      __SSR_SNIPPETS_INJECTED__ 的判断**必须放在 fetch 的 .then 里**(那时 head 已解析完、flag 已就位);
+      放在脚本开头会永远读到 undefined → 在走 SSR 的那些路由上,任何会跑 JS 的访客
+      (包括 Googlebot)都会被重复注入两遍。
+
+      ⚠️ 本注释里**绝不能出现字面量的 head/body 结束标签** —— Vite 构建时是按字符串找**第一个**
+      head 结束标签插入 <script type="module"> 的,会命中注释里那个假的,把主 bundle 塞进注释里
+      → 整站白屏、且控制台**没有任何报错**(浏览器只当它是注释文本,压根不请求 bundle)。踩过一次。
+
+      安全:片段是**管理员**(adminProtected)配置的任意 HTML/JS,注入到所有用户页面 —— 这正是本功能的
+      用途(等同 GTM 容器),但也意味着后台账号即全站 JS 权限,勿把该菜单开放给非可信管理员。
+    -->
+    <script>
+      (function () {
+        // 把一组片段拼成一个 fragment(保持 priority 顺序,一次性插入)。
+        // 注:innerHTML 解析出的 <script> 带「已停止」标记、永不执行 → 必须逐个重建成新 script 才会跑。
+        function build(list) {
+          var frag = document.createDocumentFragment();
+          for (var i = 0; i < list.length; i++) {
+            var html = list[i] && list[i].code_content;
+            if (!html) continue;
+            var tpl = document.createElement('template');
+            tpl.innerHTML = html;
+            var scripts = tpl.content.querySelectorAll('script');
+            for (var j = 0; j < scripts.length; j++) {
+              var old = scripts[j];
+              var s = document.createElement('script');
+              for (var k = 0; k < old.attributes.length; k++) {
+                s.setAttribute(old.attributes[k].name, old.attributes[k].value);
+              }
+              s.text = old.textContent || '';
+              old.parentNode.replaceChild(s, old);
+            }
+            frag.appendChild(tpl.content);
+          }
+          return frag;
+        }
+
+        function select(list, deferred) {
+          return (list || []).filter(function (item) {
+            return !!item.defer_until_idle === deferred;
+          });
+        }
+
+        function inject(group) {
+          document.head.appendChild(build(group.head));
+          var doBody = function () {
+            document.body.insertBefore(build(group.body_start), document.body.firstChild);
+            document.body.appendChild(build(group.body_end));
+          };
+          if (document.body) doBody();
+          else document.addEventListener('DOMContentLoaded', doBody, { once: true });
+        }
+
+        // 配置请求立即发起，保留 head/body_start 的时序契约；只将后台明确
+        // 标记 defer_until_idle 的广告/分析片段延后，避免“全部延迟”破坏验证 meta、
+        // consent 或 bootstrap 脚本。
+        fetch('/api/v1/config/code-snippets')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (resp) {
+            var d = resp && resp.data;
+            if (!d) return;
+            // 见上「时序坑」:此刻 head 已解析完,爬虫的 SSR flag 若在就说明原始 HTML 已注入过。
+            if (window.__SSR_SNIPPETS_INJECTED__) return;
+            window.__SSR_SNIPPETS_INJECTED__ = true;
+
+            inject({
+              head: select(d.head, false),
+              body_start: select(d.body_start, false),
+              body_end: select(d.body_end, false),
+            });
+
+            var deferred = {
+              head: select(d.head, true),
+              body_start: select(d.body_start, true),
+              body_end: select(d.body_end, true),
+            };
+            if (deferred.head.length || deferred.body_start.length || deferred.body_end.length) {
+              window.__afterCriticalLoad(function () { inject(deferred); });
+            }
+          })
+          .catch(function () { /* 静默 —— 片段拉不到不应影响主站 */ });
+      })();
+    </script>
+
+    <!-- ───────── SEO 基础 meta(静态兜底)─────────
+         非 JS 爬虫 / 百度首屏即可见;详情页由后端 SSR(handler_ssr.go)用正则替换 title/description/keywords。
+         首页 RouteSEO(React 注入)与此处保持品牌词一致即可。 -->
+    <!-- 标题前缀由 entrypoint 按 env SITE_TITLE_PREFIX 注入:生产为空串,
+         非权威环境建议设成 "[TEST] "。(注释里刻意不写出占位符字面量 ——
+         sed 是全文替换,写了这里也会被一并替换掉,留下一句读不通的话。)
+         品牌名本身不参数化 —— 两套环境部署的确实是同一个产品,把品牌词换成占位符
+         只会毁掉生产的 SEO 文案。真正需要的是「两个标签页能一眼分清」,前缀就够了。 -->
+    <title data-seo-fallback="server">Scholay Wiki — 产品词条索引 | Scholay 学术</title>
+    <meta data-seo-fallback="server" name="description" content="Scholay 学术的产品 Wiki:检索、写作、审稿、助手、会员与额度等全部功能的说明词条,按栏目组织,持续更新。">
+    <meta
+      data-seo-fallback="server"
+      name="keywords"
+      content="Scholay,Scholay学术,Scholay科研,Scholay工具,Scholay AI,AI 学术工具,学术搜索,论文搜索,AI 论文分析,智能审稿,文献管理,期刊查询,学者库,LaTeX 在线编辑"
+    />
+
+    <!-- Open Graph / 微信 / Twitter 分享卡(首页默认;1200×630,放在 public/)
+
+         ⚠️ 文件名带版本号是必须的,不是洁癖:og-image / favicon 都不带内容 hash。
+         这类品牌资产此前吃通用静态正则的 `max-age=31536000, immutable`,原地改内容
+         对老访客整整一年无效 —— 踩过之后两层 nginx(frontend-user/nginx.conf 与
+         nginx/conf.d/user.conf)都单列了品牌资产 location,降到 `max-age=86400`。
+         但**换 URL 仍然必须做**:1 天只治浏览器缓存,已抓取过的社交平台(微信/Twitter)
+         存的是自己那份副本,缓存多久不受我们的 TTL 控制。
+         og-image.png 保留同内容副本,只为让历史分享链接在缓存过期后也能自愈。 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Scholay学术" />
+    <meta property="og:title" content="Scholay Wiki — 产品词条索引 | Scholay 学术" />
+    <meta property="og:description" content="Scholay 学术的产品 Wiki:检索、写作、审稿、助手、会员与额度等全部功能的说明词条,按栏目组织,持续更新。" />
+    <meta property="og:url" content="https://www.scholay.com/wiki/all" />
+    <meta property="og:image" content="https://www.scholay.com/og-image-v2.png" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Scholay Wiki — 产品词条索引 | Scholay 学术" />
+    <meta name="twitter:description" content="Scholay 学术的产品 Wiki:检索、写作、审稿、助手、会员与额度等全部功能的说明词条,按栏目组织,持续更新。" />
+    <meta name="twitter:image" content="https://www.scholay.com/og-image-v2.png" />
+
+    <!-- 结构化数据:品牌(Organization)+ 站点搜索框(WebSite/SearchAction)+ 产品(SoftwareApplication)。
+         这是百度/必应「官网 + 子链(sitelinks)」与品牌知识卡的关键启用项;不写假评分(会被判作弊)。 -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.scholay.com/#organization",
+          "name": "Scholay学术",
+          "alternateName": ["Scholay", "Scholay学术", "Scholay科研", "Scholay工具", "Scholay AI"],
+          "url": "https://www.scholay.com",
+          "logo": "https://www.scholay.com/favicon.svg",
+          "description": "AI 驱动的学术搜索与研究平台",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "url": "https://www.scholay.com/contact"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.scholay.com/#website",
+          "name": "Scholay学术",
+          "alternateName": ["Scholay", "Scholay学术", "Scholay科研", "Scholay工具", "Scholay AI"],
+          "url": "https://www.scholay.com",
+          "publisher": { "@id": "https://www.scholay.com/#organization" },
+          "inLanguage": "zh-CN",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://www.scholay.com/search?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Scholay学术",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Web",
+          "url": "https://www.scholay.com",
+          "description": "AI 驱动的一站式学术研究平台:论文搜索、AI 分析、智能审稿、文献管理、LaTeX 写作。",
+          "isAccessibleForFree": true
+        },
+        {
+          "@type": "ItemList",
+          "name": "Scholay学术 主要功能",
+          "itemListElement": [
+            { "@type": "SiteNavigationElement", "position": 1, "name": "AI 文献搜索", "description": "按关键词、布尔条件和自然语言查找论文并继续筛选", "url": "https://www.scholay.com/search" },
+            { "@type": "SiteNavigationElement", "position": 2, "name": "期刊查询", "description": "按影响因子、JCR 分区、ISSN 检索全球期刊", "url": "https://www.scholay.com/journals/search" },
+            { "@type": "SiteNavigationElement", "position": 3, "name": "AI 智能助手", "description": "结合论文与研究上下文进行学术对话和阅读辅助", "url": "https://www.scholay.com/features/claw" },
+            { "@type": "SiteNavigationElement", "position": 4, "name": "AI 稿件自查", "description": "投稿前从结构、方法、论证与表达形成修订线索", "url": "https://www.scholay.com/features/peer-review" },
+            { "@type": "SiteNavigationElement", "position": 5, "name": "文献集管理", "description": "用文件夹组织论文、PDF 与研究主题", "url": "https://www.scholay.com/features/library" },
+            { "@type": "SiteNavigationElement", "position": 6, "name": "全部功能", "description": "Scholay学术 全部能力总览", "url": "https://www.scholay.com/features" }
+          ]
+        }
+      ]
+    }
+    </script>
+    <script type="module" crossorigin src="/assets/index-B292NwDj.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/commonjs-runtime-CphLuSdk.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-CU_V3qk7.js">
+    <link rel="modulepreload" crossorigin href="/assets/query-DxgEso9z.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-33t2Ewcc.css">
+  
+<!-- SSR Code Snippets: head -->
+<script>window.__SSR_SNIPPETS_INJECTED__=true;</script>
+<meta name="google-adsense-account" content="ca-pub-4381158577790171">
+<meta name="baidu-site-verification" content="codeva-iPdS8tZTUa" />
+<meta name="360-site-verification" content="c59d9d65ff60aa447f1ca5e5fdf776b8" />
+<meta name="myicp" content="蜀ICP备2025145653号-2">
+<!-- SSR Deferred Code Snippets: load + idle -->
+<script data-ssr-deferred-snippets>(function(group){
+function build(list){var frag=document.createDocumentFragment();for(var i=0;i<list.length;i++){var tpl=document.createElement('template');tpl.innerHTML=list[i];var scripts=tpl.content.querySelectorAll('script');for(var j=0;j<scripts.length;j++){var old=scripts[j];var script=document.createElement('script');for(var k=0;k<old.attributes.length;k++){script.setAttribute(old.attributes[k].name,old.attributes[k].value);}script.text=old.textContent||'';old.parentNode.replaceChild(script,old);}frag.appendChild(tpl.content);}return frag;}
+function inject(){document.head.appendChild(build(group.head||[]));var injectBody=function(){document.body.insertBefore(build(group.body_start||[]),document.body.firstChild);document.body.appendChild(build(group.body_end||[]));};if(document.body){injectBody();}else{document.addEventListener('DOMContentLoaded',injectBody,{once:true});}}
+function schedule(){if('requestIdleCallback' in window){window.requestIdleCallback(inject,{timeout:2000});}else{window.setTimeout(inject,250);}}
+if(document.readyState==='complete'){schedule();}else{window.addEventListener('load',schedule,{once:true});}
+})({"head":["\u003cscript async src=\"https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4381158577790171\"\n     crossorigin=\"anonymous\"\u003e\u003c/script\u003e"]});</script>
+<!-- End SSR Deferred Code Snippets -->
+<!-- End SSR Code Snippets: head -->
+<link data-seo-fallback="server" rel="canonical" href="https://www.scholay.com/wiki/all">
+</head>
+  <body>
+    <!-- 品牌兜底正文:确保 scholay 各品牌变体都有真实 on-page 文本可关联到本站。
+         JS 加载后由 React 接管 #root,此块不显示。
+
+         ⚠️ 它只在**本容器直出**的响应里存活 —— 也就是 nginx 直连 frontend_upstream 的
+         私有 SPA 路由(/admin /settings /library /claw …,那些路由带 noindex)。
+         所有**公开** HTML 路由都经 backend SSR,而 SSR 的第一步
+         (handler_ssr.go 的 prepareSSRPageShell)会**整块删掉**壳里的 noscript,
+         再把本路由的可见兜底正文写进 #root(否则详情页会同时出现品牌 H1 与实体 H1)。
+         所以公开页给非 JS 爬虫看的正文来自 SSR,不是这一块。 -->
+    
+    <div id="root">
+<main data-ssr-static="true">
+<div data-ssr-canvas="true" style="min-height: 100vh; background: #F6F4EE; padding: 40px 16px 36px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;">
+<header data-ssr-brand="true" style="max-width: 720px; margin: 0 auto 20px; text-align: center;"><p style="margin: 0; font-family: 'Playfair Display', Didot, Georgia, 'Times New Roman', serif; font-size: 2rem; font-weight: 500; letter-spacing: -0.03em; line-height: 1.2;"><a href="/" style="color: #1F1F23; text-decoration: none;">Scholay</a></p><p style="margin: 6px 0 0; color: #6E6E78; font-size: 0.8rem;">学术搜索 · AI 审稿 · LaTeX 协作</p></header>
+<style data-ssr-wiki="1">
+[data-ssr-canvas]{background:#FFFFFF!important}
+.ssr-wiki{background:#FFFFFF;color:#1F1F23;padding:24px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;line-height:1.75}
+.ssr-wiki a{color:#882828}
+.ssr-wiki h1{font-size:1.75rem;line-height:1.3;margin:0 0 12px}
+.ssr-wiki h2{font-size:1.25rem;margin:28px 0 8px}
+.ssr-wiki h3{font-size:1.05rem;margin:20px 0 6px}
+.ssr-wiki aside{border-left:3px solid #B4880E;padding:8px 12px;margin:16px 0;background:#EFEDE5}
+.ssr-wiki table{border-collapse:collapse;width:100%;margin:16px 0}
+.ssr-wiki th,.ssr-wiki td{border:1px solid rgba(31,31,35,.12);padding:6px 10px;text-align:left}
+.ssr-wiki pre{background:#EFEDE5;padding:12px;overflow-x:auto}
+@media (prefers-color-scheme:dark){
+:root:not([data-wiki-theme="light"]) [data-ssr-canvas]{background:#0B0B0D!important}
+:root:not([data-wiki-theme="light"]) .ssr-wiki{background:#0B0B0D;color:#E8E8EA}
+:root:not([data-wiki-theme="light"]) .ssr-wiki a{color:#E0A0A0}
+:root:not([data-wiki-theme="light"]) .ssr-wiki aside,
+:root:not([data-wiki-theme="light"]) .ssr-wiki pre{background:#18181C}
+:root:not([data-wiki-theme="light"]) .ssr-wiki th,
+:root:not([data-wiki-theme="light"]) .ssr-wiki td{border-color:rgba(233,231,225,.16)}}
+:root[data-wiki-theme="dark"] [data-ssr-canvas]{background:#0B0B0D!important}
+:root[data-wiki-theme="dark"] .ssr-wiki{background:#0B0B0D;color:#E8E8EA}
+:root[data-wiki-theme="dark"] .ssr-wiki a{color:#E0A0A0}
+:root[data-wiki-theme="dark"] .ssr-wiki aside,
+:root[data-wiki-theme="dark"] .ssr-wiki pre{background:#18181C}
+:root[data-wiki-theme="dark"] .ssr-wiki th,
+:root[data-wiki-theme="dark"] .ssr-wiki td{border-color:rgba(233,231,225,.16)}
+</style><section class="ssr-wiki"><h1>Scholay Wiki</h1><p>产品功能与规则的说明词条。以下为全部公开条目。</p><h2>知识与内容</h2><ul><li><a href="/wiki/academic-intelligence-interface-guide">学术情报界面导览</a> — 从学术情报列表按时间、热度与版块发现内容，再进入详情核对正文、来源、可信度说明和相关情报。</li><li><a href="/wiki/citation-dialog">引用弹窗与默认格式</a> — 从论文卡片、详情或移动 Feed 生成五种引用文本，复制并保存个人默认格式。</li><li><a href="/wiki/citation-generator">引用生成器</a> — 把论文元数据转换为可复制的常用引文格式，并保留回到原始论文核对的入口。</li><li><a href="/wiki/community-skills">社区技能</a> — 用户创建、发布、安装和管理的 SKILL.md 能力，可按需注入 Claw 会话。</li><li><a href="/wiki/feature-tools">功能广场</a> — 收录 Scholay 站内能力和外部科研工具的可搜索目录，并提供分类、筛选和详情。</li><li><a href="/wiki/help-center-and-qa">帮助中心与学术问答</a> — 按主题浏览后台维护的科研长问答，并在详情页使用目录、相关问答和产品快捷入口。</li><li><a href="/wiki/library-sharing">文献集分享与接收</a> — 通过公开分享令牌把一组文献交给其他人查看或接收。</li><li><a href="/wiki/literature-library">个人文献集</a> — 以文件夹长期保存论文、PDF 与补充元数据，并支持导入、整理、分享和重新关联。</li><li><a href="/wiki/paper-favorites">论文收藏与取消收藏</a> — 把论文保存到个人文献集的指定文件夹，并理解重复收藏和取消收藏的真实副作用。</li><li><a href="/wiki/pdf-upload-resolve-and-relink">PDF 上传、识别与重新关联</a> — 把本地 PDF 放入个人文献集，核对三源匹配候选，并在识别错误时重新关联或保留自由文件。</li><li><a href="/wiki/research-news">学术资讯</a> — 面向公开访问的学术新闻列表与详情，并由后台维护采集和发布状态。</li><li><a href="/wiki/resource-and-blog-center">学术资源中心与产品博客</a> — 在同一个内容中心切换原创学术资源与产品博客，同时保留两套稳定列表和详情 URL。</li><li><a href="/wiki/resources-interface-guide">资源界面指南</a> — 区分个人文件夹、科研能力广场与公开学术资源中心，并说明各自的数据和能力边界。</li><li><a href="/wiki/share-cards-and-posters">分享卡片、短链与海报</a> — 为论文、期刊、文献文件夹和工具生成链接、二维码或图片，并在移动端调用系统分享。</li></ul><h2>学术发现</h2><ul><li><a href="/wiki/academic-search">论文检索</a> — 以关键词、筛选条件和分页结果发现论文，并把候选资料送入后续研究工作流。</li><li><a href="/wiki/author-profile-page">作者详情页</a> — 查看作者身份线索、研究主题、代表作、合作作者和年度发表趋势。</li><li><a href="/wiki/authors-and-journals">作者与期刊</a> — 围绕作者画像、合作关系、代表作，以及期刊搜索、学科聚合和收录信息展开的发现页面。</li><li><a href="/wiki/classic-vs-smart-search">传统搜索 vs 智能搜索</a> — 已经有题名、作者或稳定关键词时用传统搜索；还在找说法、需要系统帮你拆问题时用智能搜索。</li><li><a href="/wiki/journal-detail-page">期刊详情页</a> — 集中查看期刊标识、收录来源、分区、影响指标、年度趋势和投稿决策信息。</li><li><a href="/wiki/journal-metrics-guide">期刊指标怎么看</a> — 解释 Scholay 当前展示的期刊身份、分区、引用、开放获取和风险信号，并说明年份、来源与缺失值边界。</li><li><a href="/wiki/journal-rankings-and-directories">期刊榜单与分类目录</a> — 通过四个预设质量榜单，以及学科、国家、开放获取和预警目录发现期刊。</li><li><a href="/wiki/journal-search-page">期刊检索页</a> — 按刊名、ISSN、主办机构和五类质量条件筛选期刊，每页查看 8 条结果。</li><li><a href="/wiki/journal-selection-guide">如何制定期刊选刊策略</a> — 用当前可检索的分区、影响因子、出版与风险数据建立短名单，再回到期刊官方渠道核对范围和投稿要求。</li><li><a href="/wiki/journal-submission-resources">期刊投稿资源下载</a> — 在期刊详情中下载可用的作者指南 Markdown 和 LaTeX 模板 zip。</li><li><a href="/wiki/journal-update-cycle">Scholay 期刊数据多久更新一次</a> — 期刊搜索与详情读取上游数据，浏览器缓存、上游构建、SEO 摄取和公开发布各有独立节奏，因此没有统一的固定更新 SLA。</li><li><a href="/wiki/literature-graph-status">文献图谱：当前状态与使用边界</a> — 当前已有引用计数、参考文献列表和逐条论文跳转，但尚未提供独立的节点—连线式文献图谱页面。</li><li><a href="/wiki/literature-search-guide">如何使用传统文献搜索</a> — 从关键词、数据源和筛选条件出发，得到可核对的论文清单，并把候选文献送入暂存、收藏或矩阵分析。</li><li><a href="/wiki/matrix-analysis">论文矩阵分析</a> — 把多篇候选论文与一组分析维度交叉排列，用于结构化比较和导出。</li><li><a href="/wiki/open-access-and-paper-translation">开放获取全文与论文翻译</a> — 优先使用论文自带的 OA 线索，并在有 DOI 时查询合法开放版本；登录后可翻译标题和摘要。</li><li><a href="/wiki/paper">论文</a> — Scholay 中连接检索结果、详情、PDF、引用、文献集和 AI 工作流的核心学术实体。</li><li><a href="/wiki/paper-detail-and-actions">论文详情与页面动作</a> — 查看论文元数据、作者、摘要和参考文献，并继续阅读 PDF、引用、收藏或分享。</li><li><a href="/wiki/paper-search-filters-and-pages">论文筛选、排序与分页</a> — 在经典检索中使用来源联动的时间、学科、类型和开放获取筛选，并理解分页上限。</li><li><a href="/wiki/paper-search-sources">论文检索数据源</a> — 理解综合、Graph、Discovery 与 Medicine 的覆盖范围和能力差异。</li><li><a href="/wiki/pdf-reader">PDF 阅读器</a> — 在浏览器工作区中预览学术 PDF，并为文献管理和 AI 对话提供全文上下文。</li><li><a href="/wiki/staging-area">检索暂存区</a> — 在检索过程中临时收集候选论文，并把它们组织成矩阵分析输入。</li></ul><h2>Scholay</h2><ul><li><a href="/wiki/account">Scholay 账户</a> — 统一承载登录身份、个人资料、连接方式、会员权益与管理员角色的用户账户。</li><li><a href="/wiki/account-connections">第三方账号连接与解绑</a> — 查看登录方式、管理已接通的第三方连接，并识别移动只读与 Google 新绑定未接通的边界。</li><li><a href="/wiki/account-security-settings">密码、邮箱与手机号安全设置</a> — 修改密码或换绑邮箱、手机号，并通过旧、新联系方式的验证码保护账户。</li><li><a href="/wiki/email-phone-authentication">邮箱与手机号注册、登录和找回密码</a> — 使用邮箱或中国大陆手机号完成密码登录、验证码登录、注册和密码重置。</li><li><a href="/wiki/login-methods-guide">登录方式指南</a> — 说明手机号、邮箱、微信、恩特学术社区与其他动态第三方登录入口。</li><li><a href="/wiki/marketing-pages-and-implementation-boundaries">功能页面与元素说明</a> — 识别 Scholay 各功能页面反复出现的导航、研究对象、工作区、智能体状态与额度反馈，并理解点击后的结果。</li><li><a href="/wiki/notification-center">站内通知中心</a> — 从顶部铃铛读取系统、活动与交易通知，管理已读状态并安全打开附带链接。</li><li><a href="/wiki/oauth-account-merge">OAuth 邮箱冲突与账号合并</a> — 第三方邮箱命中已有 Scholay 账户时，由用户验证目标账户后决定合并或新建独立账户。</li><li><a href="/wiki/oauth-wechat-login">OAuth 与微信扫码登录</a> — 通过管理员启用的第三方身份提供方登录，并理解微信二维码与普通 OAuth 回调的差异。</li><li><a href="/wiki/product-and-pricing-overview">产品与套餐总览</a> — 先按任务找到合适的功能，再比较 Free、Pro 和 Max 的额度与价格。</li><li><a href="/wiki/product-map">全站功能</a> — 一张图看清 Scholay 里你能用到的地方，以及接下来该打开哪篇说明。</li><li><a href="/wiki/profile-settings">个人资料设置</a> — 桌面端维护昵称、简介和头像地址；移动端只编辑昵称、简介并查看账户只读信息。</li><li><a href="/wiki/roadmap-status">开发计划与状态说明</a> — 仓库没有可作为承诺的下一期产品路线图；仅记录明确占位、规划表面与核验规则。</li><li><a href="/wiki/scholay">Scholay</a> — Scholay 是一款一站式智能学术工作平台，覆盖文献检索、文献阅读、文献分析、文献管理、论文写作、智能审稿、论文发表的科研全流程系统。</li></ul><h2>AI 科研工作流</h2><ul><li><a href="/wiki/ai-research-workflows">AI 科研工作流</a> — Scholay 为检索、通用研究、审稿、写作、分析、绘图和演示提供不同的 AI 工作流。</li><li><a href="/wiki/claw">Scholay智能助手</a> — 面向研究任务的通用 AI 助手。不仅可以制作 PPT 或科研绘图，还可以在同一会话里使用附件、技能和工具。</li><li><a href="/wiki/claw-attachments-and-references">智能助手附件、文库引用与 Skill</a> — 向 智能助手消息加入受支持的图片、文档、文库资料和已安装 Skill，并理解格式与数量限制。</li><li><a href="/wiki/claw-interface-guide">智能助手界面导览</a> — 认识 Scholay 智能助手的会话历史、消息区、输入工具、模型选择和交付物扩展区。</li><li><a href="/wiki/claw-sessions">Claw 会话与历史</a> — 创建、切换、重命名和删除自己的 Claw 会话，并在长历史中分批加载较早轮次。</li><li><a href="/wiki/claw-stream-tool-states">智能助手延迟、发送失败</a> — 发送后没有回应、任务停很久、连接中断，或同一个对话在另一个窗口打开时，页面会怎么提示，你可以怎么处理。</li><li><a href="/wiki/latex-project-guide">什么是 LaTeX 工程</a> — 理解 LaTeX 工程的组成和优势，以及 Prism、内置模板与期刊模板下载之间的真实关系。</li><li><a href="/wiki/manuscript-vs-publication">稿件与出版物有什么区别</a> — 区分作者正在写作或送审的稿件，与已经形成公开书目信息的出版物记录。</li><li><a href="/wiki/pdf-chat-guide">如何与 PDF 对话</a> — 在 Scholay Claw 中上传 PDF，再围绕方法、结果、证据或写作结构连续提问；这与只负责翻页阅读的 PDF 阅读器不同。</li><li><a href="/wiki/peer-review">智能审稿</a> — 面向期刊论文和学位论文的结构化 AI 评审工作台，包含提交向导、实时阶段与评审记录。</li><li><a href="/wiki/peer-review-dimensions-guide">智能审稿的维度与评价方式</a> — 理解科学性、严谨性、创新性、可读性四维评分，以及原句、问题与建议之间的关系。</li><li><a href="/wiki/peer-review-results-guide">智能审稿结果怎么看</a> — 阅读编辑部初审、三位 AI 审稿人和主审决议，并正确理解录用、返修与拒稿。</li><li><a href="/wiki/peer-review-workflow-guide">智能审稿操作流程</a> — 选择期刊论文或毕业论文，完成四步材料核对，并理解 AI 评议任务的运行状态与边界。</li><li><a href="/wiki/prism">Scholay Prism</a> — 把 LaTeX 项目、结构化写作、实时预览、引用管理和 AI 修订结合在一起的学术写作工作区。</li><li><a href="/wiki/prism-interface-guide">智能写作界面导览</a> — 从项目首页进入 Scholay Prism，理解大纲、AI 对话、所见即所得正文、模板、编译和导出区域。</li><li><a href="/wiki/prism-writing-workflow">怎样完成一次智能写作</a> — 从创建项目、确定写作目标到引用、审阅、编译和交付的一条完整 Prism 工作流。</li><li><a href="/wiki/research-data-analysis">AI 数据分析</a> — 在受控统计环境中读取研究数据、选择方法、执行分析并交付可复查结果。</li><li><a href="/wiki/research-evidence-kernel">研究证据内核与声明核验</a> — 在模型回答前预取文献、建立只读证据账本并要求显式退出，但跨主题路由和声明核验仍属于实验性保障层。</li><li><a href="/wiki/research-figure-and-slides">科研绘图与演示文稿</a> — 通过专门 Agent 工作流生成科研图形和可交付演示文件。</li><li><a href="/wiki/search-entry-comparison">智能助手 vs 智能搜索</a> — 两个都是对话，但智能搜索用来找论文，智能助手用来拿已有材料继续做事。</li><li><a href="/wiki/smart-literature-search-guide">如何使用智能文献搜索</a> — 用自然语言描述研究问题，让智能搜索拆解查询、调用学术检索工具并组织论文与证据，再通过追问逐步收敛。</li><li><a href="/wiki/smart-search">智能搜索</a> — 以自然语言与 Agent 会话驱动的学术检索，返回解释、论文清单和来源证据。</li><li><a href="/wiki/stat-lab-method-boundary">Stat Lab 方法与复核边界</a> — StatKit 当前承诺 14 种检验、4 类假设检查和 15 条决策规则，不应从已安装依赖推断出回归或生存分析能力。</li></ul><h2>会员与活动规则</h2><ul><li><a href="/wiki/ai-usage-quota">AI 周期额度</a> — 所有 AI 功能共享的成本额度，以首次真实消耗为锚点按周期自动恢复。</li><li><a href="/wiki/gift-codes">兑换码与礼品权益</a> — 由运营或合作渠道发放、经预览确认后兑换会员或永久经费的可限次代码。</li><li><a href="/wiki/invitation-rebate-guide">邀请与返利指南</a> — 分享邀请链接或邀请码，了解好友绑定条件和首单返利怎样发放。</li><li><a href="/wiki/invite-campaign">邀请有礼</a> — 由管理员启停和配置的邀请归因活动，可包含双方注册奖励与邀请人首单返利。</li><li><a href="/wiki/membership">会员体系</a> — Free、Pro、Max 三档共享核心功能，以周期 AI 额度、价格和可购买权益区分。</li><li><a href="/wiki/membership-subscription-guide">会员订阅与支付指南</a> — 选择会员周期、确认结算金额，并分清支付、活动和邀请奖励。</li><li><a href="/wiki/payment-orders">支付与订单</a> — 会员和充值订单从后端报价、建单、支付渠道回调到幂等履约与退款的完整链路。</li><li><a href="/wiki/promotion-banner">站内推广活动</a> — 由后台启停的站内推广文案与二维码入口，关闭时不向用户泄露活动内容。</li><li><a href="/wiki/quota-block-and-recovery">AI 额度阻断与恢复</a> — AI 消息因额度不足未发送时，保留输入并通过重置、经费续用或升级恢复原任务。</li><li><a href="/wiki/subscription-lifecycle">会员购买、升级与续费规则</a> — 五种当前会员场景对应的合法购买组合、计价动作与到期日变化。</li><li><a href="/wiki/wallet-payg">经费钱包与按量付费</a> — 充值或活动获得的永久经费，可在周期额度耗尽后按真实成本继续使用 AI。</li></ul><h2>历史与兼容</h2><ul><li><a href="/wiki/backup-and-restore-boundary">备份、恢复与故障证据边界</a> — 现有脚本能导出部分核心数据，但仍混用旧 Agent JSONL 叙事，未覆盖所有正确性状态，也没有一致快照与自动恢复演练。</li><li><a href="/wiki/coupon-system-legacy">优惠券系统（遗留）</a> — 数据库基线仍保留优惠券表和订单字段，但现行产品没有发券、领券、核销或抵扣链路。</li><li><a href="/wiki/design-source-of-truth">设计依据与历史交互资料</a> — 运行时 CSS 决定当前界面 token；外部 Pen、仓库 Pencil、Remotion 和日期型 interaction specs 分别承担不同层级的设计依据。</li><li><a href="/wiki/feature-tools-coldstart-governance">功能广场冷启动包与下载治理</a> — 201 条兼容性冷启动记录用于批量导入工具目录，但大量网盘下载和明确 cracked 条目使其不能未经复核直接发布。</li><li><a href="/wiki/legacy-components">已下线与兼容组件</a> — 理解旧 README、兼容重定向、归档迁移和仍保留字段时需要遵守的现行状态边界。</li><li><a href="/wiki/task-center-and-checkin">任务中心与签到</a> — 界面中仍有预告，但现行运行时代码和数据库已不提供的历史活动体系。</li></ul><h2>移动端与小程序</h2><ul><li><a href="/wiki/device-routing">桌面与移动页面分流</a> — 根据设备能力在桌面工作区、移动工作区和响应式详情页之间选择入口。</li><li><a href="/wiki/mini-program-runtime-and-parity">微信小程序页面、端间差异与内容安全</a> — 原生小程序已有 15 个页面和完整 Claw 会话，但真机直接连接生产，且内容安全与自动化构建仍有明确边界。</li><li><a href="/wiki/mobile-feed">移动 Feed：论文、期刊与情报</a> — 在移动 Web 中上下滑动浏览论文、期刊和学术情报，横滑切换频道并下拉刷新。</li><li><a href="/wiki/mobile-web">移动 Web</a> — 通过四项底部导航进入浏览、Claw、功能与账户页面。</li><li><a href="/wiki/wechat-mini-program">微信小程序</a> — 围绕浏览、Claw、工具与个人账户构建的独立微信端产品表面。</li></ul><h2>政策与边界</h2><ul><li><a href="/wiki/feedback-and-support">反馈与支持</a> — 用户提交问题、功能建议、内容纠错和合作请求的公开支持入口。</li><li><a href="/wiki/service-policies">服务政策与 AI 使用边界</a> — 以犀术文化科技有限公司为运营主体，说明 Scholay 的服务边界、隐私处理、法律责任、AI 使用安全与学术伦理。</li></ul></section>
+<nav data-ssr-nav="true" aria-label="站点栏目" style="max-width: 720px; margin: 8px auto 0; padding: 16px 4px 0; border-top: 1px solid rgba(31,31,35,0.08); font-size: 0.85rem;"><ul style="list-style: none; margin: 0; padding: 0; color: #6E6E78; line-height: 2.1; text-align: center;"><li style="display: inline;"><a href="/search" style="color: #505059; text-decoration: none;">论文搜索</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/journals/search" style="color: #505059; text-decoration: none;">期刊检索</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/news" style="color: #505059; text-decoration: none;">学术情报</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/blog" style="color: #505059; text-decoration: none;">Scholay 博客</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/resources" style="color: #505059; text-decoration: none;">学术资源</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/help" style="color: #505059; text-decoration: none;">学术问答</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/features" style="color: #505059; text-decoration: none;">全部功能</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/tools" style="color: #505059; text-decoration: none;">功能广场</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/citation-generator" style="color: #505059; text-decoration: none;">引用格式生成器</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/journals/sci-q1" style="color: #505059; text-decoration: none;">SCI 一区期刊</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/journals/cas-zone1" style="color: #505059; text-decoration: none;">中科院一区期刊</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/journals/ccf-a" style="color: #505059; text-decoration: none;">CCF A 类期刊</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/journals/high-impact-factor" style="color: #505059; text-decoration: none;">高影响因子期刊</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/pricing" style="color: #505059; text-decoration: none;">会员定价</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/about" style="color: #505059; text-decoration: none;">关于 Scholay</a></li> <li style="display: inline;">·</li> <li style="display: inline;"><a href="/wiki/all" style="color: #505059; text-decoration: none;">产品 Wiki</a></li></ul></nav>
+</div>
+</main>
+</div>
+  </body>
+</html>

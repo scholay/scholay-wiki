@@ -1,0 +1,2650 @@
+{
+  "fetched_at": "2026-09-06T10:22:50.800637+00:00",
+  "articles": [
+    {
+      "slug": "academic-search",
+      "title": "论文检索",
+      "summary": "以关键词、筛选条件和分页结果发现论文，并把候选资料送入后续研究工作流。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "普通搜索",
+        "学术搜索",
+        "Search"
+      ],
+      "related": [
+        "paper",
+        "staging-area",
+        "smart-search",
+        "literature-library"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/academic-search.md",
+      "sha256": "b8e682016fff6d97cfe368ab3d059516603bf280f21f765e5f59c46633b0adb6",
+      "source": "https://www.scholay.com/wiki/academic-search.md"
+    },
+    {
+      "slug": "author-profile-page",
+      "title": "作者详情页",
+      "summary": "查看作者身份线索、研究主题、代表作、合作作者和年度发表趋势。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者"
+      ],
+      "aliases": [
+        "学者档案",
+        "作者画像",
+        "Author Detail"
+      ],
+      "related": [
+        "authors-and-journals",
+        "paper-detail-and-actions"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/author-profile-page.md",
+      "sha256": "dcc78846439f6da3fbddbbff4806d703905cf751ce959fd13b3f330b2c7e0fcc",
+      "source": "https://www.scholay.com/wiki/author-profile-page.md"
+    },
+    {
+      "slug": "authors-and-journals",
+      "title": "作者与期刊",
+      "summary": "围绕作者画像、合作关系、代表作，以及期刊搜索、学科聚合和收录信息展开的发现页面。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者"
+      ],
+      "aliases": [
+        "学者",
+        "作者详情",
+        "期刊详情",
+        "期刊导航"
+      ],
+      "related": [
+        "paper",
+        "academic-search",
+        "citation-generator",
+        "author-profile-page"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/authors-and-journals.md",
+      "sha256": "47a517bd849d0a7b442af81e13bc6a9653acd8f887504e29028db17c0d04e100",
+      "source": "https://www.scholay.com/wiki/authors-and-journals.md"
+    },
+    {
+      "slug": "classic-vs-smart-search",
+      "title": "传统搜索 vs 智能搜索",
+      "summary": "已经有题名、作者或稳定关键词时用传统搜索；还在找说法、需要系统帮你拆问题时用智能搜索。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有研究者",
+        "学生",
+        "初次使用者"
+      ],
+      "aliases": [
+        "传统搜索和智能搜索",
+        "传统搜索与智能搜索的区别"
+      ],
+      "related": [
+        "search-entry-comparison",
+        "academic-search",
+        "smart-search",
+        "literature-search-guide",
+        "smart-literature-search-guide"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/classic-vs-smart-search.md",
+      "sha256": "120ec3c1120851a429db13500b26be59fe1e03de75ed67bf01ce22435b6c0798",
+      "source": "https://www.scholay.com/wiki/classic-vs-smart-search.md"
+    },
+    {
+      "slug": "journal-detail-page",
+      "title": "期刊详情页",
+      "summary": "集中查看期刊标识、收录来源、分区、影响指标、年度趋势和投稿决策信息。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "作者",
+        "研究者"
+      ],
+      "aliases": [
+        "Journal Detail",
+        "期刊指标",
+        "选刊信息"
+      ],
+      "related": [
+        "authors-and-journals",
+        "journal-search-page",
+        "journal-submission-resources"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/journal-detail-page.md",
+      "sha256": "40b4cf819b192e08b0b765cdf27aa43afd8d3db7c6e8476bc261acb6fc3f42dc",
+      "source": "https://www.scholay.com/wiki/journal-detail-page.md"
+    },
+    {
+      "slug": "journal-metrics-guide",
+      "title": "期刊指标怎么看",
+      "summary": "解释 Scholay 当前展示的期刊身份、分区、引用、开放获取和风险信号，并说明年份、来源与缺失值边界。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "投稿作者",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "期刊指标含义",
+        "影响因子怎么看",
+        "JCR 中科院 CCF 区别"
+      ],
+      "related": [
+        "authors-and-journals",
+        "journal-detail-page",
+        "journal-search-page",
+        "journal-update-cycle"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/journal-metrics-guide.md",
+      "sha256": "357dc7415f6da582ae4b626aea50f1a9d4ab283f1fb0b0a219891b3188b469bb",
+      "source": "https://www.scholay.com/wiki/journal-metrics-guide.md"
+    },
+    {
+      "slug": "journal-rankings-and-directories",
+      "title": "期刊榜单与分类目录",
+      "summary": "通过四个预设质量榜单，以及学科、国家、开放获取和预警目录发现期刊。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "作者",
+        "研究者"
+      ],
+      "aliases": [
+        "SCI 一区",
+        "中科院一区",
+        "CCF A",
+        "期刊目录"
+      ],
+      "related": [
+        "journal-search-page",
+        "journal-detail-page"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/journal-rankings-and-directories.md",
+      "sha256": "92eb91851fd7101f68bee645d2dd12ddd3df59e3972b32979ec3290142d50baf",
+      "source": "https://www.scholay.com/wiki/journal-rankings-and-directories.md"
+    },
+    {
+      "slug": "journal-search-page",
+      "title": "期刊检索页",
+      "summary": "按刊名、ISSN、主办机构和五类质量条件筛选期刊，每页查看 8 条结果。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "作者",
+        "研究者"
+      ],
+      "aliases": [
+        "期刊搜索",
+        "Journal Search",
+        "查期刊"
+      ],
+      "related": [
+        "journal-detail-page",
+        "journal-rankings-and-directories",
+        "authors-and-journals"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/journal-search-page.md",
+      "sha256": "4dc252d54d1909ab837bc582c6cc5ad40d08b5a6cb109de4999e5b9651a135b1",
+      "source": "https://www.scholay.com/wiki/journal-search-page.md"
+    },
+    {
+      "slug": "journal-selection-guide",
+      "title": "如何制定期刊选刊策略",
+      "summary": "用当前可检索的分区、影响因子、出版与风险数据建立短名单，再回到期刊官方渠道核对范围和投稿要求。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "投稿作者",
+        "研究生",
+        "研究者"
+      ],
+      "aliases": [
+        "选刊策略",
+        "期刊怎么选",
+        "投稿期刊筛选"
+      ],
+      "related": [
+        "authors-and-journals",
+        "journal-search-page",
+        "journal-detail-page",
+        "journal-submission-resources"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/journal-selection-guide.md",
+      "sha256": "968d40a6c60596ba435f4f1400d3545e2bc471c00b508d9bb9ff84db6777f45f",
+      "source": "https://www.scholay.com/wiki/journal-selection-guide.md"
+    },
+    {
+      "slug": "journal-submission-resources",
+      "title": "期刊投稿资源下载",
+      "summary": "在期刊详情中下载可用的作者指南 Markdown 和 LaTeX 模板 zip。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "作者",
+        "Max 会员"
+      ],
+      "aliases": [
+        "Guide for Authors",
+        "LaTeX 模板",
+        "投稿须知"
+      ],
+      "related": [
+        "journal-detail-page",
+        "membership",
+        "prism"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/journal-submission-resources.md",
+      "sha256": "4486f4fd0e2aeb6f2664a324f20b81646f8c14dabc53284f771c807d37edee1f",
+      "source": "https://www.scholay.com/wiki/journal-submission-resources.md"
+    },
+    {
+      "slug": "journal-update-cycle",
+      "title": "Scholay 期刊数据多久更新一次",
+      "summary": "期刊搜索与详情读取上游数据，浏览器缓存、上游构建、SEO 摄取和公开发布各有独立节奏，因此没有统一的固定更新 SLA。",
+      "category": "discovery",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "期刊搜索用户",
+        "投稿作者",
+        "支持人员"
+      ],
+      "aliases": [
+        "期刊更新周期",
+        "期刊数据刷新",
+        "期刊指标多久更新"
+      ],
+      "related": [
+        "authors-and-journals",
+        "journal-metrics-guide",
+        "journal-selection-guide"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/journal-update-cycle.md",
+      "sha256": "3bfcfb082e19119759446f50228b2c30ccd6e0e2d0e20e5e0f86d54ab43f7a35",
+      "source": "https://www.scholay.com/wiki/journal-update-cycle.md"
+    },
+    {
+      "slug": "literature-graph-status",
+      "title": "文献图谱：当前状态与使用边界",
+      "summary": "当前已有引用计数、参考文献列表和逐条论文跳转，但尚未提供独立的节点—连线式文献图谱页面。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "planned",
+      "audience": [
+        "研究者",
+        "产品用户",
+        "支持人员"
+      ],
+      "aliases": [
+        "文献关系图",
+        "引用图谱",
+        "知识图谱",
+        "Citation graph"
+      ],
+      "related": [
+        "paper",
+        "academic-search",
+        "smart-search",
+        "authors-and-journals"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/literature-graph-status.md",
+      "sha256": "d183e187d4104dd67c7fed6779d18c2f7716ffc906dfda06ffe868844c4f56e0",
+      "source": "https://www.scholay.com/wiki/literature-graph-status.md"
+    },
+    {
+      "slug": "literature-search-guide",
+      "title": "如何使用传统文献搜索",
+      "summary": "从关键词、数据源和筛选条件出发，得到可核对的论文清单，并把候选文献送入暂存、收藏或矩阵分析。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "学生",
+        "初次使用者"
+      ],
+      "aliases": [
+        "传统搜索教程",
+        "普通文献搜索",
+        "关键词检索步骤"
+      ],
+      "related": [
+        "academic-search",
+        "staging-area",
+        "literature-library",
+        "matrix-analysis"
+      ],
+      "updated_at": "2026-09-06T18:02:05+08:00",
+      "path": "wiki/pages/discovery/literature-search-guide.md",
+      "sha256": "884c46bad2c0b12e2ce84a8fa87fca83dee5480d2369d10d72d57cc972260127",
+      "source": "https://www.scholay.com/wiki/literature-search-guide.md"
+    },
+    {
+      "slug": "matrix-analysis",
+      "title": "论文矩阵分析",
+      "summary": "把多篇候选论文与一组分析维度交叉排列，用于结构化比较和导出。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "矩阵分析",
+        "文献对比",
+        "Analysis matrix"
+      ],
+      "related": [
+        "staging-area",
+        "paper",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/matrix-analysis.md",
+      "sha256": "90c6e077d606a88a25b483f7cb9189640e6c111d56bad7016abb7324d26c936e",
+      "source": "https://www.scholay.com/wiki/matrix-analysis.md"
+    },
+    {
+      "slug": "open-access-and-paper-translation",
+      "title": "开放获取全文与论文翻译",
+      "summary": "优先使用论文自带的 OA 线索，并在有 DOI 时查询合法开放版本；登录后可翻译标题和摘要。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "登录用户",
+        "研究者"
+      ],
+      "aliases": [
+        "OA 全文",
+        "Unpaywall",
+        "AI 翻译",
+        "摘要翻译"
+      ],
+      "related": [
+        "paper-detail-and-actions",
+        "pdf-reader",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/open-access-and-paper-translation.md",
+      "sha256": "6079032d27224c163f7c298ed3783ad919bc8f4bdd1916d3fa4d62b1dd28ce78",
+      "source": "https://www.scholay.com/wiki/open-access-and-paper-translation.md"
+    },
+    {
+      "slug": "paper",
+      "title": "论文",
+      "summary": "Scholay 中连接检索结果、详情、PDF、引用、文献集和 AI 工作流的核心学术实体。",
+      "category": "discovery",
+      "kind": "entity",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者"
+      ],
+      "aliases": [
+        "学术论文",
+        "Paper",
+        "文献"
+      ],
+      "related": [
+        "academic-search",
+        "pdf-reader",
+        "literature-library",
+        "citation-generator"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/paper.md",
+      "sha256": "17d134f6cbb6cce7ba44ba4249bf78b749615ac821388928056d6172e82276b4",
+      "source": "https://www.scholay.com/wiki/paper.md"
+    },
+    {
+      "slug": "paper-detail-and-actions",
+      "title": "论文详情与页面动作",
+      "summary": "查看论文元数据、作者、摘要和参考文献，并继续阅读 PDF、引用、收藏或分享。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者"
+      ],
+      "aliases": [
+        "论文详情页",
+        "Paper Detail",
+        "论文元数据"
+      ],
+      "related": [
+        "paper",
+        "open-access-and-paper-translation",
+        "paper-favorites",
+        "citation-dialog"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/paper-detail-and-actions.md",
+      "sha256": "b9365e22cd522fcc8735bd2684e98541d6a370b87ac1561bbd36dc316748a36b",
+      "source": "https://www.scholay.com/wiki/paper-detail-and-actions.md"
+    },
+    {
+      "slug": "paper-search-filters-and-pages",
+      "title": "论文筛选、排序与分页",
+      "summary": "在经典检索中使用来源联动的时间、学科、类型和开放获取筛选，并理解分页上限。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "访客",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "搜索筛选器",
+        "检索分页",
+        "文献排序",
+        "1000 条上限"
+      ],
+      "related": [
+        "academic-search",
+        "paper-search-sources",
+        "staging-area"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/paper-search-filters-and-pages.md",
+      "sha256": "1e1ec550a3ad433942c8e81318106c6bd4a8a913aade31b64a77fa440e90e816",
+      "source": "https://www.scholay.com/wiki/paper-search-filters-and-pages.md"
+    },
+    {
+      "slug": "paper-search-sources",
+      "title": "论文检索数据源",
+      "summary": "理解综合、Graph、Discovery 与 Medicine 的覆盖范围和能力差异。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "访客",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "搜索源",
+        "综合搜索",
+        "Graph",
+        "Discovery",
+        "Medicine"
+      ],
+      "related": [
+        "academic-search",
+        "paper-search-filters-and-pages",
+        "paper"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/paper-search-sources.md",
+      "sha256": "9265b77804fa92ccfb8a1a26c82ce63fde3ae79b6340cbdced61a95b350bddd5",
+      "source": "https://www.scholay.com/wiki/paper-search-sources.md"
+    },
+    {
+      "slug": "pdf-reader",
+      "title": "PDF 阅读器",
+      "summary": "在浏览器工作区中预览学术 PDF，并为文献管理和 AI 对话提供全文上下文。",
+      "category": "discovery",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "研究者"
+      ],
+      "aliases": [
+        "PDF 预览",
+        "全文阅读"
+      ],
+      "related": [
+        "paper",
+        "literature-library",
+        "claw"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/pdf-reader.md",
+      "sha256": "85e57d456d4ef338746d80177b5d7697cc0c8a497ab6a07c11d2859a6cbe0ee7",
+      "source": "https://www.scholay.com/wiki/pdf-reader.md"
+    },
+    {
+      "slug": "staging-area",
+      "title": "检索暂存区",
+      "summary": "在检索过程中临时收集候选论文，并把它们组织成矩阵分析输入。",
+      "category": "discovery",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者"
+      ],
+      "aliases": [
+        "暂存区",
+        "工作区",
+        "Staging area"
+      ],
+      "related": [
+        "academic-search",
+        "matrix-analysis",
+        "literature-library"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/discovery/staging-area.md",
+      "sha256": "5f5ffa92cefd0e2ea524b1526474612684bdc97dffe187e61600c7b7b396892e",
+      "source": "https://www.scholay.com/wiki/staging-area.md"
+    },
+    {
+      "slug": "account",
+      "title": "Scholay 账户",
+      "summary": "统一承载登录身份、个人资料、连接方式、会员权益与管理员角色的用户账户。",
+      "category": "getting-started",
+      "kind": "entity",
+      "status": "current",
+      "audience": [
+        "用户",
+        "管理员"
+      ],
+      "aliases": [
+        "用户账户",
+        "登录",
+        "身份"
+      ],
+      "related": [
+        "membership",
+        "admin-console",
+        "wechat-mini-program",
+        "login-methods-guide",
+        "notification-center"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/account.md",
+      "sha256": "4148d5d2646ce43fabc120a699622763377a7349e57602053f954c50f1b9421f",
+      "source": "https://www.scholay.com/wiki/account.md"
+    },
+    {
+      "slug": "account-connections",
+      "title": "第三方账号连接与解绑",
+      "summary": "查看登录方式、管理已接通的第三方连接，并识别移动只读与 Google 新绑定未接通的边界。",
+      "category": "getting-started",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "登录用户"
+      ],
+      "aliases": [
+        "已连接账号",
+        "绑定 GitHub",
+        "解绑微信",
+        "登录方式"
+      ],
+      "related": [
+        "oauth-wechat-login",
+        "oauth-account-merge",
+        "account-security-settings"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/account-connections.md",
+      "sha256": "93b207f01006bc1c0fe69c908e0710f76b7437e9b53f6b9a41beca8f2e836ce4",
+      "source": "https://www.scholay.com/wiki/account-connections.md"
+    },
+    {
+      "slug": "account-security-settings",
+      "title": "密码、邮箱与手机号安全设置",
+      "summary": "修改密码或换绑邮箱、手机号，并通过旧、新联系方式的验证码保护账户。",
+      "category": "getting-started",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "账号支持人员"
+      ],
+      "aliases": [
+        "安全设置",
+        "换绑邮箱",
+        "换绑手机",
+        "修改密码"
+      ],
+      "related": [
+        "email-phone-authentication",
+        "account-connections",
+        "profile-settings"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/account-security-settings.md",
+      "sha256": "2a6812a1905818a02c1529c8f3a89c428f661e8ba1552de383ec5c1a1ead62a4",
+      "source": "https://www.scholay.com/wiki/account-security-settings.md"
+    },
+    {
+      "slug": "email-phone-authentication",
+      "title": "邮箱与手机号注册、登录和找回密码",
+      "summary": "使用邮箱或中国大陆手机号完成密码登录、验证码登录、注册和密码重置。",
+      "category": "getting-started",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "访客",
+        "新用户",
+        "无法登录的用户"
+      ],
+      "aliases": [
+        "注册登录",
+        "验证码登录",
+        "忘记密码",
+        "手机登录"
+      ],
+      "related": [
+        "account",
+        "oauth-wechat-login",
+        "account-security-settings"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/email-phone-authentication.md",
+      "sha256": "16ac4ffa5e78e1f8d9d00e2498e54722271f58d7d163fc62f99ac9d74e4f7341",
+      "source": "https://www.scholay.com/wiki/email-phone-authentication.md"
+    },
+    {
+      "slug": "login-methods-guide",
+      "title": "登录方式指南",
+      "summary": "说明手机号、邮箱、微信、恩特学术社区与其他动态第三方登录入口。",
+      "category": "getting-started",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "账户用户",
+        "客服"
+      ],
+      "aliases": [
+        "怎么登录",
+        "邮箱登录",
+        "微信登录",
+        "恩特社区登录",
+        "OAuth"
+      ],
+      "related": [
+        "account",
+        "email-phone-authentication",
+        "oauth-wechat-login",
+        "oauth-account-merge",
+        "account-connections"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/login-methods-guide.md",
+      "sha256": "27c124b3ba557d926368843aa48ca13b83888f26cd69b2375b12bda1bd127a3d",
+      "source": "https://www.scholay.com/wiki/login-methods-guide.md"
+    },
+    {
+      "slug": "marketing-pages-and-implementation-boundaries",
+      "title": "功能页面与元素说明",
+      "summary": "识别 Scholay 各功能页面反复出现的导航、研究对象、工作区、智能体状态与额度反馈，并理解点击后的结果。",
+      "category": "getting-started",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有用户",
+        "首次使用者",
+        "支持人员"
+      ],
+      "aliases": [
+        "界面元素",
+        "通用组件",
+        "功能页面",
+        "页面说明",
+        "拓展区",
+        "拓展区标签页"
+      ],
+      "related": [
+        "product-map",
+        "paper-detail-and-actions",
+        "claw-interface-guide",
+        "prism-interface-guide",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/marketing-pages-and-implementation-boundaries.md",
+      "sha256": "2079eb6605ae46a3da4e0877233302fda1a398c8964e2b91efa3b8f212cc302b",
+      "source": "https://www.scholay.com/wiki/marketing-pages-and-implementation-boundaries.md"
+    },
+    {
+      "slug": "notification-center",
+      "title": "站内通知中心",
+      "summary": "从顶部铃铛读取系统、活动与交易通知，管理已读状态并安全打开附带链接。",
+      "category": "getting-started",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户"
+      ],
+      "aliases": [
+        "消息通知",
+        "通知铃铛",
+        "未读消息"
+      ],
+      "related": [
+        "account",
+        "promotion-banner"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/notification-center.md",
+      "sha256": "b237e93f1d072a415eb1cfcf533855e422954045273ff5a9f346d7ae2850e38a",
+      "source": "https://www.scholay.com/wiki/notification-center.md"
+    },
+    {
+      "slug": "oauth-account-merge",
+      "title": "OAuth 邮箱冲突与账号合并",
+      "summary": "第三方邮箱命中已有 Scholay 账户时，由用户验证目标账户后决定合并或新建独立账户。",
+      "category": "getting-started",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "遇到第三方登录冲突的用户",
+        "支持人员"
+      ],
+      "aliases": [
+        "账号合并",
+        "邮箱冲突",
+        "第三方登录冲突"
+      ],
+      "related": [
+        "oauth-wechat-login",
+        "account-connections",
+        "account"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/oauth-account-merge.md",
+      "sha256": "1f3464ba078490d039d4329e674b647b70fe3e37208c623938d266d4554b40e4",
+      "source": "https://www.scholay.com/wiki/oauth-account-merge.md"
+    },
+    {
+      "slug": "oauth-wechat-login",
+      "title": "OAuth 与微信扫码登录",
+      "summary": "通过管理员启用的第三方身份提供方登录，并理解微信二维码与普通 OAuth 回调的差异。",
+      "category": "getting-started",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "访客",
+        "第三方账号用户"
+      ],
+      "aliases": [
+        "第三方登录",
+        "微信扫码登录",
+        "GitHub 登录",
+        "ORCID 登录"
+      ],
+      "related": [
+        "email-phone-authentication",
+        "oauth-account-merge",
+        "account-connections"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/oauth-wechat-login.md",
+      "sha256": "30b3fb07fb39e839ac2c6fdb0d2d1df4524dcf405683b1576a04b3b19733bbb8",
+      "source": "https://www.scholay.com/wiki/oauth-wechat-login.md"
+    },
+    {
+      "slug": "product-and-pricing-overview",
+      "title": "产品与套餐总览",
+      "summary": "先按任务找到合适的功能，再比较 Free、Pro 和 Max 的额度与价格。",
+      "category": "getting-started",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "新用户",
+        "购买会员的用户"
+      ],
+      "aliases": [
+        "产品总览",
+        "功能与价格",
+        "Free Pro Max",
+        "套餐怎么选"
+      ],
+      "related": [
+        "product-map",
+        "academic-search",
+        "membership",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/product-and-pricing-overview.md",
+      "sha256": "328a91f82108cc23c05ac960478ee21528404e957068c644bd125dacbeae9364",
+      "source": "https://www.scholay.com/wiki/product-and-pricing-overview.md"
+    },
+    {
+      "slug": "product-map",
+      "title": "全站功能",
+      "summary": "一张图看清 Scholay 里你能用到的地方，以及接下来该打开哪篇说明。",
+      "category": "getting-started",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者"
+      ],
+      "aliases": [
+        "产品与页面地图",
+        "站点地图",
+        "功能地图",
+        "页面总览"
+      ],
+      "related": [
+        "scholay",
+        "academic-search",
+        "claw",
+        "roadmap-status"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/product-map.md",
+      "sha256": "b64277340a5f4320152030864209cdb3ce85ba0c7d1e199be41808b4a9e0ba9b",
+      "source": "https://www.scholay.com/wiki/product-map.md"
+    },
+    {
+      "slug": "profile-settings",
+      "title": "个人资料设置",
+      "summary": "桌面端维护昵称、简介和头像地址；移动端只编辑昵称、简介并查看账户只读信息。",
+      "category": "getting-started",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "登录用户"
+      ],
+      "aliases": [
+        "修改昵称",
+        "头像设置",
+        "个人简介"
+      ],
+      "related": [
+        "account",
+        "account-security-settings"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/profile-settings.md",
+      "sha256": "fc328597207e1329980f20570174f0e0c70905fcb9922c113b5be7b8981df1ed",
+      "source": "https://www.scholay.com/wiki/profile-settings.md"
+    },
+    {
+      "slug": "roadmap-status",
+      "title": "开发计划与状态说明",
+      "summary": "仓库没有可作为承诺的下一期产品路线图；仅记录明确占位、规划表面与核验规则。",
+      "category": "getting-started",
+      "kind": "overview",
+      "status": "planned",
+      "audience": [
+        "所有用户",
+        "产品人员",
+        "内容运营",
+        "支持人员"
+      ],
+      "aliases": [
+        "路线图",
+        "Roadmap",
+        "下一期开发计划",
+        "功能何时上线"
+      ],
+      "related": [
+        "product-map",
+        "design-source-of-truth",
+        "task-center-and-checkin",
+        "mobile-web"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/getting-started/roadmap-status.md",
+      "sha256": "ebdd0e93d21e92d5cb36893246a76fd1809b51d6ffe9f9b18a4f5aa680988c50",
+      "source": "https://www.scholay.com/wiki/roadmap-status.md"
+    },
+    {
+      "slug": "scholay",
+      "title": "Scholay",
+      "summary": "Scholay 是一款一站式智能学术工作平台，覆盖文献检索、文献阅读、文献分析、文献管理、论文写作、智能审稿、论文发表的科研全流程系统。",
+      "category": "getting-started",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者",
+        "管理员"
+      ],
+      "aliases": [
+        "Scholay 学术",
+        "Scholar",
+        "学术工作台"
+      ],
+      "related": [
+        "product-map",
+        "account",
+        "ai-research-workflows",
+        "product-and-pricing-overview",
+        "backup-and-restore-boundary"
+      ],
+      "updated_at": "2026-09-06T16:50:53+08:00",
+      "path": "wiki/pages/getting-started/scholay.md",
+      "sha256": "434d2cec2f8dbc396d75e7f427c01b073e687f5eb87e61d3d52e616544287229",
+      "source": "https://www.scholay.com/wiki/scholay.md"
+    },
+    {
+      "slug": "backup-and-restore-boundary",
+      "title": "备份、恢复与故障证据边界",
+      "summary": "现有脚本能导出部分核心数据，但仍混用旧 Agent JSONL 叙事，未覆盖所有正确性状态，也没有一致快照与自动恢复演练。",
+      "category": "history",
+      "kind": "legacy",
+      "status": "compatibility",
+      "audience": [
+        "运维人员",
+        "平台管理员",
+        "审计人员"
+      ],
+      "aliases": [
+        "Backup",
+        "Restore",
+        "灾难恢复",
+        "RPO RTO"
+      ],
+      "related": [
+        "production-service-topology",
+        "agent-runtime"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/history/backup-and-restore-boundary.md",
+      "sha256": "3ddf87e4605198113c42d1e14fa8be6aeab3ad3a59fbbeb48e20f3c9e6d5fba3",
+      "source": "https://www.scholay.com/wiki/backup-and-restore-boundary.md"
+    },
+    {
+      "slug": "coupon-system-legacy",
+      "title": "优惠券系统（遗留）",
+      "summary": "数据库基线仍保留优惠券表和订单字段，但现行产品没有发券、领券、核销或抵扣链路。",
+      "category": "history",
+      "kind": "legacy",
+      "status": "historical",
+      "audience": [
+        "用户",
+        "运营人员",
+        "开发者"
+      ],
+      "aliases": [
+        "优惠券",
+        "Coupon",
+        "折扣券",
+        "券模板"
+      ],
+      "related": [
+        "payment-orders",
+        "gift-codes",
+        "legacy-components"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/history/coupon-system-legacy.md",
+      "sha256": "5f6ea568ccc3d6b9e41229fb0bf273cc347013ee0989d74e06c5b191eb4c770d",
+      "source": "https://www.scholay.com/wiki/coupon-system-legacy.md"
+    },
+    {
+      "slug": "design-source-of-truth",
+      "title": "设计依据与历史交互资料",
+      "summary": "运行时 CSS 决定当前界面 token；外部 Pen、仓库 Pencil、Remotion 和日期型 interaction specs 分别承担不同层级的设计依据。",
+      "category": "history",
+      "kind": "architecture",
+      "status": "current",
+      "audience": [
+        "设计师",
+        "前端开发者",
+        "产品人员",
+        "文档维护者"
+      ],
+      "aliases": [
+        "Design SSOT",
+        "Pencil",
+        "Interaction Specs",
+        "设计基线"
+      ],
+      "related": [
+        "product-map",
+        "device-routing"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/history/design-source-of-truth.md",
+      "sha256": "0deaf52ed9ae593892f3bccab5c17b6630474c4829eb8a55048866cce8b6827a",
+      "source": "https://www.scholay.com/wiki/design-source-of-truth.md"
+    },
+    {
+      "slug": "feature-tools-coldstart-governance",
+      "title": "功能广场冷启动包与下载治理",
+      "summary": "201 条兼容性冷启动记录用于批量导入工具目录，但大量网盘下载和明确 cracked 条目使其不能未经复核直接发布。",
+      "category": "history",
+      "kind": "legacy",
+      "status": "compatibility",
+      "audience": [
+        "内容运营",
+        "管理员",
+        "安全与法务人员"
+      ],
+      "aliases": [
+        "Feature Tools Seed",
+        "工具广场种子",
+        "冷启动数据"
+      ],
+      "related": [
+        "feature-tools",
+        "service-policies"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/history/feature-tools-coldstart-governance.md",
+      "sha256": "48461130b49f27e7791d00e516b8a51047053baf720c9edf1a41815e3328ac72",
+      "source": "https://www.scholay.com/wiki/feature-tools-coldstart-governance.md"
+    },
+    {
+      "slug": "legacy-components",
+      "title": "已下线与兼容组件",
+      "summary": "理解旧 README、兼容重定向、归档迁移和仍保留字段时需要遵守的现行状态边界。",
+      "category": "history",
+      "kind": "legacy",
+      "status": "compatibility",
+      "audience": [
+        "开发者",
+        "支持人员"
+      ],
+      "aliases": [
+        "旧版",
+        "遗留模块",
+        "兼容路径"
+      ],
+      "related": [
+        "platform-topology",
+        "admin-console",
+        "task-center-and-checkin"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/history/legacy-components.md",
+      "sha256": "31723fb4579647793d8713b795886fc8a00235f90d8b679b47f7422e161c8300",
+      "source": "https://www.scholay.com/wiki/legacy-components.md"
+    },
+    {
+      "slug": "task-center-and-checkin",
+      "title": "任务中心与签到",
+      "summary": "界面中仍有预告，但现行运行时代码和数据库已不提供的历史活动体系。",
+      "category": "history",
+      "kind": "legacy",
+      "status": "historical",
+      "audience": [
+        "用户",
+        "运营人员"
+      ],
+      "aliases": [
+        "每日签到",
+        "任务中心",
+        "连续签到"
+      ],
+      "related": [
+        "membership",
+        "wallet-payg",
+        "legacy-components"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/history/task-center-and-checkin.md",
+      "sha256": "1fc2ed84ab14be4aa374669d5f2f68240f76e54e881d47c1be78179fb9f6637d",
+      "source": "https://www.scholay.com/wiki/task-center-and-checkin.md"
+    },
+    {
+      "slug": "academic-intelligence-interface-guide",
+      "title": "学术情报界面导览",
+      "summary": "从学术情报列表按时间、热度与版块发现内容，再进入详情核对正文、来源、可信度说明和相关情报。",
+      "category": "knowledge",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "学术资讯界面",
+        "情报列表",
+        "顶刊速递",
+        "科研政策"
+      ],
+      "related": [
+        "research-news",
+        "mobile-feed",
+        "resource-and-blog-center"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/academic-intelligence-interface-guide.md",
+      "sha256": "ddacd03dba1c7a92daa2d261542b4abc5e83d5d421214f0093fc57b15abb6c7c",
+      "source": "https://www.scholay.com/wiki/academic-intelligence-interface-guide.md"
+    },
+    {
+      "slug": "citation-dialog",
+      "title": "引用弹窗与默认格式",
+      "summary": "从论文卡片、详情或移动 Feed 生成五种引用文本，复制并保存个人默认格式。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "引用本文",
+        "参考文献复制",
+        "BibTeX",
+        "GB/T 7714"
+      ],
+      "related": [
+        "citation-generator",
+        "paper-detail-and-actions",
+        "mobile-feed"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/citation-dialog.md",
+      "sha256": "66a0d6347c769b467d1eb5023757eb760c1bfbd19b21732f2d93eb89c5b27bca",
+      "source": "https://www.scholay.com/wiki/citation-dialog.md"
+    },
+    {
+      "slug": "citation-generator",
+      "title": "引用生成器",
+      "summary": "把论文元数据转换为可复制的常用引文格式，并保留回到原始论文核对的入口。",
+      "category": "knowledge",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "引文生成",
+        "参考文献格式",
+        "Citation Generator"
+      ],
+      "related": [
+        "paper",
+        "literature-library"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/citation-generator.md",
+      "sha256": "a5251eee918ce0eafd2f11540b501b8bb9a84a232e9ca67c00837b915efcab2d",
+      "source": "https://www.scholay.com/wiki/citation-generator.md"
+    },
+    {
+      "slug": "community-skills",
+      "title": "社区技能",
+      "summary": "用户创建、发布、安装和管理的 SKILL.md 能力，可按需注入 Claw 会话。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "Claw 用户",
+        "技能作者",
+        "管理员"
+      ],
+      "aliases": [
+        "Skills 市场",
+        "Skill Marketplace",
+        "我的 Skills"
+      ],
+      "related": [
+        "claw",
+        "feature-tools",
+        "agent-runtime",
+        "academic-intelligence-interface-guide"
+      ],
+      "updated_at": "2026-09-06T17:43:47+08:00",
+      "path": "wiki/pages/knowledge/community-skills.md",
+      "sha256": "366549c1375470e3835d3a25c6c523a243ed9a9a1e3223c75cae20e10c514681",
+      "source": "https://www.scholay.com/wiki/community-skills.md"
+    },
+    {
+      "slug": "feature-tools",
+      "title": "功能广场",
+      "summary": "收录 Scholay 站内能力和外部科研工具的可搜索目录，并提供分类、筛选和详情。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者",
+        "内容运营"
+      ],
+      "aliases": [
+        "功能大全",
+        "科研工具黄页",
+        "Tools"
+      ],
+      "related": [
+        "community-skills",
+        "mobile-web",
+        "admin-console",
+        "resources-interface-guide",
+        "feature-tools-coldstart-governance"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/feature-tools.md",
+      "sha256": "e87dc035fcf8d734504ccd9be31b582bc96fd46fbc410d17c683c6cc95faaded",
+      "source": "https://www.scholay.com/wiki/feature-tools.md"
+    },
+    {
+      "slug": "help-center-and-qa",
+      "title": "帮助中心与学术问答",
+      "summary": "按主题浏览后台维护的科研长问答，并在详情页使用目录、相关问答和产品快捷入口。",
+      "category": "knowledge",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "Help Center",
+        "QA",
+        "常见问题",
+        "学术问答"
+      ],
+      "related": [
+        "feedback-and-support",
+        "resource-and-blog-center",
+        "service-policies"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/help-center-and-qa.md",
+      "sha256": "61c1e61e5fc88b3c64cfa1924794812d244f8b465bf74f03068cc70fd356cfd1",
+      "source": "https://www.scholay.com/wiki/help-center-and-qa.md"
+    },
+    {
+      "slug": "library-sharing",
+      "title": "文献集分享与接收",
+      "summary": "通过公开分享令牌把一组文献交给其他人查看或接收。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "分享接收者"
+      ],
+      "aliases": [
+        "分享文件夹",
+        "接收分享",
+        "文献分享"
+      ],
+      "related": [
+        "literature-library",
+        "paper"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/library-sharing.md",
+      "sha256": "61dc315d87455180d808a8f7b89411b9593a747b8d60d7c2b36d01335ac50522",
+      "source": "https://www.scholay.com/wiki/library-sharing.md"
+    },
+    {
+      "slug": "literature-library",
+      "title": "个人文献集",
+      "summary": "以文件夹长期保存论文、PDF 与补充元数据，并支持导入、整理、分享和重新关联。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者"
+      ],
+      "aliases": [
+        "文献库",
+        "我的文献",
+        "Library"
+      ],
+      "related": [
+        "paper",
+        "pdf-reader",
+        "staging-area",
+        "library-sharing",
+        "pdf-chat-guide",
+        "share-cards-and-posters"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/literature-library.md",
+      "sha256": "b0a1c10e1832d1c3d071c56719d37ad1b646c99454b828f924d4050036c1cb26",
+      "source": "https://www.scholay.com/wiki/literature-library.md"
+    },
+    {
+      "slug": "paper-favorites",
+      "title": "论文收藏与取消收藏",
+      "summary": "把论文保存到个人文献集的指定文件夹，并理解重复收藏和取消收藏的真实副作用。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者"
+      ],
+      "aliases": [
+        "收藏论文",
+        "取消收藏",
+        "加入文件夹"
+      ],
+      "related": [
+        "literature-library",
+        "paper-detail-and-actions",
+        "mobile-feed"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/paper-favorites.md",
+      "sha256": "89993e59b21dc5c4431ed53653b16d9cb525964f33d39f72ec8297854f70b88d",
+      "source": "https://www.scholay.com/wiki/paper-favorites.md"
+    },
+    {
+      "slug": "pdf-upload-resolve-and-relink",
+      "title": "PDF 上传、识别与重新关联",
+      "summary": "把本地 PDF 放入个人文献集，核对三源匹配候选，并在识别错误时重新关联或保留自由文件。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者"
+      ],
+      "aliases": [
+        "上传 PDF",
+        "PDF 解析",
+        "文献识别",
+        "重新关联"
+      ],
+      "related": [
+        "literature-library",
+        "pdf-reader",
+        "paper-favorites"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/pdf-upload-resolve-and-relink.md",
+      "sha256": "8de102caf662bec469956f9e9018c833bf7bda19bdda5d541b04f4b5bc1ce090",
+      "source": "https://www.scholay.com/wiki/pdf-upload-resolve-and-relink.md"
+    },
+    {
+      "slug": "research-news",
+      "title": "学术资讯",
+      "summary": "面向公开访问的学术新闻列表与详情，并由后台维护采集和发布状态。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "内容运营"
+      ],
+      "aliases": [
+        "资讯",
+        "News",
+        "学术新闻"
+      ],
+      "related": [
+        "product-map",
+        "admin-console",
+        "wechat-mini-program"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/research-news.md",
+      "sha256": "32d348b95479d167f9609ad58d08ba2ef5e0fc1ca64b8a13302d76f047ed0ce6",
+      "source": "https://www.scholay.com/wiki/research-news.md"
+    },
+    {
+      "slug": "resource-and-blog-center",
+      "title": "学术资源中心与产品博客",
+      "summary": "在同一个内容中心切换原创学术资源与产品博客，同时保留两套稳定列表和详情 URL。",
+      "category": "knowledge",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有访客",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "资源中心",
+        "产品博客",
+        "Academic Resources"
+      ],
+      "related": [
+        "help-center-and-qa",
+        "research-news"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/resource-and-blog-center.md",
+      "sha256": "880381102feac70cdad4553106df2080eb530d035b4343cb83d7124e517a4548",
+      "source": "https://www.scholay.com/wiki/resource-and-blog-center.md"
+    },
+    {
+      "slug": "resources-interface-guide",
+      "title": "资源界面指南",
+      "summary": "区分个人文件夹、科研能力广场与公开学术资源中心，并说明各自的数据和能力边界。",
+      "category": "knowledge",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "学生",
+        "内容使用者"
+      ],
+      "aliases": [
+        "资源入口",
+        "文件夹",
+        "科研能力广场",
+        "学术资源中心"
+      ],
+      "related": [
+        "literature-library",
+        "library-sharing",
+        "feature-tools",
+        "community-skills",
+        "resource-and-blog-center"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/resources-interface-guide.md",
+      "sha256": "54e5c486b3c28f5f01a38bbb5e49a57ee2f6d74f51a2dc5e5e9cb4fc3dd5ab60",
+      "source": "https://www.scholay.com/wiki/resources-interface-guide.md"
+    },
+    {
+      "slug": "share-cards-and-posters",
+      "title": "分享卡片、短链与海报",
+      "summary": "为论文、期刊、文献文件夹和工具生成链接、二维码或图片，并在移动端调用系统分享。",
+      "category": "knowledge",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "访客",
+        "登录用户",
+        "分享接收者"
+      ],
+      "aliases": [
+        "分享海报",
+        "二维码分享",
+        "复制口令",
+        "保存图片"
+      ],
+      "related": [
+        "library-sharing",
+        "paper-detail-and-actions",
+        "feature-tools"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/knowledge/share-cards-and-posters.md",
+      "sha256": "9e0a235ba5f18269e546bed28542844d40da229871f776f4c288e6764a59f879",
+      "source": "https://www.scholay.com/wiki/share-cards-and-posters.md"
+    },
+    {
+      "slug": "ai-usage-quota",
+      "title": "AI 周期额度",
+      "summary": "所有 AI 功能共享的成本额度，以首次真实消耗为锚点按周期自动恢复。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "AI 功能用户",
+        "客服",
+        "管理员"
+      ],
+      "aliases": [
+        "AI 额度",
+        "算力点",
+        "七天额度",
+        "Quota"
+      ],
+      "related": [
+        "membership",
+        "wallet-payg",
+        "smart-search",
+        "claw",
+        "peer-review",
+        "prism"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/ai-usage-quota.md",
+      "sha256": "7761a2def501d1d505328dd6602ef3a1f8069f758105e9728d999abc5370ecf7",
+      "source": "https://www.scholay.com/wiki/ai-usage-quota.md"
+    },
+    {
+      "slug": "gift-codes",
+      "title": "兑换码与礼品权益",
+      "summary": "由运营或合作渠道发放、经预览确认后兑换会员或永久经费的可限次代码。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "运营人员"
+      ],
+      "aliases": [
+        "礼品码",
+        "兑换会员",
+        "兑换经费"
+      ],
+      "related": [
+        "membership",
+        "wallet-payg",
+        "admin-console"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/gift-codes.md",
+      "sha256": "4bbf03a0328b6258e3ac8555d5c7e60db77a5205622b53ed01e86e45cccc6087",
+      "source": "https://www.scholay.com/wiki/gift-codes.md"
+    },
+    {
+      "slug": "invitation-rebate-guide",
+      "title": "邀请与返利指南",
+      "summary": "分享邀请链接或邀请码，了解好友绑定条件和首单返利怎样发放。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "邀请人",
+        "受邀新用户",
+        "客服",
+        "运营人员"
+      ],
+      "aliases": [
+        "邀请好友",
+        "邀请码",
+        "邀请二维码",
+        "首单返利"
+      ],
+      "related": [
+        "invite-campaign",
+        "wallet-payg",
+        "membership"
+      ],
+      "updated_at": "2026-09-02T17:04:35+08:00",
+      "path": "wiki/pages/membership/invitation-rebate-guide.md",
+      "sha256": "5f1d9edcdbdb70fb091b548c1899ff2cb1b72eeeb7b67c1cee7732bc4a3cea65",
+      "source": "https://www.scholay.com/wiki/invitation-rebate-guide.md"
+    },
+    {
+      "slug": "invite-campaign",
+      "title": "邀请有礼",
+      "summary": "由管理员启停和配置的邀请归因活动，可包含双方注册奖励与邀请人首单返利。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "新用户",
+        "运营人员"
+      ],
+      "aliases": [
+        "邀请好友",
+        "邀请码",
+        "注册奖励",
+        "首单返利"
+      ],
+      "related": [
+        "account",
+        "wallet-payg",
+        "membership"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/invite-campaign.md",
+      "sha256": "7a785a1fa6c13e82651c211dc3656b8df17e0fab91944aab52605d654f55b98a",
+      "source": "https://www.scholay.com/wiki/invite-campaign.md"
+    },
+    {
+      "slug": "membership",
+      "title": "会员体系",
+      "summary": "Free、Pro、Max 三档共享核心功能，以周期 AI 额度、价格和可购买权益区分。",
+      "category": "membership",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "所有用户",
+        "管理员"
+      ],
+      "aliases": [
+        "VIP",
+        "订阅",
+        "套餐",
+        "Free Pro Max"
+      ],
+      "related": [
+        "subscription-lifecycle",
+        "ai-usage-quota",
+        "wallet-payg",
+        "invite-campaign",
+        "membership-subscription-guide",
+        "coupon-system-legacy"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/membership.md",
+      "sha256": "109bb677cec91284a980ec36e0cd961e109ae240040837528640f4df84fbdfbc",
+      "source": "https://www.scholay.com/wiki/membership.md"
+    },
+    {
+      "slug": "membership-subscription-guide",
+      "title": "会员订阅与支付指南",
+      "summary": "选择会员周期、确认结算金额，并分清支付、活动和邀请奖励。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "购买会员的用户",
+        "客服",
+        "运营人员"
+      ],
+      "aliases": [
+        "购买会员",
+        "订阅支付",
+        "官方定价",
+        "支付渠道"
+      ],
+      "related": [
+        "membership",
+        "subscription-lifecycle",
+        "payment-orders",
+        "promotion-banner",
+        "invite-campaign"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/membership-subscription-guide.md",
+      "sha256": "be7027d7f11af22e7ef49a8f10b2798f44240d8575eb65588d5d3162bb6d809f",
+      "source": "https://www.scholay.com/wiki/membership-subscription-guide.md"
+    },
+    {
+      "slug": "payment-orders",
+      "title": "支付与订单",
+      "summary": "会员和充值订单从后端报价、建单、支付渠道回调到幂等履约与退款的完整链路。",
+      "category": "membership",
+      "kind": "architecture",
+      "status": "current",
+      "audience": [
+        "付费用户",
+        "客服",
+        "管理员"
+      ],
+      "aliases": [
+        "订单",
+        "微信支付",
+        "支付宝",
+        "退款"
+      ],
+      "related": [
+        "membership",
+        "subscription-lifecycle",
+        "wallet-payg",
+        "invite-campaign"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/payment-orders.md",
+      "sha256": "54e7d1d97ce12a4aab4bbf9d1b64feebae907625e62088097beeb0170788d031",
+      "source": "https://www.scholay.com/wiki/payment-orders.md"
+    },
+    {
+      "slug": "promotion-banner",
+      "title": "站内推广活动",
+      "summary": "由后台启停的站内推广文案与二维码入口，关闭时不向用户泄露活动内容。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "所有用户",
+        "运营人员"
+      ],
+      "aliases": [
+        "推广弹窗",
+        "活动二维码",
+        "Promo"
+      ],
+      "related": [
+        "membership",
+        "admin-console"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/promotion-banner.md",
+      "sha256": "c594c148b5253caf80aeee87bad8da3d108b2270edcebf4cf2667ae8ddf5e75b",
+      "source": "https://www.scholay.com/wiki/promotion-banner.md"
+    },
+    {
+      "slug": "quota-block-and-recovery",
+      "title": "AI 额度阻断与恢复",
+      "summary": "AI 消息因额度不足未发送时，保留输入并通过重置、经费续用或升级恢复原任务。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "使用 AI 的登录用户",
+        "会员用户"
+      ],
+      "aliases": [
+        "额度耗尽",
+        "被拦消息",
+        "用经费继续",
+        "额度重置"
+      ],
+      "related": [
+        "ai-usage-quota",
+        "wallet-payg",
+        "claw-stream-tool-states"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/quota-block-and-recovery.md",
+      "sha256": "75363ca33842a68206d8e40a0a8a9b934cf17756469c7324a44cf749e889b816",
+      "source": "https://www.scholay.com/wiki/quota-block-and-recovery.md"
+    },
+    {
+      "slug": "subscription-lifecycle",
+      "title": "会员购买、升级与续费规则",
+      "summary": "五种当前会员场景对应的合法购买组合、计价动作与到期日变化。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "购买会员的用户",
+        "客服",
+        "管理员"
+      ],
+      "aliases": [
+        "升级规则",
+        "续费规则",
+        "年付规则",
+        "补差价"
+      ],
+      "related": [
+        "membership",
+        "wallet-payg",
+        "payment-orders"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/subscription-lifecycle.md",
+      "sha256": "761e2f17977094d6cc98aea95a677578837eb9ac2994e40116e6629dce75e704",
+      "source": "https://www.scholay.com/wiki/subscription-lifecycle.md"
+    },
+    {
+      "slug": "wallet-payg",
+      "title": "经费钱包与按量付费",
+      "summary": "充值或活动获得的永久经费，可在周期额度耗尽后按真实成本继续使用 AI。",
+      "category": "membership",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "AI 功能用户",
+        "管理员"
+      ],
+      "aliases": [
+        "科研经费",
+        "钱包",
+        "充值",
+        "用经费继续",
+        "Pay as you go"
+      ],
+      "related": [
+        "ai-usage-quota",
+        "membership",
+        "payment-orders",
+        "invite-campaign"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/membership/wallet-payg.md",
+      "sha256": "8ff0366e54afb1c765cb9a7a69a6ad20018610f8f5aada47ebbb46ac201b6c24",
+      "source": "https://www.scholay.com/wiki/wallet-payg.md"
+    },
+    {
+      "slug": "device-routing",
+      "title": "桌面与移动页面分流",
+      "summary": "根据设备能力在桌面工作区、移动工作区和响应式详情页之间选择入口。",
+      "category": "mobile",
+      "kind": "architecture",
+      "status": "current",
+      "audience": [
+        "移动端用户",
+        "产品开发者"
+      ],
+      "aliases": [
+        "移动分流",
+        "UA 分流",
+        "桌面版"
+      ],
+      "related": [
+        "product-map",
+        "mobile-web",
+        "wechat-mini-program"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/mobile/device-routing.md",
+      "sha256": "10a504064e92f1d71341c1de3922883ed7150ebde9af24b9ab17e57b8d43c5f6",
+      "source": "https://www.scholay.com/wiki/device-routing.md"
+    },
+    {
+      "slug": "mini-program-runtime-and-parity",
+      "title": "微信小程序页面、端间差异与内容安全",
+      "summary": "原生小程序已有 15 个页面和完整 Claw 会话，但真机直接连接生产，且内容安全与自动化构建仍有明确边界。",
+      "category": "mobile",
+      "kind": "architecture",
+      "status": "current",
+      "audience": [
+        "微信用户",
+        "产品人员",
+        "开发者",
+        "审核人员"
+      ],
+      "aliases": [
+        "小程序运行面",
+        "Mini Program Pages",
+        "小程序 Parity"
+      ],
+      "related": [
+        "wechat-mini-program",
+        "claw",
+        "feature-tools"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/mobile/mini-program-runtime-and-parity.md",
+      "sha256": "3c2785034ef4f66ee33e265ac5ba3525970ad98f6565f562055c210f70a3faff",
+      "source": "https://www.scholay.com/wiki/mini-program-runtime-and-parity.md"
+    },
+    {
+      "slug": "mobile-feed",
+      "title": "移动 Feed：论文、期刊与情报",
+      "summary": "在移动 Web 中上下滑动浏览论文、期刊和学术情报，横滑切换频道并下拉刷新。",
+      "category": "mobile",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "手机用户",
+        "移动端研究者"
+      ],
+      "aliases": [
+        "刷论文",
+        "刷期刊",
+        "刷情报",
+        "移动信息流"
+      ],
+      "related": [
+        "mobile-web",
+        "paper-favorites",
+        "research-news",
+        "citation-dialog"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/mobile/mobile-feed.md",
+      "sha256": "0c78bd25aa2ca0f7e9e60a95c34a3d5fb70420a34b4447f47fdd6318cc74aa63",
+      "source": "https://www.scholay.com/wiki/mobile-feed.md"
+    },
+    {
+      "slug": "mobile-web",
+      "title": "移动 Web",
+      "summary": "通过四项底部导航进入浏览、Claw、功能与账户页面。",
+      "category": "mobile",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "手机用户"
+      ],
+      "aliases": [
+        "移动版",
+        "手机网页版"
+      ],
+      "related": [
+        "device-routing",
+        "wechat-mini-program",
+        "claw",
+        "literature-library"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/mobile/mobile-web.md",
+      "sha256": "cc32642b6f505903253739642e19bb9a425ebb3298cf1d4ae97ac4a714e93822",
+      "source": "https://www.scholay.com/wiki/mobile-web.md"
+    },
+    {
+      "slug": "wechat-mini-program",
+      "title": "微信小程序",
+      "summary": "围绕浏览、Claw、工具与个人账户构建的独立微信端产品表面。",
+      "category": "mobile",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "微信用户"
+      ],
+      "aliases": [
+        "小程序",
+        "WeChat Mini Program"
+      ],
+      "related": [
+        "mobile-web",
+        "device-routing",
+        "claw",
+        "research-news",
+        "mini-program-runtime-and-parity"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/mobile/wechat-mini-program.md",
+      "sha256": "bbd16796db488257edb2edc7bdf83e8ab5011cb74e2d94f9a7890329e1dc34ae",
+      "source": "https://www.scholay.com/wiki/wechat-mini-program.md"
+    },
+    {
+      "slug": "feedback-and-support",
+      "title": "反馈与支持",
+      "summary": "用户提交问题、功能建议、内容纠错和合作请求的公开支持入口。",
+      "category": "policies",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有用户"
+      ],
+      "aliases": [
+        "意见反馈",
+        "联系我们",
+        "客服"
+      ],
+      "related": [
+        "service-policies",
+        "scholay",
+        "admin-console"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/policies/feedback-and-support.md",
+      "sha256": "238b0846b61ce329a6fa9e19e4b7f8154335f1b2bda64dc29f61623c1eb5c09f",
+      "source": "https://www.scholay.com/wiki/feedback-and-support.md"
+    },
+    {
+      "slug": "service-policies",
+      "title": "服务政策与 AI 使用边界",
+      "summary": "以犀术文化科技有限公司为运营主体，说明 Scholay 的服务边界、隐私处理、法律责任、AI 使用安全与学术伦理。",
+      "category": "policies",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "所有用户"
+      ],
+      "aliases": [
+        "隐私政策",
+        "服务条款",
+        "免责声明",
+        "法律",
+        "AI 使用安全",
+        "学术伦理"
+      ],
+      "related": [
+        "scholay",
+        "account",
+        "feedback-and-support",
+        "membership",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-09-06T17:22:07+08:00",
+      "path": "wiki/pages/policies/service-policies.md",
+      "sha256": "f93870fd636fc3c5cea301941d246ba5d868768a81ffd23866d9012b9ca6d0ca",
+      "source": "https://www.scholay.com/wiki/service-policies.md"
+    },
+    {
+      "slug": "ai-research-workflows",
+      "title": "AI 科研工作流",
+      "summary": "Scholay 为检索、通用研究、审稿、写作、分析、绘图和演示提供不同的 AI 工作流。",
+      "category": "research-ai",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "AI 功能",
+        "科研 Agent",
+        "智能工作流"
+      ],
+      "related": [
+        "smart-search",
+        "claw",
+        "peer-review",
+        "prism",
+        "agent-runtime"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/ai-research-workflows.md",
+      "sha256": "2a2c56454ba38cece13fc99a530704319a100f96f3e911424ffeac0e804acddc",
+      "source": "https://www.scholay.com/wiki/ai-research-workflows.md"
+    },
+    {
+      "slug": "claw",
+      "title": "Scholay智能助手",
+      "summary": "面向研究任务的通用 AI 助手。不仅可以制作 PPT 或科研绘图，还可以在同一会话里使用附件、技能和工具。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者"
+      ],
+      "aliases": [
+        "智能助手",
+        "Claw Agent",
+        "学术助手"
+      ],
+      "related": [
+        "claw-interface-guide",
+        "claw-sessions",
+        "claw-attachments-and-references",
+        "community-skills",
+        "research-figure-and-slides"
+      ],
+      "updated_at": "2026-09-06T17:33:50+08:00",
+      "path": "wiki/pages/research-ai/claw.md",
+      "sha256": "9b9f80cb013ad2085b50a8a510a65f685e212b974445e16375225feb911313a7",
+      "source": "https://www.scholay.com/wiki/claw.md"
+    },
+    {
+      "slug": "claw-attachments-and-references",
+      "title": "智能助手附件、文库引用与 Skill",
+      "summary": "向 智能助手消息加入受支持的图片、文档、文库资料和已安装 Skill，并理解格式与数量限制。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "Claw 用户",
+        "研究者"
+      ],
+      "aliases": [
+        "Claw 上传文件",
+        "文库引用",
+        "会话 Skill"
+      ],
+      "related": [
+        "claw",
+        "claw-sessions",
+        "community-skills",
+        "literature-library"
+      ],
+      "updated_at": "2026-09-06T17:42:59+08:00",
+      "path": "wiki/pages/research-ai/claw-attachments-and-references.md",
+      "sha256": "c3d043a2c9c84d0f27f40e8ca52f549fc87d917afb26680ecd2285ce024b710d",
+      "source": "https://www.scholay.com/wiki/claw-attachments-and-references.md"
+    },
+    {
+      "slug": "claw-interface-guide",
+      "title": "智能助手界面导览",
+      "summary": "认识 Scholay 智能助手的会话历史、消息区、输入工具、模型选择和交付物扩展区。",
+      "category": "research-ai",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "智能助手用户",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "Claw 界面",
+        "智能助手怎么用",
+        "智能助手工作区"
+      ],
+      "related": [
+        "claw",
+        "claw-sessions",
+        "claw-attachments-and-references",
+        "claw-stream-tool-states"
+      ],
+      "updated_at": "2026-09-06T17:40:28+08:00",
+      "path": "wiki/pages/research-ai/claw-interface-guide.md",
+      "sha256": "5b1180568017a361e90d7c49ac7b82ea88fb228b815aa02dfc1cee4efe9c18d1",
+      "source": "https://www.scholay.com/wiki/claw-interface-guide.md"
+    },
+    {
+      "slug": "claw-sessions",
+      "title": "Claw 会话与历史",
+      "summary": "创建、切换、重命名和删除自己的 Claw 会话，并在长历史中分批加载较早轮次。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "Claw 用户",
+        "研究者"
+      ],
+      "aliases": [
+        "Claw 历史",
+        "新对话",
+        "会话重命名"
+      ],
+      "related": [
+        "claw",
+        "claw-attachments-and-references",
+        "claw-stream-tool-states"
+      ],
+      "updated_at": "2026-09-06T17:41:52+08:00",
+      "path": "wiki/pages/research-ai/claw-sessions.md",
+      "sha256": "b63f482d2451388b7b3db63d1f03f227cf153bdb3477243c58485c3976ae4352",
+      "source": "https://www.scholay.com/wiki/claw-sessions.md"
+    },
+    {
+      "slug": "claw-stream-tool-states",
+      "title": "智能助手延迟、发送失败",
+      "summary": "发送后没有回应、任务停很久、连接中断，或同一个对话在另一个窗口打开时，页面会怎么提示，你可以怎么处理。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "Claw 用户",
+        "研究者"
+      ],
+      "aliases": [
+        "Claw 卡住",
+        "工具调用",
+        "消息未发送",
+        "连接重试",
+        "流式连接",
+        "异常状态"
+      ],
+      "related": [
+        "claw",
+        "claw-sessions",
+        "quota-block-and-recovery",
+        "agent-runtime"
+      ],
+      "updated_at": "2026-09-06T17:46:08+08:00",
+      "path": "wiki/pages/research-ai/claw-stream-tool-states.md",
+      "sha256": "338907b8cc540cbc18bb996c600749b1f46d069630ea55edcadfb8e0b9b178df",
+      "source": "https://www.scholay.com/wiki/claw-stream-tool-states.md"
+    },
+    {
+      "slug": "latex-project-guide",
+      "title": "什么是 LaTeX 工程",
+      "summary": "理解 LaTeX 工程的组成和优势，以及 Prism、内置模板与期刊模板下载之间的真实关系。",
+      "category": "research-ai",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "论文作者",
+        "LaTeX 初学者",
+        "研究者"
+      ],
+      "aliases": [
+        "LaTeX 项目",
+        "TeX 工程",
+        "Prism 与 LaTeX",
+        "期刊 LaTeX 模板"
+      ],
+      "related": [
+        "prism",
+        "prism-interface-guide",
+        "prism-writing-workflow",
+        "journal-submission-resources"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/latex-project-guide.md",
+      "sha256": "072bda4675b772174de03ac790312b22c9ab5381b00c7fc82d226abc61965f99",
+      "source": "https://www.scholay.com/wiki/latex-project-guide.md"
+    },
+    {
+      "slug": "manuscript-vs-publication",
+      "title": "稿件与出版物有什么区别",
+      "summary": "区分作者正在写作或送审的稿件，与已经形成公开书目信息的出版物记录。",
+      "category": "research-ai",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "论文作者",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "Manuscript vs Publication",
+        "稿件",
+        "出版物",
+        "论文版本"
+      ],
+      "related": [
+        "prism",
+        "peer-review",
+        "paper",
+        "peer-review-workflow-guide"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/manuscript-vs-publication.md",
+      "sha256": "1906ab23b6b599cbed032a7d46bc42b47da79554c70a3fb239d6449c75c30f39",
+      "source": "https://www.scholay.com/wiki/manuscript-vs-publication.md"
+    },
+    {
+      "slug": "pdf-chat-guide",
+      "title": "如何与 PDF 对话",
+      "summary": "在 Scholay Claw 中上传 PDF，再围绕方法、结果、证据或写作结构连续提问；这与只负责翻页阅读的 PDF 阅读器不同。",
+      "category": "research-ai",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "PDF Chat",
+        "PDF 问答",
+        "论文对话",
+        "上传 PDF 提问"
+      ],
+      "related": [
+        "claw",
+        "claw-attachments-and-references",
+        "pdf-reader",
+        "literature-library"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/pdf-chat-guide.md",
+      "sha256": "3095af0e4bbf17289bf2c8c1c256452f717a499330ad53d3161955879f30be78",
+      "source": "https://www.scholay.com/wiki/pdf-chat-guide.md"
+    },
+    {
+      "slug": "peer-review",
+      "title": "智能审稿",
+      "summary": "面向期刊论文和学位论文的结构化 AI 评审工作台，包含提交向导、实时阶段与评审记录。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "作者",
+        "研究者",
+        "研究生"
+      ],
+      "aliases": [
+        "AI 审稿",
+        "同行评审",
+        "Peer Review"
+      ],
+      "related": [
+        "paper",
+        "agent-runtime",
+        "ai-usage-quota",
+        "prism"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/peer-review.md",
+      "sha256": "72ac4f709eb3565aa567b4aa492cd777ea5e8477bfdb79bfd3e0f97ea8b9c995",
+      "source": "https://www.scholay.com/wiki/peer-review.md"
+    },
+    {
+      "slug": "peer-review-dimensions-guide",
+      "title": "智能审稿的维度与评价方式",
+      "summary": "理解科学性、严谨性、创新性、可读性四维评分，以及原句、问题与建议之间的关系。",
+      "category": "research-ai",
+      "kind": "overview",
+      "status": "current",
+      "audience": [
+        "论文作者",
+        "研究生",
+        "智能审稿用户"
+      ],
+      "aliases": [
+        "审稿维度",
+        "四维评分",
+        "原句与建议",
+        "逐句意见"
+      ],
+      "related": [
+        "peer-review",
+        "peer-review-workflow-guide",
+        "peer-review-results-guide"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/peer-review-dimensions-guide.md",
+      "sha256": "6c50d312e8f24f92d3ad4256599f16084693265f5ef8fcdbe922d97aefd0400e",
+      "source": "https://www.scholay.com/wiki/peer-review-dimensions-guide.md"
+    },
+    {
+      "slug": "peer-review-results-guide",
+      "title": "智能审稿结果怎么看",
+      "summary": "阅读编辑部初审、三位 AI 审稿人和主审决议，并正确理解录用、返修与拒稿。",
+      "category": "research-ai",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "智能审稿用户",
+        "论文作者",
+        "研究生"
+      ],
+      "aliases": [
+        "审稿结果",
+        "录用返修拒稿",
+        "主审决议",
+        "审稿分页"
+      ],
+      "related": [
+        "peer-review",
+        "peer-review-workflow-guide",
+        "peer-review-dimensions-guide"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/peer-review-results-guide.md",
+      "sha256": "188d956d11a468fd8111bc34ac90d6b1cb643e7548cac536dd7d9ed6025b6a0d",
+      "source": "https://www.scholay.com/wiki/peer-review-results-guide.md"
+    },
+    {
+      "slug": "peer-review-workflow-guide",
+      "title": "智能审稿操作流程",
+      "summary": "选择期刊论文或毕业论文，完成四步材料核对，并理解 AI 评议任务的运行状态与边界。",
+      "category": "research-ai",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "论文作者",
+        "研究生",
+        "研究者"
+      ],
+      "aliases": [
+        "智能审稿流程",
+        "期刊论文审稿",
+        "毕业论文审稿",
+        "AI 盲审"
+      ],
+      "related": [
+        "peer-review",
+        "peer-review-results-guide",
+        "peer-review-dimensions-guide",
+        "manuscript-vs-publication"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/peer-review-workflow-guide.md",
+      "sha256": "e385379f0c058f6ed8a4a56983cd7c034805a5a51fbc761d6f0da34aeafb0bed",
+      "source": "https://www.scholay.com/wiki/peer-review-workflow-guide.md"
+    },
+    {
+      "slug": "prism",
+      "title": "Scholay Prism",
+      "summary": "把 LaTeX 项目、结构化写作、实时预览、引用管理和 AI 修订结合在一起的学术写作工作区。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "论文作者",
+        "研究者"
+      ],
+      "aliases": [
+        "智能写作",
+        "LaTeX 写作",
+        "Prism"
+      ],
+      "related": [
+        "agent-runtime",
+        "agent-artifacts",
+        "peer-review",
+        "paper"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/prism.md",
+      "sha256": "99ffece3c8f57153ede7b02ed50e43c2c8aabfc26e7ec5de22ab048364f5d408",
+      "source": "https://www.scholay.com/wiki/prism.md"
+    },
+    {
+      "slug": "prism-interface-guide",
+      "title": "智能写作界面导览",
+      "summary": "从项目首页进入 Scholay Prism，理解大纲、AI 对话、所见即所得正文、模板、编译和导出区域。",
+      "category": "research-ai",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "论文作者",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "Prism 界面",
+        "智能写作工作区",
+        "LaTeX 写作界面"
+      ],
+      "related": [
+        "prism",
+        "prism-writing-workflow",
+        "latex-project-guide"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/prism-interface-guide.md",
+      "sha256": "2381ea26bdde35e1f6641298ed4824925e33d3b622643c7c9f86706820a1a5e9",
+      "source": "https://www.scholay.com/wiki/prism-interface-guide.md"
+    },
+    {
+      "slug": "prism-writing-workflow",
+      "title": "怎样完成一次智能写作",
+      "summary": "从创建项目、确定写作目标到引用、审阅、编译和交付的一条完整 Prism 工作流。",
+      "category": "research-ai",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "论文作者",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "Prism 完整流程",
+        "智能写作流程",
+        "AI 写论文"
+      ],
+      "related": [
+        "prism",
+        "prism-interface-guide",
+        "latex-project-guide",
+        "citation-dialog"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/prism-writing-workflow.md",
+      "sha256": "3edaa0b4b4eaa5209a2769aa4209fd32581ef7be15af0ecbb9ad5ede78abf8fd",
+      "source": "https://www.scholay.com/wiki/prism-writing-workflow.md"
+    },
+    {
+      "slug": "research-data-analysis",
+      "title": "AI 数据分析",
+      "summary": "在受控统计环境中读取研究数据、选择方法、执行分析并交付可复查结果。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "数据分析",
+        "Stat Lab",
+        "统计分析"
+      ],
+      "related": [
+        "claw",
+        "agent-artifacts",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/research-data-analysis.md",
+      "sha256": "9a9eb07006e2c7d1f9f7a7ab58714d36dac4350ee7ff3bf085e2dec7edd6c4ce",
+      "source": "https://www.scholay.com/wiki/research-data-analysis.md"
+    },
+    {
+      "slug": "research-evidence-kernel",
+      "title": "研究证据内核与声明核验",
+      "summary": "在模型回答前预取文献、建立只读证据账本并要求显式退出，但跨主题路由和声明核验仍属于实验性保障层。",
+      "category": "research-ai",
+      "kind": "architecture",
+      "status": "experimental",
+      "audience": [
+        "研究者",
+        "开发者",
+        "AI 质量人员"
+      ],
+      "aliases": [
+        "Evidence Kernel",
+        "证据账本",
+        "Claims Audit"
+      ],
+      "related": [
+        "smart-search",
+        "agent-runtime",
+        "paper"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/research-evidence-kernel.md",
+      "sha256": "3a9cc625fbd1e8f1df6898b92785d6c9f654e97ca4a58fd9491d6a0c548b9820",
+      "source": "https://www.scholay.com/wiki/research-evidence-kernel.md"
+    },
+    {
+      "slug": "research-figure-and-slides",
+      "title": "科研绘图与演示文稿",
+      "summary": "通过专门 Agent 工作流生成科研图形和可交付演示文件。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "汇报者"
+      ],
+      "aliases": [
+        "科研绘图",
+        "Sci Draw",
+        "制作 PPT",
+        "Bolt Slides"
+      ],
+      "related": [
+        "claw",
+        "agent-artifacts",
+        "ai-research-workflows"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/research-figure-and-slides.md",
+      "sha256": "b5d78e6a326bbc85c478c267cfa5be42d662e65882800c5b80ed16cd671d97bf",
+      "source": "https://www.scholay.com/wiki/research-figure-and-slides.md"
+    },
+    {
+      "slug": "search-entry-comparison",
+      "title": "智能助手 vs 智能搜索",
+      "summary": "两个都是对话，但智能搜索用来找论文，智能助手用来拿已有材料继续做事。",
+      "category": "research-ai",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "所有研究者",
+        "学生",
+        "初次使用者"
+      ],
+      "aliases": [
+        "智能助手和智能搜索区别",
+        "智能助手与智能搜索的区别",
+        "从智能搜索的角度查看区别",
+        "搜索入口区别"
+      ],
+      "related": [
+        "classic-vs-smart-search",
+        "smart-search",
+        "claw",
+        "claw-interface-guide",
+        "staging-area"
+      ],
+      "updated_at": "2026-09-06T17:53:38+08:00",
+      "path": "wiki/pages/research-ai/search-entry-comparison.md",
+      "sha256": "977cc232ceff95ef2ab114a3880bbaf48a38ac8883b70978d9cd5dd677a39277",
+      "source": "https://www.scholay.com/wiki/search-entry-comparison.md"
+    },
+    {
+      "slug": "smart-literature-search-guide",
+      "title": "如何使用智能文献搜索",
+      "summary": "用自然语言描述研究问题，让智能搜索拆解查询、调用学术检索工具并组织论文与证据，再通过追问逐步收敛。",
+      "category": "research-ai",
+      "kind": "page",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者",
+        "学生"
+      ],
+      "aliases": [
+        "智能搜索教程",
+        "AI 找论文",
+        "自然语言文献检索"
+      ],
+      "related": [
+        "smart-search",
+        "academic-search",
+        "staging-area",
+        "claw",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-09-06T18:05:19+08:00",
+      "path": "wiki/pages/research-ai/smart-literature-search-guide.md",
+      "sha256": "b58c1d118a4106f7d70a68c8452a3f2d2e518d1b6c8a5b1f3401f0b1466e8b84",
+      "source": "https://www.scholay.com/wiki/smart-literature-search-guide.md"
+    },
+    {
+      "slug": "smart-search",
+      "title": "智能搜索",
+      "summary": "以自然语言与 Agent 会话驱动的学术检索，返回解释、论文清单和来源证据。",
+      "category": "research-ai",
+      "kind": "feature",
+      "status": "current",
+      "audience": [
+        "登录用户",
+        "研究者"
+      ],
+      "aliases": [
+        "AI 搜索",
+        "Smart Search",
+        "智能检索"
+      ],
+      "related": [
+        "academic-search",
+        "paper",
+        "agent-runtime",
+        "ai-usage-quota"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/smart-search.md",
+      "sha256": "e229ecf92d4c6c872a3374cf4ee176a6df4da5057eacefa67d2c71160703d967",
+      "source": "https://www.scholay.com/wiki/smart-search.md"
+    },
+    {
+      "slug": "stat-lab-method-boundary",
+      "title": "Stat Lab 方法与复核边界",
+      "summary": "StatKit 当前承诺 14 种检验、4 类假设检查和 15 条决策规则，不应从已安装依赖推断出回归或生存分析能力。",
+      "category": "research-ai",
+      "kind": "architecture",
+      "status": "current",
+      "audience": [
+        "研究者",
+        "统计方法审核人员",
+        "开发者"
+      ],
+      "aliases": [
+        "StatKit",
+        "统计方法卡",
+        "StatRun",
+        "Numcheck"
+      ],
+      "related": [
+        "research-data-analysis",
+        "agent-tool-and-sandbox-boundary"
+      ],
+      "updated_at": "2026-08-27T22:11:14+08:00",
+      "path": "wiki/pages/research-ai/stat-lab-method-boundary.md",
+      "sha256": "6c153ef33d63034c98b4dae5886ba6326be443fd7a472714ae8bd98da327f4cf",
+      "source": "https://www.scholay.com/wiki/stat-lab-method-boundary.md"
+    }
+  ]
+}

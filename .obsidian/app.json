@@ -1,0 +1,12 @@
+{
+  "useMarkdownLinks": true,
+  "newLinkFormat": "relative",
+  "attachmentFolderPath": "wiki/attachments",
+  "userIgnoreFilters": [
+    "sources/",
+    "tools/",
+    ".local/",
+    "build/",
+    "assets/"
+  ]
+}

@@ -1,0 +1,9 @@
+.DS_Store
+.local/
+build/
+__pycache__/
+*.pyc
+.obsidian/workspace*.json
+.obsidian/cache/
+wiki/*.pending.xmind
+*.tmp

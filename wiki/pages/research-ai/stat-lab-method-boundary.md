@@ -1,0 +1,23 @@
+---
+title: Stat Lab 方法与复核边界
+slug: stat-lab-method-boundary
+summary: StatKit 当前承诺 14 种检验、4 类假设检查和 15 条决策规则，不应从已安装依赖推断出回归或生存分析能力。
+category: research-ai
+status: current
+updated: 2026-08-27T22:11:14+08:00
+canonical: https://www.scholay.com/wiki/stat-lab-method-boundary
+---
+
+# Stat Lab 方法与复核边界
+
+## 真实方法目录
+
+两组方法包括 student_t、welch_t、mann_whitney、paired_t、wilcoxon；多组方法包括 oneway_anova、welch_anova、kruskal_wallis；分类资料包括 chi2_pearson、chi2_yates、fisher_exact、chi2_rxc、mcnemar_exact、cochran_armitage。假设检查为 shapiro_by_group、levene_center_median、shapiro_diff、expected_frequencies，并有 D-01 至 D-15 决策规则。
+
+## 计算与报告
+
+StatRun 按方法卡读取数据、检查假设并把可复查 bundle 写入 analysis；StatReport 基于 bundle 生成 cn-core 或 apa 风格的结构化报告。统计工具写 analysis 使用专门权限，普通工具不能把证据和分析保留区当成任意工作目录。
+
+## 能力和门禁边界
+
+镜像虽然安装 statsmodels、scikit-learn、lifelines 等依赖，当前方法卡并未承诺回归、混合模型、时间序列或生存分析。numcheck 默认是 observe，只有 STATKIT_NUMCHECK_ENFORCE=1 才硬阻断；现行 Compose 和 env 示例没有启用该开关。报告仍需研究者复核数据编码、假设、效应量和多重比较。
