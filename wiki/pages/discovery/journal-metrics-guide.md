@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/journal-metrics-guide
+scholay_topics: ["[[wiki/topics/discovery/核对期刊指标与数据|核对期刊指标与数据]]"]
+scholay_related: ["[[wiki/pages/discovery/authors-and-journals|作者与期刊]]", "[[wiki/pages/discovery/journal-detail-page|期刊详情页]]", "[[wiki/pages/discovery/journal-search-page|期刊检索页]]", "[[wiki/pages/discovery/journal-update-cycle|Scholay 期刊数据多久更新一次]]"]
 ---
 
 # 期刊指标怎么看

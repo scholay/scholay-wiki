@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/journal-detail-page
+scholay_topics: ["[[wiki/topics/discovery/发现和了解期刊|发现和了解期刊]]"]
+scholay_related: ["[[wiki/pages/discovery/authors-and-journals|作者与期刊]]", "[[wiki/pages/discovery/journal-search-page|期刊检索页]]", "[[wiki/pages/discovery/journal-submission-resources|期刊投稿资源下载]]"]
 ---
 
 # 期刊详情页

@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/academic-search
+scholay_topics: ["[[wiki/topics/discovery/检索并收集候选|检索并收集候选]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/discovery/staging-area|检索暂存区]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]"]
 ---
 
 # 论文检索

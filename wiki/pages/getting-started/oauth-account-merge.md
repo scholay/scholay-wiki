@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/oauth-account-merge
+scholay_topics: ["[[wiki/topics/getting-started/绑定与账号合并|绑定与账号合并]]"]
+scholay_related: ["[[wiki/pages/getting-started/oauth-wechat-login|OAuth 与微信扫码登录]]", "[[wiki/pages/getting-started/account-connections|第三方账号连接与解绑]]", "[[wiki/pages/getting-started/account|Scholay 账户]]"]
 ---
 
 # OAuth 邮箱冲突与账号合并

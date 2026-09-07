@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/peer-review-workflow-guide
+scholay_topics: ["[[wiki/topics/research-ai/评审结果与改稿|评审结果与改稿]]"]
+scholay_related: ["[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/peer-review-results-guide|智能审稿结果怎么看]]", "[[wiki/pages/research-ai/peer-review-dimensions-guide|智能审稿的维度与评价方式]]", "[[wiki/pages/research-ai/manuscript-vs-publication|稿件与出版物有什么区别]]"]
 ---
 
 # 智能审稿操作流程

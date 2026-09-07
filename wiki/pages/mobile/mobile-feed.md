@@ -6,6 +6,8 @@ category: mobile
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/mobile-feed
+scholay_topics: ["[[wiki/topics/mobile/移动发现与阅读|移动发现与阅读]]"]
+scholay_related: ["[[wiki/pages/mobile/mobile-web|移动 Web]]", "[[wiki/pages/knowledge/paper-favorites|论文收藏与取消收藏]]", "[[wiki/pages/knowledge/research-news|学术资讯]]", "[[wiki/pages/knowledge/citation-dialog|引用弹窗与默认格式]]"]
 ---
 
 # 移动 Feed：论文、期刊与情报

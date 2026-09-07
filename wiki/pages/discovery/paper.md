@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/paper
+scholay_topics: ["[[wiki/topics/discovery/理解论文与作者|理解论文与作者]]"]
+scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/discovery/pdf-reader|PDF 阅读器]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]", "[[wiki/pages/knowledge/citation-generator|引用生成器]]"]
 ---
 
 # 论文

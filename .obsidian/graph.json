@@ -1,0 +1,79 @@
+{
+  "collapse-filter": false,
+  "search": "(path:\"wiki/pages/\" OR path:\"wiki/topics/\")",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": true,
+  "collapse-color-groups": true,
+  "colorGroups": [
+    {
+      "query": "[category:getting-started]",
+      "color": {
+        "a": 1,
+        "rgb": 10169415
+      }
+    },
+    {
+      "query": "[category:discovery]",
+      "color": {
+        "a": 1,
+        "rgb": 2190245
+      }
+    },
+    {
+      "query": "[category:research-ai]",
+      "color": {
+        "a": 1,
+        "rgb": 2193757
+      }
+    },
+    {
+      "query": "[category:knowledge]",
+      "color": {
+        "a": 1,
+        "rgb": 7753898
+      }
+    },
+    {
+      "query": "[category:membership]",
+      "color": {
+        "a": 1,
+        "rgb": 9921556
+      }
+    },
+    {
+      "query": "[category:mobile]",
+      "color": {
+        "a": 1,
+        "rgb": 2390405
+      }
+    },
+    {
+      "query": "[category:policies]",
+      "color": {
+        "a": 1,
+        "rgb": 5858676
+      }
+    },
+    {
+      "query": "[category:history]",
+      "color": {
+        "a": 1,
+        "rgb": 8212868
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": false,
+  "textFadeMultiplier": -3,
+  "nodeSizeMultiplier": 1.15,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": true,
+  "centerStrength": 0.22,
+  "repelStrength": 12,
+  "linkStrength": 0.65,
+  "linkDistance": 180,
+  "scale": 0.9588436970849211,
+  "close": true
+}

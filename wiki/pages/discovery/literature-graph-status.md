@@ -6,6 +6,8 @@ category: discovery
 status: planned
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/literature-graph-status
+scholay_topics: ["[[wiki/topics/discovery/阅读比较与引文扩展|阅读比较与引文扩展]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/discovery/authors-and-journals|作者与期刊]]"]
 ---
 
 # 文献图谱：当前状态与使用边界

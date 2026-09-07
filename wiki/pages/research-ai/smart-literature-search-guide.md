@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-09-06T18:05:19+08:00
 canonical: https://www.scholay.com/wiki/smart-literature-search-guide
+scholay_topics: ["[[wiki/topics/research-ai/智能检索与证据核验|智能检索与证据核验]]"]
+scholay_related: ["[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/discovery/staging-area|检索暂存区]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # 如何使用智能文献搜索

@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/latex-project-guide
+scholay_topics: ["[[wiki/topics/research-ai/Prism 写作与工程|Prism 写作与工程]]"]
+scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/prism-interface-guide|智能写作界面导览]]", "[[wiki/pages/research-ai/prism-writing-workflow|怎样完成一次智能写作]]", "[[wiki/pages/discovery/journal-submission-resources|期刊投稿资源下载]]"]
 ---
 
 # 什么是 LaTeX 工程

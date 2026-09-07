@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-09-06T16:50:53+08:00
 canonical: https://www.scholay.com/wiki/scholay
+scholay_topics: ["[[wiki/topics/getting-started/认识平台与能力|认识平台与能力]]"]
+scholay_related: ["[[wiki/pages/getting-started/product-map|全站功能]]", "[[wiki/pages/getting-started/account|Scholay 账户]]", "[[wiki/pages/research-ai/ai-research-workflows|AI 科研工作流]]", "[[wiki/pages/getting-started/product-and-pricing-overview|产品与套餐总览]]", "[[wiki/pages/history/backup-and-restore-boundary|备份、恢复与故障证据边界]]"]
 ---
 
 # Scholay

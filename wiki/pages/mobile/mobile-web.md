@@ -6,6 +6,8 @@ category: mobile
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/mobile-web
+scholay_topics: ["[[wiki/topics/mobile/设备分流与移动网页|设备分流与移动网页]]"]
+scholay_related: ["[[wiki/pages/mobile/device-routing|桌面与移动页面分流]]", "[[wiki/pages/mobile/wechat-mini-program|微信小程序]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]"]
 ---
 
 # 移动 Web

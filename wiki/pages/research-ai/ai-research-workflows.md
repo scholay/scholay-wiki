@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/ai-research-workflows
+scholay_topics: ["[[wiki/topics/research-ai/选择科研工作入口|选择科研工作入口]]"]
+scholay_related: ["[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]"]
 ---
 
 # AI 科研工作流

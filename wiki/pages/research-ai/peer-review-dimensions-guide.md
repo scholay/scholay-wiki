@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/peer-review-dimensions-guide
+scholay_topics: ["[[wiki/topics/research-ai/评审结果与改稿|评审结果与改稿]]"]
+scholay_related: ["[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/peer-review-workflow-guide|智能审稿操作流程]]", "[[wiki/pages/research-ai/peer-review-results-guide|智能审稿结果怎么看]]"]
 ---
 
 # 智能审稿的维度与评价方式

@@ -6,6 +6,8 @@ category: membership
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/gift-codes
+scholay_topics: ["[[wiki/topics/membership/活动与兑换权益|活动与兑换权益]]"]
+scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]"]
 ---
 
 # 兑换码与礼品权益

@@ -6,6 +6,8 @@ category: history
 status: compatibility
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/backup-and-restore-boundary
+scholay_topics: ["[[wiki/topics/history/数据备份与恢复依据|数据备份与恢复依据]]"]
+scholay_related: []
 ---
 
 # 备份、恢复与故障证据边界

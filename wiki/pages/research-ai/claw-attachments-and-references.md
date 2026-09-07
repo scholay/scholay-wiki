@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-09-06T17:42:59+08:00
 canonical: https://www.scholay.com/wiki/claw-attachments-and-references
+scholay_topics: ["[[wiki/topics/research-ai/Claw 上下文与任务执行|Claw 上下文与任务执行]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/claw-sessions|Claw 会话与历史]]", "[[wiki/pages/knowledge/community-skills|社区技能]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]"]
 ---
 
 # 智能助手附件、文库引用与 Skill

@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/account-connections
+scholay_topics: ["[[wiki/topics/getting-started/绑定与账号合并|绑定与账号合并]]"]
+scholay_related: ["[[wiki/pages/getting-started/oauth-wechat-login|OAuth 与微信扫码登录]]", "[[wiki/pages/getting-started/oauth-account-merge|OAuth 邮箱冲突与账号合并]]", "[[wiki/pages/getting-started/account-security-settings|密码、邮箱与手机号安全设置]]"]
 ---
 
 # 第三方账号连接与解绑

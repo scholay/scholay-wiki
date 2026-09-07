@@ -6,6 +6,8 @@ category: membership
 status: current
 updated: 2026-09-02T17:04:35+08:00
 canonical: https://www.scholay.com/wiki/invitation-rebate-guide
+scholay_topics: ["[[wiki/topics/membership/邀请与返利|邀请与返利]]"]
+scholay_related: ["[[wiki/pages/membership/invite-campaign|邀请有礼]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]", "[[wiki/pages/membership/membership|会员体系]]"]
 ---
 
 # 邀请与返利指南

@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/citation-generator
+scholay_topics: ["[[wiki/topics/knowledge/生成规范引用|生成规范引用]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]"]
 ---
 
 # 引用生成器

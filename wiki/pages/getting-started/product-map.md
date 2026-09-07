@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/product-map
+scholay_topics: ["[[wiki/topics/getting-started/认识平台与能力|认识平台与能力]]"]
+scholay_related: ["[[wiki/pages/getting-started/scholay|Scholay]]", "[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/getting-started/roadmap-status|开发计划与状态说明]]"]
 ---
 
 # 全站功能

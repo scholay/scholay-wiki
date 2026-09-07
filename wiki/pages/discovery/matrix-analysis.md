@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/matrix-analysis
+scholay_topics: ["[[wiki/topics/discovery/阅读比较与引文扩展|阅读比较与引文扩展]]"]
+scholay_related: ["[[wiki/pages/discovery/staging-area|检索暂存区]]", "[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # 论文矩阵分析

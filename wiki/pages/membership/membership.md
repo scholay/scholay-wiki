@@ -6,6 +6,8 @@ category: membership
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/membership
+scholay_topics: ["[[wiki/topics/membership/会员权益与订阅周期|会员权益与订阅周期]]"]
+scholay_related: ["[[wiki/pages/membership/subscription-lifecycle|会员购买、升级与续费规则]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]", "[[wiki/pages/membership/invite-campaign|邀请有礼]]", "[[wiki/pages/membership/membership-subscription-guide|会员订阅与支付指南]]", "[[wiki/pages/history/coupon-system-legacy|优惠券系统（遗留）]]"]
 ---
 
 # 会员体系

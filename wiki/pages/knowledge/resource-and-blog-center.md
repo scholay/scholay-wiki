@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/resource-and-blog-center
+scholay_topics: ["[[wiki/topics/knowledge/公开资源与帮助|公开资源与帮助]]"]
+scholay_related: ["[[wiki/pages/knowledge/help-center-and-qa|帮助中心与学术问答]]", "[[wiki/pages/knowledge/research-news|学术资讯]]"]
 ---
 
 # 学术资源中心与产品博客

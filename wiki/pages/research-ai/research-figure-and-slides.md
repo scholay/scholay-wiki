@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/research-figure-and-slides
+scholay_topics: ["[[wiki/topics/research-ai/分析材料与表达成果|分析材料与表达成果]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/ai-research-workflows|AI 科研工作流]]"]
 ---
 
 # 科研绘图与演示文稿

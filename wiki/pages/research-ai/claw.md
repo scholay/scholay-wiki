@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-09-06T17:33:50+08:00
 canonical: https://www.scholay.com/wiki/claw
+scholay_topics: ["[[wiki/topics/research-ai/Claw 上下文与任务执行|Claw 上下文与任务执行]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw-interface-guide|智能助手界面导览]]", "[[wiki/pages/research-ai/claw-sessions|Claw 会话与历史]]", "[[wiki/pages/research-ai/claw-attachments-and-references|智能助手附件、文库引用与 Skill]]", "[[wiki/pages/knowledge/community-skills|社区技能]]", "[[wiki/pages/research-ai/research-figure-and-slides|科研绘图与演示文稿]]"]
 ---
 
 # Scholay智能助手

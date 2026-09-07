@@ -6,6 +6,8 @@ category: getting-started
 status: planned
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/roadmap-status
+scholay_topics: ["[[wiki/topics/getting-started/通知与产品进展|通知与产品进展]]"]
+scholay_related: ["[[wiki/pages/getting-started/product-map|全站功能]]", "[[wiki/pages/history/design-source-of-truth|设计依据与历史交互资料]]", "[[wiki/pages/history/task-center-and-checkin|任务中心与签到]]", "[[wiki/pages/mobile/mobile-web|移动 Web]]"]
 ---
 
 # 开发计划与状态说明

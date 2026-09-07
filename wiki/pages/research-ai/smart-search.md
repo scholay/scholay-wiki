@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/smart-search
+scholay_topics: ["[[wiki/topics/research-ai/智能检索与证据核验|智能检索与证据核验]]"]
+scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # 智能搜索

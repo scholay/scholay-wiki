@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/open-access-and-paper-translation
+scholay_topics: ["[[wiki/topics/discovery/阅读比较与引文扩展|阅读比较与引文扩展]]"]
+scholay_related: ["[[wiki/pages/discovery/paper-detail-and-actions|论文详情与页面动作]]", "[[wiki/pages/discovery/pdf-reader|PDF 阅读器]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # 开放获取全文与论文翻译

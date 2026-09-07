@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/paper-favorites
+scholay_topics: ["[[wiki/topics/knowledge/收集与组织文献|收集与组织文献]]"]
+scholay_related: ["[[wiki/pages/knowledge/literature-library|个人文献集]]", "[[wiki/pages/discovery/paper-detail-and-actions|论文详情与页面动作]]", "[[wiki/pages/mobile/mobile-feed|移动 Feed：论文、期刊与情报]]"]
 ---
 
 # 论文收藏与取消收藏

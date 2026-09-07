@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/paper-detail-and-actions
+scholay_topics: ["[[wiki/topics/discovery/理解论文与作者|理解论文与作者]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/discovery/open-access-and-paper-translation|开放获取全文与论文翻译]]", "[[wiki/pages/knowledge/paper-favorites|论文收藏与取消收藏]]", "[[wiki/pages/knowledge/citation-dialog|引用弹窗与默认格式]]"]
 ---
 
 # 论文详情与页面动作

@@ -6,6 +6,8 @@ category: history
 status: historical
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/coupon-system-legacy
+scholay_topics: ["[[wiki/topics/history/历史运营与兼容组件|历史运营与兼容组件]]"]
+scholay_related: ["[[wiki/pages/membership/payment-orders|支付与订单]]", "[[wiki/pages/membership/gift-codes|兑换码与礼品权益]]", "[[wiki/pages/history/legacy-components|已下线与兼容组件]]"]
 ---
 
 # 优惠券系统（遗留）

@@ -6,6 +6,8 @@ category: history
 status: historical
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/task-center-and-checkin
+scholay_topics: ["[[wiki/topics/history/历史运营与兼容组件|历史运营与兼容组件]]"]
+scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]", "[[wiki/pages/history/legacy-components|已下线与兼容组件]]"]
 ---
 
 # 任务中心与签到

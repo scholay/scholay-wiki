@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/pdf-reader
+scholay_topics: ["[[wiki/topics/discovery/阅读比较与引文扩展|阅读比较与引文扩展]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]"]
 ---
 
 # PDF 阅读器

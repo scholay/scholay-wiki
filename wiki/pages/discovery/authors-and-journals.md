@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/authors-and-journals
+scholay_topics: ["[[wiki/topics/discovery/理解论文与作者|理解论文与作者]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/knowledge/citation-generator|引用生成器]]", "[[wiki/pages/discovery/author-profile-page|作者详情页]]"]
 ---
 
 # 作者与期刊

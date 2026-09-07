@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/marketing-pages-and-implementation-boundaries
+scholay_topics: ["[[wiki/topics/getting-started/认识平台与能力|认识平台与能力]]"]
+scholay_related: ["[[wiki/pages/getting-started/product-map|全站功能]]", "[[wiki/pages/discovery/paper-detail-and-actions|论文详情与页面动作]]", "[[wiki/pages/research-ai/claw-interface-guide|智能助手界面导览]]", "[[wiki/pages/research-ai/prism-interface-guide|智能写作界面导览]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # 功能页面与元素说明

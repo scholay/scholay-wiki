@@ -1,0 +1,417 @@
+{
+  "version": 2,
+  "description": "内容归属树与常见研究路径；流程是任务示意，不表示必经顺序或新增产品能力。",
+  "categories": {
+    "getting-started": [
+      {
+        "id": "overview",
+        "title": "认识平台与能力",
+        "articles": [
+          "scholay",
+          "product-map",
+          "product-and-pricing-overview",
+          "marketing-pages-and-implementation-boundaries"
+        ]
+      },
+      {
+        "id": "access",
+        "title": "注册与登录",
+        "articles": [
+          "account",
+          "login-methods-guide",
+          "email-phone-authentication",
+          "oauth-wechat-login"
+        ]
+      },
+      {
+        "id": "identity",
+        "title": "绑定与账号合并",
+        "articles": [
+          "account-connections",
+          "oauth-account-merge"
+        ]
+      },
+      {
+        "id": "security",
+        "title": "资料与安全",
+        "articles": [
+          "profile-settings",
+          "account-security-settings"
+        ]
+      },
+      {
+        "id": "updates",
+        "title": "通知与产品进展",
+        "articles": [
+          "notification-center",
+          "roadmap-status"
+        ]
+      }
+    ],
+    "discovery": [
+      {
+        "id": "search",
+        "title": "检索并收集候选",
+        "articles": [
+          "academic-search",
+          "literature-search-guide",
+          "classic-vs-smart-search",
+          "paper-search-sources",
+          "paper-search-filters-and-pages",
+          "staging-area"
+        ]
+      },
+      {
+        "id": "entities",
+        "title": "理解论文与作者",
+        "articles": [
+          "paper",
+          "paper-detail-and-actions",
+          "authors-and-journals",
+          "author-profile-page"
+        ]
+      },
+      {
+        "id": "reading",
+        "title": "阅读比较与引文扩展",
+        "articles": [
+          "pdf-reader",
+          "open-access-and-paper-translation",
+          "matrix-analysis",
+          "literature-graph-status"
+        ]
+      },
+      {
+        "id": "journals",
+        "title": "发现和了解期刊",
+        "articles": [
+          "journal-search-page",
+          "journal-detail-page",
+          "journal-rankings-and-directories"
+        ]
+      },
+      {
+        "id": "metrics",
+        "title": "核对期刊指标与数据",
+        "articles": [
+          "journal-metrics-guide",
+          "journal-update-cycle"
+        ]
+      },
+      {
+        "id": "submission",
+        "title": "选刊与准备投稿",
+        "articles": [
+          "journal-selection-guide",
+          "journal-submission-resources"
+        ]
+      }
+    ],
+    "research-ai": [
+      {
+        "id": "entry",
+        "title": "选择科研工作入口",
+        "articles": [
+          "ai-research-workflows",
+          "search-entry-comparison"
+        ]
+      },
+      {
+        "id": "evidence",
+        "title": "智能检索与证据核验",
+        "articles": [
+          "smart-search",
+          "smart-literature-search-guide",
+          "research-evidence-kernel"
+        ]
+      },
+      {
+        "id": "assistant",
+        "title": "Claw 上下文与任务执行",
+        "articles": [
+          "claw",
+          "claw-interface-guide",
+          "claw-attachments-and-references",
+          "claw-sessions",
+          "claw-stream-tool-states"
+        ]
+      },
+      {
+        "id": "analysis",
+        "title": "分析材料与表达成果",
+        "articles": [
+          "pdf-chat-guide",
+          "research-data-analysis",
+          "stat-lab-method-boundary",
+          "research-figure-and-slides"
+        ]
+      },
+      {
+        "id": "writing",
+        "title": "Prism 写作与工程",
+        "articles": [
+          "prism",
+          "prism-interface-guide",
+          "prism-writing-workflow",
+          "latex-project-guide",
+          "manuscript-vs-publication"
+        ]
+      },
+      {
+        "id": "review",
+        "title": "评审结果与改稿",
+        "articles": [
+          "peer-review",
+          "peer-review-workflow-guide",
+          "peer-review-dimensions-guide",
+          "peer-review-results-guide"
+        ]
+      }
+    ],
+    "knowledge": [
+      {
+        "id": "library",
+        "title": "收集与组织文献",
+        "articles": [
+          "resources-interface-guide",
+          "literature-library",
+          "paper-favorites",
+          "pdf-upload-resolve-and-relink"
+        ]
+      },
+      {
+        "id": "citation",
+        "title": "生成规范引用",
+        "articles": [
+          "citation-generator",
+          "citation-dialog"
+        ]
+      },
+      {
+        "id": "sharing",
+        "title": "分享与协作",
+        "articles": [
+          "library-sharing",
+          "share-cards-and-posters"
+        ]
+      },
+      {
+        "id": "intelligence",
+        "title": "学术情报",
+        "articles": [
+          "research-news",
+          "academic-intelligence-interface-guide"
+        ]
+      },
+      {
+        "id": "tools",
+        "title": "工具与社区技能",
+        "articles": [
+          "feature-tools",
+          "community-skills"
+        ]
+      },
+      {
+        "id": "resources",
+        "title": "公开资源与帮助",
+        "articles": [
+          "resource-and-blog-center",
+          "help-center-and-qa"
+        ]
+      }
+    ],
+    "membership": [
+      {
+        "id": "subscription",
+        "title": "会员权益与订阅周期",
+        "articles": [
+          "membership",
+          "membership-subscription-guide",
+          "subscription-lifecycle"
+        ]
+      },
+      {
+        "id": "payment",
+        "title": "费用与支付",
+        "articles": [
+          "payment-orders",
+          "wallet-payg"
+        ]
+      },
+      {
+        "id": "quota",
+        "title": "额度消耗与恢复",
+        "articles": [
+          "ai-usage-quota",
+          "quota-block-and-recovery"
+        ]
+      },
+      {
+        "id": "campaign",
+        "title": "活动与兑换权益",
+        "articles": [
+          "gift-codes",
+          "promotion-banner"
+        ]
+      },
+      {
+        "id": "referral",
+        "title": "邀请与返利",
+        "articles": [
+          "invite-campaign",
+          "invitation-rebate-guide"
+        ]
+      }
+    ],
+    "mobile": [
+      {
+        "id": "web",
+        "title": "设备分流与移动网页",
+        "articles": [
+          "device-routing",
+          "mobile-web"
+        ]
+      },
+      {
+        "id": "mini-program",
+        "title": "小程序与端间差异",
+        "articles": [
+          "wechat-mini-program",
+          "mini-program-runtime-and-parity"
+        ]
+      },
+      {
+        "id": "feed",
+        "title": "移动发现与阅读",
+        "articles": [
+          "mobile-feed"
+        ]
+      }
+    ],
+    "policies": [
+      {
+        "id": "rules",
+        "title": "使用规则与责任边界",
+        "articles": [
+          "service-policies"
+        ]
+      },
+      {
+        "id": "support",
+        "title": "问题反馈与支持",
+        "articles": [
+          "feedback-and-support"
+        ]
+      }
+    ],
+    "history": [
+      {
+        "id": "legacy",
+        "title": "历史运营与兼容组件",
+        "articles": [
+          "coupon-system-legacy",
+          "task-center-and-checkin",
+          "legacy-components"
+        ]
+      },
+      {
+        "id": "sources",
+        "title": "设计依据与历史内容",
+        "articles": [
+          "design-source-of-truth",
+          "feature-tools-coldstart-governance"
+        ]
+      },
+      {
+        "id": "recovery",
+        "title": "数据备份与恢复依据",
+        "articles": [
+          "backup-and-restore-boundary"
+        ]
+      }
+    ]
+  },
+  "workflow": [
+    {
+      "id": "discover",
+      "title": "发现文献",
+      "navigation": [
+        "literature-search",
+        "intelligence"
+      ]
+    },
+    {
+      "id": "understand",
+      "title": "阅读理解",
+      "articles": [
+        "pdf-reader",
+        "pdf-chat-guide",
+        "matrix-analysis"
+      ]
+    },
+    {
+      "id": "organize",
+      "title": "资料管理",
+      "navigation": [
+        "resources"
+      ],
+      "articles": [
+        "citation-dialog"
+      ]
+    },
+    {
+      "id": "write",
+      "title": "写作表达",
+      "navigation": [
+        "writing"
+      ],
+      "articles": [
+        "research-figure-and-slides"
+      ]
+    },
+    {
+      "id": "review",
+      "title": "评审投稿",
+      "navigation": [
+        "review",
+        "journal-search"
+      ]
+    }
+  ],
+  "support": [
+    {
+      "id": "start",
+      "title": "认识与开始",
+      "navigation": [
+        "overview",
+        "scenarios",
+        "login"
+      ]
+    },
+    {
+      "id": "assistant",
+      "title": "跨阶段科研助手",
+      "navigation": [
+        "assistant"
+      ]
+    },
+    {
+      "id": "membership",
+      "title": "权益与费用",
+      "navigation": [
+        "subscription",
+        "limits",
+        "referrals"
+      ]
+    },
+    {
+      "id": "trust",
+      "title": "规则与产品进展",
+      "navigation": [
+        "terms",
+        "roadmap",
+        "other"
+      ]
+    }
+  ]
+}

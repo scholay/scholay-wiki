@@ -6,6 +6,8 @@ category: mobile
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/wechat-mini-program
+scholay_topics: ["[[wiki/topics/mobile/小程序与端间差异|小程序与端间差异]]"]
+scholay_related: ["[[wiki/pages/mobile/mobile-web|移动 Web]]", "[[wiki/pages/mobile/device-routing|桌面与移动页面分流]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/knowledge/research-news|学术资讯]]", "[[wiki/pages/mobile/mini-program-runtime-and-parity|微信小程序页面、端间差异与内容安全]]"]
 ---
 
 # 微信小程序

@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-09-06T18:02:05+08:00
 canonical: https://www.scholay.com/wiki/literature-search-guide
+scholay_topics: ["[[wiki/topics/discovery/检索并收集候选|检索并收集候选]]"]
+scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/discovery/staging-area|检索暂存区]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]", "[[wiki/pages/discovery/matrix-analysis|论文矩阵分析]]"]
 ---
 
 # 如何使用传统文献搜索

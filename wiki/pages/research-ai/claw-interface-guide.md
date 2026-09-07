@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-09-06T17:40:28+08:00
 canonical: https://www.scholay.com/wiki/claw-interface-guide
+scholay_topics: ["[[wiki/topics/research-ai/Claw 上下文与任务执行|Claw 上下文与任务执行]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/claw-sessions|Claw 会话与历史]]", "[[wiki/pages/research-ai/claw-attachments-and-references|智能助手附件、文库引用与 Skill]]", "[[wiki/pages/research-ai/claw-stream-tool-states|智能助手延迟、发送失败]]"]
 ---
 
 # 智能助手界面导览

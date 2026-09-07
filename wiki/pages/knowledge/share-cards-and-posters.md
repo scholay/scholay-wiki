@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/share-cards-and-posters
+scholay_topics: ["[[wiki/topics/knowledge/分享与协作|分享与协作]]"]
+scholay_related: ["[[wiki/pages/knowledge/library-sharing|文献集分享与接收]]", "[[wiki/pages/discovery/paper-detail-and-actions|论文详情与页面动作]]", "[[wiki/pages/knowledge/feature-tools|功能广场]]"]
 ---
 
 # 分享卡片、短链与海报

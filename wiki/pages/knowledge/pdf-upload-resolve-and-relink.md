@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/pdf-upload-resolve-and-relink
+scholay_topics: ["[[wiki/topics/knowledge/收集与组织文献|收集与组织文献]]"]
+scholay_related: ["[[wiki/pages/knowledge/literature-library|个人文献集]]", "[[wiki/pages/discovery/pdf-reader|PDF 阅读器]]", "[[wiki/pages/knowledge/paper-favorites|论文收藏与取消收藏]]"]
 ---
 
 # PDF 上传、识别与重新关联

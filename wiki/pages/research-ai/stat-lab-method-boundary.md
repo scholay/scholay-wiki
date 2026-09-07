@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/stat-lab-method-boundary
+scholay_topics: ["[[wiki/topics/research-ai/分析材料与表达成果|分析材料与表达成果]]"]
+scholay_related: ["[[wiki/pages/research-ai/research-data-analysis|AI 数据分析]]"]
 ---
 
 # Stat Lab 方法与复核边界

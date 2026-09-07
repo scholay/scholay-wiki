@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/research-data-analysis
+scholay_topics: ["[[wiki/topics/research-ai/分析材料与表达成果|分析材料与表达成果]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # AI 数据分析

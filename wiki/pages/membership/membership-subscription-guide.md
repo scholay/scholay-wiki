@@ -6,6 +6,8 @@ category: membership
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/membership-subscription-guide
+scholay_topics: ["[[wiki/topics/membership/会员权益与订阅周期|会员权益与订阅周期]]"]
+scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/subscription-lifecycle|会员购买、升级与续费规则]]", "[[wiki/pages/membership/payment-orders|支付与订单]]", "[[wiki/pages/membership/promotion-banner|站内推广活动]]", "[[wiki/pages/membership/invite-campaign|邀请有礼]]"]
 ---
 
 # 会员订阅与支付指南

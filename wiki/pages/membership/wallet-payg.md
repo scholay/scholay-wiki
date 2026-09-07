@@ -6,6 +6,8 @@ category: membership
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/wallet-payg
+scholay_topics: ["[[wiki/topics/membership/费用与支付|费用与支付]]"]
+scholay_related: ["[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/payment-orders|支付与订单]]", "[[wiki/pages/membership/invite-campaign|邀请有礼]]"]
 ---
 
 # 经费钱包与按量付费

@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/peer-review
+scholay_topics: ["[[wiki/topics/research-ai/评审结果与改稿|评审结果与改稿]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]"]
 ---
 
 # 智能审稿

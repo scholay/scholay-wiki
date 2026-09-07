@@ -6,6 +6,8 @@ category: mobile
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/mini-program-runtime-and-parity
+scholay_topics: ["[[wiki/topics/mobile/小程序与端间差异|小程序与端间差异]]"]
+scholay_related: ["[[wiki/pages/mobile/wechat-mini-program|微信小程序]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/knowledge/feature-tools|功能广场]]"]
 ---
 
 # 微信小程序页面、端间差异与内容安全

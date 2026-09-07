@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/email-phone-authentication
+scholay_topics: ["[[wiki/topics/getting-started/注册与登录|注册与登录]]"]
+scholay_related: ["[[wiki/pages/getting-started/account|Scholay 账户]]", "[[wiki/pages/getting-started/oauth-wechat-login|OAuth 与微信扫码登录]]", "[[wiki/pages/getting-started/account-security-settings|密码、邮箱与手机号安全设置]]"]
 ---
 
 # 邮箱与手机号注册、登录和找回密码

@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/classic-vs-smart-search
+scholay_topics: ["[[wiki/topics/discovery/检索并收集候选|检索并收集候选]]"]
+scholay_related: ["[[wiki/pages/research-ai/search-entry-comparison|智能助手 vs 智能搜索]]", "[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/discovery/literature-search-guide|如何使用传统文献搜索]]", "[[wiki/pages/research-ai/smart-literature-search-guide|如何使用智能文献搜索]]"]
 ---
 
 # 传统搜索 vs 智能搜索

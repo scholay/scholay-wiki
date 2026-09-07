@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/pdf-chat-guide
+scholay_topics: ["[[wiki/topics/research-ai/分析材料与表达成果|分析材料与表达成果]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/claw-attachments-and-references|智能助手附件、文库引用与 Skill]]", "[[wiki/pages/discovery/pdf-reader|PDF 阅读器]]", "[[wiki/pages/knowledge/literature-library|个人文献集]]"]
 ---
 
 # 如何与 PDF 对话

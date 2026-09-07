@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/notification-center
+scholay_topics: ["[[wiki/topics/getting-started/通知与产品进展|通知与产品进展]]"]
+scholay_related: ["[[wiki/pages/getting-started/account|Scholay 账户]]", "[[wiki/pages/membership/promotion-banner|站内推广活动]]"]
 ---
 
 # 站内通知中心

@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/help-center-and-qa
+scholay_topics: ["[[wiki/topics/knowledge/公开资源与帮助|公开资源与帮助]]"]
+scholay_related: ["[[wiki/pages/policies/feedback-and-support|反馈与支持]]", "[[wiki/pages/knowledge/resource-and-blog-center|学术资源中心与产品博客]]", "[[wiki/pages/policies/service-policies|服务政策与 AI 使用边界]]"]
 ---
 
 # 帮助中心与学术问答

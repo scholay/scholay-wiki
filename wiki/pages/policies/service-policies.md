@@ -6,6 +6,8 @@ category: policies
 status: current
 updated: 2026-09-06T17:22:07+08:00
 canonical: https://www.scholay.com/wiki/service-policies
+scholay_topics: ["[[wiki/topics/policies/使用规则与责任边界|使用规则与责任边界]]"]
+scholay_related: ["[[wiki/pages/getting-started/scholay|Scholay]]", "[[wiki/pages/getting-started/account|Scholay 账户]]", "[[wiki/pages/policies/feedback-and-support|反馈与支持]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # 服务政策与 AI 使用边界

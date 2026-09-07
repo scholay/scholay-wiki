@@ -1,3 +1,3 @@
 #!/bin/zsh
 cd "$(dirname "$0")"
-python3 tools/wiki/sync.py watch
+exec ./打开内容工作台.command

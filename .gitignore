@@ -7,3 +7,7 @@ __pycache__/
 .obsidian/cache/
 wiki/*.pending.xmind
 *.tmp
+
+.obsidian/plugins/
+node_modules/
+tools/workbench/dist/

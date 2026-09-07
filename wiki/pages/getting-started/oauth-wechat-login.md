@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/oauth-wechat-login
+scholay_topics: ["[[wiki/topics/getting-started/注册与登录|注册与登录]]"]
+scholay_related: ["[[wiki/pages/getting-started/email-phone-authentication|邮箱与手机号注册、登录和找回密码]]", "[[wiki/pages/getting-started/oauth-account-merge|OAuth 邮箱冲突与账号合并]]", "[[wiki/pages/getting-started/account-connections|第三方账号连接与解绑]]"]
 ---
 
 # OAuth 与微信扫码登录

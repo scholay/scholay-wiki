@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/library-sharing
+scholay_topics: ["[[wiki/topics/knowledge/分享与协作|分享与协作]]"]
+scholay_related: ["[[wiki/pages/knowledge/literature-library|个人文献集]]", "[[wiki/pages/discovery/paper|论文]]"]
 ---
 
 # 文献集分享与接收

@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/account-security-settings
+scholay_topics: ["[[wiki/topics/getting-started/资料与安全|资料与安全]]"]
+scholay_related: ["[[wiki/pages/getting-started/email-phone-authentication|邮箱与手机号注册、登录和找回密码]]", "[[wiki/pages/getting-started/account-connections|第三方账号连接与解绑]]", "[[wiki/pages/getting-started/profile-settings|个人资料设置]]"]
 ---
 
 # 密码、邮箱与手机号安全设置

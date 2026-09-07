@@ -6,6 +6,8 @@ category: history
 status: compatibility
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/feature-tools-coldstart-governance
+scholay_topics: ["[[wiki/topics/history/设计依据与历史内容|设计依据与历史内容]]"]
+scholay_related: ["[[wiki/pages/knowledge/feature-tools|功能广场]]", "[[wiki/pages/policies/service-policies|服务政策与 AI 使用边界]]"]
 ---
 
 # 功能广场冷启动包与下载治理

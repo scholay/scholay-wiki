@@ -6,6 +6,8 @@ category: research-ai
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/prism-writing-workflow
+scholay_topics: ["[[wiki/topics/research-ai/Prism 写作与工程|Prism 写作与工程]]"]
+scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/prism-interface-guide|智能写作界面导览]]", "[[wiki/pages/research-ai/latex-project-guide|什么是 LaTeX 工程]]", "[[wiki/pages/knowledge/citation-dialog|引用弹窗与默认格式]]"]
 ---
 
 # 怎样完成一次智能写作

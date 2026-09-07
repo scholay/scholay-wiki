@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/account
+scholay_topics: ["[[wiki/topics/getting-started/注册与登录|注册与登录]]"]
+scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/mobile/wechat-mini-program|微信小程序]]", "[[wiki/pages/getting-started/login-methods-guide|登录方式指南]]", "[[wiki/pages/getting-started/notification-center|站内通知中心]]"]
 ---
 
 # Scholay 账户

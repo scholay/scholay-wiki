@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/research-news
+scholay_topics: ["[[wiki/topics/knowledge/学术情报|学术情报]]"]
+scholay_related: ["[[wiki/pages/getting-started/product-map|全站功能]]", "[[wiki/pages/mobile/wechat-mini-program|微信小程序]]"]
 ---
 
 # 学术资讯

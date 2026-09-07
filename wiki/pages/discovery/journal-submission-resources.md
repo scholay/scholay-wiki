@@ -6,6 +6,8 @@ category: discovery
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/journal-submission-resources
+scholay_topics: ["[[wiki/topics/discovery/选刊与准备投稿|选刊与准备投稿]]"]
+scholay_related: ["[[wiki/pages/discovery/journal-detail-page|期刊详情页]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]"]
 ---
 
 # 期刊投稿资源下载

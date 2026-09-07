@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/feature-tools
+scholay_topics: ["[[wiki/topics/knowledge/工具与社区技能|工具与社区技能]]"]
+scholay_related: ["[[wiki/pages/knowledge/community-skills|社区技能]]", "[[wiki/pages/mobile/mobile-web|移动 Web]]", "[[wiki/pages/knowledge/resources-interface-guide|资源界面指南]]", "[[wiki/pages/history/feature-tools-coldstart-governance|功能广场冷启动包与下载治理]]"]
 ---
 
 # 功能广场

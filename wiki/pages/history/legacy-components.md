@@ -6,6 +6,8 @@ category: history
 status: compatibility
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/legacy-components
+scholay_topics: ["[[wiki/topics/history/历史运营与兼容组件|历史运营与兼容组件]]"]
+scholay_related: ["[[wiki/pages/history/task-center-and-checkin|任务中心与签到]]"]
 ---
 
 # 已下线与兼容组件

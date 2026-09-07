@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/academic-intelligence-interface-guide
+scholay_topics: ["[[wiki/topics/knowledge/学术情报|学术情报]]"]
+scholay_related: ["[[wiki/pages/knowledge/research-news|学术资讯]]", "[[wiki/pages/mobile/mobile-feed|移动 Feed：论文、期刊与情报]]", "[[wiki/pages/knowledge/resource-and-blog-center|学术资源中心与产品博客]]"]
 ---
 
 # 学术情报界面导览

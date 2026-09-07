@@ -6,6 +6,8 @@ category: policies
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/feedback-and-support
+scholay_topics: ["[[wiki/topics/policies/问题反馈与支持|问题反馈与支持]]"]
+scholay_related: ["[[wiki/pages/policies/service-policies|服务政策与 AI 使用边界]]", "[[wiki/pages/getting-started/scholay|Scholay]]"]
 ---
 
 # 反馈与支持

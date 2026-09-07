@@ -6,6 +6,8 @@ category: knowledge
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/resources-interface-guide
+scholay_topics: ["[[wiki/topics/knowledge/收集与组织文献|收集与组织文献]]"]
+scholay_related: ["[[wiki/pages/knowledge/literature-library|个人文献集]]", "[[wiki/pages/knowledge/library-sharing|文献集分享与接收]]", "[[wiki/pages/knowledge/feature-tools|功能广场]]", "[[wiki/pages/knowledge/community-skills|社区技能]]", "[[wiki/pages/knowledge/resource-and-blog-center|学术资源中心与产品博客]]"]
 ---
 
 # 资源界面指南

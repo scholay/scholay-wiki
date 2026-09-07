@@ -4,7 +4,7 @@
   <a href="#中文">中文</a>
 </p>
 
-> 内容维护入口：[开始](wiki/开始.md) · [线上导航](wiki/导航.md) · [词条索引](wiki/索引.md)。本地 Markdown 为长期底稿，XMind 为编辑视图，GitHub Wiki 为后续同步镜像。
+> 内容维护入口：[开始](wiki/开始.md) · [线上导航](wiki/导航.md) · [词条索引](wiki/索引.md)。本地 Markdown 为长期底稿，Excalidraw 为可视化编辑视图，GitHub Wiki 为后续同步镜像。
 
 <a id="english"></a>
 

@@ -6,6 +6,8 @@ category: history
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/design-source-of-truth
+scholay_topics: ["[[wiki/topics/history/设计依据与历史内容|设计依据与历史内容]]"]
+scholay_related: ["[[wiki/pages/getting-started/product-map|全站功能]]", "[[wiki/pages/mobile/device-routing|桌面与移动页面分流]]"]
 ---
 
 # 设计依据与历史交互资料

@@ -6,6 +6,8 @@ category: getting-started
 status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/product-and-pricing-overview
+scholay_topics: ["[[wiki/topics/getting-started/认识平台与能力|认识平台与能力]]"]
+scholay_related: ["[[wiki/pages/getting-started/product-map|全站功能]]", "[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
 ---
 
 # 产品与套餐总览

@@ -6,6 +6,8 @@ category: research-ai
 status: experimental
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/research-evidence-kernel
+scholay_topics: ["[[wiki/topics/research-ai/智能检索与证据核验|智能检索与证据核验]]"]
+scholay_related: ["[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/discovery/paper|论文]]"]
 ---
 
 # 研究证据内核与声明核验
