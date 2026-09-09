@@ -48,7 +48,7 @@ c981268c: [[wiki/pages/getting-started/product-and-pricing-overview.md]]
 d85ccc53: [[wiki/pages/getting-started/product-and-pricing-overview.md]]
 23554b3c: [[wiki/pages/getting-started/product-and-pricing-overview.md]]
 a5ec2306: [[wiki/pages/getting-started/product-and-pricing-overview.md]]
-67efa667: [[wiki/pages/getting-started/product-map.md]]
+67efa667: [[wiki/pages/getting-started/scholay.md]]
 3e163783: [[wiki/pages/research-ai/claw.md]]
 4263bca2: [[wiki/pages/discovery/academic-search.md]]
 860e9c70: [[wiki/pages/discovery/journal-search-page.md]]
@@ -1574,7 +1574,7 @@ ecc08015: [[wiki/pages/getting-started/marketing-pages-and-implementation-bounda
         "type": 3
       },
       "seed": 1743758951,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1628,18 +1628,18 @@ ecc08015: [[wiki/pages/getting-started/marketing-pages-and-implementation-bounda
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/getting-started/product-map.md]]",
+      "link": "[[wiki/pages/getting-started/scholay.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:overview:nav:overview-features",
           "owned": {
-            "link": "[[wiki/pages/getting-started/product-map.md]]"
+            "link": "[[wiki/pages/getting-started/scholay.md]]"
           },
           "layoutVersion": 2,
           "role": "group",
           "branch": "nav:overview-features",
-          "articleSlug": "product-map",
+          "articleSlug": "scholay",
           "focusTitle": "全站功能",
           "parent": "d59f2386"
         }
@@ -2534,7 +2534,7 @@ ecc08015: [[wiki/pages/getting-started/marketing-pages-and-implementation-bounda
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:overview-features",
-          "articleSlug": "product-map"
+          "articleSlug": "scholay"
         }
       }
     },

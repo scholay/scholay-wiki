@@ -38,10 +38,10 @@ LaTeX 的好处 ^ce90bbec
 21b1575c: [[wiki/pages/research-ai/manuscript-vs-publication.md]]
 884cde37: [[wiki/pages/knowledge/citation-generator.md]]
 4a429751: [[wiki/pages/knowledge/citation-dialog.md]]
-a4d851c3: [[wiki/pages/research-ai/prism-interface-guide.md]]
-7ccabd71: [[wiki/pages/research-ai/latex-project-guide.md]]
-dd47389f: [[wiki/pages/research-ai/latex-project-guide.md]]
-c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
+a4d851c3: [[wiki/pages/research-ai/prism.md]]
+7ccabd71: [[wiki/pages/research-ai/prism-writing-workflow.md]]
+dd47389f: [[wiki/pages/research-ai/prism-writing-workflow.md]]
+c3731901: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 5f8a8a9b: [[wiki/pages/discovery/journal-submission-resources.md]]
 5bd50fac: [[wiki/boards/Scholay.excalidraw.md]]
 
@@ -1260,7 +1260,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         "type": 3
       },
       "seed": 618156484,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1274,18 +1274,18 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/prism-interface-guide.md]]",
+      "link": "[[wiki/pages/research-ai/prism.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:writing:nav:writing-interface",
           "owned": {
-            "link": "[[wiki/pages/research-ai/prism-interface-guide.md]]"
+            "link": "[[wiki/pages/research-ai/prism.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:writing-interface",
-          "articleSlug": "prism-interface-guide",
+          "articleSlug": "prism",
           "focusTitle": "界面介绍",
           "parent": "8dd5b582"
         }
@@ -1314,7 +1314,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         "type": 3
       },
       "seed": 2093661553,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1340,18 +1340,18 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/latex-project-guide.md]]",
+      "link": "[[wiki/pages/research-ai/prism-writing-workflow.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:writing:nav:writing-latex-project",
           "owned": {
-            "link": "[[wiki/pages/research-ai/latex-project-guide.md]]"
+            "link": "[[wiki/pages/research-ai/prism-writing-workflow.md]]"
           },
           "layoutVersion": 2,
           "role": "group",
           "branch": "nav:writing-latex-project",
-          "articleSlug": "latex-project-guide",
+          "articleSlug": "prism-writing-workflow",
           "focusTitle": "什么是 LaTeX 工程",
           "parent": "8dd5b582"
         }
@@ -1380,7 +1380,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         "type": 3
       },
       "seed": 1564948640,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1394,18 +1394,18 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/latex-project-guide.md]]",
+      "link": "[[wiki/pages/research-ai/prism-writing-workflow.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:writing:nav:writing-prism-latex",
           "owned": {
-            "link": "[[wiki/pages/research-ai/latex-project-guide.md]]"
+            "link": "[[wiki/pages/research-ai/prism-writing-workflow.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:writing-latex-project",
-          "articleSlug": "latex-project-guide",
+          "articleSlug": "prism-writing-workflow",
           "parent": "7ccabd71"
         }
       }
@@ -1433,7 +1433,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         "type": 3
       },
       "seed": 1131616514,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1447,18 +1447,18 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/latex-project-guide.md]]",
+      "link": "[[wiki/pages/research-ai/prism-writing-workflow.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:writing:nav:writing-latex-benefits",
           "owned": {
-            "link": "[[wiki/pages/research-ai/latex-project-guide.md]]"
+            "link": "[[wiki/pages/research-ai/prism-writing-workflow.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:writing-latex-project",
-          "articleSlug": "latex-project-guide",
+          "articleSlug": "prism-writing-workflow",
           "parent": "7ccabd71"
         }
       }
@@ -1926,7 +1926,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:writing-interface",
-          "articleSlug": "prism-interface-guide"
+          "articleSlug": "prism"
         }
       }
     },
@@ -1978,7 +1978,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:writing-latex-project",
-          "articleSlug": "latex-project-guide"
+          "articleSlug": "prism-writing-workflow"
         }
       }
     },
@@ -2030,7 +2030,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:writing-latex-project",
-          "articleSlug": "latex-project-guide"
+          "articleSlug": "prism-writing-workflow"
         }
       }
     },
@@ -2082,7 +2082,7 @@ c3731901: [[wiki/pages/research-ai/latex-project-guide.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:writing-latex-project",
-          "articleSlug": "latex-project-guide"
+          "articleSlug": "prism-writing-workflow"
         }
       }
     },

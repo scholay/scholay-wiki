@@ -1,33 +1,14 @@
 ---
 title: 什么是 LaTeX 工程
 slug: latex-project-guide
-summary: 理解 LaTeX 工程的组成和优势，以及 Prism、内置模板与期刊模板下载之间的真实关系。
+summary: 已并入「怎样完成一次智能写作」。
 category: research-ai
-status: current
-updated: 2026-08-27T22:11:14+08:00
+status: merged
+merged_into: prism-writing-workflow
+updated: 2026-09-09T11:23:00+08:00
 canonical: https://www.scholay.com/wiki/latex-project-guide
-scholay_topics: ["[[wiki/topics/research-ai/Prism 写作与工程|Prism 写作与工程]]"]
-scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/prism-interface-guide|智能写作界面导览]]", "[[wiki/pages/research-ai/prism-writing-workflow|怎样完成一次智能写作]]", "[[wiki/pages/discovery/journal-submission-resources|期刊投稿资源下载]]"]
 ---
 
 # 什么是 LaTeX 工程
 
-## LaTeX 工程包含什么
-
-传统 LaTeX 工程不只是一个 PDF，通常由正文源文件、文档类或样式、参考文献数据库、图片等素材共同组成，再由编译器生成最终版面。源内容、引用和素材之间存在路径与标识关系，所以移动、缺失或改名其中一项都可能导致编译失败。PDF 是一次编译产物，不是工程本身。
-
-## LaTeX 的主要好处
-
-LaTeX 适合长篇学术文档：内容与排版规则相对分离，公式、编号、交叉引用和参考文献可以统一管理，同一份内容也能按模板重新排版。它的代价是编译链更严格，类文件、宏包、引用条目和特殊字符都可能产生错误；因此“格式自动化”并不等于“无需检查”。
-
-## Prism 与 LaTeX 的关系
-
-Prism 新项目会分别保存标题、正文、引用和素材，再自动生成 LaTeX 并编译 PDF。你可以在所见即所得界面中写作，同时使用目标模板、公式和引用。较早创建的纯 LaTeX 文件项目目前以只读方式保留，不能按旧方式继续编辑任意文件。
-
-## 从期刊详情下载模板
-
-部分期刊详情会显示“投稿须知”或“LaTeX 模板”，只有确实存在相应资源时才会出现。LaTeX 模板以 `.zip` 压缩包提供，并受 Max 会员权限控制。下载压缩包不会自动导入 Prism，也不会自动把当前稿件变成符合该期刊要求的投稿文件。
-
-## 交付前的边界
-
-Prism 的模板列表由后端当前配置提供，期刊下载资源则来自期刊数据源，两者可能在版本和覆盖面上不同。投稿前应以目标期刊当时发布的作者指南、类文件版本和必交材料为准，并逐项核对 PDF、源文件、参考文献、图片授权和补充材料。
+本篇已并入 [怎样完成一次智能写作](prism-writing-workflow.md)。

@@ -12,7 +12,7 @@ def property_block(topics,related):
 
 def plan(root=ROOT):
     root=pathlib.Path(root);c=json.loads((root/'wiki/catalog.json').read_text());g=wiki.graph_module();s=g.structure(c,root/'wiki/structure.json')
-    by={a['slug']:a for a in c['articles']};pending={};snapshots={};missing=[];relations=0;topic_by_article={}
+    by={a['slug']:a for a in c['articles'] if a.get('status')!='merged'};pending={};snapshots={};missing=[];relations=0;topic_by_article={}
     statepath=root/'.local/graph-links/state.json'
     state=json.loads(statepath.read_text()) if statepath.exists() else {'properties':{},'topics':{}}
     nextstate={'properties':{},'topics':{}}
@@ -35,6 +35,7 @@ def plan(root=ROOT):
         topic(root/category_path,cat['title'],'\n'.join('- '+v for v in group_links),cat['slug'])
     topic(root/'wiki/topics/Scholay 内容结构.md','Scholay 内容结构','\n'.join('- '+v for v in category_links))
     for a in c['articles']:
+        if a.get('status')=='merged':continue
         path=root/a['path'];raw=path.read_bytes();text=raw.decode();fm,body=wiki.split(text)
         related=[]
         for slug in dict.fromkeys(a.get('related',[])):

@@ -22,8 +22,6 @@ PDF 上传、识别与重新关联 ^3c3617dc
 
 学术资讯 ^06279b1c
 
-学术情报界面导览 ^d59d49c8
-
 公开资源与帮助 ^d87ab5b6
 
 学术资源中心与产品博客 ^c14dc3c6
@@ -56,7 +54,6 @@ PDF 上传、识别与重新关联 ^3c3617dc
 b0aa4693: [[wiki/pages/knowledge/paper-favorites.md]]
 ba775a6f: [[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]
 f6ffdc01: [[wiki/pages/knowledge/research-news.md]]
-81c76ba0: [[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]
 630fdc9b: [[wiki/pages/knowledge/resource-and-blog-center.md]]
 b0b6c5af: [[wiki/pages/knowledge/help-center-and-qa.md]]
 c31637da: [[wiki/pages/knowledge/citation-generator.md]]
@@ -76,1386 +73,12 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
   "source": "https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.27.3",
   "elements": [
     {
-      "id": "16c7aa72",
-      "type": "text",
-      "x": 0,
-      "y": 0,
-      "width": 180,
-      "height": 45,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 382184050,
-      "version": 3,
-      "versionNonce": 1281658367,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": null,
-      "locked": false,
-      "text": "知识与内容",
-      "originalText": "知识与内容",
-      "fontSize": 36,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "knowledge:title",
-          "owned": {
-            "text": "知识与内容",
-            "originalText": "知识与内容",
-            "link": null
-          }
-        }
-      },
-      "rawText": "知识与内容",
-      "hasTextLink": false,
-      "index": "a0",
-      "labelPosition": null
-    },
-    {
-      "id": "54bbbbc0",
-      "type": "text",
-      "x": 0,
-      "y": 65,
-      "width": 524.00390625,
-      "height": 22.5,
-      "angle": 0,
-      "strokeColor": "#343a40",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1421589440,
-      "version": 3,
-      "versionNonce": 74618225,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/boards/Scholay.excalidraw.md]]",
-      "locked": false,
-      "text": "← 返回总导航 · 点击卡片内正文编辑，所有改动直接保存在原词条",
-      "originalText": "← 返回总导航 · 点击卡片内正文编辑，所有改动直接保存在原词条",
-      "fontSize": 18,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "knowledge:home",
-          "owned": {
-            "text": "← 返回总导航 · 点击卡片内正文编辑，所有改动直接保存在原词条",
-            "originalText": "← 返回总导航 · 点击卡片内正文编辑，所有改动直接保存在原词条",
-            "link": "[[wiki/boards/Scholay.excalidraw.md]]"
-          }
-        }
-      },
-      "rawText": "← 返回总导航 · 点击卡片内正文编辑，所有改动直接保存在原词条",
-      "hasTextLink": false,
-      "index": "a1",
-      "labelPosition": null
-    },
-    {
-      "id": "653e7d38",
-      "type": "text",
-      "x": 0,
-      "y": 150,
-      "width": 176,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1698594104,
-      "version": 3,
-      "versionNonce": 566261279,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]",
-      "locked": false,
-      "text": "学术情报界面导览",
-      "originalText": "学术情报界面导览",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:academic-intelligence-interface-guide",
-          "owned": {
-            "text": "学术情报界面导览",
-            "originalText": "学术情报界面导览",
-            "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]"
-          }
-        }
-      },
-      "rawText": "学术情报界面导览",
-      "hasTextLink": false,
-      "index": "a2",
-      "labelPosition": null
-    },
-    {
-      "id": "0f59ea06",
-      "type": "embeddable",
-      "x": 0,
-      "y": 195,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 257550854,
-      "version": 4,
-      "versionNonce": 826326865,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:academic-intelligence-interface-guide",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]"
-          }
-        }
-      },
-      "index": "a3",
-      "hasTextLink": false
-    },
-    {
-      "id": "f9644e50",
-      "type": "text",
-      "x": 640,
-      "y": 150,
-      "width": 198,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 2036616785,
-      "version": 3,
-      "versionNonce": 262822463,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/citation-dialog.md]]",
-      "locked": false,
-      "text": "引用弹窗与默认格式",
-      "originalText": "引用弹窗与默认格式",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:citation-dialog",
-          "owned": {
-            "text": "引用弹窗与默认格式",
-            "originalText": "引用弹窗与默认格式",
-            "link": "[[wiki/pages/knowledge/citation-dialog.md]]"
-          }
-        }
-      },
-      "rawText": "引用弹窗与默认格式",
-      "hasTextLink": false,
-      "index": "a4",
-      "labelPosition": null
-    },
-    {
-      "id": "30187ca8",
-      "type": "embeddable",
-      "x": 640,
-      "y": 195,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 806911144,
-      "version": 4,
-      "versionNonce": 1517202737,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/citation-dialog.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:citation-dialog",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/citation-dialog.md]]"
-          }
-        }
-      },
-      "index": "a5",
-      "hasTextLink": false
-    },
-    {
-      "id": "74bbccc3",
-      "type": "text",
-      "x": 1280,
-      "y": 150,
-      "width": 110,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1958464707,
-      "version": 3,
-      "versionNonce": 1258469983,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/citation-generator.md]]",
-      "locked": false,
-      "text": "引用生成器",
-      "originalText": "引用生成器",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:citation-generator",
-          "owned": {
-            "text": "引用生成器",
-            "originalText": "引用生成器",
-            "link": "[[wiki/pages/knowledge/citation-generator.md]]"
-          }
-        }
-      },
-      "rawText": "引用生成器",
-      "hasTextLink": false,
-      "index": "a6",
-      "labelPosition": null
-    },
-    {
-      "id": "8dc089b6",
-      "type": "embeddable",
-      "x": 1280,
-      "y": 195,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 230721975,
-      "version": 4,
-      "versionNonce": 1734598417,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/citation-generator.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:citation-generator",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/citation-generator.md]]"
-          }
-        }
-      },
-      "index": "a7",
-      "hasTextLink": false
-    },
-    {
-      "id": "c903267e",
-      "type": "text",
-      "x": 0,
-      "y": 740,
-      "width": 88,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1224943231,
-      "version": 3,
-      "versionNonce": 412751487,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/community-skills.md]]",
-      "locked": false,
-      "text": "社区技能",
-      "originalText": "社区技能",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:community-skills",
-          "owned": {
-            "text": "社区技能",
-            "originalText": "社区技能",
-            "link": "[[wiki/pages/knowledge/community-skills.md]]"
-          }
-        }
-      },
-      "rawText": "社区技能",
-      "hasTextLink": false,
-      "index": "a8",
-      "labelPosition": null
-    },
-    {
-      "id": "48fd9b2c",
-      "type": "embeddable",
-      "x": 0,
-      "y": 785,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1224579884,
-      "version": 4,
-      "versionNonce": 1721226481,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/community-skills.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:community-skills",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/community-skills.md]]"
-          }
-        }
-      },
-      "index": "a9",
-      "hasTextLink": false
-    },
-    {
-      "id": "c97999fb",
-      "type": "text",
-      "x": 640,
-      "y": 740,
-      "width": 88,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1232706044,
-      "version": 3,
-      "versionNonce": 1328606879,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/feature-tools.md]]",
-      "locked": false,
-      "text": "功能广场",
-      "originalText": "功能广场",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:feature-tools",
-          "owned": {
-            "text": "功能广场",
-            "originalText": "功能广场",
-            "link": "[[wiki/pages/knowledge/feature-tools.md]]"
-          }
-        }
-      },
-      "rawText": "功能广场",
-      "hasTextLink": false,
-      "index": "aA",
-      "labelPosition": null
-    },
-    {
-      "id": "04c1768a",
-      "type": "embeddable",
-      "x": 640,
-      "y": 785,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 79787658,
-      "version": 4,
-      "versionNonce": 730992337,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/feature-tools.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:feature-tools",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/feature-tools.md]]"
-          }
-        }
-      },
-      "index": "aB",
-      "hasTextLink": false
-    },
-    {
-      "id": "42dcb49f",
-      "type": "text",
-      "x": 1280,
-      "y": 740,
-      "width": 198,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1121760415,
-      "version": 3,
-      "versionNonce": 427279039,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]",
-      "locked": false,
-      "text": "帮助中心与学术问答",
-      "originalText": "帮助中心与学术问答",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:help-center-and-qa",
-          "owned": {
-            "text": "帮助中心与学术问答",
-            "originalText": "帮助中心与学术问答",
-            "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]"
-          }
-        }
-      },
-      "rawText": "帮助中心与学术问答",
-      "hasTextLink": false,
-      "index": "aC",
-      "labelPosition": null
-    },
-    {
-      "id": "4c42fd73",
-      "type": "embeddable",
-      "x": 1280,
-      "y": 785,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1279458675,
-      "version": 4,
-      "versionNonce": 753536177,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:help-center-and-qa",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]"
-          }
-        }
-      },
-      "index": "aD",
-      "hasTextLink": false
-    },
-    {
-      "id": "342ca5b3",
-      "type": "text",
-      "x": 0,
-      "y": 1330,
-      "width": 176,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 875341235,
-      "version": 3,
-      "versionNonce": 2014253791,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/library-sharing.md]]",
-      "locked": false,
-      "text": "文献集分享与接收",
-      "originalText": "文献集分享与接收",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:library-sharing",
-          "owned": {
-            "text": "文献集分享与接收",
-            "originalText": "文献集分享与接收",
-            "link": "[[wiki/pages/knowledge/library-sharing.md]]"
-          }
-        }
-      },
-      "rawText": "文献集分享与接收",
-      "hasTextLink": false,
-      "index": "aE",
-      "labelPosition": null
-    },
-    {
-      "id": "d0883af2",
-      "type": "embeddable",
-      "x": 0,
-      "y": 1375,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1351105267,
-      "version": 4,
-      "versionNonce": 575098513,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/library-sharing.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:library-sharing",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/library-sharing.md]]"
-          }
-        }
-      },
-      "index": "aF",
-      "hasTextLink": false
-    },
-    {
-      "id": "49674bcb",
-      "type": "text",
-      "x": 640,
-      "y": 1330,
-      "width": 110,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1231506379,
-      "version": 3,
-      "versionNonce": 59203327,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/literature-library.md]]",
-      "locked": false,
-      "text": "个人文献集",
-      "originalText": "个人文献集",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:literature-library",
-          "owned": {
-            "text": "个人文献集",
-            "originalText": "个人文献集",
-            "link": "[[wiki/pages/knowledge/literature-library.md]]"
-          }
-        }
-      },
-      "rawText": "个人文献集",
-      "hasTextLink": false,
-      "index": "aG",
-      "labelPosition": null
-    },
-    {
-      "id": "8e0a5ae9",
-      "type": "embeddable",
-      "x": 640,
-      "y": 1375,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 235559658,
-      "version": 4,
-      "versionNonce": 1650545777,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/literature-library.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:literature-library",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/literature-library.md]]"
-          }
-        }
-      },
-      "index": "aH",
-      "hasTextLink": false
-    },
-    {
-      "id": "012ae59f",
-      "type": "text",
-      "x": 1280,
-      "y": 1330,
-      "width": 198,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 19588511,
-      "version": 3,
-      "versionNonce": 1851860767,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/paper-favorites.md]]",
-      "locked": false,
-      "text": "论文收藏与取消收藏",
-      "originalText": "论文收藏与取消收藏",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:paper-favorites",
-          "owned": {
-            "text": "论文收藏与取消收藏",
-            "originalText": "论文收藏与取消收藏",
-            "link": "[[wiki/pages/knowledge/paper-favorites.md]]"
-          }
-        }
-      },
-      "rawText": "论文收藏与取消收藏",
-      "hasTextLink": false,
-      "index": "aI",
-      "labelPosition": null
-    },
-    {
-      "id": "5cd75667",
-      "type": "embeddable",
-      "x": 1280,
-      "y": 1375,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1557616231,
-      "version": 4,
-      "versionNonce": 16752209,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/paper-favorites.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:paper-favorites",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/paper-favorites.md]]"
-          }
-        }
-      },
-      "index": "aJ",
-      "hasTextLink": false
-    },
-    {
-      "id": "55b79d2f",
-      "type": "text",
-      "x": 0,
-      "y": 1920,
-      "width": 270.1123046875,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1438096687,
-      "version": 3,
-      "versionNonce": 1192028991,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]",
-      "locked": false,
-      "text": "PDF 上传、识别与重新关联",
-      "originalText": "PDF 上传、识别与重新关联",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:pdf-upload-resolve-and-relink",
-          "owned": {
-            "text": "PDF 上传、识别与重新关联",
-            "originalText": "PDF 上传、识别与重新关联",
-            "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]"
-          }
-        }
-      },
-      "rawText": "PDF 上传、识别与重新关联",
-      "hasTextLink": false,
-      "index": "aK",
-      "labelPosition": null
-    },
-    {
-      "id": "c581ec6d",
-      "type": "embeddable",
-      "x": 0,
-      "y": 1965,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1166142574,
-      "version": 4,
-      "versionNonce": 754560049,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:pdf-upload-resolve-and-relink",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]"
-          }
-        }
-      },
-      "index": "aL",
-      "hasTextLink": false
-    },
-    {
-      "id": "921d6433",
-      "type": "text",
-      "x": 640,
-      "y": 1920,
-      "width": 88,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 303916084,
-      "version": 3,
-      "versionNonce": 2045455199,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/research-news.md]]",
-      "locked": false,
-      "text": "学术资讯",
-      "originalText": "学术资讯",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:research-news",
-          "owned": {
-            "text": "学术资讯",
-            "originalText": "学术资讯",
-            "link": "[[wiki/pages/knowledge/research-news.md]]"
-          }
-        }
-      },
-      "rawText": "学术资讯",
-      "hasTextLink": false,
-      "index": "aM",
-      "labelPosition": null
-    },
-    {
-      "id": "016224a6",
-      "type": "embeddable",
-      "x": 640,
-      "y": 1965,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 23209126,
-      "version": 4,
-      "versionNonce": 1312226833,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/research-news.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:research-news",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/research-news.md]]"
-          }
-        }
-      },
-      "index": "aN",
-      "hasTextLink": false
-    },
-    {
-      "id": "06e297ab",
-      "type": "text",
-      "x": 1280,
-      "y": 1920,
-      "width": 242,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 115513259,
-      "version": 3,
-      "versionNonce": 323774335,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]",
-      "locked": false,
-      "text": "学术资源中心与产品博客",
-      "originalText": "学术资源中心与产品博客",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:resource-and-blog-center",
-          "owned": {
-            "text": "学术资源中心与产品博客",
-            "originalText": "学术资源中心与产品博客",
-            "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]"
-          }
-        }
-      },
-      "rawText": "学术资源中心与产品博客",
-      "hasTextLink": false,
-      "index": "aO",
-      "labelPosition": null
-    },
-    {
-      "id": "fc86682d",
-      "type": "embeddable",
-      "x": 1280,
-      "y": 1965,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 2089183278,
-      "version": 4,
-      "versionNonce": 1672418289,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:resource-and-blog-center",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]"
-          }
-        }
-      },
-      "index": "aP",
-      "hasTextLink": false
-    },
-    {
-      "id": "f01c3915",
-      "type": "text",
-      "x": 0,
-      "y": 2510,
-      "width": 132,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1880897814,
-      "version": 3,
-      "versionNonce": 1097932703,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]",
-      "locked": false,
-      "text": "资源界面指南",
-      "originalText": "资源界面指南",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:resources-interface-guide",
-          "owned": {
-            "text": "资源界面指南",
-            "originalText": "资源界面指南",
-            "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]"
-          }
-        }
-      },
-      "rawText": "资源界面指南",
-      "hasTextLink": false,
-      "index": "aQ",
-      "labelPosition": null
-    },
-    {
-      "id": "71088c81",
-      "type": "embeddable",
-      "x": 0,
-      "y": 2555,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1896385665,
-      "version": 4,
-      "versionNonce": 560557521,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:resources-interface-guide",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]"
-          }
-        }
-      },
-      "index": "aR",
-      "hasTextLink": false
-    },
-    {
-      "id": "fc6fc2b2",
-      "type": "text",
-      "x": 640,
-      "y": 2510,
-      "width": 220,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 2087699123,
-      "version": 3,
-      "versionNonce": 378131391,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]",
-      "locked": false,
-      "text": "分享卡片、短链与海报",
-      "originalText": "分享卡片、短链与海报",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "article-title:share-cards-and-posters",
-          "owned": {
-            "text": "分享卡片、短链与海报",
-            "originalText": "分享卡片、短链与海报",
-            "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]"
-          }
-        }
-      },
-      "rawText": "分享卡片、短链与海报",
-      "hasTextLink": false,
-      "index": "aS",
-      "labelPosition": null
-    },
-    {
-      "id": "358b766a",
-      "type": "embeddable",
-      "x": 640,
-      "y": 2555,
-      "width": 600,
-      "height": 480,
-      "angle": 0,
-      "strokeColor": "#6741d9",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 898332266,
-      "version": 4,
-      "versionNonce": 1316850609,
-      "isDeleted": true,
-      "boundElements": [],
-      "updated": 1788762353648,
-      "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]",
-      "locked": false,
-      "scale": [
-        1,
-        1
-      ],
-      "customData": {
-        "scholay": {
-          "key": "article:share-cards-and-posters",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]"
-          }
-        }
-      },
-      "index": "aT",
-      "hasTextLink": false
-    },
-    {
       "id": "0f5aad20",
       "type": "arrow",
-      "x": 148,
-      "y": -8.0,
-      "width": 124,
-      "height": 256.0,
+      "x": 146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 256.0058514285714,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1468,11 +91,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 257600800,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 664799918,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775777,
       "link": null,
       "locked": false,
       "customData": {
@@ -1492,42 +115,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "3c0e93d8",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "9fb411a5",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          62.0,
-          0.0
+          64,
+          -0.005851428571427952
         ],
         [
-          62.0,
-          -256.0
+          64,
+          -256.0058514285714
         ],
         [
-          124,
-          -256.0
+          128.35000000000002,
+          -255.99996800000002
         ]
-      ]
+      ],
+      "index": "a0",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "994a4e40",
       "type": "arrow",
-      "x": 618,
-      "y": -264.0,
-      "width": 144,
-      "height": 144.0,
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 144.005948,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1540,11 +172,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 424300097,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1615835182,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -1564,42 +196,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "9fb411a5",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "20de6738",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          72.0,
-          -144.0
+          74.35000000000002,
+          -144.005948
         ],
         [
-          144,
-          -144.0
+          148.70000000000005,
+          -144
         ]
-      ]
+      ],
+      "index": "a1",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "649b690c",
       "type": "arrow",
-      "x": 618,
-      "y": -264.0,
-      "width": 144,
-      "height": 48.0,
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1612,11 +253,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1687906572,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 260405870,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -1636,42 +277,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "9fb411a5",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "3cc9e004",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          72.0,
-          -48.0
+          74.35000000000002,
+          -48.00594799999999
         ],
         [
-          144,
-          -48.0
+          148.70000000000005,
+          -48
         ]
-      ]
+      ],
+      "index": "a2",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "5248ecdd",
       "type": "arrow",
-      "x": 618,
-      "y": -264.0,
-      "width": 144,
-      "height": 48.0,
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1684,11 +334,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1380510941,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1644690606,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -1708,42 +358,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "9fb411a5",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "b0aa4693",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          72.0,
-          48.0
+          74.35000000000002,
+          47.99405200000001
         ],
         [
-          144,
-          48.0
+          148.70000000000005,
+          48
         ]
-      ]
+      ],
+      "index": "a3",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "5c5d4e38",
       "type": "arrow",
-      "x": 618,
-      "y": -264.0,
-      "width": 144,
-      "height": 144.0,
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 144.00594800000002,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1756,11 +415,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1549618744,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1031812846,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -1780,42 +439,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "9fb411a5",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "ba775a6f",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          72.0,
-          144.0
+          74.35000000000002,
+          143.994052
         ],
         [
-          144,
-          144.0
+          148.70000000000005,
+          144.00000000000003
         ]
-      ]
+      ],
+      "index": "a4",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "c3602da6",
       "type": "arrow",
-      "x": 148,
-      "y": -8.0,
-      "width": 124,
-      "height": 72.0,
+      "x": 146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 72.00588342857142,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1828,11 +496,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1130376615,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 4,
+      "versionNonce": 1786194222,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775779,
       "link": null,
       "locked": false,
       "customData": {
@@ -1852,42 +520,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "3c0e93d8",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "12318806",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          62.0,
-          0.0
+          64,
+          -0.005851428571427952
         ],
         [
-          62.0,
-          72.0
+          64,
+          71.99414857142857
         ],
         [
-          124,
-          72.0
+          128.35000000000002,
+          72.00003199999999
         ]
-      ]
+      ],
+      "index": "a5",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "8f558b99",
       "type": "arrow",
-      "x": 618,
-      "y": 64.0,
-      "width": 144,
-      "height": 48.0,
+      "x": 615.65,
+      "y": 64.005948,
+      "width": 148.70000000000005,
+      "height": 48.005948000000004,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1900,11 +577,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 257264538,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 945148782,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775779,
       "link": null,
       "locked": false,
       "customData": {
@@ -1924,42 +601,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "12318806",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "f6ffdc01",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005948000000003617
         ],
         [
-          72.0,
-          -48.0
+          74.35000000000002,
+          -48.005948000000004
         ],
         [
-          144,
-          -48.0
+          148.70000000000005,
+          -48
         ]
-      ]
+      ],
+      "index": "a6",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "ba555953",
       "type": "arrow",
-      "x": 618,
-      "y": 64.0,
-      "width": 144,
-      "height": 48.0,
+      "x": 615.65,
+      "y": 64.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594800000002,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -1972,11 +658,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 978671956,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "version": 4,
+      "versionNonce": 560281006,
+      "isDeleted": true,
+      "boundElements": [],
+      "updated": 1788923775779,
       "link": null,
       "locked": false,
       "customData": {
@@ -1996,42 +682,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "12318806",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "81c76ba0",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005948000000003617
         ],
         [
-          72.0,
-          48.0
+          74.35000000000002,
+          47.994051999999996
         ],
         [
-          144,
-          48.0
+          148.70000000000005,
+          48.000000000000014
         ]
-      ]
+      ],
+      "index": "a7",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "cfc752cd",
       "type": "arrow",
-      "x": 148,
-      "y": -8.0,
-      "width": 124,
-      "height": 304.0,
+      "x": 146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 304.0058834285714,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2044,11 +739,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1338462926,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 937670446,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -2068,42 +763,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "3c0e93d8",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "c5fb28e4",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          62.0,
-          0.0
+          64,
+          -0.005851428571427952
         ],
         [
-          62.0,
-          304.0
+          64,
+          303.9941485714286
         ],
         [
-          124,
-          304.0
+          128.35000000000002,
+          304.000032
         ]
-      ]
+      ],
+      "index": "a8",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "524fc135",
       "type": "arrow",
-      "x": 618,
-      "y": 296.0,
-      "width": 144,
-      "height": 48.0,
+      "x": 615.65,
+      "y": 296.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2116,11 +820,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1380958517,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1859014638,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775779,
       "link": null,
       "locked": false,
       "customData": {
@@ -2140,42 +844,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "c5fb28e4",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "630fdc9b",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          72.0,
-          -48.0
+          74.35000000000002,
+          -48.00594799999999
         ],
         [
-          144,
-          -48.0
+          148.70000000000005,
+          -48
         ]
-      ]
+      ],
+      "index": "a9",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "bfec1a29",
       "type": "arrow",
-      "x": 618,
-      "y": 296.0,
-      "width": 144,
-      "height": 48.0,
+      "x": 615.65,
+      "y": 296.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2188,11 +901,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1072437802,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1553605166,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775779,
       "link": null,
       "locked": false,
       "customData": {
@@ -2212,42 +925,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "c5fb28e4",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "b0b6c5af",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          72.0,
-          0.0
+          74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          72.0,
-          48.0
+          74.35000000000002,
+          47.99405200000001
         ],
         [
-          144,
-          48.0
+          148.70000000000005,
+          48
         ]
-      ]
+      ],
+      "index": "aA",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "e6d033bc",
       "type": "arrow",
-      "x": -148,
-      "y": -8.0,
-      "width": 124,
-      "height": 256.0,
+      "x": -146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 256.0058514285714,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2260,11 +982,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1724920765,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 83927406,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -2284,42 +1006,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "3c0e93d8",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "431fb83d",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -62.0,
-          0.0
+          -64,
+          -0.005851428571427952
         ],
         [
-          -62.0,
-          -256.0
+          -64,
+          -256.0058514285714
         ],
         [
-          -124,
-          -256.0
+          -128.35000000000002,
+          -255.99996800000002
         ]
-      ]
+      ],
+      "index": "aB",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "e7272184",
       "type": "arrow",
-      "x": -618,
-      "y": -264.0,
-      "width": 144,
-      "height": 48.0,
+      "x": -615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2332,11 +1063,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1730617733,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1035054190,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775780,
       "link": null,
       "locked": false,
       "customData": {
@@ -2356,42 +1087,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "431fb83d",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "c31637da",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -72.0,
-          0.0
+          -74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          -72.0,
-          -48.0
+          -74.35000000000002,
+          -48.00594799999999
         ],
         [
-          -144,
-          -48.0
+          -148.70000000000005,
+          -48
         ]
-      ]
+      ],
+      "index": "aC",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "87907e86",
       "type": "arrow",
-      "x": -618,
-      "y": -264.0,
-      "width": 144,
-      "height": 48.0,
+      "x": -615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2404,11 +1144,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 126910087,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 534638254,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775780,
       "link": null,
       "locked": false,
       "customData": {
@@ -2428,42 +1168,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "431fb83d",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "33bef1bc",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -72.0,
-          0.0
+          -74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          -72.0,
-          48.0
+          -74.35000000000002,
+          47.99405200000001
         ],
         [
-          -144,
-          48.0
+          -148.70000000000005,
+          48
         ]
-      ]
+      ],
+      "index": "aD",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "83c22f6e",
       "type": "arrow",
-      "x": -148,
-      "y": -8.0,
-      "width": 124,
-      "height": 24.0,
+      "x": -146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 24.00585142857143,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2476,11 +1225,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 63057775,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1803961262,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -2500,42 +1249,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "3c0e93d8",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "032171a1",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -62.0,
-          0.0
+          -64,
+          -0.005851428571427952
         ],
         [
-          -62.0,
-          -24.0
+          -64,
+          -24.00585142857143
         ],
         [
-          -124,
-          -24.0
+          -128.35000000000002,
+          -23.999968000000003
         ]
-      ]
+      ],
+      "index": "aE",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "3f9271f6",
       "type": "arrow",
-      "x": -618,
-      "y": -32.0,
-      "width": 144,
-      "height": 48.0,
+      "x": -615.65,
+      "y": -31.994052000000003,
+      "width": 148.70000000000005,
+      "height": 48.005948,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2548,11 +1306,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1066562038,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1875372270,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775780,
       "link": null,
       "locked": false,
       "customData": {
@@ -2572,42 +1330,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "032171a1",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "679ce42a",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -72.0,
-          0.0
+          -74.35000000000002,
+          -0.005947999999996512
         ],
         [
-          -72.0,
-          -48.0
+          -74.35000000000002,
+          -48.005948
         ],
         [
-          -144,
-          -48.0
+          -148.70000000000005,
+          -48.00000000000001
         ]
-      ]
+      ],
+      "index": "aF",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "bb89c25d",
       "type": "arrow",
-      "x": -618,
-      "y": -32.0,
-      "width": 144,
-      "height": 48.0,
+      "x": -615.65,
+      "y": -31.994052000000003,
+      "width": 148.70000000000005,
+      "height": 48.005948,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2620,11 +1387,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 998883934,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 4,
+      "versionNonce": 1037632878,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775781,
       "link": null,
       "locked": false,
       "customData": {
@@ -2644,42 +1411,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "032171a1",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "3dfe71b5",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -72.0,
-          0.0
+          -74.35000000000002,
+          -0.005947999999996512
         ],
         [
-          -72.0,
-          48.0
+          -74.35000000000002,
+          47.994052
         ],
         [
-          -144,
-          48.0
+          -148.70000000000005,
+          48
         ]
-      ]
+      ],
+      "index": "aG",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "00de1e65",
       "type": "arrow",
-      "x": -148,
-      "y": -8.0,
-      "width": 124,
-      "height": 208.0,
+      "x": -146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 208.00588342857142,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2692,11 +1468,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 14556773,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 765304302,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775778,
       "link": null,
       "locked": false,
       "customData": {
@@ -2716,42 +1492,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "3c0e93d8",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "0e3a47dd",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -62.0,
-          0.0
+          -64,
+          -0.005851428571427952
         ],
         [
-          -62.0,
-          208.0
+          -64,
+          207.99414857142858
         ],
         [
-          -124,
-          208.0
+          -128.35000000000002,
+          208.000032
         ]
-      ]
+      ],
+      "index": "aH",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "748ab535",
       "type": "arrow",
-      "x": -618,
-      "y": 200.0,
-      "width": 144,
-      "height": 48.0,
+      "x": -615.65,
+      "y": 200.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2764,11 +1549,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1955247413,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 867313582,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775781,
       "link": null,
       "locked": false,
       "customData": {
@@ -2788,42 +1573,51 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "0e3a47dd",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "8b485182",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -72.0,
-          0.0
+          -74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          -72.0,
-          -48.0
+          -74.35000000000002,
+          -48.00594799999999
         ],
         [
-          -144,
-          -48.0
+          -148.70000000000005,
+          -48
         ]
-      ]
+      ],
+      "index": "aI",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "1d5ee33b",
       "type": "arrow",
-      "x": -618,
-      "y": 200.0,
-      "width": 144,
-      "height": 48.0,
+      "x": -615.65,
+      "y": 200.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -2836,11 +1630,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 492757819,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1319961070,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775781,
       "link": null,
       "locked": false,
       "customData": {
@@ -2860,34 +1654,43 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "startArrowhead": null,
       "endArrowhead": null,
       "startBinding": {
+        "mode": "orbit",
         "elementId": "0e3a47dd",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
       },
       "endBinding": {
+        "mode": "orbit",
         "elementId": "a67f506a",
-        "focus": 0,
-        "gap": 8
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
       },
       "elbowed": false,
       "points": [
         [
           0,
-          0.0
+          0
         ],
         [
-          -72.0,
-          0.0
+          -74.35000000000002,
+          -0.005947999999989406
         ],
         [
-          -72.0,
-          48.0
+          -74.35000000000002,
+          47.99405200000001
         ],
         [
-          -144,
-          48.0
+          -148.70000000000005,
+          48
         ]
-      ]
+      ],
+      "index": "aJ",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "3c0e93d8",
@@ -2912,8 +1715,8 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 1007588312,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 2,
+      "versionNonce": 1323206002,
       "isDeleted": false,
       "boundElements": [
         {
@@ -2945,7 +1748,7 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "type": "arrow"
         }
       ],
-      "updated": 0,
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "customData": {
@@ -2958,13 +1761,70 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "root",
           "branch": null
         }
-      }
+      },
+      "index": "aK",
+      "hasTextLink": false
+    },
+    {
+      "id": "cf981a70",
+      "type": "text",
+      "x": -60,
+      "y": -23,
+      "width": 120,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#ffffff",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "3c0e93d8"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1335368305,
+      "version": 3,
+      "versionNonce": 1061566958,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923775708,
+      "link": null,
+      "locked": false,
+      "text": "知识与内容",
+      "originalText": "知识与内容",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "3c0e93d8",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:root:label",
+          "owned": {
+            "text": "知识与内容",
+            "originalText": "知识与内容",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": null
+        }
+      },
+      "rawText": "知识与内容",
+      "hasTextLink": false,
+      "index": "aKV",
+      "labelPosition": null
     },
     {
       "id": "9fb411a5",
       "type": "rectangle",
       "x": 280,
-      "y": -296.0,
+      "y": -296,
       "width": 330,
       "height": 64,
       "angle": 0,
@@ -2983,8 +1843,8 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 531894694,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 2,
+      "versionNonce": 2018263726,
       "isDeleted": false,
       "boundElements": [
         {
@@ -3012,7 +1872,7 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "type": "arrow"
         }
       ],
-      "updated": 0,
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "customData": {
@@ -3027,1126 +1887,16 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "focusTitle": "收集与组织文献",
           "parent": "3c0e93d8"
         }
-      }
-    },
-    {
-      "id": "20de6738",
-      "type": "rectangle",
-      "x": 770,
-      "y": -440.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "20de6738"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
       },
-      "seed": 551446328,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "c2c29cb3",
-          "type": "text"
-        },
-        {
-          "id": "994a4e40",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:resources-interface-guide",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:library",
-          "articleSlug": "resources-interface-guide",
-          "status": "current",
-          "parent": "9fb411a5"
-        }
-      }
-    },
-    {
-      "id": "3cc9e004",
-      "type": "rectangle",
-      "x": 770,
-      "y": -344.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "3cc9e004"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1019863044,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "98091750",
-          "type": "text"
-        },
-        {
-          "id": "649b690c",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/literature-library.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:literature-library",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/literature-library.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:library",
-          "articleSlug": "literature-library",
-          "status": "current",
-          "parent": "9fb411a5"
-        }
-      }
-    },
-    {
-      "id": "b0aa4693",
-      "type": "rectangle",
-      "x": 770,
-      "y": -248.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "b0aa4693"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 816465556,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "6c1cb46a",
-          "type": "text"
-        },
-        {
-          "id": "5248ecdd",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/paper-favorites.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:paper-favorites",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/paper-favorites.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:library",
-          "articleSlug": "paper-favorites",
-          "status": "current",
-          "parent": "9fb411a5"
-        }
-      }
-    },
-    {
-      "id": "ba775a6f",
-      "type": "rectangle",
-      "x": 770,
-      "y": -152.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "ba775a6f"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 980900464,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "3c3617dc",
-          "type": "text"
-        },
-        {
-          "id": "5c5d4e38",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:pdf-upload-resolve-and-relink",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:library",
-          "articleSlug": "pdf-upload-resolve-and-relink",
-          "status": "current",
-          "parent": "9fb411a5"
-        }
-      }
-    },
-    {
-      "id": "12318806",
-      "type": "rectangle",
-      "x": 280,
-      "y": 32.0,
-      "width": 330,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "12318806"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 305235974,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "4b4decba",
-          "type": "text"
-        },
-        {
-          "id": "c3602da6",
-          "type": "arrow"
-        },
-        {
-          "id": "8f558b99",
-          "type": "arrow"
-        },
-        {
-          "id": "ba555953",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:group:intelligence",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "group",
-          "branch": "group:intelligence",
-          "focusTitle": "学术情报",
-          "parent": "3c0e93d8"
-        }
-      }
-    },
-    {
-      "id": "f6ffdc01",
-      "type": "rectangle",
-      "x": 770,
-      "y": -16.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "f6ffdc01"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1996479490,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "06279b1c",
-          "type": "text"
-        },
-        {
-          "id": "8f558b99",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/research-news.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:research-news",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/research-news.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:intelligence",
-          "articleSlug": "research-news",
-          "status": "current",
-          "parent": "12318806"
-        }
-      }
-    },
-    {
-      "id": "81c76ba0",
-      "type": "rectangle",
-      "x": 770,
-      "y": 80.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "81c76ba0"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 29846433,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "d59d49c8",
-          "type": "text"
-        },
-        {
-          "id": "ba555953",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:academic-intelligence-interface-guide",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:intelligence",
-          "articleSlug": "academic-intelligence-interface-guide",
-          "status": "current",
-          "parent": "12318806"
-        }
-      }
-    },
-    {
-      "id": "c5fb28e4",
-      "type": "rectangle",
-      "x": 280,
-      "y": 264.0,
-      "width": 330,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "c5fb28e4"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1174087909,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "d87ab5b6",
-          "type": "text"
-        },
-        {
-          "id": "cfc752cd",
-          "type": "arrow"
-        },
-        {
-          "id": "524fc135",
-          "type": "arrow"
-        },
-        {
-          "id": "bfec1a29",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:group:resources",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "group",
-          "branch": "group:resources",
-          "focusTitle": "公开资源与帮助",
-          "parent": "3c0e93d8"
-        }
-      }
-    },
-    {
-      "id": "630fdc9b",
-      "type": "rectangle",
-      "x": 770,
-      "y": 216.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "630fdc9b"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1661983899,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "c14dc3c6",
-          "type": "text"
-        },
-        {
-          "id": "524fc135",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:resource-and-blog-center",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:resources",
-          "articleSlug": "resource-and-blog-center",
-          "status": "current",
-          "parent": "c5fb28e4"
-        }
-      }
-    },
-    {
-      "id": "b0b6c5af",
-      "type": "rectangle",
-      "x": 770,
-      "y": 312.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "b0b6c5af"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 817284528,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "a16fbe2d",
-          "type": "text"
-        },
-        {
-          "id": "bfec1a29",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:help-center-and-qa",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:resources",
-          "articleSlug": "help-center-and-qa",
-          "status": "current",
-          "parent": "c5fb28e4"
-        }
-      }
-    },
-    {
-      "id": "431fb83d",
-      "type": "rectangle",
-      "x": -610,
-      "y": -296.0,
-      "width": 330,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "431fb83d"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1126152253,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "8d30da90",
-          "type": "text"
-        },
-        {
-          "id": "e6d033bc",
-          "type": "arrow"
-        },
-        {
-          "id": "e7272184",
-          "type": "arrow"
-        },
-        {
-          "id": "87907e86",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:group:citation",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "group",
-          "branch": "group:citation",
-          "focusTitle": "生成规范引用",
-          "parent": "3c0e93d8"
-        }
-      }
-    },
-    {
-      "id": "c31637da",
-      "type": "rectangle",
-      "x": -1130,
-      "y": -344.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "c31637da"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1125529563,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "2132a0ff",
-          "type": "text"
-        },
-        {
-          "id": "e7272184",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/citation-generator.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:citation-generator",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/citation-generator.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:citation",
-          "articleSlug": "citation-generator",
-          "status": "current",
-          "parent": "431fb83d"
-        }
-      }
-    },
-    {
-      "id": "33bef1bc",
-      "type": "rectangle",
-      "x": -1130,
-      "y": -248.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "33bef1bc"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 868151740,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "f28f3362",
-          "type": "text"
-        },
-        {
-          "id": "87907e86",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/citation-dialog.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:citation-dialog",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/citation-dialog.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:citation",
-          "articleSlug": "citation-dialog",
-          "status": "current",
-          "parent": "431fb83d"
-        }
-      }
-    },
-    {
-      "id": "032171a1",
-      "type": "rectangle",
-      "x": -610,
-      "y": -64.0,
-      "width": 330,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "032171a1"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 52523425,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "dc62423b",
-          "type": "text"
-        },
-        {
-          "id": "83c22f6e",
-          "type": "arrow"
-        },
-        {
-          "id": "3f9271f6",
-          "type": "arrow"
-        },
-        {
-          "id": "bb89c25d",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:group:sharing",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "group",
-          "branch": "group:sharing",
-          "focusTitle": "分享与协作",
-          "parent": "3c0e93d8"
-        }
-      }
-    },
-    {
-      "id": "679ce42a",
-      "type": "rectangle",
-      "x": -1130,
-      "y": -112.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "679ce42a"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1738335274,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "587e9fe1",
-          "type": "text"
-        },
-        {
-          "id": "3f9271f6",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/library-sharing.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:library-sharing",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/library-sharing.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:sharing",
-          "articleSlug": "library-sharing",
-          "status": "current",
-          "parent": "032171a1"
-        }
-      }
-    },
-    {
-      "id": "3dfe71b5",
-      "type": "rectangle",
-      "x": -1130,
-      "y": -16.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "3dfe71b5"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1040085429,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "ba8bd1b8",
-          "type": "text"
-        },
-        {
-          "id": "bb89c25d",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:share-cards-and-posters",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:sharing",
-          "articleSlug": "share-cards-and-posters",
-          "status": "current",
-          "parent": "032171a1"
-        }
-      }
-    },
-    {
-      "id": "0e3a47dd",
-      "type": "rectangle",
-      "x": -610,
-      "y": 168.0,
-      "width": 330,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "0e3a47dd"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 238700509,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "c038e553",
-          "type": "text"
-        },
-        {
-          "id": "00de1e65",
-          "type": "arrow"
-        },
-        {
-          "id": "748ab535",
-          "type": "arrow"
-        },
-        {
-          "id": "1d5ee33b",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:group:tools",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "group",
-          "branch": "group:tools",
-          "focusTitle": "工具与社区技能",
-          "parent": "3c0e93d8"
-        }
-      }
-    },
-    {
-      "id": "8b485182",
-      "type": "rectangle",
-      "x": -1130,
-      "y": 120.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "8b485182"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 189288835,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "e7153957",
-          "type": "text"
-        },
-        {
-          "id": "748ab535",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/feature-tools.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:feature-tools",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/feature-tools.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:tools",
-          "articleSlug": "feature-tools",
-          "status": "current",
-          "parent": "0e3a47dd"
-        }
-      }
-    },
-    {
-      "id": "a67f506a",
-      "type": "rectangle",
-      "x": -1130,
-      "y": 216.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#7650aa",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "a67f506a"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 645877867,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "2d7a9d37",
-          "type": "text"
-        },
-        {
-          "id": "1d5ee33b",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/community-skills.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:article:community-skills",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/community-skills.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "group:tools",
-          "articleSlug": "community-skills",
-          "status": "current",
-          "parent": "0e3a47dd"
-        }
-      }
-    },
-    {
-      "id": "cf981a70",
-      "type": "text",
-      "x": -124,
-      "y": -23.0,
-      "width": 248,
-      "height": 30,
-      "angle": 0,
-      "strokeColor": "#ffffff",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "3c0e93d8"
-      ],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1335368305,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "text": "知识与内容",
-      "originalText": "知识与内容",
-      "fontSize": 24,
-      "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "3c0e93d8",
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:category:knowledge:root:label",
-          "owned": {
-            "text": "知识与内容",
-            "originalText": "知识与内容",
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "label",
-          "branch": null
-        }
-      }
+      "index": "aL",
+      "hasTextLink": false
     },
     {
       "id": "c816b5ac",
       "type": "text",
-      "x": 296,
-      "y": -279.0,
-      "width": 298,
+      "x": 361,
+      "y": -279,
+      "width": 168,
       "height": 30,
       "angle": 0,
       "strokeColor": "#7650aa",
@@ -4162,11 +1912,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1209447853,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1791304690,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "收集与组织文献",
@@ -4190,15 +1940,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "label",
           "branch": "group:library"
         }
-      }
+      },
+      "rawText": "收集与组织文献",
+      "hasTextLink": false,
+      "index": "aLV",
+      "labelPosition": null
+    },
+    {
+      "id": "20de6738",
+      "type": "rectangle",
+      "x": 770,
+      "y": -440,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "20de6738"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 551446328,
+      "version": 3,
+      "versionNonce": 865142578,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c2c29cb3",
+          "type": "text"
+        },
+        {
+          "id": "994a4e40",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:resources-interface-guide",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:library",
+          "articleSlug": "resources-interface-guide",
+          "status": "current",
+          "parent": "9fb411a5"
+        }
+      },
+      "index": "aM",
+      "hasTextLink": false
     },
     {
       "id": "c2c29cb3",
       "type": "text",
-      "x": 786,
-      "y": -422.0,
-      "width": 328,
-      "height": 28,
+      "x": 884,
+      "y": -421.75,
+      "width": 132,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4213,11 +2023,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1120050356,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1787087918,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "资源界面指南",
@@ -4243,15 +2053,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "resources-interface-guide",
           "status": "current"
         }
-      }
+      },
+      "rawText": "资源界面指南",
+      "hasTextLink": false,
+      "index": "aMV",
+      "labelPosition": null
+    },
+    {
+      "id": "3cc9e004",
+      "type": "rectangle",
+      "x": 770,
+      "y": -344,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "3cc9e004"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1019863044,
+      "version": 3,
+      "versionNonce": 1330363630,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "98091750",
+          "type": "text"
+        },
+        {
+          "id": "649b690c",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/literature-library.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:literature-library",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/literature-library.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:library",
+          "articleSlug": "literature-library",
+          "status": "current",
+          "parent": "9fb411a5"
+        }
+      },
+      "index": "aN",
+      "hasTextLink": false
     },
     {
       "id": "98091750",
       "type": "text",
-      "x": 786,
-      "y": -326.0,
-      "width": 328,
-      "height": 28,
+      "x": 895,
+      "y": -325.75,
+      "width": 110,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4266,11 +2136,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 403248977,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 102749618,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "个人文献集",
@@ -4296,15 +2166,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "literature-library",
           "status": "current"
         }
-      }
+      },
+      "rawText": "个人文献集",
+      "hasTextLink": false,
+      "index": "aNV",
+      "labelPosition": null
+    },
+    {
+      "id": "b0aa4693",
+      "type": "rectangle",
+      "x": 770,
+      "y": -248,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "b0aa4693"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 816465556,
+      "version": 3,
+      "versionNonce": 1779257586,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "6c1cb46a",
+          "type": "text"
+        },
+        {
+          "id": "5248ecdd",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/paper-favorites.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:paper-favorites",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/paper-favorites.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:library",
+          "articleSlug": "paper-favorites",
+          "status": "current",
+          "parent": "9fb411a5"
+        }
+      },
+      "index": "aO",
+      "hasTextLink": false
     },
     {
       "id": "6c1cb46a",
       "type": "text",
-      "x": 786,
-      "y": -230.0,
-      "width": 328,
-      "height": 28,
+      "x": 851,
+      "y": -229.75,
+      "width": 198,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4319,11 +2249,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1813820522,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1287067246,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "论文收藏与取消收藏",
@@ -4349,15 +2279,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "paper-favorites",
           "status": "current"
         }
-      }
+      },
+      "rawText": "论文收藏与取消收藏",
+      "hasTextLink": false,
+      "index": "aOV",
+      "labelPosition": null
+    },
+    {
+      "id": "ba775a6f",
+      "type": "rectangle",
+      "x": 770,
+      "y": -152,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "ba775a6f"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 980900464,
+      "version": 3,
+      "versionNonce": 81915694,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "3c3617dc",
+          "type": "text"
+        },
+        {
+          "id": "5c5d4e38",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:pdf-upload-resolve-and-relink",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:library",
+          "articleSlug": "pdf-upload-resolve-and-relink",
+          "status": "current",
+          "parent": "9fb411a5"
+        }
+      },
+      "index": "aP",
+      "hasTextLink": false
     },
     {
       "id": "3c3617dc",
       "type": "text",
-      "x": 786,
-      "y": -134.0,
-      "width": 328,
-      "height": 28,
+      "x": 814.94384765625,
+      "y": -133.75,
+      "width": 270.1123046875,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4372,11 +2362,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1010178012,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1321095026,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "PDF 上传、识别与重新关联",
@@ -4402,14 +2392,77 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "pdf-upload-resolve-and-relink",
           "status": "current"
         }
-      }
+      },
+      "rawText": "PDF 上传、识别与重新关联",
+      "hasTextLink": false,
+      "index": "aPV",
+      "labelPosition": null
+    },
+    {
+      "id": "12318806",
+      "type": "rectangle",
+      "x": 280,
+      "y": 32,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "12318806"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 305235974,
+      "version": 2,
+      "versionNonce": 635069106,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "4b4decba",
+          "type": "text"
+        },
+        {
+          "id": "c3602da6",
+          "type": "arrow"
+        },
+        {
+          "id": "8f558b99",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:group:intelligence",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:intelligence",
+          "focusTitle": "学术情报",
+          "parent": "3c0e93d8"
+        }
+      },
+      "index": "aQ",
+      "hasTextLink": false
     },
     {
       "id": "4b4decba",
       "type": "text",
-      "x": 296,
-      "y": 49.0,
-      "width": 298,
+      "x": 397,
+      "y": 49,
+      "width": 96,
       "height": 30,
       "angle": 0,
       "strokeColor": "#7650aa",
@@ -4425,11 +2478,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1263398074,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1051072686,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "学术情报",
@@ -4453,15 +2506,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "label",
           "branch": "group:intelligence"
         }
-      }
+      },
+      "rawText": "学术情报",
+      "hasTextLink": false,
+      "index": "aQV",
+      "labelPosition": null
+    },
+    {
+      "id": "f6ffdc01",
+      "type": "rectangle",
+      "x": 770,
+      "y": -16,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "f6ffdc01"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1996479490,
+      "version": 3,
+      "versionNonce": 91740526,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "06279b1c",
+          "type": "text"
+        },
+        {
+          "id": "8f558b99",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/research-news.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:research-news",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/research-news.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:intelligence",
+          "articleSlug": "research-news",
+          "status": "current",
+          "parent": "12318806"
+        }
+      },
+      "index": "aR",
+      "hasTextLink": false
     },
     {
       "id": "06279b1c",
       "type": "text",
-      "x": 786,
-      "y": 2.0,
-      "width": 328,
-      "height": 28,
+      "x": 906,
+      "y": 2.25,
+      "width": 88,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4476,11 +2589,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 103258908,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 2028441906,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "学术资讯",
@@ -4506,15 +2619,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "research-news",
           "status": "current"
         }
-      }
+      },
+      "rawText": "学术资讯",
+      "hasTextLink": false,
+      "index": "aRV",
+      "labelPosition": null
+    },
+    {
+      "id": "81c76ba0",
+      "type": "rectangle",
+      "x": 770,
+      "y": 80,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "81c76ba0"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 29846433,
+      "version": 4,
+      "versionNonce": 295648370,
+      "isDeleted": true,
+      "boundElements": [
+        {
+          "id": "d59d49c8",
+          "type": "text"
+        },
+        {
+          "id": "ba555953",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:academic-intelligence-interface-guide",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/academic-intelligence-interface-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:intelligence",
+          "articleSlug": "academic-intelligence-interface-guide",
+          "status": "current",
+          "parent": "12318806"
+        }
+      },
+      "index": "aS",
+      "hasTextLink": false
     },
     {
       "id": "d59d49c8",
       "type": "text",
-      "x": 786,
-      "y": 98.0,
-      "width": 328,
-      "height": 28,
+      "x": 862,
+      "y": 98.25,
+      "width": 176,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4529,11 +2702,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1436371401,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "version": 4,
+      "versionNonce": 402313966,
+      "isDeleted": true,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "学术情报界面导览",
@@ -4559,14 +2732,81 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "academic-intelligence-interface-guide",
           "status": "current"
         }
-      }
+      },
+      "rawText": "学术情报界面导览",
+      "hasTextLink": false,
+      "index": "aSV",
+      "labelPosition": null
+    },
+    {
+      "id": "c5fb28e4",
+      "type": "rectangle",
+      "x": 280,
+      "y": 264,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c5fb28e4"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1174087909,
+      "version": 2,
+      "versionNonce": 1213627310,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "d87ab5b6",
+          "type": "text"
+        },
+        {
+          "id": "cfc752cd",
+          "type": "arrow"
+        },
+        {
+          "id": "524fc135",
+          "type": "arrow"
+        },
+        {
+          "id": "bfec1a29",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:group:resources",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:resources",
+          "focusTitle": "公开资源与帮助",
+          "parent": "3c0e93d8"
+        }
+      },
+      "index": "aT",
+      "hasTextLink": false
     },
     {
       "id": "d87ab5b6",
       "type": "text",
-      "x": 296,
-      "y": 281.0,
-      "width": 298,
+      "x": 361,
+      "y": 281,
+      "width": 168,
       "height": 30,
       "angle": 0,
       "strokeColor": "#7650aa",
@@ -4582,11 +2822,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1484436919,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 402823922,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "公开资源与帮助",
@@ -4610,15 +2850,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "label",
           "branch": "group:resources"
         }
-      }
+      },
+      "rawText": "公开资源与帮助",
+      "hasTextLink": false,
+      "index": "aTV",
+      "labelPosition": null
+    },
+    {
+      "id": "630fdc9b",
+      "type": "rectangle",
+      "x": 770,
+      "y": 216,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "630fdc9b"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1661983899,
+      "version": 3,
+      "versionNonce": 1797447218,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c14dc3c6",
+          "type": "text"
+        },
+        {
+          "id": "524fc135",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:resource-and-blog-center",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/resource-and-blog-center.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:resources",
+          "articleSlug": "resource-and-blog-center",
+          "status": "current",
+          "parent": "c5fb28e4"
+        }
+      },
+      "index": "aU",
+      "hasTextLink": false
     },
     {
       "id": "c14dc3c6",
       "type": "text",
-      "x": 786,
-      "y": 234.0,
-      "width": 328,
-      "height": 28,
+      "x": 829,
+      "y": 234.25,
+      "width": 242,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4633,11 +2933,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1095615431,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1396589870,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "学术资源中心与产品博客",
@@ -4663,15 +2963,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "resource-and-blog-center",
           "status": "current"
         }
-      }
+      },
+      "rawText": "学术资源中心与产品博客",
+      "hasTextLink": false,
+      "index": "aUV",
+      "labelPosition": null
+    },
+    {
+      "id": "b0b6c5af",
+      "type": "rectangle",
+      "x": 770,
+      "y": 312,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "b0b6c5af"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 817284528,
+      "version": 3,
+      "versionNonce": 1940313582,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "a16fbe2d",
+          "type": "text"
+        },
+        {
+          "id": "bfec1a29",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:help-center-and-qa",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/help-center-and-qa.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:resources",
+          "articleSlug": "help-center-and-qa",
+          "status": "current",
+          "parent": "c5fb28e4"
+        }
+      },
+      "index": "aV",
+      "hasTextLink": false
     },
     {
       "id": "a16fbe2d",
       "type": "text",
-      "x": 786,
-      "y": 330.0,
-      "width": 328,
-      "height": 28,
+      "x": 851,
+      "y": 330.25,
+      "width": 198,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4686,11 +3046,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 560971310,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 982936754,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "帮助中心与学术问答",
@@ -4716,14 +3076,81 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "help-center-and-qa",
           "status": "current"
         }
-      }
+      },
+      "rawText": "帮助中心与学术问答",
+      "hasTextLink": false,
+      "index": "aVV",
+      "labelPosition": null
+    },
+    {
+      "id": "431fb83d",
+      "type": "rectangle",
+      "x": -610,
+      "y": -296,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "431fb83d"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1126152253,
+      "version": 2,
+      "versionNonce": 525092850,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "8d30da90",
+          "type": "text"
+        },
+        {
+          "id": "e6d033bc",
+          "type": "arrow"
+        },
+        {
+          "id": "e7272184",
+          "type": "arrow"
+        },
+        {
+          "id": "87907e86",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:group:citation",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:citation",
+          "focusTitle": "生成规范引用",
+          "parent": "3c0e93d8"
+        }
+      },
+      "index": "aW",
+      "hasTextLink": false
     },
     {
       "id": "8d30da90",
       "type": "text",
-      "x": -594,
-      "y": -279.0,
-      "width": 298,
+      "x": -517,
+      "y": -279,
+      "width": 144,
       "height": 30,
       "angle": 0,
       "strokeColor": "#7650aa",
@@ -4739,11 +3166,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 221305489,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 836333422,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "生成规范引用",
@@ -4767,15 +3194,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "label",
           "branch": "group:citation"
         }
-      }
+      },
+      "rawText": "生成规范引用",
+      "hasTextLink": false,
+      "index": "aWV",
+      "labelPosition": null
+    },
+    {
+      "id": "c31637da",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -344,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c31637da"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1125529563,
+      "version": 3,
+      "versionNonce": 7465006,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "2132a0ff",
+          "type": "text"
+        },
+        {
+          "id": "e7272184",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/citation-generator.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:citation-generator",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/citation-generator.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:citation",
+          "articleSlug": "citation-generator",
+          "status": "current",
+          "parent": "431fb83d"
+        }
+      },
+      "index": "aX",
+      "hasTextLink": false
     },
     {
       "id": "2132a0ff",
       "type": "text",
-      "x": -1114,
-      "y": -326.0,
-      "width": 328,
-      "height": 28,
+      "x": -1005,
+      "y": -325.75,
+      "width": 110,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4790,11 +3277,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 556966143,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 105514610,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "引用生成器",
@@ -4820,15 +3307,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "citation-generator",
           "status": "current"
         }
-      }
+      },
+      "rawText": "引用生成器",
+      "hasTextLink": false,
+      "index": "aXV",
+      "labelPosition": null
+    },
+    {
+      "id": "33bef1bc",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -248,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "33bef1bc"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 868151740,
+      "version": 3,
+      "versionNonce": 1713535410,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "f28f3362",
+          "type": "text"
+        },
+        {
+          "id": "87907e86",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/citation-dialog.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:citation-dialog",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/citation-dialog.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:citation",
+          "articleSlug": "citation-dialog",
+          "status": "current",
+          "parent": "431fb83d"
+        }
+      },
+      "index": "aY",
+      "hasTextLink": false
     },
     {
       "id": "f28f3362",
       "type": "text",
-      "x": -1114,
-      "y": -230.0,
-      "width": 328,
-      "height": 28,
+      "x": -1049,
+      "y": -229.75,
+      "width": 198,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4843,11 +3390,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1921987427,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1612009902,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "引用弹窗与默认格式",
@@ -4873,14 +3420,81 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "citation-dialog",
           "status": "current"
         }
-      }
+      },
+      "rawText": "引用弹窗与默认格式",
+      "hasTextLink": false,
+      "index": "aYV",
+      "labelPosition": null
+    },
+    {
+      "id": "032171a1",
+      "type": "rectangle",
+      "x": -610,
+      "y": -64,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "032171a1"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 52523425,
+      "version": 2,
+      "versionNonce": 1587589742,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "dc62423b",
+          "type": "text"
+        },
+        {
+          "id": "83c22f6e",
+          "type": "arrow"
+        },
+        {
+          "id": "3f9271f6",
+          "type": "arrow"
+        },
+        {
+          "id": "bb89c25d",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:group:sharing",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:sharing",
+          "focusTitle": "分享与协作",
+          "parent": "3c0e93d8"
+        }
+      },
+      "index": "aZ",
+      "hasTextLink": false
     },
     {
       "id": "dc62423b",
       "type": "text",
-      "x": -594,
-      "y": -47.0,
-      "width": 298,
+      "x": -505,
+      "y": -47,
+      "width": 120,
       "height": 30,
       "angle": 0,
       "strokeColor": "#7650aa",
@@ -4896,11 +3510,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1549943356,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1407477810,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "分享与协作",
@@ -4924,15 +3538,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "label",
           "branch": "group:sharing"
         }
-      }
+      },
+      "rawText": "分享与协作",
+      "hasTextLink": false,
+      "index": "aZV",
+      "labelPosition": null
+    },
+    {
+      "id": "679ce42a",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -112,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "679ce42a"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1738335274,
+      "version": 3,
+      "versionNonce": 1590457202,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "587e9fe1",
+          "type": "text"
+        },
+        {
+          "id": "3f9271f6",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/library-sharing.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:library-sharing",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/library-sharing.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:sharing",
+          "articleSlug": "library-sharing",
+          "status": "current",
+          "parent": "032171a1"
+        }
+      },
+      "index": "aa",
+      "hasTextLink": false
     },
     {
       "id": "587e9fe1",
       "type": "text",
-      "x": -1114,
-      "y": -94.0,
-      "width": 328,
-      "height": 28,
+      "x": -1038,
+      "y": -93.75,
+      "width": 176,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -4947,11 +3621,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1484693473,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 421194734,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "文献集分享与接收",
@@ -4977,15 +3651,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "library-sharing",
           "status": "current"
         }
-      }
+      },
+      "rawText": "文献集分享与接收",
+      "hasTextLink": false,
+      "index": "aaV",
+      "labelPosition": null
+    },
+    {
+      "id": "3dfe71b5",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -16,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "3dfe71b5"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1040085429,
+      "version": 3,
+      "versionNonce": 419181742,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "ba8bd1b8",
+          "type": "text"
+        },
+        {
+          "id": "bb89c25d",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:share-cards-and-posters",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/share-cards-and-posters.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:sharing",
+          "articleSlug": "share-cards-and-posters",
+          "status": "current",
+          "parent": "032171a1"
+        }
+      },
+      "index": "ab",
+      "hasTextLink": false
     },
     {
       "id": "ba8bd1b8",
       "type": "text",
-      "x": -1114,
-      "y": 2.0,
-      "width": 328,
-      "height": 28,
+      "x": -1060,
+      "y": 2.25,
+      "width": 220,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -5000,11 +3734,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 982241721,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1263309298,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "分享卡片、短链与海报",
@@ -5030,14 +3764,81 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "share-cards-and-posters",
           "status": "current"
         }
-      }
+      },
+      "rawText": "分享卡片、短链与海报",
+      "hasTextLink": false,
+      "index": "abV",
+      "labelPosition": null
+    },
+    {
+      "id": "0e3a47dd",
+      "type": "rectangle",
+      "x": -610,
+      "y": 168,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "0e3a47dd"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 238700509,
+      "version": 2,
+      "versionNonce": 730936626,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c038e553",
+          "type": "text"
+        },
+        {
+          "id": "00de1e65",
+          "type": "arrow"
+        },
+        {
+          "id": "748ab535",
+          "type": "arrow"
+        },
+        {
+          "id": "1d5ee33b",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:group:tools",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:tools",
+          "focusTitle": "工具与社区技能",
+          "parent": "3c0e93d8"
+        }
+      },
+      "index": "ac",
+      "hasTextLink": false
     },
     {
       "id": "c038e553",
       "type": "text",
-      "x": -594,
-      "y": 185.0,
-      "width": 298,
+      "x": -529,
+      "y": 185,
+      "width": 168,
       "height": 30,
       "angle": 0,
       "strokeColor": "#7650aa",
@@ -5053,11 +3854,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1077470548,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 1257455150,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "工具与社区技能",
@@ -5081,15 +3882,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "label",
           "branch": "group:tools"
         }
-      }
+      },
+      "rawText": "工具与社区技能",
+      "hasTextLink": false,
+      "index": "acV",
+      "labelPosition": null
+    },
+    {
+      "id": "8b485182",
+      "type": "rectangle",
+      "x": -1130,
+      "y": 120,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "8b485182"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 189288835,
+      "version": 3,
+      "versionNonce": 2033020654,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "e7153957",
+          "type": "text"
+        },
+        {
+          "id": "748ab535",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/feature-tools.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:feature-tools",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/feature-tools.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:tools",
+          "articleSlug": "feature-tools",
+          "status": "current",
+          "parent": "0e3a47dd"
+        }
+      },
+      "index": "ad",
+      "hasTextLink": false
     },
     {
       "id": "e7153957",
       "type": "text",
-      "x": -1114,
-      "y": 138.0,
-      "width": 328,
-      "height": 28,
+      "x": -994,
+      "y": 138.25,
+      "width": 88,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -5104,11 +3965,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1729444184,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 3,
+      "versionNonce": 2139718578,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "功能广场",
@@ -5134,15 +3995,75 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "feature-tools",
           "status": "current"
         }
-      }
+      },
+      "rawText": "功能广场",
+      "hasTextLink": false,
+      "index": "adV",
+      "labelPosition": null
+    },
+    {
+      "id": "a67f506a",
+      "type": "rectangle",
+      "x": -1130,
+      "y": 216,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#7650aa",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "a67f506a"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 645877867,
+      "version": 3,
+      "versionNonce": 232242930,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "2d7a9d37",
+          "type": "text"
+        },
+        {
+          "id": "1d5ee33b",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923775708,
+      "link": "[[wiki/pages/knowledge/community-skills.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:knowledge:article:community-skills",
+          "owned": {
+            "link": "[[wiki/pages/knowledge/community-skills.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:tools",
+          "articleSlug": "community-skills",
+          "status": "current",
+          "parent": "0e3a47dd"
+        }
+      },
+      "index": "ae",
+      "hasTextLink": false
     },
     {
       "id": "2d7a9d37",
       "type": "text",
-      "x": -1114,
-      "y": 234.0,
-      "width": 328,
-      "height": 28,
+      "x": -994,
+      "y": 234.25,
+      "width": 88,
+      "height": 27.5,
       "angle": 0,
       "strokeColor": "#7650aa",
       "backgroundColor": "transparent",
@@ -5157,11 +4078,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 763010359,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 2,
+      "versionNonce": 1293049774,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": null,
       "locked": false,
       "text": "社区技能",
@@ -5187,14 +4108,18 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           "articleSlug": "community-skills",
           "status": "current"
         }
-      }
+      },
+      "rawText": "社区技能",
+      "hasTextLink": false,
+      "index": "az",
+      "labelPosition": null
     },
     {
       "id": "c7eaff49",
       "type": "text",
       "x": -140,
-      "y": -524.0,
-      "width": 132,
+      "y": -524,
+      "width": 116.1123046875,
       "height": 27.5,
       "angle": 0,
       "strokeColor": "#697586",
@@ -5208,11 +4133,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1206583114,
-      "version": 1,
-      "versionNonce": 1,
+      "version": 2,
+      "versionNonce": 193411634,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
+      "boundElements": [],
+      "updated": 1788923775708,
       "link": "[[wiki/boards/Scholay.excalidraw.md]]",
       "locked": false,
       "text": "← 研究路径",
@@ -5234,7 +4159,11 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
           },
           "layoutVersion": 2
         }
-      }
+      },
+      "rawText": "← 研究路径",
+      "hasTextLink": false,
+      "index": "b00",
+      "labelPosition": null
     }
   ],
   "appState": {
@@ -5255,10 +4184,10 @@ c7eaff49: [[wiki/boards/Scholay.excalidraw.md]]
     "currentItemEndArrowhead": "arrow",
     "currentItemArrowType": "round",
     "currentItemFrameRole": null,
-    "scrollX": 1716.861639190029,
-    "scrollY": 79.86830894476765,
+    "scrollX": 1189.472800843577,
+    "scrollY": 960.1612273826855,
     "zoom": {
-      "value": 0.416657
+      "value": 0.548142
     },
     "currentItemRoundness": "round",
     "gridSize": null,

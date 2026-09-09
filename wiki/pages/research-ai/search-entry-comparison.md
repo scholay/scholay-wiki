@@ -7,7 +7,7 @@ status: current
 updated: 2026-09-06T17:53:38+08:00
 canonical: https://www.scholay.com/wiki/search-entry-comparison
 scholay_topics: ["[[wiki/topics/research-ai/选择科研工作入口|选择科研工作入口]]"]
-scholay_related: ["[[wiki/pages/discovery/classic-vs-smart-search|传统搜索 vs 智能搜索]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/claw-interface-guide|智能助手界面导览]]", "[[wiki/pages/discovery/staging-area|检索暂存区]]"]
+scholay_related: ["[[wiki/pages/discovery/classic-vs-smart-search|传统搜索 vs 智能搜索]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/discovery/staging-area|检索暂存区]]"]
 ---
 
 # 智能助手 vs 智能搜索

@@ -7,7 +7,7 @@ status: current
 updated: 2026-09-06T17:43:47+08:00
 canonical: https://www.scholay.com/wiki/community-skills
 scholay_topics: ["[[wiki/topics/knowledge/工具与社区技能|工具与社区技能]]"]
-scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/knowledge/feature-tools|功能广场]]", "[[wiki/pages/knowledge/academic-intelligence-interface-guide|学术情报界面导览]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/knowledge/feature-tools|功能广场]]"]
 ---
 
 # 社区技能

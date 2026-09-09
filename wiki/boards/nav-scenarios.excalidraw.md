@@ -61,16 +61,16 @@ LaTeX 模板 ^ee57f22a
 ← 研究路径 ^1e5d2baa
 
 ## Element Links
-5d525107: [[wiki/pages/discovery/literature-search-guide.md]]
-2080837e: [[wiki/pages/research-ai/smart-literature-search-guide.md]]
+5d525107: [[wiki/pages/discovery/academic-search.md]]
+2080837e: [[wiki/pages/research-ai/smart-search.md]]
 02a491d0: [[wiki/pages/discovery/staging-area.md]]
 7119c1ba: [[wiki/pages/knowledge/paper-favorites.md]]
 233e83ee: [[wiki/pages/knowledge/pdf-upload-resolve-and-relink.md]]
 3f5b0ac3: [[wiki/pages/research-ai/manuscript-vs-publication.md]]
 b745dff8: [[wiki/pages/research-ai/peer-review.md]]
-afb7ba18: [[wiki/pages/research-ai/peer-review-workflow-guide.md]]
-b6410722: [[wiki/pages/research-ai/peer-review-workflow-guide.md]]
-d869dc33: [[wiki/pages/research-ai/peer-review-dimensions-guide.md]]
+afb7ba18: [[wiki/pages/research-ai/peer-review.md]]
+b6410722: [[wiki/pages/research-ai/peer-review.md]]
+d869dc33: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 f172eaa8: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 e662a2fe: [[wiki/pages/discovery/matrix-analysis.md]]
 b7799fcb: [[wiki/pages/research-ai/pdf-chat-guide.md]]
@@ -2021,7 +2021,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         "type": 3
       },
       "seed": 1565675783,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -2035,18 +2035,18 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/discovery/literature-search-guide.md]]",
+      "link": "[[wiki/pages/discovery/academic-search.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:scenarios:nav:scenarios-traditional-search",
           "owned": {
-            "link": "[[wiki/pages/discovery/literature-search-guide.md]]"
+            "link": "[[wiki/pages/discovery/academic-search.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:scenarios-literature-query",
-          "articleSlug": "literature-search-guide",
+          "articleSlug": "academic-search",
           "parent": "f460ce5b"
         }
       }
@@ -2074,7 +2074,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         "type": 3
       },
       "seed": 545293182,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -2088,18 +2088,18 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/smart-literature-search-guide.md]]",
+      "link": "[[wiki/pages/research-ai/smart-search.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:scenarios:nav:scenarios-smart-search",
           "owned": {
-            "link": "[[wiki/pages/research-ai/smart-literature-search-guide.md]]"
+            "link": "[[wiki/pages/research-ai/smart-search.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:scenarios-literature-query",
-          "articleSlug": "smart-literature-search-guide",
+          "articleSlug": "smart-search",
           "parent": "f460ce5b"
         }
       }
@@ -2586,7 +2586,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         "type": 3
       },
       "seed": 800569881,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -2600,18 +2600,18 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:scenarios:nav:scenarios-review-paper-types",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:scenarios-paper-writing",
-          "articleSlug": "peer-review-workflow-guide",
+          "articleSlug": "peer-review",
           "parent": "b745dff8"
         }
       }
@@ -2639,7 +2639,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         "type": 3
       },
       "seed": 910231331,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -2653,18 +2653,18 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:scenarios:nav:scenarios-review-process",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:scenarios-paper-writing",
-          "articleSlug": "peer-review-workflow-guide",
+          "articleSlug": "peer-review",
           "parent": "b745dff8"
         }
       }
@@ -2692,7 +2692,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         "type": 3
       },
       "seed": 1483332660,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -2706,18 +2706,18 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:scenarios:nav:scenarios-review-dimensions",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:scenarios-paper-writing",
-          "articleSlug": "peer-review-dimensions-guide",
+          "articleSlug": "peer-review-results-guide",
           "parent": "b745dff8"
         }
       }
@@ -3487,7 +3487,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:scenarios-literature-query",
-          "articleSlug": "literature-search-guide"
+          "articleSlug": "academic-search"
         }
       }
     },
@@ -3539,7 +3539,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:scenarios-literature-query",
-          "articleSlug": "smart-literature-search-guide"
+          "articleSlug": "smart-search"
         }
       }
     },
@@ -4004,7 +4004,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:scenarios-paper-writing",
-          "articleSlug": "peer-review-workflow-guide"
+          "articleSlug": "peer-review"
         }
       }
     },
@@ -4056,7 +4056,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:scenarios-paper-writing",
-          "articleSlug": "peer-review-workflow-guide"
+          "articleSlug": "peer-review"
         }
       }
     },
@@ -4108,7 +4108,7 @@ f01c95a5: [[wiki/pages/discovery/journal-submission-resources.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:scenarios-paper-writing",
-          "articleSlug": "peer-review-dimensions-guide"
+          "articleSlug": "peer-review-results-guide"
         }
       }
     },

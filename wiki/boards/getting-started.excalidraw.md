@@ -12,8 +12,6 @@ Scholay ^c5c14fb3
 
 Scholay ^4a58a67f
 
-全站功能 ^fe04c2ea
-
 产品与套餐总览 ^b0826e69
 
 功能页面与元素说明 ^172274d3
@@ -50,264 +48,3986 @@ OAuth 与微信扫码登录 ^a104f04c
 
 ## Element Links
 3ec21649: [[wiki/pages/getting-started/scholay.md]]
-
-bc24af69: [[wiki/pages/getting-started/product-map.md]]
-
 9be22cc1: [[wiki/pages/getting-started/product-and-pricing-overview.md]]
-
 933b8989: [[wiki/pages/getting-started/marketing-pages-and-implementation-boundaries.md]]
-
 be4643fb: [[wiki/pages/getting-started/account-connections.md]]
-
 04607b48: [[wiki/pages/getting-started/oauth-account-merge.md]]
-
 ab4f4a1c: [[wiki/pages/getting-started/notification-center.md]]
-
 07abc2b6: [[wiki/pages/getting-started/roadmap-status.md]]
-
 c8134696: [[wiki/pages/getting-started/account.md]]
-
 c313eef9: [[wiki/pages/getting-started/login-methods-guide.md]]
-
 c8629878: [[wiki/pages/getting-started/email-phone-authentication.md]]
-
 d0cf22eb: [[wiki/pages/getting-started/oauth-wechat-login.md]]
-
 48604243: [[wiki/pages/getting-started/profile-settings.md]]
-
 c32af142: [[wiki/pages/getting-started/account-security-settings.md]]
-
 3dcf8661: [[wiki/boards/Scholay.excalidraw.md]]
 
 %%
 ## Drawing
-```compressed-json
-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
+```json
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.27.3",
+  "elements": [
+    {
+      "id": "95e55595",
+      "type": "arrow",
+      "x": 146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 256.0058514285714,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 367351190,
+      "version": 3,
+      "versionNonce": 1989602222,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670800,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:a271db0b:dfac9aec",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:overview"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "a271db0b",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "dfac9aec",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          64,
+          -0.005851428571427952
+        ],
+        [
+          64,
+          -256.0058514285714
+        ],
+        [
+          128.35000000000002,
+          -255.99996800000002
+        ]
+      ],
+      "index": "a0",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "1cbd1951",
+      "type": "arrow",
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 144.005948,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 482154833,
+      "version": 3,
+      "versionNonce": 19390190,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670800,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:dfac9aec:3ec21649",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:overview"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "dfac9aec",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "3ec21649",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          74.35000000000002,
+          -144.005948
+        ],
+        [
+          148.70000000000005,
+          -144
+        ]
+      ],
+      "index": "a1",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "81a830fe",
+      "type": "arrow",
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 27799807,
+      "version": 4,
+      "versionNonce": 719966510,
+      "isDeleted": true,
+      "boundElements": [],
+      "updated": 1788923670801,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:dfac9aec:bc24af69",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:overview"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "dfac9aec",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "bc24af69",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          74.35000000000002,
+          -48.00594799999999
+        ],
+        [
+          148.70000000000005,
+          -48
+        ]
+      ],
+      "index": "a2",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "8d2c2617",
+      "type": "arrow",
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 220997144,
+      "version": 3,
+      "versionNonce": 607353710,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670801,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:dfac9aec:9be22cc1",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:overview"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "dfac9aec",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "9be22cc1",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          74.35000000000002,
+          47.99405200000001
+        ],
+        [
+          148.70000000000005,
+          48
+        ]
+      ],
+      "index": "a3",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "d8d87832",
+      "type": "arrow",
+      "x": 615.65,
+      "y": -263.994052,
+      "width": 148.70000000000005,
+      "height": 144.00594800000002,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1490581555,
+      "version": 3,
+      "versionNonce": 323870126,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670801,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:dfac9aec:933b8989",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:overview"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "dfac9aec",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "933b8989",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          74.35000000000002,
+          143.994052
+        ],
+        [
+          148.70000000000005,
+          144.00000000000003
+        ]
+      ],
+      "index": "a4",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "aa25356f",
+      "type": "arrow",
+      "x": 146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 72.00588342857142,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 707081584,
+      "version": 4,
+      "versionNonce": 1835137006,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670801,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:a271db0b:85bb6200",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:identity"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "a271db0b",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "85bb6200",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          64,
+          -0.005851428571427952
+        ],
+        [
+          64,
+          71.99414857142857
+        ],
+        [
+          128.35000000000002,
+          72.00003199999999
+        ]
+      ],
+      "index": "a5",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "2e401dfd",
+      "type": "arrow",
+      "x": 615.65,
+      "y": 64.005948,
+      "width": 148.70000000000005,
+      "height": 48.005948000000004,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 775953917,
+      "version": 3,
+      "versionNonce": 444123694,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670801,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:85bb6200:be4643fb",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:identity"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "85bb6200",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "be4643fb",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005948000000003617
+        ],
+        [
+          74.35000000000002,
+          -48.005948000000004
+        ],
+        [
+          148.70000000000005,
+          -48
+        ]
+      ],
+      "index": "a6",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "ff372bcc",
+      "type": "arrow",
+      "x": 615.65,
+      "y": 64.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594800000002,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 2134322125,
+      "version": 3,
+      "versionNonce": 427512942,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670802,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:85bb6200:04607b48",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:identity"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "85bb6200",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "04607b48",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005948000000003617
+        ],
+        [
+          74.35000000000002,
+          47.994051999999996
+        ],
+        [
+          148.70000000000005,
+          48.000000000000014
+        ]
+      ],
+      "index": "a7",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "966fac41",
+      "type": "arrow",
+      "x": 146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 304.0058834285714,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 376417346,
+      "version": 3,
+      "versionNonce": 223762478,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670800,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:a271db0b:21b016c2",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:updates"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "a271db0b",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "21b016c2",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          64,
+          -0.005851428571427952
+        ],
+        [
+          64,
+          303.9941485714286
+        ],
+        [
+          128.35000000000002,
+          304.000032
+        ]
+      ],
+      "index": "a8",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "ea72bc54",
+      "type": "arrow",
+      "x": 615.65,
+      "y": 296.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1785904213,
+      "version": 3,
+      "versionNonce": 607295150,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670802,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:21b016c2:ab4f4a1c",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:updates"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "21b016c2",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "ab4f4a1c",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          74.35000000000002,
+          -48.00594799999999
+        ],
+        [
+          148.70000000000005,
+          -48
+        ]
+      ],
+      "index": "a9",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "646bf16f",
+      "type": "arrow",
+      "x": 615.65,
+      "y": 296.005948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1684795759,
+      "version": 3,
+      "versionNonce": 1397199086,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670802,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:21b016c2:07abc2b6",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:updates"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "21b016c2",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "07abc2b6",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          74.35000000000002,
+          47.99405200000001
+        ],
+        [
+          148.70000000000005,
+          48
+        ]
+      ],
+      "index": "aA",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "15405bf9",
+      "type": "arrow",
+      "x": -146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 140.00585142857142,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 356539385,
+      "version": 3,
+      "versionNonce": 897000046,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670800,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:a271db0b:1b33e199",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:access"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "a271db0b",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "1b33e199",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -64,
+          -0.005851428571427952
+        ],
+        [
+          -64,
+          -140.00585142857142
+        ],
+        [
+          -128.35000000000002,
+          -139.999968
+        ]
+      ],
+      "index": "aB",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "8924cfc7",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -147.994052,
+      "width": 148.70000000000005,
+      "height": 149.505948,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 153407432,
+      "version": 3,
+      "versionNonce": 1111704366,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670803,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:1b33e199:c8134696",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:access"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "1b33e199",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "c8134696",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          -74.35000000000002,
+          -149.505948
+        ],
+        [
+          -148.70000000000005,
+          -149.5
+        ]
+      ],
+      "index": "aC",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "824c74f0",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -147.994052,
+      "width": 148.70000000000005,
+      "height": 53.50594799999999,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 38565105,
+      "version": 3,
+      "versionNonce": 864988526,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670803,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:1b33e199:c313eef9",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:access"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "1b33e199",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "c313eef9",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          -74.35000000000002,
+          -53.50594799999999
+        ],
+        [
+          -148.70000000000005,
+          -53.5
+        ]
+      ],
+      "index": "aD",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "fd295f94",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -147.994052,
+      "width": 148.70000000000005,
+      "height": 48.007713812499986,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 2099863445,
+      "version": 3,
+      "versionNonce": 879939502,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670803,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:1b33e199:c8629878",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:access"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "1b33e199",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "c8629878",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          -74.35000000000002,
+          47.99405200000001
+        ],
+        [
+          -148.70000000000005,
+          48.0017658125
+        ]
+      ],
+      "index": "aE",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "642e1941",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -147.994052,
+      "width": 148.70000000000005,
+      "height": 149.505948,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1680742721,
+      "version": 3,
+      "versionNonce": 1092135406,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670803,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:1b33e199:d0cf22eb",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:access"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "1b33e199",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "d0cf22eb",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          -74.35000000000002,
+          149.494052
+        ],
+        [
+          -148.70000000000005,
+          149.5
+        ]
+      ],
+      "index": "aF",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "bda23ca6",
+      "type": "arrow",
+      "x": -146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 193.50588342857142,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1034042535,
+      "version": 3,
+      "versionNonce": 730113198,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670800,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:a271db0b:04ab0c45",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:security"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "a271db0b",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "04ab0c45",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -64,
+          -0.005851428571427952
+        ],
+        [
+          -64,
+          193.49414857142858
+        ],
+        [
+          -128.35000000000002,
+          193.500032
+        ]
+      ],
+      "index": "aG",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "69fa4580",
+      "type": "arrow",
+      "x": -615.65,
+      "y": 185.505948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1778009472,
+      "version": 3,
+      "versionNonce": 1753824302,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670804,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:04ab0c45:48604243",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:security"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "04ab0c45",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "48604243",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          -74.35000000000002,
+          -48.00594799999999
+        ],
+        [
+          -148.70000000000005,
+          -48
+        ]
+      ],
+      "index": "aH",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "6184b2dc",
+      "type": "arrow",
+      "x": -615.65,
+      "y": 185.505948,
+      "width": 148.70000000000005,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1636086492,
+      "version": 3,
+      "versionNonce": 1890420334,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670804,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:edge:04ab0c45:c32af142",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "group:security"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "04ab0c45",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "c32af142",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999989406
+        ],
+        [
+          -74.35000000000002,
+          47.99405200000001
+        ],
+        [
+          -148.70000000000005,
+          48
+        ]
+      ],
+      "index": "aI",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "a271db0b",
+      "type": "rectangle",
+      "x": -140,
+      "y": -40,
+      "width": 280,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#9b2c47",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "a271db0b"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 577886988,
+      "version": 2,
+      "versionNonce": 117603822,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c5c14fb3",
+          "type": "text"
+        },
+        {
+          "id": "95e55595",
+          "type": "arrow"
+        },
+        {
+          "id": "aa25356f",
+          "type": "arrow"
+        },
+        {
+          "id": "966fac41",
+          "type": "arrow"
+        },
+        {
+          "id": "15405bf9",
+          "type": "arrow"
+        },
+        {
+          "id": "bda23ca6",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:root",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "root",
+          "branch": null
+        }
+      },
+      "index": "aJ",
+      "hasTextLink": false
+    },
+    {
+      "id": "c5c14fb3",
+      "type": "text",
+      "x": -42.69140625,
+      "y": -23,
+      "width": 85.3828125,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#ffffff",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "a271db0b"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1170296756,
+      "version": 3,
+      "versionNonce": 918123250,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "Scholay",
+      "originalText": "Scholay",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a271db0b",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:root:label",
+          "owned": {
+            "text": "Scholay",
+            "originalText": "Scholay",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": null
+        }
+      },
+      "rawText": "Scholay",
+      "hasTextLink": false,
+      "index": "aJV",
+      "labelPosition": null
+    },
+    {
+      "id": "dfac9aec",
+      "type": "rectangle",
+      "x": 280,
+      "y": -296,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "dfac9aec"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1605147373,
+      "version": 2,
+      "versionNonce": 1054810098,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "31e68c49",
+          "type": "text"
+        },
+        {
+          "id": "95e55595",
+          "type": "arrow"
+        },
+        {
+          "id": "1cbd1951",
+          "type": "arrow"
+        },
+        {
+          "id": "8d2c2617",
+          "type": "arrow"
+        },
+        {
+          "id": "d8d87832",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:overview",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:overview",
+          "focusTitle": "认识平台与能力",
+          "parent": "a271db0b"
+        }
+      },
+      "index": "aK",
+      "hasTextLink": false
+    },
+    {
+      "id": "31e68c49",
+      "type": "text",
+      "x": 361,
+      "y": -279,
+      "width": 168,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "dfac9aec"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 837192777,
+      "version": 3,
+      "versionNonce": 1107356974,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "认识平台与能力",
+      "originalText": "认识平台与能力",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "dfac9aec",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:overview:label",
+          "owned": {
+            "text": "认识平台与能力",
+            "originalText": "认识平台与能力",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:overview"
+        }
+      },
+      "rawText": "认识平台与能力",
+      "hasTextLink": false,
+      "index": "aKV",
+      "labelPosition": null
+    },
+    {
+      "id": "3ec21649",
+      "type": "rectangle",
+      "x": 770,
+      "y": -440,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "3ec21649"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1052907081,
+      "version": 3,
+      "versionNonce": 2048430126,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "4a58a67f",
+          "type": "text"
+        },
+        {
+          "id": "1cbd1951",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/scholay.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:scholay",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/scholay.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:overview",
+          "articleSlug": "scholay",
+          "status": "current",
+          "parent": "dfac9aec"
+        }
+      },
+      "index": "aL",
+      "hasTextLink": false
+    },
+    {
+      "id": "4a58a67f",
+      "type": "text",
+      "x": 910.8662109375,
+      "y": -421.75,
+      "width": 78.267578125,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "3ec21649"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1247323775,
+      "version": 3,
+      "versionNonce": 213009586,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "Scholay",
+      "originalText": "Scholay",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "3ec21649",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:scholay:label",
+          "owned": {
+            "text": "Scholay",
+            "originalText": "Scholay",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:overview",
+          "articleSlug": "scholay",
+          "status": "current"
+        }
+      },
+      "rawText": "Scholay",
+      "hasTextLink": false,
+      "index": "aLV",
+      "labelPosition": null
+    },
+    {
+      "id": "bc24af69",
+      "type": "rectangle",
+      "x": 770,
+      "y": -344,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "bc24af69"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1009037162,
+      "version": 4,
+      "versionNonce": 1033523634,
+      "isDeleted": true,
+      "boundElements": [
+        {
+          "id": "fe04c2ea",
+          "type": "text"
+        },
+        {
+          "id": "81a830fe",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/product-map.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:product-map",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/product-map.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:overview",
+          "articleSlug": "product-map",
+          "status": "current",
+          "parent": "dfac9aec"
+        }
+      },
+      "index": "aM",
+      "hasTextLink": false
+    },
+    {
+      "id": "fe04c2ea",
+      "type": "text",
+      "x": 906,
+      "y": -325.75,
+      "width": 88,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "bc24af69"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 2114241259,
+      "version": 4,
+      "versionNonce": 34019182,
+      "isDeleted": true,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "全站功能",
+      "originalText": "全站功能",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "bc24af69",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:product-map:label",
+          "owned": {
+            "text": "全站功能",
+            "originalText": "全站功能",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:overview",
+          "articleSlug": "product-map",
+          "status": "current"
+        }
+      },
+      "rawText": "全站功能",
+      "hasTextLink": false,
+      "index": "aMV",
+      "labelPosition": null
+    },
+    {
+      "id": "9be22cc1",
+      "type": "rectangle",
+      "x": 770,
+      "y": -248,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "9be22cc1"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 467807426,
+      "version": 3,
+      "versionNonce": 1026710126,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "b0826e69",
+          "type": "text"
+        },
+        {
+          "id": "8d2c2617",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/product-and-pricing-overview.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:product-and-pricing-overview",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/product-and-pricing-overview.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:overview",
+          "articleSlug": "product-and-pricing-overview",
+          "status": "current",
+          "parent": "dfac9aec"
+        }
+      },
+      "index": "aN",
+      "hasTextLink": false
+    },
+    {
+      "id": "b0826e69",
+      "type": "text",
+      "x": 873,
+      "y": -229.75,
+      "width": 154,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "9be22cc1"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 813854314,
+      "version": 3,
+      "versionNonce": 1462427250,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "产品与套餐总览",
+      "originalText": "产品与套餐总览",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "9be22cc1",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:product-and-pricing-overview:label",
+          "owned": {
+            "text": "产品与套餐总览",
+            "originalText": "产品与套餐总览",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:overview",
+          "articleSlug": "product-and-pricing-overview",
+          "status": "current"
+        }
+      },
+      "rawText": "产品与套餐总览",
+      "hasTextLink": false,
+      "index": "aNV",
+      "labelPosition": null
+    },
+    {
+      "id": "933b8989",
+      "type": "rectangle",
+      "x": 770,
+      "y": -152,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "933b8989"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 322668938,
+      "version": 3,
+      "versionNonce": 696863602,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "172274d3",
+          "type": "text"
+        },
+        {
+          "id": "d8d87832",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/marketing-pages-and-implementation-boundaries.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:marketing-pages-and-implementation-boundaries",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/marketing-pages-and-implementation-boundaries.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:overview",
+          "articleSlug": "marketing-pages-and-implementation-boundaries",
+          "status": "current",
+          "parent": "dfac9aec"
+        }
+      },
+      "index": "aO",
+      "hasTextLink": false
+    },
+    {
+      "id": "172274d3",
+      "type": "text",
+      "x": 851,
+      "y": -133.75,
+      "width": 198,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "933b8989"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 388134099,
+      "version": 3,
+      "versionNonce": 743307694,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "功能页面与元素说明",
+      "originalText": "功能页面与元素说明",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "933b8989",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:marketing-pages-and-implementation-boundaries:label",
+          "owned": {
+            "text": "功能页面与元素说明",
+            "originalText": "功能页面与元素说明",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:overview",
+          "articleSlug": "marketing-pages-and-implementation-boundaries",
+          "status": "current"
+        }
+      },
+      "rawText": "功能页面与元素说明",
+      "hasTextLink": false,
+      "index": "aOV",
+      "labelPosition": null
+    },
+    {
+      "id": "85bb6200",
+      "type": "rectangle",
+      "x": 280,
+      "y": 32,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "85bb6200"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 96166401,
+      "version": 2,
+      "versionNonce": 119069870,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "eb4067ba",
+          "type": "text"
+        },
+        {
+          "id": "aa25356f",
+          "type": "arrow"
+        },
+        {
+          "id": "2e401dfd",
+          "type": "arrow"
+        },
+        {
+          "id": "ff372bcc",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:identity",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:identity",
+          "focusTitle": "绑定与账号合并",
+          "parent": "a271db0b"
+        }
+      },
+      "index": "aP",
+      "hasTextLink": false
+    },
+    {
+      "id": "eb4067ba",
+      "type": "text",
+      "x": 361,
+      "y": 49,
+      "width": 168,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "85bb6200"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1799382971,
+      "version": 3,
+      "versionNonce": 48906290,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "绑定与账号合并",
+      "originalText": "绑定与账号合并",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "85bb6200",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:identity:label",
+          "owned": {
+            "text": "绑定与账号合并",
+            "originalText": "绑定与账号合并",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:identity"
+        }
+      },
+      "rawText": "绑定与账号合并",
+      "hasTextLink": false,
+      "index": "aPV",
+      "labelPosition": null
+    },
+    {
+      "id": "be4643fb",
+      "type": "rectangle",
+      "x": 770,
+      "y": -16,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "be4643fb"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1044792316,
+      "version": 3,
+      "versionNonce": 955452722,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "ae205999",
+          "type": "text"
+        },
+        {
+          "id": "2e401dfd",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/account-connections.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:account-connections",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/account-connections.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:identity",
+          "articleSlug": "account-connections",
+          "status": "current",
+          "parent": "85bb6200"
+        }
+      },
+      "index": "aQ",
+      "hasTextLink": false
+    },
+    {
+      "id": "ae205999",
+      "type": "text",
+      "x": 840,
+      "y": 2.25,
+      "width": 220,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "be4643fb"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 773872026,
+      "version": 3,
+      "versionNonce": 670995438,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "第三方账号连接与解绑",
+      "originalText": "第三方账号连接与解绑",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "be4643fb",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:account-connections:label",
+          "owned": {
+            "text": "第三方账号连接与解绑",
+            "originalText": "第三方账号连接与解绑",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:identity",
+          "articleSlug": "account-connections",
+          "status": "current"
+        }
+      },
+      "rawText": "第三方账号连接与解绑",
+      "hasTextLink": false,
+      "index": "aQV",
+      "labelPosition": null
+    },
+    {
+      "id": "04607b48",
+      "type": "rectangle",
+      "x": 770,
+      "y": 80,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "04607b48"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 73431880,
+      "version": 3,
+      "versionNonce": 1299519214,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "b403476f",
+          "type": "text"
+        },
+        {
+          "id": "ff372bcc",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/oauth-account-merge.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:oauth-account-merge",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/oauth-account-merge.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:identity",
+          "articleSlug": "oauth-account-merge",
+          "status": "current",
+          "parent": "85bb6200"
+        }
+      },
+      "index": "aR",
+      "hasTextLink": false
+    },
+    {
+      "id": "b403476f",
+      "type": "text",
+      "x": 816.75927734375,
+      "y": 98.25,
+      "width": 266.4814453125,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "04607b48"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 872630128,
+      "version": 3,
+      "versionNonce": 1272408562,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "OAuth 邮箱冲突与账号合并",
+      "originalText": "OAuth 邮箱冲突与账号合并",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "04607b48",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:oauth-account-merge:label",
+          "owned": {
+            "text": "OAuth 邮箱冲突与账号合并",
+            "originalText": "OAuth 邮箱冲突与账号合并",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:identity",
+          "articleSlug": "oauth-account-merge",
+          "status": "current"
+        }
+      },
+      "rawText": "OAuth 邮箱冲突与账号合并",
+      "hasTextLink": false,
+      "index": "aRV",
+      "labelPosition": null
+    },
+    {
+      "id": "21b016c2",
+      "type": "rectangle",
+      "x": 280,
+      "y": 264,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "21b016c2"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 565188290,
+      "version": 2,
+      "versionNonce": 1094620914,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "1289d703",
+          "type": "text"
+        },
+        {
+          "id": "966fac41",
+          "type": "arrow"
+        },
+        {
+          "id": "ea72bc54",
+          "type": "arrow"
+        },
+        {
+          "id": "646bf16f",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:updates",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:updates",
+          "focusTitle": "通知与产品进展",
+          "parent": "a271db0b"
+        }
+      },
+      "index": "aS",
+      "hasTextLink": false
+    },
+    {
+      "id": "1289d703",
+      "type": "text",
+      "x": 361,
+      "y": 281,
+      "width": 168,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "21b016c2"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 311023363,
+      "version": 3,
+      "versionNonce": 253879854,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "通知与产品进展",
+      "originalText": "通知与产品进展",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "21b016c2",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:updates:label",
+          "owned": {
+            "text": "通知与产品进展",
+            "originalText": "通知与产品进展",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:updates"
+        }
+      },
+      "rawText": "通知与产品进展",
+      "hasTextLink": false,
+      "index": "aSV",
+      "labelPosition": null
+    },
+    {
+      "id": "ab4f4a1c",
+      "type": "rectangle",
+      "x": 770,
+      "y": 216,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "ab4f4a1c"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 726616605,
+      "version": 3,
+      "versionNonce": 1758464302,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "dba12a3b",
+          "type": "text"
+        },
+        {
+          "id": "ea72bc54",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/notification-center.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:notification-center",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/notification-center.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:updates",
+          "articleSlug": "notification-center",
+          "status": "current",
+          "parent": "21b016c2"
+        }
+      },
+      "index": "aT",
+      "hasTextLink": false
+    },
+    {
+      "id": "dba12a3b",
+      "type": "text",
+      "x": 884,
+      "y": 234.25,
+      "width": 132,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "ab4f4a1c"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1537288764,
+      "version": 3,
+      "versionNonce": 1492736946,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "站内通知中心",
+      "originalText": "站内通知中心",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "ab4f4a1c",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:notification-center:label",
+          "owned": {
+            "text": "站内通知中心",
+            "originalText": "站内通知中心",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:updates",
+          "articleSlug": "notification-center",
+          "status": "current"
+        }
+      },
+      "rawText": "站内通知中心",
+      "hasTextLink": false,
+      "index": "aTV",
+      "labelPosition": null
+    },
+    {
+      "id": "07abc2b6",
+      "type": "rectangle",
+      "x": 770,
+      "y": 312,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "07abc2b6"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 128697014,
+      "version": 3,
+      "versionNonce": 1391650994,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "1b566bfb",
+          "type": "text"
+        },
+        {
+          "id": "646bf16f",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/roadmap-status.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:roadmap-status",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/roadmap-status.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:updates",
+          "articleSlug": "roadmap-status",
+          "status": "planned",
+          "parent": "21b016c2"
+        }
+      },
+      "index": "aU",
+      "hasTextLink": false
+    },
+    {
+      "id": "1b566bfb",
+      "type": "text",
+      "x": 851,
+      "y": 330.25,
+      "width": 198,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "07abc2b6"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 458648571,
+      "version": 3,
+      "versionNonce": 1386279022,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "开发计划与状态说明",
+      "originalText": "开发计划与状态说明",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "07abc2b6",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:roadmap-status:label",
+          "owned": {
+            "text": "开发计划与状态说明",
+            "originalText": "开发计划与状态说明",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:updates",
+          "articleSlug": "roadmap-status",
+          "status": "planned"
+        }
+      },
+      "rawText": "开发计划与状态说明",
+      "hasTextLink": false,
+      "index": "aUV",
+      "labelPosition": null
+    },
+    {
+      "id": "1b33e199",
+      "type": "rectangle",
+      "x": -610,
+      "y": -180,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1b33e199"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 456384921,
+      "version": 2,
+      "versionNonce": 949138286,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "75f8ed13",
+          "type": "text"
+        },
+        {
+          "id": "15405bf9",
+          "type": "arrow"
+        },
+        {
+          "id": "8924cfc7",
+          "type": "arrow"
+        },
+        {
+          "id": "824c74f0",
+          "type": "arrow"
+        },
+        {
+          "id": "fd295f94",
+          "type": "arrow"
+        },
+        {
+          "id": "642e1941",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:access",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:access",
+          "focusTitle": "注册与登录",
+          "parent": "a271db0b"
+        }
+      },
+      "index": "aV",
+      "hasTextLink": false
+    },
+    {
+      "id": "75f8ed13",
+      "type": "text",
+      "x": -505,
+      "y": -163,
+      "width": 120,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1b33e199"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1979247891,
+      "version": 3,
+      "versionNonce": 1484199282,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "注册与登录",
+      "originalText": "注册与登录",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "1b33e199",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:access:label",
+          "owned": {
+            "text": "注册与登录",
+            "originalText": "注册与登录",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:access"
+        }
+      },
+      "rawText": "注册与登录",
+      "hasTextLink": false,
+      "index": "aVV",
+      "labelPosition": null
+    },
+    {
+      "id": "c8134696",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -329.5,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c8134696"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1209222807,
+      "version": 3,
+      "versionNonce": 1438057074,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "935d591f",
+          "type": "text"
+        },
+        {
+          "id": "8924cfc7",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/account.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:account",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/account.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:access",
+          "articleSlug": "account",
+          "status": "current",
+          "parent": "1b33e199"
+        }
+      },
+      "index": "aW",
+      "hasTextLink": false
+    },
+    {
+      "id": "935d591f",
+      "type": "text",
+      "x": -1014.18994140625,
+      "y": -311.25,
+      "width": 128.3798828125,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c8134696"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 324884768,
+      "version": 3,
+      "versionNonce": 1581560494,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "Scholay 账户",
+      "originalText": "Scholay 账户",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "c8134696",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:account:label",
+          "owned": {
+            "text": "Scholay 账户",
+            "originalText": "Scholay 账户",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:access",
+          "articleSlug": "account",
+          "status": "current"
+        }
+      },
+      "rawText": "Scholay 账户",
+      "hasTextLink": false,
+      "index": "aWV",
+      "labelPosition": null
+    },
+    {
+      "id": "c313eef9",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -233.5,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c313eef9"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1125379834,
+      "version": 3,
+      "versionNonce": 1191581102,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "8afa50e8",
+          "type": "text"
+        },
+        {
+          "id": "824c74f0",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/login-methods-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:login-methods-guide",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/login-methods-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:access",
+          "articleSlug": "login-methods-guide",
+          "status": "current",
+          "parent": "1b33e199"
+        }
+      },
+      "index": "aX",
+      "hasTextLink": false
+    },
+    {
+      "id": "8afa50e8",
+      "type": "text",
+      "x": -1016,
+      "y": -215.25,
+      "width": 132,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c313eef9"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 184176873,
+      "version": 3,
+      "versionNonce": 462919474,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "登录方式指南",
+      "originalText": "登录方式指南",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "c313eef9",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:login-methods-guide:label",
+          "owned": {
+            "text": "登录方式指南",
+            "originalText": "登录方式指南",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:access",
+          "articleSlug": "login-methods-guide",
+          "status": "current"
+        }
+      },
+      "rawText": "登录方式指南",
+      "hasTextLink": false,
+      "index": "aXV",
+      "labelPosition": null
+    },
+    {
+      "id": "c8629878",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -141.5,
+      "width": 360,
+      "height": 83,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c8629878"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1214421113,
+      "version": 3,
+      "versionNonce": 609346610,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "ae719e5c",
+          "type": "text"
+        },
+        {
+          "id": "fd295f94",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/email-phone-authentication.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:email-phone-authentication",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/email-phone-authentication.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:access",
+          "articleSlug": "email-phone-authentication",
+          "status": "current",
+          "parent": "1b33e199"
+        }
+      },
+      "index": "aY",
+      "hasTextLink": false
+    },
+    {
+      "id": "ae719e5c",
+      "type": "text",
+      "x": -1115,
+      "y": -127.5,
+      "width": 330,
+      "height": 55,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c8629878"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 779198045,
+      "version": 3,
+      "versionNonce": 1018572014,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "邮箱与手机号注册、登录和找回密码",
+      "originalText": "邮箱与手机号注册、登录和找回密码",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "c8629878",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:email-phone-authentication:label",
+          "owned": {
+            "text": "邮箱与手机号注册、登录和找回密码",
+            "originalText": "邮箱与手机号注册、登录和找回密码",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:access",
+          "articleSlug": "email-phone-authentication",
+          "status": "current"
+        }
+      },
+      "rawText": "邮箱与手机号注册、登录和找回密码",
+      "hasTextLink": false,
+      "index": "aYV",
+      "labelPosition": null
+    },
+    {
+      "id": "d0cf22eb",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -30.5,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "d0cf22eb"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1355752172,
+      "version": 3,
+      "versionNonce": 1834168302,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "a104f04c",
+          "type": "text"
+        },
+        {
+          "id": "642e1941",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/oauth-wechat-login.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:oauth-wechat-login",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/oauth-wechat-login.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:access",
+          "articleSlug": "oauth-wechat-login",
+          "status": "current",
+          "parent": "1b33e199"
+        }
+      },
+      "index": "aZ",
+      "hasTextLink": false
+    },
+    {
+      "id": "a104f04c",
+      "type": "text",
+      "x": -1061.24072265625,
+      "y": -12.25,
+      "width": 222.4814453125,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "d0cf22eb"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 553971789,
+      "version": 3,
+      "versionNonce": 851566834,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "OAuth 与微信扫码登录",
+      "originalText": "OAuth 与微信扫码登录",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d0cf22eb",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:oauth-wechat-login:label",
+          "owned": {
+            "text": "OAuth 与微信扫码登录",
+            "originalText": "OAuth 与微信扫码登录",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:access",
+          "articleSlug": "oauth-wechat-login",
+          "status": "current"
+        }
+      },
+      "rawText": "OAuth 与微信扫码登录",
+      "hasTextLink": false,
+      "index": "aZV",
+      "labelPosition": null
+    },
+    {
+      "id": "04ab0c45",
+      "type": "rectangle",
+      "x": -610,
+      "y": 153.5,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "04ab0c45"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 78318661,
+      "version": 2,
+      "versionNonce": 682266098,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c442bb65",
+          "type": "text"
+        },
+        {
+          "id": "bda23ca6",
+          "type": "arrow"
+        },
+        {
+          "id": "69fa4580",
+          "type": "arrow"
+        },
+        {
+          "id": "6184b2dc",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:security",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "group:security",
+          "focusTitle": "资料与安全",
+          "parent": "a271db0b"
+        }
+      },
+      "index": "aa",
+      "hasTextLink": false
+    },
+    {
+      "id": "c442bb65",
+      "type": "text",
+      "x": -505,
+      "y": 170.5,
+      "width": 120,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "04ab0c45"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1145224038,
+      "version": 3,
+      "versionNonce": 998137646,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "资料与安全",
+      "originalText": "资料与安全",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "04ab0c45",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:group:security:label",
+          "owned": {
+            "text": "资料与安全",
+            "originalText": "资料与安全",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:security"
+        }
+      },
+      "rawText": "资料与安全",
+      "hasTextLink": false,
+      "index": "aaV",
+      "labelPosition": null
+    },
+    {
+      "id": "48604243",
+      "type": "rectangle",
+      "x": -1130,
+      "y": 105.5,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "48604243"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1214267971,
+      "version": 3,
+      "versionNonce": 2005074478,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "be23b940",
+          "type": "text"
+        },
+        {
+          "id": "69fa4580",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/profile-settings.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:profile-settings",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/profile-settings.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:security",
+          "articleSlug": "profile-settings",
+          "status": "current",
+          "parent": "04ab0c45"
+        }
+      },
+      "index": "ab",
+      "hasTextLink": false
+    },
+    {
+      "id": "be23b940",
+      "type": "text",
+      "x": -1016,
+      "y": 123.75,
+      "width": 132,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "48604243"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1042528577,
+      "version": 3,
+      "versionNonce": 159183538,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "个人资料设置",
+      "originalText": "个人资料设置",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "48604243",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:profile-settings:label",
+          "owned": {
+            "text": "个人资料设置",
+            "originalText": "个人资料设置",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:security",
+          "articleSlug": "profile-settings",
+          "status": "current"
+        }
+      },
+      "rawText": "个人资料设置",
+      "hasTextLink": false,
+      "index": "abV",
+      "labelPosition": null
+    },
+    {
+      "id": "c32af142",
+      "type": "rectangle",
+      "x": -1130,
+      "y": 201.5,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c32af142"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1126887747,
+      "version": 3,
+      "versionNonce": 2009595826,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "da61352c",
+          "type": "text"
+        },
+        {
+          "id": "6184b2dc",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788923670728,
+      "link": "[[wiki/pages/getting-started/account-security-settings.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:account-security-settings",
+          "owned": {
+            "link": "[[wiki/pages/getting-started/account-security-settings.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:security",
+          "articleSlug": "account-security-settings",
+          "status": "current",
+          "parent": "04ab0c45"
+        }
+      },
+      "index": "ac",
+      "hasTextLink": false
+    },
+    {
+      "id": "da61352c",
+      "type": "text",
+      "x": -1093,
+      "y": 219.75,
+      "width": 286,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#9b2c47",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "c32af142"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1516320045,
+      "version": 2,
+      "versionNonce": 463038770,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": null,
+      "locked": false,
+      "text": "密码、邮箱与手机号安全设置",
+      "originalText": "密码、邮箱与手机号安全设置",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "c32af142",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:article:account-security-settings:label",
+          "owned": {
+            "text": "密码、邮箱与手机号安全设置",
+            "originalText": "密码、邮箱与手机号安全设置",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:security",
+          "articleSlug": "account-security-settings",
+          "status": "current"
+        }
+      },
+      "rawText": "密码、邮箱与手机号安全设置",
+      "hasTextLink": false,
+      "index": "aw",
+      "labelPosition": null
+    },
+    {
+      "id": "3dcf8661",
+      "type": "text",
+      "x": -140,
+      "y": -524,
+      "width": 116.1123046875,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#697586",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1037010529,
+      "version": 2,
+      "versionNonce": 334658286,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788923670728,
+      "link": "[[wiki/boards/Scholay.excalidraw.md]]",
+      "locked": false,
+      "text": "← 研究路径",
+      "originalText": "← 研究路径",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:getting-started:home",
+          "owned": {
+            "text": "← 研究路径",
+            "originalText": "← 研究路径",
+            "link": "[[wiki/boards/Scholay.excalidraw.md]]"
+          },
+          "layoutVersion": 2
+        }
+      },
+      "rawText": "← 研究路径",
+      "hasTextLink": false,
+      "index": "ax",
+      "labelPosition": null
+    }
+  ],
+  "appState": {
+    "theme": "light",
+    "viewBackgroundColor": "#ffffff",
+    "currentItemStrokeColor": "#1e1e1e",
+    "currentItemBackgroundColor": "transparent",
+    "currentItemFillStyle": "solid",
+    "currentItemStrokeWidthKey": "medium",
+    "currentItemStrokeVariability": "constant",
+    "currentItemStrokeStyle": "solid",
+    "currentItemRoughness": 1,
+    "currentItemOpacity": 100,
+    "currentItemFontFamily": 5,
+    "currentItemFontSize": 20,
+    "currentItemTextAlign": "left",
+    "currentItemStartArrowhead": null,
+    "currentItemEndArrowhead": "arrow",
+    "currentItemArrowType": "round",
+    "currentItemFrameRole": null,
+    "scrollX": 1189.473986491082,
+    "scrollY": 808.1520917058749,
+    "zoom": {
+      "value": 0.661637
+    },
+    "currentItemRoundness": "round",
+    "gridSize": null,
+    "gridStep": 5,
+    "gridModeEnabled": false,
+    "gridColor": {
+      "Bold": "rgba(179, 179, 179, 0.5)",
+      "Regular": "rgba(204, 204, 204, 0.5)"
+    },
+    "colorTopPicks": {
+      "elementStroke": null,
+      "elementBackground": null,
+      "bucketFill": null
+    },
+    "currentStrokeOptions": null,
+    "frameRendering": {
+      "enabled": true,
+      "clip": true,
+      "name": true,
+      "outline": true,
+      "markerName": true,
+      "markerEnabled": true
+    },
+    "objectsSnapModeEnabled": false,
+    "activeTool": {
+      "type": "selection",
+      "customType": null,
+      "locked": false,
+      "fromSelection": false,
+      "lastActiveTool": null
+    },
+    "disableContextMenu": false,
+    "bindingPreference": "enabled",
+    "isMidpointSnappingEnabled": true,
+    "boxSelectionMode": "contain"
+  },
+  "files": {}
+}
 ```
 %%

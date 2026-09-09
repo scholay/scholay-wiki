@@ -9,7 +9,7 @@ def structure(c,path):
     else:
         # A small/new vault can start from its catalog, then add semantic groups.
         s={'categories':{cat['slug']:[{'id':'articles','title':'词条','articles':[a['slug'] for a in c['articles'] if a['category']==cat['slug']]}] for cat in c['categories']},'workflow':[],'support':[]}
-    by={a['slug']:a for a in c['articles']}
+    by={a['slug']:a for a in c['articles'] if a.get('status')!='merged'}
     if set(s['categories'])!={cat['slug'] for cat in c['categories']}:raise ValueError('structure categories differ from catalog')
     seen=[]
     for cat,groups in s['categories'].items():

@@ -7,7 +7,7 @@ status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/manuscript-vs-publication
 scholay_topics: ["[[wiki/topics/research-ai/Prism 写作与工程|Prism 写作与工程]]"]
-scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/research-ai/peer-review-workflow-guide|智能审稿操作流程]]"]
+scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/discovery/paper|论文]]"]
 ---
 
 # 稿件与出版物有什么区别

@@ -142,7 +142,7 @@
           ],
           "id": "overview-features",
           "target": {
-            "articleSlug": "product-map"
+            "articleSlug": "scholay"
           },
           "title": "全站功能"
         },
@@ -192,14 +192,14 @@
             {
               "id": "scenarios-traditional-search",
               "target": {
-                "articleSlug": "literature-search-guide"
+                "articleSlug": "academic-search"
               },
               "title": "如何使用传统文献搜索"
             },
             {
               "id": "scenarios-smart-search",
               "target": {
-                "articleSlug": "smart-literature-search-guide"
+                "articleSlug": "smart-search"
               },
               "title": "如何使用智能文献搜索"
             },
@@ -321,7 +321,7 @@
                     {
                       "id": "scenarios-review-paper-types",
                       "target": {
-                        "articleSlug": "peer-review-workflow-guide",
+                        "articleSlug": "peer-review",
                         "shortcut": true
                       },
                       "title": "论文类型：期刊论文与毕业论文"
@@ -329,7 +329,7 @@
                     {
                       "id": "scenarios-review-process",
                       "target": {
-                        "articleSlug": "peer-review-workflow-guide",
+                        "articleSlug": "peer-review",
                         "shortcut": true
                       },
                       "title": "审稿流程"
@@ -337,7 +337,7 @@
                     {
                       "id": "scenarios-review-dimensions",
                       "target": {
-                        "articleSlug": "peer-review-dimensions-guide",
+                        "articleSlug": "peer-review-results-guide",
                         "shortcut": true
                       },
                       "title": "审稿维度"
@@ -407,14 +407,14 @@
             {
               "id": "assistant-stream-states",
               "target": {
-                "articleSlug": "claw-stream-tool-states"
+                "articleSlug": "claw-sessions"
               },
               "title": "卡住与发不出去"
             }
           ],
           "id": "assistant-interface",
           "target": {
-            "articleSlug": "claw-interface-guide"
+            "articleSlug": "claw"
           },
           "title": "界面介绍"
         },
@@ -580,7 +580,7 @@
         {
           "id": "writing-interface",
           "target": {
-            "articleSlug": "prism-interface-guide"
+            "articleSlug": "prism"
           },
           "title": "界面介绍"
         },
@@ -596,7 +596,7 @@
             {
               "id": "writing-prism-latex",
               "target": {
-                "articleSlug": "latex-project-guide",
+                "articleSlug": "prism-writing-workflow",
                 "shortcut": true
               },
               "title": "Scholay Prism 与 LaTeX"
@@ -604,7 +604,7 @@
             {
               "id": "writing-latex-benefits",
               "target": {
-                "articleSlug": "latex-project-guide",
+                "articleSlug": "prism-writing-workflow",
                 "shortcut": true
               },
               "title": "LaTeX 的好处"
@@ -620,7 +620,7 @@
           ],
           "id": "writing-latex-project",
           "target": {
-            "articleSlug": "latex-project-guide"
+            "articleSlug": "prism-writing-workflow"
           },
           "title": "什么是 LaTeX 工程"
         },
@@ -673,7 +673,7 @@
                 {
                   "id": "review-journal-paper-flow",
                   "target": {
-                    "articleSlug": "peer-review-workflow-guide",
+                    "articleSlug": "peer-review",
                     "shortcut": true
                   },
                   "title": "期刊论文审稿流程"
@@ -681,7 +681,7 @@
                 {
                   "id": "review-thesis-flow",
                   "target": {
-                    "articleSlug": "peer-review-workflow-guide",
+                    "articleSlug": "peer-review",
                     "shortcut": true
                   },
                   "title": "毕业论文审稿流程"
@@ -689,7 +689,7 @@
               ],
               "id": "review-workflow-interface",
               "target": {
-                "articleSlug": "peer-review-workflow-guide"
+                "articleSlug": "peer-review"
               },
               "title": "操作流程界面"
             },
@@ -729,7 +729,7 @@
             {
               "id": "review-dimensions",
               "target": {
-                "articleSlug": "peer-review-dimensions-guide"
+                "articleSlug": "peer-review-results-guide"
               },
               "title": "审稿维度"
             },
@@ -738,7 +738,7 @@
                 {
                   "id": "review-evaluation-original",
                   "target": {
-                    "articleSlug": "peer-review-dimensions-guide",
+                    "articleSlug": "peer-review-results-guide",
                     "shortcut": true
                   },
                   "title": "原句"
@@ -746,7 +746,7 @@
                 {
                   "id": "review-evaluation-advice",
                   "target": {
-                    "articleSlug": "peer-review-dimensions-guide",
+                    "articleSlug": "peer-review-results-guide",
                     "shortcut": true
                   },
                   "title": "建议"
@@ -754,7 +754,7 @@
               ],
               "id": "review-evaluation-method",
               "target": {
-                "articleSlug": "peer-review-dimensions-guide",
+                "articleSlug": "peer-review-results-guide",
                 "shortcut": true
               },
               "title": "评价方式"
@@ -824,7 +824,7 @@
           ],
           "id": "intelligence-interface",
           "target": {
-            "articleSlug": "academic-intelligence-interface-guide"
+            "articleSlug": "research-news"
           },
           "title": "界面介绍"
         }
@@ -1789,10 +1789,11 @@
     {
       "slug": "literature-search-guide",
       "title": "如何使用传统文献搜索",
-      "summary": "从关键词、数据源和筛选条件出发，得到可核对的论文清单，并把候选文献送入暂存、收藏或矩阵分析。",
+      "summary": "已并入「论文检索」。",
       "category": "discovery",
       "kind": "page",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "academic-search",
       "audience": [
         "研究者",
         "学生",
@@ -2310,10 +2311,11 @@
     {
       "slug": "product-map",
       "title": "全站功能",
-      "summary": "一张图看清 Scholay 里你能用到的地方，以及接下来该打开哪篇说明。",
+      "summary": "已并入「Scholay」。",
       "category": "getting-started",
       "kind": "overview",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "scholay",
       "audience": [
         "所有访客",
         "研究者"
@@ -2582,10 +2584,11 @@
     {
       "slug": "academic-intelligence-interface-guide",
       "title": "学术情报界面导览",
-      "summary": "从学术情报列表按时间、热度与版块发现内容，再进入详情核对正文、来源、可信度说明和相关情报。",
+      "summary": "已并入「学术资讯」。",
       "category": "knowledge",
       "kind": "page",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "research-news",
       "audience": [
         "所有访客",
         "研究者",
@@ -3548,10 +3551,11 @@
     {
       "slug": "claw-interface-guide",
       "title": "智能助手界面导览",
-      "summary": "认识 Scholay 智能助手的会话历史、消息区、输入工具、模型选择和交付物扩展区。",
+      "summary": "已并入「Scholay智能助手」。",
       "category": "research-ai",
       "kind": "page",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "claw",
       "audience": [
         "智能助手用户",
         "研究者",
@@ -3602,10 +3606,11 @@
     {
       "slug": "claw-stream-tool-states",
       "title": "智能助手延迟、发送失败",
-      "summary": "发送后没有回应、任务停很久、连接中断，或同一个对话在另一个窗口打开时，页面会怎么提示，你可以怎么处理。",
+      "summary": "已并入「Claw 会话与历史」。",
       "category": "research-ai",
       "kind": "feature",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "claw-sessions",
       "audience": [
         "Claw 用户",
         "研究者"
@@ -3632,10 +3637,11 @@
     {
       "slug": "latex-project-guide",
       "title": "什么是 LaTeX 工程",
-      "summary": "理解 LaTeX 工程的组成和优势，以及 Prism、内置模板与期刊模板下载之间的真实关系。",
+      "summary": "已并入「怎样完成一次智能写作」。",
       "category": "research-ai",
       "kind": "overview",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "prism-writing-workflow",
       "audience": [
         "论文作者",
         "LaTeX 初学者",
@@ -3747,10 +3753,11 @@
     {
       "slug": "peer-review-dimensions-guide",
       "title": "智能审稿的维度与评价方式",
-      "summary": "理解科学性、严谨性、创新性、可读性四维评分，以及原句、问题与建议之间的关系。",
+      "summary": "已并入「智能审稿结果怎么看」。",
       "category": "research-ai",
       "kind": "overview",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "peer-review-results-guide",
       "audience": [
         "论文作者",
         "研究生",
@@ -3803,10 +3810,11 @@
     {
       "slug": "peer-review-workflow-guide",
       "title": "智能审稿操作流程",
-      "summary": "选择期刊论文或毕业论文，完成四步材料核对，并理解 AI 评议任务的运行状态与边界。",
+      "summary": "已并入「智能审稿」。",
       "category": "research-ai",
       "kind": "rule",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "peer-review",
       "audience": [
         "论文作者",
         "研究生",
@@ -3859,10 +3867,11 @@
     {
       "slug": "prism-interface-guide",
       "title": "智能写作界面导览",
-      "summary": "从项目首页进入 Scholay Prism，理解大纲、AI 对话、所见即所得正文、模板、编译和导出区域。",
+      "summary": "已并入「Scholay Prism」。",
       "category": "research-ai",
       "kind": "page",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "prism",
       "audience": [
         "论文作者",
         "研究者",
@@ -4024,10 +4033,11 @@
     {
       "slug": "smart-literature-search-guide",
       "title": "如何使用智能文献搜索",
-      "summary": "用自然语言描述研究问题，让智能搜索拆解查询、调用学术检索工具并组织论文与证据，再通过追问逐步收敛。",
+      "summary": "已并入「智能搜索」。",
       "category": "research-ai",
       "kind": "page",
-      "status": "current",
+      "status": "merged",
+      "merged_into": "smart-search",
       "audience": [
         "登录用户",
         "研究者",

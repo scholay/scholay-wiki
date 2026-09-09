@@ -8,7 +8,6 @@
         "title": "认识平台与能力",
         "articles": [
           "scholay",
-          "product-map",
           "product-and-pricing-overview",
           "marketing-pages-and-implementation-boundaries"
         ]
@@ -54,7 +53,6 @@
         "title": "检索并收集候选",
         "articles": [
           "academic-search",
-          "literature-search-guide",
           "classic-vs-smart-search",
           "paper-search-sources",
           "paper-search-filters-and-pages",
@@ -121,7 +119,6 @@
         "title": "智能检索与证据核验",
         "articles": [
           "smart-search",
-          "smart-literature-search-guide",
           "research-evidence-kernel"
         ]
       },
@@ -130,10 +127,8 @@
         "title": "Claw 上下文与任务执行",
         "articles": [
           "claw",
-          "claw-interface-guide",
           "claw-attachments-and-references",
-          "claw-sessions",
-          "claw-stream-tool-states"
+          "claw-sessions"
         ]
       },
       {
@@ -151,9 +146,7 @@
         "title": "Prism 写作与工程",
         "articles": [
           "prism",
-          "prism-interface-guide",
           "prism-writing-workflow",
-          "latex-project-guide",
           "manuscript-vs-publication"
         ]
       },
@@ -162,8 +155,6 @@
         "title": "评审结果与改稿",
         "articles": [
           "peer-review",
-          "peer-review-workflow-guide",
-          "peer-review-dimensions-guide",
           "peer-review-results-guide"
         ]
       }
@@ -199,8 +190,7 @@
         "id": "intelligence",
         "title": "学术情报",
         "articles": [
-          "research-news",
-          "academic-intelligence-interface-guide"
+          "research-news"
         ]
       },
       {

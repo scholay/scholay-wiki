@@ -1,47 +1,14 @@
 ---
 title: 智能审稿操作流程
 slug: peer-review-workflow-guide
-summary: 选择期刊论文或毕业论文，完成四步材料核对，并理解 AI 评议任务的运行状态与边界。
+summary: 已并入「智能审稿」。
 category: research-ai
-status: current
-updated: 2026-08-27T22:11:14+08:00
+status: merged
+merged_into: peer-review
+updated: 2026-09-09T11:23:00+08:00
 canonical: https://www.scholay.com/wiki/peer-review-workflow-guide
-scholay_topics: ["[[wiki/topics/research-ai/评审结果与改稿|评审结果与改稿]]"]
-scholay_related: ["[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/peer-review-results-guide|智能审稿结果怎么看]]", "[[wiki/pages/research-ai/peer-review-dimensions-guide|智能审稿的维度与评价方式]]", "[[wiki/pages/research-ai/manuscript-vs-publication|稿件与出版物有什么区别]]"]
 ---
 
 # 智能审稿操作流程
 
-## 先选择论文场景
-
-入口分为“期刊投稿”和“毕业审稿”两条模拟流程，下图展示的就是这两个起点。期刊论文按目标期刊或通用 STM 场景组织评议；毕业论文按学校、学位和学科背景组织评议。这里的“论文类型”指产品流程的期刊论文与毕业论文；期刊流程中还可以把稿件标为 Research、Review 或 Short Communication，两套分类不要混为一谈。
-
-> 界面示意:智能审稿入口
-
-## 期刊论文的四步流程
-
-第 1 步上传一份 `.docx` 或 PDF 主稿及可选附件；第 2 步核对 AI 识别的标题、摘要、关键词和稿件类型，并选择或自定义目标期刊；第 3 步检查 AI 起草的 Cover Letter；第 4 步回看全部材料并确认开始评议。下图展示的是第 2 步，已上传稿件并正在选择目标期刊。
-
-主稿上限为 50 MiB，附件每个最多 30 MiB、最多 10 个；如果页面给出更具体的上传提示，以当时的提示为准。
-
-> 界面示意:智能审稿向导
-
-## 毕业论文的四步流程
-
-第 1 步同样上传主稿与附件；第 2 步核对稿件元数据，并填写学校、学位与学科信息；第 3 步检查面向评阅场景的信件；第 4 步确认材料并开始评议。学校、学位和学科是 AI 的场景背景，不代表真实院校已经收到论文，也不代表已进入学校的正式盲审系统。
-
-## 提交后的运行阶段
-
-提交后，任务会从草稿进入排队和审稿，最后显示完成或失败。下图冻结在“初审已通过、三位审稿人与主审仍等待、阶段 1/5 通读全文”的状态；“阶段 1/5”是当前运行阶段，不等于已经得到 20% 的评审结果，预计剩余时间也只是估算。系统会先通读材料，再依次形成审稿人 A、B、C 和主审报告。失败时，已经完成的意见会保留，重试用于补齐其余部分。额度不足而未真正开始时，稿件和已填信息也会保留。
-
-> 界面示意:智能审稿 · 初审通过、审稿人等待
-
-- [任务进度条不等于完成结果](https://www.scholay.com/wiki/marketing-pages-and-implementation-boundaries#agent-status) — 理解阶段、估算时间、等待状态与最终完成之间的共同边界。
-
-## 它不是正式投稿或盲审
-
-点击最终确认只会在 Scholay 内部启动 AI 模拟评议，不会把稿件发送给期刊编辑部、学校、导师或出版社。下图中的投稿编号和成功提示也只表示模拟任务已经建立，不是外部机构回执。
-
-页面中的审稿人、主审、处理时间和决议同样属于产品内流程。不要据此宣称“已投稿”“已送审”或“已录用”；正式流程必须另行在目标机构的系统中完成。
-
-> 界面示意:智能审稿 · 产品内提交回执
+本篇已并入 [智能审稿](peer-review.md)。

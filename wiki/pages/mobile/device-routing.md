@@ -7,7 +7,7 @@ status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/device-routing
 scholay_topics: ["[[wiki/topics/mobile/设备分流与移动网页|设备分流与移动网页]]"]
-scholay_related: ["[[wiki/pages/getting-started/product-map|全站功能]]", "[[wiki/pages/mobile/mobile-web|移动 Web]]", "[[wiki/pages/mobile/wechat-mini-program|微信小程序]]"]
+scholay_related: ["[[wiki/pages/mobile/mobile-web|移动 Web]]", "[[wiki/pages/mobile/wechat-mini-program|微信小程序]]"]
 ---
 
 # 桌面与移动页面分流

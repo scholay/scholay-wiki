@@ -7,7 +7,7 @@ status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/quota-block-and-recovery
 scholay_topics: ["[[wiki/topics/membership/额度消耗与恢复|额度消耗与恢复]]"]
-scholay_related: ["[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]", "[[wiki/pages/research-ai/claw-stream-tool-states|智能助手延迟、发送失败]]"]
+scholay_related: ["[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]"]
 ---
 
 # AI 额度阻断与恢复

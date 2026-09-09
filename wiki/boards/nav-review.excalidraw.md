@@ -46,17 +46,17 @@ tags: [excalidraw, scholay]
 
 ## Element Links
 0b68b82b: [[wiki/pages/research-ai/peer-review.md]]
-f49d2238: [[wiki/pages/research-ai/peer-review-workflow-guide.md]]
-1358a1af: [[wiki/pages/research-ai/peer-review-workflow-guide.md]]
-cb911f7b: [[wiki/pages/research-ai/peer-review-workflow-guide.md]]
+f49d2238: [[wiki/pages/research-ai/peer-review.md]]
+1358a1af: [[wiki/pages/research-ai/peer-review.md]]
+cb911f7b: [[wiki/pages/research-ai/peer-review.md]]
 552b1333: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 bafe0cfb: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 4cc73169: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 6c36e853: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-eaf60a0e: [[wiki/pages/research-ai/peer-review-dimensions-guide.md]]
-995171af: [[wiki/pages/research-ai/peer-review-dimensions-guide.md]]
-da818649: [[wiki/pages/research-ai/peer-review-dimensions-guide.md]]
-1a4f5d36: [[wiki/pages/research-ai/peer-review-dimensions-guide.md]]
+eaf60a0e: [[wiki/pages/research-ai/peer-review-results-guide.md]]
+995171af: [[wiki/pages/research-ai/peer-review-results-guide.md]]
+da818649: [[wiki/pages/research-ai/peer-review-results-guide.md]]
+1a4f5d36: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 1b49a3e8: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 5c226459: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 fc8f25f1: [[wiki/pages/research-ai/peer-review-results-guide.md]]
@@ -1476,7 +1476,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 1956454969,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1498,18 +1498,18 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:review:nav:review-workflow-interface",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
           },
           "layoutVersion": 2,
           "role": "group",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-workflow-guide",
+          "articleSlug": "peer-review",
           "parent": "d5af75ea"
         }
       }
@@ -1537,7 +1537,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 324575663,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1551,18 +1551,18 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:review:nav:review-journal-paper-flow",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-workflow-guide",
+          "articleSlug": "peer-review",
           "parent": "f49d2238"
         }
       }
@@ -1590,7 +1590,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 1267801980,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1604,18 +1604,18 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:review:nav:review-thesis-flow",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-workflow-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-workflow-guide",
+          "articleSlug": "peer-review",
           "parent": "f49d2238"
         }
       }
@@ -1867,7 +1867,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 1794509327,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1881,18 +1881,18 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:review:nav:review-dimensions",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide",
+          "articleSlug": "peer-review-results-guide",
           "parent": "d5af75ea"
         }
       }
@@ -1920,7 +1920,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 424767920,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1942,18 +1942,18 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:review:nav:review-evaluation-method",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
           },
           "layoutVersion": 2,
           "role": "group",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide",
+          "articleSlug": "peer-review-results-guide",
           "parent": "d5af75ea"
         }
       }
@@ -1981,7 +1981,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 1518437962,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -1995,18 +1995,18 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:review:nav:review-evaluation-original",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide",
+          "articleSlug": "peer-review-results-guide",
           "parent": "995171af"
         }
       }
@@ -2034,7 +2034,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 441408822,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [
@@ -2048,18 +2048,18 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
         }
       ],
       "updated": 0,
-      "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]",
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
       "locked": false,
       "customData": {
         "scholay": {
           "key": "graph:v2:nav:review:nav:review-evaluation-advice",
           "owned": {
-            "link": "[[wiki/pages/research-ai/peer-review-dimensions-guide.md]]"
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
           },
           "layoutVersion": 2,
           "role": "article",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide",
+          "articleSlug": "peer-review-results-guide",
           "parent": "995171af"
         }
       }
@@ -2490,7 +2490,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-workflow-guide"
+          "articleSlug": "peer-review"
         }
       }
     },
@@ -2542,7 +2542,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-workflow-guide"
+          "articleSlug": "peer-review"
         }
       }
     },
@@ -2594,7 +2594,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-workflow-guide"
+          "articleSlug": "peer-review"
         }
       }
     },
@@ -2854,7 +2854,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide"
+          "articleSlug": "peer-review-results-guide"
         }
       }
     },
@@ -2906,7 +2906,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide"
+          "articleSlug": "peer-review-results-guide"
         }
       }
     },
@@ -2958,7 +2958,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide"
+          "articleSlug": "peer-review-results-guide"
         }
       }
     },
@@ -3010,7 +3010,7 @@ a030143c: [[wiki/boards/Scholay.excalidraw.md]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:review-interface",
-          "articleSlug": "peer-review-dimensions-guide"
+          "articleSlug": "peer-review-results-guide"
         }
       }
     },
