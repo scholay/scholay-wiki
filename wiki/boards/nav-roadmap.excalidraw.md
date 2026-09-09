@@ -14,349 +14,52 @@ tags: [excalidraw, scholay]
 
 ## Element Links
 aafd36ed: [[wiki/pages/getting-started/roadmap-status.md]]
+
 df81b46e: [[wiki/boards/Scholay.excalidraw.md]]
 
 %%
 ## Drawing
-```json
-{
-  "type": "excalidraw",
-  "version": 2,
-  "source": "https://github.com/scholay/scholay",
-  "elements": [
-    {
-      "id": "c941c880",
-      "type": "arrow",
-      "x": 148,
-      "y": -8.0,
-      "width": 124,
-      "height": 24.0,
-      "angle": 0,
-      "strokeColor": "#247985",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1.5,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1229047937,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:roadmap:edge:7432db3f:aafd36ed",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "edge",
-          "relation": "contains",
-          "axis": "horizontal",
-          "direction": 1,
-          "branch": "nav:roadmap-next-release"
-        }
-      },
-      "startArrowhead": null,
-      "endArrowhead": null,
-      "startBinding": {
-        "elementId": "7432db3f",
-        "focus": 0,
-        "gap": 8
-      },
-      "endBinding": {
-        "elementId": "aafd36ed",
-        "focus": 0,
-        "gap": 8
-      },
-      "elbowed": false,
-      "points": [
-        [
-          0,
-          0.0
-        ],
-        [
-          62.0,
-          0.0
-        ],
-        [
-          62.0,
-          -24.0
-        ],
-        [
-          124,
-          -24.0
-        ]
-      ]
-    },
-    {
-      "id": "7432db3f",
-      "type": "rectangle",
-      "x": -140,
-      "y": -40,
-      "width": 280,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#247985",
-      "backgroundColor": "#247985",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "7432db3f"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1949489983,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "a49e259f",
-          "type": "text"
-        },
-        {
-          "id": "c941c880",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:roadmap:root",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "root",
-          "branch": null
-        }
-      }
-    },
-    {
-      "id": "aafd36ed",
-      "type": "rectangle",
-      "x": 280,
-      "y": -64.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#247985",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "aafd36ed"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 721237742,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "b0905ac3",
-          "type": "text"
-        },
-        {
-          "id": "c941c880",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/getting-started/roadmap-status.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:roadmap:nav:roadmap-next-release",
-          "owned": {
-            "link": "[[wiki/pages/getting-started/roadmap-status.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "nav:roadmap-next-release",
-          "articleSlug": "roadmap-status",
-          "focusTitle": "下一期开发任务",
-          "parent": "7432db3f"
-        }
-      }
-    },
-    {
-      "id": "a49e259f",
-      "type": "text",
-      "x": -124,
-      "y": -23.0,
-      "width": 248,
-      "height": 30,
-      "angle": 0,
-      "strokeColor": "#ffffff",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "7432db3f"
-      ],
-      "frameId": null,
-      "roundness": null,
-      "seed": 614344096,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "text": "开发计划",
-      "originalText": "开发计划",
-      "fontSize": 24,
-      "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "7432db3f",
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:roadmap:root:label",
-          "owned": {
-            "text": "开发计划",
-            "originalText": "开发计划",
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "label",
-          "branch": null
-        }
-      }
-    },
-    {
-      "id": "b0905ac3",
-      "type": "text",
-      "x": 296,
-      "y": -46.0,
-      "width": 328,
-      "height": 28,
-      "angle": 0,
-      "strokeColor": "#247985",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "aafd36ed"
-      ],
-      "frameId": null,
-      "roundness": null,
-      "seed": 814766788,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "text": "下一期开发任务",
-      "originalText": "下一期开发任务",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "aafd36ed",
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:roadmap:nav:roadmap-next-release:label",
-          "owned": {
-            "text": "下一期开发任务",
-            "originalText": "下一期开发任务",
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "label",
-          "branch": "nav:roadmap-next-release",
-          "articleSlug": "roadmap-status"
-        }
-      }
-    },
-    {
-      "id": "df81b46e",
-      "type": "text",
-      "x": -140,
-      "y": -200.0,
-      "width": 132,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#697586",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1602335855,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": "[[wiki/boards/Scholay.excalidraw.md]]",
-      "locked": false,
-      "text": "← 研究路径",
-      "originalText": "← 研究路径",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:roadmap:home",
-          "owned": {
-            "text": "← 研究路径",
-            "originalText": "← 研究路径",
-            "link": "[[wiki/boards/Scholay.excalidraw.md]]"
-          },
-          "layoutVersion": 2
-        }
-      }
-    }
-  ],
-  "appState": {
-    "viewBackgroundColor": "#ffffff",
-    "gridSize": null
-  },
-  "files": {}
-}
+```compressed-json
+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
 ```
 %%

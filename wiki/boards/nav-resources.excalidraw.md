@@ -18,715 +18,82 @@ tags: [excalidraw, scholay]
 
 ## Element Links
 e819f304: [[wiki/pages/knowledge/literature-library.md]]
+
 922ebc89: [[wiki/pages/knowledge/library-sharing.md]]
+
 782a83a9: [[wiki/pages/knowledge/resources-interface-guide.md]]
+
 5d7ec8ec: [[wiki/boards/Scholay.excalidraw.md]]
 
 %%
 ## Drawing
-```json
-{
-  "type": "excalidraw",
-  "version": 2,
-  "source": "https://github.com/scholay/scholay",
-  "elements": [
-    {
-      "id": "019c0b63",
-      "type": "arrow",
-      "x": 148,
-      "y": -8.0,
-      "width": 124,
-      "height": 92.0,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1.5,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 27003747,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:edge:c97d6659:e819f304",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "edge",
-          "relation": "contains",
-          "axis": "horizontal",
-          "direction": 1,
-          "branch": "nav:resources-introduction"
-        }
-      },
-      "startArrowhead": null,
-      "endArrowhead": null,
-      "startBinding": {
-        "elementId": "c97d6659",
-        "focus": 0,
-        "gap": 8
-      },
-      "endBinding": {
-        "elementId": "e819f304",
-        "focus": 0,
-        "gap": 8
-      },
-      "elbowed": false,
-      "points": [
-        [
-          0,
-          0.0
-        ],
-        [
-          62.0,
-          0.0
-        ],
-        [
-          62.0,
-          -92.0
-        ],
-        [
-          124,
-          -92.0
-        ]
-      ]
-    },
-    {
-      "id": "0950c8cd",
-      "type": "arrow",
-      "x": 148,
-      "y": -8.0,
-      "width": 124,
-      "height": 44.0,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1.5,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 156289229,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:edge:c97d6659:922ebc89",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "edge",
-          "relation": "contains",
-          "axis": "horizontal",
-          "direction": 1,
-          "branch": "nav:resources-sharing"
-        }
-      },
-      "startArrowhead": null,
-      "endArrowhead": null,
-      "startBinding": {
-        "elementId": "c97d6659",
-        "focus": 0,
-        "gap": 8
-      },
-      "endBinding": {
-        "elementId": "922ebc89",
-        "focus": 0,
-        "gap": 8
-      },
-      "elbowed": false,
-      "points": [
-        [
-          0,
-          0.0
-        ],
-        [
-          62.0,
-          0.0
-        ],
-        [
-          62.0,
-          44.0
-        ],
-        [
-          124,
-          44.0
-        ]
-      ]
-    },
-    {
-      "id": "0bd3ff3e",
-      "type": "arrow",
-      "x": -148,
-      "y": -8.0,
-      "width": 124,
-      "height": 24.0,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1.5,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 198442814,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:edge:c97d6659:782a83a9",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "edge",
-          "relation": "contains",
-          "axis": "horizontal",
-          "direction": -1,
-          "branch": "nav:resources-interface"
-        }
-      },
-      "startArrowhead": null,
-      "endArrowhead": null,
-      "startBinding": {
-        "elementId": "c97d6659",
-        "focus": 0,
-        "gap": 8
-      },
-      "endBinding": {
-        "elementId": "782a83a9",
-        "focus": 0,
-        "gap": 8
-      },
-      "elbowed": false,
-      "points": [
-        [
-          0,
-          0.0
-        ],
-        [
-          -62.0,
-          0.0
-        ],
-        [
-          -62.0,
-          -24.0
-        ],
-        [
-          -124,
-          -24.0
-        ]
-      ]
-    },
-    {
-      "id": "c97d6659",
-      "type": "rectangle",
-      "x": -140,
-      "y": -40,
-      "width": 280,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "#9b2c47",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "c97d6659"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1232954970,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "1e9b5d8b",
-          "type": "text"
-        },
-        {
-          "id": "019c0b63",
-          "type": "arrow"
-        },
-        {
-          "id": "0950c8cd",
-          "type": "arrow"
-        },
-        {
-          "id": "0bd3ff3e",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:root",
-          "owned": {
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "root",
-          "branch": null
-        }
-      }
-    },
-    {
-      "id": "e819f304",
-      "type": "rectangle",
-      "x": 280,
-      "y": -132.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "e819f304"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 1746531077,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "9dac33f5",
-          "type": "text"
-        },
-        {
-          "id": "019c0b63",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/literature-library.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:nav:resources-introduction",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/literature-library.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "nav:resources-introduction",
-          "articleSlug": "literature-library",
-          "focusTitle": "功能简介",
-          "parent": "c97d6659"
-        }
-      }
-    },
-    {
-      "id": "922ebc89",
-      "type": "rectangle",
-      "x": 280,
-      "y": 4.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "922ebc89"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 305052810,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "4dc18cb6",
-          "type": "text"
-        },
-        {
-          "id": "0950c8cd",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/library-sharing.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:nav:resources-sharing",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/library-sharing.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "nav:resources-sharing",
-          "articleSlug": "library-sharing",
-          "focusTitle": "文献集分享与接收",
-          "parent": "c97d6659"
-        }
-      }
-    },
-    {
-      "id": "782a83a9",
-      "type": "rectangle",
-      "x": -640,
-      "y": -64.0,
-      "width": 360,
-      "height": 64,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 1.3,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "782a83a9"
-      ],
-      "frameId": null,
-      "roundness": {
-        "type": 3
-      },
-      "seed": 2016052137,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "34186dce",
-          "type": "text"
-        },
-        {
-          "id": "0bd3ff3e",
-          "type": "arrow"
-        }
-      ],
-      "updated": 0,
-      "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]",
-      "locked": false,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:nav:resources-interface",
-          "owned": {
-            "link": "[[wiki/pages/knowledge/resources-interface-guide.md]]"
-          },
-          "layoutVersion": 2,
-          "role": "article",
-          "branch": "nav:resources-interface",
-          "articleSlug": "resources-interface-guide",
-          "focusTitle": "界面介绍",
-          "parent": "c97d6659"
-        }
-      }
-    },
-    {
-      "id": "1e9b5d8b",
-      "type": "text",
-      "x": -124,
-      "y": -23.0,
-      "width": 248,
-      "height": 30,
-      "angle": 0,
-      "strokeColor": "#ffffff",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "c97d6659"
-      ],
-      "frameId": null,
-      "roundness": null,
-      "seed": 513498507,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "text": "我的资源",
-      "originalText": "我的资源",
-      "fontSize": 24,
-      "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "c97d6659",
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:root:label",
-          "owned": {
-            "text": "我的资源",
-            "originalText": "我的资源",
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "label",
-          "branch": null
-        }
-      }
-    },
-    {
-      "id": "9dac33f5",
-      "type": "text",
-      "x": 296,
-      "y": -114.0,
-      "width": 328,
-      "height": 28,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "e819f304"
-      ],
-      "frameId": null,
-      "roundness": null,
-      "seed": 497824758,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "text": "功能简介",
-      "originalText": "功能简介",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "e819f304",
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:nav:resources-introduction:label",
-          "owned": {
-            "text": "功能简介",
-            "originalText": "功能简介",
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "label",
-          "branch": "nav:resources-introduction",
-          "articleSlug": "literature-library"
-        }
-      }
-    },
-    {
-      "id": "4dc18cb6",
-      "type": "text",
-      "x": 296,
-      "y": 22.0,
-      "width": 328,
-      "height": 28,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "922ebc89"
-      ],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1304530102,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "text": "文献集分享与接收",
-      "originalText": "文献集分享与接收",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "922ebc89",
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:nav:resources-sharing:label",
-          "owned": {
-            "text": "文献集分享与接收",
-            "originalText": "文献集分享与接收",
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "label",
-          "branch": "nav:resources-sharing",
-          "articleSlug": "library-sharing"
-        }
-      }
-    },
-    {
-      "id": "34186dce",
-      "type": "text",
-      "x": -624,
-      "y": -46.0,
-      "width": 328,
-      "height": 28,
-      "angle": 0,
-      "strokeColor": "#9b2c47",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [
-        "782a83a9"
-      ],
-      "frameId": null,
-      "roundness": null,
-      "seed": 874016206,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": null,
-      "locked": false,
-      "text": "界面介绍",
-      "originalText": "界面介绍",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "782a83a9",
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:nav:resources-interface:label",
-          "owned": {
-            "text": "界面介绍",
-            "originalText": "界面介绍",
-            "link": null
-          },
-          "layoutVersion": 2,
-          "role": "label",
-          "branch": "nav:resources-interface",
-          "articleSlug": "resources-interface-guide"
-        }
-      }
-    },
-    {
-      "id": "5d7ec8ec",
-      "type": "text",
-      "x": -140,
-      "y": -216.0,
-      "width": 132,
-      "height": 27.5,
-      "angle": 0,
-      "strokeColor": "#697586",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 1568590060,
-      "version": 1,
-      "versionNonce": 1,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 0,
-      "link": "[[wiki/boards/Scholay.excalidraw.md]]",
-      "locked": false,
-      "text": "← 研究路径",
-      "originalText": "← 研究路径",
-      "fontSize": 22,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "autoResize": true,
-      "lineHeight": 1.25,
-      "customData": {
-        "scholay": {
-          "key": "graph:v2:nav:resources:home",
-          "owned": {
-            "text": "← 研究路径",
-            "originalText": "← 研究路径",
-            "link": "[[wiki/boards/Scholay.excalidraw.md]]"
-          },
-          "layoutVersion": 2
-        }
-      }
-    }
-  ],
-  "appState": {
-    "viewBackgroundColor": "#ffffff",
-    "gridSize": null
-  },
-  "files": {}
-}
+```compressed-json
+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=
 ```
 %%
