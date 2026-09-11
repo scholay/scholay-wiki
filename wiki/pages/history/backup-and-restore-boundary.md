@@ -1,10 +1,10 @@
 ---
 title: 备份、恢复与故障证据边界
 slug: backup-and-restore-boundary
-summary: 现有脚本能导出部分核心数据，但仍混用旧 Agent JSONL 叙事，未覆盖所有正确性状态，也没有一致快照与自动恢复演练。
+summary: 现有备份脚本能导出部分核心数据，但缺少一致快照、自动恢复演练和完整日志覆盖。
 category: history
 status: compatibility
-updated: 2026-08-27T22:11:14+08:00
+updated: 2026-09-11T12:10:00+08:00
 canonical: https://www.scholay.com/wiki/backup-and-restore-boundary
 scholay_topics: ["[[wiki/topics/history/数据备份与恢复依据|数据备份与恢复依据]]"]
 scholay_related: []
@@ -14,16 +14,22 @@ scholay_related: []
 
 ## 当前备份覆盖
 
-backup-all 会导出 MySQL，并归档 data/agent、data/agent-sessions 和 MinIO。data/agent 只是旧迁移归档，不能单独恢复全部对话；当前可恢复会话依赖 MySQL durable journal，相关文件还分布在 agent-sessions 与对象存储中。
+backup-all 导出 MySQL，并归档 data/agent、data/agent-sessions 和 MinIO。当前可恢复会话依赖 MySQL durable journal，相关文件分布在 agent-sessions 和对象存储中。
 
-## 缺失状态
+## 缺失
 
-脚本没有形成对 Umami、redis-persist 正确性数据和 Redis AOF 的明确备份矩阵。MySQL dump、MinIO 和文件目录也不是同一时间点快照；默认流程缺少校验和、加密、异地副本、PITR、保留验证及定期自动恢复演练。cron 安装是手工步骤，deploy 不检查最近一次备份是否成功。
+| 缺失项 | 说明 |
+| --- | --- |
+| 一致性快照 | MySQL、MinIO 和文件目录不在同一时间点 |
+| 覆盖范围 | 缺少 Umami、redis-persist、Redis AOF 的明确备份 |
+| 安全与验证 | 无校验和、加密、异地副本、PITR、保留验证 |
+| 自动演练 | 无定期自动恢复演练 |
+| 部署检查 | deploy 不检查最近一次备份是否成功 |
 
-## 恢复文档兼容性
+## 恢复文档
 
-RESTORE.md 仍把旧 Agent .claude/JSONL 目录当作主要恢复对象，已经不能完整描述当前 durable journal 架构。恢复顺序需要重新定义 MySQL、对象存储、redis-persist、Agent 工作区和服务配置的一致点，并用真实会话、交付物和配额状态验证 RPO/RTO。
+RESTORE.md 仍引用旧 Agent JSONL 目录，无法完整描述当前 durable journal 架构。恢复顺序需要重新定义 MySQL、对象存储、redis-persist、Agent 工作区和服务配置的一致点。
 
 ## 故障证据
 
-export-logs 仍引用已移除的 frontend_admin，并遗漏 agent、prism-tex、minio、redis-persist、umami 和 schema-sync。日志导出应从 Compose 动态枚举服务，同时保存版本、容器状态、迁移结果、readiness 和外层 Caddy 证据。
+export-logs 仍引用已移除的 frontend_admin，遗漏多个服务。日志导出应从 Compose 动态枚举服务，同时保存版本、容器状态和迁移结果。

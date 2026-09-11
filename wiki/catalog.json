@@ -2445,7 +2445,8 @@
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/history/backup-and-restore-boundary.md",
       "sha256": "3ddf87e4605198113c42d1e14fa8be6aeab3ad3a59fbbeb48e20f3c9e6d5fba3",
-      "source": "https://www.scholay.com/wiki/backup-and-restore-boundary.md"
+      "source": "https://www.scholay.com/wiki/backup-and-restore-boundary.md",
+      "internal": true
     },
     {
       "slug": "coupon-system-legacy",
@@ -2473,7 +2474,8 @@
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/history/coupon-system-legacy.md",
       "sha256": "5f6ea568ccc3d6b9e41229fb0bf273cc347013ee0989d74e06c5b191eb4c770d",
-      "source": "https://www.scholay.com/wiki/coupon-system-legacy.md"
+      "source": "https://www.scholay.com/wiki/coupon-system-legacy.md",
+      "internal": true
     },
     {
       "slug": "design-source-of-truth",
@@ -2501,7 +2503,8 @@
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/history/design-source-of-truth.md",
       "sha256": "0deaf52ed9ae593892f3bccab5c17b6630474c4829eb8a55048866cce8b6827a",
-      "source": "https://www.scholay.com/wiki/design-source-of-truth.md"
+      "source": "https://www.scholay.com/wiki/design-source-of-truth.md",
+      "internal": true
     },
     {
       "slug": "feature-tools-coldstart-governance",
@@ -2527,7 +2530,8 @@
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/history/feature-tools-coldstart-governance.md",
       "sha256": "48461130b49f27e7791d00e516b8a51047053baf720c9edf1a41815e3328ac72",
-      "source": "https://www.scholay.com/wiki/feature-tools-coldstart-governance.md"
+      "source": "https://www.scholay.com/wiki/feature-tools-coldstart-governance.md",
+      "internal": true
     },
     {
       "slug": "legacy-components",
@@ -2553,7 +2557,8 @@
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/history/legacy-components.md",
       "sha256": "31723fb4579647793d8713b795886fc8a00235f90d8b679b47f7422e161c8300",
-      "source": "https://www.scholay.com/wiki/legacy-components.md"
+      "source": "https://www.scholay.com/wiki/legacy-components.md",
+      "internal": true
     },
     {
       "slug": "task-center-and-checkin",
@@ -2579,7 +2584,8 @@
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/history/task-center-and-checkin.md",
       "sha256": "1fc2ed84ab14be4aa374669d5f2f68240f76e54e881d47c1be78179fb9f6637d",
-      "source": "https://www.scholay.com/wiki/task-center-and-checkin.md"
+      "source": "https://www.scholay.com/wiki/task-center-and-checkin.md",
+      "internal": true
     },
     {
       "slug": "academic-intelligence-interface-guide",

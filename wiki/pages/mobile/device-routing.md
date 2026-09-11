@@ -1,10 +1,10 @@
 ---
 title: 桌面与移动页面分流
 slug: device-routing
-summary: 根据设备能力在桌面工作区、移动工作区和响应式详情页之间选择入口。
+summary: 手机访问桌面链接会自动跳转到移动版，电脑访问移动链接会回到桌面版。
 category: mobile
 status: current
-updated: 2026-08-27T22:11:14+08:00
+updated: 2026-09-11T12:10:00+08:00
 canonical: https://www.scholay.com/wiki/device-routing
 scholay_topics: ["[[wiki/topics/mobile/设备分流与移动网页|设备分流与移动网页]]"]
 scholay_related: ["[[wiki/pages/mobile/mobile-web|移动 Web]]", "[[wiki/pages/mobile/wechat-mini-program|微信小程序]]"]
@@ -12,10 +12,14 @@ scholay_related: ["[[wiki/pages/mobile/mobile-web|移动 Web]]", "[[wiki/pages/m
 
 # 桌面与移动页面分流
 
-## 分流方式
+## 自动跳转
 
-Scholay 的移动端不是只给同一棵页面树加断点。手机设备访问有移动对等页的桌面路径时，会进入 `/m/*`；桌面设备访问移动路径时，会回到桌面对等页。查询参数和文献集文件夹等深链信息会尽量保留。
+用手机打开 Scholay 桌面版的链接时，会自动跳转到移动版页面。用电脑打开移动版链接时，会自动回到桌面版。跳转时会尽量保留你原来的搜索条件和文件夹等信息。
 
-## 仍使用同一路径的页面
+## 不跳转的页面
 
-论文、作者、期刊、PDF、公开内容和分享等需要稳定链接的页面保持原路径，通过响应式渲染适配窄屏。暂时没有移动工作区的纯桌面能力会引导用户回到移动首页或提示使用电脑。
+论文、作者、期刊、PDF、公开内容和分享等需要稳定链接的页面在手机和电脑上使用同一个地址，页面本身会根据屏幕大小自动调整布局。
+
+## 只能在电脑上用的功能
+
+Prism、完整审稿和矩阵等需要大屏幕的功能目前只在电脑上完整提供。手机上访问时会提示你改用电脑。

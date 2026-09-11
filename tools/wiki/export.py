@@ -10,11 +10,14 @@ def github_anchor(s):
 def main():
     p = argparse.ArgumentParser(); p.add_argument('--github', action='store_true'); args=p.parse_args()
     c=catalog(); by={a['slug']:a for a in c['articles']}
+    internal_slugs={a['slug'] for a in c['articles'] if a.get('internal')}
     def navlines(nodes, github=False, depth=0):
         result=[]
         for n in nodes:
             slug=n.get('target',{}).get('articleSlug')
             label=n['title']
+            if slug in internal_slugs:
+                continue
             if slug in by:
                 dest=slug if github else os.path.relpath(ROOT/by[slug]['path'],ROOT/'wiki')
                 label=f'[{label}]({dest})'
@@ -35,8 +38,9 @@ def main():
     output=ROOT/'build/github-wiki'
     output.parent.mkdir(exist_ok=True)
     temp=pathlib.Path(tempfile.mkdtemp(prefix='wiki-export-',dir=output.parent))
-    path_to_slug={(ROOT/a['path']).resolve():a['slug'] for a in c['articles']}
-    for a in c['articles']:
+    public=[a for a in c['articles'] if not a.get('internal')]
+    path_to_slug={(ROOT/a['path']).resolve():a['slug'] for a in public}
+    for a in public:
         source=ROOT/a['path']; _,body=split(source.read_text())
         def link(m):
             raw=m[1]; u=urlsplit(raw)
@@ -59,7 +63,7 @@ def main():
     home=['# Scholay Wiki','','本镜像由 scholay/scholay-wiki 主仓库的 wiki/pages 内容生成。请在主仓库维护正文，再同步至此。','','## 导航','']+navlines(c['navigation'],True)+['','## 全部词条','']
     for category in c['categories']:
         home += ['### '+category['title'],'']
-        home += [f"- [{a['title']}]({a['slug']})" for a in c['articles'] if a['category']==category['slug']]
+        home += [f"- [{a['title']}]({a['slug']})" for a in public if a['category']==category['slug']]
         home += ['']
     (temp/'Home.md').write_text('\n'.join(home))
     (temp/'_Sidebar.md').write_text('[首页](Home)\n\n'+'\n'.join(navlines(c['navigation'],True))+'\n')
