@@ -220,7 +220,7 @@ def plan(c, snapshots=None, relayout=False):
                 # Never rewrite a scene only to reformat/recompress it.
                 if scene!=result: pending[path]=render(result,old)
             else:
-                scene={'type':'excalidraw','version':2,'source':'https://github.com/scholay/scholay',
+                scene={'type':'excalidraw','version':2,'source':'https://github.com/scholay/scholay-wiki',
                        'elements':expected,'appState':{'viewBackgroundColor':'#ffffff','gridSize':None},'files':{}}
                 pending[path]=render(scene)
         except (ValueError,KeyError,subprocess.CalledProcessError) as e: errors.append(str(e))

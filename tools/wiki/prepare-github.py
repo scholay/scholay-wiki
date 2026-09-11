@@ -3,7 +3,7 @@
 import pathlib, subprocess, shutil, sys
 from sync import ROOT
 
-remote='git@github.com:scholay/scholay.wiki.git'
+remote='git@github.com:scholay/scholay-wiki.wiki.git'
 target=ROOT/'.local/github-wiki-checkout'
 def git(*args):
     return subprocess.check_output(['git','-C',str(target),*args],text=True).strip()

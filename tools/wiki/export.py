@@ -56,14 +56,14 @@ def main():
             raise ValueError(f'Unresolved relative link in {a["slug"]}: {raw}')
         body=re.sub(r'\]\(([^\s)]+)\)',link,body)
         (temp/(a['slug']+'.md')).write_text(body)
-    home=['# Scholay Wiki','','本镜像由 scholay/scholay 主仓库的 wiki/pages 内容生成。请在主仓库维护正文，再同步至此。','','## 导航','']+navlines(c['navigation'],True)+['','## 全部词条','']
+    home=['# Scholay Wiki','','本镜像由 scholay/scholay-wiki 主仓库的 wiki/pages 内容生成。请在主仓库维护正文，再同步至此。','','## 导航','']+navlines(c['navigation'],True)+['','## 全部词条','']
     for category in c['categories']:
         home += ['### '+category['title'],'']
         home += [f"- [{a['title']}]({a['slug']})" for a in c['articles'] if a['category']==category['slug']]
         home += ['']
     (temp/'Home.md').write_text('\n'.join(home))
     (temp/'_Sidebar.md').write_text('[首页](Home)\n\n'+'\n'.join(navlines(c['navigation'],True))+'\n')
-    (temp/'_Footer.md').write_text('内容源：[scholay/scholay](https://github.com/scholay/scholay) · [官方网站 Wiki](https://www.scholay.com/wiki/)\n')
+    (temp/'_Footer.md').write_text('内容源：[scholay/scholay-wiki](https://github.com/scholay/scholay-wiki) · [官方网站 Wiki](https://www.scholay.com/wiki/)\n')
     # Validate every local Markdown page link before replacing the prior build.
     for file in temp.glob('*.md'):
         for url in re.findall(r'\]\(([^\s)]+)\)',file.read_text()):
@@ -74,7 +74,7 @@ def main():
                 raise ValueError(f'Broken Wiki link: {file.name}: {url}')
     if output.exists(): shutil.rmtree(output)
     temp.replace(output)
-    dump(ROOT/'build/github-wiki-receipt.json',{'remote':'git@github.com:scholay/scholay.wiki.git','published':False,
+    dump(ROOT/'build/github-wiki-receipt.json',{'remote':'git@github.com:scholay/scholay-wiki.wiki.git','published':False,
         'files':{str(p.relative_to(output)):digest(p.read_bytes()) for p in sorted(output.rglob('*')) if p.is_file()}})
     print(f'Exported {len(list(output.glob("*.md")))} Markdown files to {output}. No remote changes.')
 

@@ -1,10 +1,10 @@
 ---
 title: Stat Lab 方法与复核边界
 slug: stat-lab-method-boundary
-summary: StatKit 当前承诺 14 种检验、4 类假设检查和 15 条决策规则，不应从已安装依赖推断出回归或生存分析能力。
+summary: AI 数据分析当前支持的统计方法、假设检查和决策规则的完整清单，以及尚未纳入的方法。
 category: research-ai
 status: current
-updated: 2026-08-27T22:11:14+08:00
+updated: 2026-09-11T09:30:00+08:00
 canonical: https://www.scholay.com/wiki/stat-lab-method-boundary
 scholay_topics: ["[[wiki/topics/research-ai/分析材料与表达成果|分析材料与表达成果]]"]
 scholay_related: ["[[wiki/pages/research-ai/research-data-analysis|AI 数据分析]]"]
@@ -12,14 +12,82 @@ scholay_related: ["[[wiki/pages/research-ai/research-data-analysis|AI 数据分�
 
 # Stat Lab 方法与复核边界
 
-## 真实方法目录
+[AI 数据分析](research-data-analysis.md)的统计工具不是"什么都能做"。这篇列出当前真实支持的方法，帮你判断自己的分析需求是否在范围内，以及结果中哪些地方需要你自己复核。
 
-两组方法包括 student_t、welch_t、mann_whitney、paired_t、wilcoxon；多组方法包括 oneway_anova、welch_anova、kruskal_wallis；分类资料包括 chi2_pearson、chi2_yates、fisher_exact、chi2_rxc、mcnemar_exact、cochran_armitage。假设检查为 shapiro_by_group、levene_center_median、shapiro_diff、expected_frequencies，并有 D-01 至 D-15 决策规则。
+## 当前支持的方法
 
-## 计算与报告
+### 两组比较
 
-StatRun 按方法卡读取数据、检查假设并把可复查 bundle 写入 analysis；StatReport 基于 bundle 生成 cn-core 或 apa 风格的结构化报告。统计工具写 analysis 使用专门权限，普通工具不能把证据和分析保留区当成任意工作目录。
+| 方法 | 适用场景 |
+| --- | --- |
+| Student t 检验 | 独立两组，正态，方差齐 |
+| Welch t 检验 | 独立两组，正态，方差不齐 |
+| Mann-Whitney U 检验 | 独立两组，非正态或顺序数据 |
+| 配对 t 检验 | 同一对象两次测量，差值正态 |
+| Wilcoxon 符号秩检验 | 同一对象两次测量，差值非正态 |
 
-## 能力和门禁边界
+### 多组比较
 
-镜像虽然安装 statsmodels、scikit-learn、lifelines 等依赖，当前方法卡并未承诺回归、混合模型、时间序列或生存分析。numcheck 默认是 observe，只有 STATKIT_NUMCHECK_ENFORCE=1 才硬阻断；现行 Compose 和 env 示例没有启用该开关。报告仍需研究者复核数据编码、假设、效应量和多重比较。
+| 方法 | 适用场景 |
+| --- | --- |
+| 单因素方差分析 | 多组，正态，方差齐 |
+| Welch 方差分析 | 多组，正态，方差不齐 |
+| Kruskal-Wallis 检验 | 多组，非正态或顺序数据 |
+
+### 分类资料
+
+| 方法 | 适用场景 |
+| --- | --- |
+| Pearson 卡方检验 | 2×2 或 R×C，期望频数充足 |
+| Yates 校正卡方检验 | 2×2，期望频数偏小 |
+| Fisher 精确检验 | 2×2，小样本 |
+| R×C 卡方检验 | 多行多列列联表 |
+| McNemar 精确检验 | 配对分类资料 |
+| Cochran-Armitage 趋势检验 | 有序分类趋势 |
+
+### 假设检查
+
+| 检查 | 用途 |
+| --- | --- |
+| Shapiro-Wilk（分组） | 检查每组的正态性 |
+| Levene 中位数 | 检查方差齐性 |
+| Shapiro-Wilk（差值） | 检查配对差值的正态性 |
+| 期望频数检查 | 检查列联表的期望频数是否充足 |
+
+系统内置 D-01 至 D-15 共 15 条决策规则，根据假设检查结果自动选择方法。
+
+## 当前不支持的方法
+
+执行环境虽然安装了 statsmodels、scikit-learn、lifelines 等统计库，但当前方法卡**未承诺**以下方法：
+
+- 线性回归、逻辑回归和广义线性模型
+- 混合效应模型和重复测量方差分析
+- 时间序列分析
+- 生存分析（Kaplan-Meier、Cox 回归）
+- 因子分析和结构方程模型
+- 多重比较校正（方差分析后的事后比较有建议，但不等于完整的多重校正方案）
+
+如果你的研究需要上述方法，AI 数据分析目前无法完成，需要使用专业统计软件。不要因为助手愿意尝试就认为结果可靠——工具"能跑"不等于"结果可信赖"。
+
+## 计算与报告流程
+
+1. 系统按方法卡读取数据、执行假设检查。
+2. 根据决策规则选择统计方法并计算。
+3. 把方法说明、关键数值、假设检查结果和可下载文件写入分析记录。
+4. 基于分析记录生成结构化报告（中文核心期刊风格或 APA 风格）。
+
+统计工具的写入使用专门权限，普通工具不能修改分析记录。
+
+## 结果仍需你复核
+
+即使方法选择和计算由系统完成，研究者仍需核对：
+
+- **数据编码** — 列名、分组编码和缺失值是否被正确理解。
+- **假设合理性** — 假设检查通过不等于假设在你的研究语境中合理。
+- **效应量解读** — 效应量需要结合领域背景判断实际意义。
+- **多重比较** — 做了多次检验时，是否需要额外校正。
+- **因果推断** — 观察数据不能自动推断因果，报告中不应出现因果表述。
+
+## 数值核验开关
+
+系统内置的数值核验（numcheck）默认为观察模式：记录异常但不阻断输出。只有手动设置 `STATKIT_NUMCHECK_ENFORCE=1` 才会在数值异常时硬阻断。当前部署环境没有启用强制阻断。
