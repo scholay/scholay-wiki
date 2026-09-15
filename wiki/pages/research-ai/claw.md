@@ -7,7 +7,7 @@ status: current
 updated: 2026-09-09T11:23:00+08:00
 canonical: https://www.scholay.com/wiki/claw
 scholay_topics: ["[[wiki/topics/research-ai/Claw 上下文与任务执行|Claw 上下文与任务执行]]"]
-scholay_related: ["[[wiki/pages/research-ai/claw-sessions|Claw 会话与历史]]", "[[wiki/pages/research-ai/claw-attachments-and-references|智能助手附件、文库引用与 Skill]]", "[[wiki/pages/knowledge/community-skills|社区技能]]", "[[wiki/pages/research-ai/research-figure-and-slides|科研绘图与演示文稿]]"]
+scholay_related: ["[[wiki/pages/research-ai/claw-sessions|Claw 会话与历史]]", "[[wiki/pages/research-ai/claw-attachments-and-references|智能助手附件、文库引用与 Skill]]", "[[wiki/pages/knowledge/community-skills|社区技能]]", "[[wiki/pages/research-ai/research-figure-and-slides|科研绘图与演示文稿]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
 ---
 
 # Scholay智能助手
@@ -47,6 +47,7 @@ Skill 图标后的数字是本会话已启用的 Skill 数量，模型名是当�
 
 - [附件、文库引用与 Skill](https://www.scholay.com/wiki/claw-attachments-and-references) — 了解上传格式、文献引用数量和会话内 Skill 限制。
 - [社区技能](https://www.scholay.com/wiki/community-skills) — 查看可安装的 SKILL.md 能力如何进入会话。
+- [选模型、思考深度和大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config) — 了解当前可选模型，以及 Pro、Max 和科研经费大约能问多少次。
 
 ## 交付物
 

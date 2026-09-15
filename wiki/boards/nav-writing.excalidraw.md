@@ -32,6 +32,10 @@ LaTeX 的好处 ^ce90bbec
 
 ← 研究路径 ^5bd50fac
 
+模型与思考深度 ^c69a2117
+
+大约能用多少次 ^d6e9af32
+
 ## Element Links
 24188737: [[wiki/pages/research-ai/prism.md]]
 748e6daf: [[wiki/pages/research-ai/prism-writing-workflow.md]]
@@ -44,6 +48,8 @@ dd47389f: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 c3731901: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 5f8a8a9b: [[wiki/pages/discovery/journal-submission-resources.md]]
 5bd50fac: [[wiki/boards/Scholay.excalidraw.md]]
+5ceb1280: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]
+dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]
 
 %%
 ## Drawing
@@ -1271,6 +1277,14 @@ c3731901: [[wiki/pages/research-ai/prism-writing-workflow.md]]
         {
           "id": "1f1729dc",
           "type": "arrow"
+        },
+        {
+          "id": "c237799d",
+          "type": "arrow"
+        },
+        {
+          "id": "5c3c7978",
+          "type": "arrow"
         }
       ],
       "updated": 0,
@@ -1283,7 +1297,7 @@ c3731901: [[wiki/pages/research-ai/prism-writing-workflow.md]]
             "link": "[[wiki/pages/research-ai/prism.md]]"
           },
           "layoutVersion": 2,
-          "role": "article",
+          "role": "group",
           "branch": "nav:writing-interface",
           "articleSlug": "prism",
           "focusTitle": "界面介绍",
@@ -2182,6 +2196,360 @@ c3731901: [[wiki/pages/research-ai/prism-writing-workflow.md]]
             "link": "[[wiki/boards/Scholay.excalidraw.md]]"
           },
           "layoutVersion": 2
+        }
+      }
+    },
+    {
+      "id": "c237799d",
+      "type": "arrow",
+      "x": -648,
+      "y": -196.0,
+      "width": 114,
+      "height": 48.0,
+      "angle": 0,
+      "strokeColor": "#247985",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1110931870,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:writing:edge:a4d851c3:5ceb1280",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:writing-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "a4d851c3",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "5ceb1280",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -57.0,
+          0.0
+        ],
+        [
+          -57.0,
+          -48.0
+        ],
+        [
+          -114,
+          -48.0
+        ]
+      ]
+    },
+    {
+      "id": "5c3c7978",
+      "type": "arrow",
+      "x": -648,
+      "y": -196.0,
+      "width": 114,
+      "height": 48.0,
+      "angle": 0,
+      "strokeColor": "#247985",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1547467128,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:writing:edge:a4d851c3:dbba6f1f",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:writing-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "a4d851c3",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "dbba6f1f",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -57.0,
+          0.0
+        ],
+        [
+          -57.0,
+          48.0
+        ],
+        [
+          -114,
+          48.0
+        ]
+      ]
+    },
+    {
+      "id": "5ceb1280",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -276.0,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#247985",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "5ceb1280"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1558909568,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c69a2117",
+          "type": "text"
+        },
+        {
+          "id": "c237799d",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:writing:nav:writing-models",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:writing-interface",
+          "articleSlug": "ai-models-and-runtime-config",
+          "parent": "a4d851c3"
+        }
+      }
+    },
+    {
+      "id": "dbba6f1f",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -180.0,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#247985",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "dbba6f1f"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1538944800,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "d6e9af32",
+          "type": "text"
+        },
+        {
+          "id": "5c3c7978",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:writing:nav:writing-purchasing-power",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:writing-interface",
+          "articleSlug": "ai-models-and-runtime-config",
+          "parent": "a4d851c3"
+        }
+      }
+    },
+    {
+      "id": "c69a2117",
+      "type": "text",
+      "x": -1114,
+      "y": -258.0,
+      "width": 328,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#247985",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "5ceb1280"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1184506136,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "模型与思考深度",
+      "originalText": "模型与思考深度",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "5ceb1280",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:writing:nav:writing-models:label",
+          "owned": {
+            "text": "模型与思考深度",
+            "originalText": "模型与思考深度",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:writing-interface",
+          "articleSlug": "ai-models-and-runtime-config"
+        }
+      }
+    },
+    {
+      "id": "d6e9af32",
+      "type": "text",
+      "x": -1114,
+      "y": -162.0,
+      "width": 328,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#247985",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "dbba6f1f"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1458155315,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "大约能用多少次",
+      "originalText": "大约能用多少次",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "dbba6f1f",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:writing:nav:writing-purchasing-power:label",
+          "owned": {
+            "text": "大约能用多少次",
+            "originalText": "大约能用多少次",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:writing-interface",
+          "articleSlug": "ai-models-and-runtime-config"
         }
       }
     }

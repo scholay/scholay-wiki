@@ -54,6 +54,8 @@ Scholay Prism ^336074db
 
 ← 研究路径 ^b3aa963e
 
+选模型、思考深度和大约能用多少次 ^411258bb
+
 ## Element Links
 74d20f54: [[wiki/pages/research-ai/ai-research-workflows.md]]
 04ca2eb6: [[wiki/pages/research-ai/search-entry-comparison.md]]
@@ -72,6 +74,7 @@ c8cb4e36: [[wiki/pages/research-ai/research-data-analysis.md]]
 fd3d7592: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 3e37682e: [[wiki/pages/research-ai/manuscript-vs-publication.md]]
 b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
+98e25e91: [[wiki/pages/research-ai/ai-models-and-runtime-config.md]]
 
 %%
 ## Drawing
@@ -838,7 +841,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "group:review"
         }
       },
@@ -919,7 +922,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "group:review"
         }
       },
@@ -1162,7 +1165,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "group:review"
         }
       },
@@ -1964,7 +1967,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "group:writing"
         }
       },
@@ -2045,7 +2048,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "group:writing"
         }
       },
@@ -2207,7 +2210,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "group:writing"
         }
       },
@@ -2361,7 +2364,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "group:writing"
         }
       },
@@ -2446,7 +2449,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "type": "arrow"
         },
         {
-          "id": "06bb3547",
+          "id": "ef5fe9ca",
           "type": "arrow"
         },
         {
@@ -2458,7 +2461,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "type": "arrow"
         },
         {
-          "id": "ef5fe9ca",
+          "id": "06bb3547",
           "type": "arrow"
         }
       ],
@@ -2923,6 +2926,10 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
         },
         {
           "id": "38a51f41",
+          "type": "arrow"
+        },
+        {
+          "id": "f9683131",
           "type": "arrow"
         }
       ],
@@ -5907,6 +5914,185 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
       "hasTextLink": false,
       "index": "b0R",
       "labelPosition": null
+    },
+    {
+      "id": "f9683131",
+      "type": "arrow",
+      "x": 618,
+      "y": -128.0,
+      "width": 144,
+      "height": 245.5,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 2036871474,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:research-ai:edge:17185ba7:98e25e91",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "group:assistant"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "17185ba7",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "98e25e91",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          72.0,
+          0.0
+        ],
+        [
+          72.0,
+          245.5
+        ],
+        [
+          144,
+          245.5
+        ]
+      ]
+    },
+    {
+      "id": "98e25e91",
+      "type": "rectangle",
+      "x": 770,
+      "y": 76.0,
+      "width": 360,
+      "height": 83,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "98e25e91"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 417488530,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "411258bb",
+          "type": "text"
+        },
+        {
+          "id": "f9683131",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:research-ai:article:ai-models-and-runtime-config",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "group:assistant",
+          "articleSlug": "ai-models-and-runtime-config",
+          "status": "current",
+          "parent": "17185ba7"
+        }
+      }
+    },
+    {
+      "id": "411258bb",
+      "type": "text",
+      "x": 786,
+      "y": 90.0,
+      "width": 328,
+      "height": 55,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "98e25e91"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1091721403,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "选模型、思考深度和大约能用多少次",
+      "originalText": "选模型、思考深度和大约能用多少次",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "98e25e91",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:category:research-ai:article:ai-models-and-runtime-config:label",
+          "owned": {
+            "text": "选模型、思考深度和大约能用多少次",
+            "originalText": "选模型、思考深度和大约能用多少次",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "group:assistant",
+          "articleSlug": "ai-models-and-runtime-config",
+          "status": "current"
+        }
+      }
     }
   ],
   "appState": {
