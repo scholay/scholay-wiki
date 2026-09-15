@@ -24,6 +24,10 @@ tags: [excalidraw, scholay]
 
 ← 研究路径 ^c2f39d75
 
+模型与思考深度 ^bdba74c8
+
+大约能用多少次 ^f74f068d
+
 ## Element Links
 4c3cb11d: [[wiki/pages/research-ai/claw.md]]
 dae37459: [[wiki/pages/research-ai/search-entry-comparison.md]]
@@ -33,6 +37,8 @@ b09dc742: [[wiki/pages/research-ai/claw-sessions.md]]
 c0844e5e: [[wiki/pages/knowledge/community-skills.md]]
 e02c8678: [[wiki/pages/research-ai/claw-sessions.md]]
 c2f39d75: [[wiki/boards/Scholay.excalidraw.md]]
+f05d2f58: [[wiki/pages/research-ai/ai-models-and-runtime-config.md]]
+0305c656: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]
 
 %%
 ## Drawing
@@ -992,6 +998,14 @@ c2f39d75: [[wiki/boards/Scholay.excalidraw.md]]
           "type": "arrow"
         },
         {
+          "id": "850c6681",
+          "type": "arrow"
+        },
+        {
+          "id": "9ee352e9",
+          "type": "arrow"
+        },
+        {
           "id": "649e6090",
           "type": "arrow"
         },
@@ -1579,6 +1593,360 @@ c2f39d75: [[wiki/boards/Scholay.excalidraw.md]]
       "hasTextLink": false,
       "index": "aN",
       "labelPosition": null
+    },
+    {
+      "id": "850c6681",
+      "type": "arrow",
+      "x": -618,
+      "y": -32.0,
+      "width": 144,
+      "height": 144.0,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 84698754,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:assistant:edge:7c2491ed:f05d2f58",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:assistant-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "7c2491ed",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "f05d2f58",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -72.0,
+          0.0
+        ],
+        [
+          -72.0,
+          -144.0
+        ],
+        [
+          -144,
+          -144.0
+        ]
+      ]
+    },
+    {
+      "id": "9ee352e9",
+      "type": "arrow",
+      "x": -618,
+      "y": -32.0,
+      "width": 144,
+      "height": 48.0,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 518214378,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:assistant:edge:7c2491ed:0305c656",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:assistant-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "7c2491ed",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "0305c656",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -72.0,
+          0.0
+        ],
+        [
+          -72.0,
+          -48.0
+        ],
+        [
+          -144,
+          -48.0
+        ]
+      ]
+    },
+    {
+      "id": "f05d2f58",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -208.0,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "f05d2f58"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1885155161,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "bdba74c8",
+          "type": "text"
+        },
+        {
+          "id": "850c6681",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:assistant:nav:assistant-models",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:assistant-interface",
+          "articleSlug": "ai-models-and-runtime-config",
+          "parent": "7c2491ed"
+        }
+      }
+    },
+    {
+      "id": "0305c656",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -112.0,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "0305c656"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 50710102,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "f74f068d",
+          "type": "text"
+        },
+        {
+          "id": "9ee352e9",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:assistant:nav:assistant-purchasing-power",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:assistant-interface",
+          "articleSlug": "ai-models-and-runtime-config",
+          "parent": "7c2491ed"
+        }
+      }
+    },
+    {
+      "id": "bdba74c8",
+      "type": "text",
+      "x": -1114,
+      "y": -190.0,
+      "width": 328,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "f05d2f58"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1035629769,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "模型与思考深度",
+      "originalText": "模型与思考深度",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "f05d2f58",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:assistant:nav:assistant-models:label",
+          "owned": {
+            "text": "模型与思考深度",
+            "originalText": "模型与思考深度",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:assistant-interface",
+          "articleSlug": "ai-models-and-runtime-config"
+        }
+      }
+    },
+    {
+      "id": "f74f068d",
+      "type": "text",
+      "x": -1114,
+      "y": -94.0,
+      "width": 328,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#21795d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "0305c656"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 2001667726,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "大约能用多少次",
+      "originalText": "大约能用多少次",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "0305c656",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:assistant:nav:assistant-purchasing-power:label",
+          "owned": {
+            "text": "大约能用多少次",
+            "originalText": "大约能用多少次",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:assistant-interface",
+          "articleSlug": "ai-models-and-runtime-config"
+        }
+      }
     }
   ],
   "appState": {

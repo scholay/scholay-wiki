@@ -7,7 +7,7 @@ status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/product-and-pricing-overview
 scholay_topics: ["[[wiki/topics/getting-started/认识平台与能力|认识平台与能力]]"]
-scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]"]
+scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
 ---
 
 # 产品与套餐总览
@@ -48,6 +48,7 @@ Free 是注册后的默认方案，Pro 和 Max 提供更高的周期 AI 额度�
 > 界面示意:会员套餐 · 默认年付视图
 
 - [AI 周期额度与“约 N 次”怎样理解](https://www.scholay.com/wiki/ai-usage-quota) — 了解额度池、算力点、恢复周期和不同任务实际消耗为何会有差异。
+- [选模型后大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power) — 价格页中的次数只是估算；按基础、经济和高级模型分开看更接近实际用量。
 
 ## 以结算页金额为准
 

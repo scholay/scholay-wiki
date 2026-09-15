@@ -7,7 +7,7 @@ status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/ai-usage-quota
 scholay_topics: ["[[wiki/topics/membership/额度消耗与恢复|额度消耗与恢复]]"]
-scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]"]
+scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
 ---
 
 # AI 周期额度
@@ -27,6 +27,7 @@ scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/p
 > **提示** 额度上限和周期可能调整。判断当前还能否使用、何时恢复时，以账户资产页当时显示的剩余百分比和恢复时间为准，不把示例数值当作长期承诺。
 
 - [怎样读懂剩余额度与进度状态](https://www.scholay.com/wiki/marketing-pages-and-implementation-boundaries#agent-status) — 区分剩余百分比、恢复时间、任务进度和停止状态，避免把进度条当作完成证据。
+- [不同模型档位大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power) — 按基础、经济和高级模型，对照 Pro、Max 和每 1,000 经费大约能完成多少次任务。
 
 ## 消耗与恢复
 

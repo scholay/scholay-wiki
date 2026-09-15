@@ -11,3 +11,4 @@ category: research-ai
 - [[wiki/pages/research-ai/claw|Scholay智能助手]]
 - [[wiki/pages/research-ai/claw-attachments-and-references|智能助手附件、文库引用与 Skill]]
 - [[wiki/pages/research-ai/claw-sessions|Claw 会话与历史]]
+- [[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]

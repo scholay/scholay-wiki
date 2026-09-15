@@ -7,7 +7,7 @@ status: current
 updated: 2026-08-27T22:11:14+08:00
 canonical: https://www.scholay.com/wiki/wallet-payg
 scholay_topics: ["[[wiki/topics/membership/费用与支付|费用与支付]]"]
-scholay_related: ["[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/payment-orders|支付与订单]]", "[[wiki/pages/membership/invite-campaign|邀请有礼]]"]
+scholay_related: ["[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/membership|会员体系]]", "[[wiki/pages/membership/payment-orders|支付与订单]]", "[[wiki/pages/membership/invite-campaign|邀请有礼]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
 ---
 
 # 经费钱包与按量付费
@@ -44,3 +44,4 @@ scholay_related: ["[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[
 
 1. [从被拦任务开启经费续用](https://www.scholay.com/wiki/quota-block-and-recovery#recovery-actions) — 在保留原消息的前提下选择恢复方式，并在成功后重新发送任务。
 2. [核对充值订单](https://www.scholay.com/wiki/payment-orders#quote) — 查看充值报价、支付状态与订单记录，不用旧截图推算到账经费。
+3. [每 1,000 经费大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power) — 按模型档位估算经费购买力，不是固定可调用次数。

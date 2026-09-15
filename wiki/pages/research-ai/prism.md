@@ -7,7 +7,7 @@ status: current
 updated: 2026-09-09T11:23:00+08:00
 canonical: https://www.scholay.com/wiki/prism
 scholay_topics: ["[[wiki/topics/research-ai/Prism 写作与工程|Prism 写作与工程]]"]
-scholay_related: ["[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/discovery/paper|论文]]"]
+scholay_related: ["[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
 ---
 
 # Scholay Prism
@@ -53,3 +53,4 @@ scholay_related: ["[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki
 新建项目会按标题、章节、引用和素材分别保存，再由系统生成 LaTeX 和 PDF。较早创建的 LaTeX 文件项目会继续保留，但目前可能只能查看、编译、导出或复制为新版项目；旧项目里的文件编辑方式不适用于新项目。
 
 - [怎样完成一次智能写作](https://www.scholay.com/wiki/prism-writing-workflow) — 从确定任务边界到编译交付的完整流程和提问模板。
+- [选模型、思考深度和大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config) — 了解 Prism 当前可选模型，以及一周大约能改多少轮。
