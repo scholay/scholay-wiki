@@ -211,7 +211,7 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "rhino-assistant-dock",
-    ["frontend-user/src/shared/components/RhinoDockChip.tsx"],
+    ["frontend-user/src/shared/components/RhinoNavChip.tsx"],
     "牛犀犀隐藏后出现的顶栏恢复入口已有独立 fixture。",
   ),
   covered(
@@ -296,7 +296,7 @@ const USER_EXISTING_SURFACES = [
   covered(
     "user",
     "classic-search-dock",
-    ["frontend-user/src/features/search/components/SearchClassicLanding.tsx"],
+    ["frontend-user/src/features/search/components/SearchLanding.tsx"],
     "经典检索入口和查询编排已有 fixture。",
   ),
   covered(
@@ -530,7 +530,7 @@ const USER_EXISTING_SURFACES = [
     "user",
     "peer-review-editorial-check",
     [
-      "frontend-user/src/features/peer-review/components/record/EditorialCheckPanel.tsx",
+      "frontend-user/src/shared/components/peer-review-record/EditorialCheckPanel.tsx",
     ],
     "编辑规范检查面板已有 fixture。",
   ),
@@ -539,7 +539,7 @@ const USER_EXISTING_SURFACES = [
     "peer-review-progress",
     [
       "frontend-user/src/features/peer-review/pages/RecordDetailPage.tsx",
-      "frontend-user/src/features/peer-review/components/record/StatusGrid.tsx",
+      "frontend-user/src/shared/components/peer-review-record/StatusGrid.tsx",
     ],
     "评审进度与流式状态已有 fixture。",
   ),
@@ -553,7 +553,7 @@ const USER_EXISTING_SURFACES = [
     "user",
     "peer-review-result-overview",
     [
-      "frontend-user/src/features/peer-review/components/record/ChiefVerdictPanel.tsx",
+      "frontend-user/src/shared/components/peer-review-record/ChiefVerdictPanel.tsx",
     ],
     "总评、分项状态和建议已有 fixture。",
   ),
@@ -1389,7 +1389,7 @@ const GLOBAL_CROSS_SURFACES = [
   visibleGroup(
     "mobile",
     "global-rhino-assistant-dock",
-    ["frontend-user/src/shared/components/RhinoDockChip.tsx"],
+    ["frontend-user/src/shared/components/RhinoNavChip.tsx"],
     "covered",
     ["rhino-assistant-dock"],
     "全局牛犀犀顶栏恢复入口已由普通用户 fixture 覆盖。",
@@ -1824,7 +1824,7 @@ const ADMIN_GAP_SURFACES = [
   fixture(
     "admin",
     "admin-user-token-usage",
-    ["frontend-user/src/features/admin/components/UserTokenUsagePanel.tsx"],
+    ["frontend-user/src/features/admin/components/UserUsageOverviewPanel.tsx"],
     "单用户算力用量面板是稳定表面，本轮补齐。",
   ),
   fixture(

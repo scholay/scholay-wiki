@@ -25,7 +25,13 @@ export const accountGuideArticles: WikiArticle[] = [
       "backend/internal/vip/config.go",
       "backend/internal/vip/quota.go",
     ],
-    related: ["product-map", "academic-search", "membership", "ai-usage-quota"],
+    related: [
+      "product-map",
+      "academic-search",
+      "membership",
+      "ai-usage-quota",
+      "ai-models-and-runtime-config",
+    ],
     sections: [
       {
         id: "product-layers",
@@ -109,7 +115,7 @@ scholay广场用来发现学术工具、学术skills 和学术prompts。数据�
         title: "比较 Free、Pro 和 Max",
         markdown: `Free 是注册后的默认套餐。Pro 和 Max 提供更高的 AI 周期额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档套餐怎样排列，不应把示例数字当成长期承诺。
 
-论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共享同一份 AI 周期额度。价格页中的“约 N 次”只是按常见任务估算，不是固定可调用次数。额度数字只以 AI 周期额度页和结算页为准。`,
+论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共用同一份 AI 周期额度。价格页里的“约 N 次”只是常见用法的参考，不是保证次数。想看按基础、经济和高级模型拆开的估算，请打开模型说明；自己还剩多少额度，以账户资产页和结算页为准。`,
         embeds: [{ id: "membership-plans" }],
         blocks: [
           { type: "markdown" },
@@ -117,10 +123,11 @@ scholay广场用来发现学术工具、学术skills 和学术prompts。数据�
           {
             type: "article-link",
             card: {
-              articleSlug: "ai-usage-quota",
-              title: "AI 周期额度与“约 N 次”怎样理解",
+              articleSlug: "ai-models-and-runtime-config",
+              sectionId: "purchasing-power",
+              title: "按模型档位查看大约能用多少次",
               description:
-                "了解额度池、算力点、恢复周期和不同任务实际消耗为何会有差异。",
+                "基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
               icon: "sparkles",
             },
           },

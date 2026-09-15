@@ -37,6 +37,366 @@ export const researchAiArticles: WikiArticle[] = [
     ],
   },
   {
+    slug: "ai-models-and-runtime-config",
+    title: "选模型、思考深度和大约能用多少次",
+    summary:
+      "看看现在能选哪些基础、经济和高级模型，思考深度是什么意思，以及 Pro、Max 和科研经费大概能用多少次。",
+    category: "research-ai",
+    kind: "rule",
+    status: "current",
+    audience: ["AI 功能用户", "研究者", "管理员"],
+    aliases: [
+      "模型选择",
+      "运行配置",
+      "思考深度",
+      "模型价格",
+      "购买力",
+      "大约能用多少次",
+      "AI Model",
+    ],
+    sourcePaths: [
+      "frontend-user/src/shared/api/models.ts",
+      "frontend-user/src/shared/components/chat/ModelSelector.tsx",
+      "backend/internal/modelcatalog/model.go",
+      "backend/internal/modelcatalog/service.go",
+      "backend/internal/llmusage/model.go",
+      "backend/internal/usagestat/model.go",
+      "docker/mysql/migrations/0085_cost_based_quota.sql",
+    ],
+    related: [
+      "ai-research-workflows",
+      "smart-search",
+      "claw",
+      "prism",
+      "peer-review",
+      "ai-usage-quota",
+      "wallet-payg",
+    ],
+    sections: [
+      {
+        id: "runtime-config",
+        title: "怎样选择模型和思考深度",
+        markdown: `在智能搜论文、智能助手、智能写作和智能审稿里，可以看到当前用的模型和思考深度。模型和思考深度都只对当前这次任务生效。
+
+思考深度有轻、中、高、极高四档。档位越高，模型通常会想得更久、步骤更多，等待时间也会更长，消耗一般也会更多。换思考深度不会换成另一个模型，只是让同一个模型更认真地做这一轮。
+
+这个选择会跟着当前对话保存。刷新页面或换一台设备，原来的对话仍会沿用你选过的模型。新开对话时，如果没有另外选择，就用该功能的默认模型。某个模型下线、你的会员不够用，或者暂时不能选时，页面会回到还能用的选项。`,
+      },
+      {
+        id: "current-models",
+        title: "现在可以选哪些模型",
+        markdown: `截止今日更新，站内正在提供的模型分成三档。这 8 个模型目前都已开放，Free、Pro、Max 都可以选。之后名单可能调整，请以输入框里当时看到的列表为准。
+
+基础模型更省额度，适合日常提问；经济模型更均衡；高级模型更适合难一些的任务，但一次会用掉更多额度。只有写了“可以看图”的模型，才适合把图片一起发给它。能发送图片，不代表它一定能看懂图里的全部细节。对话太长时，较早的内容可能被收短，以免超出模型能记住的范围。`,
+        table: {
+          columns: [
+            { key: "model", header: "模型" },
+            { key: "tier", header: "档位" },
+            { key: "bestFor", header: "比较适合" },
+            { key: "vision", header: "看图" },
+          ],
+          rows: [
+            {
+              model: "Qwen3.7 Flash",
+              tier: "基础模型",
+              bestFor: "日常提问，也比较省额度",
+              vision: "可以",
+            },
+            {
+              model: "DeepSeek V4.1 Flash",
+              tier: "经济模型",
+              bestFor: "日常问答，也可以看图",
+              vision: "可以",
+            },
+            {
+              model: "Qwen3.7 Plus",
+              tier: "经济模型",
+              bestFor: "日常研究和看图",
+              vision: "可以",
+            },
+            {
+              model: "Qwen3.8 Flash",
+              tier: "经济模型",
+              bestFor: "较快完成，也可以看图",
+              vision: "可以",
+            },
+            {
+              model: "GLM 5.3 Flash",
+              tier: "经济模型",
+              bestFor: "较快完成，也可以看图",
+              vision: "可以",
+            },
+            {
+              model: "DeepSeek V4 Pro",
+              tier: "高级模型",
+              bestFor: "复杂推理、较长回答",
+              vision: "不可以",
+            },
+            {
+              model: "Qwen3.8 Max",
+              tier: "高级模型",
+              bestFor: "难一些的任务，也可以看图",
+              vision: "可以",
+            },
+            {
+              model: "GLM 5.3",
+              tier: "高级模型",
+              bestFor: "复杂推理，不看图",
+              vision: "不可以",
+            },
+          ],
+        },
+        blocks: [{ type: "markdown" }, { type: "table" }],
+      },
+      {
+        id: "pricing",
+        title: "不同模型怎么计费",
+        markdown: `额度按实际用量扣，不按你点了几次发送来扣。系统会分别计算：模型读了你多少内容、写了多少回答，以及有没有复用刚才已经读过的内容。读得越多、写得越长、选的模型越强，通常扣得越多。
+
+有两类情况会临时更贵。DeepSeek 在工作日北京时间 9:00–12:00 和 14:00–18:00 用量会按更高标准计算。Qwen3.7 Plus 和 Qwen3.7 Flash 则是内容特别长时更贵：一次读入的内容越多，越可能按更高一档来算。
+
+下表用“读你的内容 / 生成回答 / 复用已读内容”三列价格来对照，单位是每 100 万用量多少元。页面上最终显示的是算力点。已经发生过的消耗不会因为后来改价而重算。`,
+        table: {
+          columns: [
+            { key: "model", header: "模型" },
+            { key: "base", header: "平时价格" },
+            { key: "tier", header: "什么时候更贵" },
+          ],
+          rows: [
+            {
+              model: "Qwen3.7 Flash",
+              base: "0.2 / 0.8 / 0.04",
+              tier: "内容较长或特别长时更贵",
+            },
+            {
+              model: "DeepSeek V4.1 Flash",
+              base: "1 / 4 / 0.02",
+              tier: "工作日高峰约贵一倍",
+            },
+            {
+              model: "Qwen3.7 Plus",
+              base: "2 / 8 / 0.4",
+              tier: "内容特别长时更贵",
+            },
+            {
+              model: "Qwen3.8 Flash",
+              base: "0.8 / 2.7 / 0.1",
+              tier: "平时就是这个价格",
+            },
+            {
+              model: "GLM 5.3 Flash",
+              base: "0.8 / 2.8 / 0.23",
+              tier: "平时就是这个价格",
+            },
+            {
+              model: "DeepSeek V4 Pro",
+              base: "4.5 / 13.5 / 0.15",
+              tier: "工作日高峰约贵一倍",
+            },
+            {
+              model: "Qwen3.8 Max",
+              base: "12 / 36 / 1.5",
+              tier: "平时就是这个价格",
+            },
+            {
+              model: "GLM 5.3",
+              base: "8 / 28 / 2",
+              tier: "平时就是这个价格",
+            },
+          ],
+        },
+        blocks: [
+          { type: "markdown" },
+          { type: "table" },
+          {
+            type: "tip",
+            tip: {
+              text: "模型名单和价格都可能调整。开始任务前，以输入框里当前显示的模型为准。",
+            },
+          },
+        ],
+      },
+      {
+        id: "formula",
+        title: "一次使用为什么有时贵、有时便宜",
+        markdown: `点一次发送，不一定只扣一次。模型可能先读你的问题，再去查资料或改稿，再写出回答。附件越长、对话越久、选的模型档位越高，这一轮通常越贵。
+
+同样一件事，基础模型往往最省，经济模型居中，高级模型一次会用掉更多额度。所以不要只按输入框里的字数去估算最终用量。智能审稿更明显：一次提交会经过好几步，整次提交的消耗，通常高于普通的一问一答。`,
+      },
+      {
+        id: "feature-bindings",
+        title: "哪些功能可以自己选模型",
+        markdown: `智能搜论文、智能助手、智能写作、智能审稿、制作 PPT、科研绘图和数据分析，都可以自己选模型。截止今日更新，这些功能的默认模型都是基础模型 Qwen3.7 Flash。制作 PPT、科研绘图和数据分析，没有单独另一套默认模型，跟智能助手相同。
+
+论文翻译和矩阵分析目前不能每次换模型，会按系统为该功能指定的模型来做，一般按基础模型来理解。已经保存在旧对话里的可用模型，不会因为默认模型调整而被自动换掉。`,
+      },
+      {
+        id: "purchasing-power",
+        title: "Pro、Max 与科研经费大约能用多少次",
+        markdown: `截止今日更新，预估标准按模型档位分开看，先不把思考深度算进去。选基础、经济还是高级模型，次数差会比较大。额度什么时候恢复、用完后怎样继续，见额度说明；要对着套餐看次数，以下面三档为准。
+
+会员按周看次数，经费按每 1,000 看次数。Pro 一周额度相当于 2,000 经费，所以 1,000 经费大约是 Pro 一周的一半。制作 PPT、科研绘图和数据分析没有单独一张表，次数可参照智能助手。论文翻译和矩阵分析目前还不能换模型，只写在基础模型里。
+
+这里的“一次”按页面上的动作来理解：对话是发一条，写作是改一轮，审稿是提交一次，翻译是译一次，矩阵分析是分析一篇论文。附件更长、任务更难时，次数会变少。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "tip",
+            tip: {
+              text: "这是截止今日更新的预估标准，不是保证次数。同一档里换一个具体模型，或把思考深度调高，实际次数还会再变。",
+            },
+          },
+        ],
+      },
+      {
+        id: "purchasing-power-basic",
+        title: "基础模型大约能用多少次",
+        markdown: `基础模型目前主要是 Qwen3.7 Flash，也是多数功能的默认选择。论文翻译和矩阵分析目前一般也按这一档来理解。`,
+        table: {
+          columns: [
+            { key: "feature", header: "功能" },
+            { key: "pro", header: "Pro（次/周）" },
+            { key: "max", header: "Max（次/周）" },
+            { key: "funds", header: "每 1,000 经费（次）" },
+          ],
+          rows: [
+            {
+              feature: "智能助手/次提问",
+              pro: "≈ 120",
+              max: "≈ 600",
+              funds: "≈ 60",
+            },
+            {
+              feature: "智能搜论文/次提问",
+              pro: "≈ 74",
+              max: "≈ 371",
+              funds: "≈ 37",
+            },
+            {
+              feature: "智能写作/次编辑",
+              pro: "≈ 87",
+              max: "≈ 439",
+              funds: "≈ 43",
+            },
+            {
+              feature: "智能审稿/次提交",
+              pro: "≈ 29",
+              max: "≈ 148",
+              funds: "≈ 14",
+            },
+            {
+              feature: "矩阵分析/篇",
+              pro: "≈ 1,700",
+              max: "≈ 8,800",
+              funds: "≈ 850",
+            },
+            {
+              feature: "论文翻译/次翻译",
+              pro: "≈ 2,000",
+              max: "≈ 10,300",
+              funds: "≈ 1,000",
+            },
+          ],
+        },
+        blocks: [{ type: "markdown" }, { type: "table" }],
+      },
+      {
+        id: "purchasing-power-economy",
+        title: "经济模型大约能用多少次",
+        markdown: `经济模型目前包括 DeepSeek V4.1 Flash、Qwen3.7 Plus、Qwen3.8 Flash 和 GLM 5.3 Flash。比基础模型更均衡，一次消耗也更高。`,
+        table: {
+          columns: [
+            { key: "feature", header: "功能" },
+            { key: "pro", header: "Pro（次/周）" },
+            { key: "max", header: "Max（次/周）" },
+            { key: "funds", header: "每 1,000 经费（次）" },
+          ],
+          rows: [
+            {
+              feature: "智能助手/次提问",
+              pro: "≈ 48",
+              max: "≈ 243",
+              funds: "≈ 24",
+            },
+            {
+              feature: "智能搜论文/次提问",
+              pro: "≈ 45",
+              max: "≈ 229",
+              funds: "≈ 22",
+            },
+            {
+              feature: "智能写作/次编辑",
+              pro: "≈ 31",
+              max: "≈ 159",
+              funds: "≈ 15",
+            },
+            {
+              feature: "智能审稿/次提交",
+              pro: "≈ 12",
+              max: "≈ 60",
+              funds: "≈ 6",
+            },
+          ],
+        },
+        blocks: [{ type: "markdown" }, { type: "table" }],
+      },
+      {
+        id: "purchasing-power-advanced",
+        title: "高级模型大约能用多少次",
+        markdown: `高级模型目前包括 DeepSeek V4 Pro、Qwen3.8 Max 和 GLM 5.3。更适合难一些的任务，同一周能用的次数会明显变少。`,
+        table: {
+          columns: [
+            { key: "feature", header: "功能" },
+            { key: "pro", header: "Pro（次/周）" },
+            { key: "max", header: "Max（次/周）" },
+            { key: "funds", header: "每 1,000 经费（次）" },
+          ],
+          rows: [
+            {
+              feature: "智能助手/次提问",
+              pro: "≈ 15",
+              max: "≈ 77",
+              funds: "≈ 7",
+            },
+            {
+              feature: "智能搜论文/次提问",
+              pro: "≈ 12",
+              max: "≈ 61",
+              funds: "≈ 6",
+            },
+            {
+              feature: "智能写作/次编辑",
+              pro: "≈ 8",
+              max: "≈ 40",
+              funds: "≈ 4",
+            },
+            {
+              feature: "智能审稿/次提交",
+              pro: "≈ 6",
+              max: "≈ 30",
+              funds: "≈ 3",
+            },
+          ],
+        },
+        blocks: [
+          { type: "markdown" },
+          { type: "table" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "ai-usage-quota",
+              sectionId: "amounts",
+              title: "额度用完后怎么办",
+              description:
+                "查看 Free、Pro、Max 每个周期有多少额度，以及用完后怎样恢复或用科研经费继续。",
+              icon: "resource",
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
     slug: "smart-search",
     title: "智能搜论文",
     summary:
@@ -57,7 +417,13 @@ export const researchAiArticles: WikiArticle[] = [
       "backend/internal/agentbridge",
       "agent-skills/smart-search-skills",
     ],
-    related: ["academic-search", "paper", "agent-runtime", "ai-usage-quota"],
+    related: [
+      "academic-search",
+      "paper",
+      "agent-runtime",
+      "ai-usage-quota",
+      "ai-models-and-runtime-config",
+    ],
     sections: [
       {
         id: "difference",
@@ -144,6 +510,7 @@ export const researchAiArticles: WikiArticle[] = [
       "agent-artifacts",
       "community-skills",
       "research-data-analysis",
+      "ai-models-and-runtime-config",
     ],
     sections: [
       {
@@ -236,7 +603,13 @@ export const researchAiArticles: WikiArticle[] = [
       "backend/internal/peerreview",
       "agent-skills/reviewer-skills",
     ],
-    related: ["paper", "agent-runtime", "ai-usage-quota", "prism"],
+    related: [
+      "paper",
+      "agent-runtime",
+      "ai-usage-quota",
+      "ai-models-and-runtime-config",
+      "prism",
+    ],
     sections: [
       {
         id: "submission",
@@ -259,6 +632,21 @@ export const researchAiArticles: WikiArticle[] = [
         title: "记录与边界",
         markdown: `打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。列表中的进度条表示 Scholay 内部审稿任务阶段，不是期刊外审或投稿处理进度。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。`,
         embeds: [{ id: "peer-review-records-list" }],
+        blocks: [
+          { type: "markdown" },
+          { type: "embeds" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "ai-models-and-runtime-config",
+              sectionId: "purchasing-power",
+              title: "按模型档位查看大约能用多少次",
+              description:
+                "基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
+              icon: "review",
+            },
+          },
+        ],
       },
     ],
   },
@@ -287,7 +675,13 @@ export const researchAiArticles: WikiArticle[] = [
       "agent-skills/prism-skills",
       "prism_tex",
     ],
-    related: ["agent-runtime", "agent-artifacts", "peer-review", "paper"],
+    related: [
+      "agent-runtime",
+      "agent-artifacts",
+      "peer-review",
+      "paper",
+      "ai-models-and-runtime-config",
+    ],
     sections: [
       {
         id: "modes",

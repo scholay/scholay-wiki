@@ -13,6 +13,16 @@ export const reviewNavCategory: WikiNavCategoryMeta = {
       target: primary("peer-review"),
     },
     {
+      id: "review-models",
+      title: "模型选择",
+      target: jump("ai-models-and-runtime-config", "runtime-config"),
+    },
+    {
+      id: "review-purchasing-power",
+      title: "大约能用多少次",
+      target: jump("ai-models-and-runtime-config", "purchasing-power"),
+    },
+    {
       id: "review-interface",
       title: "界面介绍",
       children: [

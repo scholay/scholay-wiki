@@ -1,5 +1,5 @@
 import type { WikiNavCategoryMeta } from "../../types";
-import { primary } from "./targets";
+import { jump, primary } from "./targets";
 
 export const assistantNavCategory: WikiNavCategoryMeta = {
   slug: "assistant",
@@ -21,6 +21,16 @@ export const assistantNavCategory: WikiNavCategoryMeta = {
           id: "assistant-sessions",
           title: "会话与历史",
           target: primary("claw-sessions"),
+        },
+        {
+          id: "assistant-models",
+          title: "模型与思考深度",
+          target: primary("ai-models-and-runtime-config"),
+        },
+        {
+          id: "assistant-purchasing-power",
+          title: "大约能用多少次",
+          target: jump("ai-models-and-runtime-config", "purchasing-power"),
         },
         {
           id: "assistant-attachments",

@@ -17,6 +17,11 @@ export const limitsNavCategory: WikiNavCategoryMeta = {
           title: "Free · Pro · Max",
           target: jump("ai-usage-quota", "amounts"),
         },
+        {
+          id: "limits-purchasing-power",
+          title: "大约能用多少次",
+          target: jump("ai-models-and-runtime-config", "purchasing-power"),
+        },
       ],
     },
     {

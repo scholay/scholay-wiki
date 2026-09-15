@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "article_count": 151,
+  "article_count": 152,
   "articles": [
     {
       "slug": "academic-data-backend",
@@ -1303,8 +1303,8 @@
         {
           "id": "purposes",
           "title": "封闭用途集合",
-          "markdown": "模型用途页按固定 key 列出每个系统或产品用途及当前目标模型；选择一行后只能更换模型，不能改用途 key。下图展示的是多项用途已经完成绑定的状态。\n\n当前共 10 个规范用途：system.main、system.fast、project.smart、project.claw、project.prism、project.peerreview.meta、project.peerreview.methodology、project.translate、project.analysis 和 project.wechat_oa。",
-          "content_markdown": "模型用途页按固定 key 列出每个系统或产品用途及当前目标模型；选择一行后只能更换模型，不能改用途 key。下图展示的是多项用途已经完成绑定的状态。\n\n当前共 10 个规范用途：system.main、system.fast、project.smart、project.claw、project.prism、project.peerreview.meta、project.peerreview.methodology、project.translate、project.analysis 和 project.wechat_oa。\n\n**界面元素示意**\n- admin-model-bindings（组件：admin-model-bindings）",
+          "markdown": "模型用途页按固定 key 列出每个系统或产品用途及当前目标模型；选择一行后只能更换模型，不能改用途 key。下图展示的是多项用途已经完成绑定的状态。\n\n当前共 10 个规范用途：system.main、system.fast、chat_default.smart_search、chat_default.claw、chat_default.prism、peerreview.meta、peerreview.methodology、project.translate、project.analysis 和 project.wechat_oa。",
+          "content_markdown": "模型用途页按固定 key 列出每个系统或产品用途及当前目标模型；选择一行后只能更换模型，不能改用途 key。下图展示的是多项用途已经完成绑定的状态。\n\n当前共 10 个规范用途：system.main、system.fast、chat_default.smart_search、chat_default.claw、chat_default.prism、peerreview.meta、peerreview.methodology、project.translate、project.analysis 和 project.wechat_oa。\n\n**界面元素示意**\n- admin-model-bindings（组件：admin-model-bindings）",
           "embeds": [
             {
               "id": "admin-model-bindings"
@@ -1314,11 +1314,11 @@
         {
           "id": "aliases",
           "title": "别名与回退",
-          "markdown": "slides、draw、stat 归一到 claw；letter 归一到 peerreview.meta；scoring 和 chief 归一到 peerreview.methodology；planner 和 revision 归一到 prism，历史 free 覆盖已经退役。缺少专用绑定时回退 system.main；保存后会失效缓存并向执行器推送。",
-          "content_markdown": "slides、draw、stat 归一到 claw；letter 归一到 peerreview.meta；scoring 和 chief 归一到 peerreview.methodology；planner 和 revision 归一到 prism，历史 free 覆盖已经退役。缺少专用绑定时回退 system.main；保存后会失效缓存并向执行器推送。"
+          "markdown": "制作 PPT、科研绘图和数据分析归一到智能助手默认绑定；审稿信归一到 peerreview.meta；评分与主审归一到 peerreview.methodology；写作规划和修改意见拆条归一到智能写作默认绑定。历史免费档专用覆盖已经退役。\n\n别名用途不会出现在后台列表中，但运行时仍会先解析到对应的规范用途。缺少专用绑定时回退 system.main；保存后会失效缓存并向执行器推送。",
+          "content_markdown": "制作 PPT、科研绘图和数据分析归一到智能助手默认绑定；审稿信归一到 peerreview.meta；评分与主审归一到 peerreview.methodology；写作规划和修改意见拆条归一到智能写作默认绑定。历史免费档专用覆盖已经退役。\n\n别名用途不会出现在后台列表中，但运行时仍会先解析到对应的规范用途。缺少专用绑定时回退 system.main；保存后会失效缓存并向执行器推送。"
         }
       ],
-      "content_markdown": "# 模型用途绑定\n\n把封闭的系统与项目用途键映射到模型目录中的具体模型。\n\n- 栏目：管理后台\n- 类型：rule\n- 状态：current\n- 适用对象：AI 平台人员、管理员、开发者\n- 别名：Model Binding、项目模型、Purpose Binding\n- Wiki 页面：https://www.scholay.com/wiki/admin-model-bindings\n\n## 封闭用途集合\n\n模型用途页按固定 key 列出每个系统或产品用途及当前目标模型；选择一行后只能更换模型，不能改用途 key。下图展示的是多项用途已经完成绑定的状态。\n\n当前共 10 个规范用途：system.main、system.fast、project.smart、project.claw、project.prism、project.peerreview.meta、project.peerreview.methodology、project.translate、project.analysis 和 project.wechat_oa。\n\n**界面元素示意**\n- admin-model-bindings（组件：admin-model-bindings）\n\n## 别名与回退\n\nslides、draw、stat 归一到 claw；letter 归一到 peerreview.meta；scoring 和 chief 归一到 peerreview.methodology；planner 和 revision 归一到 prism，历史 free 覆盖已经退役。缺少专用绑定时回退 system.main；保存后会失效缓存并向执行器推送。"
+      "content_markdown": "# 模型用途绑定\n\n把封闭的系统与项目用途键映射到模型目录中的具体模型。\n\n- 栏目：管理后台\n- 类型：rule\n- 状态：current\n- 适用对象：AI 平台人员、管理员、开发者\n- 别名：Model Binding、项目模型、Purpose Binding\n- Wiki 页面：https://www.scholay.com/wiki/admin-model-bindings\n\n## 封闭用途集合\n\n模型用途页按固定 key 列出每个系统或产品用途及当前目标模型；选择一行后只能更换模型，不能改用途 key。下图展示的是多项用途已经完成绑定的状态。\n\n当前共 10 个规范用途：system.main、system.fast、chat_default.smart_search、chat_default.claw、chat_default.prism、peerreview.meta、peerreview.methodology、project.translate、project.analysis 和 project.wechat_oa。\n\n**界面元素示意**\n- admin-model-bindings（组件：admin-model-bindings）\n\n## 别名与回退\n\n制作 PPT、科研绘图和数据分析归一到智能助手默认绑定；审稿信归一到 peerreview.meta；评分与主审归一到 peerreview.methodology；写作规划和修改意见拆条归一到智能写作默认绑定。历史免费档专用覆盖已经退役。\n\n别名用途不会出现在后台列表中，但运行时仍会先解析到对应的规范用途。缺少专用绑定时回退 system.main；保存后会失效缓存并向执行器推送。"
     },
     {
       "slug": "admin-model-provider-catalog",
@@ -1340,6 +1340,7 @@
       ],
       "related": [
         "agent-runtime",
+        "ai-models-and-runtime-config",
         "admin-model-bindings",
         "admin-token-cost"
       ],
@@ -1369,8 +1370,8 @@
         {
           "id": "models",
           "title": "模型目录与定价",
-          "markdown": "在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输出、输入/输出/缓存读/缓存写四类价格、允许档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。\n\n每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。",
-          "content_markdown": "在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输出、输入/输出/缓存读/缓存写四类价格、允许档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。\n\n每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。\n\n**界面元素示意**\n- 模型参数、四类单价与可见范围编辑器（组件：admin-model-editor）",
+          "markdown": "在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输入与输出、图片能力、速度定位、输入/输出/缓存读/缓存写四类价格、长输入分档、允许会员档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。\n\n每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。之后改价只影响新的使用；已经记下的历史消耗不会跟着改。",
+          "content_markdown": "在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输入与输出、图片能力、速度定位、输入/输出/缓存读/缓存写四类价格、长输入分档、允许会员档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。\n\n每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。之后改价只影响新的使用；已经记下的历史消耗不会跟着改。\n\n**界面元素示意**\n- 模型参数、四类单价与可见范围编辑器（组件：admin-model-editor）",
           "embeds": [
             {
               "id": "admin-model-editor",
@@ -1379,7 +1380,7 @@
           ]
         }
       ],
-      "content_markdown": "# AI Provider 与模型目录\n\n维护兼容上游提供商、模型能力、价格和用户可选策略。\n\n- 栏目：管理后台\n- 类型：architecture\n- 状态：current\n- 适用对象：AI 平台人员、管理员、开发者\n- 别名：Model Catalog、AI 上游、模型供应商\n- Wiki 页面：https://www.scholay.com/wiki/admin-model-provider-catalog\n\n## Provider\n\n模型目录先按 Provider 展示端点、推送状态、计价和所属模型；点击新建或编辑后，可以配置名称、API 端点、兼容格式与推送选项。下方三张图依次展示目录总览、单个 Provider 区块和编辑器。\n\n系统预置 DeepSeek，并支持 Qwen、Kimi、智谱、豆包、MiniMax 和自定义 OpenAI 兼容上游。Provider 变更会向执行器推送，并显示 pending、success 或 failed；仍有关联模型时不能删除，页面也会提示孤儿模型。\n\n**界面元素示意**\n- admin-model-catalog（组件：admin-model-catalog）\n- 单个 Provider 的推送、计价与所属模型状态（组件：admin-provider-sections）\n- 模型端点、API 格式与推送配置编辑器（组件：admin-provider-editor）\n\n## 模型目录与定价\n\n在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输出、输入/输出/缓存读/缓存写四类价格、允许档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。\n\n每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。\n\n**界面元素示意**\n- 模型参数、四类单价与可见范围编辑器（组件：admin-model-editor）"
+      "content_markdown": "# AI Provider 与模型目录\n\n维护兼容上游提供商、模型能力、价格和用户可选策略。\n\n- 栏目：管理后台\n- 类型：architecture\n- 状态：current\n- 适用对象：AI 平台人员、管理员、开发者\n- 别名：Model Catalog、AI 上游、模型供应商\n- Wiki 页面：https://www.scholay.com/wiki/admin-model-provider-catalog\n\n## Provider\n\n模型目录先按 Provider 展示端点、推送状态、计价和所属模型；点击新建或编辑后，可以配置名称、API 端点、兼容格式与推送选项。下方三张图依次展示目录总览、单个 Provider 区块和编辑器。\n\n系统预置 DeepSeek，并支持 Qwen、Kimi、智谱、豆包、MiniMax 和自定义 OpenAI 兼容上游。Provider 变更会向执行器推送，并显示 pending、success 或 failed；仍有关联模型时不能删除，页面也会提示孤儿模型。\n\n**界面元素示意**\n- admin-model-catalog（组件：admin-model-catalog）\n- 单个 Provider 的推送、计价与所属模型状态（组件：admin-provider-sections）\n- 模型端点、API 格式与推送配置编辑器（组件：admin-provider-editor）\n\n## 模型目录与定价\n\n在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输入与输出、图片能力、速度定位、输入/输出/缓存读/缓存写四类价格、长输入分档、允许会员档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。\n\n每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。之后改价只影响新的使用；已经记下的历史消耗不会跟着改。\n\n**界面元素示意**\n- 模型参数、四类单价与可见范围编辑器（组件：admin-model-editor）"
     },
     {
       "slug": "admin-news-webhook",
@@ -2759,6 +2760,443 @@
       "content_markdown": "# Agent 工具、沙箱与出站网络边界\n\n17 个内建工具共用权限判定和工作区约束；bubblewrap 限制主机访问，但允许 Bash 的档位目前仍可直接访问公网。\n\n- 栏目：平台与架构\n- 类型：architecture\n- 状态：current\n- 适用对象：开发者、安全人员、平台管理员\n- 别名：Agent Tools、bubblewrap、Bash 沙箱、Executor Egress\n- Wiki 页面：https://www.scholay.com/wiki/agent-tool-and-sandbox-boundary\n\n## 17 个内建工具\n\n当前注册表固定包含 **Read、Write、Edit、Glob、Grep、Bash、ReadDocument、ExportDocument、BuildDeck、TodayDate、Skill、AskUserQuestion、EvidenceGet、SubmitAnswer、DeclareInsufficient、StatRun、StatReport**。Minicod MCP 工具以 mcp__minicod__ 前缀动态加入。模型是否看得见工具和运行时是否允许执行使用同一个权限函数，denylist 优先；Bash 只有在目标 Agent 档位明确允许时才可见。\n\n## 文件和文档边界\n\n文件工具进行规范化路径、realpath 和符号链接逃逸检查。单文件默认上限 64 MiB，单会话 1 GiB、2,000 个文件。ReadDocument 支持 PDF、DOCX、XLSX、PPTX、ODT、RTF、EPUB、HTML、Markdown 和 TeX，最大提取约 400,000 字符，不提供 OCR，也不承诺旧 DOC、XLS、PPT、ODS 或 ODP。ExportDocument 只写入 out，BuildDeck 生成单文件 HTML 后再导出。\n\n## bubblewrap 隔离\n\n高风险执行使用 bubblewrap 的 unshare-all、无 proc、tmpfs、最小只读挂载和单一可写工作区；环境变量会被清空后按白名单重建，模型供应商密钥不会进入 Bash。生产缺少可用 bubblewrap 时会拒绝 Bash 和导出，并禁止使用显式不安全覆盖。宿主仍需运行 AppArmor user namespace 配置脚本；普通 /health 不证明 bwrap、Pandoc 或 Chromium 可用。\n\n## 出站网络风险\n\n允许 Bash 的回合使用 share-net，Agent 又连接可直接出网的 egress-net；仓库没有默认强制代理、域名 allowlist 或逐工具网络策略。因此“密钥不注入 shell”不等于“用户文件不会外传”：命令仍可主动把工作区内容发送到任意公网地址。生产应补充网络授权、目的域限制、出站审计和可强制 net=none 的敏感任务档位。\n\n## 解析器不是同一沙箱\n\nReadDocument 和 extract-head 使用固定 argv 与受限路径，但 pdftotext、openpyxl 等外层转换进程不在 bubblewrap 内；Pandoc 只依赖自身 sandbox。恶意文档解析风险应通过独立低权限转换服务、每任务挂载、资源限制和恶意样本回归测试处理，不能把 Bash 的隔离结论直接套用到文档解析器。"
     },
     {
+      "slug": "ai-models-and-runtime-config",
+      "title": "选模型、思考深度和大约能用多少次",
+      "summary": "看看现在能选哪些基础、经济和高级模型，思考深度是什么意思，以及 Pro、Max 和科研经费大概能用多少次。",
+      "category": "research-ai",
+      "category_title": "AI 科研工作流",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "AI 功能用户",
+        "研究者",
+        "管理员"
+      ],
+      "aliases": [
+        "模型选择",
+        "运行配置",
+        "思考深度",
+        "模型价格",
+        "购买力",
+        "大约能用多少次",
+        "AI Model"
+      ],
+      "related": [
+        "ai-research-workflows",
+        "smart-search",
+        "claw",
+        "prism",
+        "peer-review",
+        "ai-usage-quota",
+        "wallet-payg"
+      ],
+      "url": "https://www.scholay.com/wiki/ai-models-and-runtime-config",
+      "resource_uri": "scholay://wiki/article/ai-models-and-runtime-config",
+      "header_embeds": [],
+      "sections": [
+        {
+          "id": "runtime-config",
+          "title": "怎样选择模型和思考深度",
+          "markdown": "在智能搜论文、智能助手、智能写作和智能审稿里，可以看到当前用的模型和思考深度。模型和思考深度都只对当前这次任务生效。\n\n思考深度有轻、中、高、极高四档。档位越高，模型通常会想得更久、步骤更多，等待时间也会更长，消耗一般也会更多。换思考深度不会换成另一个模型，只是让同一个模型更认真地做这一轮。\n\n这个选择会跟着当前对话保存。刷新页面或换一台设备，原来的对话仍会沿用你选过的模型。新开对话时，如果没有另外选择，就用该功能的默认模型。某个模型下线、你的会员不够用，或者暂时不能选时，页面会回到还能用的选项。",
+          "content_markdown": "在智能搜论文、智能助手、智能写作和智能审稿里，可以看到当前用的模型和思考深度。模型和思考深度都只对当前这次任务生效。\n\n思考深度有轻、中、高、极高四档。档位越高，模型通常会想得更久、步骤更多，等待时间也会更长，消耗一般也会更多。换思考深度不会换成另一个模型，只是让同一个模型更认真地做这一轮。\n\n这个选择会跟着当前对话保存。刷新页面或换一台设备，原来的对话仍会沿用你选过的模型。新开对话时，如果没有另外选择，就用该功能的默认模型。某个模型下线、你的会员不够用，或者暂时不能选时，页面会回到还能用的选项。"
+        },
+        {
+          "id": "current-models",
+          "title": "现在可以选哪些模型",
+          "markdown": "截止今日更新，站内正在提供的模型分成三档。这 8 个模型目前都已开放，Free、Pro、Max 都可以选。之后名单可能调整，请以输入框里当时看到的列表为准。\n\n基础模型更省额度，适合日常提问；经济模型更均衡；高级模型更适合难一些的任务，但一次会用掉更多额度。只有写了“可以看图”的模型，才适合把图片一起发给它。能发送图片，不代表它一定能看懂图里的全部细节。对话太长时，较早的内容可能被收短，以免超出模型能记住的范围。",
+          "content_markdown": "截止今日更新，站内正在提供的模型分成三档。这 8 个模型目前都已开放，Free、Pro、Max 都可以选。之后名单可能调整，请以输入框里当时看到的列表为准。\n\n基础模型更省额度，适合日常提问；经济模型更均衡；高级模型更适合难一些的任务，但一次会用掉更多额度。只有写了“可以看图”的模型，才适合把图片一起发给它。能发送图片，不代表它一定能看懂图里的全部细节。对话太长时，较早的内容可能被收短，以免超出模型能记住的范围。\n\n| 模型 | 档位 | 比较适合 | 看图 |\n| --- | --- | --- | --- |\n| Qwen3.7 Flash | 基础模型 | 日常提问，也比较省额度 | 可以 |\n| DeepSeek V4.1 Flash | 经济模型 | 日常问答，也可以看图 | 可以 |\n| Qwen3.7 Plus | 经济模型 | 日常研究和看图 | 可以 |\n| Qwen3.8 Flash | 经济模型 | 较快完成，也可以看图 | 可以 |\n| GLM 5.3 Flash | 经济模型 | 较快完成，也可以看图 | 可以 |\n| DeepSeek V4 Pro | 高级模型 | 复杂推理、较长回答 | 不可以 |\n| Qwen3.8 Max | 高级模型 | 难一些的任务，也可以看图 | 可以 |\n| GLM 5.3 | 高级模型 | 复杂推理，不看图 | 不可以 |",
+          "table": {
+            "columns": [
+              {
+                "key": "model",
+                "header": "模型"
+              },
+              {
+                "key": "tier",
+                "header": "档位"
+              },
+              {
+                "key": "bestFor",
+                "header": "比较适合"
+              },
+              {
+                "key": "vision",
+                "header": "看图"
+              }
+            ],
+            "rows": [
+              {
+                "model": "Qwen3.7 Flash",
+                "tier": "基础模型",
+                "bestFor": "日常提问，也比较省额度",
+                "vision": "可以"
+              },
+              {
+                "model": "DeepSeek V4.1 Flash",
+                "tier": "经济模型",
+                "bestFor": "日常问答，也可以看图",
+                "vision": "可以"
+              },
+              {
+                "model": "Qwen3.7 Plus",
+                "tier": "经济模型",
+                "bestFor": "日常研究和看图",
+                "vision": "可以"
+              },
+              {
+                "model": "Qwen3.8 Flash",
+                "tier": "经济模型",
+                "bestFor": "较快完成，也可以看图",
+                "vision": "可以"
+              },
+              {
+                "model": "GLM 5.3 Flash",
+                "tier": "经济模型",
+                "bestFor": "较快完成，也可以看图",
+                "vision": "可以"
+              },
+              {
+                "model": "DeepSeek V4 Pro",
+                "tier": "高级模型",
+                "bestFor": "复杂推理、较长回答",
+                "vision": "不可以"
+              },
+              {
+                "model": "Qwen3.8 Max",
+                "tier": "高级模型",
+                "bestFor": "难一些的任务，也可以看图",
+                "vision": "可以"
+              },
+              {
+                "model": "GLM 5.3",
+                "tier": "高级模型",
+                "bestFor": "复杂推理，不看图",
+                "vision": "不可以"
+              }
+            ]
+          },
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        {
+          "id": "pricing",
+          "title": "不同模型怎么计费",
+          "markdown": "额度按实际用量扣，不按你点了几次发送来扣。系统会分别计算：模型读了你多少内容、写了多少回答，以及有没有复用刚才已经读过的内容。读得越多、写得越长、选的模型越强，通常扣得越多。\n\n有两类情况会临时更贵。DeepSeek 在工作日北京时间 9:00–12:00 和 14:00–18:00 用量会按更高标准计算。Qwen3.7 Plus 和 Qwen3.7 Flash 则是内容特别长时更贵：一次读入的内容越多，越可能按更高一档来算。\n\n下表用“读你的内容 / 生成回答 / 复用已读内容”三列价格来对照，单位是每 100 万用量多少元。页面上最终显示的是算力点。已经发生过的消耗不会因为后来改价而重算。",
+          "content_markdown": "额度按实际用量扣，不按你点了几次发送来扣。系统会分别计算：模型读了你多少内容、写了多少回答，以及有没有复用刚才已经读过的内容。读得越多、写得越长、选的模型越强，通常扣得越多。\n\n有两类情况会临时更贵。DeepSeek 在工作日北京时间 9:00–12:00 和 14:00–18:00 用量会按更高标准计算。Qwen3.7 Plus 和 Qwen3.7 Flash 则是内容特别长时更贵：一次读入的内容越多，越可能按更高一档来算。\n\n下表用“读你的内容 / 生成回答 / 复用已读内容”三列价格来对照，单位是每 100 万用量多少元。页面上最终显示的是算力点。已经发生过的消耗不会因为后来改价而重算。\n\n| 模型 | 平时价格 | 什么时候更贵 |\n| --- | --- | --- |\n| Qwen3.7 Flash | 0.2 / 0.8 / 0.04 | 内容较长或特别长时更贵 |\n| DeepSeek V4.1 Flash | 1 / 4 / 0.02 | 工作日高峰约贵一倍 |\n| Qwen3.7 Plus | 2 / 8 / 0.4 | 内容特别长时更贵 |\n| Qwen3.8 Flash | 0.8 / 2.7 / 0.1 | 平时就是这个价格 |\n| GLM 5.3 Flash | 0.8 / 2.8 / 0.23 | 平时就是这个价格 |\n| DeepSeek V4 Pro | 4.5 / 13.5 / 0.15 | 工作日高峰约贵一倍 |\n| Qwen3.8 Max | 12 / 36 / 1.5 | 平时就是这个价格 |\n| GLM 5.3 | 8 / 28 / 2 | 平时就是这个价格 |\n\n> 提示：模型名单和价格都可能调整。开始任务前，以输入框里当前显示的模型为准。",
+          "table": {
+            "columns": [
+              {
+                "key": "model",
+                "header": "模型"
+              },
+              {
+                "key": "base",
+                "header": "平时价格"
+              },
+              {
+                "key": "tier",
+                "header": "什么时候更贵"
+              }
+            ],
+            "rows": [
+              {
+                "model": "Qwen3.7 Flash",
+                "base": "0.2 / 0.8 / 0.04",
+                "tier": "内容较长或特别长时更贵"
+              },
+              {
+                "model": "DeepSeek V4.1 Flash",
+                "base": "1 / 4 / 0.02",
+                "tier": "工作日高峰约贵一倍"
+              },
+              {
+                "model": "Qwen3.7 Plus",
+                "base": "2 / 8 / 0.4",
+                "tier": "内容特别长时更贵"
+              },
+              {
+                "model": "Qwen3.8 Flash",
+                "base": "0.8 / 2.7 / 0.1",
+                "tier": "平时就是这个价格"
+              },
+              {
+                "model": "GLM 5.3 Flash",
+                "base": "0.8 / 2.8 / 0.23",
+                "tier": "平时就是这个价格"
+              },
+              {
+                "model": "DeepSeek V4 Pro",
+                "base": "4.5 / 13.5 / 0.15",
+                "tier": "工作日高峰约贵一倍"
+              },
+              {
+                "model": "Qwen3.8 Max",
+                "base": "12 / 36 / 1.5",
+                "tier": "平时就是这个价格"
+              },
+              {
+                "model": "GLM 5.3",
+                "base": "8 / 28 / 2",
+                "tier": "平时就是这个价格"
+              }
+            ]
+          },
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "table"
+            },
+            {
+              "type": "tip",
+              "tip": {
+                "text": "模型名单和价格都可能调整。开始任务前，以输入框里当前显示的模型为准。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "formula",
+          "title": "一次使用为什么有时贵、有时便宜",
+          "markdown": "点一次发送，不一定只扣一次。模型可能先读你的问题，再去查资料或改稿，再写出回答。附件越长、对话越久、选的模型档位越高，这一轮通常越贵。\n\n同样一件事，基础模型往往最省，经济模型居中，高级模型一次会用掉更多额度。所以不要只按输入框里的字数去估算最终用量。智能审稿更明显：一次提交会经过好几步，整次提交的消耗，通常高于普通的一问一答。",
+          "content_markdown": "点一次发送，不一定只扣一次。模型可能先读你的问题，再去查资料或改稿，再写出回答。附件越长、对话越久、选的模型档位越高，这一轮通常越贵。\n\n同样一件事，基础模型往往最省，经济模型居中，高级模型一次会用掉更多额度。所以不要只按输入框里的字数去估算最终用量。智能审稿更明显：一次提交会经过好几步，整次提交的消耗，通常高于普通的一问一答。"
+        },
+        {
+          "id": "feature-bindings",
+          "title": "哪些功能可以自己选模型",
+          "markdown": "智能搜论文、智能助手、智能写作、智能审稿、制作 PPT、科研绘图和数据分析，都可以自己选模型。截止今日更新，这些功能的默认模型都是基础模型 Qwen3.7 Flash。制作 PPT、科研绘图和数据分析，没有单独另一套默认模型，跟智能助手相同。\n\n论文翻译和矩阵分析目前不能每次换模型，会按系统为该功能指定的模型来做，一般按基础模型来理解。已经保存在旧对话里的可用模型，不会因为默认模型调整而被自动换掉。",
+          "content_markdown": "智能搜论文、智能助手、智能写作、智能审稿、制作 PPT、科研绘图和数据分析，都可以自己选模型。截止今日更新，这些功能的默认模型都是基础模型 Qwen3.7 Flash。制作 PPT、科研绘图和数据分析，没有单独另一套默认模型，跟智能助手相同。\n\n论文翻译和矩阵分析目前不能每次换模型，会按系统为该功能指定的模型来做，一般按基础模型来理解。已经保存在旧对话里的可用模型，不会因为默认模型调整而被自动换掉。"
+        },
+        {
+          "id": "purchasing-power",
+          "title": "Pro、Max 与科研经费大约能用多少次",
+          "markdown": "截止今日更新，预估标准按模型档位分开看，先不把思考深度算进去。选基础、经济还是高级模型，次数差会比较大。额度什么时候恢复、用完后怎样继续，见额度说明；要对着套餐看次数，以下面三档为准。\n\n会员按周看次数，经费按每 1,000 看次数。Pro 一周额度相当于 2,000 经费，所以 1,000 经费大约是 Pro 一周的一半。制作 PPT、科研绘图和数据分析没有单独一张表，次数可参照智能助手。论文翻译和矩阵分析目前还不能换模型，只写在基础模型里。\n\n这里的“一次”按页面上的动作来理解：对话是发一条，写作是改一轮，审稿是提交一次，翻译是译一次，矩阵分析是分析一篇论文。附件更长、任务更难时，次数会变少。",
+          "content_markdown": "截止今日更新，预估标准按模型档位分开看，先不把思考深度算进去。选基础、经济还是高级模型，次数差会比较大。额度什么时候恢复、用完后怎样继续，见额度说明；要对着套餐看次数，以下面三档为准。\n\n会员按周看次数，经费按每 1,000 看次数。Pro 一周额度相当于 2,000 经费，所以 1,000 经费大约是 Pro 一周的一半。制作 PPT、科研绘图和数据分析没有单独一张表，次数可参照智能助手。论文翻译和矩阵分析目前还不能换模型，只写在基础模型里。\n\n这里的“一次”按页面上的动作来理解：对话是发一条，写作是改一轮，审稿是提交一次，翻译是译一次，矩阵分析是分析一篇论文。附件更长、任务更难时，次数会变少。\n\n> 提示：这是截止今日更新的预估标准，不是保证次数。同一档里换一个具体模型，或把思考深度调高，实际次数还会再变。",
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "tip",
+              "tip": {
+                "text": "这是截止今日更新的预估标准，不是保证次数。同一档里换一个具体模型，或把思考深度调高，实际次数还会再变。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "purchasing-power-basic",
+          "title": "基础模型大约能用多少次",
+          "markdown": "基础模型目前主要是 Qwen3.7 Flash，也是多数功能的默认选择。论文翻译和矩阵分析目前一般也按这一档来理解。",
+          "content_markdown": "基础模型目前主要是 Qwen3.7 Flash，也是多数功能的默认选择。论文翻译和矩阵分析目前一般也按这一档来理解。\n\n| 功能 | Pro（次/周） | Max（次/周） | 每 1,000 经费（次） |\n| --- | --- | --- | --- |\n| 智能助手/次提问 | ≈ 120 | ≈ 600 | ≈ 60 |\n| 智能搜论文/次提问 | ≈ 74 | ≈ 371 | ≈ 37 |\n| 智能写作/次编辑 | ≈ 87 | ≈ 439 | ≈ 43 |\n| 智能审稿/次提交 | ≈ 29 | ≈ 148 | ≈ 14 |\n| 矩阵分析/篇 | ≈ 1,700 | ≈ 8,800 | ≈ 850 |\n| 论文翻译/次翻译 | ≈ 2,000 | ≈ 10,300 | ≈ 1,000 |",
+          "table": {
+            "columns": [
+              {
+                "key": "feature",
+                "header": "功能"
+              },
+              {
+                "key": "pro",
+                "header": "Pro（次/周）"
+              },
+              {
+                "key": "max",
+                "header": "Max（次/周）"
+              },
+              {
+                "key": "funds",
+                "header": "每 1,000 经费（次）"
+              }
+            ],
+            "rows": [
+              {
+                "feature": "智能助手/次提问",
+                "pro": "≈ 120",
+                "max": "≈ 600",
+                "funds": "≈ 60"
+              },
+              {
+                "feature": "智能搜论文/次提问",
+                "pro": "≈ 74",
+                "max": "≈ 371",
+                "funds": "≈ 37"
+              },
+              {
+                "feature": "智能写作/次编辑",
+                "pro": "≈ 87",
+                "max": "≈ 439",
+                "funds": "≈ 43"
+              },
+              {
+                "feature": "智能审稿/次提交",
+                "pro": "≈ 29",
+                "max": "≈ 148",
+                "funds": "≈ 14"
+              },
+              {
+                "feature": "矩阵分析/篇",
+                "pro": "≈ 1,700",
+                "max": "≈ 8,800",
+                "funds": "≈ 850"
+              },
+              {
+                "feature": "论文翻译/次翻译",
+                "pro": "≈ 2,000",
+                "max": "≈ 10,300",
+                "funds": "≈ 1,000"
+              }
+            ]
+          },
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        {
+          "id": "purchasing-power-economy",
+          "title": "经济模型大约能用多少次",
+          "markdown": "经济模型目前包括 DeepSeek V4.1 Flash、Qwen3.7 Plus、Qwen3.8 Flash 和 GLM 5.3 Flash。比基础模型更均衡，一次消耗也更高。",
+          "content_markdown": "经济模型目前包括 DeepSeek V4.1 Flash、Qwen3.7 Plus、Qwen3.8 Flash 和 GLM 5.3 Flash。比基础模型更均衡，一次消耗也更高。\n\n| 功能 | Pro（次/周） | Max（次/周） | 每 1,000 经费（次） |\n| --- | --- | --- | --- |\n| 智能助手/次提问 | ≈ 48 | ≈ 243 | ≈ 24 |\n| 智能搜论文/次提问 | ≈ 45 | ≈ 229 | ≈ 22 |\n| 智能写作/次编辑 | ≈ 31 | ≈ 159 | ≈ 15 |\n| 智能审稿/次提交 | ≈ 12 | ≈ 60 | ≈ 6 |",
+          "table": {
+            "columns": [
+              {
+                "key": "feature",
+                "header": "功能"
+              },
+              {
+                "key": "pro",
+                "header": "Pro（次/周）"
+              },
+              {
+                "key": "max",
+                "header": "Max（次/周）"
+              },
+              {
+                "key": "funds",
+                "header": "每 1,000 经费（次）"
+              }
+            ],
+            "rows": [
+              {
+                "feature": "智能助手/次提问",
+                "pro": "≈ 48",
+                "max": "≈ 243",
+                "funds": "≈ 24"
+              },
+              {
+                "feature": "智能搜论文/次提问",
+                "pro": "≈ 45",
+                "max": "≈ 229",
+                "funds": "≈ 22"
+              },
+              {
+                "feature": "智能写作/次编辑",
+                "pro": "≈ 31",
+                "max": "≈ 159",
+                "funds": "≈ 15"
+              },
+              {
+                "feature": "智能审稿/次提交",
+                "pro": "≈ 12",
+                "max": "≈ 60",
+                "funds": "≈ 6"
+              }
+            ]
+          },
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        {
+          "id": "purchasing-power-advanced",
+          "title": "高级模型大约能用多少次",
+          "markdown": "高级模型目前包括 DeepSeek V4 Pro、Qwen3.8 Max 和 GLM 5.3。更适合难一些的任务，同一周能用的次数会明显变少。",
+          "content_markdown": "高级模型目前包括 DeepSeek V4 Pro、Qwen3.8 Max 和 GLM 5.3。更适合难一些的任务，同一周能用的次数会明显变少。\n\n| 功能 | Pro（次/周） | Max（次/周） | 每 1,000 经费（次） |\n| --- | --- | --- | --- |\n| 智能助手/次提问 | ≈ 15 | ≈ 77 | ≈ 7 |\n| 智能搜论文/次提问 | ≈ 12 | ≈ 61 | ≈ 6 |\n| 智能写作/次编辑 | ≈ 8 | ≈ 40 | ≈ 4 |\n| 智能审稿/次提交 | ≈ 6 | ≈ 30 | ≈ 3 |\n\n**延伸词条：[额度用完后怎么办](https://www.scholay.com/wiki/ai-usage-quota#amounts)**\n\n查看 Free、Pro、Max 每个周期有多少额度，以及用完后怎样恢复或用科研经费继续。",
+          "table": {
+            "columns": [
+              {
+                "key": "feature",
+                "header": "功能"
+              },
+              {
+                "key": "pro",
+                "header": "Pro（次/周）"
+              },
+              {
+                "key": "max",
+                "header": "Max（次/周）"
+              },
+              {
+                "key": "funds",
+                "header": "每 1,000 经费（次）"
+              }
+            ],
+            "rows": [
+              {
+                "feature": "智能助手/次提问",
+                "pro": "≈ 15",
+                "max": "≈ 77",
+                "funds": "≈ 7"
+              },
+              {
+                "feature": "智能搜论文/次提问",
+                "pro": "≈ 12",
+                "max": "≈ 61",
+                "funds": "≈ 6"
+              },
+              {
+                "feature": "智能写作/次编辑",
+                "pro": "≈ 8",
+                "max": "≈ 40",
+                "funds": "≈ 4"
+              },
+              {
+                "feature": "智能审稿/次提交",
+                "pro": "≈ 6",
+                "max": "≈ 30",
+                "funds": "≈ 3"
+              }
+            ]
+          },
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "table"
+            },
+            {
+              "type": "article-link",
+              "card": {
+                "articleSlug": "ai-usage-quota",
+                "sectionId": "amounts",
+                "title": "额度用完后怎么办",
+                "description": "查看 Free、Pro、Max 每个周期有多少额度，以及用完后怎样恢复或用科研经费继续。",
+                "icon": "resource"
+              }
+            }
+          ]
+        }
+      ],
+      "content_markdown": "# 选模型、思考深度和大约能用多少次\n\n看看现在能选哪些基础、经济和高级模型，思考深度是什么意思，以及 Pro、Max 和科研经费大概能用多少次。\n\n- 栏目：AI 科研工作流\n- 类型：rule\n- 状态：current\n- 适用对象：AI 功能用户、研究者、管理员\n- 别名：模型选择、运行配置、思考深度、模型价格、购买力、大约能用多少次、AI Model\n- Wiki 页面：https://www.scholay.com/wiki/ai-models-and-runtime-config\n\n## 怎样选择模型和思考深度\n\n在智能搜论文、智能助手、智能写作和智能审稿里，可以看到当前用的模型和思考深度。模型和思考深度都只对当前这次任务生效。\n\n思考深度有轻、中、高、极高四档。档位越高，模型通常会想得更久、步骤更多，等待时间也会更长，消耗一般也会更多。换思考深度不会换成另一个模型，只是让同一个模型更认真地做这一轮。\n\n这个选择会跟着当前对话保存。刷新页面或换一台设备，原来的对话仍会沿用你选过的模型。新开对话时，如果没有另外选择，就用该功能的默认模型。某个模型下线、你的会员不够用，或者暂时不能选时，页面会回到还能用的选项。\n\n## 现在可以选哪些模型\n\n截止今日更新，站内正在提供的模型分成三档。这 8 个模型目前都已开放，Free、Pro、Max 都可以选。之后名单可能调整，请以输入框里当时看到的列表为准。\n\n基础模型更省额度，适合日常提问；经济模型更均衡；高级模型更适合难一些的任务，但一次会用掉更多额度。只有写了“可以看图”的模型，才适合把图片一起发给它。能发送图片，不代表它一定能看懂图里的全部细节。对话太长时，较早的内容可能被收短，以免超出模型能记住的范围。\n\n| 模型 | 档位 | 比较适合 | 看图 |\n| --- | --- | --- | --- |\n| Qwen3.7 Flash | 基础模型 | 日常提问，也比较省额度 | 可以 |\n| DeepSeek V4.1 Flash | 经济模型 | 日常问答，也可以看图 | 可以 |\n| Qwen3.7 Plus | 经济模型 | 日常研究和看图 | 可以 |\n| Qwen3.8 Flash | 经济模型 | 较快完成，也可以看图 | 可以 |\n| GLM 5.3 Flash | 经济模型 | 较快完成，也可以看图 | 可以 |\n| DeepSeek V4 Pro | 高级模型 | 复杂推理、较长回答 | 不可以 |\n| Qwen3.8 Max | 高级模型 | 难一些的任务，也可以看图 | 可以 |\n| GLM 5.3 | 高级模型 | 复杂推理，不看图 | 不可以 |\n\n## 不同模型怎么计费\n\n额度按实际用量扣，不按你点了几次发送来扣。系统会分别计算：模型读了你多少内容、写了多少回答，以及有没有复用刚才已经读过的内容。读得越多、写得越长、选的模型越强，通常扣得越多。\n\n有两类情况会临时更贵。DeepSeek 在工作日北京时间 9:00–12:00 和 14:00–18:00 用量会按更高标准计算。Qwen3.7 Plus 和 Qwen3.7 Flash 则是内容特别长时更贵：一次读入的内容越多，越可能按更高一档来算。\n\n下表用“读你的内容 / 生成回答 / 复用已读内容”三列价格来对照，单位是每 100 万用量多少元。页面上最终显示的是算力点。已经发生过的消耗不会因为后来改价而重算。\n\n| 模型 | 平时价格 | 什么时候更贵 |\n| --- | --- | --- |\n| Qwen3.7 Flash | 0.2 / 0.8 / 0.04 | 内容较长或特别长时更贵 |\n| DeepSeek V4.1 Flash | 1 / 4 / 0.02 | 工作日高峰约贵一倍 |\n| Qwen3.7 Plus | 2 / 8 / 0.4 | 内容特别长时更贵 |\n| Qwen3.8 Flash | 0.8 / 2.7 / 0.1 | 平时就是这个价格 |\n| GLM 5.3 Flash | 0.8 / 2.8 / 0.23 | 平时就是这个价格 |\n| DeepSeek V4 Pro | 4.5 / 13.5 / 0.15 | 工作日高峰约贵一倍 |\n| Qwen3.8 Max | 12 / 36 / 1.5 | 平时就是这个价格 |\n| GLM 5.3 | 8 / 28 / 2 | 平时就是这个价格 |\n\n> 提示：模型名单和价格都可能调整。开始任务前，以输入框里当前显示的模型为准。\n\n## 一次使用为什么有时贵、有时便宜\n\n点一次发送，不一定只扣一次。模型可能先读你的问题，再去查资料或改稿，再写出回答。附件越长、对话越久、选的模型档位越高，这一轮通常越贵。\n\n同样一件事，基础模型往往最省，经济模型居中，高级模型一次会用掉更多额度。所以不要只按输入框里的字数去估算最终用量。智能审稿更明显：一次提交会经过好几步，整次提交的消耗，通常高于普通的一问一答。\n\n## 哪些功能可以自己选模型\n\n智能搜论文、智能助手、智能写作、智能审稿、制作 PPT、科研绘图和数据分析，都可以自己选模型。截止今日更新，这些功能的默认模型都是基础模型 Qwen3.7 Flash。制作 PPT、科研绘图和数据分析，没有单独另一套默认模型，跟智能助手相同。\n\n论文翻译和矩阵分析目前不能每次换模型，会按系统为该功能指定的模型来做，一般按基础模型来理解。已经保存在旧对话里的可用模型，不会因为默认模型调整而被自动换掉。\n\n## Pro、Max 与科研经费大约能用多少次\n\n截止今日更新，预估标准按模型档位分开看，先不把思考深度算进去。选基础、经济还是高级模型，次数差会比较大。额度什么时候恢复、用完后怎样继续，见额度说明；要对着套餐看次数，以下面三档为准。\n\n会员按周看次数，经费按每 1,000 看次数。Pro 一周额度相当于 2,000 经费，所以 1,000 经费大约是 Pro 一周的一半。制作 PPT、科研绘图和数据分析没有单独一张表，次数可参照智能助手。论文翻译和矩阵分析目前还不能换模型，只写在基础模型里。\n\n这里的“一次”按页面上的动作来理解：对话是发一条，写作是改一轮，审稿是提交一次，翻译是译一次，矩阵分析是分析一篇论文。附件更长、任务更难时，次数会变少。\n\n> 提示：这是截止今日更新的预估标准，不是保证次数。同一档里换一个具体模型，或把思考深度调高，实际次数还会再变。\n\n## 基础模型大约能用多少次\n\n基础模型目前主要是 Qwen3.7 Flash，也是多数功能的默认选择。论文翻译和矩阵分析目前一般也按这一档来理解。\n\n| 功能 | Pro（次/周） | Max（次/周） | 每 1,000 经费（次） |\n| --- | --- | --- | --- |\n| 智能助手/次提问 | ≈ 120 | ≈ 600 | ≈ 60 |\n| 智能搜论文/次提问 | ≈ 74 | ≈ 371 | ≈ 37 |\n| 智能写作/次编辑 | ≈ 87 | ≈ 439 | ≈ 43 |\n| 智能审稿/次提交 | ≈ 29 | ≈ 148 | ≈ 14 |\n| 矩阵分析/篇 | ≈ 1,700 | ≈ 8,800 | ≈ 850 |\n| 论文翻译/次翻译 | ≈ 2,000 | ≈ 10,300 | ≈ 1,000 |\n\n## 经济模型大约能用多少次\n\n经济模型目前包括 DeepSeek V4.1 Flash、Qwen3.7 Plus、Qwen3.8 Flash 和 GLM 5.3 Flash。比基础模型更均衡，一次消耗也更高。\n\n| 功能 | Pro（次/周） | Max（次/周） | 每 1,000 经费（次） |\n| --- | --- | --- | --- |\n| 智能助手/次提问 | ≈ 48 | ≈ 243 | ≈ 24 |\n| 智能搜论文/次提问 | ≈ 45 | ≈ 229 | ≈ 22 |\n| 智能写作/次编辑 | ≈ 31 | ≈ 159 | ≈ 15 |\n| 智能审稿/次提交 | ≈ 12 | ≈ 60 | ≈ 6 |\n\n## 高级模型大约能用多少次\n\n高级模型目前包括 DeepSeek V4 Pro、Qwen3.8 Max 和 GLM 5.3。更适合难一些的任务，同一周能用的次数会明显变少。\n\n| 功能 | Pro（次/周） | Max（次/周） | 每 1,000 经费（次） |\n| --- | --- | --- | --- |\n| 智能助手/次提问 | ≈ 15 | ≈ 77 | ≈ 7 |\n| 智能搜论文/次提问 | ≈ 12 | ≈ 61 | ≈ 6 |\n| 智能写作/次编辑 | ≈ 8 | ≈ 40 | ≈ 4 |\n| 智能审稿/次提交 | ≈ 6 | ≈ 30 | ≈ 3 |\n\n**延伸词条：[额度用完后怎么办](https://www.scholay.com/wiki/ai-usage-quota#amounts)**\n\n查看 Free、Pro、Max 每个周期有多少额度，以及用完后怎样恢复或用科研经费继续。"
+    },
+    {
       "slug": "ai-research-workflows",
       "title": "AI 科研工作流",
       "summary": "Scholay 为检索、通用研究、审稿、写作、分析、绘图和演示提供不同的 AI 工作流。",
@@ -2832,7 +3270,8 @@
         "smart-search",
         "claw",
         "peer-review",
-        "prism"
+        "prism",
+        "ai-models-and-runtime-config"
       ],
       "url": "https://www.scholay.com/wiki/ai-usage-quota",
       "resource_uri": "scholay://wiki/article/ai-usage-quota",
@@ -2874,6 +3313,27 @@
                 "sectionId": "agent-status",
                 "title": "怎样读懂剩余额度与进度状态",
                 "description": "区分剩余百分比、恢复时间、任务进度和停止状态，避免把进度条当作完成证据。",
+                "icon": "sparkles"
+              }
+            }
+          ]
+        },
+        {
+          "id": "purchasing-power",
+          "title": "Pro、Max 与科研经费大约能用多少次",
+          "markdown": "额度页告诉你这个周期还剩多少可用额度。如果想知道这些额度大概能做几次智能助手、搜论文、写作或审稿，请按基础、经济和高级模型分开看。\n\n当前常见配置是：Pro 一周额度相当于 2,000 科研经费，所以 1,000 经费大约是 Pro 一周的一半。选哪一档模型，次数差会比较大。",
+          "content_markdown": "额度页告诉你这个周期还剩多少可用额度。如果想知道这些额度大概能做几次智能助手、搜论文、写作或审稿，请按基础、经济和高级模型分开看。\n\n当前常见配置是：Pro 一周额度相当于 2,000 科研经费，所以 1,000 经费大约是 Pro 一周的一半。选哪一档模型，次数差会比较大。\n\n**延伸词条：[按模型档位查看大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power)**\n\n基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "article-link",
+              "card": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "purchasing-power",
+                "title": "按模型档位查看大约能用多少次",
+                "description": "基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
                 "icon": "sparkles"
               }
             }
@@ -2966,7 +3426,7 @@
           ]
         }
       ],
-      "content_markdown": "# AI 周期额度\n\n所有 AI 功能共享的成本额度，以首次真实消耗为锚点按周期自动恢复。\n\n- 栏目：会员与活动规则\n- 类型：rule\n- 状态：current\n- 适用对象：AI 功能用户、客服、管理员\n- 别名：AI 额度、算力点、七天额度、Quota\n- Wiki 页面：https://www.scholay.com/wiki/ai-usage-quota\n\n## 周期如何开始\n\n用户第一次发生真实 AI 消耗时才建立周期锚点。默认周期为 7 天；到期后读取时按满额处理，下一次真实消耗再开启新周期。因此从未使用或周期已经结束的账户会显示满额，而不是从登录或购买时开始倒计时。\n\n## 当前默认额度\n\n进入账户资产页，你会看到当前会员、剩余额度百分比、距离恢复的时间、经费余额和可用重置次数；额度条表示“还剩多少”，不是“已经用了多少”。下图中的数值只是界面示例。当前默认值为 Free 每周期 300 算力点，Pro 为 6,000 点，Max 为 30,000 点。\n\n实际额度可以调整，页面以百分比和周期时间呈现；某档上限设为负数时表示不限额。收费开启时，Free 基准额度和周期天数不能为零。\n\n**界面元素示意**\n- account-assets（组件：account-assets）\n\n> 提示：额度上限和周期可能调整。判断当前还能否使用、何时恢复时，以账户资产页当时显示的剩余百分比和恢复时间为准，不把示例数值当作长期承诺。\n\n**延伸词条：[怎样读懂剩余额度与进度状态](https://www.scholay.com/wiki/marketing-pages-and-implementation-boundaries#agent-status)**\n\n区分剩余百分比、恢复时间、任务进度和停止状态，避免把进度条当作完成证据。\n\n## 消耗与恢复\n\n在会员总览中，你可以查看额度条、恢复时间、近期流水和用量日历；下图展示的是有剩余额度和账户流水时的代表状态。额度按模型的实际成本计算，不按消息条数计算。\n\n周期到期会自然恢复；实际升档，以及满足最短授予时长的兑换码或管理员赠送，会按各自规则恢复额度，并非任何权益变化都会重置。手动重置只能在额度耗尽后使用最早到期的重置次数，经费不能直接换成一次重置。系统无法可靠确认额度时，会暂时拒绝重置以避免重复扣除次数。\n\n**界面元素示意**\n- billing-overview-usage（组件：billing-overview-usage）\n\n**延伸词条：[额度耗尽后有哪些恢复方式](https://www.scholay.com/wiki/quota-block-and-recovery#recovery-actions)**\n\n了解一次重置、用经费继续和升级会员各自何时可用，以及被拦消息怎样保留。\n\n## 重置次数的批次与到期日\n\n后端额度总览会按到期时间返回可用重置次数批次，牛犀犀资产菜单悬停时会逐批显示“张数 · 到期日”。真正执行重置仍优先消耗最早到期批次。\n\n这项能力目前只完成了机器可读返回和牛犀犀菜单展示：前端公共类型只保留张数与到期时间，没有呈现后端的来源字段；设置页仍主要显示总数和最近到期日。因此“设置页完整批次明细”属于进行中的界面补全，不能写成已经全站一致交付。\n\n## 经费不足提醒与四类出口\n\nClaw、智能搜论文和 Prism 在输入框上方使用就地提醒；其他页面可以打开全局对话框。提醒会根据会员、经费、自动续用和重置次数条件，从四类出口中给出可用动作，而不是始终同时显示四个按钮：有重置次数时可“立即恢复”；Free 可“升级会员”，Pro 可“升级 Max”；付费会员有余额但尚未开启时可“用经费继续”；需要补充余额时可“充值经费”。Max 没有更高档升级按钮。\n\n标题会按账户资产显示“额度已用完”或“经费不足”。选择动作只完成相应的重置、开启续用或打开购买/充值流程；原任务是否自动恢复要以所在功能的发送状态为准。\n\n**界面元素示意**\n- funds-reminder（组件：funds-reminder）\n\n## 回合成本上限与并发边界\n\n每个 AI 回合开始前仍会经过额度门禁；进入回合后，Claw、智能搜论文、Prism、科研绘图、数据分析和 Boltslides 会按执行器上报的每次模型调用增量成本累计本轮用量。达到动态 TurnCostCap 时，桥接层只发送一次停止生成命令，并把该回合标为 aborted；已经生成的内容会保留，所以单个回答确实可能在中途停止。\n\nTurnCostCap 由当前周期剩余额度、允许续用的经费能力和安全下限共同确定。未知模型、旧执行器未上报用量或无法计算价格时会 fail-open，最终真实成本仍照常记账，因此它是过冲保护而非严格事务上限。智能审稿为了完成整套任务，不使用这一回合内硬停机制，而是依赖自己的起跑门禁。多个并发回合仍可能各自持有在途预算，用户不应依靠并发请求规避额度。\n\n> 提示：不要用并发请求测试或绕过额度。TurnCostCap 会尽力限制单轮过冲，但最终仍按真实成本记账；看到“已停止”时先保留完成内容，再检查资产与恢复入口。\n\n### 额度不足时\n\n先保留当前任务，再根据已有资产选择恢复方式。\n\n- [恢复被拦下的 AI 任务](https://www.scholay.com/wiki/quota-block-and-recovery#blocked-message)：确认消息是否真正发送，再选择重置、经费续用或升级会员。\n\n- [了解“用经费继续”](https://www.scholay.com/wiki/wallet-payg#autopay)：核对开关、实际成本结算与经费流水，再决定是否按量续用。"
+      "content_markdown": "# AI 周期额度\n\n所有 AI 功能共享的成本额度，以首次真实消耗为锚点按周期自动恢复。\n\n- 栏目：会员与活动规则\n- 类型：rule\n- 状态：current\n- 适用对象：AI 功能用户、客服、管理员\n- 别名：AI 额度、算力点、七天额度、Quota\n- Wiki 页面：https://www.scholay.com/wiki/ai-usage-quota\n\n## 周期如何开始\n\n用户第一次发生真实 AI 消耗时才建立周期锚点。默认周期为 7 天；到期后读取时按满额处理，下一次真实消耗再开启新周期。因此从未使用或周期已经结束的账户会显示满额，而不是从登录或购买时开始倒计时。\n\n## 当前默认额度\n\n进入账户资产页，你会看到当前会员、剩余额度百分比、距离恢复的时间、经费余额和可用重置次数；额度条表示“还剩多少”，不是“已经用了多少”。下图中的数值只是界面示例。当前默认值为 Free 每周期 300 算力点，Pro 为 6,000 点，Max 为 30,000 点。\n\n实际额度可以调整，页面以百分比和周期时间呈现；某档上限设为负数时表示不限额。收费开启时，Free 基准额度和周期天数不能为零。\n\n**界面元素示意**\n- account-assets（组件：account-assets）\n\n> 提示：额度上限和周期可能调整。判断当前还能否使用、何时恢复时，以账户资产页当时显示的剩余百分比和恢复时间为准，不把示例数值当作长期承诺。\n\n**延伸词条：[怎样读懂剩余额度与进度状态](https://www.scholay.com/wiki/marketing-pages-and-implementation-boundaries#agent-status)**\n\n区分剩余百分比、恢复时间、任务进度和停止状态，避免把进度条当作完成证据。\n\n## Pro、Max 与科研经费大约能用多少次\n\n额度页告诉你这个周期还剩多少可用额度。如果想知道这些额度大概能做几次智能助手、搜论文、写作或审稿，请按基础、经济和高级模型分开看。\n\n当前常见配置是：Pro 一周额度相当于 2,000 科研经费，所以 1,000 经费大约是 Pro 一周的一半。选哪一档模型，次数差会比较大。\n\n**延伸词条：[按模型档位查看大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power)**\n\n基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。\n\n## 消耗与恢复\n\n在会员总览中，你可以查看额度条、恢复时间、近期流水和用量日历；下图展示的是有剩余额度和账户流水时的代表状态。额度按模型的实际成本计算，不按消息条数计算。\n\n周期到期会自然恢复；实际升档，以及满足最短授予时长的兑换码或管理员赠送，会按各自规则恢复额度，并非任何权益变化都会重置。手动重置只能在额度耗尽后使用最早到期的重置次数，经费不能直接换成一次重置。系统无法可靠确认额度时，会暂时拒绝重置以避免重复扣除次数。\n\n**界面元素示意**\n- billing-overview-usage（组件：billing-overview-usage）\n\n**延伸词条：[额度耗尽后有哪些恢复方式](https://www.scholay.com/wiki/quota-block-and-recovery#recovery-actions)**\n\n了解一次重置、用经费继续和升级会员各自何时可用，以及被拦消息怎样保留。\n\n## 重置次数的批次与到期日\n\n后端额度总览会按到期时间返回可用重置次数批次，牛犀犀资产菜单悬停时会逐批显示“张数 · 到期日”。真正执行重置仍优先消耗最早到期批次。\n\n这项能力目前只完成了机器可读返回和牛犀犀菜单展示：前端公共类型只保留张数与到期时间，没有呈现后端的来源字段；设置页仍主要显示总数和最近到期日。因此“设置页完整批次明细”属于进行中的界面补全，不能写成已经全站一致交付。\n\n## 经费不足提醒与四类出口\n\nClaw、智能搜论文和 Prism 在输入框上方使用就地提醒；其他页面可以打开全局对话框。提醒会根据会员、经费、自动续用和重置次数条件，从四类出口中给出可用动作，而不是始终同时显示四个按钮：有重置次数时可“立即恢复”；Free 可“升级会员”，Pro 可“升级 Max”；付费会员有余额但尚未开启时可“用经费继续”；需要补充余额时可“充值经费”。Max 没有更高档升级按钮。\n\n标题会按账户资产显示“额度已用完”或“经费不足”。选择动作只完成相应的重置、开启续用或打开购买/充值流程；原任务是否自动恢复要以所在功能的发送状态为准。\n\n**界面元素示意**\n- funds-reminder（组件：funds-reminder）\n\n## 回合成本上限与并发边界\n\n每个 AI 回合开始前仍会经过额度门禁；进入回合后，Claw、智能搜论文、Prism、科研绘图、数据分析和 Boltslides 会按执行器上报的每次模型调用增量成本累计本轮用量。达到动态 TurnCostCap 时，桥接层只发送一次停止生成命令，并把该回合标为 aborted；已经生成的内容会保留，所以单个回答确实可能在中途停止。\n\nTurnCostCap 由当前周期剩余额度、允许续用的经费能力和安全下限共同确定。未知模型、旧执行器未上报用量或无法计算价格时会 fail-open，最终真实成本仍照常记账，因此它是过冲保护而非严格事务上限。智能审稿为了完成整套任务，不使用这一回合内硬停机制，而是依赖自己的起跑门禁。多个并发回合仍可能各自持有在途预算，用户不应依靠并发请求规避额度。\n\n> 提示：不要用并发请求测试或绕过额度。TurnCostCap 会尽力限制单轮过冲，但最终仍按真实成本记账；看到“已停止”时先保留完成内容，再检查资产与恢复入口。\n\n### 额度不足时\n\n先保留当前任务，再根据已有资产选择恢复方式。\n\n- [恢复被拦下的 AI 任务](https://www.scholay.com/wiki/quota-block-and-recovery#blocked-message)：确认消息是否真正发送，再选择重置、经费续用或升级会员。\n\n- [了解“用经费继续”](https://www.scholay.com/wiki/wallet-payg#autopay)：核对开关、实际成本结算与经费流水，再决定是否按量续用。"
     },
     {
       "slug": "author-profile-page",
@@ -3470,7 +3930,8 @@
         "agent-runtime",
         "agent-artifacts",
         "community-skills",
-        "research-data-analysis"
+        "research-data-analysis",
+        "ai-models-and-runtime-config"
       ],
       "url": "https://www.scholay.com/wiki/claw",
       "resource_uri": "scholay://wiki/article/claw",
@@ -8469,6 +8930,7 @@
         "paper",
         "agent-runtime",
         "ai-usage-quota",
+        "ai-models-and-runtime-config",
         "prism"
       ],
       "url": "https://www.scholay.com/wiki/peer-review",
@@ -8501,15 +8963,33 @@
           "id": "records",
           "title": "记录与边界",
           "markdown": "打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。列表中的进度条表示 Scholay 内部审稿任务阶段，不是期刊外审或投稿处理进度。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。",
-          "content_markdown": "打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。列表中的进度条表示 Scholay 内部审稿任务阶段，不是期刊外审或投稿处理进度。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。\n\n**界面元素示意**\n- peer-review-records-list（组件：peer-review-records-list）",
+          "content_markdown": "打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。列表中的进度条表示 Scholay 内部审稿任务阶段，不是期刊外审或投稿处理进度。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。\n\n**界面元素示意**\n- peer-review-records-list（组件：peer-review-records-list）\n\n**延伸词条：[按模型档位查看大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power)**\n\n基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
           "embeds": [
             {
               "id": "peer-review-records-list"
             }
+          ],
+          "blocks": [
+            {
+              "type": "markdown"
+            },
+            {
+              "type": "embeds"
+            },
+            {
+              "type": "article-link",
+              "card": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "purchasing-power",
+                "title": "按模型档位查看大约能用多少次",
+                "description": "基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
+                "icon": "review"
+              }
+            }
           ]
         }
       ],
-      "content_markdown": "# 智能审稿\n\n以期刊论文和学位论文为完整流程，另有会议论文占位与复用期刊向导的其他稿件入口。\n\n- 栏目：AI 科研工作流\n- 类型：feature\n- 状态：current\n- 适用对象：作者、研究者、研究生\n- 别名：AI 审稿、同行评审、Peer Review\n- Wiki 页面：https://www.scholay.com/wiki/peer-review\n\n## 四个入口，两套完整向导\n\n智能审稿 Hub 显示期刊论文、学位论文、会议论文和其他四个入口。期刊论文与学位论文拥有各自完整向导；会议论文当前标为“即将推出”，访问 `/peer-review/conference` 会回到 Hub；“其他”可以通过 `/peer-review/other` 进入，但暂时复用期刊论文向导，不应写成独立稿件流程。按向导上传主稿并填写目标期刊、研究领域或学校等信息，确认提交后才会开始评审。\n\n主稿上限为 50 MiB，附件每个最多 30 MiB、最多 10 个。仅上传完成时任务仍是草稿，你还可以继续检查和修改。\n\n**界面元素示意**\n- peer-review-entry（组件：peer-review-entry）\n\n## 评审过程\n\n提交后，进度页会显示任务正在排队、分析稿件信息、检查投稿信与方法、生成评审结果等阶段；下图冻结在“初审已通过、三位审稿人与主审仍等待、阶段 1/5 通读全文”的状态。顶部“阶段 1/5”是当前运行阶段，不等于已经得到 20% 的评审结果；初审已通过与审稿人仍等待可以同时出现，预计剩余时间只是估算。任务会从草稿进入排队、评审，最后变为完成或失败，失败后可以重试。\n\n只有草稿可以编辑。服务在数据库状态写入后，会通过按提交与槽位分组的 SSE 广播 `state`、`report_ready` 等控制帧；前端据此刷新提交与报告，刷新页面时可先拿到状态快照。推送是 best-effort，数据库才是事实来源，断线或漏帧时仍会慢速轮询恢复，不能把实时消息当成唯一完成凭据。\n\n**界面元素示意**\n- peer-review-progress（组件：peer-review-progress）\n\n## 记录与边界\n\n打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。列表中的进度条表示 Scholay 内部审稿任务阶段，不是期刊外审或投稿处理进度。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。\n\n**界面元素示意**\n- peer-review-records-list（组件：peer-review-records-list）"
+      "content_markdown": "# 智能审稿\n\n以期刊论文和学位论文为完整流程，另有会议论文占位与复用期刊向导的其他稿件入口。\n\n- 栏目：AI 科研工作流\n- 类型：feature\n- 状态：current\n- 适用对象：作者、研究者、研究生\n- 别名：AI 审稿、同行评审、Peer Review\n- Wiki 页面：https://www.scholay.com/wiki/peer-review\n\n## 四个入口，两套完整向导\n\n智能审稿 Hub 显示期刊论文、学位论文、会议论文和其他四个入口。期刊论文与学位论文拥有各自完整向导；会议论文当前标为“即将推出”，访问 `/peer-review/conference` 会回到 Hub；“其他”可以通过 `/peer-review/other` 进入，但暂时复用期刊论文向导，不应写成独立稿件流程。按向导上传主稿并填写目标期刊、研究领域或学校等信息，确认提交后才会开始评审。\n\n主稿上限为 50 MiB，附件每个最多 30 MiB、最多 10 个。仅上传完成时任务仍是草稿，你还可以继续检查和修改。\n\n**界面元素示意**\n- peer-review-entry（组件：peer-review-entry）\n\n## 评审过程\n\n提交后，进度页会显示任务正在排队、分析稿件信息、检查投稿信与方法、生成评审结果等阶段；下图冻结在“初审已通过、三位审稿人与主审仍等待、阶段 1/5 通读全文”的状态。顶部“阶段 1/5”是当前运行阶段，不等于已经得到 20% 的评审结果；初审已通过与审稿人仍等待可以同时出现，预计剩余时间只是估算。任务会从草稿进入排队、评审，最后变为完成或失败，失败后可以重试。\n\n只有草稿可以编辑。服务在数据库状态写入后，会通过按提交与槽位分组的 SSE 广播 `state`、`report_ready` 等控制帧；前端据此刷新提交与报告，刷新页面时可先拿到状态快照。推送是 best-effort，数据库才是事实来源，断线或漏帧时仍会慢速轮询恢复，不能把实时消息当成唯一完成凭据。\n\n**界面元素示意**\n- peer-review-progress（组件：peer-review-progress）\n\n## 记录与边界\n\n打开评审记录，可以按状态查看过去的任务并进入详情；下图展示的是包含多种任务状态的记录列表。列表中的进度条表示 Scholay 内部审稿任务阶段，不是期刊外审或投稿处理进度。智能审稿用于在投稿前发现风险，不代表期刊的真实决定，也不能替代领域专家、伦理审查或统计复核。\n\n**界面元素示意**\n- peer-review-records-list（组件：peer-review-records-list）\n\n**延伸词条：[按模型档位查看大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power)**\n\n基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。"
     },
     {
       "slug": "peer-review-dimensions-guide",
@@ -8817,7 +9297,8 @@
         "agent-runtime",
         "agent-artifacts",
         "peer-review",
-        "paper"
+        "paper",
+        "ai-models-and-runtime-config"
       ],
       "url": "https://www.scholay.com/wiki/prism",
       "resource_uri": "scholay://wiki/article/prism",
@@ -9319,7 +9800,8 @@
         "product-map",
         "academic-search",
         "membership",
-        "ai-usage-quota"
+        "ai-usage-quota",
+        "ai-models-and-runtime-config"
       ],
       "url": "https://www.scholay.com/wiki/product-and-pricing-overview",
       "resource_uri": "scholay://wiki/article/product-and-pricing-overview",
@@ -9405,8 +9887,8 @@
         {
           "id": "plan-model",
           "title": "比较 Free、Pro 和 Max",
-          "markdown": "Free 是注册后的默认套餐。Pro 和 Max 提供更高的 AI 周期额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档套餐怎样排列，不应把示例数字当成长期承诺。\n\n论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共享同一份 AI 周期额度。价格页中的“约 N 次”只是按常见任务估算，不是固定可调用次数。额度数字只以 AI 周期额度页和结算页为准。",
-          "content_markdown": "Free 是注册后的默认套餐。Pro 和 Max 提供更高的 AI 周期额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档套餐怎样排列，不应把示例数字当成长期承诺。\n\n论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共享同一份 AI 周期额度。价格页中的“约 N 次”只是按常见任务估算，不是固定可调用次数。额度数字只以 AI 周期额度页和结算页为准。\n\n**界面元素示意**\n- membership-plans（组件：membership-plans）\n\n**延伸词条：[AI 周期额度与“约 N 次”怎样理解](https://www.scholay.com/wiki/ai-usage-quota)**\n\n了解额度池、算力点、恢复周期和不同任务实际消耗为何会有差异。",
+          "markdown": "Free 是注册后的默认套餐。Pro 和 Max 提供更高的 AI 周期额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档套餐怎样排列，不应把示例数字当成长期承诺。\n\n论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共用同一份 AI 周期额度。价格页里的“约 N 次”只是常见用法的参考，不是保证次数。想看按基础、经济和高级模型拆开的估算，请打开模型说明；自己还剩多少额度，以账户资产页和结算页为准。",
+          "content_markdown": "Free 是注册后的默认套餐。Pro 和 Max 提供更高的 AI 周期额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档套餐怎样排列，不应把示例数字当成长期承诺。\n\n论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共用同一份 AI 周期额度。价格页里的“约 N 次”只是常见用法的参考，不是保证次数。想看按基础、经济和高级模型拆开的估算，请打开模型说明；自己还剩多少额度，以账户资产页和结算页为准。\n\n**界面元素示意**\n- membership-plans（组件：membership-plans）\n\n**延伸词条：[按模型档位查看大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power)**\n\n基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
           "embeds": [
             {
               "id": "membership-plans"
@@ -9422,9 +9904,10 @@
             {
               "type": "article-link",
               "card": {
-                "articleSlug": "ai-usage-quota",
-                "title": "AI 周期额度与“约 N 次”怎样理解",
-                "description": "了解额度池、算力点、恢复周期和不同任务实际消耗为何会有差异。",
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "purchasing-power",
+                "title": "按模型档位查看大约能用多少次",
+                "description": "基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
                 "icon": "sparkles"
               }
             }
@@ -9443,7 +9926,7 @@
           "content_markdown": "套餐页显示当前可购买的月付、年付和支付方式。选择新购、续费或升级后，系统会结合你现有的会员等级、周期和剩余有效期重新计算金额，因此最终应付价格以结算窗口为准。\n\n月付和年付都需要你主动购买。会员到期后不会自动扣款，也不会自动续订。"
         }
       ],
-      "content_markdown": "# 产品与套餐总览\n\n先按任务找到合适的功能，再比较 Free、Pro 和 Max 的额度与价格。\n\n- 栏目：Scholay\n- 类型：overview\n- 状态：current\n- 适用对象：所有访客、新用户、购买会员的用户\n- 别名：产品总览、功能与价格、Free Pro Max、套餐怎么选\n- Wiki 页面：https://www.scholay.com/wiki/product-and-pricing-overview\n\n## 先按任务找入口\n\nScholay 的功能可以先分成三组来理解。\n\n**搜索文献与期刊**：论文库搜索适合按关键词、年份和来源做结构化筛选。智能搜论文适合直接描述研究问题，让系统帮助拆解检索。期刊指标与目录从“学术搜索 › 期刊库搜索”进入。\n\n**使用 AI 完成研究任务**：智能助手可以阅读附件、整理材料和生成交付物。智能写作用来维护论文项目。智能审稿用于在正式投稿或送审前发现问题。\n\n**管理资料与发现工具**：“我的资源”集中管理文献、期刊、稿件与资源。文献区还共用 PDF Chat、文献图谱和论文矩阵分析。\n\nscholay广场用来发现学术工具、学术skills 和学术prompts。数据集搜索与 scholay 情报归在“学术搜索”。学术资源中心是一组教程和产品文章，不是个人资料库。\n\n## 按任务选择功能\n\n| 目标 | 入口 | 边界 |\n| --- | --- | --- |\n| 筛论文、找学者 | 论文库搜索 | 结构化检索与筛选，不是生成式对话 |\n| 用自然语言找论文 | 智能搜论文 | 只读、证据驱动，工具范围集中在论文与作者 |\n| 查期刊与分区指标 | 学术搜索 › 期刊库搜索 | 期刊库搜索与发现目录，不由智能搜论文替代 |\n| 问答、读附件、做研究任务 | 智能助手 | 通用研究助手，结果仍需核验来源 |\n| 编辑论文项目 | 智能写作 | 面向 LaTeX 项目和变更确认 |\n| 投稿前预审 | 智能审稿 | AI 预审，不替代期刊或学校的正式评审 |\n\n先判断要的是“结构化检索结果”，还是“用 AI 完成一段工作”。\n\n有明确筛选条件时，用论文库搜索。需要自然语言拆解问题时，用智能搜论文。查期刊指标时，进入“学术搜索 › 期刊库搜索”。\n\n需要解释论文、处理附件、翻译、写作建议或组合研究任务时，进入智能助手。需要直接维护 LaTeX 项目时，进入智能写作的高级模式。需要形成投稿前审稿报告时，进入智能审稿。\n\n智能搜论文不是完整的期刊筛选器，它只保留有限的期刊详情工具。\n\n**延伸词条：[论文库搜索 vs 智能搜论文](https://www.scholay.com/wiki/classic-vs-smart-search)**\n\n已经有关键词就用论文库搜索；还在找说法、需要系统帮你拆问题时用智能搜论文。\n\n## 比较 Free、Pro 和 Max\n\nFree 是注册后的默认套餐。Pro 和 Max 提供更高的 AI 周期额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档套餐怎样排列，不应把示例数字当成长期承诺。\n\n论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共享同一份 AI 周期额度。价格页中的“约 N 次”只是按常见任务估算，不是固定可调用次数。额度数字只以 AI 周期额度页和结算页为准。\n\n**界面元素示意**\n- membership-plans（组件：membership-plans）\n\n**延伸词条：[AI 周期额度与“约 N 次”怎样理解](https://www.scholay.com/wiki/ai-usage-quota)**\n\n了解额度池、算力点、恢复周期和不同任务实际消耗为何会有差异。\n\n## 首页怎样组织这些入口\n\n首页把智能助手作为主入口，并用六段产品故事依次介绍学术搜索、智能助手、智能写作、智能审稿、我的资源和学术工具。故事区中的界面画面是产品说明，不是可以直接操作的工作台。进入对应页面后，才能开始真实任务。\n\n左侧功能轨可以固定、隐藏、重命名和恢复入口，并会保留最多四个常用功能。新手引导只负责指出页面结构，不会替用户创建搜索、写作或审稿任务。\n\n## 以结算页金额为准\n\n套餐页显示当前可购买的月付、年付和支付方式。选择新购、续费或升级后，系统会结合你现有的会员等级、周期和剩余有效期重新计算金额，因此最终应付价格以结算窗口为准。\n\n月付和年付都需要你主动购买。会员到期后不会自动扣款，也不会自动续订。"
+      "content_markdown": "# 产品与套餐总览\n\n先按任务找到合适的功能，再比较 Free、Pro 和 Max 的额度与价格。\n\n- 栏目：Scholay\n- 类型：overview\n- 状态：current\n- 适用对象：所有访客、新用户、购买会员的用户\n- 别名：产品总览、功能与价格、Free Pro Max、套餐怎么选\n- Wiki 页面：https://www.scholay.com/wiki/product-and-pricing-overview\n\n## 先按任务找入口\n\nScholay 的功能可以先分成三组来理解。\n\n**搜索文献与期刊**：论文库搜索适合按关键词、年份和来源做结构化筛选。智能搜论文适合直接描述研究问题，让系统帮助拆解检索。期刊指标与目录从“学术搜索 › 期刊库搜索”进入。\n\n**使用 AI 完成研究任务**：智能助手可以阅读附件、整理材料和生成交付物。智能写作用来维护论文项目。智能审稿用于在正式投稿或送审前发现问题。\n\n**管理资料与发现工具**：“我的资源”集中管理文献、期刊、稿件与资源。文献区还共用 PDF Chat、文献图谱和论文矩阵分析。\n\nscholay广场用来发现学术工具、学术skills 和学术prompts。数据集搜索与 scholay 情报归在“学术搜索”。学术资源中心是一组教程和产品文章，不是个人资料库。\n\n## 按任务选择功能\n\n| 目标 | 入口 | 边界 |\n| --- | --- | --- |\n| 筛论文、找学者 | 论文库搜索 | 结构化检索与筛选，不是生成式对话 |\n| 用自然语言找论文 | 智能搜论文 | 只读、证据驱动，工具范围集中在论文与作者 |\n| 查期刊与分区指标 | 学术搜索 › 期刊库搜索 | 期刊库搜索与发现目录，不由智能搜论文替代 |\n| 问答、读附件、做研究任务 | 智能助手 | 通用研究助手，结果仍需核验来源 |\n| 编辑论文项目 | 智能写作 | 面向 LaTeX 项目和变更确认 |\n| 投稿前预审 | 智能审稿 | AI 预审，不替代期刊或学校的正式评审 |\n\n先判断要的是“结构化检索结果”，还是“用 AI 完成一段工作”。\n\n有明确筛选条件时，用论文库搜索。需要自然语言拆解问题时，用智能搜论文。查期刊指标时，进入“学术搜索 › 期刊库搜索”。\n\n需要解释论文、处理附件、翻译、写作建议或组合研究任务时，进入智能助手。需要直接维护 LaTeX 项目时，进入智能写作的高级模式。需要形成投稿前审稿报告时，进入智能审稿。\n\n智能搜论文不是完整的期刊筛选器，它只保留有限的期刊详情工具。\n\n**延伸词条：[论文库搜索 vs 智能搜论文](https://www.scholay.com/wiki/classic-vs-smart-search)**\n\n已经有关键词就用论文库搜索；还在找说法、需要系统帮你拆问题时用智能搜论文。\n\n## 比较 Free、Pro 和 Max\n\nFree 是注册后的默认套餐。Pro 和 Max 提供更高的 AI 周期额度。具体额度、周期和价格可能调整，请以页面当时显示的信息为准。下方套餐卡是界面示意，用来说明三档套餐怎样排列，不应把示例数字当成长期承诺。\n\n论文库搜索、期刊库搜索和文献管理不消耗 AI 周期额度。智能搜论文、智能助手、智能写作、智能审稿，以及绘图、翻译等 AI 功能，共用同一份 AI 周期额度。价格页里的“约 N 次”只是常见用法的参考，不是保证次数。想看按基础、经济和高级模型拆开的估算，请打开模型说明；自己还剩多少额度，以账户资产页和结算页为准。\n\n**界面元素示意**\n- membership-plans（组件：membership-plans）\n\n**延伸词条：[按模型档位查看大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power)**\n\n基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。\n\n## 首页怎样组织这些入口\n\n首页把智能助手作为主入口，并用六段产品故事依次介绍学术搜索、智能助手、智能写作、智能审稿、我的资源和学术工具。故事区中的界面画面是产品说明，不是可以直接操作的工作台。进入对应页面后，才能开始真实任务。\n\n左侧功能轨可以固定、隐藏、重命名和恢复入口，并会保留最多四个常用功能。新手引导只负责指出页面结构，不会替用户创建搜索、写作或审稿任务。\n\n## 以结算页金额为准\n\n套餐页显示当前可购买的月付、年付和支付方式。选择新购、续费或升级后，系统会结合你现有的会员等级、周期和剩余有效期重新计算金额，因此最终应付价格以结算窗口为准。\n\n月付和年付都需要你主动购买。会员到期后不会自动扣款，也不会自动续订。"
     },
     {
       "slug": "product-map",
@@ -11747,7 +12230,8 @@
         "academic-search",
         "paper",
         "agent-runtime",
-        "ai-usage-quota"
+        "ai-usage-quota",
+        "ai-models-and-runtime-config"
       ],
       "url": "https://www.scholay.com/wiki/smart-search",
       "resource_uri": "scholay://wiki/article/smart-search",

@@ -104,6 +104,8 @@ export const membershipArticles: WikiArticle[] = [
       "backend/internal/agentbridge/spec.go",
       "backend/internal/agentbridge/hub.go",
       "backend/internal/agentbridge/hub_turncap_test.go",
+      "backend/internal/llmusage/model.go",
+      "backend/internal/usagestat/model.go",
       "frontend-user/src/shared/lib/quota-overview.ts",
       "frontend-user/src/shared/components/QuotaNotifier.tsx",
       "frontend-user/src/shared/components/RhinoMenuAssets.tsx",
@@ -120,6 +122,7 @@ export const membershipArticles: WikiArticle[] = [
       "claw",
       "peer-review",
       "prism",
+      "ai-models-and-runtime-config",
     ],
     sections: [
       {
@@ -151,6 +154,27 @@ export const membershipArticles: WikiArticle[] = [
               title: "怎样读懂剩余额度与进度状态",
               description:
                 "区分剩余百分比、恢复时间、任务进度和停止状态，避免把进度条当作完成证据。",
+              icon: "sparkles",
+            },
+          },
+        ],
+      },
+      {
+        id: "purchasing-power",
+        title: "Pro、Max 与科研经费大约能用多少次",
+        markdown: `额度页告诉你这个周期还剩多少可用额度。如果想知道这些额度大概能做几次智能助手、搜论文、写作或审稿，请按基础、经济和高级模型分开看。
+
+当前常见配置是：Pro 一周额度相当于 2,000 科研经费，所以 1,000 经费大约是 Pro 一周的一半。选哪一档模型，次数差会比较大。`,
+        blocks: [
+          { type: "markdown" },
+          {
+            type: "article-link",
+            card: {
+              articleSlug: "ai-models-and-runtime-config",
+              sectionId: "purchasing-power",
+              title: "按模型档位查看大约能用多少次",
+              description:
+                "基础、经济和高级模型分开对照 Pro、Max 每周大约几次，以及每 1,000 经费大约几次。",
               icon: "sparkles",
             },
           },

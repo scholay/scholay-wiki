@@ -16,6 +16,18 @@ export const writingNavCategory: WikiNavCategoryMeta = {
       id: "writing-interface",
       title: "界面介绍",
       target: primary("prism-interface-guide"),
+      children: [
+        {
+          id: "writing-models",
+          title: "模型与思考深度",
+          target: jump("ai-models-and-runtime-config", "runtime-config"),
+        },
+        {
+          id: "writing-purchasing-power",
+          title: "大约能用多少次",
+          target: jump("ai-models-and-runtime-config", "purchasing-power"),
+        },
+      ],
     },
     {
       id: "writing-complete-workflow",

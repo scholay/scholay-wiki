@@ -17,7 +17,12 @@ export const AdminModelProviderCatalogArticle: WikiArticle = {
     "backend/internal/modelcatalog/provider.go",
     "backend/internal/modelcatalog/service.go",
   ],
-  related: ["agent-runtime", "admin-model-bindings", "admin-token-cost"],
+  related: [
+    "agent-runtime",
+    "ai-models-and-runtime-config",
+    "admin-model-bindings",
+    "admin-token-cost",
+  ],
   sections: [
     {
       id: "providers",
@@ -40,9 +45,9 @@ export const AdminModelProviderCatalogArticle: WikiArticle = {
     {
       id: "models",
       title: "模型目录与定价",
-      markdown: `在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输出、输入/输出/缓存读/缓存写四类价格、允许档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。
+      markdown: `在 Provider 区块中打开模型编辑器，可以设置上下文长度、最大输入与输出、图片能力、速度定位、输入/输出/缓存读/缓存写四类价格、长输入分档、允许会员档位、启用状态、用户可选性和调用限制；下图展示的是模型参数与价格表单。
 
-每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。`,
+每个模型只能归属于一个 Provider。后端不允许四项价格全为零的模型同时设为 enabled 且 user_selectable，避免用户可选模型绕过成本核算。之后改价只影响新的使用；已经记下的历史消耗不会跟着改。`,
       embeds: [
         {
           id: "admin-model-editor",

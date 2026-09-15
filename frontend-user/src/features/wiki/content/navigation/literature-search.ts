@@ -57,6 +57,18 @@ export const literatureSearchNavCategory: WikiNavCategoryMeta = {
       id: "literature-search-smart-search",
       title: "智能搜论文",
       target: primary("smart-search"),
+      children: [
+        {
+          id: "literature-search-smart-models",
+          title: "模型与思考深度",
+          target: jump("ai-models-and-runtime-config", "runtime-config"),
+        },
+        {
+          id: "literature-search-purchasing-power",
+          title: "大约能用多少次",
+          target: jump("ai-models-and-runtime-config", "purchasing-power"),
+        },
+      ],
     },
     {
       id: "literature-search-smart-vs-assistant",
