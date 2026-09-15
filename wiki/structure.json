@@ -128,7 +128,8 @@
         "articles": [
           "claw",
           "claw-attachments-and-references",
-          "claw-sessions"
+          "claw-sessions",
+          "ai-models-and-runtime-config"
         ]
       },
       {

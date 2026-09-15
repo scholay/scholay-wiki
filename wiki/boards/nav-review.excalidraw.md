@@ -44,246 +44,3944 @@ tags: [excalidraw, scholay]
 
 ← 研究路径 ^a030143c
 
+大约能用多少次 ^d20c3e48
+
+模型选择 ^057a344c
+
 ## Element Links
 0b68b82b: [[wiki/pages/research-ai/peer-review.md]]
-
 f49d2238: [[wiki/pages/research-ai/peer-review.md]]
-
 1358a1af: [[wiki/pages/research-ai/peer-review.md]]
-
 cb911f7b: [[wiki/pages/research-ai/peer-review.md]]
-
 552b1333: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 bafe0cfb: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 4cc73169: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 6c36e853: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 eaf60a0e: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 995171af: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 da818649: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 1a4f5d36: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 1b49a3e8: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 5c226459: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 fc8f25f1: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 13ddf6f0: [[wiki/pages/research-ai/peer-review-results-guide.md]]
-
 a030143c: [[wiki/boards/Scholay.excalidraw.md]]
+5fa90a8f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]
+cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]
 
 %%
 ## Drawing
-```compressed-json
-N4KAkARALgngDgUwgLgAQQQDwMYEMA2AlgCYBOuA7hADTgQBuCpAzoQPYB2KqATLZMzYBXUtiRoIACyhQ4zZAHoFAc0JRJQgEYA6bGwC2CgF7N6hbEcK4OCtptbErHALRY8RMpWdx8Q1TdIEfARcZgRmBShcZQUebR4Adm0AZho6IIR9BA4oZm4AbXAwUDBSiBJuCFxcAA5q4gAGYjTSyFhEStxSUjYqfjLMbgBGABYANn7IGG5nJIBOOZHRmoBW
-
-BNGeVYS+IsgKEnVhzZSVhrPzi4ad1qkEQmVpbh4R7TOV1Y2t0eTJqo5lYLcBq/ZhQHoAawQAGE2Pg2KRKgBiFZzMZrEYtMqaXDYcHKHpCDjEGFwhESMHWZhwLrZKCYyAAM0I+HwAGVYICJIIPPSIKCIQgAOoHSTDbQrEFgtiQ9kwTnobkVX4Eh4ccJ5NDA3YQNjU7BqaZoIZnX744RwACSxA1qHyAF1fgzyFkrdwOEIWcrhES1cwbe7Pdqwghmmh
-
-1skEskhskRtcyowWOwuGgftqE6xOAA5ThiJ7RsaLEY1BI1X6EZgAEQyUBD3AZBDCv003uIAFFglkcjb7b8hHBiLga6HUEMSzU5skeEM0TUalqbkQOOC3R78L84bja2h6/hG9rsEJQQYK4PcNwSjdmNhJLDcIbUBebpD7xB8bg4JJkPQeMgOLh6MggRmAgFDICGygIMguAMjUQzRu8yANJoYw1JoNQ8Jo9JlL0arDo+C6EEuK4srspQAL6TGU+B3s
-
-IUAAGpMBmya8JRkA9PKGDEBBWFsUEg5JpUeg5LghF5KxVSYOWlQ3qQhBGJwUT4DxECOIE2BQAJRriZo5AcNelR/gBQGECBziEVKxBCOpAmkWRuwUUGUSkFAACC3S9JIITDgGa7atkxBuT0FCebg3mrpKXRQAAQoRjj/OepEQPobDEOI6DwpoahYRgHa0q6EjQbB8E1NlTKYCGAAKbDmQUpFgEMrENOKZxDKRdr2b8/kxUShHKAlrSQMlqWVBlWWU
-
-TlmR5cOEBIShaEYaVhDlcQVU1WghQDWA84DU1pwNK1A3ta0Dk3EEzYUFuqA7nuNxwNVXa1QNG07Y1bWUc9rRjCMrHOE1bwfLGXyxgkcwrDwb2kR9pRfT9zyvA07wrJ8azfBDT11UMxzJHtlwXHGrTODwyTaAsCwobjZzJG1uwOtqsVYJ0DS8pIoQACpYFAAAyhHLtuDYIL8yWMAAsiQq1dsK6jtpNOR1vzRQncUdPTaFRYjHMDI8Ly7RpVU7l9Nq
-
-gxoM4owTNq96zCTizLCjgNrPjED7MQhxGljOMU1cvyefcjxoHD/1I3b6wjKmNzWACaXbQIUqQiS8JIiiaIJBiTY4niBJEnHZLoBSHBUjSsuOsybIcrrirNJKArCs7opGuKlfSggsoceXvIqpIvo2lHOp6gawwmtqZp9la3a0zcTq4C6YWBjcGfEJ3xG+ZeCCXQkKLrDwzyh/GjGaag2+QOmSbZnpaWY0WPArChoxlpW1aXddAvas2hJtrlD3rWPZ
-
-R9gOQ7DGOE4pwzjnOuHmi91xsE3MOR+vwDxHn0CeKI/VLzXlvPefCkBnyVDfB+L8P5DKAQQMBUC4FIKFTgtjGoyBiArGgmvEIykcKXQwZARcvNUA+TqorBcNEhD0V3pwJ44l2K61IcpQI1ENKCIkEJKIollK4EkjaKQ8I5IKQIMpVSCBrLSNQCbbSul9ISAIcZUy5kmD1lzLZDqjlIqBQ8l5cBfkiT2OCo4tAPkIrOW6nFPqaB8JJRSrrUadJxoZ
-
-E7FAfK6ByHFUWstcWdJ1p1SjqUXaLVqbHU6kSHxvVkFlCGsE0gmVQmJXCVNSoNC6ErAYeNMqlV7qJNtBjRqzV9oZPIp1fA50H781+Hdcy3ZIbJNeodd6dVnAw3GX9BGANNi20SKDcGoyhmbQmd9cZ/sZmBzmcHKmyz0arMxjUE4Htzj41KITYmpNURzgpns1oR1Shf0gPTI20ShjMzZhzbmRE+a7ifjcIWCBRYrQacwSWkhpYRLlv8hW/RHzlGmm
-
-MHgCAhhiGSEgX4OtOj615G8iZQwVjaDRL8C2UYrYjARjwD2B9HYimGEWbQCRTnnAlNqb2DxGkhziG8RYpZtTh3lN3fkjcs4J1ROiXk2JcRD0zrCeO5JdL50CIXbUTIWTNzLrCJUjkq70rrmyy8Mcm6l0qK3L0fgO7qiBL8XUOI+5GgHjcIelprQFGeRACeU8nGzxbAvDx4Ugwr2HNOd4Eqr5mxuEfXRtLo0cBPrmNAcxjRUvWPym45YqzBD/n8m6
-
-WIWxQtpKPXs/ZByXVHLOQBobZzdzYT6qikDITQN6fuQ8UBjynjyQIVB1F0F1QgFgiQODPzfl/P+QhxCwJcUgpUhk9DcDIAZOrYgm9kglXEkwvCdVWFgIDSRTa3CqK8P4YmXR5y2KwlEdO8RfEpHMQgLIkSecFFKOkqo+SwklLiS0To5i+j+06WsEY9AJiiEmQoGZHIFicRIGsZk2xzlXEhWnkvMo/kkPuI4YGo1kUcnxX8YlApI0iljVKe/SJ01Z
-
-3zrifUtaTTNopK2q0g6DybGnWybFXJBGBqBOGhIEJ2Uyk5CiZ65dq712JTqaCujUN6otL2ixp5bG0NdN6D0/5fSwWPVaLJxjDQ0Y6fGcnE5LLz2/XhiiEYINrmkzRJjAzpRZOzBeNjFlntxncos3yhzYAnPLCZW5hGP0Q5DCtjZ8L7SwAeteZ0LWXsvmYC5ruq6LbAVsBFmLMFELC2y1zQgOFRQEUVAkKhacuA5jaO1vAXWXQgp4pmHBBGxLDVlA
-
-tuMK5iwEZDHC3MX4TsXYjkZQWHrpN0JezuJy7gjLeVFlxg1AV/whUN1jvK7OEBkQSuTlKtOsriSrcqLnZVtJeTqpLnKLVPJltCn1SOeuurG6arNdqiu2p27+tQN3O1+pYD927i6ke7rHTOgQFEzxr2/XWr3ahgQwbhg1DGA0GMYwCy/DjdwWNAj405jSgsZIyPtjjFvlmhAOaUsaefgW8jxbtQ/zLSGgBk5q2wVAb8rDM8G1QJhXmyAcD20IM7dx
-
-lBN5e1dswQgF8w68FjqMmBkCU6IKLrE0TKhxVcBDGgowiguFRc7tZ5wg94le20QYqe5i56IAiMqGI4Rt694PvUfI8SiipISBkmoz9mjCBqTvQ1gxQHa4gfHaYiD5jSCWNgwNOy8GcOIf1sh+tkB0Nx8w2DmP0VOP4YfIRoJxHimCfIyJpdcwV3K5o9J3L9GXrJOY5F7hGAOM9UzwEoj/GSMlJ40JijlRVfq4ZGXhJ2nWjzYYzXw6ynE+qYus28nt
-
-0tNJIOVXhjPmnPGZjCN0mw+BrmZm7ci4xpkgNAnMvozLn1br+TcF45O+5vH8OUN8/cwxseav25uCIxIvRaJAzAqqR4vMHZolj8uwjAtqECiCgkuCmoJCuRlzvlh0oVsrJUDUJSrGIjn3litVjinVr8Pio1kSiSubDMO1hSl1j1n1jdv5sNuvk/jcByr7KgNNgjIsNZuFr8IKpHFdmKhIBtknCnM/DtnPFwTnEqtSCqu3mUKdo9lyM9ryCKpCNXAN
-
-qFi1tHAKFIQqDIRaqqJDh9rar3D9o6n9gSK6tTuPMDqDthmUHPO9qnmUMGMOGMJGCDDwJMlGpjujqjpjgmmfM4Q4XjoTnTHfNmuptzhAC/ESDlrkIDjTqWqThWuOIzsApvrruwjYawo2sEQCmULzh2kgoLrYT2neKLgOuLtguQLgqOqBpOqQorsXuJsgNgJoMmkMHOphBulrswtuhAHWlDlwobseibkxEIv2pbhINbsMbbrovbsJI7v2s7som7h+
-
-opJ7t7nvP+ptKEYYgHhAJUeBpBjWGHjBhAHBvAWnhhqFAnvXgFMnucVDl4uno3n4lnjxi3ulG3vnjLF3hIEXiXmuv3g0oPqkvJukmPtHmhg3r4l2rxoUnnmEgXtNA0U0S0X8TJs0tXgprXp0t0tPiEf0h/JXo5sMskrflvqvmfuvkkRctMpZrvucPvofvck8mMqsqSQ/hSWAFZiQUjD1sSQTJQQ/jQQNByQ/o/vDh/mWF/m8lUHwbQQlklqziAWl
-
-hluXrkNljAXlgVqUEVkipoDwAyAgJvCsFVh0AVLijgTMGMISs1qSjMOSgsJSmDDSuQTXAyscsym5sobcD7I0t1jykwUWGwYthwfditqSOKrwdtjKoIftoqpSKIcdkXBqqatIZdsGdds6QaldmoXyBoeDpau9p9nofeCmqaEYQDp/EDpPCDihhaj6NoakXyLDkaCDDUAfvtHMAkB4abu4WmJ4djujg0Nyv4RmoESThkU2JTh8SYd/DEeWgzkAu8CA
-
-tqN0WztDl0ekdiZkTzm2jkWeHkd2sLoUXuWLhLmUSOvgkHrLiQtOtQrQnOtUguisGDJoNGMkL/v2pujrl0clvrpHn0TAMbm4X7MIpelbtejbpInbo+jMesXMW+rJIsRot+l7toj7sbGyRsf7gZBecQnsdBlYpHuPnyE5K5NcdWc4lcUFPHrcQhvcRCXuVCbnqRh3nCRUredRrUktLRhXrpkCW0iCScWCcQHho8c3jnq3jCWRh8SJo+RhC+W+TxlJ
-
-gPvPgNGyWknxaxqCRPlibAZpgMgCTxUSfsoZsyS5u7BTGZlScwSNnZksg8kySSaZW5mZj6V5kWDyRcv5m6SysoR5XMLZUpnZXTBKZ0IaX/gAXKcAalvkulsCplgMqqR8bARqUrBmtNAyCsAyGMNgKcGeBgcadEqaYbA1saPgR6RbKupyQ7P1gHnyefgKZAHQY0qiK5SwTZgGRHDaqmUIetonJKqnJGS2N1YdnGaquPMXFmeaqmQoTVXdkaqoUmeo
-
-Smb6nmdoQWfavoSOE6mUP9m6uWWqmYWRctbWX6BcXYcMO2cmg0EnEkQwIBfvJ2UxF4dwGMGulZtjEMOmmUJmvfBueOa/BEVOZALTrEXOUzjdcufWRuE2jpa2vAogruU8ULmgkUYOugJLhUdheBvLpBDJc+a+ckMgNiHqQ0NgAyK0e+e0VuptMkYvL0f2kbnwgMXvObiMegGMesRIvxJMVBc+k7q+q7u+uol+v2j+qhXouhYBnpFsTsWYlBgcfhcd
-
-IRaCHYqRRcUnpRSnhYdHLhhniJdnnxq8RJcxVJdNLjXJcidxYSSPuifxWAHXl1LrZCS8TqG8bCSbZUETQgCTWTRbY0rJqpaPhpQJVpWpr9dqLiZEcpQSQxiMoFQvgTCyefmydvn6a1aNp1mMO5WAM5ikGSSNsnc1TNmnaTFnSbPfnVWZqiGKUFalJKbgGMJ8v/t8slgqdFUqRAQldCuqQJVqR7VdcjvXZitqNiiadgUVWhSVVaYQcbBVbjgjh7Dd
-
-dVS6cSvyQ7I1Z1WHIGRvbYcat1TwX1fwQNa/ENSIQXOIYyONQtdmUtTvXqumbdh6XISaudk9jfReitSdZqLoetUWVtZADtYDZ6gdRcVYXWVrQ2ZdLBNSh9ZsB2T2V2SmA9cfH2UaDGFZjOFdUTj9TDTcGEW/JOVETcMDbOZWgkQueDd+eA1DWObDXzvDZCVeAeX2usaja+KeVLjLVeQrmbfjcgCMNgNgJGNOHMJrtrkeTTT0QbvTf0XdSzSBaMWB
-
-eMRBdzQ7rzbMfzegAsULcsShasRLZsVhTLjhaHuHkcQRZpURSrRrTcSuVkhRQ4jY/Wcrd4o7fRc7QJm7REtJU+ebRxfEv8VHYCWicCUHXbXY8JU7WJYbUxadCxRIPw4I1GAWL7QCXJsE+pQFcHTlNpXlrpXiVDAZUvkZdHVvrVdQeevprbZ/rXZ0AkI3eFUATg23bFcqZAVLGqWTmEMlb3RIGuusAkCEEPTcCPQVWPTcLgZPQQTcOVUTJVU6YoeX
-
-eU+Nl6dwIXX6TSWcu1Utl1dGegPvVtv1enINbs9AKfWISdpfS/cmTqnNY3NNWKI/cahNTmctVoZ/TodqF9g6ptYYeaGWbaB6l6lWSAxDu80442agIsAWMiofusq4Qg/dfA49Sg6gMyihAfgkMjlg0EWHbgxOREoA8Q/TqQ/ObOBQ3rlQ+uU01uXDQLojfkUwyjSUUOuwxjUY1jdUTw6+cgFlXjggKsPJTxh+eI1+RS/ur+dI/+YzbI8BRxOzTxpz
-
-WLVMXImozBRoyovBdo0hSsbomsTxpLcBtsZjbLfsaY8cWEzRWcYdYJVa6dcRRE241Ey7UbbE+7RIFy4KxIZxcqak3poHZkxa+xkJa4/S4NE6x45JV40itgHywKyk4E2k9bSEwG/bZPjQ7PnpYE4UztKXYneST9JZVZj1uOJSpncU75ifrnayaxKDJVRTIplFvZbyYsyNvVaUGs25gyVFjTOKTUwVBJjKU3YAS3VFWG+3VllAREUlT3YgRIFODiH5
-
-bQkaTVoVeM+aZaVM61jaaFnPSynC2UEvUaIyl5ach6evV/Qth1Re7cyGQqns71Qc4fUc8fSc8NWfRc4mVc4tTc7fXcxQbNb+zKFfZNa81au82td9r/b88PLtQCxWd6tRUdfPGA+zjDpdFfOrGsCWJGjvAixjqbk9Ue4Sr1c4di6Obi/mv9VToQ9Ob/CQ/EaS8zkuZQ6h2uZzrk7QzuQwwUcwzxqw+jeeey3LtUVRveWBNBAjrgA0EM0K5TZ+RDau
-
-HTesQzSeoMUBcMfI2zYoxzRMfejzWJOoy7po4LR7tq7o7q/o5hcYsayHnLWa+Y1k84yRdY9a4ni4qrYhzvTrQ8ZEwbc6zEypm6+gKJzUpJt60pfiUE0mxk92xYw7T54635xG8bVG1bhJw0FJzJ16/4yiZtAHTbaE6mzk505uRABHYMvHVFzm+W35se4Fj5VtNXRmsFQVCI2Fc3fKaO4EuO/FZOx04/N07O+gO8MQOhIDMu1gb0PVsbBaaVdacbLa
-
-Z1g6XcvMzVXV+6cs5Nkey8NfrjA7OwdvSoaKic/s9KViAIcc6GTGXnCNefZ6pcy3C84B2mYoQB0d0B1+9fT++/W813N/ZB79iWX87Bz2PtZWeYax6A2C+A2dUe3MAjPPZSkgzGsj1jqfOdcaDwGTIsGR6Tq3ZAHgwDTR0DTOcSwx2DSzikZS+xyV7AtufzrkaG3yDx0yyee+GedLhOhy9eSFwugsEjOsBrm0WI6G1RCx/gEpzxip0zWerK1etxOB
-
-VzXp6owZ2q0Zxq+7ksWZ7+r7gBgY9Z0J7Z6a4cea3Xk57a5525/Y24o4zD/ayG6JUl67ZG+UhILz/G5F1tLxQ248oG4JQ60z+487yl67+gPz6OL3h7/7d7xiX5GmxR5AOV/pVbdV3HcZQ5SZqchZS1dZUjP5Y2yshn65qZqxN8JVaXZ5fV6XyMDt4Fl2779U9/tEi5PUx15FTPs0+ARO+04ld3X7z0+gC9QyHMNgGMJoGd20JgaPVN2aRPU1pu1M
-
-MMJjK5Rs2cFVRQS28W2vRNvQYwdSeZVs0GTe9CCdw+xP6ERdy+1d8IbGe+wmWdo92/URXfa948/NZ9yB5YcIL94dz3D/YD4PFLIg9AWwDS3hblBb+gYeELacAkCEYRhpwqPbsvC2Rbo8myB+KzMyjXS4902lHcItRz2pENSe/8ElkzgdgKdWO1DBPg+np70N6KjDZGkeWKJs9yignLnsJ2vLh9BeDIahLUA+pfQ2uFNEXiwlFZU9xWmlI9FK1U7M
-
-05eoFBXkoyV6CQVeL6dXlo1M4i1kKOvNCn7ilqGM2BRvPChHkVoWNzeHnWxuRQt5mC08AfR3tCQC4T4guEATgZHz8ZcU/aKfVoGpR96EV4udFQPuG2D6utUubvXgfDnVhR9US0XLwXF3j7Usyuc+SLtmw8G5tT81bKZCv3rYlhNgyQqtknUvzpC9uFfTfuFjbbZ1GCnbJrl9Ra7RIoorfYdp1w75jsWmHdPrr3xK6DdUqFSL6MQAZDYAMuE3afgb
-
-DXZz85u09EcMv126XB1+99Mpq2234rM0Ae/KymQUvbbNj+e9M/hGWfZypr+pzW/uc3v7PMn+T9e5hmVTKHDvu4Aj+n90+aFkABzqIAYAyBYQ9VyUPSAax1h6DYi2SMeAYgMQZItkGqAkcC2WcKI4YG2AqgYT3wFwdoidHMnlWmARkDxeECGnvj2oG0tGeASegSLkYH8dWWrA4PNjWQBODoIyAdXCMHSrEA8cojDotTREG00pGynGRgizkZyttOCr
-
-XTooOmKqseMsFAWpqzUHrFRaejbQYa04a4V5ahg8iErWIoWD6y6tBxq50sYuMEufgp3i60C5BCw+oMCPkLzC45dLaMddJlEKyY+CuMqo2wefXsGaiIAZIikVSJcE+sE2+XZNrFxNExCOOGbfJoXw8Gx1GS3oi5Hm3zoFt8hlwCtFkJq6Vs18uQuqEKSW7dZihhQ45FQVmGsRYxD+BIBUJeRVCqgUIWoRFViFgE4qEsFoV3TaEzsOh8TGAWgzizD0
-
-p+ozGfuPT0Szcp60zbdnWxW7ahD2g2V0lX3ZQ79Gkr1Ffof1/5P11hm2c/tKi2F7Ydhb7fYWqge4XYLhxw/9m/wezAcnuP3MDtcJuBfMNqxZQAcD0eGgDLBX/V+NYSgHlpD82wdCMihw6Hw7q+HFAYmhHBRgSwkYZwg7G+o4tYhkIghgQNo505iB5PRIpTwuKUDYh2RBngjUxEs8cRzLNGniM54EiRObFMTkMHH5zBcAGKAdrJyEGdFyBEvBkVLy
-
-ZFqcWIGnVkXIJ07KNleXI1XjyPVaqCte6gnVn+ks46CDeeg8UfZyMGOcZRpguUe5xc52tvOvgmwYxUtETRrR7vB0RF0SGpJ/Wrov3lb2sH60LR7xa0ehPVhYT+W4QvLjH1tpFdQ6sQpPlm3cGpJshxfLPsGKLq597MEYkypnw9jno10HWe0vn2eQVs78PYjbnVFeqZjyg2Y3ABWDzGNMPRnfIsSqRLHHY++isAfhAAyqj99ojQfofWMGEDBiq8/M
-
-qujjBhDjOxG/JMavU270E1mlmYugsGHHXtnuY48Moc12wn09h8ZecZ+0f5LjjUJwh+pmXXFP83sq1f7t833H3DDxxPIBuD0VGvDTq0AhHNfCnCYxfhiLZAQCOfHUp3qmMAcnePKAjk8eXXX8QS2GlEsgJ8IhcoiLFarlwJYUmlnQzpYwTGWcE5gRz04aEjNJmE7CcgBWDYBN4X0FENSKprKdxekvHhJIJl5m4ZBCjSieyOomciVWdEsOAxJM5MTB
-
-RGgsWnq1wb69A8hvLiSbwc5KSlRznBUWrUEl4ywBTnFSc8X8HqirRofG0RhO0k4Tsurg31vpMK7hMHeqk8SepMplvSPpIwL6TJICae9nRMXX3oZKnzGT4hBTMyY13slF886PWZOoWzKklsrqFkmWeFgLpjAc+3JKWc2wKkV0foVdKpr2yb5VBWwIUkdg0O65NDu+0BVoQN3LFfVpoyQGNgWFfLYAUpesMZulOGEtit2KYHKWcBcIHt8pK9XWX2Pm
-
-EfNN6V7cOVVNP7jjNhdU19mc0aljVmpi4l7Mf3alKFOpH/DcZcJ/6VTIAu4qDkDxg5HjRpILM8Sh1XIfDjQmPQ/InDmmPjFpZ8TGF9GSCgxH84In8fiyLR7SiBTZEgQiNAlgCzptPTjlBO443TReTA0ouzw4Y2dHp1Ml6T0JqCawMqHyYXjSN+knT/pEggCsyJBlacwZs8DkTIiUF80VBcMxCsxPM6sSRR0tGzhjIVpSjjBfEoSWAPlE29FRxMlm
-
-aTLVF2DJJlMp6TTN0mL4doCkoWczJVFiTxK/8zvIXmwArzL4DIdeXqPplOjGZKbTEkZPOlxDM2CQiWZUzT4lNtZwcpZoZVCaN866AAMVNn1CQihY1pp3Willj++Q3KoGiE0ADlNA5NYZnWPdkNihh4tSZllN9m+lqSq3ZesmK35FSmq6smycsIjmrDo5Ow07nHKjIzjE5o1L1inNfqtSX+M1VcR9xalpzTxecqOQXNuEGFi5xhYaU8LGkQCJpl0V
-
-uWfm6zrS0cfwhaVmBRZXwEYbZDuQEWJxbTzZO0nuf+JJ6wiDpZDWcMdNEGnSqWOCyCbQKZ5YjDyU83EbPLZZ6CF5Wkl6dGGIDdCxgDIJmBvJ+lS8/pREgGXvNIksj5eWXSwifPQD6dlB8xS+cLQRksTde6xA1vfPRkmNMZPE7GSYLfkniresou3iJLNHQLomEkuBdNCAXYSQFPoo0bHyDYky0sf8mZXE3QB5KClRSxZaUAFnGjsZZ0bBaPM9GR18
-
-FhoopkQs8nSzUhqyeWcWwzrKz7lA0WtnaSpT1tExpClMXVH1kULDZddAAOK0L2+9CmKl316499Sxts1hRWOiQwQKE7wN2d7gO6z9xaSPUYc4ExU3AuxmwbuOe1QABzIAB3fOc/2O4qKNhtU9RXex6qxyDhXUvRX+3voOwn65wkxZuPzJ9S9xf9NhkNMCZVBEVsSHtmDwQ4jLLhx1G0AEhGYMkzeELEGAWGiXqw5pDsONIR14BXAFg6EFYPuxeSbS
-
-cBBPbuV6IGgYJEUlQZIPXSRgwQJ+ZQEZtAA5hmNxBpq4rNElqD1AmgykO1bVim62RKIzqlWMQDVgawax6xL1binNYep9p/c4Ce8G6xDzxVI81EYkqumJQUlvHJ8PBLYYZL8Rl5QCGwDYCWiC5cnEVgRJ3msISJ0g8ibrB6AFrlI3S+keIK6IIBlAOIGAOFUFBlFuAYIIQHASyYxYCoAACVBXTs4V9s81ZauaLIE3ZNYRLNNz0T+ksVRMCRUmnWmE
-
-qD8FU8xeStvZrZEQDIPdfurUWXdaVs4pOdoof6pzZCbUiglnOMVtxv+W43/oXLuHbUHhAJQVUVEoSOqC+phMuWAPGlEyIWF1ZlGsEnANzUe6qjYAjiJibBPx+qiEUaouWg9CBES6NYdNgi9ZmOJ05EdDRwUzrGkEAQAF5mgAX4DAAhdqAB+L15CqJ/ABAcKpUGI3kaTsCkVkHJDSjPBHQCkKhZPGZD3gHYeGlyEQGUB6daQTAXkAmA0juB+N9we9
-
-PoBIDEBAQsCVRkwBEwxJP1bBPhGwAABK4QFjV2tIA9qWcCAAdf2LFCXw6e6I6CamtglpLM1AnJCbmprVQBkA1ETQEEG+mfk8NdG0jRRtYgFzZI1G/ALRokD0bvN+E8pRK0ZGAyZWVayoM5tc13yG1z8rJuQAoCBb0AwW4dTgv7XRIB1dEXkLFvwBVRWAYtH8rFLYWzRUI6EHhbar4Woqt66K/FfNybG6q6U99PHASuM1oBiVfwSOcKl3oxyapT7e
-
-OSov3UHqGV2co4VeumEpAb1F6zQg+rJVPqrFB4kuW+vK3zRMIIqn9WKvrL/qmeMqpWtAOTRLAPpcDTxcxEbleLARU4BoC2WnAzhO5OCkJcataD+rzVmgFYOPxc11LJ++Ve1bOt9WkRXtBUN1aFA9XiQw1dWCNSWhQ0jhQaM4ONZhvYQQB8g+QfYOCEIAKBqQEECIIEDCBdBrwzgESJjpXikBnAwebQPoGIB2g7QeW+JWcqyI0CU1PGNNazxnksC7
-
-Nk6MUeZB6CWQdeJS+TslmR2o7CA6OzHdEHCAKBcdIQUQJIEJ0Y7EATAMnZeQp1U6adZarohWtl7RaTS4m+TXrys5ozOJ3OlKFZB9xO5nI5gYIKyF8CPEyuJOpXcQmUgMhIEh4VmGoA4iAB8pSI2AAA70ADTcspFu6dAhVn6gHVL2bWtr21natAN2t7XYystVQC0BlpYWlb4VEAZIO9s+0rxp1Dq9FUsHWltYiUa8ZdagFnAyKngSQD0qSs3Wjj+t
-
-B9XBpf22HHrNFd3SQoyo5VbqXuNVGbbovb09TwO3KouctpsUCq1tlWr9SAN/Xirdt4LS6PzxbLjh3gYG/4ZdufFHIFgW8buF+PI5dyqOf46EchsAmoaolCOgiFhqXJ07URHmiQF7r92Ua/NhEGjQ6uv0+7/d7GnIMxqMCsaHYzunIJxpk34AeNWKDmJJsE2CRhNCITsuJoIAgHpNsmvXTcB5pKbpoo+haGpvbRabWAn+3Tfpsw2GaOtt2UzWPKSX
-
-XSGB1mu6XPMN4c7dixu3nXeic24AXNbS3CZvJ4xX70AN+1/Z0So0P6AtT+9gy/p4gSMVy6u6XlFo5qacNdjButajKNa9KcgPO03QJHN266m4NuyoArtJ3B4v1dtQisltS0QAODSe1EfHtwAWhct64Bg0EEK1qA94JW+FGwukm1jfttWjquioJTdwLYXWrsa+Xa1hyutVe3rQKGql17zuR9RvTupG17qP256nvZev0VihaUbKtvXequGPrLFPzaxf
-
-8yhgqRUJDCTbRIWPE7aHF9FfbcYOgEhw14yKGMKdtw7VLwNKLaMIjijDtzPqeqwJQatCIIaKuL2/tC6ofQ19+W729Av2jtUebQ9PR9Yn0dVjIFg1nqvhd6qoDjHNSvRpFCijRQIAMUcx37Qse0OHogdg/HUnqQNJbGV2kO8LRMZ4x9H522ARdrlRGPzHw15x5Y5MdNo1BRuzwTYCccm6LGnjKVS49NDz2Rga+Ia1gw8bOMDLI1fc2HQPNjUYbT9s
-
-S7DR0eTUYjLNk801ekvZ0PSuddnQ4vzpLVhbxB5ayLfvO10ITzQ0hg3bIaN04ncw4kZ3XAjd1QAOIgAGVdAARum+7AAs34B732BUYPciqWOsJw92ANtRzA7XvhsDseuvCYYABSRh+WHbJeTwkBjqEDKtntnVuH1YtKNrDUb2A3ZUQZelMN3ACOcFa9j7evWEenFN6GpWii+jouubt7lx0w7vfaZSNmKIO/U3lQAzfXu98jjIQo+A2n0XiQ0owFEI
-
-/lHBuKHx9RwEfvhmNY8SwD2+nYat327SwlEAKNdCZjXob41kNC/V1zYMQA2TnJu/fcB4P6HCzXJt/VAA/2sbmtP+qAH/u41DFhmwBgTUJrlqiamAUB/ADAcqAyb8l8BrIoptIAiZHDYcdTRgZ03R69NpXRcHgbDmhZCDCBxnSieZ1Wb0TNmxCViYfl9KxA9BqQ3idF5tA+DBZ9kxWa4P36/wvB2dRIHLOCG6RkjX40SaqWVrxDHEfLRSfYmG7g8j
-
-8yUToYsZ6Hjzt59rnULBWlcZT5hpcpYYK1sAitthxTgqbNVfElcvxPKtWpQporGxJsAaT7PnX6m8prW9daHK25ErmtxpnZpSvpWDaaVERyI9EfZVxHmVr3RI082SNzauVNw//ktsGkraBV3xcTOPvg7As/1xRvbXWNlUghDtGHHVaiDhO1G94zWtVSi2pRXVkCKEfxcOXaPwbkzoSyLvsYwB1B3pxACcF8fJAOqBTel5FKinRTfboAYJn1b8b0ul
-
-Yxg5WSrODrss/GnVKxpAigWWnDHQ17l3Y76bTNQm4iaGk/WL1ZxC60d8u8XTjvCDS6CdROjQw7vAwq7qdtOlEV12RMWbVzaJ/tBifunzyxRFAeEOCAZBwh9BEotzficiso7orYu7HZLviv47ZdSV+3eTsp3pWRDmu4GaSb5V9gPzoo7czSZsuRRLdqhvwOofauXluT5zN3rkbPACmm1La4U5HvFNTme1hFEwwAGk5TsKBC30f5Y4geARlz1rZd+0
-
-ea3DKaHUxAG1OyXdT0wmvgaf3hGmt6ZKmvRRYG3mmpx9Um7nfyakxGXTV2DOc6e/a97717Fncekewv/1X1vF5CyVCCt2Ly5kqxxfTivhv5JwClyM8vrR7PiXJycLDs1q31BKQiT2xDZCZh2hXj991+8wmtzPmz8zgAWZNAAOvKABBW0ADQXmyeLP+b9DrNzm9zcrPVmngtZjjVxoANNnbVLZqTWAfbOQHzA0B1s72bgNZdlWT6JA5UD4ul40Dmm7
-
-TVgY2sznCIc54iwuY9LZWJ5pB9c+QcyUEjirpV8q70B/N7m4tgglg82evPoB+bXN1k3ee4OXm+b7N723edLUVLd50rEk6+d1jvn4tHE78zudGsW7sAVutQxIGStaHTeyoSgAHYFs+3gL+YzLYFO2sQWeEjB6w8VvgujrFT3eShGrl1G8LnD6FurZhenDUpGtzgHVc1u8MI5nr/ht69Xr62fWQjBPBvZaZosja6LrFqav+2Yvv9b1bF3qRxYB5cWX
-
-1/KyLjaJruR8kb/pyHiJelViWDtl0LG2sAjQXbmI2Ngjg0eRy+F7Y60kmx0fJvdHnj/xyoGiAQAMgLVyKEyznDMsOWvLJWZ8s5Yqyuy3L2xx4xCeh2H6MzYV2m8uSisi6YrjVqXS1bl3E7FdHV1XRlZw2Jm0Rl0lc0jWxFkG2dhVyg2KIABWwgUgJee8DvhFdDttKTuOLWHm6bcD0XVjol1IOZdKDtO8rs6tq7Q7T58O3Ub6tjWk7Nl+tbHcvI/m
-
-FEid5O5NdTvTXHd4kQPUhdqKl4lrwQFayKcSxim4AEpra4FM5h7WumB1pFNUnfv10QTP23WJdebtgxWjt1mYGDEL0ekux4Z564kDe7dalF73E/oPbNOhGfrCc60y3oXGxHgb16s4ZPdA6Q3sI0Nz03DbXs94NcW9yfUUYrnQ93h0A9YPtExbw4IzeHKM6vsJtOE14xNuDTvrwF76kNAEkGjCazOI6wJDNkIvmcAD45oACglQAF3RgAcNNyNnNnm6
-
-WePPtPunvTjm4xvf2TneA3+sW//sAPD1pboBmROAY7OJ3FbMtiQH2bk2q3EDw5uZRvbrtlBcA45vW2lBj0GajN85+IGbeXM5X8HqSq20Q4oNZKyHFDqh9SEQCk66Hztpgww7wm0jWnnTnp2Rr6c+aXaJZ/24M4BcjPg7BJ4OmHakFa7I7MWqC4NZ6XUnjetJ2YjI4mu27uHjujO69izsQvhnQL0Z3ndCnYOTDnMYu0elLswWbDuiOwwgVT0Ik4IS
-
-JVC5UBcMDnIAuBGFm3Zr72Ou7vh4i73Z60mm/HE4ke3vUiN+Wz19F8J1NpntrjxtFwvvduNiecWMjQ+rI4lBZfNEEgG2ohSNO20Bnd7iUUo452gHOESwbZRcmdqmyFOz4DhTYEsAaDJwEzqIh+wCT0shAhgCAfVwgFCr3GLrP9zyy8e8sDlfLX9/hR5cS3fqan9HaB/GpYcIP2HzVzh21bQc8OMHiJqgebboFrn8rG57NVQblxij1A2m5gM4DofV
-
-WmHsDuq/A4aupu8d6b+XQo9Su8PtDSkuF0DMlu+oOIIjrl1iBkPYn0XCdlQ9brkfoBcX4GWa8wtEyqPfi6joU1o6gA6O9HFjEw8LCMe9qU9Y60Ymrj9cubA39d6xzntsebA+XWPJlC44oKYt3HFejdYEYpW0rVF1Ko9WthPU2n7udpsGwxfkIRPj+cr3Mm6YH3PrYbq97I7q6RIpPjXO99J28KrlZO5wa6Zwjj1xtIC5LK+s+JUe6zrAsWAS7Bo9
-
-q6O9yqbcO2E9mep5YPL9x5wAKvWgALDliXwLz5hecf0e2IA9Hxj6S7VRMaJnm8Ssw2Ylvqd3brkJW4s7lvwMuzPZ9Zyrd5DbORMUH/V7yEOfoHjnEps5/gdNtmbcHNzhlpbcLfW2c1nOh+eW9YCVvPn0d126UuE+VAOPgLpj7SL9usf8NtnqFyC5DuPmNdxJoR4i4kAWeulw74a6O+kfjuU7U7ttyBECv/nCXbHlzyS+3eArOgwsal+WtpewWGXF
-
-d3d1XfdY+N8aKKxu64ebsw2HHM9K+MXp8M93SLfdp99urDJD2L+FpqV7RbG1z2p7Cr0G193BupGFtcT6DsPrXsesBLoqoS1PtNegn8q4loNOWkBizgXqS69Dx4sw9420oUYVzKDHsd32tLlTlM7pb/voAYIxAG4wgHh5Ruxjv9sNxIDH66l9Sl8KNzsfMu7fPUGVLKjlVu9gPYXelzhVfcHqvfwT73h7301HCDMfv9l8BzCMgfU3SW4VoQ8m8bdx
-
-Xm3iV1t5m5wq46PQuQZwMoCEAkAEAaVmnTm4gnXOLbBD+5yy2Ldbn0ZKP/AGj/js1vhBdb4Xaw9itNX4frVxH5ockcU+0fGPrHzj87eHoBH8L3qz57JMDWY7X5yR9T+UPjWJ3OL8LxBg5+Vuufw0JRzyeC4LXdj40DRxHtFNR7UAMe/R322iSZht37Qvd3t7eOHfjv7L0y+qebugi27RMWm6478rPXCLiio/sopfdUqqL77g7M3onvKuHTk2xQu1
-
-8/6cqF7UNjV0V69MCqBvMH4b2k9RsAbLo1KRIAThDin2MP94i+9GfQZtykY8Od19tOI+pn0zEP6tFD7ps5nMrjN48+RsADLfoABzzQAOVygASydBbzHsF058qD1/m/bf3O9x/Gf63eAot3/eLdmfCepPjSpZ/LYk2if0AGzrl2raNs7PKgA3nWxOaH+nPcD5zk25c609cd83eVlhkW8xNFWH58vp235+YNWepbbHnv63/b8OeWPV5/Dff77/Qvt5
-
-/Dzz8+YRcKsJDV/lGUpMR3AwWC8pfULzt0kfXYgv9FfX8yjwktaL1f8yNRvwf9+/QdgaYzZEIhMNMwZL0kMrDOl3LtxWTL0Qt0AT2m9oqtKxw5d8vRfx5dW7LFWxgphAbDa0KvR9zFdPfSi2+shtF92ld/fFr3Tlp7EPxzlVXNI0j94nCD0ShSA0mgNc/RLbXj8TXeD0hJzXQZUA1xwbYGsx8nUiVPsINb4QRwdVUjgI9vxIj20tntJ+1T0/CTQA
-
-SBKRT1mq1g3f7TO9n7L4ie9sqPoRAdTjEH1jdKbcHzI96neE0qB63Bn0Qc03BH1Qc2fZH3CBUfBX0x9UoHnzx8ElAn0P89PY/wM8S3UCDFEOfQnQEYEAOAELUdQRh1p9BdPwJTc4fBKxZ9gglK1MhoAyIOx8O3bqy88XzP/37csXFF10E47Ea1ADRHaXymtIA8oLCDKfCIKx9Z3CvHikcvV8nV9EoTX1Wttfda119pzfXyNlcAAAHljfEx3NUvoc
-
-wMsC1TO7lwJxgB2DJRXya92L0nrIi3oIPHSvSq9WAndS98OA6i199gnHgNm1WvYP0icA/V03m1N1RbU1duLPr2yMJAn2jj9nhGsmQ4MnRD1n1jQZNALBCUJfTO11VBwhuQbteM30Dt9QwK28dLap3CVPAupwr8CJGIOwd8zQAFV9QAApXfp3Bc2PAkLGcqzXjymdR/GZ17c/tETzWcp/cT3hZJPOfySgZPBTS5ENbCQB+DyAqoCOdMDE52nN1PC5
-
-0XMGdczUJ87nfTwecbbXNVSCegqAHSCxALIK+cafTojxDCQkF0c8X/SoFJC3PGFy7d+fHtyE96gqO2RdRfKkxaCgvSX3aDwA6d26DmAcIPR9KgyL3gCUtY8x1D2UWUnJdjDQKXmCcA/LTLs4LQgPsNU9BJiEZkmK33QBOXVWxoCPDGYEvh1pQV2YCVhd3x8dgjfx2HsGvE7m4Dmve4L4C2vJ4N4DTFV4PdMeVXr21ceMUMKSYRGP4PsV5Ako33sy
-
-jctE2AoGRICx5IQxby0CFycYG6xN9cpyRD8GbbyhgLLB3xeoaEE7xDc/vc7xID+6ZyzGAbLCHTcC/zaQPjc4RGmyTcCg2HyZ9igrh1l8lde0N6DHQ7nw7dsQpNTiDklAt0SCpQwzyxpZQ/cPlDjIMIBVDaROn3qs2HIoOQcM3EIKgC5QvoKiDqgr/1EMI7Y0JxQVDJoIkdjGVoKtDZHGXy6C5fH8MPClfftGUdhuYYNSAl3TRzWtdHA21mC66CqC
-
-WDK7YgIgAqjVEGSAxwiMNpC51MumRR7fCMH2D8LAbEODaCfAxOCWA8izYCvrAJ04CP3P3xzCwnB4K70Cw3MKLCYnCxRECywkHkShKw4RkG8ZA/4NzJE/cVWrkvoJwnQhYBdsKz8nxbDxhDg4WMEL9glYv330VwyJUh8YHJEXP1q/Zp2PNAAFfjAAO/kiQrvwkBbIskOFs/YSkPrMx/GkL40WQsQEZDcOZkPpDWQ/sy2chzETCkjwwgVD5CJnLf1P
-
-1jbegk08iDJnVud01MoAKtHnW23P85QlKzCBlQg82EF8zJyI1Dn/fQwKjQtT/w89AI7z2AjfPU0P11Pzc0PF9IIzFxC9J3CAK/C7Qh0JgDnQ7GQAs2PEqLQC2+WIRMMKoP0KgsAw9LyDCmXU3yIinZflhWAzrO1SjDKIlu1jC0Kbu3oiA8JgKODGkEV28cO9NMIldMw4bSa8AbIDzzCmLAQO6kIbcP3Vcl7D4JXseLNe15Y5wuNhrCUbQEKlUzXB
-
-sItdy0WCEfIIwZOBut3FeaQ7CGjV6gX0pwdbz7DsHT10CY9LAcigZfXKwIoDrfOkHu8pwtPWLBAfXAHnCArKHTB9anTM0xD8g+n0KCtwj8NZ8yguCLvDfwqoOzdzIqjyyszwkgyJ9JQkn1P8SHDKLvCldUhxQonwreSR0Nwt8LJiW3UoO/MKgo8Iwcagn/0F8qogqlAizQ4AKqsoI7F06C2oqmI6inQ5XzmsUI2Sly90IrX20cdfPXw3dApAAEV8
-
-IogL6N4YzGERiNgpaO2C27UYFCwi9daKmxmtQlRYjkwkcQHt2Iur0nEuIm4L+s5xZOUBtf3eV0eDAPKJ2Ejro0SNuio/BJ2yMno2aLQjDXZG2Es6wxSPlVHyPDxbJ1I26mz9nxZOAnAqUaiIRDSbUrhhjDItEIJjE3Bp2HkmnUrnzNAAJaMQtHcSKjjzFuOciKQ/jw8ijQo80SxJ/B9Gn8JPBW27MWQhf2CiOQlfwu8ZouNnX9VPA2yFDd/EUIuk
-
-D/c8KP8+OE/2IcnnTmNR9uYlChyjLPdzQ7jW49Yk1D9DTuN1Cyowk2/9BHOoL7cTQ/c1qihrOQ0tCmosAJajbQ9WIPDOo/F1ngEAyoEviPQodnzsKXM2JGjUvel2YhGXEwMIiQgTKgy5pOPL3UgMLQRSwtXfHCzWQyvNaKYi/DSr1Fc2Ii4PYDOI64O4Jswk6KjifHDOWm1BIviOicY4v/jjjRAh6OyN4EyTiQTXo9OIUi97cbwPt6cRYFOBAEQG
-
-Lupz7TSKOBEYEtgL8y4++wMihwh71OtUoDYxtVkY7+1sDQ3ewPQBrjW42B8Y3JcLjdq4hNzXC649AEFjGfDhyCCv4vcI1iJY9KxPDGYsUPiCWYy8LZjt49KPRlHATsCYhoZbCFyDSogWJJjNw8xJKDLE8WL/DJYgCJ6te3L/gaD5Y5+NRcLQkAOViOg+R1girEn+M1ikIlXxyMqkPI1+NlrA2NXcjYmYJNiDfKoA00LY4MKmiFEleBjA7YtwztI+
-
-XZx2L1S9LaPL1PHMizWFTTA6MCcNFW4N4igbfiOGALolVyuj+9Rew9NxIx+0Tx0uTLhkiCjVJzkCFImfRDR1YbYAPx4eG6iBjNAhoxBgrMK4DXRb7KGI9dZEjwJrijEnwPriLIxuNr8yNQABe/QADK9eyK1CJAcjQeSu4ofz48B/dyOpC+42kMHifI/YmWd/IhZ3n82Q/cBCjpoNhMQTVbZT11t+QtT238NPPfwSi8HXTycTN4pILJ9OJDxOyAvE
-
-w+LPjfEv5xuS3kwqM79nk9AFeTHkq+NiUpYu+N/8H4pFyfj/PIAMC9Ek9+OtDP43cNCTYA3QwASXku5KpTgE9ALoUwLQKQ00IEvALS9oEjL0qSsvLUQF5nBJwzQsUEpuzQTGsFaJL1u4bwwwSGqfAx2iUwvaK6TD1K/i4DjokONOjnuahMVcjFISLD8xkiPyYTJkt9WJE+8ThJG8M4nhOW8+EqbGeBMWJwm7ggY0RKbl+4KaT9SpEjS0I9oY2RMB
-
-0Hvd4CJgqjcgOsDT3NRMnCNE+KTeMxuT4xcDvjUYJNUHvIfhH4x+ZRPOtXA3RL2N5EroR6FnAoN1LSuo05MMSTI9cICShYoJJ3DUk7lOiD6YpEyZjUTBIIxSrw5IOSDXAegAIAhAJXmcAsgdQBSg+YspVqtm0sxMCDgkrlPgiYAnn1pSBfKJIvQOIF1DAixfCCLfiYKLF2SSwvdtJXSMk9YmQjsku8lyTG1cYJXc13bCJKS5g1kAqTJouVPTT40o
-
-mB5DRjM9zQTH8LU1WYbrLsTwtcE4ix1SvHA1I+tfY9MPq8ekq0yDjT1W01DiOvP9070hk2hIGT6E+1JuiJkzIwkieMF1LmS/TBZLg8lkoMwZQ3xaMGTQPSLZIdc3YukhepIYzSwqcBwlEPrTVwxtOMSq/BmJr82PQABHowAHe5QAE7TQAHh9J5P0NBM0TPeSazHuJ+SyJCf28jh4pkNHjB4ieNk8IUyoEIz54+FMXjEU4UKucHE9eL7SM1TFLP90
-
-ZIhFHTx0ydJvBiAfFOv9j4/jOEyxM0lN5tjzSTOcy/EhLVhcDQsQ1ljcA75yHcWU1+LZTD05qJgi1YtJM58nQv+MsI+U9AHcz4vGumfSJU6CylSG1S2MowQhfgWQSogVVM9lxaXl1GFQNV2JTAcEsoEJV9U72KCMjUt9xNSx7UbQoTng8OJmprU5+kLC7UtV1jjcMrV3wybgAcFghQhasNTjt7F4VG8T3dHG9SjQfPwqNUQVVRES6MpsmDhVgRHC
-
-YzI045KMDENGNPRjZwAcG4U14ccJTSu3Cy2SBh+UfnH4dEutIgczkzjIuSTE+dICDmfNtIiyO048K7Tc3HtNytjMlKK3i0omUIfkLM3wHHTNQmdNuyYfFtMXSnsymMiyaYtdIiTag+lOiSV2WJOZS6oxWNMYkkm0OXTqYhCJstL0wjP1iJgw2KmDjYvtUClWYV9NgS+jHbIYNzA49yTSDsX9PyyqInYO4BTgZFNxUbsRiPKzmIh9y9j3rH2KISOI
-
-jMLgzuIvpMaz2sjvRBsMMsOOA9iw0D2XtwPFhMSh+svgTCE3UhP3ei0bF0hkoI0POMUtARR/G5kPjN12kTNvVjPyZ2M4yPL9TIs/QXAG4oAzY9AAfOVAAU+VxM48xdzpMp4DciBPcf1v86QkFKHjfIrP2BTYDIKPUyp4kcyyywhbTKijBQvTOXiDM7T3FDko48gHSsU78wByx0u9GcBNQuzJ+c3bP3MqAPclzIGcnc13OpSvM/UNviN0vuMRzGUl
-
-2xRyX4tFxCyeRI9MxzT07HN/isZOvB6j8NYvKFSBogu1KTcAVmBSyxo6VImjKcuZVwByRFYEpEG6ciMWirrQrNbFXYAVxuxNo0DPoJKs/nOqzxXY1PCMkQchPNTKEyXP4DpclDPntsMrrNLC8MqZJtEZ8u0Qbp1cxZM1z6w3hMbDhwGvlGAbtdCDmyEWINKw9uAZlGbC1vQ5OYz+wonlhiHvHgBnzUIJggOzUYuwNT1iAStN6E7jfy1AdfvPRMty
-
-j9G7Iit/E18IXTHsz8KhyXsumLtyrk/f3HlHEiUOcSEJUnzMzOJTPPHTQoMwAxcCU3535jfA+7Kbdtw0grFiz0mxL4dyoyJNryt0pHPGtd0+qP3SW8sODbzOUjvOsTEIi9KyT8cvJLvTMI9d1Jzh8gAFUKcv43fTYCosE4UeZJVIZybfNVIdjRhU2HZzA5e+i5zdUsOU9i3fKrOfdBcv2MlcgnBDK/dW9JrMGStIC/ND9c5OXPGTb8nrPvzbROfK
-
-pEX80jLfzM41eFhYVLQ/D1zeyaM1jVaSMpwgKo0jbMJYQrLwKJjbcjnB4zLItj0AAvvUAA66LdzyiqoqFtu4r5J9zPI+ZzbNAUmf1WcA8tTPZCVWTkO2VH86IoXyIolTx0zpgnAxiid/OKLsLV4mgqMz0UkzLTymCjPJHTAc7PLYLzASCAACfErgtYNjzSot9t24moo/8aUuHOljN08ATfMaoxvPiSGog9Nbyws1WLIKhC4aBiy2IOLIgBdislww
-
-DRUvQrHz8AwMMIkCIvo3mUdJRfKoDowjKQ1TJwLVI3zwMirPwTdoqDI8KYM/2NIS9mY/NldT8x03OigiwQNGTOsxhO6zPg8sJuAgSxG2GySM0bI9TPoj/O+iv8tYFghD8WgLtcFvDSODTHUccC6wEYLIrWyi/XIq9cHvR/KypBGDlXpyUY3NIuMQwqsWBMLstGLTSEpBHCGBkpbNIGExSkwKmjHZPHAnBHZaUuQKpoy1U4URgbhW1LQfA/Wuzrcp
-
-tKIKHs/gopjBCzvMqDO0ygpKLSuPNxmK6C/tJcTfsoz3RksdB/TN0j4mq0IKG3cHJILrS9n0eLaYrq2OK6UmWIZSWWckwVjWUpWPZToI+4ptLlC3HKySfTDQuXctCx9J0K5gnAJZgQEr0PlMASlWHJFBSiwLqTMLf9Ma1XyIDL1NV1fA3AyOkj30RLukgOOu4jsXwtCdMMy1IA9nuC1I6zhAx1Lvy31EkqIyjXWQLiLzxTJycVoGOaMfx/8jQIWy
-
-RwF6hepk4bmV7Dsi9bORCLcq7IbSzSrjMo8OjfM3I1AAMCVAAVwzqixAMvLPcv2BH9vkxs1+SvIgKIBSRNNorHiAozovBSI8uZUXlgSwYrhTY80YoitYo70kmKcHNeOZjXSuYvdLpQz0s4lvSv8DoMNiotS2LrPflNvKS84kJvKryivIfMb4iqPvi686qKZT9WAL2CzEy0LI/jwsh4ttL+g54otxXi88rwqB8kC0GjApOiB+K0sh8wyzV/d6WcJu
-
-ZAQXGyJAJfObsV8nC03hO7DfLKynC4VzhLIMgXNq8kSrwqOjx7fpJlyzolrOGTOvEDzCLB9Qkt6yygTmUEqvpWIopLuEqkq9TP84YB1Vj7WAVWBUiguLPhXyVaUzS9Ism2jS809GIRgYId6TftEClUsMKpouUqSlilGtJzS8Yk0oPL4dG3IDL/AvgvJjRY0Mvoqwk2xLez8fQzOgqU86eTgrrw0twfkkK8dMIgbDK+U4KC86H1MTLSpKpCSwy2HN
-
-EL4c6MpIq5YqQvjLKK9HKTKVYlJOeywygYPw1xygnPvSikzayfS66QUAMK4pXypqB/KmVxUSKIq62sLV84fziAV4lrQYj3YnnPaSzgwhOUr2ylEt2EfCkJx/dL8gIpHAdKl4JEj8S8IsMr78kys+khs5cOIzYPCyviLlk37A+pxwOCCcqxEzrWLA5osGBvhTcljKgKq44K1I8MQuKsacqCuZzY9AAXCUSNa8sqB4au8smdZMp8vky/c/5KUy/IlT
-
-PHiwUhAw0z3WASvuqlPSKM3848sYqRTVq50uyrWdPKsHSxRIquzySqjSAIA88zYoqqKIiQGRrsKhyPQAeazzIIrvM6vMNCMamMvQBUKjClRyEyjquoqOU2itTL0khiu7zM7V0LhqEaj4pFSEvAqEFBuKqBPSzZUwiOXlV5ZBRyzUEpnOWjayxkvsLGA2Ss9J5K1iM6T982rMPyyEs1PRL/CrSoSNzqq/LxL3g+OLECFKBBRNqPkcyoBD3sT1Imyb
-
-Kv2Bu12yDGyHJFvTP3zifq2HTeoYwFuQ8qK4ryvFKpo84ANKMWQKplLTAp2U1LgHCKuVKoqoyLwLDy0HKqrEqkWNqrUq8Mtx8Mq2IKyre02Yu+zTMjmK9LogH0qTBKYxiBByCCngotL66ixKxy0y+qsIqxCsWuaq9YZHPIqgs5vKorbimipTKUqtMr6ru8f8tJLb07MsmCsIkYslNta6JAAANCarK0zgfOtdcqyqwsjBaytdAgquxfDy3zGkFwoO
-
-dtqp2ugy9qn307LA9DSpOqvawIsjjPa6OOvyrqgyvuivgyTGDqkFUOrJLnq8OsrkJLQ+1dc4676tZLNUlqBrRYNbcp5Ldyim33KOMmupHrLkx0odzEAwAC65RGv5SaGuoo+Tvc3uLFq/kxTKDz84kPOVsw8rovVtp4vbzga15UmqGLgKw2zVBxi8CupqPspKLpqGC9mJ3je66jWzzg8RiHZq0KzmtPKyNehvPMyU/Q3I0tG58L1C+fEWt8zxa/zO
-
-kK0c3E06rj01qLoqt6xit7zu/TRsSzmuYfLPq9aggP+K+KiQB2VMqPZRBKVUgrzVSJKxfgWEEBErP3g7a2EsdrWy3aoPzR7I/PdqkMwcrPz8w0BolyhA7rzEjRygVR8bClJmDDr5I+IsjqUwSbP3h8aaMFgF1AveG2SDc9shbJtgdSy+ojkghvNzNs7yrTSeAbKm6EkIDArG9k0pAvUTU9PUq4VE0uaru8sZXAqgdzkshruyx698IbrJ6pWrSqW6
-
-h0u7T26z7M7rU8+mvTzJHJmoHqmQS82HrKq3gvmaJ6pQqWbm63nz/ITi8QrOLJC0R3MaZayxrlrky7qtsaLm7eu8bd6oKvyTCcwpOJzikvMrroAATUvrU9TprnyilbEDvqLaxapwsQ4F4FWquxRwvtrjg3nNcLd89wtiaXa+Jv/r/rE/LAaqE/sp8dkmjJreCevbJsSdSI3ZXybEGqcpeqZy4EOHANy7GDbl4QpkpYb9c1fQcI1LZHHh5M6v6kIa
-
-8i8GsJjIa8hpPLjzQAAm/DWo79XMtj2laUaz5PHhpndGt41mi2W1aKR42fy/L8awc1/Lq7fJV8bwqsc2EbyakCt1wwKkzUTyoKjupgqu6+Yp7rEKvuuQr9mng1Uacg9CsLyJABVt5ryUiAB9bBa4Q0jKa8ueokL68gLIJ4KKletlq16+Wo3rQgpuq6ie814oDb+o9iqHy5ggAEc8tUaN+LxozxsNqpjRHH2gQ4MupErVEzYIawcVTBORR186YWnB
-
-tAOCCJg1pP6vvctqghO/qd1AsDXh4cOJt+suyo6uQzgizEoEi0m21JCLLq/2uYSvgifSQbCmxltQbhwHVTX4YGTZJMbk6rBojAVA8cD0CI0gwJyKhWkj3RDRW80obdmwLoGtAFAVkB45tANwAIASAZLXtLiiiVrY9AABMJUAQABQPQADcvQAHvYwABD9WhvQB3279v/bFWphrky1WgeJZDggBkDu4xNXGoCj20XRx4bl/OSJNagKs1tEbLWuuEkb
-
-1m6RtukHWrJRvAsgI5q5qgOz9t/aAO31v0NgOyjsOLR6s9rYAL2iIGvamGW9pwB72zwAoBp64WqIqz0exteLaO0Ds1rQLU+r1gc2yBI8aFYcADHgqgOADgB2QMtGQRoATyBI7fPFZn6AGAcDCihVK01PUqigagW6A8oGsH0B2QPfJfdfXSzpk5DOsQgtATOnTsOj4MgdsxAbO4zsyAqFHss0qtyIzuEwTOszsYtJAba0zUsgRwCEB9AFzoPAfOyJ
-
-D87jUOiC6ArATKCIANqKYmVotFVzt87MgfzptS6E7zts6TOjTVxL0MhnSi67OzIHmCKWgzsi68u9zpVbBPVABax0u6Lpq7B/VjW2hGu0rv0BwqQeJg7xCdrpi6rGQmRPE+uzIFbACZT+RzTNOqrrc79AVxFZgatFsAi6RAarv0AqFYHAK75QGwmZ52IfAAvqjQGEO0ArMfFRu0Q4LDk06rwbbtBaV1JqGnBMYRIBQ8UIR8k075IAwDyQGAUdMjhx
-
-QIsA2BkqYbv0ACujOIlUTFNhhIAXIobvxAQemsCPqGu8HuIBhYIJFG6GDYIAo5ge3FvpYIAKKFhBpoUgGUBsQAAApRwXrFh1CegnuoAPscUAABKXkC00MfaiDWxsevHupRvoDVSZ7Ge0nt2hKen7r0BSQVmF1AKocwHBAPowIVpAsutKDlFyMBzqnELiTQCshIQes2LgDayrqW7he41HK670BD006gWLTS/xZIJvGcREey6GiisiIgCPrDeyAD/A
-
-1O4+ttQ+EWcwRTAULoEhBSATMErJbe/JHt6mABHs0Ake7QsVgdQTQB5j1IZgFZA/wOADh7UoD3q96wpKoGshGAHnthBXuu1TCBggPnTHk5u/Km4yOjJ0AMBWQDIE0FsHaiFBAXIaPoQBY+pSF4rNOxwGYB9emECgxEsYWGyAhAJplCJdaCqECA9SFVGfF68fXqB7ywEFAjog+98DgBeocPoN6Kaw1UwBs+pPrvRQ+3WB5ozGE6G/dwgc8DsgyIIA
-
-A===
+```json
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.27.3",
+  "elements": [
+    {
+      "id": "aa8aad0d",
+      "type": "arrow",
+      "x": 146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 24.00585142857143,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 713731342,
+      "version": 3,
+      "versionNonce": 2136944878,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165880,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:af811358:0b68b82b",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "nav:review-introduction"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "af811358",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "0b68b82b",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          64,
+          -0.005851428571427952
+        ],
+        [
+          64,
+          -24.00585142857143
+        ],
+        [
+          128.35000000000002,
+          -23.999968000000003
+        ]
+      ],
+      "index": "a0",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "ad4849f2",
+      "type": "arrow",
+      "x": -146,
+      "y": -7.994148571428572,
+      "width": 128.35000000000002,
+      "height": 24.00585142857143,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 759712243,
+      "version": 3,
+      "versionNonce": 1248256814,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165880,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:af811358:d5af75ea",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "af811358",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "d5af75ea",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -64,
+          -0.005851428571427952
+        ],
+        [
+          -64,
+          -24.00585142857143
+        ],
+        [
+          -128.35000000000002,
+          -23.999968000000003
+        ]
+      ],
+      "index": "a1",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "62e1ce3e",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -31.994052000000003,
+      "width": 148.70000000000005,
+      "height": 432.005948,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1658965566,
+      "version": 3,
+      "versionNonce": 910052718,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165880,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:d5af75ea:f49d2238",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "d5af75ea",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "f49d2238",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999996512
+        ],
+        [
+          -74.35000000000002,
+          -432.005948
+        ],
+        [
+          -148.70000000000005,
+          -431.9999999999999
+        ]
+      ],
+      "index": "a2",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "8b16a9ec",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": -463.9940519999999,
+      "width": 148.69999999999982,
+      "height": 48.0059480000001,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 186034669,
+      "version": 3,
+      "versionNonce": 993667246,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:f49d2238:1358a1af",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "f49d2238",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "1358a1af",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005948000000103093
+        ],
+        [
+          -74.34999999999991,
+          -48.0059480000001
+        ],
+        [
+          -148.69999999999982,
+          -48.000000000000114
+        ]
+      ],
+      "index": "a3",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "8404203f",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": -463.9940519999999,
+      "width": 148.69999999999982,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 67379264,
+      "version": 3,
+      "versionNonce": 126673646,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:f49d2238:cb911f7b",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "f49d2238",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "cb911f7b",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005948000000103093
+        ],
+        [
+          -74.34999999999991,
+          47.9940519999999
+        ],
+        [
+          -148.69999999999982,
+          47.999999999999886
+        ]
+      ],
+      "index": "a4",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "6b2fe225",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -31.994052000000003,
+      "width": 148.70000000000005,
+      "height": 192.005948,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1798300197,
+      "version": 3,
+      "versionNonce": 3043246,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165880,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:d5af75ea:552b1333",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "d5af75ea",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "552b1333",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999996512
+        ],
+        [
+          -74.35000000000002,
+          -192.005948
+        ],
+        [
+          -148.70000000000005,
+          -192
+        ]
+      ],
+      "index": "a5",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "f5f6c50a",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": -223.994052,
+      "width": 148.69999999999982,
+      "height": 96.00594799999999,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1979106571,
+      "version": 3,
+      "versionNonce": 638473518,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:552b1333:bafe0cfb",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "552b1333",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "bafe0cfb",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005947999999989406
+        ],
+        [
+          -74.34999999999991,
+          -96.00594799999999
+        ],
+        [
+          -148.69999999999982,
+          -96
+        ]
+      ],
+      "index": "a6",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "b0666a6e",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": -223.99360000000001,
+      "width": 148.69999999999982,
+      "height": 0,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 812018287,
+      "version": 3,
+      "versionNonce": 1344765806,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:552b1333:4cc73169",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "552b1333",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "4cc73169",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -148.69999999999982,
+          0
+        ]
+      ],
+      "index": "a7",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "38717eae",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": -223.994052,
+      "width": 148.69999999999982,
+      "height": 96.00594800000002,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 946962094,
+      "version": 3,
+      "versionNonce": 706830766,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:552b1333:6c36e853",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "552b1333",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "6c36e853",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005947999999989406
+        ],
+        [
+          -74.34999999999991,
+          95.99405200000001
+        ],
+        [
+          -148.69999999999982,
+          96.00000000000003
+        ]
+      ],
+      "index": "a8",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "21ac925a",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -31.993600000000004,
+      "width": 148.70000000000005,
+      "height": 0,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 564957786,
+      "version": 3,
+      "versionNonce": 1415596526,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:d5af75ea:eaf60a0e",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "d5af75ea",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "eaf60a0e",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -148.70000000000005,
+          0
+        ]
+      ],
+      "index": "a9",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "58d82428",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -31.994052000000003,
+      "width": 148.70000000000005,
+      "height": 144.00594800000002,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1490560040,
+      "version": 3,
+      "versionNonce": 1910299694,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:d5af75ea:995171af",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "d5af75ea",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "995171af",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999996512
+        ],
+        [
+          -74.35000000000002,
+          143.994052
+        ],
+        [
+          -148.70000000000005,
+          144.00000000000003
+        ]
+      ],
+      "index": "aA",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "63f9c6b4",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": 112.00594800000002,
+      "width": 148.69999999999982,
+      "height": 48.00594800000002,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1677313716,
+      "version": 3,
+      "versionNonce": 1730477038,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165882,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:995171af:da818649",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "995171af",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "da818649",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005948000000017828
+        ],
+        [
+          -74.34999999999991,
+          -48.00594800000002
+        ],
+        [
+          -148.69999999999982,
+          -48.00000000000003
+        ]
+      ],
+      "index": "aB",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "d64dfc0a",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": 112.00594800000002,
+      "width": 148.69999999999982,
+      "height": 48.00594799999999,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1447951371,
+      "version": 3,
+      "versionNonce": 1832603182,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165882,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:995171af:1a4f5d36",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "995171af",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "1a4f5d36",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005948000000017828
+        ],
+        [
+          -74.34999999999991,
+          47.99405199999998
+        ],
+        [
+          -148.69999999999982,
+          47.99999999999997
+        ]
+      ],
+      "index": "aC",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "41673442",
+      "type": "arrow",
+      "x": -615.65,
+      "y": -31.994052000000003,
+      "width": 148.70000000000005,
+      "height": 384.005948,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1097282626,
+      "version": 3,
+      "versionNonce": 1317873262,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165881,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:d5af75ea:1b49a3e8",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "d5af75ea",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "1b49a3e8",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.35000000000002,
+          -0.005947999999996512
+        ],
+        [
+          -74.35000000000002,
+          383.994052
+        ],
+        [
+          -148.70000000000005,
+          384
+        ]
+      ],
+      "index": "aD",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "5fc601d0",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": 352.005948,
+      "width": 148.69999999999982,
+      "height": 96.00594799999999,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1606812112,
+      "version": 3,
+      "versionNonce": 2035112046,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165882,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:1b49a3e8:5c226459",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "1b49a3e8",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "5c226459",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005947999999989406
+        ],
+        [
+          -74.34999999999991,
+          -96.00594799999999
+        ],
+        [
+          -148.69999999999982,
+          -96
+        ]
+      ],
+      "index": "aE",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "3c36933c",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": 352.0064,
+      "width": 148.69999999999982,
+      "height": 0,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1010209596,
+      "version": 3,
+      "versionNonce": 1126439598,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165882,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:1b49a3e8:fc8f25f1",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "1b49a3e8",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "fc8f25f1",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -148.69999999999982,
+          0
+        ]
+      ],
+      "index": "aF",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "a65b04bb",
+      "type": "arrow",
+      "x": -1105.65,
+      "y": 352.005948,
+      "width": 148.69999999999982,
+      "height": 96.00594799999999,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 643499196,
+      "version": 3,
+      "versionNonce": 560501998,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165882,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:1b49a3e8:13ddf6f0",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-interface"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "mode": "orbit",
+        "elementId": "1b49a3e8",
+        "fixedPoint": [
+          0,
+          0.5001
+        ]
+      },
+      "endBinding": {
+        "mode": "orbit",
+        "elementId": "13ddf6f0",
+        "fixedPoint": [
+          1,
+          0.5001
+        ]
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -74.34999999999991,
+          -0.005947999999989406
+        ],
+        [
+          -74.34999999999991,
+          95.99405200000001
+        ],
+        [
+          -148.69999999999982,
+          96
+        ]
+      ],
+      "index": "aG",
+      "hasTextLink": false,
+      "moveMidPointsWithElement": false
+    },
+    {
+      "id": "af811358",
+      "type": "rectangle",
+      "x": -140,
+      "y": -40,
+      "width": 280,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#596574",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "af811358"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 796988249,
+      "version": 2,
+      "versionNonce": 202998254,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "3a651f84",
+          "type": "text"
+        },
+        {
+          "id": "aa8aad0d",
+          "type": "arrow"
+        },
+        {
+          "id": "fe10700d",
+          "type": "arrow"
+        },
+        {
+          "id": "e8cdb6bc",
+          "type": "arrow"
+        },
+        {
+          "id": "ad4849f2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:root",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "root",
+          "branch": null
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aH",
+      "hasTextLink": false
+    },
+    {
+      "id": "3a651f84",
+      "type": "text",
+      "x": -48,
+      "y": -23,
+      "width": 96,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#ffffff",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "af811358"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 979705732,
+      "version": 3,
+      "versionNonce": 1426023282,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "智能审稿",
+      "originalText": "智能审稿",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "af811358",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:root:label",
+          "owned": {
+            "text": "智能审稿",
+            "originalText": "智能审稿",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": null
+        }
+      },
+      "rawText": "智能审稿",
+      "hasTextLink": false,
+      "index": "aHV",
+      "labelPosition": null
+    },
+    {
+      "id": "0b68b82b",
+      "type": "rectangle",
+      "x": 280,
+      "y": -64,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "0b68b82b"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 191412267,
+      "version": 3,
+      "versionNonce": 2108316658,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "3b5b4bee",
+          "type": "text"
+        },
+        {
+          "id": "aa8aad0d",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-introduction",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-introduction",
+          "articleSlug": "peer-review",
+          "focusTitle": "功能简介",
+          "parent": "af811358"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aI",
+      "hasTextLink": false
+    },
+    {
+      "id": "3b5b4bee",
+      "type": "text",
+      "x": 416,
+      "y": -45.75,
+      "width": 88,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "0b68b82b"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 995838958,
+      "version": 3,
+      "versionNonce": 128992430,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "功能简介",
+      "originalText": "功能简介",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "0b68b82b",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-introduction:label",
+          "owned": {
+            "text": "功能简介",
+            "originalText": "功能简介",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-introduction",
+          "articleSlug": "peer-review"
+        }
+      },
+      "rawText": "功能简介",
+      "hasTextLink": false,
+      "index": "aIV",
+      "labelPosition": null
+    },
+    {
+      "id": "d5af75ea",
+      "type": "rectangle",
+      "x": -610,
+      "y": -64,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "d5af75ea"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1437562347,
+      "version": 2,
+      "versionNonce": 1303319598,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c44e8b5f",
+          "type": "text"
+        },
+        {
+          "id": "ad4849f2",
+          "type": "arrow"
+        },
+        {
+          "id": "62e1ce3e",
+          "type": "arrow"
+        },
+        {
+          "id": "6b2fe225",
+          "type": "arrow"
+        },
+        {
+          "id": "21ac925a",
+          "type": "arrow"
+        },
+        {
+          "id": "58d82428",
+          "type": "arrow"
+        },
+        {
+          "id": "41673442",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-interface",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "nav:review-interface",
+          "focusTitle": "界面介绍",
+          "parent": "af811358"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aJ",
+      "hasTextLink": false
+    },
+    {
+      "id": "c44e8b5f",
+      "type": "text",
+      "x": -493,
+      "y": -47,
+      "width": 96,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "d5af75ea"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1145998176,
+      "version": 3,
+      "versionNonce": 1038492978,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "界面介绍",
+      "originalText": "界面介绍",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d5af75ea",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-interface:label",
+          "owned": {
+            "text": "界面介绍",
+            "originalText": "界面介绍",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface"
+        }
+      },
+      "rawText": "界面介绍",
+      "hasTextLink": false,
+      "index": "aJV",
+      "labelPosition": null
+    },
+    {
+      "id": "f49d2238",
+      "type": "rectangle",
+      "x": -1100,
+      "y": -496,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "f49d2238"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1956454969,
+      "version": 4,
+      "versionNonce": 2006846898,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "e8ac2d93",
+          "type": "text"
+        },
+        {
+          "id": "62e1ce3e",
+          "type": "arrow"
+        },
+        {
+          "id": "8b16a9ec",
+          "type": "arrow"
+        },
+        {
+          "id": "8404203f",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-workflow-interface",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review",
+          "parent": "d5af75ea"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aK",
+      "hasTextLink": false
+    },
+    {
+      "id": "e8ac2d93",
+      "type": "text",
+      "x": -1007,
+      "y": -479,
+      "width": 144,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "f49d2238"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1756114324,
+      "version": 3,
+      "versionNonce": 383745774,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "操作流程界面",
+      "originalText": "操作流程界面",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "f49d2238",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-workflow-interface:label",
+          "owned": {
+            "text": "操作流程界面",
+            "originalText": "操作流程界面",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review"
+        }
+      },
+      "rawText": "操作流程界面",
+      "hasTextLink": false,
+      "index": "aKV",
+      "labelPosition": null
+    },
+    {
+      "id": "1358a1af",
+      "type": "rectangle",
+      "x": -1620,
+      "y": -544,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1358a1af"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 324575663,
+      "version": 4,
+      "versionNonce": 1666735726,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "65ef3a62",
+          "type": "text"
+        },
+        {
+          "id": "8b16a9ec",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-journal-paper-flow",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review",
+          "parent": "f49d2238"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aL",
+      "hasTextLink": false
+    },
+    {
+      "id": "65ef3a62",
+      "type": "text",
+      "x": -1528,
+      "y": -525.75,
+      "width": 176,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1358a1af"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1710176866,
+      "version": 3,
+      "versionNonce": 1745792754,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "期刊论文审稿流程",
+      "originalText": "期刊论文审稿流程",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "1358a1af",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-journal-paper-flow:label",
+          "owned": {
+            "text": "期刊论文审稿流程",
+            "originalText": "期刊论文审稿流程",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review"
+        }
+      },
+      "rawText": "期刊论文审稿流程",
+      "hasTextLink": false,
+      "index": "aLV",
+      "labelPosition": null
+    },
+    {
+      "id": "cb911f7b",
+      "type": "rectangle",
+      "x": -1620,
+      "y": -448,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "cb911f7b"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1267801980,
+      "version": 4,
+      "versionNonce": 1672841074,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "ea1e7be5",
+          "type": "text"
+        },
+        {
+          "id": "8404203f",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-thesis-flow",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review",
+          "parent": "f49d2238"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aM",
+      "hasTextLink": false
+    },
+    {
+      "id": "ea1e7be5",
+      "type": "text",
+      "x": -1528,
+      "y": -429.75,
+      "width": 176,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "cb911f7b"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1780382694,
+      "version": 3,
+      "versionNonce": 1756197166,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "毕业论文审稿流程",
+      "originalText": "毕业论文审稿流程",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "cb911f7b",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-thesis-flow:label",
+          "owned": {
+            "text": "毕业论文审稿流程",
+            "originalText": "毕业论文审稿流程",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review"
+        }
+      },
+      "rawText": "毕业论文审稿流程",
+      "hasTextLink": false,
+      "index": "aMV",
+      "labelPosition": null
+    },
+    {
+      "id": "552b1333",
+      "type": "rectangle",
+      "x": -1100,
+      "y": -256,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "552b1333"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1428886323,
+      "version": 3,
+      "versionNonce": 31350958,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "f8dc9e90",
+          "type": "text"
+        },
+        {
+          "id": "6b2fe225",
+          "type": "arrow"
+        },
+        {
+          "id": "f5f6c50a",
+          "type": "arrow"
+        },
+        {
+          "id": "b0666a6e",
+          "type": "arrow"
+        },
+        {
+          "id": "38717eae",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-results-interface",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "d5af75ea"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aN",
+      "hasTextLink": false
+    },
+    {
+      "id": "f8dc9e90",
+      "type": "text",
+      "x": -1031,
+      "y": -239,
+      "width": 192,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "552b1333"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 2027724433,
+      "version": 3,
+      "versionNonce": 1476395186,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "审稿结果产物界面",
+      "originalText": "审稿结果产物界面",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "552b1333",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-results-interface:label",
+          "owned": {
+            "text": "审稿结果产物界面",
+            "originalText": "审稿结果产物界面",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "审稿结果产物界面",
+      "hasTextLink": false,
+      "index": "aNV",
+      "labelPosition": null
+    },
+    {
+      "id": "bafe0cfb",
+      "type": "rectangle",
+      "x": -1620,
+      "y": -352,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "bafe0cfb"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 989727996,
+      "version": 3,
+      "versionNonce": 1513605426,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "364b7d33",
+          "type": "text"
+        },
+        {
+          "id": "f5f6c50a",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-result-accept",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "552b1333"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aO",
+      "hasTextLink": false
+    },
+    {
+      "id": "364b7d33",
+      "type": "text",
+      "x": -1462,
+      "y": -333.75,
+      "width": 44,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "bafe0cfb"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 910916915,
+      "version": 3,
+      "versionNonce": 679680878,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "录用",
+      "originalText": "录用",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "bafe0cfb",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-result-accept:label",
+          "owned": {
+            "text": "录用",
+            "originalText": "录用",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "录用",
+      "hasTextLink": false,
+      "index": "aOV",
+      "labelPosition": null
+    },
+    {
+      "id": "4cc73169",
+      "type": "rectangle",
+      "x": -1620,
+      "y": -256,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "4cc73169"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1288122729,
+      "version": 3,
+      "versionNonce": 1558846190,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "623963d5",
+          "type": "text"
+        },
+        {
+          "id": "b0666a6e",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-result-revise",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "552b1333"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aP",
+      "hasTextLink": false
+    },
+    {
+      "id": "623963d5",
+      "type": "text",
+      "x": -1462,
+      "y": -237.75,
+      "width": 44,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "4cc73169"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1647928277,
+      "version": 3,
+      "versionNonce": 1767971442,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "返修",
+      "originalText": "返修",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "4cc73169",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-result-revise:label",
+          "owned": {
+            "text": "返修",
+            "originalText": "返修",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "返修",
+      "hasTextLink": false,
+      "index": "aPV",
+      "labelPosition": null
+    },
+    {
+      "id": "6c36e853",
+      "type": "rectangle",
+      "x": -1620,
+      "y": -160,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "6c36e853"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1815537747,
+      "version": 3,
+      "versionNonce": 1384895218,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "048121e3",
+          "type": "text"
+        },
+        {
+          "id": "38717eae",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-result-reject",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "552b1333"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aQ",
+      "hasTextLink": false
+    },
+    {
+      "id": "048121e3",
+      "type": "text",
+      "x": -1462,
+      "y": -141.75,
+      "width": 44,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "6c36e853"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 75571683,
+      "version": 3,
+      "versionNonce": 749305262,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "拒稿",
+      "originalText": "拒稿",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "6c36e853",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-result-reject:label",
+          "owned": {
+            "text": "拒稿",
+            "originalText": "拒稿",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "拒稿",
+      "hasTextLink": false,
+      "index": "aQV",
+      "labelPosition": null
+    },
+    {
+      "id": "eaf60a0e",
+      "type": "rectangle",
+      "x": -1130,
+      "y": -64,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "eaf60a0e"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1794509327,
+      "version": 4,
+      "versionNonce": 1258589486,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "d93dee34",
+          "type": "text"
+        },
+        {
+          "id": "21ac925a",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-dimensions",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "d5af75ea"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aR",
+      "hasTextLink": false
+    },
+    {
+      "id": "d93dee34",
+      "type": "text",
+      "x": -994,
+      "y": -45.75,
+      "width": 88,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "eaf60a0e"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1497230901,
+      "version": 3,
+      "versionNonce": 1794702386,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "审稿维度",
+      "originalText": "审稿维度",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "eaf60a0e",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-dimensions:label",
+          "owned": {
+            "text": "审稿维度",
+            "originalText": "审稿维度",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "审稿维度",
+      "hasTextLink": false,
+      "index": "aRV",
+      "labelPosition": null
+    },
+    {
+      "id": "995171af",
+      "type": "rectangle",
+      "x": -1100,
+      "y": 80,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "995171af"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 424767920,
+      "version": 4,
+      "versionNonce": 1060676786,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "5823623b",
+          "type": "text"
+        },
+        {
+          "id": "58d82428",
+          "type": "arrow"
+        },
+        {
+          "id": "63f9c6b4",
+          "type": "arrow"
+        },
+        {
+          "id": "d64dfc0a",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-evaluation-method",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "d5af75ea"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aS",
+      "hasTextLink": false
+    },
+    {
+      "id": "5823623b",
+      "type": "text",
+      "x": -983,
+      "y": 97,
+      "width": 96,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "995171af"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1478713915,
+      "version": 3,
+      "versionNonce": 441030638,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "评价方式",
+      "originalText": "评价方式",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "995171af",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-evaluation-method:label",
+          "owned": {
+            "text": "评价方式",
+            "originalText": "评价方式",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "评价方式",
+      "hasTextLink": false,
+      "index": "aSV",
+      "labelPosition": null
+    },
+    {
+      "id": "da818649",
+      "type": "rectangle",
+      "x": -1620,
+      "y": 32,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "da818649"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1518437962,
+      "version": 4,
+      "versionNonce": 1771485038,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "88dabb75",
+          "type": "text"
+        },
+        {
+          "id": "63f9c6b4",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-evaluation-original",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "995171af"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aT",
+      "hasTextLink": false
+    },
+    {
+      "id": "88dabb75",
+      "type": "text",
+      "x": -1462,
+      "y": 50.25,
+      "width": 44,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "da818649"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 148552566,
+      "version": 3,
+      "versionNonce": 984524274,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "原句",
+      "originalText": "原句",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "da818649",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-evaluation-original:label",
+          "owned": {
+            "text": "原句",
+            "originalText": "原句",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "原句",
+      "hasTextLink": false,
+      "index": "aTV",
+      "labelPosition": null
+    },
+    {
+      "id": "1a4f5d36",
+      "type": "rectangle",
+      "x": -1620,
+      "y": 128,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1a4f5d36"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 441408822,
+      "version": 4,
+      "versionNonce": 702889586,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "2a48b059",
+          "type": "text"
+        },
+        {
+          "id": "d64dfc0a",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-evaluation-advice",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "995171af"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aU",
+      "hasTextLink": false
+    },
+    {
+      "id": "2a48b059",
+      "type": "text",
+      "x": -1462,
+      "y": 146.25,
+      "width": 44,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1a4f5d36"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 709406809,
+      "version": 3,
+      "versionNonce": 158100014,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "建议",
+      "originalText": "建议",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "1a4f5d36",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-evaluation-advice:label",
+          "owned": {
+            "text": "建议",
+            "originalText": "建议",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "建议",
+      "hasTextLink": false,
+      "index": "aUV",
+      "labelPosition": null
+    },
+    {
+      "id": "1b49a3e8",
+      "type": "rectangle",
+      "x": -1100,
+      "y": 320,
+      "width": 330,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1b49a3e8"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 457810920,
+      "version": 3,
+      "versionNonce": 1089051054,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "a4f6cc7d",
+          "type": "text"
+        },
+        {
+          "id": "41673442",
+          "type": "arrow"
+        },
+        {
+          "id": "5fc601d0",
+          "type": "arrow"
+        },
+        {
+          "id": "3c36933c",
+          "type": "arrow"
+        },
+        {
+          "id": "a65b04bb",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "group",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "d5af75ea"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aV",
+      "hasTextLink": false
+    },
+    {
+      "id": "a4f6cc7d",
+      "type": "text",
+      "x": -983,
+      "y": 337,
+      "width": 96,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "1b49a3e8"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 620153982,
+      "version": 3,
+      "versionNonce": 1636374450,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "审稿分页",
+      "originalText": "审稿分页",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "1b49a3e8",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination:label",
+          "owned": {
+            "text": "审稿分页",
+            "originalText": "审稿分页",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "审稿分页",
+      "hasTextLink": false,
+      "index": "aVV",
+      "labelPosition": null
+    },
+    {
+      "id": "5c226459",
+      "type": "rectangle",
+      "x": -1620,
+      "y": 224,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "5c226459"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1545757785,
+      "version": 3,
+      "versionNonce": 1331208242,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "05f8c2ef",
+          "type": "text"
+        },
+        {
+          "id": "5fc601d0",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination-initial",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "1b49a3e8"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aW",
+      "hasTextLink": false
+    },
+    {
+      "id": "05f8c2ef",
+      "type": "text",
+      "x": -1462,
+      "y": 242.25,
+      "width": 44,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "5c226459"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 100188911,
+      "version": 3,
+      "versionNonce": 687535214,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "初审",
+      "originalText": "初审",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "5c226459",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination-initial:label",
+          "owned": {
+            "text": "初审",
+            "originalText": "初审",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "初审",
+      "hasTextLink": false,
+      "index": "aWV",
+      "labelPosition": null
+    },
+    {
+      "id": "fc8f25f1",
+      "type": "rectangle",
+      "x": -1620,
+      "y": 320,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "fc8f25f1"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2089756146,
+      "version": 3,
+      "versionNonce": 1747334126,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "0004b307",
+          "type": "text"
+        },
+        {
+          "id": "3c36933c",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination-reviewers",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "1b49a3e8"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aX",
+      "hasTextLink": false
+    },
+    {
+      "id": "0004b307",
+      "type": "text",
+      "x": -1473,
+      "y": 338.25,
+      "width": 66,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "fc8f25f1"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 307975,
+      "version": 3,
+      "versionNonce": 800018802,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "审稿人",
+      "originalText": "审稿人",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "fc8f25f1",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination-reviewers:label",
+          "owned": {
+            "text": "审稿人",
+            "originalText": "审稿人",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "审稿人",
+      "hasTextLink": false,
+      "index": "aXV",
+      "labelPosition": null
+    },
+    {
+      "id": "13ddf6f0",
+      "type": "rectangle",
+      "x": -1620,
+      "y": 416,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "13ddf6f0"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 333313776,
+      "version": 3,
+      "versionNonce": 997837298,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "2c5df0ba",
+          "type": "text"
+        },
+        {
+          "id": "a65b04bb",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788932165819,
+      "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination-final",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/peer-review-results-guide.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide",
+          "parent": "1b49a3e8"
+        },
+        "legacyTextWrap": true
+      },
+      "index": "aY",
+      "hasTextLink": false
+    },
+    {
+      "id": "2c5df0ba",
+      "type": "text",
+      "x": -1462,
+      "y": 434.25,
+      "width": 44,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "13ddf6f0"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 744353978,
+      "version": 2,
+      "versionNonce": 1676896690,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": null,
+      "locked": false,
+      "text": "终审",
+      "originalText": "终审",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "13ddf6f0",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-pagination-final:label",
+          "owned": {
+            "text": "终审",
+            "originalText": "终审",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-interface",
+          "articleSlug": "peer-review-results-guide"
+        }
+      },
+      "rawText": "终审",
+      "hasTextLink": false,
+      "index": "aq",
+      "labelPosition": null
+    },
+    {
+      "id": "a030143c",
+      "type": "text",
+      "x": -140,
+      "y": -628,
+      "width": 116.1123046875,
+      "height": 27.5,
+      "angle": 0,
+      "strokeColor": "#697586",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 540021821,
+      "version": 2,
+      "versionNonce": 378978926,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1788932165819,
+      "link": "[[wiki/boards/Scholay.excalidraw.md]]",
+      "locked": false,
+      "text": "← 研究路径",
+      "originalText": "← 研究路径",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:home",
+          "owned": {
+            "text": "← 研究路径",
+            "originalText": "← 研究路径",
+            "link": "[[wiki/boards/Scholay.excalidraw.md]]"
+          },
+          "layoutVersion": 2
+        }
+      },
+      "rawText": "← 研究路径",
+      "hasTextLink": false,
+      "index": "ar",
+      "labelPosition": null
+    },
+    {
+      "id": "fe10700d",
+      "type": "arrow",
+      "x": 148,
+      "y": -8.0,
+      "width": 124,
+      "height": 44.0,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 2115006478,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:af811358:5fa90a8f",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "nav:review-purchasing-power"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "af811358",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "5fa90a8f",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          62.0,
+          0.0
+        ],
+        [
+          62.0,
+          44.0
+        ],
+        [
+          124,
+          44.0
+        ]
+      ]
+    },
+    {
+      "id": "e8cdb6bc",
+      "type": "arrow",
+      "x": -148,
+      "y": -8.0,
+      "width": 124,
+      "height": 572.0,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1758312125,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:edge:af811358:cee07b21",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": -1,
+          "branch": "nav:review-models"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "af811358",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "cee07b21",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -62.0,
+          0.0
+        ],
+        [
+          -62.0,
+          -572.0
+        ],
+        [
+          -124,
+          -572.0
+        ]
+      ]
+    },
+    {
+      "id": "5fa90a8f",
+      "type": "rectangle",
+      "x": 280,
+      "y": 4.0,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "5fa90a8f"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1604913807,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "d20c3e48",
+          "type": "text"
+        },
+        {
+          "id": "fe10700d",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-purchasing-power",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-purchasing-power",
+          "articleSlug": "ai-models-and-runtime-config",
+          "focusTitle": "大约能用多少次",
+          "parent": "af811358"
+        }
+      }
+    },
+    {
+      "id": "cee07b21",
+      "type": "rectangle",
+      "x": -640,
+      "y": -612.0,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "cee07b21"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1323334434,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "057a344c",
+          "type": "text"
+        },
+        {
+          "id": "e8cdb6bc",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-models",
+          "owned": {
+            "link": "[[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:review-models",
+          "articleSlug": "ai-models-and-runtime-config",
+          "focusTitle": "模型选择",
+          "parent": "af811358"
+        }
+      }
+    },
+    {
+      "id": "d20c3e48",
+      "type": "text",
+      "x": 296,
+      "y": 22.0,
+      "width": 328,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "5fa90a8f"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1376534089,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "大约能用多少次",
+      "originalText": "大约能用多少次",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "5fa90a8f",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-purchasing-power:label",
+          "owned": {
+            "text": "大约能用多少次",
+            "originalText": "大约能用多少次",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-purchasing-power",
+          "articleSlug": "ai-models-and-runtime-config"
+        }
+      }
+    },
+    {
+      "id": "057a344c",
+      "type": "text",
+      "x": -624,
+      "y": -594.0,
+      "width": 328,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#596574",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "cee07b21"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 91894860,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "模型选择",
+      "originalText": "模型选择",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "cee07b21",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:review:nav:review-models:label",
+          "owned": {
+            "text": "模型选择",
+            "originalText": "模型选择",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:review-models",
+          "articleSlug": "ai-models-and-runtime-config"
+        }
+      }
+    }
+  ],
+  "appState": {
+    "theme": "light",
+    "viewBackgroundColor": "#ffffff",
+    "currentItemStrokeColor": "#1e1e1e",
+    "currentItemBackgroundColor": "transparent",
+    "currentItemFillStyle": "solid",
+    "currentItemStrokeWidthKey": "medium",
+    "currentItemStrokeVariability": "constant",
+    "currentItemStrokeStyle": "solid",
+    "currentItemRoughness": 1,
+    "currentItemOpacity": 100,
+    "currentItemFontFamily": 5,
+    "currentItemFontSize": 20,
+    "currentItemTextAlign": "left",
+    "currentItemStartArrowhead": null,
+    "currentItemEndArrowhead": "arrow",
+    "currentItemArrowType": "round",
+    "currentItemFrameRole": null,
+    "scrollX": 1679.472800843577,
+    "scrollY": 960.1612273826855,
+    "zoom": {
+      "value": 0.548142
+    },
+    "currentItemRoundness": "round",
+    "gridSize": null,
+    "gridStep": 5,
+    "gridModeEnabled": false,
+    "gridColor": {
+      "Bold": "rgba(179, 179, 179, 0.5)",
+      "Regular": "rgba(204, 204, 204, 0.5)"
+    },
+    "colorTopPicks": {
+      "elementStroke": null,
+      "elementBackground": null,
+      "bucketFill": null
+    },
+    "currentStrokeOptions": null,
+    "frameRendering": {
+      "enabled": true,
+      "clip": true,
+      "name": true,
+      "outline": true,
+      "markerName": true,
+      "markerEnabled": true
+    },
+    "objectsSnapModeEnabled": false,
+    "activeTool": {
+      "type": "selection",
+      "customType": null,
+      "locked": false,
+      "fromSelection": false,
+      "lastActiveTool": null
+    },
+    "disableContextMenu": false,
+    "bindingPreference": "enabled",
+    "isMidpointSnappingEnabled": true,
+    "boxSelectionMode": "contain"
+  },
+  "files": {}
+}
 ```
 %%

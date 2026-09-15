@@ -391,6 +391,22 @@
               "title": "会话与历史"
             },
             {
+              "id": "assistant-models",
+              "target": {
+                "articleSlug": "ai-models-and-runtime-config"
+              },
+              "title": "模型与思考深度"
+            },
+            {
+              "id": "assistant-purchasing-power",
+              "target": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "purchasing-power",
+                "shortcut": true
+              },
+              "title": "大约能用多少次"
+            },
+            {
               "id": "assistant-attachments",
               "target": {
                 "articleSlug": "claw-attachments-and-references"
@@ -493,7 +509,27 @@
           "target": {
             "articleSlug": "smart-search"
           },
-          "title": "智能搜索"
+          "title": "智能搜索",
+          "children": [
+            {
+              "id": "literature-search-smart-models",
+              "target": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "runtime-config",
+                "shortcut": true
+              },
+              "title": "模型与思考深度"
+            },
+            {
+              "id": "literature-search-purchasing-power",
+              "target": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "purchasing-power",
+                "shortcut": true
+              },
+              "title": "大约能用多少次"
+            }
+          ]
         },
         {
           "id": "literature-search-smart-vs-assistant",
@@ -582,7 +618,27 @@
           "target": {
             "articleSlug": "prism"
           },
-          "title": "界面介绍"
+          "title": "界面介绍",
+          "children": [
+            {
+              "id": "writing-models",
+              "target": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "runtime-config",
+                "shortcut": true
+              },
+              "title": "模型与思考深度"
+            },
+            {
+              "id": "writing-purchasing-power",
+              "target": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "purchasing-power",
+                "shortcut": true
+              },
+              "title": "大约能用多少次"
+            }
+          ]
         },
         {
           "id": "writing-complete-workflow",
@@ -665,6 +721,24 @@
             "articleSlug": "peer-review"
           },
           "title": "功能简介"
+        },
+        {
+          "id": "review-models",
+          "target": {
+            "articleSlug": "ai-models-and-runtime-config",
+            "sectionId": "runtime-config",
+            "shortcut": true
+          },
+          "title": "模型选择"
+        },
+        {
+          "id": "review-purchasing-power",
+          "target": {
+            "articleSlug": "ai-models-and-runtime-config",
+            "sectionId": "purchasing-power",
+            "shortcut": true
+          },
+          "title": "大约能用多少次"
         },
         {
           "children": [
@@ -875,6 +949,15 @@
                 "shortcut": true
               },
               "title": "Free · Pro · Max"
+            },
+            {
+              "id": "limits-purchasing-power",
+              "target": {
+                "articleSlug": "ai-models-and-runtime-config",
+                "sectionId": "purchasing-power",
+                "shortcut": true
+              },
+              "title": "大约能用多少次"
             }
           ],
           "id": "limits-by-plan",
@@ -2301,7 +2384,8 @@
         "product-map",
         "academic-search",
         "membership",
-        "ai-usage-quota"
+        "ai-usage-quota",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/getting-started/product-and-pricing-overview.md",
@@ -2989,7 +3073,8 @@
         "smart-search",
         "claw",
         "peer-review",
-        "prism"
+        "prism",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/membership/ai-usage-quota.md",
@@ -3270,7 +3355,8 @@
         "ai-usage-quota",
         "membership",
         "payment-orders",
-        "invite-campaign"
+        "invite-campaign",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/membership/wallet-payg.md",
@@ -3486,12 +3572,46 @@
         "claw",
         "peer-review",
         "prism",
-        "agent-runtime"
+        "agent-runtime",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/research-ai/ai-research-workflows.md",
       "sha256": "2a2c56454ba38cece13fc99a530704319a100f96f3e911424ffeac0e804acddc",
       "source": "https://www.scholay.com/wiki/ai-research-workflows.md"
+    },
+    {
+      "slug": "ai-models-and-runtime-config",
+      "title": "选模型、思考深度和大约能用多少次",
+      "summary": "看看现在能选哪些基础、经济和高级模型，思考深度是什么意思，以及 Pro、Max 和科研经费大概能用多少次。",
+      "category": "research-ai",
+      "kind": "rule",
+      "status": "current",
+      "audience": [
+        "AI 功能用户",
+        "研究者"
+      ],
+      "aliases": [
+        "模型选择",
+        "运行配置",
+        "思考深度",
+        "模型价格",
+        "购买力",
+        "大约能用多少次"
+      ],
+      "related": [
+        "ai-research-workflows",
+        "smart-search",
+        "claw",
+        "prism",
+        "peer-review",
+        "ai-usage-quota",
+        "wallet-payg"
+      ],
+      "updated_at": "2026-09-15T15:40:00+08:00",
+      "path": "wiki/pages/research-ai/ai-models-and-runtime-config.md",
+      "sha256": "f12eb882783115c34a23ba272e19265ed8b239134f489c2961be52e6e2e51650",
+      "source": "https://www.scholay.com/wiki/ai-models-and-runtime-config.md"
     },
     {
       "slug": "claw",
@@ -3514,7 +3634,8 @@
         "claw-sessions",
         "claw-attachments-and-references",
         "community-skills",
-        "research-figure-and-slides"
+        "research-figure-and-slides",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-09-06T17:33:50+08:00",
       "path": "wiki/pages/research-ai/claw.md",
@@ -3743,7 +3864,8 @@
         "paper",
         "agent-runtime",
         "ai-usage-quota",
-        "prism"
+        "prism",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/research-ai/peer-review.md",
@@ -3857,7 +3979,8 @@
         "agent-runtime",
         "agent-artifacts",
         "peer-review",
-        "paper"
+        "paper",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/research-ai/prism.md",
@@ -4080,7 +4203,8 @@
         "academic-search",
         "paper",
         "agent-runtime",
-        "ai-usage-quota"
+        "ai-usage-quota",
+        "ai-models-and-runtime-config"
       ],
       "updated_at": "2026-08-27T22:11:14+08:00",
       "path": "wiki/pages/research-ai/smart-search.md",
