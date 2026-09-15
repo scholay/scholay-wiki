@@ -1,16 +1,16 @@
 ---
-title: 选模型、思考深度和大约能用多少次
+title: 模型与计价
 slug: ai-models-and-runtime-config
-summary: 看看现在能选哪些基础、经济和高级模型，思考深度是什么意思，以及 Pro、Max 和科研经费大概能用多少次。
-category: research-ai
+summary: 集中说明当前模型、思考深度、模型计价，以及 Pro、Max 和科研经费的大约可用次数。
+category: membership
 status: current
 updated: 2026-09-15T15:40:00+08:00
 canonical: https://www.scholay.com/wiki/ai-models-and-runtime-config
-scholay_topics: ["[[wiki/topics/research-ai/Claw 上下文与任务执行|Claw 上下文与任务执行]]"]
+scholay_topics: ["[[wiki/topics/membership/额度消耗与恢复|额度消耗与恢复]]"]
 scholay_related: ["[[wiki/pages/research-ai/ai-research-workflows|AI 科研工作流]]", "[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/wallet-payg|经费钱包与按量付费]]"]
 ---
 
-# 选模型、思考深度和大约能用多少次
+# 模型与计价
 
 智能搜索、智能助手、智能写作和智能审稿都可以在输入框旁选择模型和思考深度。模型和思考深度只对当前这次任务生效。
 

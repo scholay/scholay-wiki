@@ -128,8 +128,7 @@
         "articles": [
           "claw",
           "claw-attachments-and-references",
-          "claw-sessions",
-          "ai-models-and-runtime-config"
+          "claw-sessions"
         ]
       },
       {
@@ -233,6 +232,7 @@
         "id": "quota",
         "title": "额度消耗与恢复",
         "articles": [
+          "ai-models-and-runtime-config",
           "ai-usage-quota",
           "quota-block-and-recovery"
         ]

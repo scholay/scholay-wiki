@@ -30,10 +30,6 @@ tags: [excalidraw, scholay]
 
 ← 研究路径 ^1ce46d8b
 
-模型与思考深度 ^c64a7a59
-
-大约能用多少次 ^c25377ab
-
 ## Element Links
 7f9c5f95: [[wiki/pages/discovery/academic-search.md]]
 475bc3c5: [[wiki/pages/discovery/classic-vs-smart-search.md]]
@@ -45,8 +41,6 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
 2ddff26d: [[wiki/pages/discovery/paper-detail-and-actions.md]]
 78767905: [[wiki/pages/discovery/author-profile-page.md]]
 1ce46d8b: [[wiki/boards/Scholay.excalidraw.md]]
-249ed1cd: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]
-9591208d: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]
 
 %%
 ## Drawing
@@ -1243,14 +1237,6 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
         {
           "id": "caab7bfc",
           "type": "arrow"
-        },
-        {
-          "id": "7196ebf9",
-          "type": "arrow"
-        },
-        {
-          "id": "2abd9cc4",
-          "type": "arrow"
         }
       ],
       "updated": 1788923809900,
@@ -1263,7 +1249,7 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
             "link": "[[wiki/pages/research-ai/smart-search.md]]"
           },
           "layoutVersion": 2,
-          "role": "group",
+          "role": "article",
           "branch": "nav:literature-search-smart-search",
           "articleSlug": "smart-search",
           "focusTitle": "智能搜索",
@@ -2204,9 +2190,9 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1905716217,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -2276,9 +2262,9 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
       "frameId": null,
       "roundness": null,
       "seed": 717069508,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -2352,9 +2338,9 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
         "type": 3
       },
       "seed": 614388173,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "c64a7a59",
@@ -2405,9 +2391,9 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
         "type": 3
       },
       "seed": 361832590,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "c25377ab",
@@ -2456,9 +2442,9 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1179286106,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -2508,9 +2494,9 @@ f0d6f74f: [[wiki/pages/discovery/paper.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1112766380,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,

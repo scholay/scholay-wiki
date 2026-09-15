@@ -32,10 +32,6 @@ LaTeX 的好处 ^ce90bbec
 
 ← 研究路径 ^5bd50fac
 
-模型与思考深度 ^c69a2117
-
-大约能用多少次 ^d6e9af32
-
 ## Element Links
 24188737: [[wiki/pages/research-ai/prism.md]]
 748e6daf: [[wiki/pages/research-ai/prism-writing-workflow.md]]
@@ -48,8 +44,6 @@ dd47389f: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 c3731901: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 5f8a8a9b: [[wiki/pages/discovery/journal-submission-resources.md]]
 5bd50fac: [[wiki/boards/Scholay.excalidraw.md]]
-5ceb1280: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]
-dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]
 
 %%
 ## Drawing
@@ -1277,14 +1271,6 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
         {
           "id": "1f1729dc",
           "type": "arrow"
-        },
-        {
-          "id": "c237799d",
-          "type": "arrow"
-        },
-        {
-          "id": "5c3c7978",
-          "type": "arrow"
         }
       ],
       "updated": 0,
@@ -1297,7 +1283,7 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
             "link": "[[wiki/pages/research-ai/prism.md]]"
           },
           "layoutVersion": 2,
-          "role": "group",
+          "role": "article",
           "branch": "nav:writing-interface",
           "articleSlug": "prism",
           "focusTitle": "界面介绍",
@@ -2218,9 +2204,9 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
       "frameId": null,
       "roundness": null,
       "seed": 1110931870,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -2290,9 +2276,9 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
       "frameId": null,
       "roundness": null,
       "seed": 1547467128,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -2366,9 +2352,9 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
         "type": 3
       },
       "seed": 1558909568,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "c69a2117",
@@ -2419,9 +2405,9 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
         "type": 3
       },
       "seed": 1538944800,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "d6e9af32",
@@ -2470,9 +2456,9 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
       "frameId": null,
       "roundness": null,
       "seed": 1184506136,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -2522,9 +2508,9 @@ dbba6f1f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-po
       "frameId": null,
       "roundness": null,
       "seed": 1458155315,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,

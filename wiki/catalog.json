@@ -391,22 +391,6 @@
               "title": "会话与历史"
             },
             {
-              "id": "assistant-models",
-              "target": {
-                "articleSlug": "ai-models-and-runtime-config"
-              },
-              "title": "模型与思考深度"
-            },
-            {
-              "id": "assistant-purchasing-power",
-              "target": {
-                "articleSlug": "ai-models-and-runtime-config",
-                "sectionId": "purchasing-power",
-                "shortcut": true
-              },
-              "title": "大约能用多少次"
-            },
-            {
               "id": "assistant-attachments",
               "target": {
                 "articleSlug": "claw-attachments-and-references"
@@ -509,27 +493,7 @@
           "target": {
             "articleSlug": "smart-search"
           },
-          "title": "智能搜索",
-          "children": [
-            {
-              "id": "literature-search-smart-models",
-              "target": {
-                "articleSlug": "ai-models-and-runtime-config",
-                "sectionId": "runtime-config",
-                "shortcut": true
-              },
-              "title": "模型与思考深度"
-            },
-            {
-              "id": "literature-search-purchasing-power",
-              "target": {
-                "articleSlug": "ai-models-and-runtime-config",
-                "sectionId": "purchasing-power",
-                "shortcut": true
-              },
-              "title": "大约能用多少次"
-            }
-          ]
+          "title": "智能搜索"
         },
         {
           "id": "literature-search-smart-vs-assistant",
@@ -618,27 +582,7 @@
           "target": {
             "articleSlug": "prism"
           },
-          "title": "界面介绍",
-          "children": [
-            {
-              "id": "writing-models",
-              "target": {
-                "articleSlug": "ai-models-and-runtime-config",
-                "sectionId": "runtime-config",
-                "shortcut": true
-              },
-              "title": "模型与思考深度"
-            },
-            {
-              "id": "writing-purchasing-power",
-              "target": {
-                "articleSlug": "ai-models-and-runtime-config",
-                "sectionId": "purchasing-power",
-                "shortcut": true
-              },
-              "title": "大约能用多少次"
-            }
-          ]
+          "title": "界面介绍"
         },
         {
           "id": "writing-complete-workflow",
@@ -721,24 +665,6 @@
             "articleSlug": "peer-review"
           },
           "title": "功能简介"
-        },
-        {
-          "id": "review-models",
-          "target": {
-            "articleSlug": "ai-models-and-runtime-config",
-            "sectionId": "runtime-config",
-            "shortcut": true
-          },
-          "title": "模型选择"
-        },
-        {
-          "id": "review-purchasing-power",
-          "target": {
-            "articleSlug": "ai-models-and-runtime-config",
-            "sectionId": "purchasing-power",
-            "shortcut": true
-          },
-          "title": "大约能用多少次"
         },
         {
           "children": [
@@ -940,6 +866,13 @@
     {
       "children": [
         {
+          "id": "limits-model-pricing",
+          "target": {
+            "articleSlug": "ai-models-and-runtime-config"
+          },
+          "title": "模型与计价"
+        },
+        {
           "children": [
             {
               "id": "limits-free-pro-max",
@@ -949,15 +882,6 @@
                 "shortcut": true
               },
               "title": "Free · Pro · Max"
-            },
-            {
-              "id": "limits-purchasing-power",
-              "target": {
-                "articleSlug": "ai-models-and-runtime-config",
-                "sectionId": "purchasing-power",
-                "shortcut": true
-              },
-              "title": "大约能用多少次"
             }
           ],
           "id": "limits-by-plan",
@@ -3588,9 +3512,9 @@
     },
     {
       "slug": "ai-models-and-runtime-config",
-      "title": "选模型、思考深度和大约能用多少次",
-      "summary": "看看现在能选哪些基础、经济和高级模型，思考深度是什么意思，以及 Pro、Max 和科研经费大概能用多少次。",
-      "category": "research-ai",
+      "title": "模型与计价",
+      "summary": "集中说明当前模型、思考深度、模型计价，以及 Pro、Max 和科研经费的大约可用次数。",
+      "category": "membership",
       "kind": "rule",
       "status": "current",
       "audience": [
@@ -3603,7 +3527,8 @@
         "思考深度",
         "模型价格",
         "购买力",
-        "大约能用多少次"
+        "大约能用多少次",
+        "选模型、思考深度和大约能用多少次"
       ],
       "related": [
         "ai-research-workflows",
@@ -3614,8 +3539,8 @@
         "ai-usage-quota",
         "wallet-payg"
       ],
-      "updated_at": "2026-09-15T15:40:00+08:00",
-      "path": "wiki/pages/research-ai/ai-models-and-runtime-config.md",
+      "updated_at": "2026-09-15T16:22:35+08:00",
+      "path": "wiki/pages/membership/ai-models-and-runtime-config.md",
       "sha256": "f12eb882783115c34a23ba272e19265ed8b239134f489c2961be52e6e2e51650",
       "source": "https://www.scholay.com/wiki/ai-models-and-runtime-config.md"
     },

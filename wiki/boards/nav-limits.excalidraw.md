@@ -20,7 +20,7 @@ Free · Pro · Max ^1553867e
 
 ← 研究路径 ^83d7bd39
 
-大约能用多少次 ^cb72f3f9
+模型与计价 ^c57cb0dd
 
 ## Element Links
 db0f53a6: [[wiki/pages/membership/ai-usage-quota.md]]
@@ -29,7 +29,7 @@ db0f53a6: [[wiki/pages/membership/ai-usage-quota.md]]
 df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
 793d49c4: [[wiki/pages/membership/wallet-payg.md]]
 83d7bd39: [[wiki/boards/Scholay.excalidraw.md]]
-87ad1749: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]
+a53ff656: [[wiki/pages/membership/ai-models-and-runtime-config.md]]
 
 %%
 ## Drawing
@@ -75,7 +75,7 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "nav:limits-by-plan"
         }
       },
@@ -156,7 +156,7 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "nav:limits-by-plan"
         }
       },
@@ -310,7 +310,7 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "nav:limits-weekly"
         }
       },
@@ -468,7 +468,11 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
           "type": "text"
         },
         {
-          "id": "f649de0d",
+          "id": "14d3d5db",
+          "type": "arrow"
+        },
+        {
+          "id": "95a1d6e9",
           "type": "arrow"
         },
         {
@@ -476,7 +480,7 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
           "type": "arrow"
         },
         {
-          "id": "95a1d6e9",
+          "id": "f649de0d",
           "type": "arrow"
         },
         {
@@ -594,10 +598,6 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
         },
         {
           "id": "750ee8f1",
-          "type": "arrow"
-        },
-        {
-          "id": "38eff216",
           "type": "arrow"
         }
       ],
@@ -1199,9 +1199,9 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
       "frameId": null,
       "roundness": null,
       "seed": 955249174,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -1275,9 +1275,9 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
         "type": 3
       },
       "seed": 128784202,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "cb72f3f9",
@@ -1326,9 +1326,9 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
       "frameId": null,
       "roundness": null,
       "seed": 1265824762,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -1353,6 +1353,184 @@ df626e1d: [[wiki/pages/membership/ai-usage-quota.md#window]]
           "layoutVersion": 2,
           "role": "label",
           "branch": "nav:limits-by-plan",
+          "articleSlug": "ai-models-and-runtime-config"
+        }
+      }
+    },
+    {
+      "id": "14d3d5db",
+      "type": "arrow",
+      "x": 148,
+      "y": -8.0,
+      "width": 124,
+      "height": 160.0,
+      "angle": 0,
+      "strokeColor": "#216ba5",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 349427163,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:limits:edge:4a82fe48:a53ff656",
+          "owned": {
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "edge",
+          "relation": "contains",
+          "axis": "horizontal",
+          "direction": 1,
+          "branch": "nav:limits-model-pricing"
+        }
+      },
+      "startArrowhead": null,
+      "endArrowhead": null,
+      "startBinding": {
+        "elementId": "4a82fe48",
+        "focus": 0,
+        "gap": 8
+      },
+      "endBinding": {
+        "elementId": "a53ff656",
+        "focus": 0,
+        "gap": 8
+      },
+      "elbowed": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          62.0,
+          0.0
+        ],
+        [
+          62.0,
+          -160.0
+        ],
+        [
+          124,
+          -160.0
+        ]
+      ]
+    },
+    {
+      "id": "a53ff656",
+      "type": "rectangle",
+      "x": 280,
+      "y": -200.0,
+      "width": 360,
+      "height": 64,
+      "angle": 0,
+      "strokeColor": "#216ba5",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.3,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "a53ff656"
+      ],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 624948823,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "c57cb0dd",
+          "type": "text"
+        },
+        {
+          "id": "14d3d5db",
+          "type": "arrow"
+        }
+      ],
+      "updated": 0,
+      "link": "[[wiki/pages/membership/ai-models-and-runtime-config.md]]",
+      "locked": false,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:limits:nav:limits-model-pricing",
+          "owned": {
+            "link": "[[wiki/pages/membership/ai-models-and-runtime-config.md]]"
+          },
+          "layoutVersion": 2,
+          "role": "article",
+          "branch": "nav:limits-model-pricing",
+          "articleSlug": "ai-models-and-runtime-config",
+          "focusTitle": "模型与计价",
+          "parent": "4a82fe48"
+        }
+      }
+    },
+    {
+      "id": "c57cb0dd",
+      "type": "text",
+      "x": 296,
+      "y": -182.0,
+      "width": 328,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#216ba5",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "a53ff656"
+      ],
+      "frameId": null,
+      "roundness": null,
+      "seed": 1165799646,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 0,
+      "link": null,
+      "locked": false,
+      "text": "模型与计价",
+      "originalText": "模型与计价",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "a53ff656",
+      "autoResize": true,
+      "lineHeight": 1.25,
+      "customData": {
+        "scholay": {
+          "key": "graph:v2:nav:limits:nav:limits-model-pricing:label",
+          "owned": {
+            "text": "模型与计价",
+            "originalText": "模型与计价",
+            "link": null
+          },
+          "layoutVersion": 2,
+          "role": "label",
+          "branch": "nav:limits-model-pricing",
           "articleSlug": "ai-models-and-runtime-config"
         }
       }

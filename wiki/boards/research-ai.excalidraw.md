@@ -54,8 +54,6 @@ Scholay Prism ^336074db
 
 ← 研究路径 ^b3aa963e
 
-选模型、思考深度和大约能用多少次 ^411258bb
-
 ## Element Links
 74d20f54: [[wiki/pages/research-ai/ai-research-workflows.md]]
 04ca2eb6: [[wiki/pages/research-ai/search-entry-comparison.md]]
@@ -74,7 +72,6 @@ c8cb4e36: [[wiki/pages/research-ai/research-data-analysis.md]]
 fd3d7592: [[wiki/pages/research-ai/prism-writing-workflow.md]]
 3e37682e: [[wiki/pages/research-ai/manuscript-vs-publication.md]]
 b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
-98e25e91: [[wiki/pages/research-ai/ai-models-and-runtime-config.md]]
 
 %%
 ## Drawing
@@ -841,7 +838,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "group:review"
         }
       },
@@ -922,7 +919,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "group:review"
         }
       },
@@ -1165,7 +1162,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": 1,
+          "direction": -1,
           "branch": "group:review"
         }
       },
@@ -1967,7 +1964,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "group:writing"
         }
       },
@@ -2048,7 +2045,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "group:writing"
         }
       },
@@ -2210,7 +2207,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "group:writing"
         }
       },
@@ -2364,7 +2361,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "role": "edge",
           "relation": "contains",
           "axis": "horizontal",
-          "direction": -1,
+          "direction": 1,
           "branch": "group:writing"
         }
       },
@@ -2449,7 +2446,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "type": "arrow"
         },
         {
-          "id": "ef5fe9ca",
+          "id": "06bb3547",
           "type": "arrow"
         },
         {
@@ -2461,7 +2458,7 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
           "type": "arrow"
         },
         {
-          "id": "06bb3547",
+          "id": "ef5fe9ca",
           "type": "arrow"
         }
       ],
@@ -2926,10 +2923,6 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
         },
         {
           "id": "38a51f41",
-          "type": "arrow"
-        },
-        {
-          "id": "f9683131",
           "type": "arrow"
         }
       ],
@@ -5934,9 +5927,9 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 2036871474,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -6010,9 +6003,9 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
         "type": 3
       },
       "seed": 417488530,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "411258bb",
@@ -6062,9 +6055,9 @@ b3aa963e: [[wiki/boards/Scholay.excalidraw.md]]
       "frameId": null,
       "roundness": null,
       "seed": 1091721403,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,

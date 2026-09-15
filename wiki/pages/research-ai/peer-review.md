@@ -7,7 +7,7 @@ status: current
 updated: 2026-09-09T11:23:00+08:00
 canonical: https://www.scholay.com/wiki/peer-review
 scholay_topics: ["[[wiki/topics/research-ai/评审结果与改稿|评审结果与改稿]]"]
-scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
+scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/membership/ai-models-and-runtime-config|模型与计价]]"]
 ---
 
 # 智能审稿
@@ -55,4 +55,4 @@ scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/members
 > 界面示意:智能审稿 · 产品内提交回执
 
 - [智能审稿结果怎么看](https://www.scholay.com/wiki/peer-review-results-guide) — 阅读四维评分、审稿人报告和主审决议。
-- [选模型、思考深度和大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config) — 提交前可以自选模型；一次提交通常比普通问答更耗额度。
+- [模型与计价](https://www.scholay.com/wiki/ai-models-and-runtime-config) — 提交前可以自选模型；一次提交通常比普通问答更耗额度。

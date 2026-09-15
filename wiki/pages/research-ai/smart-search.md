@@ -7,7 +7,7 @@ status: current
 updated: 2026-09-09T11:23:00+08:00
 canonical: https://www.scholay.com/wiki/smart-search
 scholay_topics: ["[[wiki/topics/research-ai/智能检索与证据核验|智能检索与证据核验]]"]
-scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
+scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/membership/ai-usage-quota|AI 周期额度]]", "[[wiki/pages/membership/ai-models-and-runtime-config|模型与计价]]"]
 ---
 
 # 智能搜索
@@ -115,7 +115,7 @@ scholay_related: ["[[wiki/pages/discovery/academic-search|论文检索]]", "[[wi
 > 界面示意:智能搜索 · 1 篇已暂存、2 篇待选
 
 - [论文基础信息卡片的共同字段](https://www.scholay.com/wiki/marketing-pages-and-implementation-boundaries#reference-card) — 理解来源、作者、年份、DOI、OA 和指标，避免把暂存状态当成收藏。
-- [选模型后大约能用多少次](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power) — 智能搜索按模型档位消耗额度，次数是估算而不是固定配额。
+- [模型与计价](https://www.scholay.com/wiki/ai-models-and-runtime-config#purchasing-power) — 智能搜索按模型档位消耗额度，次数是估算而不是固定配额。
 
 ## 判断覆盖边界和停止时机
 

@@ -44,10 +44,6 @@ tags: [excalidraw, scholay]
 
 ← 研究路径 ^a030143c
 
-大约能用多少次 ^d20c3e48
-
-模型选择 ^057a344c
-
 ## Element Links
 0b68b82b: [[wiki/pages/research-ai/peer-review.md]]
 f49d2238: [[wiki/pages/research-ai/peer-review.md]]
@@ -66,8 +62,6 @@ da818649: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 fc8f25f1: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 13ddf6f0: [[wiki/pages/research-ai/peer-review-results-guide.md]]
 a030143c: [[wiki/boards/Scholay.excalidraw.md]]
-5fa90a8f: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#purchasing-power]]
-cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-config]]
 
 %%
 ## Drawing
@@ -1463,14 +1457,6 @@ cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-confi
         },
         {
           "id": "aa8aad0d",
-          "type": "arrow"
-        },
-        {
-          "id": "fe10700d",
-          "type": "arrow"
-        },
-        {
-          "id": "e8cdb6bc",
           "type": "arrow"
         },
         {
@@ -3585,9 +3571,9 @@ cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-confi
       "frameId": null,
       "roundness": null,
       "seed": 2115006478,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -3657,9 +3643,9 @@ cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-confi
       "frameId": null,
       "roundness": null,
       "seed": 1758312125,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -3733,9 +3719,9 @@ cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-confi
         "type": 3
       },
       "seed": 1604913807,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "d20c3e48",
@@ -3787,9 +3773,9 @@ cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-confi
         "type": 3
       },
       "seed": 1323334434,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": [
         {
           "id": "057a344c",
@@ -3839,9 +3825,9 @@ cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-confi
       "frameId": null,
       "roundness": null,
       "seed": 1376534089,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,
@@ -3891,9 +3877,9 @@ cee07b21: [[wiki/pages/research-ai/ai-models-and-runtime-config.md#runtime-confi
       "frameId": null,
       "roundness": null,
       "seed": 91894860,
-      "version": 1,
+      "version": 2,
       "versionNonce": 1,
-      "isDeleted": false,
+      "isDeleted": true,
       "boundElements": null,
       "updated": 0,
       "link": null,

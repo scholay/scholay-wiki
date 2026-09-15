@@ -7,14 +7,14 @@ status: current
 updated: 2026-09-11T09:30:00+08:00
 canonical: https://www.scholay.com/wiki/ai-research-workflows
 scholay_topics: ["[[wiki/topics/research-ai/选择科研工作入口|选择科研工作入口]]"]
-scholay_related: ["[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/research-ai/ai-models-and-runtime-config|选模型、思考深度和大约能用多少次]]"]
+scholay_related: ["[[wiki/pages/research-ai/smart-search|智能搜索]]", "[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki/pages/research-ai/peer-review|智能审稿]]", "[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/pages/membership/ai-models-and-runtime-config|模型与计价]]"]
 ---
 
 # AI 科研工作流
 
 Scholay 的 AI 功能针对不同的研究任务，设有不同的入口，每个入口的工具适用范围，输出内容和使用界面各不相同。
 
-当前可以使用智能搜索、Claw、Prism、智能审稿、演示文稿、科研绘图和数据分析。它们都支持会话、附件、额度记录和文件交付，但会根据任务使用不同的工作区和处理方法。模型和思考深度可以在输入框旁选择，不同档位一周能用的次数差会比较大，见[选模型、思考深度和大约能用多少次](ai-models-and-runtime-config.md)。
+当前可以使用智能搜索、Claw、Prism、智能审稿、演示文稿、科研绘图和数据分析。它们都支持会话、附件、额度记录和文件交付，但会根据任务使用不同的工作区和处理方法。模型和思考深度可以在输入框旁选择，不同档位一周能用的次数差会比较大，见[模型与计价](../membership/ai-models-and-runtime-config.md)。
 
 ## 按任务选入口
 
