@@ -18,7 +18,7 @@ scholay_related: ["[[wiki/pages/getting-started/account|Scholay 账户]]", "[[wi
 
 > 界面示意:站内通知
 
-牛犀犀助手的通知入口打开的是同一份数据，不是第二套通知。
+牛犀犀的通知入口打开的是同一份数据，不是第二套通知。
 
 > 界面示意:牛犀犀助手 · 通知列表
 

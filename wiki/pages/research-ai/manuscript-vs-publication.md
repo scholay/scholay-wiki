@@ -22,8 +22,6 @@ scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/page
 | 标识 | 可能还没有期刊、卷期、页码或正式发布日期 | 通常带有作者、期刊/会议、年份和 DOI |
 | 内容状态 | 可以继续编辑 | 以出版社最终版为准 |
 
-两者可能标题相近甚至内容相近，但不能仅凭标题相同就认定是同一个版本。
-
 ## 在 Scholay 中分别出现在哪里
 
 | 场景 | 处理的是 | 说明 |
@@ -33,7 +31,7 @@ scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/page
 | [文献搜索](../discovery/academic-search.md)与论文详情 | 出版物 | 来自学术数据源的论文记录 |
 | [个人文献集](../knowledge/literature-library.md) | 出版物（也可有用户上传的 PDF） | 你收藏和整理的已发表论文 |
 
-把稿件上传到智能审稿或 Prism，不会自动把它登记为公开出版物。反过来，从文献搜索中找到的出版物记录也不会自动变成你 Prism 项目中的稿件。
+把稿件上传到智能审稿或 Prism之后，你可以根据自己的需求，持续编辑与优化。
 
 ## 版本和引用要分别核对
 
@@ -45,7 +43,7 @@ scholay_related: ["[[wiki/pages/research-ai/prism|Scholay Prism]]", "[[wiki/page
 2. **引用核对 DOI 和发表状态** — 预印本和正式出版物的引用格式不同。
 3. **不要混用版本** — 从预印本摘录的数字可能在最终版中已经修改。
 
-Prism 的项目版本、智能审稿的提交记录和论文详情中的出版记录是不同的数据对象，不会自动互相覆盖。
+注:当前Prism 的项目版本、智能审稿的提交记录和论文详情中的出版记录是不同的数据对象，不会自动互相同步。后续scholay拟将稿件视为学者送往评审前的一类特殊文件类型，确保在智能写作与智能审稿之间的循环过程中，不断迭代与优化。
 
 ## AI 审稿不会改变发表状态
 

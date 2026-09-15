@@ -60,14 +60,33 @@ def main():
             raise ValueError(f'Unresolved relative link in {a["slug"]}: {raw}')
         body=re.sub(r'\]\(([^\s)]+)\)',link,body)
         (temp/(a['slug']+'.md')).write_text(body)
-    home=['# Scholay Wiki','','本镜像由 scholay/scholay-wiki 主仓库的 wiki/pages 内容生成。请在主仓库维护正文，再同步至此。','','## 导航','']+navlines(c['navigation'],True)+['','## 全部词条','']
-    for category in c['categories']:
-        home += ['### '+category['title'],'']
-        home += [f"- [{a['title']}]({a['slug']})" for a in public if a['category']==category['slug']]
-        home += ['']
-    (temp/'Home.md').write_text('\n'.join(home))
-    (temp/'_Sidebar.md').write_text('[首页](Home)\n\n'+'\n'.join(navlines(c['navigation'],True))+'\n')
-    (temp/'_Footer.md').write_text('内容源：[scholay/scholay-wiki](https://github.com/scholay/scholay-wiki) · [官方网站 Wiki](https://www.scholay.com/wiki/)\n')
+    categories = [(category, [a for a in public if a['category'] == category['slug']])
+                  for category in c['categories']]
+    categories = [(category, articles) for category, articles in categories if articles]
+    home = ['# Scholay · 研究者使用指南', '',
+            '从发现文献到完成写作，找到适合你当前研究任务的工具与方法。', '',
+            '[打开 Scholay](https://www.scholay.com/) · [官网文档](https://www.scholay.com/wiki/) · [全部词条](All-Pages)', '',
+            '## 从这里开始', '',
+            '| 发现与整理 | 分析与写作 |', '| --- | --- |',
+            '| [检索学术文献](academic-search) · [查找期刊](journal-search-page) | [与 PDF 对话](pdf-chat-guide) · [智能审稿](peer-review) |',
+            '| [管理文献库](literature-library) · [收集到暂存区](staging-area) | [Prism 写作](prism) · [Claw 智能助手](claw) |', '',
+            '## 浏览主题', '', '| 主题 | 内容 |', '| --- | --- |']
+    sidebar = ['**SCHOLAY / WIKI**', '', '[使用指南](Home) · [全部词条](All-Pages)', '', '### 主题导航', '']
+    index = ['# 全部词条', '', '[返回首页](Home)', '']
+    for category, articles in categories:
+        title = category['title']
+        dest = 'All-Pages#' + quote(github_anchor(title), safe='-')
+        home.append(f"| [{title}]({dest}) | {category['description']} |")
+        sidebar.append(f'- [{title}]({dest})')
+        index += ['## ' + title, '', category['description'], '']
+        index += [f"- [{a['title']}]({a['slug']})" for a in articles]
+        index += ['']
+    home += ['', '---', '', '[账户与登录](account) · [会员与定价](product-and-pricing-overview) · [反馈与支持](feedback-and-support)', '']
+    sidebar += ['', '### 常用入口', '', '- [账户与登录](account)', '- [会员与定价](product-and-pricing-overview)', '- [反馈与支持](feedback-and-support)', '']
+    (temp/'Home.md').write_text('\n'.join(home).rstrip() + '\n')
+    (temp/'All-Pages.md').write_text('\n'.join(index).rstrip() + '\n')
+    (temp/'_Sidebar.md').write_text('\n'.join(sidebar).rstrip() + '\n')
+    (temp/'_Footer.md').write_text('Scholay · [官方网站](https://www.scholay.com/) · [官网文档](https://www.scholay.com/wiki/) · [内容源与贡献](https://github.com/scholay/scholay-wiki)\n')
     # Validate every local Markdown page link before replacing the prior build.
     for file in temp.glob('*.md'):
         for url in re.findall(r'\]\(([^\s)]+)\)',file.read_text()):

@@ -46,7 +46,7 @@ scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki
 
 ## 启用 Skill
 
-Skill 按钮在附件入口旁边。Skill 提供特定任务的做事方法和输出要求，工具负责检索、文件或计算——两者不是同一件事。
+Skill 按钮在附件入口旁边。Skill 提供特定任务的做事方法和输出要求，工具负责检索、文件或计算。
 
 - 启用或更换 Skill 只对**之后新建**的对话生效，不改变当前对话。
 - 每个会话最多同时启用 5 个 Skill；账户安装上限以页面提示为准。

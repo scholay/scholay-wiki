@@ -14,7 +14,7 @@ scholay_related: ["[[wiki/pages/discovery/journal-detail-page|期刊详情页]]"
 
 ## 什么时候能看到
 
-打开[期刊详情](journal-detail-page.md)，如果该期刊有作者指南或 LaTeX 模板，页面会显示下载卡片。没有可用资源时整个区块隐藏，不会出现无法点击的占位。
+打开[期刊详情](journal-detail-page.md)，如果该期刊有作者指南或 LaTeX 模板，页面会显示下载卡片。没有可用资源时整个区块隐藏。
 
 - 作者指南下载格式为 `.md`。
 - LaTeX 模板下载格式为 `.zip`，有 class 名时会一并显示。

@@ -12,7 +12,7 @@ scholay_related: ["[[wiki/pages/discovery/authors-and-journals|作者与期刊]]
 
 # Scholay 期刊数据多久更新一次
 
-简短回答：**没有统一的固定更新承诺**。JCR、中科院、CCF、OpenAlex、DOAJ 和 SCImago 各自有不同的发布节奏，Scholay 的更新取决于上游何时提供新数据。
+**没有统一的固定更新承诺**。JCR、中科院、CCF、OpenAlex、DOAJ 和 SCImago 各自有不同的发布节奏，Scholay 的更新取决于上游何时提供新数据。
 
 ## 页面上的数据意味着什么
 
@@ -30,6 +30,6 @@ scholay_related: ["[[wiki/pages/discovery/authors-and-journals|作者与期刊]]
 
 ## 为什么不同页面的数据可能不一致
 
-交互式搜索可能已经读到上游新值，而 SEO 聚合页还在等待本地同步或发布。反过来，浏览器缓存也可能让刚打开过的详情短时间保留旧快照。
+交互式搜索可能已经读到上游新值，或者浏览器缓存也可能让刚打开过的详情短时间保留旧快照。
 
 这些时间差来自不同数据链路，不自动表示某一页出错。遇到差异时，先比较指标年份、数据来源和 ISSN；对投稿有实质影响的信息，以期刊官网和官方评价来源为最终依据。

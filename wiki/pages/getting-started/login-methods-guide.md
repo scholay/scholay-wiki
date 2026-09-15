@@ -44,7 +44,7 @@ scholay_related: ["[[wiki/pages/getting-started/account|Scholay 账户]]", "[[wi
 
 ## 其他第三方登录
 
-GitHub、Google、Apple、Microsoft、ORCID 和恩特学术社区会按当前配置动态显示。看不到某个按钮通常只是该方式没有启用。
+GitHub、Google、Apple、Microsoft、ORCID 和恩特学术社区会按当前配置动态显示。
 
 第三方平台返回的邮箱如果已对应一个 Scholay 账户，页面可能要求你确认是否合并。按提示验证原账户，不要为了跳过确认而注册重复账户。
 

@@ -75,9 +75,9 @@ scholay_related: ["[[wiki/pages/research-ai/claw|Scholay智能助手]]", "[[wiki
 
 ## 当前支持的统计方法
 
-系统当前支持的方法范围是有限的。不要因为执行环境中安装了某些统计库就认为所有方法都可用。
+Scholay将持续接入社会科学、自然科学的常用统计库、统计语言包，但系统支持的方法范围有限，用户可通过社区或后台反馈咨询支持进度。
 
-- [Stat Lab 方法与复核边界](stat-lab-method-boundary.md) — 查看当前承诺的检验方法、假设检查和决策规则的完整清单，了解哪些方法尚未纳入。
+- [Stat Lab 方法与复核边界](stat-lab-method-boundary.md) — 查看当前的检验方法、假设检查和决策规则的完整清单入。
 
 ## 下一步
 

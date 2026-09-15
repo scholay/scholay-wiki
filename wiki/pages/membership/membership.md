@@ -20,7 +20,7 @@ scholay_related: ["[[wiki/pages/membership/subscription-lifecycle|会员购买�
 | Pro | 更高 AI 周期额度 |
 | Max | 基于 Pro 再放大额度 |
 
-等级顺序固定为 free < pro < max。文献收藏等非 AI 基础能力不因额度耗尽而停止。
+等级顺序固定为 free < pro < max。文献收藏等非 AI 基础能力不因额度耗尽而停止使用。
 
 ## 当前默认价格
 
@@ -31,7 +31,7 @@ scholay_related: ["[[wiki/pages/membership/subscription-lifecycle|会员购买�
 | Pro | ¥59 | ¥590（折算月均约 ¥49） |
 | Max | ¥269 | ¥2,690（折算月均约 ¥224） |
 
-价格和"最受欢迎"标记都可以调整，最终以结算页当时显示的报价为准。
+最终以结算页当时显示的报价为准。
 
 ## 续费方式
 

@@ -26,7 +26,7 @@ scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/p
 
 > 界面示意:账户资产
 
-> **提示** 额度上限和周期可能调整。判断当前还能否使用、何时恢复时，以账户资产页当时显示的剩余百分比和恢复时间为准，不把示例数值当作长期承诺。
+额度条显示的是"还剩多少"。具体数值可能会根据 Scholay 的经营条件、服务器和算力成本灵活调整，以账户资产页当时显示为准。
 
 - [怎样读懂剩余额度与进度状态](../getting-started/marketing-pages-and-implementation-boundaries.md#agent-status) — 区分剩余百分比、恢复时间、任务进度和停止状态，避免把进度条当作完成证据。
 - [不同模型档位大约能用多少次](../research-ai/ai-models-and-runtime-config.md#purchasing-power) — 按基础、经济和高级模型，对照 Pro、Max 和每 1,000 经费大约能完成多少次任务。
@@ -48,7 +48,7 @@ scholay_related: ["[[wiki/pages/membership/membership|会员体系]]", "[[wiki/p
 | 使用重置次数 | 额度耗尽后手动重置，立即恢复满额 |
 | 兑换码 | 兑换会员码且期限足够长时恢复 |
 
-经费不能直接换成一次重置。
+经费无法重置额度。
 
 > 界面示意:账户资产 · 近期流水与用量
 

@@ -1,7 +1,7 @@
 ---
 title: 如何与 PDF 对话
 slug: pdf-chat-guide
-summary: 在智能助手中上传 PDF 并围绕方法、结果和证据连续提问，与只负责翻页阅读的 PDF 阅读器不同。
+summary: 在智能助手中上传 PDF 并围绕方法、结果和证据连续提问，与传统 PDF 阅读器不同。
 category: research-ai
 status: current
 updated: 2026-09-11T09:30:00+08:00

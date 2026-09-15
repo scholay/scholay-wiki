@@ -39,7 +39,7 @@ scholay_related: ["[[wiki/pages/discovery/paper|论文]]", "[[wiki/pages/knowled
 - 个人文献集中有你上传的 PDF → 可以打开
 - 只有元数据链接 → 不能当作可下载 PDF
 
-找不到可合法访问的文件时，不要把元数据页面链接当作全文入口。
+系统有可能存在找不到可合法访问文件的情况，请不要把元数据页面链接当作全文入口。
 
 - [开放获取全文与翻译](open-access-and-paper-translation.md) — OA 查找流程和 Unpaywall 来源说明。
 

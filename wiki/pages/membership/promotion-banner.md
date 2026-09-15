@@ -25,6 +25,6 @@ scholay_related: ["[[wiki/pages/membership/membership|会员体系]]"]
 
 活动结束后弹窗不再出现，不要按旧截图理解当前优惠。
 
-## 和邀请奖励不是一回事
+## 与邀请奖励的区别
 
 推广弹窗和[邀请有礼](invite-campaign.md)是两个独立活动，规则和入口各自不同。

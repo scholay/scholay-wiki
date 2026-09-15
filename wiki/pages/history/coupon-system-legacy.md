@@ -14,7 +14,7 @@ scholay_related: ["[[wiki/pages/membership/payment-orders|支付与订单]]", "[
 
 ## 当前状态
 
-后端没有注册 coupon handler、service 或路由。订单报价与履约不会读取 coupon_id。数据库保留的 coupon_templates、coupon_batches、user_coupons 等只是搁置结构。
+优惠券的发券、领券、核销或抵扣链路目前已由达人推广活动取代
 
 ## 与其他活动的区别
 
@@ -24,4 +24,4 @@ scholay_related: ["[[wiki/pages/membership/payment-orders|支付与订单]]", "[
 | 邀请活动（全民推广 / 达人计划） | 按归因发奖励或现金返利 |
 | 推广弹窗 | 只展示营销二维码 |
 
-三者都不是优惠券。当前的运营激励已转向[邀请与返利](../membership/invitation-rebate-guide.md)（含达人计划），不再依赖优惠券抵扣。若未来重启优惠券，需要重新建立用户入口、资格、计价、核销、退款反冲和审计规则。
+三者都不是优惠券。当前的运营激励已转向[邀请与返利](../membership/invitation-rebate-guide.md)（含达人计划），不再依赖优惠券抵扣。
